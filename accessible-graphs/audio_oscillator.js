@@ -1,30 +1,40 @@
 // variables for audio
 var currAudio = -1;
 var oscillator;
+var audioPlay = true;
 
 // setup audio context
 const AudioContext = window['AudioContext'] || window['webkitAudioContext'];
 const audioContext = new AudioContext();
 
-window.addEventListener("keydown", function(e) {
+svg.addEventListener("keydown", function(e) {
     if (e.which == 32) {
-        playOscillator(currAudio);
+        if (audioPlay) {
+          playOscillator(currAudio);
+        }
     }
 
     if (e.which === 39) {
       if (currAudio >= -1 && currAudio < _numBars - 1) {
         currAudio += 1;
-        playOscillator(currAudio);
+        if (audioPlay) {
+          playOscillator(currAudio);
+        }
       } 
     }
   
     if (e.which === 37) {
       if (currAudio > 0 && currAudio < _numBars) {
         currAudio -= 1;
-        playOscillator(currAudio);
+        if (audioPlay) {
+          playOscillator(currAudio);
+        }
       } 
     }
 
+    if (e.which == 83) {
+      audioPlay = !audioPlay;
+    }
 });
 
 // an oscillator is created and destroyed whenever a window key (left arrow, right arrow, spacebar)
