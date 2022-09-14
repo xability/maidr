@@ -24,18 +24,13 @@ console.log(y_values);
 for (var i = 0; i < y_values.length; i++) {
     if (y_values[i] <= range1) {
         brailleArray.push("⣀");
-        console.log(brailleArray);
     } else if (y_values[i] <= range2) {
         brailleArray.push("⠤");
-        console.log(brailleArray);
     } else if (y_values[i] <= range3) {
         brailleArray.push("⠒");
-        console.log(brailleArray);
     } else if (y_values[i] <= range4) {
         brailleArray.push("⠉");
-        console.log(brailleArray);
     }
-    console.log(brailleArray);
 }
 
 var display = false;
