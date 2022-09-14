@@ -259,9 +259,9 @@
             </g>
           </svg>
 
-        <p>Enter y-values and separate each value with a comma.</p>
+        <p>Enter x and y-values with this format: {x1: y1, x2: y2}. Add "" around the value if it is text.</p>
         <form id="form" action="barplot.html">
-            <input id="yVal" autocomplete="off" autofocus placeholder="Enter y values" required type="text">
+            <input id="yVal" autocomplete="off" autofocus placeholder="{'x1': y1, 'x2': y2}" required type="text">
             <button id="submitBtn" type="submit">Submit</button>
         </form>
         <p id="notValid"></p>
