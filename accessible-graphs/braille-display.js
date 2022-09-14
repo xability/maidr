@@ -1,9 +1,10 @@
 // get div that displays braille
+const barContainer = document.getElementById("bar-container");
 const brailleDiv = document.getElementById("braille-div");
 const brailleDisplay = document.getElementById("braille-display");
 
 // focus on braille display
-brailleDisplay.tabIndex = "0";
+// brailleDisplay.tabIndex = "0";
 
 var range1 = ymin + range;
 var range2 = range1 + range;
@@ -19,26 +20,34 @@ var range4 = range3 + range;
 // }
 
 var brailleArray = [];
+console.log(y_values);
 for (var i = 0; i < y_values.length; i++) {
     if (y_values[i] <= range1) {
         brailleArray.push("⣀");
+        console.log(brailleArray);
     } else if (y_values[i] <= range2) {
         brailleArray.push("⠤");
+        console.log(brailleArray);
     } else if (y_values[i] <= range3) {
         brailleArray.push("⠒");
+        console.log(brailleArray);
     } else if (y_values[i] <= range4) {
         brailleArray.push("⠉");
+        console.log(brailleArray);
     }
+    console.log(brailleArray);
 }
-var display = true;
+
+var display = false;
 var brailleText = brailleArray.join("")
 brailleDisplay.innerHTML = brailleText;
+brailleDiv.style.display = "none";
 
 // For input
 // brailleDisplay.value = brailleText;
 // brailleDisplay.setSelectionRange(0,0);
 
-window.addEventListener("keydown", function(e) {
+barContainer.addEventListener("keydown", function(e) {
     if (e.which == 66) {
         if (display) {
             brailleDiv.style.display = "none";
@@ -46,7 +55,6 @@ window.addEventListener("keydown", function(e) {
             brailleDiv.style.display = "block";
         }
         display = !display;
-        brailleDiv.focus();
     }
 
     // Cursor function
