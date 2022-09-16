@@ -2,9 +2,9 @@ var form = document.getElementById("form");
 var submitBtn = document.getElementById("submitBtn");
 var invalid_text = document.getElementById("notValid");
 
-var yVal; 
+var yVal;
 
-form.addEventListener("submit", function(e) {
+form.addEventListener("submit", function (e) {
     e.preventDefault();
     let input = document.getElementById("yVal").value;
     var inputObject = parseJSONObject(input);
@@ -31,9 +31,9 @@ form.addEventListener("submit", function(e) {
 function parseJSONObject(json) {
     try {
         var obj = JSON.parse(json);
-        if (obj && typeof(obj) == "object") {
+        if (obj && typeof (obj) == "object") {
             return obj;
         }
-    } catch(e) {}
+    } catch (e) { }
     return false;
 }

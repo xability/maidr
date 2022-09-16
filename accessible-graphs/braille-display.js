@@ -42,7 +42,7 @@ brailleDiv.style.display = "none";
 // brailleDisplay.value = brailleText;
 // brailleDisplay.setSelectionRange(0,0);
 
-barContainer.addEventListener("keydown", function(e) {
+barContainer.addEventListener("keydown", function (e) {
     if (e.which == 66) {
         if (display) {
             brailleDiv.style.display = "none";

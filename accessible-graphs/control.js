@@ -6,7 +6,7 @@
 var currBar = -1;
 
 // manipulate bars using left and right arrows
-svg.addEventListener("keydown", function(e) {
+svg.addEventListener("keydown", function (e) {
   if (e.which === 39) {
     if (currBar == -1) {
       currBar += 1;
@@ -24,7 +24,7 @@ svg.addEventListener("keydown", function(e) {
       displayValues(currBar);
       // x.innerHTML = "x-value: " + x_values[currBar];
       // y.innerHTML = "y-value: " + y_values[currBar];
-    } 
+    }
   }
 
   if (e.which === 37) {
@@ -37,7 +37,7 @@ svg.addEventListener("keydown", function(e) {
       displayValues(currBar);
       // x.innerHTML = "x-value: " + x_values[currBar];
       // y.innerHTML = "y-value: " + y_values[currBar];
-    } 
+    }
   }
 });
 

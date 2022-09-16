@@ -22,7 +22,7 @@ var ymax;
 
 if (y_val != null) {
     x_values = x_val.split(",");
-    y_values = y_val.split(",").map(str=>{
+    y_values = y_val.split(",").map(str => {
         return parseFloat(str);
     });
     ymin = Math.min(...y_values);
@@ -45,7 +45,7 @@ const range = (ymax - ymin) / 4;
 function getHeight(item) {
     return document.getElementById(item).getAttribute('height');
 }
-  
+
 function getX(item) {
     return document.getElementById(item).innerHTML;
 }
