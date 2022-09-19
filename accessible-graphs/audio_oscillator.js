@@ -1,11 +1,23 @@
 // variables for audio
+// put these in user controls ater
 var currAudio = -1;
-var oscillator;
 var audioPlay = true;
+var duration = .3;
+var vol = .5;
 
-// setup audio context
+// audio setup
 const AudioContext = window['AudioContext'] || window['webkitAudioContext'];
 const audioContext = new AudioContext();
+const compressor = audioContext.createDynamicsCompressor(); // create compressor for better audio quality
+compressor.threshold.value = -50;
+compressor.knee.value = 40;
+compressor.ratio.value = 12;
+compressor.attack.value = 0;
+compressor.release.value = .25;
+var gainMaster = audioContext.createGain(); // create master gain
+gainMaster.gain.value = vol;
+compressor.connect(gainMaster);
+gainMaster.connect(audioContext.destination);
 
 svg.addEventListener("keydown", function(e) {
     if (e.which == 32) {
@@ -39,33 +51,37 @@ svg.addEventListener("keydown", function(e) {
 
 // an oscillator is created and destroyed whenever a window key (left arrow, right arrow, spacebar)
 function playOscillator(curr_audio) {
+    const t = audioContext.currentTime;
+
     // create oscillator
-    oscillator = audioContext.createOscillator();
-    oscillator.start();
-
-    // setup merger for stereo sound
-    var gainNodeL = audioContext.createGain(); // left stereo sound
-    var gainNodeR = audioContext.createGain(); // right stereo sound
-    var merger = audioContext.createChannelMerger(2);
-
-    oscillator.connect(gainNodeL);
-    oscillator.connect(gainNodeR);
-
-    gainNodeL.connect(merger, 0, 0);
-    gainNodeR.connect(merger, 0, 1);
-
+    const oscillator = audioContext.createOscillator();
     oscillator.type = 'sine';
 
-    gainNodeL.gain.value = 1 - (1 / 6.0) * curr_audio;
-    gainNodeR.gain.value = (1 / 6.0) * curr_audio;
-
     let frequency = MIN_FREQUENCY;
-    if (ymax != ymin) {
+    if (ymax != ymin && curr_audio > 0) {
         frequency += (height[curr_audio] - ymin) * (1000 - 100) / (ymax - ymin);
     }
     oscillator.frequency.value = parseFloat(frequency);
-    merger.connect(audioContext.destination);
+    oscillator.start();
 
-    // play sound for 0.3 second
-    oscillator.stop(audioContext.currentTime + 0.3);
+    // create gain for this event
+    const gainThis = audioContext.createGain();
+    gainThis.gain.setValueCurveAtTime([.5, 1, .5, .5, .5, .1, 1e-4], t, duration); // this is what makes the tones fade out properly and not clip
+
+    // create panning
+    var panning = ( curr_audio - ( _numBars / 2 ) ) / ( _numBars / 2) ; // panning = -1 (left) to 1 (right) as x axis (curr_audio) goes from min to max
+    const panner = audioContext.createStereoPanner();
+    panner.pan.value = panning;
+    oscillator.connect(gainThis);
+    gainThis.connect(panner);
+    panner.connect(compressor);
+
+    // play sound for duration
+    setTimeout(() => {
+        panner.disconnect();
+        gainThis.disconnect();
+        oscillator.stop();
+        oscillator.disconnect();
+    }, duration * 1e3 * 2);
 }
+
