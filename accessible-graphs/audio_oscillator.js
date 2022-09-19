@@ -59,7 +59,11 @@ function playOscillator(curr_audio) {
 
     let frequency = MIN_FREQUENCY;
     if (ymax != ymin && curr_audio > 0) {
+      if (y_values == null) {
         frequency += (height[curr_audio] - ymin) * (1000 - 100) / (ymax - ymin);
+      } else {
+        frequency += (y_values[curr_audio] - ymin) * (1000 - 100) / (ymax - ymin);
+      }
     }
     oscillator.frequency.value = parseFloat(frequency);
     oscillator.start();

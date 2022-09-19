@@ -389,7 +389,7 @@
 
   <p>Enter x and y-values with this format: {x1: y1, x2: y2}. Add "" around the value if it is text.</p>
   <form id="form" action="barplot.html">
-    <input id="yVal" autocomplete="off" autofocus placeholder="{'x1': y1, 'x2': y2}" required type="text">
+    <textarea id="yVal" autofocus placeholder='{"x1": y1, "x2": y2}' required cols="100" rows="8"></textarea>
     <button id="submitBtn" type="submit">Submit</button>
   </form>
   <p id="notValid"></p>
