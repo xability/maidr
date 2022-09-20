@@ -25,3 +25,17 @@ ggplot(data = mpg) +
 
 gridSVG::grid.export("scatterplot.svg")
 dev.off()
+
+
+# Heat map sample
+library(palmerpenguins)
+library(dplyr)
+
+penguins %>%
+    count(island, species, sort = TRUE) %>%
+    ggplot(aes(x = island, y = species, fill = n)) +
+    geom_tile(color = "black") +
+    coord_fixed()
+
+gridSVG::grid.export("heatmap.svg")
+dev.off()
