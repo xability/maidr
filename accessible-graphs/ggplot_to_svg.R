@@ -18,3 +18,10 @@ ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
 
 gridSVG::grid.export("boxplot.svg")
 dev.off()
+
+# Scatter plot sample
+ggplot(data = mpg) +
+    geom_point(mapping = aes(x = displ, y = hwy), position = "jitter")
+
+gridSVG::grid.export("scatterplot.svg")
+dev.off()
