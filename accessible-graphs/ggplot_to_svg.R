@@ -28,6 +28,7 @@ dev.off()
 
 
 # Heat map sample
+## More example: https://r-charts.com/correlation/heat-map-ggplot2/
 library(palmerpenguins)
 library(dplyr)
 
