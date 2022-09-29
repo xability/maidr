@@ -29,9 +29,9 @@ for (var i = 0; i < squares.length; i++) {
     var rgb_text = document.getElementById(squares[i]).getAttribute('fill');
     var rgb_string = rgb_text.slice(4, -1);
     var rgb_array = rgb_string.split(',');
-    var rgb_norm = Math.sqrt(rgb_array.map(function(x) {
+    var rgb_norm = Math.sqrt(rgb_array.map(function (x) {
         return Math.pow(x, 2);
-    }).reduce(function(a, b) {
+    }).reduce(function (a, b) {
         return a + b;
     }));
     rgb_norms.push(rgb_norm);

@@ -8,7 +8,7 @@ var square_height = document.getElementById(squares[0]).getAttribute('height');
 svg_container.addEventListener("keydown", function (e) {
     // right arrow 39
     if (e.which === 39) {
-        if (curr_col == -1  && curr_row == -1) {
+        if (curr_col == -1 && curr_row == -1) {
             curr_col++;
             curr_row++;
             rect = createSquare();
