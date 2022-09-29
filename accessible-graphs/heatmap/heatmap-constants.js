@@ -3,7 +3,7 @@ const svg = document.getElementById("heatmap-svg");
 const svg_container = document.getElementById("heatmap-svg-container");
 const squares = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
 
-// sort the squares to access from left to right, up to dowm
+// sort the squares to access from left to right, up to down
 squares.sort(compareX);
 squares.sort(compareY);
 
