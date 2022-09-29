@@ -48,6 +48,7 @@ barContainer.addEventListener("keydown", function (e) {
             brailleDiv.style.display = "none";
         } else {
             brailleDiv.style.display = "block";
+            brailleDiv.focus();
         }
         display = !display;
     }
