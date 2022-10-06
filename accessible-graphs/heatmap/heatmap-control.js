@@ -73,6 +73,6 @@ function displayValues(row, col) {
     this.document.getElementById("x-cat").innerHTML = "island: " + x_categories[col];
     this.document.getElementById("y-cat").innerHTML = "species: " + y_categories[row];
     this.document.getElementById("z-val").innerHTML = "n: " + z_values[row][col];
-    this.document.getElementById("x-coord").innerHTML = "x-coordinate: " + unique_x_coord[col];
-    this.document.getElementById("y-coord").innerHTML = "y-coordinate: " + unique_y_coord[row];
+    this.document.getElementById("x-coord").innerHTML = "x-coordinate: " + (col + 1).toString();
+    this.document.getElementById("y-coord").innerHTML = "y-coordinate: " + (row + 1).toString();
   }
