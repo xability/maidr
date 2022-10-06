@@ -91,7 +91,7 @@ function playOscillator(row, col) {
   let frequency = MIN_FREQUENCY;
   if (ymax != ymin && row > -1 && col > -1) {
     if (norms[row][col] != 0) {
-      frequency += (ymax - norms[row][col] - ymin) * (1000 - 100) / (ymax - ymin);
+      frequency += (norms[row][col] - ymin) * (1000 - 100) / (ymax - ymin);
     } else {
       oscillator.type = 'square';
     }
