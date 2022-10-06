@@ -12,9 +12,11 @@ svg_container.addEventListener("keydown", function (e) {
             curr_col++;
             curr_row++;
             rect = createSquare();
+            displayValues(curr_row, curr_col);
         } else if (curr_col > -1 && curr_col < num_cols - 1) {
             curr_col++;
             select(rect, curr_row, curr_col);
+            displayValues(curr_row, curr_col);
         }
     }
 
@@ -23,6 +25,7 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_col > 0 && curr_col < num_cols) {
             curr_col--;
             select(rect, curr_row, curr_col);
+            displayValues(curr_row, curr_col);
         }
     }
 
@@ -31,6 +34,7 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_row > 0 && curr_row < num_rows) {
             curr_row--;
             select(rect, curr_row, curr_col);
+            displayValues(curr_row, curr_col);
         }
     }
 
@@ -39,6 +43,7 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_row > -1 && curr_row < num_rows - 1) {
             curr_row++;
             select(rect, curr_row, curr_col);
+            displayValues(curr_row, curr_col);
         }
     }
 });
@@ -63,3 +68,11 @@ function select(rect, row, col) {
     rect.setAttribute('x', unique_x_coord[col].toString());
     rect.setAttribute('y', (svg_height - unique_y_coord[row] - square_height).toString());
 }
+
+function displayValues(row, col) {
+    this.document.getElementById("x-cat").innerHTML = "island: " + x_categories[col];
+    this.document.getElementById("y-cat").innerHTML = "species: " + y_categories[row];
+    this.document.getElementById("z-val").innerHTML = "n: " + z_values[row][col];
+    this.document.getElementById("x-coord").innerHTML = "x-coordinate: " + unique_x_coord[col];
+    this.document.getElementById("y-coord").innerHTML = "y-coordinate: " + unique_y_coord[row];
+  }

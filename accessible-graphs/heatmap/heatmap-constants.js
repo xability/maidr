@@ -3,6 +3,10 @@ const svg = document.getElementById("heatmap-svg");
 const svg_container = document.getElementById("heatmap-svg-container");
 const squares = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
 
+var x_categories = ["Biscoe", "Dream", "Torgersen"];
+var y_categories = ["Gentoo", "Chinstrap", "Adelie"];
+var z_values = [[124, 0, 0], [0, 68, 0], [56, 52, 44]];
+
 // sort the squares to access from left to right, up to down
 squares.sort(compareX);
 squares.sort(compareY);
@@ -39,6 +43,7 @@ for (var i = 0; i < squares.length; i++) {
 
 var ymin = Math.min(...rgb_norms);
 var ymax = Math.max(...rgb_norms);
+const range = (ymax - ymin) / 3;
 
 // 2D array to check if a box exists at a location
 // var present = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
@@ -54,6 +59,10 @@ for (var i = 0; i < squares.length; i++) {
     y_coord[y_index][x_index] = y_coord_check[i];
     norms[y_index][x_index] = rgb_norms[i];
 }
+
+console.log(x_coord);
+console.log(y_coord);
+console.log(norms);
 
 // function getRgbNorm(row, col) {
 //     var rgb_text = document.getElementById(squares_reshape[row][col]).getAttribute('fill');
