@@ -45,6 +45,7 @@ barContainer.addEventListener("keydown", function (e) {
     if (e.which == 66) {
         if (display) {
             brailleDiv.style.display = "none";
+            svg_container.focus();
         } else {
             brailleDiv.style.display = "block";
             brailleDiv.focus();
