@@ -1,5 +1,7 @@
 // variables for manipulation of bars
 var currBar = -1;
+var enableDisplay = true;
+var infoDiv = document.getElementById("info");
 
 // manipulate bars using left and right arrows
 svg.addEventListener("keydown", function (e) {
@@ -24,6 +26,15 @@ svg.addEventListener("keydown", function (e) {
       displayValues(currBar);
     }
   }
+
+  if (e.which == 84) {
+    if (enableDisplay) {
+        infoDiv.style.display = "none";
+    } else {
+        infoDiv.style.display = "block";
+    }
+    enableDisplay = !enableDisplay;
+}
 });
 
 function select(num) {

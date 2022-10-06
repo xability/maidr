@@ -1,5 +1,7 @@
 var curr_row = -1;
 var curr_col = -1;
+var enableDisplay = true;
+var infoDiv = document.getElementById("info");
 
 var rect;
 var svg_height = parseFloat((svg.getAttribute('height')).slice(0, -2));
@@ -46,6 +48,15 @@ svg_container.addEventListener("keydown", function (e) {
             displayValues(curr_row, curr_col);
         }
     }
+
+    if (e.which == 84) {
+        if (enableDisplay) {
+            infoDiv.style.display = "none";
+        } else {
+            infoDiv.style.display = "block";
+        }
+        enableDisplay = !enableDisplay;
+    }
 });
 
 function createSquare() {
@@ -73,6 +84,6 @@ function displayValues(row, col) {
     this.document.getElementById("x-cat").innerHTML = "island: " + x_categories[col];
     this.document.getElementById("y-cat").innerHTML = "species: " + y_categories[row];
     this.document.getElementById("z-val").innerHTML = "n: " + z_values[row][col];
-    this.document.getElementById("x-coord").innerHTML = "x-coordinate: " + (col + 1).toString();
-    this.document.getElementById("y-coord").innerHTML = "y-coordinate: " + (row + 1).toString();
+    this.document.getElementById("x-coord").innerHTML = "row: " + (row + 1).toString();
+    this.document.getElementById("y-coord").innerHTML = "column: " + (col + 1).toString();
   }
