@@ -20,7 +20,7 @@ var range4 = range3 + range;
 // }
 
 var brailleArray = [];
-console.log(y_values);
+
 for (var i = 0; i < y_values.length; i++) {
     if (y_values[i] <= range1) {
         brailleArray.push("⣀");
