@@ -60,10 +60,6 @@ for (var i = 0; i < squares.length; i++) {
     norms[y_index][x_index] = rgb_norms[i];
 }
 
-console.log(x_coord);
-console.log(y_coord);
-console.log(norms);
-
 // function getRgbNorm(row, col) {
 //     var rgb_text = document.getElementById(squares_reshape[row][col]).getAttribute('fill');
 //     var rgb_string = rgb_text.slice(4, -1);
