@@ -20,6 +20,7 @@ gainMaster.gain.value = vol;
 compressor.connect(gainMaster);
 gainMaster.connect(audioContext.destination);
 
+if ( false ) {
 svg_container.addEventListener("keydown", function (e) {
     // spacebar
     if (e.which == 32) {
@@ -79,6 +80,7 @@ svg_container.addEventListener("keydown", function (e) {
         audioPlay = !audioPlay;
     }
 });
+}
 
 // an oscillator is created and destroyed whenever a window key (left arrow, right arrow, spacebar)
 function playOscillator(row, col) {

@@ -1,15 +1,18 @@
+
+var debugLevel = 1;
+
 // get boxplot svg and rect componenets
 const svg_container = document.getElementById("svg-container");
 const svg = document.querySelector("#svg-container > svg");
-const plotData = GetBoxData('geom_boxplot.gTree.68.1');
+const plotId = 'geom_boxplot.gTree.68.1';
+const plotData = GetBoxData(plotId);
 
-var debug = 1;
 
 function GetBoxData(id) {
     // data in svg is formed as nested <g> elements. Loop through and get all point data
     // goal is to get bounding x values and type (outlier, whisker, range)
 
-    if ( debug > 0 ) {
+    if ( debugLevel > 0 ) {
         document.getElementById(id).setAttribute("data-debug", "MAINCONTAINERHERE");
     }
 
@@ -29,39 +32,47 @@ function GetBoxData(id) {
                 var segmentType = GetBoxplotSegmentType(sections[j].getAttribute('id'));
                 var segmentPoints = GetBoxplotSegmentPoints(segment, segmentType)
 
-                for ( var l = 0 ; l < segmentPoints.length ; l++ ) {
-                    var thisPoint = {'x': segmentPoints[l], 'type': segmentType}
+                for ( var l = 0 ; l < segmentPoints.length  ; l += 2 ) {
+                    var thisPoint = {'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l+1]), 'type': segmentType}
                     points.push(thisPoint);
                 }
             }
         }
 
         // post processing
-        // Sort
+        // Sort this plot
         points.sort(function(a,b) {
             return a.x - b.x;
         });
         // and remove whisker from range dups
         var noDupPoints = [];
-        for ( var i = 0 ; i < points.length ; i++ ) {
-            if ( i > 0 ) {
-                if ( points[i-1].x == points[i].x ) {
-                    if ( points[i-1].type == "whisker" ) {
+        for ( var d = 0 ; d < points.length ; d++ ) {
+            if ( d > 0 ) {
+                if ( points[d-1].x == points[d].x ) {
+                    if ( points[d-1].type == "whisker" ) {
                         noDupPoints.splice(-1,1);
-                        noDupPoints.push(points[i]);
+                        noDupPoints.push(points[d]);
                     } else {
                     }
                 } else {
-                    noDupPoints.push(points[i]);
+                    noDupPoints.push(points[d]);
                 }
-            }else {
-                noDupPoints.push(points[i]);
+            } else {
+                noDupPoints.push(points[d]);
             }
         }
 
         plotData.push(noDupPoints);
     }
 
+    // put plots in order
+    plotData.sort(function(a,b) {
+        return a[0].y - b[0].y;
+    });
+
+    if ( debugLevel > 0 ) {
+        console.log('plotData:', plotData);
+    }
     return plotData;
 }
 
@@ -83,8 +94,6 @@ function GetBoxplotSegmentType(sectionId) {
     return segmentType;
 }
 function GetBoxplotSegmentPoints(segment, segmentType) {
-    // Fetch the segments on all these. Sometimes they're len 0, ignore.
-    // (Range has comes in wrapper + middle and has to be reparsed to points)
 
     var points = [];
 
@@ -94,24 +103,22 @@ function GetBoxplotSegmentPoints(segment, segmentType) {
     if ( segmentType == "range" ) {
         // ranges go a level deeper
         var matches = segment.children[0].getAttribute('points').match(re);
-        points.push(matches[0]);
+        points.push(matches[0], matches[1]);
         // the middle bar has 2 points but we just need one, check if they're the same
         if ( matches[0] != matches[2] )
         {
-            points.push(matches[2]);
+            points.push(matches[2], matches[3]);
         }
     } else if ( segmentType == "outlier" ) {
         // outliers use x attr directly, but have multiple children
-        for ( var i = 0 ; i < segment.children.length ; i++ ) {
-            points.push(segment.children[i].getAttribute('x'));
-        }
+        points.push(segment.getAttribute('x'), segment.getAttribute('y'));
     } else {
         // whisker. Get first and third number from points attr
         // but sometimes it's null, giving the same for both, and don't add if that's true
         matches = segment.getAttribute('points').match(re);
         if ( matches[0] != matches[2] )
         {
-            points.push(matches[0], matches[2]);
+            points.push(matches[0], matches[1], matches[2], matches[3]);
         }
     }
 
