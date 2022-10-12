@@ -7,8 +7,14 @@
 
 // barplot.diamonds_gridSVG.svg
 const svg = document.getElementById("svg");
-const bars = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
-const x_axes = ["GRID.text.16.1.1.text", "GRID.text.16.1.2.text", "GRID.text.16.1.3.text", "GRID.text.16.1.4.text", "GRID.text.16.1.5.text"];
+const plotType = document.getElementById('chart-container').getAttribute('data-plottype');
+
+if ( plotType == "bar" ) {
+    const bars = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
+    const x_axes = ["GRID.text.16.1.1.text", "GRID.text.16.1.2.text", "GRID.text.16.1.3.text", "GRID.text.16.1.4.text", "GRID.text.16.1.5.text"];
+}
+
+// bookmark: setting this up to pull from various sources. Gotta figure out what we need for boxplot and seperate it out
 
 const height = bars.map(getHeight);
 const extracted_x_values = x_axes.map(getX);
