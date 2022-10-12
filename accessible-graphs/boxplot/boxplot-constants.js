@@ -1,10 +1,13 @@
 
-var debugLevel = 1;
-
-// get boxplot svg and rect componenets
+// constants
+let minX = 0;
+let maxX = 0;
+let debugLevel = 1;
 const svg_container = document.getElementById("svg-container");
 const svg = document.querySelector("#svg-container > svg");
 const plotId = 'geom_boxplot.gTree.68.1';
+
+// get boxplot svg and rect componenets
 const plotData = GetBoxData(plotId);
 
 
@@ -34,6 +37,7 @@ function GetBoxData(id) {
 
                 for ( var l = 0 ; l < segmentPoints.length  ; l += 2 ) {
                     var thisPoint = {'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l+1]), 'type': segmentType}
+                    if ( thisPoint.x > maxX ) maxX = thisPoint.x;
                     points.push(thisPoint);
                 }
             }

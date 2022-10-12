@@ -2,9 +2,12 @@
 // put these in user controls ater
 var audio_row = -1;
 var audio_col = -1;
-var audioPlay = true;
+var audioPlay = 1;
 var duration = .3;
 var vol = .5;
+
+const MAX_FREQUENCY = 1000;
+const MIN_FREQUENCY = 100;
 
 // audio setup
 const AudioContext = window['AudioContext'] || window['webkitAudioContext'];
@@ -20,107 +23,68 @@ gainMaster.gain.value = vol;
 compressor.connect(gainMaster);
 gainMaster.connect(audioContext.destination);
 
-if ( false ) {
-svg_container.addEventListener("keydown", function (e) {
-    // spacebar
-    if (e.which == 32) {
-        if (audioPlay) {
-            playOscillator(audio_row, audio_col);
-        }
-    }
 
-    // right arrow
-    if (e.which === 39) {
-        if (audio_row == -1 && audio_col == -1) {
-            audio_col++;
-            audio_row++;
-            if (audioPlay) {
-                playOscillator(audio_row, audio_col);
-            }
-        } else if (audio_col >= -1 && audio_col < num_cols - 1) {
-            audio_col += 1;
-            if (audioPlay) {
-                playOscillator(audio_row, audio_col);
-            }
-        }
-    }
+// an oscillator is created and destroyed whenever a window key (left arrow, right arrow, spacebar), run from event listener in main controls
+function playTone() {
 
-    // left arrow
-    if (e.which === 37) {
-        if (audio_col > 0 && audio_col < num_cols) {
-            audio_col -= 1;
-            if (audioPlay) {
-                playOscillator(audio_row, audio_col);
-            }
-        }
-    }
+    let thisDuration = duration;
 
-    // up arrow
-    if (e.which === 38) {
-        if (audio_row > 0 && audio_row < num_rows) {
-            audio_row -= 1;
-            if (audioPlay) {
-                playOscillator(audio_row, audio_col);
-            }
-        }
-    }
-
-    // down arrow
-    if (e.which === 40) {
-        if (audio_row >= -1 && audio_row < num_rows - 1) {
-            audio_row += 1;
-            if (audioPlay) {
-                playOscillator(audio_row, audio_col);
-            }
-        }
-    }
-
-    // s toggle
-    if (e.which == 83) {
-        audioPlay = !audioPlay;
-    }
-});
-}
-
-// an oscillator is created and destroyed whenever a window key (left arrow, right arrow, spacebar)
-function playOscillator(row, col) {
-    const t = audioContext.currentTime;
+    // freq goes between min / max as x goes between min(0) / max
+    let thisX = plotData[currentPosition.y][currentPosition.x].x;
+    let frequency = SlideBetween(thisX, minX, maxX, MIN_FREQUENCY, MAX_FREQUENCY); 
+    console.log('will play tone at freq', frequency);
+    console.log('based on', minX, '<', thisX, '<', maxX, ' | min', MIN_FREQUENCY, 'max', MAX_FREQUENCY);
 
     // create oscillator
-    const oscillator = audioContext.createOscillator();
-    oscillator.type = 'sine';
+    // different types of sounds for different regions. 
+    // outlier = short tone
+    // whisker = normal tone
+    // range = chord 
+    let sectionType = plotData[currentPosition.y][currentPosition.x].type;
+    if ( sectionType == "outlier" ) {
+        thisDuration = duration / 2;
+    } else if ( sectionType == "whisker" ) {
+        thisDuration = duration * 2; 
+    } else {
+        thisDuration = duration * 2;
+    }
+    var panning = SlideBetween(plotData[currentPosition.y][currentPosition.x].x, minX, maxX, -1, 1);
 
-    let frequency = MIN_FREQUENCY;
-    if (ymax != ymin && row > -1 && col > -1) {
-        if (norms[row][col] != 0) {
-            frequency += (ymax - norms[row][col] - ymin) * (1000 - 100) / (ymax - ymin);
-        } else {
-            oscillator.type = 'square';
-        }
+    // create tones
+    playOscillator(frequency, thisDuration, panning, vol, 'sine');
+    if (sectionType == "range" ) {
+        // also play octive freq above frequency
+        var freq2 = frequency / 2;
+        playOscillator(freq2, thisDuration, panning, vol/4, 'triangle');
     }
 
+}
+
+function playOscillator(frequency, duration, panning, vol=1, wave='sine') {
+
+    const t = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = wave;
     oscillator.frequency.value = parseFloat(frequency);
     oscillator.start();
 
     // create gain for this event
     const gainThis = audioContext.createGain();
-    gainThis.gain.setValueCurveAtTime([.5, 1, .5, .5, .5, .1, 1e-4], t, duration); // this is what makes the tones fade out properly and not clip
+    gainThis.gain.setValueCurveAtTime([.5*vol, 1*vol, .5*vol, .5*vol, .5*vol, .1*vol, 1e-4*vol], t, duration); // this is what makes the tones fade out properly and not clip
 
-    const MAX_DISTANCE = 10000;
-    var posX = x_coord[row][col];
-    var posY = (unique_y_coord[row] - 2 * unique_y_coord[num_cols - 1]) / (unique_y_coord[0] - unique_y_coord[num_cols - 1]) * MAX_DISTANCE;
-    var posZ = 1;
+    let MAX_DISTANCE = 10000;
+    let posZ = 1;
     const panner = new PannerNode(audioContext, {
         panningModel: "HRTF",
         distanceModel: "linear",
-        positionX: posX,
-        positionY: posY,
+        positionX: currentPosition.x, // todo: this is wrong
+        positionY: currentPosition.y,
         positionZ: posZ,
         orientationX: 0.0,
         orientationY: 0.0,
         orientationZ: -1.0,
         refDistance: 1,
-        maxDistance: 10000,
+        maxDistance: MAX_DISTANCE,
         rolloffFactor: 10,
         coneInnerAngle: 40,
         coneOuterAngle: 50,
@@ -128,8 +92,6 @@ function playOscillator(row, col) {
     });
 
     // create panning
-    var pan_col = (num_cols % 2 == 0) ? num_cols : num_cols - 1;
-    var panning = (col - (pan_col / 2)) / (pan_col / 2); // panning = -1 (left) to 1 (right) as x axis (curr_audio) goes from min to max
     const stereoPanner = audioContext.createStereoPanner();
     stereoPanner.pan.value = panning;
     oscillator.connect(gainThis);
@@ -146,4 +108,10 @@ function playOscillator(row, col) {
         oscillator.stop();
         oscillator.disconnect();
     }, duration * 1e3 * 2);
+}
+
+function SlideBetween(val, a, b, min, max) {
+    // helper function that goes between min and max proportional to how val goes between a and b
+    newVal = ( ( ( val - a ) / ( b - a ) ) * ( max - min ) ) + min;
+    return newVal;
 }

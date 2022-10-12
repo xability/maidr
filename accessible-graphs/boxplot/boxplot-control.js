@@ -1,6 +1,7 @@
 
 var currentPosition = {'x': -1, 'y': -1};
 var rect;
+var showRect = 1; // todo: put in constants and user controls
 
 document.addEventListener('DOMContentLoaded', function(e) {
     svg_container.addEventListener("keydown", function (e) {
@@ -37,17 +38,14 @@ document.addEventListener('DOMContentLoaded', function(e) {
             currentPosition.x = plotData[currentPosition.y].length - 1;
         }
 
-
-        UpdateRect();
+        if ( showRect ) {
+            UpdateRect();
+        }
+        if ( audioPlay > 0 ) {
+            playTone();
+        }
 
     });
-
-    if ( debugLevel > 0 ) {
-        svg_container.focus();
-        currentPosition.x = 2;
-        currentPosition.y = 6;
-        UpdateRect();
-    }
 
 });
 
@@ -144,7 +142,7 @@ function UpdateRect() {
         
     }
 
-    if ( debugLevel > 1 ) {
+    if ( debugLevel > 3 ) {
         console.log(
             "Point", plotData[currentPosition.y][currentPosition.x].type, 
             "x:", plotData[currentPosition.y][currentPosition.x].x, 
