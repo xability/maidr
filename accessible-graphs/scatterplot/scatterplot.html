@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SVG Scatterplot</title>
+    <meta charset="utf-8">
+</head>
+
+<body>
+
+    <p>Tab to select the heatmap. Press right arrow to start. Use up, down, left and right arrows to navigate the graph.
+        Press spacebar to hear the sound of a certain bar again.</p>
+
+    <div id="scatterplot-container" tabindex="0">
+        <div id="scatterplot-braille-div" tabindex="0">
+            <p id="scatterplot-braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
+        </div>
+
+        <div id="scatterplot-svg-container" tabindex="0">
+            <?xml version="1.0" encoding="UTF-8"?>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="672px" height="672px" viewBox="0 0 672 672" version="1.1" id="scatterplot-svg">
+            <metadata xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/">
+                <gridsvg:generator name="gridSVG" version="1.7-4" time="2022-09-20 08:57:49" />
+                <gridsvg:argument name="name" value="scatterplot.svg" />
+                <gridsvg:argument name="exportCoords" value="none" />
+                <gridsvg:argument name="exportMappings" value="none" />
+                <gridsvg:argument name="exportJS" value="none" />
+                <gridsvg:argument name="res" value="96" />
+                <gridsvg:argument name="prefix" value="" />
+                <gridsvg:argument name="addClasses" value="FALSE" />
+                <gridsvg:argument name="indent" value="TRUE" />
+                <gridsvg:argument name="htmlWrapper" value="FALSE" />
+                <gridsvg:argument name="usePaths" value="vpPaths" />
+                <gridsvg:argument name="uniqueNames" value="TRUE" />
+                <gridsvg:separator name="id.sep" value="." />
+                <gridsvg:separator name="gPath.sep" value="::" />
+                <gridsvg:separator name="vpPath.sep" value="::" />
+            </metadata>
+            <g transform="translate(0, 672) scale(1, -1)">
+                <g id="gridSVG" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="none" stroke-width="1" font-size="16" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" opacity="1" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-opacity="1" fill-opacity="0" font-weight="normal" font-style="normal">
+                <defs>
+                    <symbol id="gridSVG.pch19" viewBox="-5 -5 10 10" overflow="visible">
+                    <circle cx="0" cy="0" r="3.75" />
+                    </symbol>
+                </defs>
+                <g id="layout.1">
+                    <g id="layout.2">
+                    <defs>
+                        <clipPath id="layout::background.1-9-12-1.1.clipPath">
+                        <rect x="0" y="0" width="672" height="672" fill="none" stroke="none" />
+                        </clipPath>
+                    </defs>
+                    <g id="layout::background.1-9-12-1.1" clip-path="url(#layout::background.1-9-12-1.1.clipPath)">
+                        <g id="background.1-9-12-1.1">
+                        <g id="plot.background..rect.39.1">
+                            <rect id="plot.background..rect.39.1.1" x="0" y="0" width="672" height="672" transform="" stroke-width="1.42" stroke="rgb(255,255,255)" fill="rgb(255,255,255)" stroke-dasharray="none" stroke-opacity="1" fill-opacity="1" />
+                        </g>
+                        </g>
+                    </g>
+                    <defs>
+                        <clipPath id="layout::panel.7-5-7-5.1.clipPath">
+                        <rect x="46.53" y="44.53" width="618.16" height="620.16" fill="none" stroke="none" />
+                        </clipPath>
+                    </defs>
+                    <g id="layout::panel.7-5-7-5.1" clip-path="url(#layout::panel.7-5-7-5.1.clipPath)">
+                        <g id="panel.7-5-7-5.1">
+                        <g id="panel-1.gTree.17.1">
+                            <g id="grill.gTree.15.1">
+                            <g id="panel.background..rect.6.1">
+                                <rect id="panel.background..rect.6.1.1" x="46.53" y="44.53" width="618.16" height="620.16" transform="" stroke-width="1.42" stroke="none" fill="rgb(235,235,235)" stroke-dasharray="none" stroke-opacity="0" fill-opacity="1" />
+                            </g>
+                            <g id="panel.grid.minor.y..polyline.8.1">
+                                <polyline id="panel.grid.minor.y..polyline.8.1.1" points="46.53,129.87 664.69,129.87" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.y..polyline.8.1.2" points="46.53,303.1 664.69,303.1" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.y..polyline.8.1.3" points="46.53,476.33 664.69,476.33" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.y..polyline.8.1.4" points="46.53,649.55 664.69,649.55" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                            </g>
+                            <g id="panel.grid.minor.x..polyline.10.1">
+                                <polyline id="panel.grid.minor.x..polyline.10.1.1" points="67.9,44.53 67.9,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.x..polyline.10.1.2" points="171.44,44.53 171.44,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.x..polyline.10.1.3" points="274.99,44.53 274.99,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.x..polyline.10.1.4" points="378.53,44.53 378.53,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.x..polyline.10.1.5" points="482.07,44.53 482.07,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.minor.x..polyline.10.1.6" points="585.61,44.53 585.61,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="0.71" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                            </g>
+                            <g id="panel.grid.major.y..polyline.12.1">
+                                <polyline id="panel.grid.major.y..polyline.12.1.2" points="46.53,216.49 664.69,216.49" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.y..polyline.12.1.3" points="46.53,389.71 664.69,389.71" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.y..polyline.12.1.4" points="46.53,562.94 664.69,562.94" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                            </g>
+                            <g id="panel.grid.major.x..polyline.14.1">
+                                <polyline id="panel.grid.major.x..polyline.14.1.2" points="119.67,44.53 119.67,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.x..polyline.14.1.3" points="223.21,44.53 223.21,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.x..polyline.14.1.4" points="326.76,44.53 326.76,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.x..polyline.14.1.5" points="430.3,44.53 430.3,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.x..polyline.14.1.6" points="533.84,44.53 533.84,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                <polyline id="panel.grid.major.x..polyline.14.1.7" points="637.38,44.53 637.38,664.69" stroke="rgb(255,255,255)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                            </g>
+                            </g>
+                            <g id="geom_point.points.2.1">
+                            <use id="geom_point.points.2.1.1" href="#gridSVG.pch19" x="96.48" y="377.15" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.2" href="#gridSVG.pch19" x="98.09" y="370.59" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.3" href="#gridSVG.pch19" x="123.52" y="406.96" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.4" href="#gridSVG.pch19" x="116.56" y="390.31" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.5" href="#gridSVG.pch19" x="201.86" y="315.62" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.6" href="#gridSVG.pch19" x="198.46" y="319.65" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.7" href="#gridSVG.pch19" x="237.22" y="331.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.8" href="#gridSVG.pch19" x="101.19" y="319.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.9" href="#gridSVG.pch19" x="100.67" y="305.38" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.10" href="#gridSVG.pch19" x="120.01" y="360.49" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.11" href="#gridSVG.pch19" x="121.02" y="339.1" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.12" href="#gridSVG.pch19" x="199.51" y="302.88" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.13" href="#gridSVG.pch19" x="203.76" y="297.12" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.14" href="#gridSVG.pch19" x="230.65" y="301.11" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.15" href="#gridSVG.pch19" x="234.45" y="306.05" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.16" href="#gridSVG.pch19" x="202.93" y="284.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.17" href="#gridSVG.pch19" x="235.99" y="306.72" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.18" href="#gridSVG.pch19" x="349.25" y="272.27" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.19" href="#gridSVG.pch19" x="461.32" y="211.04" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.20" href="#gridSVG.pch19" x="458.3" y="131.15" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.21" href="#gridSVG.pch19" x="461.98" y="218.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.22" href="#gridSVG.pch19" x="502.16" y="170.77" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.23" href="#gridSVG.pch19" x="536.21" y="166.52" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.24" href="#gridSVG.pch19" x="504.61" y="318.96" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.25" href="#gridSVG.pch19" x="499.12" y="264.54" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.26" href="#gridSVG.pch19" x="551.58" y="315.26" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.27" href="#gridSVG.pch19" x="554.49" y="305.8" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.28" href="#gridSVG.pch19" x="636.6" y="288.14" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.29" href="#gridSVG.pch19" x="461.45" y="202.84" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.30" href="#gridSVG.pch19" x="459.93" y="116.88" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.31" href="#gridSVG.pch19" x="499.08" y="135.46" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.32" href="#gridSVG.pch19" x="587.61" y="169.09" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.33" href="#gridSVG.pch19" x="158.89" y="334.95" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.34" href="#gridSVG.pch19" x="157.42" y="391.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.35" href="#gridSVG.pch19" x="234.58" y="325.33" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.36" href="#gridSVG.pch19" x="271.77" y="365.73" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.37" href="#gridSVG.pch19" x="283.81" y="321.29" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.38" href="#gridSVG.pch19" x="157.38" y="288.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.39" href="#gridSVG.pch19" x="226.18" y="283.8" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.40" href="#gridSVG.pch19" x="252.16" y="257.61" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.41" href="#gridSVG.pch19" x="250.6" y="256.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.42" href="#gridSVG.pch19" x="250.43" y="287.99" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.43" href="#gridSVG.pch19" x="253.94" y="287.48" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.44" href="#gridSVG.pch19" x="252.98" y="170.24" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.45" href="#gridSVG.pch19" x="303.88" y="251.67" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.46" href="#gridSVG.pch19" x="304.4" y="227.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.47" href="#gridSVG.pch19" x="306.93" y="272.03" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.48" href="#gridSVG.pch19" x="323.61" y="264.28" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.49" href="#gridSVG.pch19" x="294.41" y="204.41" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.50" href="#gridSVG.pch19" x="292.39" y="180.71" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.51" href="#gridSVG.pch19" x="316.26" y="159.62" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.52" href="#gridSVG.pch19" x="312.77" y="158.22" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.53" href="#gridSVG.pch19" x="395.79" y="199.5" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.54" href="#gridSVG.pch19" x="397.24" y="198.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.55" href="#gridSVG.pch19" x="402.49" y="81.46" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.56" href="#gridSVG.pch19" x="451.33" y="165.06" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.57" href="#gridSVG.pch19" x="454.16" y="128.75" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.58" href="#gridSVG.pch19" x="317.56" y="163.33" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.59" href="#gridSVG.pch19" x="398.76" y="170.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.60" href="#gridSVG.pch19" x="398.31" y="83.59" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.61" href="#gridSVG.pch19" x="399.49" y="160.11" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.62" href="#gridSVG.pch19" x="454.46" y="141.04" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.63" href="#gridSVG.pch19" x="503.25" y="183.27" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.64" href="#gridSVG.pch19" x="523.22" y="132.88" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.65" href="#gridSVG.pch19" x="401.95" y="142.88" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.66" href="#gridSVG.pch19" x="396.12" y="72.72" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.67" href="#gridSVG.pch19" x="402.19" y="169.01" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.68" href="#gridSVG.pch19" x="400.75" y="168.95" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.69" href="#gridSVG.pch19" x="400.93" y="152.83" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.70" href="#gridSVG.pch19" x="396.29" y="80.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.71" href="#gridSVG.pch19" x="449.81" y="134.4" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.72" href="#gridSVG.pch19" x="454" y="141.3" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.73" href="#gridSVG.pch19" x="505.66" y="169.18" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.74" href="#gridSVG.pch19" x="520.66" y="125.47" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.75" href="#gridSVG.pch19" x="386.75" y="165.42" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.76" href="#gridSVG.pch19" x="475.31" y="161.52" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.77" href="#gridSVG.pch19" x="473.14" y="188.15" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.78" href="#gridSVG.pch19" x="327.54" y="167.35" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.79" href="#gridSVG.pch19" x="327.55" y="197.89" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.80" href="#gridSVG.pch19" x="329.07" y="166.85" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.81" href="#gridSVG.pch19" x="325.52" y="192.71" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.82" href="#gridSVG.pch19" x="389.13" y="192.54" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.83" href="#gridSVG.pch19" x="429.02" y="168.18" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.84" href="#gridSVG.pch19" x="346.78" y="170.44" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.85" href="#gridSVG.pch19" x="346.41" y="167.47" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.86" href="#gridSVG.pch19" x="390.13" y="152.04" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.87" href="#gridSVG.pch19" x="389.18" y="144.56" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.88" href="#gridSVG.pch19" x="393.01" y="160.22" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.89" href="#gridSVG.pch19" x="472.51" y="124.49" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.90" href="#gridSVG.pch19" x="475.24" y="166.06" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.91" href="#gridSVG.pch19" x="309.74" y="325.69" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.92" href="#gridSVG.pch19" x="304.64" y="296.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.93" href="#gridSVG.pch19" x="329.89" y="321.86" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.94" href="#gridSVG.pch19" x="328.03" y="287.23" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.95" href="#gridSVG.pch19" x="389.75" y="234.97" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.96" href="#gridSVG.pch19" x="391.63" y="251.29" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.97" href="#gridSVG.pch19" x="388.11" y="271.1" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.98" href="#gridSVG.pch19" x="388.25" y="249.57" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.99" href="#gridSVG.pch19" x="473.88" y="222.52" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.100" href="#gridSVG.pch19" x="74.63" y="439.04" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.101" href="#gridSVG.pch19" x="75.49" y="430.27" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.102" href="#gridSVG.pch19" x="80.08" y="422.04" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.103" href="#gridSVG.pch19" x="76.52" y="368.12" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.104" href="#gridSVG.pch19" x="76.11" y="419.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.105" href="#gridSVG.pch19" x="98.44" y="458.21" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.106" href="#gridSVG.pch19" x="101.95" y="490.92" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.107" href="#gridSVG.pch19" x="95.64" y="489.18" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.108" href="#gridSVG.pch19" x="123.23" y="375.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.109" href="#gridSVG.pch19" x="157.7" y="316.52" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.110" href="#gridSVG.pch19" x="159.16" y="331.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.111" href="#gridSVG.pch19" x="162.14" y="386.12" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.112" href="#gridSVG.pch19" x="164.35" y="403.48" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.113" href="#gridSVG.pch19" x="172.12" y="316" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.114" href="#gridSVG.pch19" x="169.27" y="318.48" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.115" href="#gridSVG.pch19" x="252.52" y="355.6" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.116" href="#gridSVG.pch19" x="116.24" y="325.42" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.117" href="#gridSVG.pch19" x="119.16" y="375.18" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.118" href="#gridSVG.pch19" x="122.58" y="351.15" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.119" href="#gridSVG.pch19" x="118.23" y="343.55" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.120" href="#gridSVG.pch19" x="195.7" y="282.01" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.121" href="#gridSVG.pch19" x="195.83" y="283.5" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.122" href="#gridSVG.pch19" x="191.65" y="280.45" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.123" href="#gridSVG.pch19" x="220.76" y="253.14" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.124" href="#gridSVG.pch19" x="296.6" y="201.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.125" href="#gridSVG.pch19" x="323.85" y="222.16" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.126" href="#gridSVG.pch19" x="402.97" y="164.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.127" href="#gridSVG.pch19" x="401.56" y="75.24" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.128" href="#gridSVG.pch19" x="403.02" y="199.4" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.129" href="#gridSVG.pch19" x="502.59" y="178.55" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.130" href="#gridSVG.pch19" x="544.02" y="117.75" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.131" href="#gridSVG.pch19" x="324.87" y="123.89" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.132" href="#gridSVG.pch19" x="349.7" y="179.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.133" href="#gridSVG.pch19" x="372.06" y="184.09" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.134" href="#gridSVG.pch19" x="388.83" y="124.67" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.135" href="#gridSVG.pch19" x="473.24" y="171.38" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.136" href="#gridSVG.pch19" x="471.26" y="147.99" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.137" href="#gridSVG.pch19" x="472.32" y="187.16" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.138" href="#gridSVG.pch19" x="328.88" y="162.83" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.139" href="#gridSVG.pch19" x="324.82" y="199.33" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.140" href="#gridSVG.pch19" x="391.05" y="205.31" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.141" href="#gridSVG.pch19" x="432.31" y="169.5" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.142" href="#gridSVG.pch19" x="163.27" y="372.68" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.143" href="#gridSVG.pch19" x="163.94" y="340.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.144" href="#gridSVG.pch19" x="174" y="411.59" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.145" href="#gridSVG.pch19" x="171.23" y="424.22" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.146" href="#gridSVG.pch19" x="272.59" y="332.27" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.147" href="#gridSVG.pch19" x="273.66" y="320.45" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.148" href="#gridSVG.pch19" x="219.66" y="315.71" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.149" href="#gridSVG.pch19" x="222.11" y="300.08" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.150" href="#gridSVG.pch19" x="271.63" y="296.7" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.151" href="#gridSVG.pch19" x="250.17" y="160" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.152" href="#gridSVG.pch19" x="256.22" y="168.65" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.153" href="#gridSVG.pch19" x="326.21" y="215.41" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.154" href="#gridSVG.pch19" x="494.53" y="187.42" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.155" href="#gridSVG.pch19" x="233.62" y="322.14" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.156" href="#gridSVG.pch19" x="305.61" y="321.67" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.157" href="#gridSVG.pch19" x="305.87" y="331.75" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.158" href="#gridSVG.pch19" x="308.88" y="361.21" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.159" href="#gridSVG.pch19" x="460.87" y="305.93" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.160" href="#gridSVG.pch19" x="172.09" y="298.19" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.161" href="#gridSVG.pch19" x="167.35" y="284.8" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.162" href="#gridSVG.pch19" x="167.52" y="331.54" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.163" href="#gridSVG.pch19" x="173.32" y="304.63" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.164" href="#gridSVG.pch19" x="168.78" y="324.92" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.165" href="#gridSVG.pch19" x="175.54" y="263.03" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.166" href="#gridSVG.pch19" x="144.3" y="325.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.167" href="#gridSVG.pch19" x="138.76" y="323.66" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.168" href="#gridSVG.pch19" x="168.85" y="318.12" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.169" href="#gridSVG.pch19" x="172.71" y="313.93" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.170" href="#gridSVG.pch19" x="168.96" y="309.33" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.171" href="#gridSVG.pch19" x="175.36" y="342.07" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.172" href="#gridSVG.pch19" x="168.02" y="304.6" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.173" href="#gridSVG.pch19" x="172.66" y="340.26" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.174" href="#gridSVG.pch19" x="188.97" y="213.31" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.175" href="#gridSVG.pch19" x="194.23" y="223.37" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.176" href="#gridSVG.pch19" x="262.09" y="193.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.177" href="#gridSVG.pch19" x="262.57" y="159.25" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.178" href="#gridSVG.pch19" x="330.33" y="214.48" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.179" href="#gridSVG.pch19" x="398.79" y="167.65" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.180" href="#gridSVG.pch19" x="143.85" y="367.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.181" href="#gridSVG.pch19" x="141.19" y="344.16" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.182" href="#gridSVG.pch19" x="159.89" y="409.82" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.183" href="#gridSVG.pch19" x="158.04" y="402.84" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.184" href="#gridSVG.pch19" x="221.34" y="318.54" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.185" href="#gridSVG.pch19" x="226.11" y="323.81" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.186" href="#gridSVG.pch19" x="271.57" y="354.24" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.187" href="#gridSVG.pch19" x="139.42" y="340.45" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.188" href="#gridSVG.pch19" x="138.78" y="374.35" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.189" href="#gridSVG.pch19" x="160.78" y="412.01" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.190" href="#gridSVG.pch19" x="164.52" y="408.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.191" href="#gridSVG.pch19" x="220.98" y="326.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.192" href="#gridSVG.pch19" x="220.6" y="317.72" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.193" href="#gridSVG.pch19" x="258.32" y="339.22" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.194" href="#gridSVG.pch19" x="99.78" y="395.36" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.195" href="#gridSVG.pch19" x="96.74" y="438.37" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.196" href="#gridSVG.pch19" x="98.86" y="479.51" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.197" href="#gridSVG.pch19" x="102.85" y="507.1" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.198" href="#gridSVG.pch19" x="95.94" y="479.21" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.199" href="#gridSVG.pch19" x="396.76" y="127.98" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.200" href="#gridSVG.pch19" x="500.38" y="188.5" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.201" href="#gridSVG.pch19" x="194.62" y="220.62" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.202" href="#gridSVG.pch19" x="191.34" y="214.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.203" href="#gridSVG.pch19" x="191.73" y="251.56" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.204" href="#gridSVG.pch19" x="268.65" y="168.87" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.205" href="#gridSVG.pch19" x="267.11" y="199.75" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.206" href="#gridSVG.pch19" x="330.24" y="178.28" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.207" href="#gridSVG.pch19" x="323.94" y="210.92" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.208" href="#gridSVG.pch19" x="122.07" y="369.87" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.209" href="#gridSVG.pch19" x="122.49" y="323.94" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.210" href="#gridSVG.pch19" x="117.68" y="376.93" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.211" href="#gridSVG.pch19" x="119.12" y="376.34" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.212" href="#gridSVG.pch19" x="204.27" y="283.88" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.213" href="#gridSVG.pch19" x="105.43" y="636.5" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.214" href="#gridSVG.pch19" x="122.93" y="366.4" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.215" href="#gridSVG.pch19" x="121.75" y="326.62" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.216" href="#gridSVG.pch19" x="119.99" y="376.22" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.217" href="#gridSVG.pch19" x="118.08" y="379.26" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.218" href="#gridSVG.pch19" x="168.82" y="368.79" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.219" href="#gridSVG.pch19" x="171.88" y="367.29" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.220" href="#gridSVG.pch19" x="199.69" y="262.07" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.221" href="#gridSVG.pch19" x="198.46" y="290.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.222" href="#gridSVG.pch19" x="112.53" y="628.66" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.223" href="#gridSVG.pch19" x="105.26" y="573.67" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.224" href="#gridSVG.pch19" x="121.46" y="377.29" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.225" href="#gridSVG.pch19" x="120.9" y="316.02" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.226" href="#gridSVG.pch19" x="174.88" y="348.98" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.227" href="#gridSVG.pch19" x="174.95" y="375.9" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.228" href="#gridSVG.pch19" x="102.53" y="372.81" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.229" href="#gridSVG.pch19" x="98.2" y="375.67" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.230" href="#gridSVG.pch19" x="122.34" y="352.58" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.231" href="#gridSVG.pch19" x="121.45" y="373.32" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.232" href="#gridSVG.pch19" x="205.82" y="321.2" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.233" href="#gridSVG.pch19" x="205.74" y="319.43" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            <use id="geom_point.points.2.1.234" href="#gridSVG.pch19" x="287.08" y="318.24" width="6.95" height="6.95" transform=" translate(-3.48,-3.48)" stroke="rgb(0,0,0)" fill="rgb(0,0,0)" font-size="6.95" stroke-width="1.35" stroke-opacity="1" fill-opacity="1" />
+                            </g>
+                        </g>
+                        </g>
+                    </g>
+                    <g id="layout::spacer.8-6-8-6.1">
+                        <g id="spacer.8-6-8-6.1" />
+                    </g>
+                    <g id="layout::spacer.8-4-8-4.1">
+                        <g id="spacer.8-4-8-4.1" />
+                    </g>
+                    <g id="layout::spacer.6-6-6-6.1">
+                        <g id="spacer.6-6-6-6.1" />
+                    </g>
+                    <g id="layout::spacer.6-4-6-4.1">
+                        <g id="spacer.6-4-6-4.1" />
+                    </g>
+                    <g id="layout::axis-t.6-5-6-5.1">
+                        <g id="axis-t.6-5-6-5.1" />
+                    </g>
+                    <g id="layout::axis-l.7-4-7-4.1">
+                        <g id="axis-l.7-4-7-4.1">
+                        <g id="layout::axis-l.7-4-7-4::GRID.VP.6.1">
+                            <g id="GRID.absoluteGrob.26.1">
+                            <g id="layout::axis-l.7-4-7-4::GRID.VP.6::axis.1">
+                                <g id="axis.1">
+                                <g id="layout::axis-l.7-4-7-4::GRID.VP.6::axis::axis.1-1-1-1.1">
+                                    <g id="axis.1-1-1-1.1">
+                                    <g id="layout::axis-l.7-4-7-4::GRID.VP.6::axis::axis.1-1-1-1::GRID.VP.4.1" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" stroke-opacity="1" font-weight="normal" font-style="normal">
+                                        <g id="layout::axis-l.7-4-7-4::GRID.VP.6::axis::axis.1-1-1-1::GRID.VP.4::GRID.VP.5.1">
+                                        <g id="GRID.titleGrob.24.1">
+                                            <g id="GRID.text.23.1">
+                                            <g id="GRID.text.23.1.1" transform="translate(39.96, 216.49)" stroke-width="0.1">
+                                                <g id="GRID.text.23.1.1.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.23.1.1.text" text-anchor="end" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.23.1.1.tspan.1" dy="5" x="0">20</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.23.1.2" transform="translate(39.96, 389.71)" stroke-width="0.1">
+                                                <g id="GRID.text.23.1.2.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.23.1.2.text" text-anchor="end" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.23.1.2.tspan.1" dy="5" x="0">30</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.23.1.3" transform="translate(39.96, 562.94)" stroke-width="0.1">
+                                                <g id="GRID.text.23.1.3.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.23.1.3.text" text-anchor="end" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.23.1.3.tspan.1" dy="5" x="0">40</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            </g>
+                                        </g>
+                                        </g>
+                                    </g>
+                                    </g>
+                                </g>
+                                <g id="layout::axis-l.7-4-7-4::GRID.VP.6::axis::axis.1-2-1-2.1">
+                                    <g id="axis.1-2-1-2.1">
+                                    <g id="GRID.polyline.25.1">
+                                        <polyline id="GRID.polyline.25.1.1" points="42.88,216.49 46.53,216.49" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.25.1.2" points="42.88,389.71 46.53,389.71" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.25.1.3" points="42.88,562.94 46.53,562.94" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                    </g>
+                                    </g>
+                                </g>
+                                </g>
+                            </g>
+                            </g>
+                        </g>
+                        </g>
+                    </g>
+                    <g id="layout::axis-r.7-6-7-6.1">
+                        <g id="axis-r.7-6-7-6.1" />
+                    </g>
+                    <g id="layout::axis-b.8-5-8-5.1">
+                        <g id="axis-b.8-5-8-5.1">
+                        <g id="layout::axis-b.8-5-8-5::GRID.VP.3.1">
+                            <g id="GRID.absoluteGrob.22.1">
+                            <g id="layout::axis-b.8-5-8-5::GRID.VP.3::axis.1">
+                                <g id="axis.2">
+                                <g id="layout::axis-b.8-5-8-5::GRID.VP.3::axis::axis.1-1-1-1.1">
+                                    <g id="axis.1-1-1-1.2">
+                                    <g id="GRID.polyline.21.1">
+                                        <polyline id="GRID.polyline.21.1.1" points="119.67,40.88 119.67,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.21.1.2" points="223.21,40.88 223.21,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.21.1.3" points="326.76,40.88 326.76,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.21.1.4" points="430.3,40.88 430.3,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.21.1.5" points="533.84,40.88 533.84,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                        <polyline id="GRID.polyline.21.1.6" points="637.38,40.88 637.38,44.53" stroke="rgb(51,51,51)" fill="none" stroke-width="1.42" stroke-dasharray="none" stroke-linecap="butt" stroke-opacity="1" fill-opacity="1" />
+                                    </g>
+                                    </g>
+                                </g>
+                                <g id="layout::axis-b.8-5-8-5::GRID.VP.3::axis::axis.2-1-2-1.1">
+                                    <g id="axis.2-1-2-1.1">
+                                    <g id="layout::axis-b.8-5-8-5::GRID.VP.3::axis::axis.2-1-2-1::GRID.VP.1.1" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" stroke-opacity="1" font-weight="normal" font-style="normal">
+                                        <g id="layout::axis-b.8-5-8-5::GRID.VP.3::axis::axis.2-1-2-1::GRID.VP.1::GRID.VP.2.1">
+                                        <g id="GRID.titleGrob.20.1">
+                                            <g id="GRID.text.18.1">
+                                            <g id="GRID.text.18.1.1" transform="translate(119.67, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.1.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.1.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.1.tspan.1" dy="10" x="0">2</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.18.1.2" transform="translate(223.21, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.2.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.2.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.2.tspan.1" dy="10" x="0">3</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.18.1.3" transform="translate(326.76, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.3.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.3.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.3.tspan.1" dy="10" x="0">4</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.18.1.4" transform="translate(430.3, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.4.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.4.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.4.tspan.1" dy="10" x="0">5</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.18.1.5" transform="translate(533.84, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.5.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.5.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.5.tspan.1" dy="10" x="0">6</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            <g id="GRID.text.18.1.6" transform="translate(637.38, 37.96)" stroke-width="0.1">
+                                                <g id="GRID.text.18.1.6.scale" transform="scale(1, -1)">
+                                                <text x="0" y="0" id="GRID.text.18.1.6.text" text-anchor="middle" font-size="11.73" stroke="rgb(77,77,77)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(77,77,77)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                                    <tspan id="GRID.text.18.1.6.tspan.1" dy="10" x="0">7</tspan>
+                                                </text>
+                                                </g>
+                                            </g>
+                                            </g>
+                                        </g>
+                                        </g>
+                                    </g>
+                                    </g>
+                                </g>
+                                </g>
+                            </g>
+                            </g>
+                        </g>
+                        </g>
+                    </g>
+                    <g id="layout::xlab-t.5-5-5-5.1">
+                        <g id="xlab-t.5-5-5-5.1" />
+                    </g>
+                    <g id="layout::xlab-b.9-5-9-5.1">
+                        <g id="xlab-b.9-5-9-5.1">
+                        <g id="layout::xlab-b.9-5-9-5::GRID.VP.7.1" font-size="14.67" stroke="rgb(0,0,0)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" stroke-opacity="1" font-weight="normal" font-style="normal">
+                            <g id="layout::xlab-b.9-5-9-5::GRID.VP.7::GRID.VP.8.1">
+                            <g id="axis.title.x.bottom..titleGrob.30.1">
+                                <g id="GRID.text.27.1">
+                                <g id="GRID.text.27.1.1" transform="translate(355.61, 22.31)" stroke-width="0.1">
+                                    <g id="GRID.text.27.1.1.scale" transform="scale(1, -1)">
+                                    <text x="0" y="0" id="GRID.text.27.1.1.text" text-anchor="middle" font-size="14.67" stroke="rgb(0,0,0)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(0,0,0)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                        <tspan id="GRID.text.27.1.1.tspan.1" dy="12" x="0">displ</tspan>
+                                    </text>
+                                    </g>
+                                </g>
+                                </g>
+                            </g>
+                            </g>
+                        </g>
+                        </g>
+                    </g>
+                    <g id="layout::ylab-l.7-3-7-3.1">
+                        <g id="ylab-l.7-3-7-3.1">
+                        <g id="layout::ylab-l.7-3-7-3::GRID.VP.9.1" font-size="14.67" stroke="rgb(0,0,0)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" stroke-opacity="1" font-weight="normal" font-style="normal">
+                            <g id="layout::ylab-l.7-3-7-3::GRID.VP.9::GRID.VP.10.1">
+                            <g id="axis.title.y.left..titleGrob.33.1">
+                                <g id="GRID.text.31.1">
+                                <g id="GRID.text.31.1.1" transform="translate(7.31, 354.61)" stroke-width="0.1">
+                                    <g id="GRID.text.31.1.1.scale" transform="scale(1, -1)">
+                                    <text x="0" y="0" id="GRID.text.31.1.1.text" transform="rotate(-90)" text-anchor="middle" font-size="14.67" stroke="rgb(0,0,0)" font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif" fill="rgb(0,0,0)" stroke-opacity="1" fill-opacity="1" font-weight="normal" font-style="normal">
+                                        <tspan id="GRID.text.31.1.1.tspan.1" dy="12" x="0">hwy</tspan>
+                                    </text>
+                                    </g>
+                                </g>
+                                </g>
+                            </g>
+                            </g>
+                        </g>
+                        </g>
+                    </g>
+                    <g id="layout::ylab-r.7-7-7-7.1">
+                        <g id="ylab-r.7-7-7-7.1" />
+                    </g>
+                    <g id="layout::subtitle.4-5-4-5.1">
+                        <g id="subtitle.4-5-4-5.1" />
+                    </g>
+                    <g id="layout::title.3-5-3-5.1">
+                        <g id="title.3-5-3-5.1" />
+                    </g>
+                    <g id="layout::caption.10-5-10-5.1">
+                        <g id="caption.10-5-10-5.1" />
+                    </g>
+                    <g id="layout::tag.2-2-2-2.1">
+                        <g id="tag.2-2-2-2.1" />
+                    </g>
+                    </g>
+                </g>
+                </g>
+            </g>
+            </svg>
+            <div id="info">
+                <p id="x-cat" aria-live="assertive"></p>
+                <p id="y-cat" aria-live="assertive"></p>
+                <p id="z-val" aria-live="assertive"></p>
+                <p id="x-coord" aria-live="assertive"></p>
+                <p id="y-coord" aria-live="assertive"></p>
+            </div>
+        </div>
+    </div>
+    <script src="scatterplot-constants.js"></script>
+    <!-- <script src="heatmap-control.js"></script>
+    <script src="heatmap-audio.js"></script>
+    <script src="heatmap-braille.js"></script> -->
+</body>
+
+</html>
