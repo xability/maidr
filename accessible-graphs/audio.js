@@ -5,12 +5,10 @@
 // sets up an actual playTone function that plays tones based on current chart position
 class Audio {
 
-    constructor(plot, position) {
+    constructor() {
         this.AudioContext = window['AudioContext'] || window['webkitAudioContext'];
         this.audioContext = new AudioContext();
         this.compressor = this.compressorSetup(this.audioContext);
-        this.plot = plot;
-        this.position = position;
     }
 
     compressorSetup() {
@@ -35,34 +33,39 @@ class Audio {
         let currentDuration = constants.duration;
 
         // freq goes between min / max as x goes between min(0) / max
-        let thisX = this.plot.plotData[this.position.y][this.position.x].x;
+        let thisX = plot.plotData[position.y][position.x].x;
         let frequency = this.SlideBetween(thisX, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
         if ( constants.debugLevel > 0 ) {
             console.log('will play tone at freq', frequency);
             console.log('based on', constants.minX, '<', thisX, '<', constants.maxX, ' | min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }
 
-        // create oscillator
-        // different types of sounds for different regions. 
-        // outlier = short tone
-        // whisker = normal tone
-        // range = chord 
-        let sectionType = this.plot.plotData[this.position.y][this.position.x].type;
-        if ( sectionType == "outlier" ) {
-            currentDuration = constants.duration / 2;
-        } else if ( sectionType == "whisker" ) {
-            currentDuration = constants.duration * 2; 
-        } else {
-            currentDuration = constants.duration * 2;
+
+        if ( constants.chartType == "boxplot" ) {
+            // different types of sounds for different regions. 
+            // outlier = short tone
+            // whisker = normal tone
+            // range = chord 
+            let sectionType = plot.plotData[position.y][position.x].type;
+            if ( sectionType == "outlier" ) {
+                currentDuration = constants.duration / 2;
+            } else if ( sectionType == "whisker" ) {
+                currentDuration = constants.duration * 2; 
+            } else {
+                currentDuration = constants.duration * 2;
+            }
         }
-        let panning = this.SlideBetween(this.plot.plotData[this.position.y][this.position.x].x, constants.minX, constants.maxX, -1, 1);
+        let panning = this.SlideBetween(plot.plotData[position.y][position.x].x, constants.minX, constants.maxX, -1, 1);
 
         // create tones
         this.playOscillator(frequency, currentDuration, panning, constants.vol, 'sine');
-        if (sectionType == "range" ) {
-            // also play octive freq above frequency
-            let freq2 = frequency / 2;
-            this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
+        if ( constants.chartType == "boxplot" ) {
+            let sectionType = plot.plotData[position.y][position.x].type;
+            if (sectionType == "range" ) {
+                // also play an octive below at lower vol
+                let freq2 = frequency / 2;
+                this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
+            }
         }
 
     }
@@ -84,8 +87,8 @@ class Audio {
         const panner = new PannerNode(this.audioContext, {
             panningModel: "HRTF",
             distanceModel: "linear",
-            positionX: this.position.x, // todo: this is wrong
-            positionY: this.position.y,
+            positionX: position.x, 
+            positionY: position.y,
             positionZ: posZ,
             orientationX: 0.0,
             orientationY: 0.0,

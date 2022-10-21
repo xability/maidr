@@ -12,11 +12,16 @@
 document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-    window.constants = new Constants(); // global var lelelelel
-    let position = new Position(-1, -1);
-    let plot = new BoxPlot(constants.plotId);
-    let rect = new BoxplotRect(plot);
-    let audio = new Audio(plot, position);
+
+    // A few global variables, so sorry
+    window.constants = new Constants(); 
+    window.position = new Position(-1, -1);
+    window.plot = new BoxPlot(constants.plotId);
+
+    // setup for this chart
+    constants.chartType = "boxplot";
+    let rect = new BoxplotRect();
+    let audio = new Audio();
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -54,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         }
 
         if ( constants.showRect ) {
-            rect.UpdateRect(position);
+            rect.UpdateRect();
         }
         if ( constants.audioPlay > 0 ) {
             audio.playTone();
@@ -204,59 +209,58 @@ class BoxplotRect {
     svgBoundingOffset = 95; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
     svgBoudingOffsetRect = 30.3; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
 
-    constructor(plot) {
+    constructor() {
         this.x1 = 0;
         this.x2 = 0;
         this.y1 = 0;
         this.y2 = 0;
-        this.plot = plot;
     }
 
-    UpdateRect(position) {
+    UpdateRect() {
         // UpdateRect does some horrible calculations to get bounds of visual outline to be drawn
 
         // get rect bounds
-        if ( this.plot.plotData[position.y][position.x].type == 'outlier' ) {
+        if ( plot.plotData[position.y][position.x].type == 'outlier' ) {
 
-            this.x1 = this.plot.plotData[position.y][position.x].x - this.rectPadding;
-            this.x2 = this.plot.plotData[position.y][position.x].x + this.rectPadding;
-            this.y1 = this.plot.plotData[position.y][position.x].y - this.rectPadding;
-            this.y2 = this.plot.plotData[position.y][position.x].y + this.rectPadding;
+            this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
+            this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
+            this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
+            this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
 
-        } else if ( this.plot.plotData[position.y][position.x].type == 'whisker' ) {
+        } else if ( plot.plotData[position.y][position.x].type == 'whisker' ) {
 
             var whichWhisker = 'before'; // before / after the range. We steal the other point from range and need to know which one
             if ( position.x > 0 ) {
-                if ( this.plot.plotData[position.y][position.x - 1].type == 'range' ) {
+                if ( plot.plotData[position.y][position.x - 1].type == 'range' ) {
                     whichWhisker = 'after';
                 }
             }
             if ( whichWhisker == 'before' ) {
                 // we're on the before one, use this and next
-                this.x1 = this.plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = this.plot.plotData[position.y][position.x + 1].x + this.rectPadding;
+                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
+                this.x2 = plot.plotData[position.y][position.x + 1].x + this.rectPadding;
             } else {
                 // we're on the after one, use this and prev
-                this.x1 = this.plot.plotData[position.y][position.x - 1].x - this.rectPadding;
-                this.x2 = this.plot.plotData[position.y][position.x].x + this.rectPadding;
+                this.x1 = plot.plotData[position.y][position.x - 1].x - this.rectPadding;
+                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
             }
-            this.y1 = this.plot.plotData[position.y][position.x].y - this.rectPadding;
-            this.y2 = this.plot.plotData[position.y][position.x].y + this.rectPadding;
+            this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
+            this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
 
-        } else if ( this.plot.plotData[position.y][position.x].type == 'range' ) {
+        } else if ( plot.plotData[position.y][position.x].type == 'range' ) {
 
             // we have 3 points, and do the middle one as just that midpoint line
             // which one are we on though? look up and down
             var whichRange = 'middle' ; 
             if ( position.x > 0 ) {
-                if ( this.plot.plotData[position.y][position.x - 1].type != 'range' ) {
+                if ( plot.plotData[position.y][position.x - 1].type != 'range' ) {
                     whichRange = 'first';
                 }
             } else {
                 whichRange = 'first';
             }
-            if ( position.x < this.plot.plotData[position.y].length - 2 ) {
-                if ( this.plot.plotData[position.y][position.x + 1].type != 'range' ) {
+            if ( position.x < plot.plotData[position.y].length - 2 ) {
+                if ( plot.plotData[position.y][position.x + 1].type != 'range' ) {
                     whichRange = 'last';
                 }
             } else {
@@ -264,26 +268,26 @@ class BoxplotRect {
             }
 
             if ( whichRange == 'first' ) {
-                this.x1 = this.plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = this.plot.plotData[position.y][position.x + 1].x + this.rectPadding;
+                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
+                this.x2 = plot.plotData[position.y][position.x + 1].x + this.rectPadding;
             } else if ( whichRange == 'middle' ) {
-                this.x1 = this.plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = this.plot.plotData[position.y][position.x].x + this.rectPadding;
+                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
+                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
             } else if ( whichRange == 'last' ) {
-                this.x1 = this.plot.plotData[position.y][position.x - 1].x - this.rectPadding;
-                this.x2 = this.plot.plotData[position.y][position.x].x + this.rectPadding;
+                this.x1 = plot.plotData[position.y][position.x - 1].x - this.rectPadding;
+                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
             }
 
             // we have no yMax, but whiskers and outliers have a midpoint, so we use that
             var midpoint = 0;
-            for ( var i = 0 ; i < this.plot.plotData[position.y].length ; i++ ) {
-                if ( this.plot.plotData[position.y][i].type != "range" ) {
-                    midpoint = this.plot.plotData[position.y][i].y;
+            for ( var i = 0 ; i < plot.plotData[position.y].length ; i++ ) {
+                if ( plot.plotData[position.y][i].type != "range" ) {
+                    midpoint = plot.plotData[position.y][i].y;
                 }
             }
             // y1 and midpoint to get y2
-            var height = ( midpoint - this.plot.plotData[position.y][position.x].y ) * 2;
-            this.y1 = this.plot.plotData[position.y][position.x].y;
+            var height = ( midpoint - plot.plotData[position.y][position.x].y ) * 2;
+            this.y1 = plot.plotData[position.y][position.x].y;
             this.y2 = this.y1 + height;
 
 
@@ -299,9 +303,9 @@ class BoxplotRect {
 
         if ( constants.debugLevel > 3 ) {
             console.log(
-                "Point", this.plot.plotData[position.y][position.x].type, 
-                "x:", this.plot.plotData[position.y][position.x].x, 
-                "y:", this.plot.plotData[position.y][position.x].y);
+                "Point", plot.plotData[position.y][position.x].type, 
+                "x:", plot.plotData[position.y][position.x].x, 
+                "y:", plot.plotData[position.y][position.x].y);
             console.log(
                 "x1:", this.x1, 
                 "y1:", this.y1, 
