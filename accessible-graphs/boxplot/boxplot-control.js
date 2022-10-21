@@ -1,7 +1,9 @@
 
-var currentPosition = {'x': -1, 'y': -1};
-var rect;
-var showRect = 1; // todo: put in constants and user controls
+// was Controls, but actual controls are done in main(), so this is more user data
+class User {
+    currentPosition = {'x': -1, 'y': -1};
+    rect;
+}
 
 document.addEventListener('DOMContentLoaded', function(e) {
     svg_container.addEventListener("keydown", function (e) {
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
 
 });
 
+// 
 function UpdateRect() {
 
     const rectPadding = 15; // px
