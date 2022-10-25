@@ -1,19 +1,35 @@
-// get x and y axes information
-// use regular expressions
 
-// barplot.svg
-// const bars = ["geom_rect.rect.56.1.1", "geom_rect.rect.56.1.2", "geom_rect.rect.56.1.3", "geom_rect.rect.56.1.4", "geom_rect.rect.56.1.5", "geom_rect.rect.56.1.6", "geom_rect.rect.56.1.7"];
-// const x_axes = ["GRID.text.70.1.1.tspan.1", "GRID.text.70.1.2.tspan.1", "GRID.text.70.1.3.tspan.1", "GRID.text.70.1.4.tspan.1", "GRID.text.70.1.5.tspan.1", "GRID.text.70.1.6.tspan.1", "GRID.text.70.1.7.tspan.1"];
+class Constants {
 
-// barplot.diamonds_gridSVG.svg
-const svg = document.getElementById("svg");
-const plotType = document.getElementById('chart-container').getAttribute('data-plottype');
+    // basic chart properties
+    minX = 0;
+    maxX = 0;
+    plotId = 'geom_boxplot.gTree.68.1';
+    svg_container = document.getElementById("svg-container");
+    svg = document.querySelector("#svg-container > svg");
+    chartType = ""; // set as 'boxplot' or whatever later
 
-if ( plotType == "bar" ) {
-    const bars = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
-    const x_axes = ["GRID.text.16.1.1.text", "GRID.text.16.1.2.text", "GRID.text.16.1.3.text", "GRID.text.16.1.4.text", "GRID.text.16.1.5.text"];
+    // basic audio properties
+    MAX_FREQUENCY = 1000;
+    MIN_FREQUENCY = 100;
+
+    // user controls
+    duration = .3;
+    vol = .5;
+    audioPlay = 1; // true / false
+    showRect = 1;  // true / false
+
+    // debug stuff
+    debugLevel = 5; // 0 = no console output, 1 = some console, 2 = more console, etc
 }
 
+<<<<<<< HEAD
+class Position {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+=======
 // temp use so that barplot still works
 const bars = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
 const x_axes = ["GRID.text.16.1.1.text", "GRID.text.16.1.2.text", "GRID.text.16.1.3.text", "GRID.text.16.1.4.text", "GRID.text.16.1.5.text"];
@@ -43,19 +59,17 @@ if (y_val != null) {
     y_values = height;
     ymin = Math.min(...height);
     ymax = Math.max(...height);
+>>>>>>> main
 }
 
-const _numBars = bars.length;
+// HELPER FUNCTIONS
+class Helper {
 
-const MAX_FREQUENCY = 1000;
-const MIN_FREQUENCY = 100;
-
-const range = (ymax - ymin) / 4;
-
-function getHeight(item) {
-    return document.getElementById(item).getAttribute('height');
+    static containsObject(obj, arr) {
+        for ( let i = 0 ; i < arr.length ; i++ ) {
+            if ( arr[i] === obj ) return true;
+        }
+        return false;
+    }
 }
 
-function getX(item) {
-    return document.getElementById(item).innerHTML;
-}
