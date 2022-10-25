@@ -8,6 +8,13 @@ var svg_height = parseFloat((svg.getAttribute('height')).slice(0, -2));
 var square_height = document.getElementById(squares[0]).getAttribute('height');
 
 svg_container.addEventListener("keydown", function (e) {
+    // spacebar for text
+    if (e.which == 32) {
+        if (enableDisplay) {
+            displayValues(curr_row, curr_col);
+        }
+    }
+    
     // right arrow 39
     if (e.which === 39) {
         if (curr_col == -1 && curr_row == -1) {
@@ -49,6 +56,7 @@ svg_container.addEventListener("keydown", function (e) {
         }
     }
 
+    // t toggle 
     if (e.which == 84) {
         if (enableDisplay) {
             infoDiv.style.display = "none";
