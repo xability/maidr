@@ -1,6 +1,6 @@
 // get heatmap svg and rect componenets
 const svg = document.getElementById("heatmap-svg");
-const svg_container = document.getElementById("heatmap-svg-container");
+const svg_container = document.getElementById("svg-container");
 const squares = ["geom_rect.rect.2.1.1", "geom_rect.rect.2.1.2", "geom_rect.rect.2.1.3", "geom_rect.rect.2.1.4", "geom_rect.rect.2.1.5"];
 
 var x_categories = ["Biscoe", "Dream", "Torgersen"];
@@ -54,7 +54,7 @@ var norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
 for (var i = 0; i < squares.length; i++) {
     var x_index = unique_x_coord.indexOf(x_coord_check[i]);
     var y_index = unique_y_coord.indexOf(y_coord_check[i]);
-    // present[y_index][x_index] = 1;
+
     x_coord[y_index][x_index] = x_coord_check[i];
     y_coord[y_index][x_index] = y_coord_check[i];
     norms[y_index][x_index] = rgb_norms[i];

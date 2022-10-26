@@ -11,12 +11,12 @@
     <p>Tab to select the heatmap. Press right arrow to start. Use up, down, left and right arrows to navigate the graph.
         Press spacebar to hear the sound of a certain bar again.</p>
 
-    <div id="heatmap-container" tabindex="0">
-        <div id="heatmap-braille-div" tabindex="0">
-            <p id="heatmap-braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
+    <div id="container" tabindex="0">
+        <div id="braille-div" tabindex="0">
+            <p id="braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
         </div>
 
-        <div id="heatmap-svg-container" tabindex="0">
+        <div id="svg-container" tabindex="0">
             <?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="672px"
                 height="672px" viewBox="0 0 672 672" version="1.1" id="heatmap-svg">
@@ -783,11 +783,9 @@
                 </g>
             </svg>
             <div id="info" aria-atomic="true" aria-live="assertive"> 
-                <p id="z-val"></p> 
-                <p id="x-cat"></p>
-                <p id="y-cat"></p>
-                <p id="x-coord"></p>
-                <p id="y-coord"></p>
+                <p id="category">
+                <p id="coord"></p></p>
+                <p id="z-val"></p>
                 </div>
         </div>
     </div>
