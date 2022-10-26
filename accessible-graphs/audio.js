@@ -66,6 +66,13 @@ class Audio {
                 let freq2 = frequency / 2;
                 this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
             }
+        } else if ( constants.chartType == "heatmap" ) {    // Added heatmap tone feature
+            let freq = plot.plotData[2][position.x][position.y];
+            if (freq != 0) {
+                this.playOscillator(freq, currentDuration, panning, constants.vol, 'sine');
+            } else {
+                this.playOscillator(frequency / 2, currentDuration, panning, constants.vol/4, 'square');
+            }
         }
 
     }
