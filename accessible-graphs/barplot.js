@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     window.constants = new Constants(); 
     constants.plotId = 'geom_rect.rect.2.1';
-    constants.x_axes = ["GRID.text.16.1.1.text", "GRID.text.16.1.2.text", "GRID.text.16.1.3.text", "GRID.text.16.1.4.text", "GRID.text.16.1.5.text"]; // todo: this needs to be automated later
     window.position = new Position(-1, -1);
     window.plot = new BarChart();
     constants.chartType = "barchart";
@@ -16,56 +15,134 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     let audio = new Audio();
     let display = new Display();
 
+    constants.svg_container.focus();
+
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
-        // right arrow 39
-        if (e.which === 39) {
+        let updateInfoThisRound = false; // we only update info and play tones on certain keys
+
+        if (e.which === 39) { // right arrow 39
+            if ( e.ctrlKey ) { 
+                if ( e.shiftKey ) {
+                    // todo: autoplay to the right
+                } else {
+                    position.x = plot.bars.length - 1; // go all the way
+                }
+            } else {
+                position.x += 1;
+            }
+            updateInfoThisRound = true;
+        }
+        if (e.which === 37) { // left arrow 37
+            if ( e.ctrlKey ) { 
+                if ( e.shiftKey ) {
+                    // todo: autoplay to the left
+                } else {
+                    position.x = 0; // go all the way
+                }
+            } else {
+                position.x += -1;
+            }
+            updateInfoThisRound = true;
+        }
+        if (e.which === 32) { // space 32, replay info but no other changes
+            updateInfoThisRound = true;
+        }
+
+        lockPosition();
+
+        // update display / text / audio
+        if ( updateInfoThisRound ) {
+            if ( constants.showDisplay ) {
+                display.displayValues(plot); 
+            }
+            if ( constants.showRect ) {
+                plot.Select(); 
+            }
+            if ( constants.audioPlay ) {
+                audio.playTone();
+            }
+        }
+
+    });
+
+    constants.brailleInput.addEventListener("keydown", function (e) {
+        // We block all input, except if it's B or Tab so we move focus
+        
+        let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        
+        if ( e.which == 9 ) { // tab
+            // do nothing, let the user Tab away 
+        } else if ( e.which == 39 ) { // right arrow
+            // update position to match cursor
             position.x += 1;
-        }
-        // left arrow 37
-        if (e.which === 37) {
+            updateInfoThisRound = true;
+        } else if ( e.which == 37 ) { // left arrow
+            // update position to match cursor
             position.x += -1;
+            updateInfoThisRound = true;
+        } else {
+            e.preventDefault();
         }
 
-        // lock to min / max postions
-        if ( position.x < 0 ) {
-            position.x = 0;
-        }
-        if ( position.x > plot.bars.length - 1 ) {
-            position.x = plot.bars.length - 1;
+        lockPosition();
+
+        // update display / text / audio
+        if ( updateInfoThisRound ) {
+            // todo: should we play tones or text?
+
+            if ( constants.showDisplay ) {
+                //display.displayValues(plot); 
+            }
+            if ( constants.showRect ) {
+                plot.Select(); 
+            }
+            if ( constants.audioPlay ) {
+                //audio.playTone();
+            }
         }
 
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
+    });
+
+    document.addEventListener("keydown", function (e) {
 
         // B: braille mode
         if ( e.which == 66 ) {
             display.toggleBrailleMode();
+            e.preventDefault();
         }
-
-        // update display and audio
-        if ( constants.showRect ) {
-            plot.Select(); 
-            display.displayValues(); 
-            //rect.UpdateRect(); // todo, convert
+        // T: aria live text output mode
+        if (e.which == 84) {
+            display.toggleTextMode();
         }
-        if ( constants.audioPlay > 0 ) {
-            audio.playTone();
+        // S: sonification mode
+        if (e.which == 83) {
+            display.toggleSonificationMode();
         }
 
     });
+
 });
+
+function lockPosition() {
+    // lock to min / max postions
+    if ( position.x < 0 ) {
+        position.x = 0;
+    }
+    if ( position.x > plot.bars.length - 1 ) {
+        position.x = plot.bars.length - 1;
+    }
+}
 
 class BarChart {
 
     constructor() {
         this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
         this.plotData = this.GetData();
+        this.plotColumns = this.GetColumns();
 
         constants.maxX = this.bars.length - 1;
-        constants.maxY = constants.svg.getAttribute('height'); // set max height as entire chart height, not max across all bars
+        constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g,'')); // set max height as entire chart height, not max across all bars
     }
 
     GetData() {
@@ -78,6 +155,19 @@ class BarChart {
         }
 
         return plotData;
+    }
+
+    GetColumns() {
+        // get column names
+        // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
+
+        let plotColumns = [];
+        let els = document.querySelectorAll('tspan[dy="10"]');
+        for ( var i = 0 ; i < els.length ; i++ ) {
+            plotColumns.push(els[i].innerHTML);
+        }
+
+        return plotColumns;
     }
 
     Select() {

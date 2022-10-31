@@ -3,9 +3,9 @@ class Display {
 
     constructor() {
         this.infoDiv = constants.infoDiv;
-        this.infoVerbose = constants.infoVerbose;
+        //this.infoVerbose = constants.infoVerbose;
 
-        this.braille = this.GetBraille();
+        this.SetBraille(plot);
 
         this.x = {};
         this.x.id = "x";
@@ -20,70 +20,75 @@ class Display {
     toggleTextMode() {
         if (constants.textMode == "off" ) {
             constants.textMode = "terse";
-
-            this.infoDiv.style.display = "block";
-            this.infoVerbose.style.display = "none";
         } else if ( constants.textMode == "terse" ) {
             constants.textMode = "verbose";
-
-            this.infoDiv.style.display = "block";
-            this.infoVerbose.style.display = "block";
         } else if ( constants.textMode == "verbose" ) {
             constants.textMode = "off";
-
-            this.infoDiv.style.display = "none";
-            this.infoVerbose.style.display = "none";
         }
 
-        announceText(constants.textMode);
+        this.announceText('<span aria-hidden="true">Text mode:</span> ' + constants.textMode);
     }
 
     toggleBrailleMode() {
         if ( constants.brailleMode == "off" ) {
             constants.brailleMode = "on";
+            constants.brailleInput.classList.remove('hidden');
+            constants.brailleInput.focus();
+            constants.brailleInput.setSelectionRange(position.x, position.x);
         } else {
             constants.brailleMode = "off";
+            constants.brailleInput.classList.add('hidden');
+            constants.svg_container.focus();
         }
 
-        announceText("braille " + constants.brailleMode);
+        this.announceText("Braille " + constants.brailleMode);
+    }
+
+    toggleSonificationMode() {
+        if ( constants.audioPlay ) {
+            constants.audioPlay = 0;
+            this.announceText("Sonification off");
+        } else {
+            constants.audioPlay = 1;
+            this.announceText("Sonification on");
+        }
+
     }
 
     announceText(txt) {
         constants.announceContainer.innerHTML = txt;
     }
 
-    displayValues(num) {
-        //this.document.getElementById("x").innerHTML = "x-value: " + x_values[num];
-        //this.document.getElementById("y").innerHTML = "y-value: " + y_values[num];
+
+    displayValues(plot) {
+        // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
+        // note: we do this all as one string rather than altering seperate IDs partially so that aria-live receives a single update
+
+        let output = "";
+        if ( constants.chartType == "barchart" ) {
+            if ( constants.textMode == "off" ) {
+                // do nothing :D
+            } else if ( constants.textMode == "terse" ) {
+                // value only
+                output += '<p>' + plot.plotData[position.x] + '</p>\n';
+            } else if ( constants.textMode == "verbose" ) {
+                // col name and value
+                output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
+            }
+        }
+
+        constants.infoDiv.innerHTML = output;
     }
 
-    displayRow() {
-        // this.document.getElementById("category").innerHTML = "island " + y_categories[row];
-        // this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-
-    displayCol() {
-        // this.document.getElementById("category").innerHTML = "species " + x_categories[col];
-        // this.document.getElementById("coord").innerHTML = "column " + (col + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-
-    displayAll() {
-        // this.document.getElementById("category").innerHTML = "island " + x_categories[col] + " species " + y_categories[row];
-        // this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString() + " column " + (col + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-
-    GetBraille() {
-        let range = (constants.minX + constants.maxX) / 3;
-    
-        let low = constants.minX + range;
-        let medium = low + range;
-        let high = medium + range;
+    SetBraille(plot) {
 
         let brailleArray = [];
+
         if ( constants.chartType == "heatmap" ) {
+            let range = (constants.minX + constants.maxX) / 3;
+            let low = constants.minX + range;
+            let medium = low + range;
+            let high = medium + range;
             for (let i = 0; i < plot.plotData[1].length; i++) {
                 for (let j = 0; j < plot.plotData[0].length; j++) {
                     if (norms[i][j] == 0) {
@@ -99,15 +104,25 @@ class Display {
                 brailleArray.push("⠳");
             }
         } else if ( constants.chartType == "barchart" ) {
-            for ( let i = 0 ; i < constants.maxX ; i++ ) {
-                // todo
+            let range = ( ( constants.minY + constants.maxY ) / 4 ) + constants.minY ;
+            for ( let i = 0 ; i < plot.plotData.length; i++ ) {
+                if ( plot.plotData[i] < range ) {
+                    brailleArray.push("⣀");
+                } else if ( plot.plotData[i] < range * 2 ) {
+                    brailleArray.push("⠤");
+                } else if ( plot.plotData[i] < range * 3 ) {
+                    brailleArray.push("⠒");
+                } else {
+                    brailleArray.push("⠉");
+                }
             }
         }
 
-        return brailleArray.join("");
-    }
+        if ( constants.debugLevel > 1 ) {
+            console.log(brailleArray.join(''));
+        }
 
-    enableDisplay() {
-        document.getElementById("braille-display").innerHTML = this.braille;
+
+        constants.brailleInput.value = brailleArray.join("");
     }
 }

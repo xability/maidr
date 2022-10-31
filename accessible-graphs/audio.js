@@ -37,10 +37,10 @@ class Audio {
         if ( constants.chartType == "boxplot" ) {
             thisX = plot.plotData[position.y][position.x].x;
         } else if ( constants.chartType == "barchart" ) {
-            thisX = position.x;
+            thisX = plot.plotData[position.x];
         }
-        let frequency = this.SlideBetween(thisX, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
-        if ( constants.debugLevel > 3 ) {
+        let frequency = this.SlideBetween(thisX, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+        if ( constants.debugLevel > 4 ) {
             console.log('will play tone at freq', frequency);
             console.log('based on', constants.minX, '<', thisX, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }

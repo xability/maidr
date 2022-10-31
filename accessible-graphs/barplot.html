@@ -13,8 +13,7 @@
 
         <div id="container" tabindex="0" data-plottype="bar">
             <div id="braille-div" tabindex="0">
-                <!-- <p id="braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p> -->
-                <input id="braille-input" style="font-size: 200%; border: none; outline: none; resize: none;" autofocus type="text" />
+                <input id="braille-input" class="braille-input hidden" autofocus type="text" />
             </div>
 
             <!-- barplot_diamonds_gridSVG.svg -->
@@ -405,7 +404,7 @@
                 <p id="x"></p>
                 <p id="y"></p>
             </div>
-            <div id="announcements" aria-live="assertive" aria-atomic="true" class="sr-only">
+            <div id="announcements" aria-live="assertive" aria-atomic="true">
             </div>
         </div>
         <script src="constants.js"></script>

@@ -30,3 +30,10 @@
 .hidden {
     display:none;
 }
+
+.braille-input {
+    font-size: 200%;
+    border: none;
+    resize: none;
+    padding: 5px;
+}
