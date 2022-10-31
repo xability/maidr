@@ -33,13 +33,17 @@ class Audio {
         let currentDuration = constants.duration;
 
         // freq goes between min / max as x goes between min(0) / max
-        let thisX = plot.plotData[position.y][position.x].x;
-        let frequency = this.SlideBetween(thisX, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
-        if ( constants.debugLevel > 0 ) {
-            console.log('will play tone at freq', frequency);
-            console.log('based on', constants.minX, '<', thisX, '<', constants.maxX, ' | min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+        let thisX = 0;
+        if ( constants.chartType == "boxplot" ) {
+            thisX = plot.plotData[position.y][position.x].x;
+        } else if ( constants.chartType == "barchart" ) {
+            thisX = plot.plotData[position.x];
         }
-
+        let frequency = this.SlideBetween(thisX, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+        if ( constants.debugLevel > 4 ) {
+            console.log('will play tone at freq', frequency);
+            console.log('based on', constants.minX, '<', thisX, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+        }
 
         if ( constants.chartType == "boxplot" ) {
             // different types of sounds for different regions. 
@@ -55,7 +59,7 @@ class Audio {
                 currentDuration = constants.duration * 2;
             }
         }
-        let panning = this.SlideBetween(plot.plotData[position.y][position.x].x, constants.minX, constants.maxX, -1, 1);
+        let panning = this.SlideBetween(thisX, constants.minX, constants.maxX, -1, 1);
 
         // create tones
         this.playOscillator(frequency, currentDuration, panning, constants.vol, 'sine');

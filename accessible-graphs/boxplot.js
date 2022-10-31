@@ -1,7 +1,4 @@
 
-// **********************************************************************
-// ******************* MAIN FUNCTIONS ***********************************
-// **********************************************************************
 // 
 // This is the main boxplotscript. 
 // It handles all customization for this chart, controls everything,
@@ -13,32 +10,30 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     // variable initialization
 
-    // A few global variables, so sorry
     window.constants = new Constants(); 
+    constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
-    window.plot = new BoxPlot(constants.plotId);
-
-    // setup for this chart
+    window.plot = new BoxPlot();
     constants.chartType = "boxplot";
     let rect = new BoxplotRect();
     let audio = new Audio();
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
-        // right arrow 39
+        // right arrow 
         if (e.which === 39) {
             position.x += 1;
         }
-        // left arrow 37
+        // left arrow 
         if (e.which === 37) {
             position.x += -1;
         }
-        // up arrow 38
+        // up arrow 
         if (e.which === 38) {
             position.y += 1;
             position.x = 0;
         }
-        // down arrow 40
+        // down arrow 
         if (e.which === 40) {
             position.y += -1;
             position.x = 0;
@@ -73,19 +68,20 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 // This initializes and contains the JSON data model for this chart
 class BoxPlot {
 
-    constructor(plotId) {
-        this.plotData = this.GetBoxData(plotId); // main json data
+    constructor() {
+        this.plotData = this.GetData(); // main json data
     }
 
-    GetBoxData(id) {
+    GetData() {
         // data in svg is formed as nested <g> elements. Loop through and get all point data
         // goal is to get bounding x values and type (outlier, whisker, range)
+
+        let plotData = [];
+        let id = constants.plotId;
 
         if ( constants.debugLevel > 0 ) {
             document.getElementById(id).setAttribute("data-debug", "MAINCONTAINERHERE");
         }
-
-        let plotData = [];
 
         let plots = document.getElementById(id).children;
         for ( let i = 0 ; i < plots.length ; i++ ) {
@@ -147,7 +143,7 @@ class BoxPlot {
     }
 
     GetBoxplotSegmentType(sectionId) {
-        // Helper function for main GetBoxData:
+        // Helper function for main GetData:
         // Fetch type, which comes from section id:
         // geom_polygon = range
         // GRID = whisker
@@ -165,7 +161,7 @@ class BoxPlot {
         return segmentType;
     }
     GetBoxplotSegmentPoints(segment, segmentType) {
-        // Helper function for main GetBoxData:
+        // Helper function for main GetData:
         // Fetch x and y point data from svg
 
         let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;

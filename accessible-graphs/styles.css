@@ -1,0 +1,39 @@
+
+.sr-only {
+    clip: rect(1px, 1px, 1px, 1px);
+    clip-path: inset(50%);
+    height: 1px;
+    width: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+} 
+
+#skip a
+{
+    position:absolute;
+    left:-10000px;
+    top:auto;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+}
+
+#skip a:focus
+{
+    position:static;
+    width:auto;
+    height:auto;
+}
+
+.hidden {
+    display:none;
+}
+
+.braille-input {
+    font-size: 200%;
+    border: none;
+    resize: none;
+    padding: 5px;
+}
