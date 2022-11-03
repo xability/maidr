@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     let audio = new Audio();
     let display = new Display();
 
-    constants.svg_container.focus();
+    //constants.svg_container.focus();
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -89,16 +89,15 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
         // update display / text / audio
         if ( updateInfoThisRound ) {
-            // todo: should we play tones or text?
 
             if ( constants.showDisplay ) {
-                //display.displayValues(plot); 
+                display.displayValues(plot); 
             }
             if ( constants.showRect ) {
                 plot.Select(); 
             }
             if ( constants.audioPlay ) {
-                //audio.playTone();
+                audio.playTone();
             }
         }
 
