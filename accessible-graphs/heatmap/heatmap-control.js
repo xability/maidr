@@ -118,13 +118,13 @@ function select(rect, row, col) {
 }
 
 function displayRowValues(row, col) {
-    this.document.getElementById("category").innerHTML = "island " + y_categories[row];
+    this.document.getElementById("category").innerHTML = "species " + y_categories[row];
     this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString();
     this.document.getElementById("z-val").innerHTML = z_values[row][col];
 }
 
 function displayColValues(row, col) {
-    this.document.getElementById("category").innerHTML = "species " + x_categories[col];
+    this.document.getElementById("category").innerHTML = "island " + x_categories[col];
     this.document.getElementById("coord").innerHTML = "column " + (col + 1).toString();
     this.document.getElementById("z-val").innerHTML = z_values[row][col];
 }

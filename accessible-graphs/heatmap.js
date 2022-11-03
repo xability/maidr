@@ -11,8 +11,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
     let audio = new Audio();
-    let display = new InfoDisplay();
-    let braille = new Braille();
+    let display = new Display();
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -193,64 +192,5 @@ class HeatMapRect {
         rect.setAttribute('stroke-width', this.rectStrokeWidth);
         rect.setAttribute('fill', 'none');
         constants.svg.appendChild(rect);
-    }
-}
-
-class InfoDisplay {
-    // need to know how to extract info from another table file
-
-    displayRow() {
-        // this.document.getElementById("category").innerHTML = "island " + y_categories[row];
-        // this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-
-    displayCol() {
-        // this.document.getElementById("category").innerHTML = "species " + x_categories[col];
-        // this.document.getElementById("coord").innerHTML = "column " + (col + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-
-    displayAll() {
-        // this.document.getElementById("category").innerHTML = "island " + x_categories[col] + " species " + y_categories[row];
-        // this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString() + " column " + (col + 1).toString();
-        // this.document.getElementById("z-val").innerHTML = z_values[row][col];
-    }
-}
-
-class Braille {
-
-    constructor() {
-        this.braille = GetBraille();
-    }
-
-    GetBraille() {
-        let range = (constants.minX + constants.maxX) / 3;
-    
-        let low = constants.minX + range;
-        let medium = low + range;
-        let high = medium + range;
-
-        let brailleArray = [];
-        for (let i = 0; i < plot.plotData[1].length; i++) {
-            for (let j = 0; j < plot.plotData[0].length; j++) {
-                if (norms[i][j] == 0) {
-                    brailleArray.push("⠀");
-                } else if (norms[i][j] <= low) {
-                    brailleArray.push("⠤");
-                } else if (norms[i][j] <= medium) {
-                    brailleArray.push("⠒");
-                } else if (norms[i][j] <= high) {
-                    brailleArray.push("⠉");
-                }
-            }
-            brailleArray.push("⠳");
-        }
-
-        return brailleArray.join("");
-    }
-
-    enableDisplay() {
-        document.getElementById("braille-display").innerHTML = this.braille;
     }
 }
