@@ -1,7 +1,7 @@
 // get div that displays braille
-const barContainer = document.getElementById("heatmap-container");
-const brailleDiv = document.getElementById("heatmap-braille-div");
-const brailleDisplay = document.getElementById("heatmap-braille-display");
+const barContainer = document.getElementById("container");
+const brailleDiv = document.getElementById("braille-div");
+const brailleDisplay = document.getElementById("braille-display");
 
 var low = ymin + range;
 var medium = low + range;
@@ -17,8 +17,8 @@ var high = medium + range;
 // }
 
 var brailleArray = [];
-for (var i = 0; i < unique_x_coord.length; i++) {
-    for (var j = 0; j < unique_x_coord[0].length; j++) {
+for (var i = 0; i < unique_y_coord.length; i++) {
+    for (var j = 0; j < unique_x_coord.length; j++) {
         if (norms[i][j] == 0) {
             brailleArray.push("⠀");
         } else if (norms[i][j] <= low) {
@@ -45,10 +45,10 @@ barContainer.addEventListener("keydown", function (e) {
     if (e.which == 66) {
         if (display) {
             brailleDiv.style.display = "none";
-            brailleDiv.focus();
+            // brailleDiv.focus();
         } else {
             brailleDiv.style.display = "block";
-            // brailleDiv.focus();
+            brailleDiv.focus();
         }
         display = !display;
     }

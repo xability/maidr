@@ -1,5 +1,12 @@
 
 class Constants {
+    // default constructor for boxplot
+    constructor() {}
+
+    // we have diff id names for diff plots
+    constructor(plotId) {
+        this.plotId = plotId;
+    }
 
     // basic chart properties
     minX = 0;
@@ -18,14 +25,19 @@ class Constants {
     //infoVerbose = document.getElementById("verbose_info"); 
     announceContainer = document.getElementById('announcements');
 
+    // added features for info display and braille display
+    info_container = document.getElementById("info");
+    braille_container = document.getElementById("braille-div");
+
     // basic audio properties
     MAX_FREQUENCY = 1000;
     MIN_FREQUENCY = 100;
 
     // user controls
-    duration = .3;
+    duration = .3
     vol = .5;
     showRect = 1;  // true / false
+
     showDisplay = 1; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off" ; // on / off

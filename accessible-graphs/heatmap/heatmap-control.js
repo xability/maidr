@@ -1,6 +1,7 @@
 var curr_row = -1;
 var curr_col = -1;
-var enableDisplay = true;
+var verbose = false;
+var enableRead = true;
 var infoDiv = document.getElementById("info");
 
 var rect;
@@ -10,22 +11,26 @@ var square_height = document.getElementById(squares[0]).getAttribute('height');
 svg_container.addEventListener("keydown", function (e) {
     // spacebar for text
     if (e.which == 32) {
-        if (enableDisplay) {
+        if (verbose) {
             displayValues(curr_row, curr_col);
         }
     }
-    
+
     // right arrow 39
     if (e.which === 39) {
         if (curr_col == -1 && curr_row == -1) {
             curr_col++;
             curr_row++;
             rect = createSquare();
-            displayValues(curr_row, curr_col);
+            displayColValues(curr_row, curr_col);
         } else if (curr_col > -1 && curr_col < num_cols - 1) {
             curr_col++;
             select(rect, curr_row, curr_col);
-            displayValues(curr_row, curr_col);
+            if (verbose) {
+                displayValues(curr_row, curr_col);
+            } else {
+                displayColValues(curr_row, curr_col);
+            }
         }
     }
 
@@ -34,7 +39,11 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_col > 0 && curr_col < num_cols) {
             curr_col--;
             select(rect, curr_row, curr_col);
-            displayValues(curr_row, curr_col);
+            if (verbose) {
+                displayValues(curr_row, curr_col);
+            } else {
+                displayColValues(curr_row, curr_col);
+            }
         }
     }
 
@@ -43,7 +52,11 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_row > 0 && curr_row < num_rows) {
             curr_row--;
             select(rect, curr_row, curr_col);
-            displayValues(curr_row, curr_col);
+            if (verbose) {
+                displayValues(curr_row, curr_col);
+            } else {
+                displayRowValues(curr_row, curr_col);
+            }
         }
     }
 
@@ -52,18 +65,34 @@ svg_container.addEventListener("keydown", function (e) {
         if (curr_row > -1 && curr_row < num_rows - 1) {
             curr_row++;
             select(rect, curr_row, curr_col);
-            displayValues(curr_row, curr_col);
         }
     }
 
     // t toggle 
     if (e.which == 84) {
-        if (enableDisplay) {
-            infoDiv.style.display = "none";
+        // if (verbose) {
+        //     infoDiv.style.display = "none";
+        // } else {
+        //     infoDiv.style.display = "block";
+        // }
+        verbose = !verbose;
+    }
+
+    // should not read when toggle sound
+    if (e.which == 83) {
+        enableRead = !enableRead;
+    }
+
+    if (enableRead) {
+        if (!verbose && (e.which == 39 || e.which == 37)) {
+            displayColValues(curr_row, curr_col);
+        } else if (!verbose && (e.which == 38 || e.which == 40)) {
+            displayRowValues(curr_row, curr_col);
         } else {
-            infoDiv.style.display = "block";
+            displayValues(curr_row, curr_col);
         }
-        enableDisplay = !enableDisplay;
+    } else {
+        clearDisplay();
     }
 });
 
@@ -88,10 +117,26 @@ function select(rect, row, col) {
     rect.setAttribute('y', (svg_height - unique_y_coord[row] - square_height).toString());
 }
 
+function displayRowValues(row, col) {
+    this.document.getElementById("category").innerHTML = "species " + y_categories[row];
+    this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString();
+    this.document.getElementById("z-val").innerHTML = z_values[row][col];
+}
+
+function displayColValues(row, col) {
+    this.document.getElementById("category").innerHTML = "island " + x_categories[col];
+    this.document.getElementById("coord").innerHTML = "column " + (col + 1).toString();
+    this.document.getElementById("z-val").innerHTML = z_values[row][col];
+}
+
 function displayValues(row, col) {
-    this.document.getElementById("x-cat").innerHTML = "island: " + x_categories[col];
-    this.document.getElementById("y-cat").innerHTML = "species: " + y_categories[row];
-    this.document.getElementById("z-val").innerHTML = "n: " + z_values[row][col];
-    this.document.getElementById("x-coord").innerHTML = "row: " + (row + 1).toString();
-    this.document.getElementById("y-coord").innerHTML = "column: " + (col + 1).toString();
-  }
+    this.document.getElementById("category").innerHTML = "island " + x_categories[col] + " species " + y_categories[row];
+    this.document.getElementById("coord").innerHTML = "row " + (row + 1).toString() + " column " + (col + 1).toString();
+    this.document.getElementById("z-val").innerHTML = z_values[row][col];
+}
+
+function clearDisplay() {
+    this.document.getElementById("category").innerHTML = "";
+    this.document.getElementById("coord").innerHTML = "";
+    this.document.getElementById("z-val").innerHTML = "";
+}
