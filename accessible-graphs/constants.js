@@ -3,11 +3,6 @@ class Constants {
     // default constructor for boxplot
     constructor() {}
 
-    // we have diff id names for diff plots
-    constructor(plotId) {
-        this.plotId = plotId;
-    }
-
     // basic chart properties
     minX = 0;
     maxX = 0;
