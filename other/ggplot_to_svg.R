@@ -1,6 +1,8 @@
 # Load required packages
 library(gridSVG)
 library(ggplot2)
+library(gt)
+library(tidymodels)
 
 # Bar plot sample
 ggplot(mpg, aes(class)) +
@@ -20,8 +22,31 @@ gridSVG::grid.export("boxplot.svg")
 dev.off()
 
 # Scatter plot sample
-ggplot(data = mpg) +
-    geom_point(mapping = aes(x = displ, y = hwy), position = "jitter")
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+    geom_point(position = "jitter") +
+    geom_smooth(method = "lm", se = FALSE)
+
+library(tidymodels)
+lm_fit <- linear_reg() %>%
+    set_engine("lm") %>%
+    fit(hwy ~ displ, data = mpg)
+
+fit_tidy <- tidy(lm_fit$fit)
+
+fit_tidy %>%
+    gt()
+
+prediction <- augment(lm_fit$fit)$.fitted
+
+resid <- augment(lm_fit$fit)$.resid
+
+lm_df <- augment(lm_fit$fit)
+
+lm_df %>%
+    ggplot(aes(x = .resid)) +
+    geom_histogram()
+
+# Residual = actual y value - predicted y
 
 gridSVG::grid.export("scatterplot.svg")
 dev.off()
