@@ -36,15 +36,29 @@ fit_tidy <- tidy(lm_fit$fit)
 fit_tidy %>%
     gt()
 
+# Need to learn how sonify package draw a smoothed line
 prediction <- augment(lm_fit$fit)$.fitted
 
 resid <- augment(lm_fit$fit)$.resid
+
+jsonlite::toJSON(prediction) %>%
+    jsonlite::write_json("prediction_array.json")
+
+
+jsonlite::toJSON(resid) %>%
+    jsonlite::write_json("residual_array.json")
+
 
 lm_df <- augment(lm_fit$fit)
 
 lm_df %>%
     ggplot(aes(x = .resid)) +
     geom_histogram()
+
+
+gridSVG::grid.export("histogram_for_residual.svg")
+dev.off()
+
 
 # Residual = actual y value - predicted y
 
