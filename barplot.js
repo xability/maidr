@@ -63,8 +63,15 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             // do nothing, let the user Tab away 
         } else if ( e.which == 39 ) { // right arrow
             // update position to match cursor
-            position.x += 1;
-            updateInfoThisRound = true;
+            // don't let cursor move past the final braillecharacter or it'll desync and look weird
+            // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
+            if ( e.target.selectionStart > e.target.value.length - 2 ) 
+            {
+                e.preventDefault();
+            } else {
+                position.x += 1;
+                updateInfoThisRound = true;
+            }
         } else if ( e.which == 37 ) { // left arrow
             // update position to match cursor
             position.x += -1;
@@ -104,14 +111,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     });
 
-    constants.brailleInput.addEventListener('keyup', function(e) {
-        // don't let cursor move past the final braillecharacter or it'll desync and look weird
-        // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
-        if ( e.target.selectionStart > e.target.value.length - 2 ) 
-        {
-            let overwritePos = e.target.value.length - 1;
-            constants.brailleInput.setSelectionRange(overwritePos, overwritePos);
-        }
+    constants.brailleInput.addEventListener('keydown', function(e) {
     });
 
     function lockPosition() {
