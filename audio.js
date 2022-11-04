@@ -34,15 +34,18 @@ class Audio {
 
         // freq goes between min / max as x goes between min(0) / max
         let thisX = 0;
+        let thisY = 0;
         if ( constants.chartType == "boxplot" ) {
-            thisX = plot.plotData[position.y][position.x].x;
+            thisY = plot.plotData[position.y][position.x].x;
+            thisX = position.x; // todo: probably wrong, fix this
         } else if ( constants.chartType == "barchart" ) {
-            thisX = plot.plotData[position.x];
+            thisY = plot.plotData[position.x];
+            thisX = position.x;
         }
-        let frequency = this.SlideBetween(thisX, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+        let frequency = this.SlideBetween(thisY, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
         if ( constants.debugLevel > 4 ) {
             console.log('will play tone at freq', frequency);
-            console.log('based on', constants.minX, '<', thisX, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+            console.log('based on', constants.minX, '<', thisY, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }
 
         if ( constants.chartType == "boxplot" ) {

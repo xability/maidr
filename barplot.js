@@ -1,7 +1,4 @@
 
-// todo: save user data in cookies
-// todo: braille? add to boxplot as well
-
 document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
@@ -15,7 +12,9 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     let audio = new Audio();
     let display = new Display();
 
-    //constants.svg_container.focus();
+    if ( constants.debugLevel > 0 ) {
+        constants.svg_container.focus();
+    }
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -43,9 +42,6 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             } else {
                 position.x += -1;
             }
-            updateInfoThisRound = true;
-        }
-        if (e.which === 32) { // space 32, replay info but no other changes
             updateInfoThisRound = true;
         }
 
@@ -119,6 +115,28 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             display.toggleSonificationMode();
         }
 
+        if (e.which === 32) { // space 32, replay info but no other changes
+            if ( constants.showDisplay ) {
+                display.displayValues(plot); 
+            }
+            if ( constants.showRect ) {
+                plot.Select(); 
+            }
+            if ( constants.audioPlay ) {
+                audio.playTone();
+            }
+        }
+
+    });
+
+    constants.brailleInput.addEventListener('keyup', function(e) {
+        // don't let cursor move past the final braillecharacter or it'll desync and look weird
+        // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
+        if ( e.target.selectionStart > e.target.value.length - 2 ) 
+        {
+            let overwritePos = e.target.value.length - 1;
+            constants.brailleInput.setSelectionRange(overwritePos, overwritePos);
+        }
     });
 
 });
