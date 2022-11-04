@@ -40,6 +40,7 @@ class Constants {
     duration = .3
     vol = .5;
     showRect = 1;  // true / false
+    autoPlayRate = 500; // ms per tone
 
     showDisplay = 1; // true / false
     textMode = "terse"; // off / terse / verbose

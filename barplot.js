@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         if (e.which === 39) { // right arrow 39
             if ( e.ctrlKey ) { 
                 if ( e.shiftKey ) {
-                    // todo: autoplay to the right
+                    Autoplay('right');
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
                 }
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         if (e.which === 37) { // left arrow 37
             if ( e.ctrlKey ) { 
                 if ( e.shiftKey ) {
-                    // todo: autoplay to the left
+                    Autoplay('left');
                 } else {
                     position.x = 0; // go all the way
                 }
@@ -49,15 +49,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
         // update display / text / audio
         if ( updateInfoThisRound ) {
-            if ( constants.showDisplay ) {
-                display.displayValues(plot); 
-            }
-            if ( constants.showRect ) {
-                plot.Select(); 
-            }
-            if ( constants.audioPlay ) {
-                audio.playTone();
-            }
+            UpdateAll();
         }
 
     });
@@ -85,16 +77,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
         // update display / text / audio
         if ( updateInfoThisRound ) {
-
-            if ( constants.showDisplay ) {
-                display.displayValues(plot); 
-            }
-            if ( constants.showRect ) {
-                plot.Select(); 
-            }
-            if ( constants.audioPlay ) {
-                audio.playTone();
-            }
+            UpdateAll();
         }
 
     });
@@ -116,15 +99,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         }
 
         if (e.which === 32) { // space 32, replay info but no other changes
-            if ( constants.showDisplay ) {
-                display.displayValues(plot); 
-            }
-            if ( constants.showRect ) {
-                plot.Select(); 
-            }
-            if ( constants.audioPlay ) {
-                audio.playTone();
-            }
+            UpdateAll();
         }
 
     });
@@ -139,17 +114,52 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         }
     });
 
+    function lockPosition() {
+        // lock to min / max postions
+        if ( position.x < 0 ) {
+            position.x = 0;
+        }
+        if ( position.x > plot.bars.length - 1 ) {
+            position.x = plot.bars.length - 1;
+        }
+    }
+    function UpdateAll() {
+        if ( constants.showDisplay ) {
+            display.displayValues(plot); 
+        }
+        if ( constants.showRect ) {
+            plot.Select(); 
+        }
+        if ( constants.audioPlay ) {
+            audio.playTone();
+        }
+    }
+    function Autoplay(dir) {
+        let step = 1 ; // default right
+        if ( dir == "left" ) {
+            step = -1;
+        }
+
+        // clear old autoplay if exists
+        if ( this.autoplay != null ) {
+            clearInterval(this.autoplay);
+            this.autoplay = null;
+        }
+
+        this.autoplay = setInterval(function() {
+            position.x += step;
+            if ( position.x < 0 || plot.bars.length - 1 < position.x ) {
+                clearInterval(this.autoplay);
+                this.autoplay = null;
+                lockPosition();
+            } else {
+                UpdateAll();
+            }
+        }, constants.autoPlayRate);
+    }
+
 });
 
-function lockPosition() {
-    // lock to min / max postions
-    if ( position.x < 0 ) {
-        position.x = 0;
-    }
-    if ( position.x > plot.bars.length - 1 ) {
-        position.x = plot.bars.length - 1;
-    }
-}
 
 class BarChart {
 
@@ -160,6 +170,8 @@ class BarChart {
 
         constants.maxX = this.bars.length - 1;
         constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g,'')); // set max height as entire chart height, not max across all bars
+
+        this.autoplay = null;
     }
 
     GetData() {
@@ -197,6 +209,7 @@ class BarChart {
             this.bars[i].style.fill = constants.colorUnselected;
         }
     }
+
 
 }
 
