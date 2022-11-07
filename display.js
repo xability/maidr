@@ -3,7 +3,6 @@ class Display {
 
     constructor() {
         this.infoDiv = constants.infoDiv;
-        //this.infoVerbose = constants.infoVerbose;
 
         this.SetBraille(plot);
 
@@ -75,6 +74,26 @@ class Display {
                 // col name and value
                 output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
             }
+        } else if ( constants.chartType == "heatmap" ) {
+            // @TODO
+            // terse and verbose alternate between columns and rows
+            if ( constants.textMode == "off" ) {
+                // do nothing :D
+            } else if ( constants.textMode == "terse" ) {
+                // value only
+                if (constants.navigation == 1) { // column navigation
+                    output += '<p>' + plot.x_labels[position.x] + ' ' + plot.z[position.y][position.x] + '</p>\n';
+                } else { // row navigation
+                    output += '<p>' + plot.y_labels[position.y] + ' ' + plot.z[position.y][position.x] + '</p>\n';
+                }
+            } else if ( constants.textMode == "verbose" ) {
+                // col name and value
+                if (constants.navigation == 1) {
+                    output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
+                } else {
+                    output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
+                }
+            }
         }
 
         constants.infoDiv.innerHTML = output;
@@ -85,19 +104,19 @@ class Display {
         let brailleArray = [];
 
         if ( constants.chartType == "heatmap" ) {
-            let range = (constants.minX + constants.maxX) / 3;
-            let low = constants.minX + range;
+            let range = (constants.minY + constants.maxY) / 3;
+            let low = constants.minY + range;
             let medium = low + range;
             let high = medium + range;
-            for (let i = 0; i < plot.plotData[1].length; i++) {
-                for (let j = 0; j < plot.plotData[0].length; j++) {
-                    if (norms[i][j] == 0) {
+            for (let i = 0; i < plot.y_coord.length; i++) {
+                for (let j = 0; j < plot.x_coord.length; j++) {
+                    if (plot.values[i][j] == 0) {
                         brailleArray.push("⠀");
-                    } else if (norms[i][j] <= low) {
+                    } else if (plot.values[i][j] <= low) {
                         brailleArray.push("⠤");
-                    } else if (norms[i][j] <= medium) {
+                    } else if (plot.values[i][j] <= medium) {
                         brailleArray.push("⠒");
-                    } else if (norms[i][j] <= high) {
+                    } else if (plot.values[i][j] <= high) {
                         brailleArray.push("⠉");
                     }
                 }

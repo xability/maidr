@@ -24,13 +24,12 @@ class Constants {
     svg = document.querySelector("#svg-container > svg");
     brailleContainer = document.getElementById('braille-div');
     brailleInput = document.getElementById('braille-input');
-    infoDiv = document.getElementById("info"); 
-    //infoVerbose = document.getElementById("verbose_info"); 
+    infoDiv = document.getElementById("info");
     announceContainer = document.getElementById('announcements');
 
     // added features for info display and braille display
-    info_container = document.getElementById("info");
-    braille_container = document.getElementById("braille-div");
+    // info_container = document.getElementById("info");
+    // braille_container = document.getElementById("braille-div");
 
     // basic audio properties
     MAX_FREQUENCY = 1000;
@@ -48,6 +47,7 @@ class Constants {
     audioPlay = 1; // true / false
     colorUnselected = "rgb(89,89,89)";
     colorSelected = "rgb(3,200,9)";
+    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
