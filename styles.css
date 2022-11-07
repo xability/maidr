@@ -36,4 +36,5 @@
     border: none;
     resize: none;
     padding: 5px;
+    /* pointer-events: none; */
 }

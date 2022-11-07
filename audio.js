@@ -41,7 +41,11 @@ class Audio {
         } else if ( constants.chartType == "barchart" ) {
             thisY = plot.plotData[position.x];
             thisX = position.x;
+        } else if ( constants.chartType == "heatmap" ) {
+            thisY = plot.values[position.y][position.x];
+            thisX = position.x;
         }
+
         let frequency = this.SlideBetween(thisY, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
         if ( constants.debugLevel > 4 ) {
             console.log('will play tone at freq', frequency);
@@ -74,11 +78,10 @@ class Audio {
                 this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
             }
         } else if ( constants.chartType == "heatmap" ) {    // Added heatmap tone feature
-            let freq = plot.plotData[2][position.x][position.y];
-            if (freq != 0) {
-                this.playOscillator(freq, currentDuration, panning, constants.vol, 'sine');
+            if (thisY != 0) {
+                this.playOscillator(thisY, currentDuration, panning, constants.vol, 'sine');
             } else {
-                this.playOscillator(frequency / 2, currentDuration, panning, constants.vol/4, 'square');
+                this.playOscillator(frequency, currentDuration, panning, constants.vol/2, 'square');
             }
         }
 

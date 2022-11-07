@@ -12,72 +12,211 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
+        let updateInfoThisRound = false;
+
         // right arrow 39
         if (e.which === 39) {
-            position.x += 1;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.num_cols - 1;
+                }
+            } else {
+                position.x += 1;
+            }
+            updateInfoThisRound = true;
+            constants.navigation = 1;
         }
+
         // left arrow 37
         if (e.which === 37) {
-            position.x += -1;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
+                    Autoplay('left'); 
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x -= 1;
+            }
+            updateInfoThisRound = true;
+            constants.navigation = 1;
         }
+
         // up arrow 38
         if (e.which === 38) {
-            position.y += 1;
-            position.x = 0;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
+                    Autoplay('up');
+                } else {
+                    position.y = 0;
+                }
+            } else {
+                position.y -= 1;
+            }
+            updateInfoThisRound = true;
+            constants.navigation = 0;
         }
+
         // down arrow 40
         if (e.which === 40) {
-            position.y += -1;
-            position.x = 0;
-        }
-
-        // toggle verbose
-        if (e.which == 84) {
-            constants.verbose = !constants.verbose;
-        }
-
-        // toggle braille 
-        if (e.which == 66) {
-            constants.showBraille = !constants.showBraille;
-        }
-
-        // lock to min / max postions
-        if ( position.x < 1 ) {
-            position.x = 0;
-        }
-        if ( position.y < 1 ) {
-            position.y = 0;
-        }
-        if ( position.y > plot.plotData.length - 1 ) {
-            position.y = plot.plotData.length - 1;
-        }
-        if ( position.x > plot.plotData[position.y].length - 1) {
-            position.x = plot.plotData[position.y].length - 1;
-        }
-
-        if ( constants.showRect ) {
-            rect.UpdateRect();
-        }
-        if ( constants.audioPlay > 0 ) {
-            audio.playTone();
-        }
-        if ( constants.verbose > 0 ) {
-            display.displayAll();
-        } else {
-            if (e.which == 39 || e.which == 37) {
-                display.displayCol();
-            } else if (e.which == 38 || e.which == 40) {
-                display.displayRow();
+            if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
+                    Autoplay('down');
+                } else {
+                    position.y = plot.num_rows - 1;
+                }
+            } else {
+                position.y += 1;
             }
+            updateInfoThisRound = true;
+            constants.navigation = 0;
         }
-        if ( constants.showBraille > 0 ) {
-            constants.braille_container.style.display = "block";
-            constants.braille_container.focus();
+
+        lockPosition();
+
+        // update text, display, and audio
+        if (updateInfoThisRound) {
+            UpdateAll();
+        }
+    });
+
+
+    constants.brailleInput.addEventListener("keydown", function(e) {
+        let updateInfoThisRound = false;
+
+        // @TODO
+        // add manipulation of cursor for up and down keys
+        // very buggy braille display up and down keys are not working
+
+        if (e.which == 9) {
+        } else if (e.which == 39) { // right arrow
+            if ( e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart+1, e.target.selectionStart+2) == '⠳') {
+                e.preventDefault();
+            } else {
+                position.x += 1;
+            }
+            updateInfoThisRound = true;
+        } else if (e.which == 37) { // left
+            position.x -= 1;
+            updateInfoThisRound = true;
+        } else if (e.which == 40) { // down
+            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2 ) {
+                e.preventDefault();
+            } else {
+                position.y += 1;
+                let pos = position.y * plot.num_cols + position.x + 1;
+                constants.brailleInput.setSelectionRange(pos, pos);
+                console.log(pos);
+            }
+            updateInfoThisRound = true;
+        } else if (e.which == 38) { // up
+            if (e.target.selectionStart - plot.num_cols - 1 < 0 ) {
+                e.preventDefault();
+            } else {
+                position.y -= 1;
+                let pos = position.y * plot.num_cols + position.x - 1;
+                constants.brailleInput.setSelectionRange(pos, pos);
+                console.log(pos);
+            }
+            updateInfoThisRound = true;
         } else {
-            constants.braille_container.style.display = "none";
+            e.preventDefault();
+        }
+
+        lockPosition();
+
+        if (updateInfoThisRound) {
+            UpdateAll();
+        }
+    });
+
+    document.addEventListener("keydown", function (e) {
+
+        // B: braille mode
+        if ( e.which == 66 ) {
+            display.toggleBrailleMode();
+            e.preventDefault();
+        }
+        // T: aria live text output mode
+        if (e.which == 84) {
+            display.toggleTextMode();
+        }
+        // S: sonification mode
+        if (e.which == 83) {
+            display.toggleSonificationMode();
+        }
+
+        if (e.which === 32) { // space 32, replay info but no other changes
+            UpdateAll();
         }
 
     });
+
+    // helper functions
+    function lockPosition() {
+        // lock to min / max postions
+        if ( position.x < 0 ) {
+            position.x = 0;
+        }
+        if ( position.x > plot.num_cols - 1 ) {
+            position.x = plot.num_cols - 1;
+        }
+        if (position.y < 0) {
+            position.y = 0;
+        }
+        if (position.y > plot.num_rows - 1) {
+            position.y = plot.num_rows - 1;
+        }
+    }
+
+    function UpdateAll() {
+        if ( constants.showDisplay ) {
+            display.displayValues(plot); 
+        }
+        if ( constants.showRect ) {
+            rect.UpdateRectDisplay(); 
+        }
+        if ( constants.audioPlay ) {
+            audio.playTone();
+        }
+    }
+
+    function Autoplay(dir) {
+        let step = 1 ; // default right and down
+        if ( dir == "left" || dir == "up" ) {
+            step = -1;
+        } 
+
+        // clear old autoplay if exists
+        if ( this.autoplay != null ) {
+            clearInterval(this.autoplay);
+            this.autoplay = null;
+        }
+
+        this.autoplay = setInterval(function() {
+            if (dir == "left" || dir == "right") {
+                position.x += step;
+                if ( position.x < 0 || plot.num_cols - 1 < position.x ) {
+                    clearInterval(this.autoplay);
+                    this.autoplay = null;
+                    lockPosition();
+                } else {
+                    UpdateAll();
+                }
+            } else { // up or down
+                position.y += step;
+                if ( position.y < 0 || plot.num_rows - 1 < position.y ) {
+                    clearInterval(this.autoplay);
+                    this.autoplay = null;
+                    lockPosition();
+                } else {
+                    UpdateAll();
+                }
+            }
+        }, constants.autoPlayRate);
+    }
 
 });
 
@@ -87,9 +226,22 @@ class HeatMap {
     constructor() {
         this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
         this.plotData = this.getHeatMapData();
+
         this.x_coord = this.plotData[0];
         this.y_coord = this.plotData[1];
         this.values = this.plotData[2];
+        this.num_rows = this.plotData[3];
+        this.num_cols = this.plotData[4];
+
+        this.group_labels = this.getGroupLabels();
+        this.x_group_label = this.group_labels[0];
+        this.y_group_label = this.group_labels[1];
+
+        this.x_labels = this.getXLabels();
+        this.y_labels = this.getYLabels();
+
+        // hardcoded frequency information (in another file); extraction should be done afterwards
+        this.z = [[124,0,0],[0,68,0],[44,56,52]];
     }
 
     getHeatMapData() {
@@ -129,14 +281,13 @@ class HeatMap {
             if (norm > max_norm) max_norm = norm;
         }
 
-        console.log(norms);
-        console.log(min_norm);
-        console.log(max_norm);
+        constants.minX = 0;
+        constants.maxX = num_cols;
+        constants.minY = min_norm;
+        constants.maxY = max_norm;
 
-        constants.minX = min_norm;
-        constants.maxX = max_norm;
-
-        let plotData = [unique_x_coord, unique_y_coord, norms];
+        let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
+        // console.log(plotData);
         return plotData;
     }
 
@@ -150,18 +301,51 @@ class HeatMap {
             return a + b;
         });
     }
+
+    getGroupLabels() {
+        let labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
+        // console.log(labels_nodelist);
+
+        let labels = [];
+        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+
+        return labels;
+    }
+
+    getXLabels() {
+        let x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
+        // console.log(x_labels_nodelist);
+
+        let labels = [];
+        for (let i = 0; i < x_labels_nodelist.length; i++) {
+            labels.push(x_labels_nodelist[i].innerHTML);
+        }
+        
+        return labels;
+    }
+
+    getYLabels() {
+        // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
+        let y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
+        // console.log(y_labels_nodelist);
+
+        let labels = [];
+        for (let i = 0; i < y_labels_nodelist.length; i++) {
+            labels.push(y_labels_nodelist[i].innerHTML);
+        }
+        
+        return labels.reverse();
+    }
 }
 
 
 class HeatMapRect {
 
-    rectStrokeWidth = 4; // px
-    rectColorString = 'rgb(3,200,9)';
-
     constructor() {
-        this.x = 0;
-        this.y = 0;
-        this.height = plot.y_coord[1] - plot.y_coord[0];
+        this.x = plot.x_coord[0];
+        this.y = plot.y_coord[0];
+        this.rectStrokeWidth = 4; // px
+        this.height = Math.abs(plot.y_coord[1] - plot.y_coord[0]);
     }
 
     UpdateRect() {
@@ -170,15 +354,16 @@ class HeatMapRect {
     }
 
     UpdateRectDisplay() {
+        this.UpdateRect();
         if ( document.getElementById('highlight_rect') ) document.getElementById('highlight_rect').remove(); // destroy and recreate
         const svgns = "http://www.w3.org/2000/svg";
         var rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().bottom - this.height - this.y); // y coord is inverse from plot data
+        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.height - this.y); // y coord is inverse from plot data
         rect.setAttribute('width', this.height);
         rect.setAttribute('height', this.height);
-        rect.setAttribute('stroke', this.rectColorString);
+        rect.setAttribute('stroke', constants.colorSelected);
         rect.setAttribute('stroke-width', this.rectStrokeWidth);
         rect.setAttribute('fill', 'none');
         constants.svg.appendChild(rect);
