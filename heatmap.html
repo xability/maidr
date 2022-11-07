@@ -4,6 +4,7 @@
 <head>
     <title>SVG Heatmap</title>
     <meta charset="utf-8">
+    <link rel="stylesheet" href="styles.css" type="text/css">
 </head>
 
 <body>
@@ -11,15 +12,15 @@
     <p>Tab to select the heatmap. Press right arrow to start. Use up, down, left and right arrows to navigate the graph.
         Press spacebar to hear the sound of a certain bar again.</p>
 
-    <div id="container" tabindex="0">
+    <div id="container" tabindex="0" data-plottype="heatmap">
         <div id="braille-div" tabindex="0">
-            <p id="braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
+            <input id="braille-input" class="braille-input hidden" autofocus type="text" />
         </div>
 
-        <div id="svg-container" tabindex="0">
+        <div id="svg-container" tabindex="0" role="application">
             <?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="672px"
-                height="672px" viewBox="0 0 672 672" version="1.1" id="heatmap-svg">
+                height="672px" viewBox="0 0 672 672" version="1.1">
                 <metadata xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/">
                     <gridsvg:generator name="gridSVG" version="1.7-4" time="2022-09-20 12:44:54" />
                     <gridsvg:argument name="name" value="heatmap.svg" />
@@ -782,17 +783,18 @@
                     </g>
                 </g>
             </svg>
-            <div id="info" aria-atomic="true" aria-live="assertive"> 
-                <p id="category"></p>
-                <p id="coord"></p>
+            <div id="info" aria-live="assertive" aria-atomic="true"> 
+                <p id="x"></p>
+                <p id="y"></p>
                 <p id="z-val"></p>
-                </div>
+            </div>
+            <div id="announcements" aria-live="assertive" aria-atomic="true"></div>
         </div>
     </div>
-    <script src="heatmap-constants.js"></script>
-    <script src="heatmap-control.js"></script>
-    <script src="heatmap-audio.js"></script>
-    <script src="heatmap-braille.js"></script>
+    <script src="constants.js"></script>
+    <script src="audio.js"></script>
+    <script src="display.js"></script>
+    <script src="heatmap.js"></script>
 </body>
 
 </html>

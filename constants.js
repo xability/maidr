@@ -24,13 +24,12 @@ class Constants {
     svg = document.querySelector("#svg-container > svg");
     brailleContainer = document.getElementById('braille-div');
     brailleInput = document.getElementById('braille-input');
-    infoDiv = document.getElementById("info"); 
-    //infoVerbose = document.getElementById("verbose_info"); 
+    infoDiv = document.getElementById("info");
     announceContainer = document.getElementById('announcements');
 
     // added features for info display and braille display
-    info_container = document.getElementById("info");
-    braille_container = document.getElementById("braille-div");
+    // info_container = document.getElementById("info");
+    // braille_container = document.getElementById("braille-div");
 
     // basic audio properties
     MAX_FREQUENCY = 1000;

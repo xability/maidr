@@ -1,13 +1,10 @@
 document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-
-    // A few global variables, so sorry
-    window.constants = new Constants('geom_rect.rect.2.1'); 
+    window.constants = new Constants(); 
+    constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
-    window.plot = new HeatMap(constants.plotId);
-
-    // setup for this chart
+    window.plot = new HeatMap();
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
     let audio = new Audio();
@@ -87,21 +84,28 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
 class HeatMap {
 
-    constructor(plotId) {
-        this.plotData = getHeatmapData(plotId);
+    constructor() {
+        this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
+        this.plotData = this.getHeatMapData();
+        this.x_coord = this.plotData[0];
+        this.y_coord = this.plotData[1];
+        this.values = this.plotData[2];
     }
 
-    getHeatMapData(plotId) {
-        // get all the existing squares
-        let plots = document.getElementById(plotId).children;
-
-        // sort the squares to access from left to right, up to down
-        plots.sort(this.compareX);
-        plots.sort(this.compareY);
+    getHeatMapData() {
 
         // get the x_coord and y_coord to check if a square exists at the coordinates
-        let x_coord_check = plots.map(this.getXCoords);
-        let y_coord_check = plots.map(this.getYCoords);
+        let x_coord_check = [];
+        let y_coord_check = [];
+
+        for (let i = 0; i < this.plots.length; i++) {
+            x_coord_check.push(this.plots[i].getAttribute('x'));
+            y_coord_check.push(this.plots[i].getAttribute('y'));
+        }
+
+        // sort the squares to access from left to right, up to down
+        x_coord_check.sort(function(a,b) { a - b }); // ascending
+        y_coord_check.sort(function(a,b) { b - a }); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
@@ -111,54 +115,40 @@ class HeatMap {
         let num_rows = unique_y_coord.length;
         let num_cols = unique_x_coord.length;
 
-        let rgb_norms = [];
-        // get norm of rgb for frequency
-        for (let i = 0; i < squares.length; i++) {
-            let rgb_text = document.getElementById(squares[i]).getAttribute('fill');
-            let rgb_string = rgb_text.slice(4, -1);
-            let rgb_array = rgb_string.split(',');
-            let rgb_norm = Math.sqrt(rgb_array.map(function (x) {
-                return Math.pow(x, 2);
-            }).reduce(function (a, b) {
-                return a + b;
-            }));
-            rgb_norms.push(rgb_norm);
-        }
-
-        // let x_coord = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
-        // let y_coord = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
         let norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
+        let min_norm = 3*(Math.pow(255,2));
+        let max_norm = 0;
 
-        for (var i = 0; i < squares.length; i++) {
+        for (var i = 0; i < this.plots.length; i++) {
             var x_index = unique_x_coord.indexOf(x_coord_check[i]);
             var y_index = unique_y_coord.indexOf(y_coord_check[i]);
-        
-            // x_coord[y_index][x_index] = x_coord_check[i];
-            // y_coord[y_index][x_index] = y_coord_check[i];
-            norms[y_index][x_index] = rgb_norms[i];
+            let norm = this.getRGBNorm(i);
+            norms[y_index][x_index] = norm;
+
+            if (norm < min_norm) min_norm = norm;
+            if (norm > max_norm) max_norm = norm;
         }
 
-        constants.minX = Math.min(...rgb_norms);
-        constants.maxX = Maht.max(...rgb_norms);
+        console.log(norms);
+        console.log(min_norm);
+        console.log(max_norm);
 
-        let plotData = [unique_x_coord, unique_y_coord, rgb_norms];
+        constants.minX = min_norm;
+        constants.maxX = max_norm;
+
+        let plotData = [unique_x_coord, unique_y_coord, norms];
         return plotData;
     }
 
-    getXCoords(item) {
-        return document.getElementById(item).getAttribute('x');
-    }
-    
-    getYCoords(item) {
-        return document.getElementById(item).getAttribute('y');
-    }
-    
-    compareX(a, b) {
-        return document.getElementById(a).getAttribute('x') - document.getElementById(b).getAttribute('x');
-    }
-    
-    compareY(a, b) {
-        return document.getElementById(b).getAttribute('y') - document.getElementById(a).getAttribute('y');
+    getRGBNorm(i) {
+        let rgb_string = this.plots[i].getAttribute('fill');
+        let rgb_array = rgb_string.slice(4,-1).split(',');
+        // just get the sum of squared value of rgb, similar without sqrt, save computation 
+        return rgb_array.map(function(x) {
+            return Math.pow(x, 2);
+        }).reduce(function(a,b) {
+            return a + b;
+        });
     }
 }
 
@@ -171,12 +161,12 @@ class HeatMapRect {
     constructor() {
         this.x = 0;
         this.y = 0;
-        this.height = plot.plotData[0][1] - plot.plotData[0][0];
+        this.height = plot.y_coord[1] - plot.y_coord[0];
     }
 
     UpdateRect() {
-        this.x = plot.plotData[0][position.x];
-        this.y = plot.plotData[1][position.y];
+        this.x = plot.x_coord[position.x];
+        this.y = plot.y_coord[position.y];
     }
 
     UpdateRectDisplay() {
