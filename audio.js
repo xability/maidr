@@ -32,24 +32,30 @@ class Audio {
 
         let currentDuration = constants.duration;
 
-        // freq goes between min / max as x goes between min(0) / max
-        let thisX = 0;
-        let thisY = 0;
-        if ( constants.chartType == "boxplot" ) {
-            thisY = plot.plotData[position.y][position.x].x;
-            thisX = position.x; // todo: probably wrong, fix this
-        } else if ( constants.chartType == "barchart" ) {
-            thisY = plot.plotData[position.x];
-            thisX = position.x;
+        let rawPanning = 0;
+        let rawFreq = 0;
+        let frequency = 0;
+        let panning = 0;
+        // freq goes between min / max as rawFreq goes between min(0) / max
+        if ( constants.chartType == "barchart" ) {
+            rawFreq = plot.plotData[position.x];
+            rawPanning = position.x;
+            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
+        } else if ( constants.chartType == "boxplot" ) {
+            rawFreq = plot.plotData[position.y][position.x].x;
+            frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
         } else if ( constants.chartType == "heatmap" ) {
-            thisY = plot.values[position.y][position.x];
-            thisX = position.x;
+            rawFreq = plot.values[position.y][position.x];
+            rawPanning = position.x;
+            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         }
 
-        let frequency = this.SlideBetween(thisY, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
         if ( constants.debugLevel > 4 ) {
             console.log('will play tone at freq', frequency);
-            console.log('based on', constants.minX, '<', thisY, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+            console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }
 
         if ( constants.chartType == "boxplot" ) {
@@ -66,7 +72,6 @@ class Audio {
                 currentDuration = constants.duration * 2;
             }
         }
-        let panning = this.SlideBetween(thisX, constants.minX, constants.maxX, -1, 1);
 
         // create tones
         this.playOscillator(frequency, currentDuration, panning, constants.vol, 'sine');
@@ -78,8 +83,8 @@ class Audio {
                 this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
             }
         } else if ( constants.chartType == "heatmap" ) {    // Added heatmap tone feature
-            if (thisY != 0) {
-                this.playOscillator(thisY, currentDuration, panning, constants.vol, 'sine');
+            if (rawFreq != 0) {
+                this.playOscillator(rawFreq, currentDuration, panning, constants.vol, 'sine');
             } else {
                 this.playOscillator(frequency, currentDuration, panning, constants.vol/2, 'square');
             }

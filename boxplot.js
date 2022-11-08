@@ -95,7 +95,7 @@ class BoxPlot {
                     let segment = segments[k];
 
                     let segmentType = this.GetBoxplotSegmentType(sections[j].getAttribute('id'));
-                    let segmentPoints = this.GetBoxplotSegmentPoints(segment, segmentType)
+                    let segmentPoints = this.GetBoxplotSegmentPoints(segment, segmentType);
 
                     for ( let l = 0 ; l < segmentPoints.length  ; l += 2 ) {
                         let thisPoint = {'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l+1]), 'type': segmentType}
@@ -139,6 +139,59 @@ class BoxPlot {
         if ( constants.debugLevel > 0 ) {
             console.log('plotData:', plotData);
         }
+
+        // combine outliers into a single average
+        // this is so janky and I'm embarrased by it
+        for ( let i = 0 ; i < plotData.length ; i++ ) {
+            let section = plotData[i];
+            // loop through points and find outliers (they'll be grouped)
+            let outlierGroup = [];
+            for ( let j = 0 ; j < section.length + 1 ; j++ ) {
+                let runProcessAvg = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
+                if ( j == section.length ) {
+                    runProcessAvg = true; 
+                } else if ( section[j].type != "outlier" ) {
+                    runProcessAvg = true; 
+                }
+                if ( runProcessAvg ) {
+                    // process and reset for next round
+                    if ( outlierGroup.length > 0 ) {
+                        let total = 0;
+                        for ( let k = 0 ; k < outlierGroup.length ; k++ ) {
+                            total += outlierGroup[k].x;
+                        }
+                        let outlierAvg = total / outlierGroup.length;
+
+                        // save this as the first val, and mark all others to clear after we're done with these loops
+                        for ( let k = 0 ; k < outlierGroup.length ; k++ ) {
+                            if ( k == 0 ) {
+                                plotData[i][j + k - outlierGroup.length].x = outlierAvg;
+                            } else {
+                                plotData[i][j + k - outlierGroup.length].type = 'delete';
+                            }
+
+                        }
+
+                        // reset for next set
+                        outlierGroup = []; 
+                    }
+                } else {
+                    outlierGroup.push(section[j]);
+                }
+            }
+        }
+        // clean up
+        let cleanData = [];
+        for ( let i = 0 ; i < plotData.length ; i++ ) {
+            cleanData[i] = [];
+            for ( let j = 0 ; j < plotData[i].length ; j++ ) {
+                if ( plotData[i][j].type != 'delete' ) {
+                    cleanData[i][j] = plotData[i][j];
+                }
+            }
+        }
+        plotData = cleanData;
+
         return plotData;
     }
 
@@ -225,7 +278,7 @@ class BoxplotRect {
 
         } else if ( plot.plotData[position.y][position.x].type == 'whisker' ) {
 
-            var whichWhisker = 'before'; // before / after the range. We steal the other point from range and need to know which one
+            let whichWhisker = 'before'; // before / after the range. We steal the other point from range and need to know which one
             if ( position.x > 0 ) {
                 if ( plot.plotData[position.y][position.x - 1].type == 'range' ) {
                     whichWhisker = 'after';
@@ -247,7 +300,7 @@ class BoxplotRect {
 
             // we have 3 points, and do the middle one as just that midpoint line
             // which one are we on though? look up and down
-            var whichRange = 'middle' ; 
+            let whichRange = 'middle' ; 
             if ( position.x > 0 ) {
                 if ( plot.plotData[position.y][position.x - 1].type != 'range' ) {
                     whichRange = 'first';
@@ -275,20 +328,20 @@ class BoxplotRect {
             }
 
             // we have no yMax, but whiskers and outliers have a midpoint, so we use that
-            var midpoint = 0;
-            for ( var i = 0 ; i < plot.plotData[position.y].length ; i++ ) {
+            let midpoint = 0;
+            for ( let i = 0 ; i < plot.plotData[position.y].length ; i++ ) {
                 if ( plot.plotData[position.y][i].type != "range" ) {
                     midpoint = plot.plotData[position.y][i].y;
                 }
             }
             // y1 and midpoint to get y2
-            var height = ( midpoint - plot.plotData[position.y][position.x].y ) * 2;
+            let height = ( midpoint - plot.plotData[position.y][position.x].y ) * 2;
             this.y1 = plot.plotData[position.y][position.x].y;
             this.y2 = this.y1 + height;
 
 
             // swap y1 y2 so height is > 0
-            var swap = this.y1;
+            let swap = this.y1;
             this.y1 = this.y2;
             this.y2 = swap;
 
@@ -317,7 +370,7 @@ class BoxplotRect {
 
         if ( document.getElementById('highlight_rect') ) document.getElementById('highlight_rect').remove(); // destroy and recreate
         const svgns = "http://www.w3.org/2000/svg";
-        var rect = document.createElementNS(svgns, 'rect');
+        let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
         rect.setAttribute('y', constants.svg.getBoundingClientRect().bottom - this.svgBoundingOffset - this.y1); // y coord is inverse from plot data
