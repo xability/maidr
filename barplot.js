@@ -167,6 +167,7 @@ class BarChart {
         this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
         this.plotData = this.GetData();
         this.plotColumns = this.GetColumns();
+        this.plotLegend = this.GetLegend();
 
         constants.maxX = this.bars.length - 1;
         constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g,'')); // set max height as entire chart height, not max across all bars
@@ -191,12 +192,22 @@ class BarChart {
         // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
 
         let plotColumns = [];
-        let els = document.querySelectorAll('tspan[dy="10"]');
+        let els = document.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
         for ( var i = 0 ; i < els.length ; i++ ) {
             plotColumns.push(els[i].innerHTML);
         }
 
         return plotColumns;
+    }
+
+    GetLegend() {
+        let legend = {};
+        let els = document.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
+        legend.x = els[1].innerHTML;
+        legend.y = els[0].innerHTML;
+
+        return legend;
+
     }
 
     Select() {

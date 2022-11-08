@@ -61,18 +61,18 @@ class Display {
 
     displayValues(plot) {
         // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
-        // note: we do this all as one string rather than altering seperate IDs partially so that aria-live receives a single update
+        // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
         let output = "";
         if ( constants.chartType == "barchart" ) {
             if ( constants.textMode == "off" ) {
                 // do nothing :D
             } else if ( constants.textMode == "terse" ) {
-                // value only
-                output += '<p>' + plot.plotData[position.x] + '</p>\n';
-            } else if ( constants.textMode == "verbose" ) {
-                // col name and value
+                // {colname} {value}
                 output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
+            } else if ( constants.textMode == "verbose" ) {
+                // {legend x} is {colname x}, {legend y} is {value y}
+                output += '<p>' + plot.plotLegend.y + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.x + ' is ' + plot.plotData[position.x] + '</p>\n';
             }
         } else if ( constants.chartType == "heatmap" ) {
             // @TODO
