@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     let rect = new HeatMapRect();
     let audio = new Audio();
     let display = new Display();
+    
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -106,9 +107,9 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
                 e.preventDefault();
             } else {
                 position.y += 1;
-                let pos = position.y * plot.num_cols + position.x + 1;
+                let pos = position.y * (plot.num_cols + 1) + position.x;
+                constants.brailleInput.focus();
                 constants.brailleInput.setSelectionRange(pos, pos);
-                console.log(pos);
             }
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
@@ -116,9 +117,9 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
                 e.preventDefault();
             } else {
                 position.y -= 1;
-                let pos = position.y * plot.num_cols + position.x - 1;
+                let pos = position.y * (plot.num_cols - 1) + position.x;
+                constants.brailleInput.focus();
                 constants.brailleInput.setSelectionRange(pos, pos);
-                console.log(pos);
             }
             updateInfoThisRound = true;
         } else {
