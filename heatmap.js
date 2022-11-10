@@ -257,8 +257,8 @@ class HeatMap {
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function (a, b) { a - b }); // ascending
-        y_coord_check.sort(function (a, b) { b - a }); // descending
+        x_coord_check.sort(function(a,b) { return a - b; }); // ascending
+        y_coord_check.sort(function(a,b) { return b - a; }); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
