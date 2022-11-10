@@ -37,37 +37,37 @@ class Audio {
         let frequency = 0;
         let panning = 0;
         // freq goes between min / max as rawFreq goes between min(0) / max
-        if ( constants.chartType == "barchart" ) {
+        if (constants.chartType == "barchart") {
             rawFreq = plot.plotData[position.x];
             rawPanning = position.x;
-            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
-        } else if ( constants.chartType == "boxplot" ) {
+        } else if (constants.chartType == "boxplot") {
             rawFreq = plot.plotData[position.y][position.x].x;
-            frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
-        } else if ( constants.chartType == "heatmap" ) {
+        } else if (constants.chartType == "heatmap") {
             rawFreq = plot.values[position.y][position.x];
             rawPanning = position.x;
-            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY); 
+            frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         }
 
-        if ( constants.debugLevel > 4 ) {
+        if (constants.debugLevel > 4) {
             console.log('will play tone at freq', frequency);
             console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }
 
-        if ( constants.chartType == "boxplot" ) {
+        if (constants.chartType == "boxplot") {
             // different types of sounds for different regions. 
             // outlier = short tone
             // whisker = normal tone
             // range = chord 
             let sectionType = plot.plotData[position.y][position.x].type;
-            if ( sectionType == "outlier" ) {
+            if (sectionType == "outlier") {
                 currentDuration = constants.duration / 2;
-            } else if ( sectionType == "whisker" ) {
-                currentDuration = constants.duration * 2; 
+            } else if (sectionType == "whisker") {
+                currentDuration = constants.duration * 2;
             } else {
                 currentDuration = constants.duration * 2;
             }
@@ -75,24 +75,24 @@ class Audio {
 
         // create tones
         this.playOscillator(frequency, currentDuration, panning, constants.vol, 'sine');
-        if ( constants.chartType == "boxplot" ) {
+        if (constants.chartType == "boxplot") {
             let sectionType = plot.plotData[position.y][position.x].type;
-            if (sectionType == "range" ) {
+            if (sectionType == "range") {
                 // also play an octive below at lower vol
                 let freq2 = frequency / 2;
-                this.playOscillator(freq2, currentDuration, panning, constants.vol/4, 'triangle');
+                this.playOscillator(freq2, currentDuration, panning, constants.vol / 4, 'triangle');
             }
-        } else if ( constants.chartType == "heatmap" ) {    // Added heatmap tone feature
+        } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
             if (rawFreq != 0) {
                 this.playOscillator(rawFreq, currentDuration, panning, constants.vol, 'sine');
             } else {
-                this.playOscillator(frequency, currentDuration, panning, constants.vol/2, 'square');
+                this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
             }
         }
 
     }
 
-    playOscillator(frequency, currentDuration, panning, currentVol=1, wave='sine') {
+    playOscillator(frequency, currentDuration, panning, currentVol = 1, wave = 'sine') {
 
         const t = this.audioContext.currentTime;
         const oscillator = this.audioContext.createOscillator();
@@ -102,14 +102,14 @@ class Audio {
 
         // create gain for this event
         const gainThis = this.audioContext.createGain();
-        gainThis.gain.setValueCurveAtTime([.5*currentVol, 1*currentVol, .5*currentVol, .5*currentVol, .5*currentVol, .1*currentVol, 1e-4*currentVol], t, currentDuration); // this is what makes the tones fade out properly and not clip
+        gainThis.gain.setValueCurveAtTime([.5 * currentVol, 1 * currentVol, .5 * currentVol, .5 * currentVol, .5 * currentVol, .1 * currentVol, 1e-4 * currentVol], t, currentDuration); // this is what makes the tones fade out properly and not clip
 
         let MAX_DISTANCE = 10000;
         let posZ = 1;
         const panner = new PannerNode(this.audioContext, {
             panningModel: "HRTF",
             distanceModel: "linear",
-            positionX: position.x, 
+            positionX: position.x,
             positionY: position.y,
             positionZ: posZ,
             orientationX: 0.0,
@@ -144,7 +144,7 @@ class Audio {
 
     SlideBetween(val, a, b, min, max) {
         // helper function that goes between min and max proportional to how val goes between a and b
-        let newVal = ( ( ( val - a ) / ( b - a ) ) * ( max - min ) ) + min;
+        let newVal = (((val - a) / (b - a)) * (max - min)) + min;
         return newVal;
     }
 }

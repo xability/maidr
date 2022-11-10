@@ -1,7 +1,7 @@
-document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-    window.constants = new Constants(); 
+    window.constants = new Constants();
     constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
     window.plot = new HeatMap();
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         if (e.which === 37) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left'); 
+                    Autoplay('left');
                 } else {
                     position.x = 0;
                 }
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     });
 
 
-    constants.brailleInput.addEventListener("keydown", function(e) {
+    constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
         // @TODO
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
         if (e.which == 9) {
         } else if (e.which == 39) { // right arrow
-            if ( e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart+1, e.target.selectionStart+2) == '⠳') {
+            if (e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
                 e.preventDefault();
             } else {
                 position.x += 1;
@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             position.x -= 1;
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
-            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2 ) {
+            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2) {
                 e.preventDefault();
             } else {
                 position.y += 1;
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             }
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
-            if (e.target.selectionStart - plot.num_cols - 1 < 0 ) {
+            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
                 e.preventDefault();
             } else {
                 position.y -= 1;
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     document.addEventListener("keydown", function (e) {
 
         // B: braille mode
-        if ( e.which == 66 ) {
+        if (e.which == 66) {
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -157,10 +157,10 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     // helper functions
     function lockPosition() {
         // lock to min / max postions
-        if ( position.x < 0 ) {
+        if (position.x < 0) {
             position.x = 0;
         }
-        if ( position.x > plot.num_cols - 1 ) {
+        if (position.x > plot.num_cols - 1) {
             position.x = plot.num_cols - 1;
         }
         if (position.y < 0) {
@@ -172,33 +172,33 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     }
 
     function UpdateAll() {
-        if ( constants.showDisplay ) {
-            display.displayValues(plot); 
+        if (constants.showDisplay) {
+            display.displayValues(plot);
         }
-        if ( constants.showRect ) {
-            rect.UpdateRectDisplay(); 
+        if (constants.showRect) {
+            rect.UpdateRectDisplay();
         }
-        if ( constants.audioPlay ) {
+        if (constants.audioPlay) {
             audio.playTone();
         }
     }
 
     function Autoplay(dir) {
-        let step = 1 ; // default right and down
-        if ( dir == "left" || dir == "up" ) {
+        let step = 1; // default right and down
+        if (dir == "left" || dir == "up") {
             step = -1;
-        } 
+        }
 
         // clear old autoplay if exists
-        if ( this.autoplay != null ) {
+        if (this.autoplay != null) {
             clearInterval(this.autoplay);
             this.autoplay = null;
         }
 
-        this.autoplay = setInterval(function() {
+        this.autoplay = setInterval(function () {
             if (dir == "left" || dir == "right") {
                 position.x += step;
-                if ( position.x < 0 || plot.num_cols - 1 < position.x ) {
+                if (position.x < 0 || plot.num_cols - 1 < position.x) {
                     clearInterval(this.autoplay);
                     this.autoplay = null;
                     lockPosition();
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
                 }
             } else { // up or down
                 position.y += step;
-                if ( position.y < 0 || plot.num_rows - 1 < position.y ) {
+                if (position.y < 0 || plot.num_rows - 1 < position.y) {
                     clearInterval(this.autoplay);
                     this.autoplay = null;
                     lockPosition();
@@ -241,7 +241,7 @@ class HeatMap {
         this.y_labels = this.getYLabels();
 
         // hardcoded frequency information (in another file); extraction should be done afterwards
-        this.z = [[124,0,0],[0,68,0],[44,56,52]];
+        this.z = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
     }
 
     getHeatMapData() {
@@ -256,8 +256,8 @@ class HeatMap {
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function(a,b) { a - b }); // ascending
-        y_coord_check.sort(function(a,b) { b - a }); // descending
+        x_coord_check.sort(function (a, b) { a - b }); // ascending
+        y_coord_check.sort(function (a, b) { b - a }); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
@@ -268,7 +268,7 @@ class HeatMap {
         let num_cols = unique_x_coord.length;
 
         let norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
-        let min_norm = 3*(Math.pow(255,2));
+        let min_norm = 3 * (Math.pow(255, 2));
         let max_norm = 0;
 
         for (var i = 0; i < this.plots.length; i++) {
@@ -293,11 +293,11 @@ class HeatMap {
 
     getRGBNorm(i) {
         let rgb_string = this.plots[i].getAttribute('fill');
-        let rgb_array = rgb_string.slice(4,-1).split(',');
+        let rgb_array = rgb_string.slice(4, -1).split(',');
         // just get the sum of squared value of rgb, similar without sqrt, save computation 
-        return rgb_array.map(function(x) {
+        return rgb_array.map(function (x) {
             return Math.pow(x, 2);
-        }).reduce(function(a,b) {
+        }).reduce(function (a, b) {
             return a + b;
         });
     }
@@ -320,7 +320,7 @@ class HeatMap {
         for (let i = 0; i < x_labels_nodelist.length; i++) {
             labels.push(x_labels_nodelist[i].innerHTML);
         }
-        
+
         return labels;
     }
 
@@ -333,7 +333,7 @@ class HeatMap {
         for (let i = 0; i < y_labels_nodelist.length; i++) {
             labels.push(y_labels_nodelist[i].innerHTML);
         }
-        
+
         return labels.reverse();
     }
 }
@@ -355,7 +355,7 @@ class HeatMapRect {
 
     UpdateRectDisplay() {
         this.UpdateRect();
-        if ( document.getElementById('highlight_rect') ) document.getElementById('highlight_rect').remove(); // destroy and recreate
+        if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy and recreate
         const svgns = "http://www.w3.org/2000/svg";
         var rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');

@@ -1,4 +1,3 @@
-
 .sr-only {
     clip: rect(1px, 1px, 1px, 1px);
     clip-path: inset(50%);
@@ -8,27 +7,25 @@
     overflow: hidden;
     padding: 0;
     position: absolute;
-} 
-
-#skip a
-{
-    position:absolute;
-    left:-10000px;
-    top:auto;
-    width:1px;
-    height:1px;
-    overflow:hidden;
 }
 
-#skip a:focus
-{
-    position:static;
-    width:auto;
-    height:auto;
+#skip a {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+#skip a:focus {
+    position: static;
+    width: auto;
+    height: auto;
 }
 
 .hidden {
-    display:none;
+    display: none;
 }
 
 .braille-input {

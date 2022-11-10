@@ -1,9 +1,9 @@
 
-document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
 
-    window.constants = new Constants(); 
+    window.constants = new Constants();
     constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
     window.plot = new BarChart();
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     let audio = new Audio();
     let display = new Display();
 
-    if ( constants.debugLevel > 0 ) {
+    if (constants.debugLevel > 0) {
         constants.svg_container.focus();
     }
 
@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
 
         if (e.which === 39) { // right arrow 39
-            if ( e.ctrlKey ) { 
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('right');
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             updateInfoThisRound = true;
         }
         if (e.which === 37) { // left arrow 37
-            if ( e.ctrlKey ) { 
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('left');
                 } else {
                     position.x = 0; // go all the way
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         lockPosition();
 
         // update display / text / audio
-        if ( updateInfoThisRound ) {
+        if (updateInfoThisRound) {
             UpdateAll();
         }
 
@@ -56,23 +56,22 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     constants.brailleInput.addEventListener("keydown", function (e) {
         // We block all input, except if it's B or Tab so we move focus
-        
+
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
-        
-        if ( e.which == 9 ) { // tab
+
+        if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
-        } else if ( e.which == 39 ) { // right arrow
+        } else if (e.which == 39) { // right arrow
             // update position to match cursor
             // don't let cursor move past the final braillecharacter or it'll desync and look weird
             // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
-            if ( e.target.selectionStart > e.target.value.length - 2 ) 
-            {
+            if (e.target.selectionStart > e.target.value.length - 2) {
                 e.preventDefault();
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
             }
-        } else if ( e.which == 37 ) { // left arrow
+        } else if (e.which == 37) { // left arrow
             // update position to match cursor
             position.x += -1;
             updateInfoThisRound = true;
@@ -83,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         lockPosition();
 
         // update display / text / audio
-        if ( updateInfoThisRound ) {
+        if (updateInfoThisRound) {
             UpdateAll();
         }
 
@@ -92,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     document.addEventListener("keydown", function (e) {
 
         // B: braille mode
-        if ( e.which == 66 ) {
+        if (e.which == 66) {
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -113,39 +112,39 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     function lockPosition() {
         // lock to min / max postions
-        if ( position.x < 0 ) {
+        if (position.x < 0) {
             position.x = 0;
         }
-        if ( position.x > plot.bars.length - 1 ) {
+        if (position.x > plot.bars.length - 1) {
             position.x = plot.bars.length - 1;
         }
     }
     function UpdateAll() {
-        if ( constants.showDisplay ) {
-            display.displayValues(plot); 
+        if (constants.showDisplay) {
+            display.displayValues(plot);
         }
-        if ( constants.showRect ) {
-            plot.Select(); 
+        if (constants.showRect) {
+            plot.Select();
         }
-        if ( constants.audioPlay ) {
+        if (constants.audioPlay) {
             audio.playTone();
         }
     }
     function Autoplay(dir) {
-        let step = 1 ; // default right
-        if ( dir == "left" ) {
+        let step = 1; // default right
+        if (dir == "left") {
             step = -1;
         }
 
         // clear old autoplay if exists
-        if ( this.autoplay != null ) {
+        if (this.autoplay != null) {
             clearInterval(this.autoplay);
             this.autoplay = null;
         }
 
-        this.autoplay = setInterval(function() {
+        this.autoplay = setInterval(function () {
             position.x += step;
-            if ( position.x < 0 || plot.bars.length - 1 < position.x ) {
+            if (position.x < 0 || plot.bars.length - 1 < position.x) {
                 clearInterval(this.autoplay);
                 this.autoplay = null;
                 lockPosition();
@@ -167,7 +166,7 @@ class BarChart {
         this.plotLegend = this.GetLegend();
 
         constants.maxX = this.bars.length - 1;
-        constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g,'')); // set max height as entire chart height, not max across all bars
+        constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g, '')); // set max height as entire chart height, not max across all bars
 
         this.autoplay = null;
     }
@@ -177,7 +176,7 @@ class BarChart {
 
         let plotData = [];
 
-        for ( let i = 0 ; i < this.bars.length; i++ ) {
+        for (let i = 0; i < this.bars.length; i++) {
             plotData.push(this.bars[i].getAttribute('height'));
         }
 
@@ -190,7 +189,7 @@ class BarChart {
 
         let plotColumns = [];
         let els = document.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
-        for ( var i = 0 ; i < els.length ; i++ ) {
+        for (var i = 0; i < els.length; i++) {
             plotColumns.push(els[i].innerHTML);
         }
 
@@ -213,7 +212,7 @@ class BarChart {
     }
 
     DeselectAll() {
-        for ( let i = 0 ; i < this.bars.length; i++ ) {
+        for (let i = 0; i < this.bars.length; i++) {
             this.bars[i].style.fill = constants.colorUnselected;
         }
     }

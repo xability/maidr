@@ -9,7 +9,7 @@
 
 class Constants {
     // default constructor for boxplot
-    constructor() {}
+    constructor() { }
 
     // basic chart properties
     minX = 0;
@@ -43,7 +43,7 @@ class Constants {
 
     showDisplay = 1; // true / false
     textMode = "terse"; // off / terse / verbose
-    brailleMode = "off" ; // on / off
+    brailleMode = "off"; // on / off
     audioPlay = 1; // true / false
     colorUnselected = "rgb(89,89,89)";
     colorSelected = "rgb(3,200,9)";
@@ -64,8 +64,8 @@ class Position {
 class Helper {
 
     static containsObject(obj, arr) {
-        for ( let i = 0 ; i < arr.length ; i++ ) {
-            if ( arr[i] === obj ) return true;
+        for (let i = 0; i < arr.length; i++) {
+            if (arr[i] === obj) return true;
         }
         return false;
     }
