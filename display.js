@@ -75,7 +75,6 @@ class Display {
                 output += '<p>' + plot.plotLegend.y + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.x + ' is ' + plot.plotData[position.x] + '</p>\n';
             }
         } else if ( constants.chartType == "heatmap" ) {
-            // @TODO
             // terse and verbose alternate between columns and rows
             if ( constants.textMode == "off" ) {
                 // do nothing :D
@@ -92,6 +91,24 @@ class Display {
                     output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
                 } else {
                     output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
+                }
+            }
+        } else if ( constants.chartType == "boxplot" ) {
+            if ( constants.textMode == "off" ) {
+                // do nothing
+            } else if ( constants.textMode == "terse" ) {
+                if ( constants.navigation == 1 ) { // within box nav
+                    output += '<p>' + plot.plotData[position.y][position.x].label + ' ' + plot.plotData[position.y][position.x].x + '</p>\n';
+                } else { // new box nav
+                    let groupName = "groupName" ; // placeholder. todo: get this somehow
+                    output += '<p>' + groupName + ' ' + plot.plotData[position.y][position.x].label + ' ' + plot.plotData[position.y][position.x].x + '</p>\n';
+                }
+            } else if ( constants.textMode == "verbose" ) {
+                if ( constants.navigation == 1 ) { // within box nav
+                    output += '<p>' + plot.plotData[position.y][position.x].label + ' is ' + plot.plotData[position.y][position.x].x + '</p>\n';
+                } else { // new box nav
+                    let groupName = "groupName" ; // placeholder. todo: get this somehow
+                    output += '<p>Class is ' + groupName + ', ' + plot.plotData[position.y][position.x].label + ' is ' + plot.plotData[position.y][position.x].x + '</p>\n';
                 }
             }
         }
