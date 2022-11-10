@@ -4,6 +4,7 @@
     <head>
         <title>SVG Heatmap</title>
         <meta charset="utf-8">
+        <link rel="stylesheet" href="styles.css" type="text/css">
     </head>
 
     <body>
@@ -12,8 +13,8 @@
         Press spacebar to hear the sound of a certain bar again.</p>
 
         <div id="container" tabindex="0">
-            <div id="braille-div" tabindex="0">
-                <p id="braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
+            <div id="braille-div">
+                <input id="braille-input" class="braille-input hidden" type="text" />
             </div>
 
             <div id="svg-container" tabindex="0">
@@ -441,12 +442,18 @@
                     </g>
                     </g>
                 </svg>
-                <p id="x" aria-live="assertive"></p>
-                <p id="y" aria-live="assertive"></p>
+            </div>
+            <br>
+            <div id="info" aria-live="assertive" aria-atomic="true">
+                <p id="x"></p>
+                <p id="y"></p>
+            </div>
+            <div id="announcements" aria-live="assertive" aria-atomic="true">
             </div>
         </div>
         <script src="constants.js"></script>
         <script src="audio.js"></script>
+        <script src="display.js"></script>
         <script src="boxplot.js"></script>
         <!-- <script src="braille-display.js"></script> -->
     </body>

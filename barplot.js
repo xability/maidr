@@ -111,9 +111,6 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
     });
 
-    constants.brailleInput.addEventListener('keydown', function(e) {
-    });
-
     function lockPosition() {
         // lock to min / max postions
         if ( position.x < 0 ) {

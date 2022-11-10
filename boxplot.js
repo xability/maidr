@@ -17,28 +17,117 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     constants.chartType = "boxplot";
     let rect = new BoxplotRect();
     let audio = new Audio();
+    let display = new Display();
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
+        let updateInfoThisRound = false; // we only update info and play tones on certain keys
+
         // right arrow 
         if (e.which === 39) {
             position.x += 1;
+            constants.navigation = 1;
+            updateInfoThisRound = true;
         }
         // left arrow 
         if (e.which === 37) {
             position.x += -1;
+            constants.navigation = 1;
+            updateInfoThisRound = true;
         }
         // up arrow 
         if (e.which === 38) {
             position.y += 1;
             position.x = 0;
+            constants.navigation = 0;
+            updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
             position.y += -1;
             position.x = 0;
+            constants.navigation = 0;
+            updateInfoThisRound = true;
         }
 
+        lockPosition();
+
+        // update display / text / audio
+        if ( updateInfoThisRound ) {
+            UpdateAll();
+        }
+
+    });
+
+    constants.brailleInput.addEventListener("keydown", function (e) {
+        // We block all input, except if it's B or Tab so we move focus
+        
+        let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        
+        if ( e.which == 9 ) { // tab
+            // do nothing, let the user Tab away 
+        } else if ( e.which == 39 ) { // right arrow
+            // update position to match cursor
+            // don't let cursor move past the final braillecharacter or it'll desync and look weird
+            // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
+            if ( e.target.selectionStart > e.target.value.length - 2 ) 
+            {
+                e.preventDefault();
+            } else {
+                position.x += 1;
+                updateInfoThisRound = true;
+            }
+        } else if ( e.which == 37 ) { // left arrow
+            // update position to match cursor
+            position.x += -1;
+            updateInfoThisRound = true;
+        } else {
+            e.preventDefault();
+        }
+
+        lockPosition();
+
+        // update display / text / audio
+        if ( updateInfoThisRound ) {
+            UpdateAll();
+        }
+
+    });
+
+    document.addEventListener("keydown", function (e) {
+
+        // B: braille mode
+        if ( e.which == 66 ) {
+            display.toggleBrailleMode();
+            e.preventDefault();
+        }
+        // T: aria live text output mode
+        if (e.which == 84) {
+            display.toggleTextMode();
+        }
+        // S: sonification mode
+        if (e.which == 83) {
+            display.toggleSonificationMode();
+        }
+
+        if (e.which === 32) { // space 32, replay info but no other changes
+            UpdateAll();
+        }
+
+    });
+
+    function UpdateAll() {
+        if ( constants.showDisplay ) {
+            display.displayValues(plot); 
+        }
+        if ( constants.showRect ) {
+            rect.UpdateRect();
+        }
+        if ( constants.audioPlay ) {
+            audio.playTone();
+        }
+    }
+    function lockPosition() {
         // lock to min / max postions
         if ( position.x < 1 ) {
             position.x = 0;
@@ -52,15 +141,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         if ( position.x > plot.plotData[position.y].length - 1) {
             position.x = plot.plotData[position.y].length - 1;
         }
-
-        if ( constants.showRect ) {
-            rect.UpdateRect();
-        }
-        if ( constants.audioPlay > 0 ) {
-            audio.playTone();
-        }
-
-    });
+    }
 
 });
 
@@ -136,10 +217,6 @@ class BoxPlot {
             return a[0].y - b[0].y;
         });
 
-        if ( constants.debugLevel > 0 ) {
-            console.log('plotData:', plotData);
-        }
-
         // combine outliers into a single average
         // this is so janky and I'm embarrased by it
         for ( let i = 0 ; i < plotData.length ; i++ ) {
@@ -191,6 +268,42 @@ class BoxPlot {
             }
         }
         plotData = cleanData;
+
+        // add labeling for display
+        for ( let i = 0 ; i < plotData.length ; i++ ) {
+            // each boxplot section
+            let rangeCounter = 0;
+            for ( let j = 0 ; j < plotData[i].length ; j++ ) {
+                let point = plotData[i][j];
+                // each point, decide based on position with respect to range
+                if ( point.type == "outlier" ) {
+                    if ( rangeCounter > 0 ) {
+                        plotData[i][j].label = "Upper Outlier"; // todo: don't hard code these, put in resource file
+                    } else {
+                        plotData[i][j].label = "Lower Outlier"; 
+                    }
+                } else if ( point.type == "whisker" ) {
+                    if ( rangeCounter > 0 ) {
+                        plotData[i][j].label = "Max";
+                    } else {
+                        plotData[i][j].label = "Min";
+                    }
+                } else if ( point.type == "range" ) {
+                    if ( rangeCounter == 0 ) {
+                        plotData[i][j].label = "25%";
+                    } else if ( rangeCounter == 1 ) {
+                        plotData[i][j].label = "50%";
+                    } else if ( rangeCounter == 2 ) {
+                        plotData[i][j].label = "75%";
+                    }
+                    rangeCounter++;
+                }
+            }
+        }
+
+        if ( constants.debugLevel > 0 ) {
+            console.log('plotData:', plotData);
+        }
 
         return plotData;
     }
@@ -255,7 +368,7 @@ class BoxplotRect {
     rectStrokeWidth = 4; // px
     rectColorString = 'rgb(3,200,9)';
 
-    svgBoundingOffset = 95; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
+    svgBoundingOffset = 80; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
     svgBoudingOffsetRect = 30.3; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
 
     constructor() {
