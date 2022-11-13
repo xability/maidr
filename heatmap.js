@@ -87,10 +87,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
-        // @TODO
-        // add manipulation of cursor for up and down keys
-        // very buggy braille display up and down keys are not working
-
         if (e.which == 9) {
         } else if (e.which == 39) { // right arrow
             if (e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
@@ -100,6 +96,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left
+            if (e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
+                e.preventDefault();
+            }
             position.x -= 1;
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
@@ -108,8 +107,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
                 let pos = position.y * (plot.num_cols + 1) + position.x;
-                constants.brailleInput.focus();
-                constants.brailleInput.setSelectionRange(pos, pos);
+                e.preventDefault();
+                e.target.setSelectionRange(pos, pos);
             }
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
@@ -117,9 +116,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.preventDefault();
             } else {
                 position.y -= 1;
-                let pos = position.y * (plot.num_cols - 1) + position.x;
-                constants.brailleInput.focus();
-                constants.brailleInput.setSelectionRange(pos, pos);
+                let pos = position.y * (plot.num_cols + 1) + position.x;
+                e.preventDefault(); 
+                e.target.setSelectionRange(pos, pos);
             }
             updateInfoThisRound = true;
         } else {
