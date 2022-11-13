@@ -34,6 +34,11 @@ class Display {
             constants.brailleInput.classList.remove('hidden');
             constants.brailleInput.focus();
             constants.brailleInput.setSelectionRange(position.x, position.x);
+
+            if (constants.chartType == "heatmap") {
+                let pos = position.y * (plot.num_cols + 1) + position.x;
+                constants.brailleInput.setSelectionRange(pos, pos);
+            }
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');

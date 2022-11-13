@@ -27,10 +27,6 @@ class Constants {
     infoDiv = document.getElementById("info");
     announceContainer = document.getElementById('announcements');
 
-    // added features for info display and braille display
-    // info_container = document.getElementById("info");
-    // braille_container = document.getElementById("braille-div");
-
     // basic audio properties
     MAX_FREQUENCY = 1000;
     MIN_FREQUENCY = 100;

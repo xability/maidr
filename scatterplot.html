@@ -8,15 +8,14 @@
 
 <body>
 
-    <p>Tab to select the heatmap. Press right arrow to start. Use up, down, left and right arrows to navigate the graph.
-        Press spacebar to hear the sound of a certain bar again.</p>
+    <p>Tab to select the scatterplot.</p>
 
-    <div id="scatterplot-container" tabindex="0">
-        <div id="scatterplot-braille-div" tabindex="0">
-            <p id="scatterplot-braille-display" style="font-size: 200%; border: none; outline: none; resize: none;"></p>
+    <div id="container" tabindex="0" data-plottype="scatterplot">
+        <div id="braille-div" tabindex="0">
+            <input id="braille-input" class="braille-input hidden" autofocus type="text" />
         </div>
 
-        <div id="scatterplot-svg-container" tabindex="0">
+        <div id="svg-container" tabindex="0">
             <?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="672px" height="672px" viewBox="0 0 672 672" version="1.1" id="scatterplot-svg">
             <metadata xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/">
@@ -547,19 +546,14 @@
                 </g>
             </g>
             </svg>
-            <div id="info">
-                <p id="x-cat" aria-live="assertive"></p>
-                <p id="y-cat" aria-live="assertive"></p>
-                <p id="z-val" aria-live="assertive"></p>
-                <p id="x-coord" aria-live="assertive"></p>
-                <p id="y-coord" aria-live="assertive"></p>
-            </div>
+            <div id="info" aria-atomic="true" aria-live="assertive"></div>
+            <div id="announcements" aria-atomic="true" aria-live="assertive"></div>
         </div>
     </div>
-    <script src="scatterplot-constants.js"></script>
-    <!-- <script src="heatmap-control.js"></script>
-    <script src="heatmap-audio.js"></script>
-    <script src="heatmap-braille.js"></script> -->
+    <script src="constants.js"></script>
+    <script src="audio.js"></script>
+    <script src="display.js"></script>
+    <script src="scatterplot.js"></script>
 </body>
 
 </html>
