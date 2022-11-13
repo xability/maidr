@@ -84,7 +84,6 @@ class Audio {
             }
         } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
             if (rawFreq != 0) {
-                console.log(rawFreq);
                 this.playOscillator(rawFreq, currentDuration, panning, constants.vol, 'sine');
             } else {
                 this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
