@@ -21,6 +21,15 @@ ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
 gridSVG::grid.export("boxplot.svg")
 dev.off()
 
+# Extrac boxplot stat values
+mpg %>%
+    group_by(class) %>%
+    summarise(lower_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out < boxplot.stats(hwy)$stats[[1]]], collapse = ", "), minimum = boxplot.stats(hwy)$stats[[1]], first_qu = boxplot.stats(hwy)$stats[[2]], median = boxplot.stats(hwy)$stats[[3]], third_qu = boxplot.stats(hwy)$stats[[4]], maximum = boxplot.stats(hwy)$stats[[5]], upper_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out > boxplot.stats(hwy)$stats[[5]]], collapse = ", ")) %>%
+    jsonlite::write_json("boxplot_data.json")
+
+# gt::gt() %>%
+# gtsave("boxplot_data_frame.html")
+
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
     geom_point(position = "jitter") +
