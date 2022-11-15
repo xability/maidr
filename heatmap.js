@@ -87,39 +87,65 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
-        if (e.which == 9) {
+        if (e.which == 9) { // let user tab
         } else if (e.which == 39) { // right arrow
-            if (e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
+            if ( e.target.selectionStart > e.target.value.length - 3 ) { 
+                // already at the end, do nothing
                 e.preventDefault();
             } else {
-                position.x += 1;
+                if ( position.x + 1 == plot.num_cols ) { // we're at the end of the row, go to next, and skip the spacer
+                    position.y += 1;
+                    position.x = 0;
+
+                } else {
+                    position.x += 1;
+                }
+
+                // this is messy. We need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
+                let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+                e.target.setSelectionRange(pos, pos);
+                e.preventDefault();
             }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left
-            if (e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
+            if ( e.target.selectionStart == 0 ) {
+                e.preventDefault();
+            } else {
+                if ( position.x == 0 ) { // if we're at the start of a row, go to the prev one
+                    position.y += -1;
+                    position.x = plot.num_cols - 1;
+                } else {
+                    position.x += -1;
+                }
+                let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+                e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
-            position.x -= 1;
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
-            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2) {
-                e.preventDefault();
+            if ( position.y + 1 == plot.num_rows ) {
+                // goto very end
+                position.x = plot.num_cols - 1;
+                position.y = plot.num_rows - 1;
+
             } else {
                 position.y += 1;
-                let pos = position.y * (plot.num_cols + 1) + position.x;
-                e.preventDefault();
-                e.target.setSelectionRange(pos, pos);
             }
+            let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+            e.target.setSelectionRange(pos, pos);
+            e.preventDefault();
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
-            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
-                e.preventDefault();
+            if ( position.y == 0 ) {
+                // goto very start
+                position.x = 0;
+                position.y = 0;
             } else {
-                position.y -= 1;
-                let pos = position.y * (plot.num_cols + 1) + position.x;
-                e.preventDefault(); 
-                e.target.setSelectionRange(pos, pos);
+                position.y += -1;
             }
+            let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+            e.target.setSelectionRange(pos, pos);
+            e.preventDefault();
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
