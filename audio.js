@@ -83,9 +83,7 @@ class Audio {
                 this.playOscillator(freq2, currentDuration, panning, constants.vol / 4, 'triangle');
             }
         } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
-            if (rawFreq != 0) {
-                this.playOscillator(rawFreq, currentDuration, panning, constants.vol, 'sine');
-            } else {
+            if (rawFreq == 0) {
                 this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
             }
         }
