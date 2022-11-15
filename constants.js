@@ -8,8 +8,26 @@
 //  * role application on svg
 
 class Constants {
+
+    // element ids
+    svg_container_id = "svg-container";
+    braille_container_id = "braille-div";
+    braille_input_id = "braille-input";
+    info_id = "info";
+    announcement_container_id = "announcements";
+
     // default constructor for boxplot
-    constructor() { }
+    constructor() {
+        this.PrepHtml(); // init html
+
+        // page elements
+        this.svg_container = document.getElementById(this.svg_container_id);
+        this.svg = document.querySelector('#' + this.svg_container_id + ' > svg');
+        this.brailleContainer = document.getElementById(this.braille_container_id);
+        this.brailleInput = document.getElementById(this.braille_input_id);
+        this.infoDiv = document.getElementById(this.info_id);
+        this.announceContainer = document.getElementById(this.announcement_container_id);
+    }
 
     // basic chart properties
     minX = 0;
@@ -19,13 +37,6 @@ class Constants {
     plotId = ''; // update with id in chart specific js
     chartType = ""; // set as 'boxplot' or whatever later in chart specific js file
 
-    // page elements
-    svg_container = document.getElementById("svg-container");
-    svg = document.querySelector("#svg-container > svg");
-    brailleContainer = document.getElementById('braille-div');
-    brailleInput = document.getElementById('braille-input');
-    infoDiv = document.getElementById("info");
-    announceContainer = document.getElementById('announcements');
 
     // basic audio properties
     MAX_FREQUENCY = 1000;
@@ -47,6 +58,30 @@ class Constants {
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
+
+    PrepHtml() {
+        // init html stuff. aria live regions, braille input, etc
+
+        // info aria live
+        if ( ! document.getElementById(this.info_id) ) {
+            document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
+        }
+
+        // announcements aria live
+        if ( ! document.getElementById(this.announcement_container_id) ) {
+            document.getElementById(info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+        }
+
+        // braille
+        if ( ! document.getElementById(this.braille_container_id) ) {
+            document.getElementById('container').insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+        }
+
+        // role app on svg
+        if ( document.getElementById(this.svg_container_id) ) {
+            document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('role', 'application');
+        }
+    }
 }
 
 class Position {
