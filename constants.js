@@ -36,25 +36,28 @@ class Constants {
     maxY = 0;
     plotId = ''; // update with id in chart specific js
     chartType = ""; // set as 'boxplot' or whatever later in chart specific js file
-
+    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
     // basic audio properties
     MAX_FREQUENCY = 1000;
     MIN_FREQUENCY = 100;
 
-    // user controls
-    duration = .3
+    // user settings
     vol = .5;
     showRect = 1;  // true / false
-    autoPlayRate = 500; // ms per tone
+    autoPlayRate = 250; // ms per tone
+    colorUnselected = "rgb(89,89,89)"; // todo: don't rely on color! also do a shape or pattern fill
+    colorSelected = "rgb(3,200,9)";
 
+    // advanced user settings
+    duration = .2;
+    autoPlayOutlierRate = 50; // ms per tone
+
+    // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
     audioPlay = 1; // true / false
-    colorUnselected = "rgb(89,89,89)";
-    colorSelected = "rgb(3,200,9)";
-    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
@@ -85,9 +88,10 @@ class Constants {
 }
 
 class Position {
-    constructor(x, y) {
+    constructor(x, y, z=-1) {
         this.x = x;
         this.y = y;
+        this.z = z; // rarely used
     }
 }
 
