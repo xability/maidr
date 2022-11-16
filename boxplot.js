@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             rect.UpdateRect();
         }
         if (constants.audioPlay) {
-            audio.playTone();
+            plot.PlayTones(audio);
         }
     }
     function lockPosition() {
@@ -216,47 +216,46 @@ class BoxPlot {
             return a[0].y - b[0].y;
         });
 
-        // combine outliers into a single average
-        // this is so janky and I'm embarrased by it
+        // combine outliers into a single object for easier display
+        // info to grab: arr of values=x's, x=xmin, xn=xmax. The rest can stay as is
         for (let i = 0; i < plotData.length; i++) {
             let section = plotData[i];
-            // loop through points and find outliers (they'll be grouped)
+            // loop through points and find outliers 
             let outlierGroup = [];
             for (let j = 0; j < section.length + 1; j++) {
-                let runProcessAvg = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
+                let runProcessOutliers = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
                 if (j == section.length) {
-                    runProcessAvg = true;
+                    runProcessOutliers = true;
                 } else if (section[j].type != "outlier") {
-                    runProcessAvg = true;
+                    runProcessOutliers = true;
                 }
-                if (runProcessAvg) {
-                    // process and reset for next round
-                    if (outlierGroup.length > 0) {
-                        let total = 0;
-                        for (let k = 0; k < outlierGroup.length; k++) {
-                            total += outlierGroup[k].x;
-                        }
-                        let outlierAvg = total / outlierGroup.length;
-
-                        // save this as the first val, and mark all others to clear after we're done with these loops
-                        for (let k = 0; k < outlierGroup.length; k++) {
-                            if (k == 0) {
-                                plotData[i][j + k - outlierGroup.length].x = outlierAvg;
-                            } else {
-                                plotData[i][j + k - outlierGroup.length].type = 'delete';
-                            }
-
-                        }
-
-                        // reset for next set
-                        outlierGroup = [];
-                    }
-                } else {
+                if ( ! runProcessOutliers ) {
+                    // add this to the group and continue
                     outlierGroup.push(section[j]);
+                } else if ( outlierGroup.length > 0 ) {
+                    // process!! This is the main bit of work done
+                    let vals = [];
+                    for (let k = 0; k < outlierGroup.length; k++) {
+                        // save array of values
+                        vals.push(outlierGroup[k].x);
+
+                        // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
+                        if ( k > 0 ) {
+                            plotData[i][j + k - outlierGroup.length].type = 'delete';
+                        }
+                    }
+
+                    // save data
+                    plotData[i][j - outlierGroup.length].x = outlierGroup[0].x;
+                    plotData[i][j - outlierGroup.length].xMax = outlierGroup[outlierGroup.length - 1].x;
+                    plotData[i][j - outlierGroup.length].values = vals;
+
+                    // reset for next set
+                    outlierGroup = [];
                 }
             }
         }
-        // clean up
+        // clean up from the above outlier processing
         let cleanData = [];
         for (let i = 0; i < plotData.length; i++) {
             cleanData[i] = [];
@@ -314,7 +313,7 @@ class BoxPlot {
         // GRID = whisker
         // points = outlier
 
-        let segmentType = 'outlier'; // default?
+        let segmentType = 'outlier'; // default? todo: should probably default null, and then throw error instead of return if not set after ifs
         if (sectionId.includes('geom_crossbar')) {
             segmentType = 'range';
         } else if (sectionId.includes('GRID')) {
@@ -354,6 +353,32 @@ class BoxPlot {
 
         return points;
     }
+
+    PlayTones(audio) {
+
+        if ( plot.plotData[position.y][position.x].type != "outlier" ) {
+            audio.playTone();
+        } else {
+            // we play a run of tones
+            position.z = 0;
+            let outlierInterval = setInterval(function() {
+                // play this tone
+                audio.playTone();
+
+                // and then set up for the next one
+                position.z += 1;
+
+                // and kill if we're done
+                if ( position.z + 1 > plot.plotData[position.y][position.x].values.length ) {
+                    clearInterval(outlierInterval);
+                    position.z = -1;
+                }
+
+            }, constants.autoPlayOutlierRate);
+        }
+
+    }
+
 }
 
 // BoxplotRect class
@@ -382,7 +407,7 @@ class BoxplotRect {
         if (plot.plotData[position.y][position.x].type == 'outlier') {
 
             this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-            this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
+            this.x2 = plot.plotData[position.y][position.x].xMax + this.rectPadding;
             this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
             this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
 
