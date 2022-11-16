@@ -1,17 +1,17 @@
 import prediction_array from './scatterplot/prediction_array' assert { type: 'json' };
 import residual_array from './scatterplot/residual_array' assert { type: 'json' };
 
-document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-    window.constants = new Constants(); 
+    window.constants = new Constants();
     constants.plotId = 'geom_point.points.2.1';
     window.position = new Position(-1, -1);
     window.plot = new ScatterPlot();
     constants.chartType = "scatterplot";
     let audio = new Audio();
     let display = new Display();
-    
+
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
         if (e.which === 37) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left'); 
+                    Autoplay('left');
                 } else {
                     position.x = 0;
                 }
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     });
 
 
-    constants.brailleInput.addEventListener("keydown", function(e) {
+    constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
         // @TODO
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
 
         if (e.which == 9) {
         } else if (e.which == 39) { // right arrow
-            if ( e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart+1, e.target.selectionStart+2) == '⠳') {
+            if (e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
                 e.preventDefault();
             } else {
                 position.x += 1;
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             position.x -= 1;
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
-            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2 ) {
+            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2) {
                 e.preventDefault();
             } else {
                 position.y += 1;
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
             }
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
-            if (e.target.selectionStart - plot.num_cols - 1 < 0 ) {
+            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
                 e.preventDefault();
             } else {
                 position.y -= 1;
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     document.addEventListener("keydown", function (e) {
 
         // B: braille mode
-        if ( e.which == 66 ) {
+        if (e.which == 66) {
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -160,10 +160,10 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     // helper functions
     function lockPosition() {
         // lock to min / max postions
-        if ( position.x < 0 ) {
+        if (position.x < 0) {
             position.x = 0;
         }
-        if ( position.x > plot.num_cols - 1 ) {
+        if (position.x > plot.num_cols - 1) {
             position.x = plot.num_cols - 1;
         }
         if (position.y < 0) {
@@ -175,33 +175,33 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
     }
 
     function UpdateAll() {
-        if ( constants.showDisplay ) {
-            display.displayValues(plot); 
+        if (constants.showDisplay) {
+            display.displayValues(plot);
         }
-        if ( constants.showRect ) {
-            rect.UpdateRectDisplay(); 
+        if (constants.showRect) {
+            rect.UpdateRectDisplay();
         }
-        if ( constants.audioPlay ) {
+        if (constants.audioPlay) {
             audio.playTone();
         }
     }
 
     function Autoplay(dir) {
-        let step = 1 ; // default right and down
-        if ( dir == "left" || dir == "up" ) {
+        let step = 1; // default right and down
+        if (dir == "left" || dir == "up") {
             step = -1;
-        } 
+        }
 
         // clear old autoplay if exists
-        if ( this.autoplay != null ) {
+        if (this.autoplay != null) {
             clearInterval(this.autoplay);
             this.autoplay = null;
         }
 
-        this.autoplay = setInterval(function() {
+        this.autoplay = setInterval(function () {
             if (dir == "left" || dir == "right") {
                 position.x += step;
-                if ( position.x < 0 || plot.num_cols - 1 < position.x ) {
+                if (position.x < 0 || plot.num_cols - 1 < position.x) {
                     clearInterval(this.autoplay);
                     this.autoplay = null;
                     lockPosition();
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function(e) { // we wrap in DOMCon
                 }
             } else { // up or down
                 position.y += step;
-                if ( position.y < 0 || plot.num_rows - 1 < position.y ) {
+                if (position.y < 0 || plot.num_rows - 1 < position.y) {
                     clearInterval(this.autoplay);
                     this.autoplay = null;
                     lockPosition();
@@ -239,7 +239,7 @@ class ScatterPlot {
         }
 
         // sort the points according to x coordinates
-        x.sort(function(a,b) { return a - b; });
-        y.sort(function(a,b) { return x.indexOf(a) - x.indexOf(b); })
+        x.sort(function (a, b) { return a - b; });
+        y.sort(function (a, b) { return x.indexOf(a) - x.indexOf(b); })
     }
 }
