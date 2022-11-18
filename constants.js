@@ -51,7 +51,7 @@ class Constants {
 
     // advanced user settings
     duration = .2;
-    autoPlayOutlierRate = 50; // ms per tone
+    autoPlayOutlierRate = 30; // ms per tone
 
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
