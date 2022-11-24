@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
     let audio = new Audio();
     let display = new Display();
     let point = new Point();
+    let lastPlayed = '';
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('right');
+                    lastPlayed = 'right';
                 } else {
                     position.x = plot.numPoints - 1;
                 }
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('left'); 
+                    lastPlayed = 'left';
                 } else {
                     position.x = 0;
                 }
@@ -44,6 +47,20 @@ document.addEventListener('DOMContentLoaded', function(e) {
 
         if (e.which == 80) {
             StopAutoplay();
+        }
+
+        if (e.which == 85) {
+            StopAutoplay();
+            SpeedUp();
+            console.log(constants.autoPlayRate);
+            Autoplay(lastPlayed);
+        }
+
+        if (e.which == 68) {
+            StopAutoplay();
+            SpeedDown();
+            console.log(constants.autoPlayRate);
+            Autoplay(lastPlayed);
         }
 
         lockPosition();
@@ -148,12 +165,24 @@ document.addEventListener('DOMContentLoaded', function(e) {
             } else {
                 UpdateAll();
             }
-        }, 50);
+        }, constants.autoPlayRate);
     }
 
     function StopAutoplay() {
         clearInterval(this.autoplay);
         this.autoplay = null;
+    }
+
+    function SpeedUp() {
+        if (constants.autoPlayRate - 50 > 0) { 
+            constants.autoPlayRate -= 50;
+        }
+    }
+
+    function SpeedDown() {
+        if (constants.autoPlayRate + 50 <= 1000) {
+            constants.autoPlayRate += 50;
+        }
     }
 
 });
