@@ -51,6 +51,15 @@ class Audio {
             rawPanning = position.x;
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
+        } else if (constants.chartType == "scatterplot") {
+            if (constants.layer == 0) {
+                rawFreq = plot.bestFitLinePoints[position.x];
+                rawPanning = position.x;
+                frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
+            } else if (constants.layer == 1) {
+                // @TODO
+            }
         }
 
         if (constants.debugLevel > 4) {
@@ -88,6 +97,8 @@ class Audio {
             } else {
                 this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
             }
+        } else if (constants.chartType == "scatterplot") {
+            // @TODO: residual histogram can have empty bars
         }
 
     }

@@ -43,7 +43,8 @@ class Constants {
     audioPlay = 1; // true / false
     colorUnselected = "rgb(89,89,89)";
     colorSelected = "rgb(3,200,9)";
-    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
+    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right) => for heatmap
+    layer = 0; // 0 = line chart; 1 = histogram => for scatterplot
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc

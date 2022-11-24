@@ -116,6 +116,26 @@ class Display {
                     output += '<p>Class is ' + groupName + ', ' + plot.plotData[position.y][position.x].label + ' is ' + plot.plotData[position.y][position.x].x + '</p>\n';
                 }
             }
+        } else if (constants.chartType == "scatterplot") {
+            if (constants.layer == 0) { // best fit line layer
+                if (constants.textMode == "off") {
+                    // do nothing
+                } else if (constants.textMode == "terse") {
+                    output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x];
+                } else if (constants.textMode == "verbose") {
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.bestFitLinePoints[position.x] + '</p>\n';
+                }
+            } else if (constants.layer == 1) { // residual histogram layer
+                if (constants.textMode == "off")  {
+                    // do nothing
+                } else if (constants.textMode == "terse") {
+                    // @TODO
+                    // output += '<p>' + plot.
+                } else if (constants.textMode == "verbose") {
+                    // @TODO
+                    // output += '<p>' + 'residual ' + plot
+                }
+            }
         }
 
         constants.infoDiv.innerHTML = output;
@@ -126,7 +146,7 @@ class Display {
         let brailleArray = [];
 
         if (constants.chartType == "heatmap") {
-            let range = (constants.minY + constants.maxY) / 3;
+            let range = (constants.maxY - constants.minY) / 3;
             let low = constants.minY + range;
             let medium = low + range;
             let high = medium + range;
@@ -157,12 +177,32 @@ class Display {
                     brailleArray.push("⠉");
                 }
             }
+        } else if (constants.chartType == "scatterplot") {
+            if (constants.layer == 0) { // best fit line layer
+                let range = (constants.maxY - constants.minY) / 4;
+                let low = constants.minY + range;
+                let medium = low + range;
+                let medium_high = medium + range;
+                let high = medium_high + range;
+                for (let i = 0; i < plot.numPoints; i++) {
+                    if (plot.bestFitLinePoints[i] <= low) {
+                        brailleArray.push("⣀");
+                    } else if (plot.bestFitLinePoints[i] <= medium) {
+                        brailleArray.push("⠤");
+                    } else if (plot.bestFitLinePoints[i] <= medium_high) {
+                        brailleArray.push("⠒");
+                    } else if (plot.bestFitLinePoints[i] <= high) {
+                        brailleArray.push("⠉");
+                    }
+                }
+            } else if (constants.layer == 1) { // residual histogram layer
+                // @TODO
+            }
         }
 
         if (constants.debugLevel > 1) {
             console.log(brailleArray.join(''));
         }
-
 
         constants.brailleInput.value = brailleArray.join("");
     }
