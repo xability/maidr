@@ -42,6 +42,10 @@ document.addEventListener('DOMContentLoaded', function(e) {
             updateInfoThisRound = true;
         }
 
+        if (e.which == 80) {
+            StopAutoplay();
+        }
+
         lockPosition();
 
         // update text, display, and audio
@@ -145,6 +149,11 @@ document.addEventListener('DOMContentLoaded', function(e) {
                 UpdateAll();
             }
         }, 50);
+    }
+
+    function StopAutoplay() {
+        clearInterval(this.autoplay);
+        this.autoplay = null;
     }
 
 });
