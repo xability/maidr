@@ -43,7 +43,7 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "boxplot") {
-            if ( position.z == -1 ) {
+            if (position.z == -1) {
                 // normal points
                 rawFreq = plot.plotData[position.y][position.x].x;
             } else {

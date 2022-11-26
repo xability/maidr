@@ -101,9 +101,9 @@ class Display {
         } else if (constants.chartType == "boxplot") {
             let val = plot.plotData[position.y][position.x].x;
             let plural = false;
-            if ( plot.plotData[position.y][position.x].type == "outlier" ) {
+            if (plot.plotData[position.y][position.x].type == "outlier") {
                 val = plot.plotData[position.y][position.x].values.join(', ');
-                if ( plot.plotData[position.y][position.x].values.length > 1 ) {
+                if (plot.plotData[position.y][position.x].values.length > 1) {
                     plural = true;
                 }
             }
@@ -123,13 +123,13 @@ class Display {
             } else if (constants.textMode == "verbose") {
                 if (constants.navigation == 1) { // within box nav
                     output += '<p>' + plot.plotData[position.y][position.x].label;
-                    if (!plural) output += ' is '; 
+                    if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
                 } else { // new box nav
                     let groupName = "groupName"; // placeholder. todo: get this somehow
                     output += '<p>Class is ' + groupName + ', ' + plot.plotData[position.y][position.x].label;
-                    if (!plural) output += ' is '; 
+                    if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
                 }

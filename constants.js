@@ -51,8 +51,8 @@ class Constants {
 
     // advanced user settings
     duration = .2;
-    autoPlayOutlierRate = 50; // ms per tone
     brailleDisplayLength = 18; // num characters in user's braille display. JooYoung says everyone has at least 18
+    autoPlayOutlierRate = 30; // ms per tone
 
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
@@ -67,29 +67,29 @@ class Constants {
         // init html stuff. aria live regions, braille input, etc
 
         // info aria live
-        if ( ! document.getElementById(this.info_id) ) {
+        if (!document.getElementById(this.info_id)) {
             document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
         }
 
         // announcements aria live
-        if ( ! document.getElementById(this.announcement_container_id) ) {
+        if (!document.getElementById(this.announcement_container_id)) {
             document.getElementById(info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
         }
 
         // braille
-        if ( ! document.getElementById(this.braille_container_id) ) {
+        if (!document.getElementById(this.braille_container_id)) {
             document.getElementById('container').insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
         }
 
         // role app on svg
-        if ( document.getElementById(this.svg_container_id) ) {
+        if (document.getElementById(this.svg_container_id)) {
             document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('role', 'application');
         }
     }
 }
 
 class Position {
-    constructor(x, y, z=-1) {
+    constructor(x, y, z = -1) {
         this.x = x;
         this.y = y;
         this.z = z; // rarely used
