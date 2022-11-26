@@ -125,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             plot.PlayTones(audio);
         }
+        display.SetBraille(plot);
     }
     function lockPosition() {
         // lock to min / max postions

@@ -175,13 +175,307 @@ class Display {
                     brailleArray.push("⠉");
                 }
             }
+        } else if (constants.chartType == "boxplot" && position.y > -1 ) { // only run if we're on a plot
+            // Idea here is to use different braille characters to physically represent the boxplot
+            // if sections are longer or shorter we'll add more characters
+            // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
+            //
+            // So, we get weighted lengths of each section (or gaps between outliers, etc),
+            // and then create the appropriate number of characters
+            //
+            // This is messy and long (250 lines). If anyone wants to improve. Be my guest
+
+            // First, we make an array of lengths and types that represent our plot
+            let brailleData = [];
+            let isBeforeMid = true;
+            let boundingBoxOffsetX = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
+            for ( let i = 0 ; i < plot.plotData[position.y].length ; i++ ) {
+                let point = plot.plotData[position.y][i];
+                let nextPoint = null;
+                let prevPoint = null;
+                if ( i < plot.plotData[position.y].length - 1 ) {
+                    nextPoint = plot.plotData[position.y][i+1];
+                }
+                if ( i > 0 ) {
+                    prevPoint = plot.plotData[position.y][i-1];
+                }
+
+                let charData = {};
+
+                if ( i == 0 ) {
+                    // first point gotta add extra starting blank space
+                    charData = {};
+                    charData.length = point.x - 0 - boundingBoxOffsetX;
+                    if ( charData.length < 0 ) charData.length = 0;
+                    charData.type = 'blank';
+                    brailleData.push(charData);
+                }
+
+                if ( point.type == "outlier" ) {
+                    // there might be lots of these
+
+                    // Spacing is messy:
+                    // isBeforeMid: no pre space, yes after space
+                    // ! isBeforeMid: yes pre space, no after space
+                    // either way add spaces in between outlier points
+
+                    // pre point space
+                    if ( isBeforeMid ) {
+                        // no pre space 
+                    } else {
+                        // yes after space
+                        charData = {};
+                        charData.length = point.values[0] - prevPoint.x;
+                        charData.type = 'blank';
+                        brailleData.push(charData);
+                    }
+
+                    // now add points with spaces in between
+                    for ( var k = 0 ; k < point.values.length ; k++ ) {
+                        if ( k == 0 ) {
+                            charData = {};
+                            charData.length = 0;
+                            charData.type = "outlier"
+                            brailleData.push(charData);
+                        } else {
+                            charData = {};
+                            charData.length = point.values[k] - point.values[k-1];
+                            charData.type = "blank";
+                            brailleData.push(charData);
+
+                            charData = {};
+                            charData.length = 0;
+                            charData.type = "outlier"
+                            brailleData.push(charData);
+                        }
+                    }
+
+                    // after point space
+                    if ( isBeforeMid ) {
+                        // yes pre space 
+                        charData = {};
+                        charData.length = nextPoint.x - point.values[point.values.length - 1];
+                        charData.type = 'blank';
+                        brailleData.push(charData);
+                    } else {
+                        // no after space
+                    }
+                } else {
+                    if ( point.label == "50%" ) {
+                        // exception: another 0 width point here
+                        charData = {};
+                        charData.length = 0;
+                        charData.type = point.label;
+                        brailleData.push(charData);
+
+                        isBeforeMid = false;
+                    } else {
+                        // normal points: we calc dist between this point and point closest to middle
+                        charData = {};
+                        if ( isBeforeMid ) {
+                            charData.length = nextPoint.x - point.x;
+                        } else {
+                            charData.length = point.x - prevPoint.x;
+                        }
+                        charData.type = point.label;
+                        brailleData.push(charData);
+                    }
+                }
+                if ( i == plot.plotData[position.y].length - 1 ) {
+                    // last point gotta add ending space manually
+                    charData = {};
+                    if ( point.type == "outlier" ) {
+                        charData.length = constants.maxX - point.xMax;
+                    } else {
+                        charData.length = constants.maxX - point.x;
+                    }
+                    charData.type = "blank";
+                    brailleData.push(charData);
+                }
+            }
+            // cleanup. A bit of rounding to account for floating point errors
+            let sigFigs = 8; // probably overkill, but anything less than 15 works
+            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                brailleData[i].length = Math.round(brailleData[i].length * Math.pow(10,sigFigs)) / Math.pow(10,sigFigs);
+            }
+            
+
+            // We create a set of braille characters based on the lengths
+            // method: initially give each block a single character, then add characters one by one where they have the most impact
+            // exeption: if there are multiple blocks that have the same values, use this priority:
+            //   1: 25/75
+            //   2: min/max
+            //   3: blanks
+            // exeption: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
+
+            // store 25/75 min/max locations
+            let locMin = -1;
+            let locMax = -1;
+            let loc25 = -1;
+            let loc75 = -1;
+            let pairsWeGot = []
+            // prepopulate a single char each
+            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                brailleData[i].numChars = 1;
+                if ( brailleData[i].type == 'Min' ) locMin = i;
+                if ( brailleData[i].type == 'Max' ) locMax = i;
+                if ( brailleData[i].type == '25%' ) loc25 = i;
+                if ( brailleData[i].type == '75%' ) loc75 = i;
+            }
+            // add extras to 25/75 min/max if needed
+            let currentPairs = ['25%', '75%'];
+            if ( locMin > -1 && locMax > -1 ) {
+                currentPairs.push('Min');
+                currentPairs.push('Max');
+                if ( brailleData[locMin].length != brailleData[locMax].length ) {
+                    if ( brailleData[locMin].length > brailleData[locMax].length ) {
+                        brailleData[locMin].numChars++;
+                    } else {
+                        brailleData[locMax].numChars++;
+                    }
+                }
+            }
+            if ( brailleData[loc25].length != brailleData[loc75].length ) {
+                if ( brailleData[loc25].length > brailleData[loc75].length ) {
+                    brailleData[loc25].numChars++;
+                } else {
+                    brailleData[loc75].numChars++;
+                }
+            }
+
+            // add characters itteritively on max length impact
+            let charsAvailable = constants.brailleDisplayLength;
+            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                charsAvailable -= brailleData[i].numChars;
+            }
+            let debugSanity = 0;
+            while ( charsAvailable > 0 && debugSanity < 50 ) {
+                debugSanity++;
+                let maxImpactI = 0;
+                for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                    if ( this.CharLenImpact(brailleData[i]) > this.CharLenImpact(brailleData[maxImpactI]) ) {
+                        maxImpactI = i;
+                    }
+                }
+
+                // do we potentially need to add chars to the other in the pair?
+                if ( ! ( brailleData[maxImpactI].type in currentPairs ) ) {
+                    brailleData[maxImpactI].numChars++;
+                    charsAvailable--;
+                } else if ( brailleData[maxImpactI].type in ['Min', 'Max'] ) {
+                    // if they're equal, add to both
+                    if ( brailleData[locMin].length == brailleData[locMax].length ) {
+                        if ( charsAvailable > 1 ) {
+                            brailleData[locMin].numChars++;
+                            brailleData[locMax].numChars++;
+                        }
+                        charsAvailable += -2;
+                    } else {
+                        // if not equal, would adding to 1 side make them seem equal?
+                        if ( maxImpactI == locMin ) {
+                            if ( brailleData[locMin].numChars + 1 == brailleData[locMax].numChars ) {
+                                // if so, then add to both
+                                if ( charsAvailable > 1 ) {
+                                    brailleData[locMin].numChars++;
+                                    brailleData[locMax].numChars++;
+                                }
+                                charsAvailable += -2;
+                            } else {
+                                // if not, then it's fine, just add it
+                                brailleData[maxImpactI].numChars++;
+                                charsAvailable--;
+                            }
+                        } else {
+                            // same for other side
+                            if ( brailleData[locMax].numChars + 1 == brailleData[locMin].numChars ) {
+                                // if so, then add to both
+                                if ( charsAvailable > 1 ) {
+                                    brailleData[locMax].numChars++;
+                                    brailleData[locMin].numChars++;
+                                }
+                                charsAvailable += -2;
+                            } else {
+                                // if not, then it's fine, just add it
+                                brailleData[maxImpactI].numChars++;
+                                charsAvailable--;
+                            }
+                        } 
+                    }
+                } else if ( brailleData[maxImpactI].type in ['25%', '75%'] ) {
+                    // if they're equal, add to both
+                    if ( brailleData[loc25].length == brailleData[loc75].length ) {
+                        if ( charsAvailable > 1 ) {
+                            brailleData[loc25].numChars++;
+                            brailleData[loc75].numChars++;
+                        }
+                        charsAvailable += -2;
+                    } else {
+                        // if not equal, would adding to 1 side make them seem equal?
+                        if ( maxImpactI == loc25 ) {
+                            if ( brailleData[loc25].numChars + 1 == brailleData[loc75].numChars ) {
+                                // if so, then add to both
+                                if ( charsAvailable > 1 ) {
+                                    brailleData[loc25].numChars++;
+                                    brailleData[loc75].numChars++;
+                                }
+                                charsAvailable += -2;
+                            } else {
+                                // if not, then it's fine, just add it
+                                brailleData[maxImpactI].numChars++;
+                                charsAvailable--;
+                            }
+                        } else {
+                            // same for other side
+                            if ( brailleData[loc75].numChars + 1 == brailleData[loc25].numChars ) {
+                                // if so, then add to both
+                                if ( charsAvailable > 1 ) {
+                                    brailleData[loc75].numChars++;
+                                    brailleData[loc25].numChars++;
+                                }
+                                charsAvailable += -2;
+                            } else {
+                                // if not, then it's fine, just add it
+                                brailleData[maxImpactI].numChars++;
+                                charsAvailable--;
+                            }
+                        } 
+                    }
+                }
+
+            } // end while
+
+            if (constants.debugLevel > 1) {
+                console.log(brailleData);
+            }
+
+            // create braille from this data
+
+            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                for ( let j = 0 ; j < brailleData[i].numChars ; j++ ) {
+                    let brailleChar = "⠀"; // blank
+                    if ( brailleData[i].type == "Min" || brailleData[i].type == "Max" ) {
+                        brailleChar = "⠒";
+                    } else if ( brailleData[i].type == "25%" || brailleData[i].type == "75%" ) {
+                        brailleChar = "⠿";
+                    } else if ( brailleData[i].type == "50%" ) {
+                        brailleChar = "⠸";
+                    } else if ( brailleData[i].type == "outlier" ) {
+                        brailleChar = "⠂";
+                    }
+                    brailleArray.push(brailleChar);
+                }
+            }
+
         }
 
+
+        constants.brailleInput.value = brailleArray.join('');
         if (constants.debugLevel > 1) {
-            console.log(brailleArray.join(''));
+            console.log('braile:', constants.brailleInput.value);
         }
+    }
 
-
-        constants.brailleInput.value = brailleArray.join("");
+    CharLenImpact(charData) {
+        return ( charData.length / charData.numChars ) ;
     }
 }
