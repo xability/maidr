@@ -51,6 +51,7 @@ class Constants {
 
     // advanced user settings
     duration = .2;
+    brailleDisplayLength = 18; // num characters in user's braille display. JooYoung says everyone has at least 18
     autoPlayOutlierRate = 30; // ms per tone
 
     // user controls (with shortcuts usually)
