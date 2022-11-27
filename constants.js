@@ -56,6 +56,7 @@ class Constants {
 
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
+    showDisplayInBraille = 0; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
     audioPlay = 1; // true / false

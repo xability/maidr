@@ -63,6 +63,31 @@ class Display {
         constants.announceContainer.innerHTML = txt;
     }
 
+    UpdateBraillePos() {
+        if ( ! constants.chartType == "boxplot" ) {
+            constants.brailleInput.setSelectionRange(position.x, position.x);
+        } else {
+            // on boxplot we extend characters a lot, so we have to jump around by character sets
+            let adjustedPosX = 0;
+            let walk = 0;
+            if ( constants.brailleData ) {
+                for ( let i = 0 ; i < constants.brailleData.length ; i++ ) {
+                    if ( walk == position.x ) {
+                        break;
+                    }
+                    if ( constants.brailleData[i].type != 'blank' ) {
+                        walk++;
+                    }
+                    adjustedPosX += constants.brailleData[i].numChars;
+                }
+            } else {
+                throw 'Braille data not set up, cannot move cursor in braille, sorry.';
+            }
+
+            constants.brailleInput.setSelectionRange(adjustedPosX, adjustedPosX);
+
+        }
+    }
 
     displayValues(plot) {
         // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
@@ -441,6 +466,8 @@ class Display {
                 }
 
             } // end while
+
+            constants.brailleData = brailleData;
 
             if (constants.debugLevel > 5) {
                 console.log(brailleData);
