@@ -110,25 +110,23 @@ class Display {
             if (constants.textMode == "off") {
                 // do nothing
             } else if (constants.textMode == "terse") {
-                if (constants.navigation == 1) { // within box nav
+                if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>' + plot.plotData[position.y][position.x].label;
                     if (plural) output += 's';
                     output += ' ' + val + '</p>\n';
-                } else { // new box nav
-                    let groupName = "groupName"; // placeholder. todo: get this somehow
-                    output += '<p>' + groupName + ' ' + plot.plotData[position.y][position.x].label;
+                } else { // new box nav (up / down)
+                    output += '<p>' + plot.y_labels[position.y] + ' ' + plot.plotData[position.y][position.x].label;
                     if (plural) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
-                if (constants.navigation == 1) { // within box nav
+                if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>' + plot.plotData[position.y][position.x].label;
                     if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
-                } else { // new box nav
-                    let groupName = "groupName"; // placeholder. todo: get this somehow
-                    output += '<p>Class is ' + groupName + ', ' + plot.plotData[position.y][position.x].label;
+                } else { // new box nav (up / down)
+                    output += '<p>' + plot.y_group_label + ' is ' + plot.y_labels[position.y] + ', ' + plot.plotData[position.y][position.x].label;
                     if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
@@ -444,7 +442,7 @@ class Display {
 
             } // end while
 
-            if (constants.debugLevel > 1) {
+            if (constants.debugLevel > 5) {
                 console.log(brailleData);
             }
 
@@ -470,7 +468,7 @@ class Display {
 
 
         constants.brailleInput.value = brailleArray.join('');
-        if (constants.debugLevel > 1) {
+        if (constants.debugLevel > 5) {
             console.log('braile:', constants.brailleInput.value);
         }
     }

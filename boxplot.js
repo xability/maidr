@@ -151,6 +151,19 @@ class BoxPlot {
 
     constructor() {
         this.plotData = this.GetData(); // main json data
+        this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
+        this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
+        this.y_labels = this.GetXLabels();
+    }
+
+    GetXLabels() {
+        let labels = [];
+        let query = 'tspan[dy="5"]';
+        let els = document.querySelectorAll(query);
+        for ( let i = 0 ; i < els.length ; i++ ) {
+            labels.push(els[i].innerHTML.trim());
+        }
+        return labels;
     }
 
     GetData() {
