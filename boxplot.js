@@ -37,15 +37,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
         // up arrow 
         if (e.which === 38) {
+            position.x = GetRelativeBoxPosition(position.y, position.y+1);
             position.y += 1;
-            position.x = 0;
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
+            position.x = GetRelativeBoxPosition(position.y, position.y-1);
             position.y += -1;
-            position.x = 0;
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
@@ -147,6 +147,38 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (position.x > plot.plotData[position.y].length - 1) {
             position.x = plot.plotData[position.y].length - 1;
         }
+    }
+
+    function GetRelativeBoxPosition(yOld, yNew) {
+        // Used when we move up / down to another plot
+        // We want to go to the relative position in the new plot
+        // ie, if we were on the 50%, return the position.x of the new 50%
+
+        // init
+        let xNew = 0;
+        // lock yNew
+        if ( yNew < 1 ) {
+            ynew = 0;
+        } else if ( yNew > plot.plotData.length - 1 ) {
+            yNew = plot.plotData.length - 1;
+        }
+
+        if ( yOld < 0 ) {
+            // not on any chart yet, just start at 0
+        } else {
+            let oldLabel = plot.plotData[yOld][position.x].label;
+            // does it exist on the new plot? we'll just get that val
+            for ( let i = 0 ; i < plot.plotData[yNew].length ; i++ ) {
+                if ( plot.plotData[yNew][i].label == oldLabel ) {
+                    xNew = i;
+                }
+            }
+
+            // todo on request: try and find a nearby point. Like, if max doesn't exist, use 75%
+        }
+
+        return xNew;
+       
     }
 
 });
