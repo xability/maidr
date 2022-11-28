@@ -63,6 +63,31 @@ class Display {
         constants.announceContainer.innerHTML = txt;
     }
 
+    UpdateBraillePos() {
+        if ( ! constants.chartType == "boxplot" ) {
+            constants.brailleInput.setSelectionRange(position.x, position.x);
+        } else {
+            // on boxplot we extend characters a lot, so we have to jump around by character sets
+            let adjustedPosX = 0;
+            let walk = 0;
+            if ( constants.brailleData ) {
+                for ( let i = 0 ; i < constants.brailleData.length ; i++ ) {
+                    if ( walk == position.x ) {
+                        break;
+                    }
+                    if ( constants.brailleData[i].type != 'blank' ) {
+                        walk++;
+                    }
+                    adjustedPosX += constants.brailleData[i].numChars;
+                }
+            } else {
+                throw 'Braille data not set up, cannot move cursor in braille, sorry.';
+            }
+
+            constants.brailleInput.setSelectionRange(adjustedPosX, adjustedPosX);
+
+        }
+    }
 
     displayValues(plot) {
         // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
@@ -110,25 +135,23 @@ class Display {
             if (constants.textMode == "off") {
                 // do nothing
             } else if (constants.textMode == "terse") {
-                if (constants.navigation == 1) { // within box nav
+                if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>' + plot.plotData[position.y][position.x].label;
                     if (plural) output += 's';
                     output += ' ' + val + '</p>\n';
-                } else { // new box nav
-                    let groupName = "groupName"; // placeholder. todo: get this somehow
-                    output += '<p>' + groupName + ' ' + plot.plotData[position.y][position.x].label;
+                } else { // new box nav (up / down)
+                    output += '<p>' + plot.y_labels[position.y] + ' ' + plot.plotData[position.y][position.x].label;
                     if (plural) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
-                if (constants.navigation == 1) { // within box nav
+                if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>' + plot.plotData[position.y][position.x].label;
                     if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
-                } else { // new box nav
-                    let groupName = "groupName"; // placeholder. todo: get this somehow
-                    output += '<p>Class is ' + groupName + ', ' + plot.plotData[position.y][position.x].label;
+                } else { // new box nav (up / down)
+                    output += '<p>' + plot.y_group_label + ' is ' + plot.y_labels[position.y] + ', ' + plot.plotData[position.y][position.x].label;
                     if (!plural) output += ' is ';
                     else output += 's are ';
                     output += val + '</p>\n';
@@ -444,7 +467,9 @@ class Display {
 
             } // end while
 
-            if (constants.debugLevel > 1) {
+            constants.brailleData = brailleData;
+
+            if (constants.debugLevel > 5) {
                 console.log(brailleData);
             }
 
@@ -470,7 +495,7 @@ class Display {
 
 
         constants.brailleInput.value = brailleArray.join('');
-        if (constants.debugLevel > 1) {
+        if (constants.debugLevel > 5) {
             console.log('braile:', constants.brailleInput.value);
         }
     }

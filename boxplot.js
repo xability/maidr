@@ -25,27 +25,53 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            position.x += 1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
+            } else {
+                position.x += 1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // left arrow 
         if (e.which === 37) {
-            position.x += -1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x += -1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // up arrow 
         if (e.which === 38) {
-            position.y += 1;
-            position.x = 0;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = plot.plotData.length - 1;
+            } else {
+                position.y += 1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
-            position.y += -1;
-            position.x = 0;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = 0;
+            } else {
+                position.y += -1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
@@ -67,17 +93,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
-            // update position to match cursor
-            // don't let cursor move past the final braillecharacter or it'll desync and look weird
-            // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
-            if (e.target.selectionStart > e.target.value.length - 2) {
-                e.preventDefault();
-            } else {
-                position.x += 1;
-                updateInfoThisRound = true;
-            }
+            e.preventDefault();
+            position.x += 1;
+            updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
-            // update position to match cursor
+            e.preventDefault();
             position.x += -1;
             updateInfoThisRound = true;
         } else {
@@ -86,9 +106,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         lockPosition();
 
-        // update display / text / audio
+        // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {
-            UpdateAll();
+            UpdateAllBraille();
         }
 
     });
@@ -97,6 +117,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // B: braille mode
         if (e.which == 66) {
+            display.SetBraille(plot);
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -113,6 +134,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
+        if (e.which == 17) { // ctrl (either one)
+            constants.KillAutoplay();
+        }
+
     });
 
     function UpdateAll() {
@@ -125,7 +150,29 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             plot.PlayTones(audio);
         }
-        display.SetBraille(plot);
+    }
+    function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+    }
+    function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+        display.UpdateBraillePos(plot);
     }
     function lockPosition() {
         // lock to min / max postions
@@ -143,6 +190,60 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
 
+    function GetRelativeBoxPosition(yOld, yNew) {
+        // Used when we move up / down to another plot
+        // We want to go to the relative position in the new plot
+        // ie, if we were on the 50%, return the position.x of the new 50%
+
+        // init
+        let xNew = 0;
+        // lock yNew
+        if ( yNew < 1 ) {
+            ynew = 0;
+        } else if ( yNew > plot.plotData.length - 1 ) {
+            yNew = plot.plotData.length - 1;
+        }
+
+        if ( yOld < 0 ) {
+            // not on any chart yet, just start at 0
+        } else {
+            let oldLabel = plot.plotData[yOld][position.x].label;
+            // does it exist on the new plot? we'll just get that val
+            for ( let i = 0 ; i < plot.plotData[yNew].length ; i++ ) {
+                if ( plot.plotData[yNew][i].label == oldLabel ) {
+                    xNew = i;
+                }
+            }
+
+            // todo on request: try and find a nearby point. Like, if max doesn't exist, use 75%
+        }
+
+        return xNew;
+       
+    }
+
+    function Autoplay(dir) {
+        let step = 1; // default right
+        if (dir == "left") {
+            step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
+        }
+
+        constants.autoplayId = setInterval(function () {
+            position.x += step;
+            if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                constants.KillAutoplay();
+                lockPosition();
+            } else {
+                UpdateAllAutoplay();
+            }
+        }, constants.autoPlayRate);
+    }
+
 });
 
 // BoxPlot class.
@@ -151,6 +252,19 @@ class BoxPlot {
 
     constructor() {
         this.plotData = this.GetData(); // main json data
+        this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
+        this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
+        this.y_labels = this.GetXLabels();
+    }
+
+    GetXLabels() {
+        let labels = [];
+        let query = 'tspan[dy="5"]';
+        let els = document.querySelectorAll(query);
+        for ( let i = 0 ; i < els.length ; i++ ) {
+            labels.push(els[i].innerHTML.trim());
+        }
+        return labels;
     }
 
     GetData() {
