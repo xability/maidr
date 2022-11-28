@@ -57,6 +57,7 @@ class Constants {
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
     showDisplayInBraille = 0; // true / false
+    showDisplayInAutoplay = 0; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
     audioPlay = 1; // true / false
@@ -85,6 +86,13 @@ class Constants {
         // role app on svg
         if (document.getElementById(this.svg_container_id)) {
             document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('role', 'application');
+        }
+    }
+
+    KillAutoplay() {
+        if ( this.autoplayId) {
+            clearInterval(this.autoplayId);
+            this.autoplayId = null;
         }
     }
 }

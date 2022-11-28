@@ -26,7 +26,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // right arrow 
         if (e.which === 39) {
             if ( e.ctrlKey ) {
-                position.x = plot.plotData[position.y].length - 1;
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
             } else {
                 position.x += 1;
             }
@@ -36,7 +40,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // left arrow 
         if (e.which === 37) {
             if ( e.ctrlKey ) {
-                position.x = 0;
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
             } else {
                 position.x += -1;
             }
@@ -109,6 +117,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // B: braille mode
         if (e.which == 66) {
+            display.SetBraille(plot);
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -137,7 +146,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             plot.PlayTones(audio);
         }
-        display.SetBraille(plot);
+    }
+    function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
     }
     function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
@@ -197,6 +216,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         return xNew;
        
+    }
+
+    function Autoplay(dir) {
+        let step = 1; // default right
+        if (dir == "left") {
+            step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
+        }
+
+        constants.autoplayId = setInterval(function () {
+            position.x += step;
+            if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                constants.KillAutoplay();
+                lockPosition();
+            } else {
+                UpdateAll();
+            }
+        }, constants.autoPlayRate);
     }
 
 });

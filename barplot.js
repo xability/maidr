@@ -137,16 +137,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // clear old autoplay if exists
-        if (this.autoplay != null) {
-            clearInterval(this.autoplay);
-            this.autoplay = null;
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
         }
 
-        this.autoplay = setInterval(function () {
+        constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || plot.bars.length - 1 < position.x) {
-                clearInterval(this.autoplay);
-                this.autoplay = null;
+                constants.KillAutoplay();
                 lockPosition();
             } else {
                 UpdateAll();
