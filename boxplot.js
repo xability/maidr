@@ -134,6 +134,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
+        if (e.which == 17) { // ctrl (either one)
+            constants.KillAutoplay();
+        }
+
     });
 
     function UpdateAll() {
@@ -235,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 lockPosition();
             } else {
-                UpdateAll();
+                UpdateAllAutoplay();
             }
         }, constants.autoPlayRate);
     }
