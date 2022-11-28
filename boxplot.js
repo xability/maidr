@@ -25,27 +25,45 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            position.x += 1;
+            if ( e.ctrlKey ) {
+                position.x = plot.plotData[position.y].length - 1;
+            } else {
+                position.x += 1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // left arrow 
         if (e.which === 37) {
-            position.x += -1;
+            if ( e.ctrlKey ) {
+                position.x = 0;
+            } else {
+                position.x += -1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // up arrow 
         if (e.which === 38) {
-            position.x = GetRelativeBoxPosition(position.y, position.y+1);
-            position.y += 1;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = plot.plotData.length - 1;
+            } else {
+                position.y += 1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
-            position.x = GetRelativeBoxPosition(position.y, position.y-1);
-            position.y += -1;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = 0;
+            } else {
+                position.y += -1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
