@@ -97,6 +97,35 @@ class Constants {
     }
 }
 
+class Resources {
+    
+    constructor() {}
+
+    language = "en"; // 2 char lang code
+    knowledgeLevel = "basic" // basic, intermediate, expert
+
+    // these strings run on getters, which pull in language, knowledgeLevel, chart, and actual requested string
+    strings = {
+        "en": {
+            "basic": {
+                "upper_outlier": "Upper Outlier",
+                "lower_outlier": "Lower Outlier",
+                "min": "Low",
+                "max": "High",
+                "25": "25%",
+                "50": "50%", 
+                "75": "75%"
+            }
+        }
+    }
+
+    GetString(id) {
+        return this.strings[this.language][this.knowledgeLevel][id];
+    }
+
+
+}
+
 class Position {
     constructor(x, y, z = -1) {
         this.x = x;
