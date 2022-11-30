@@ -64,9 +64,10 @@ class Display {
     }
 
     UpdateBraillePos() {
-        if ( ! constants.chartType == "boxplot" ) {
+        if ( constants.chartType == "barchart" ) {
             constants.brailleInput.setSelectionRange(position.x, position.x);
-        } else {
+        } else if ( constants.chartType == "heatmap" ) {
+        } else if ( constants.chartType == "boxplot" ) {
             // on boxplot we extend characters a lot, so we have to jump around by character sets
             let adjustedPosX = 0;
             let walk = 0;

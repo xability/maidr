@@ -94,11 +94,27 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            position.x += 1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
+            } else {
+                position.x += 1;
+            }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            position.x += -1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x += -1;
+            }
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
@@ -152,14 +168,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
     function UpdateAllAutoplay() {
-        if (constants.showDisplayInAutoplay) {
-            display.displayValues(plot);
-        }
-        if (constants.showRect) {
-            rect.UpdateRect();
-        }
-        if (constants.audioPlay) {
-            plot.PlayTones(audio);
+        if ( constants.brailleMode != "off" ) {
+            UpdateAllBraille();
+        } else {
+            if (constants.showDisplayInAutoplay) {
+                display.displayValues(plot);
+            }
+            if (constants.showRect) {
+                rect.UpdateRect();
+            }
+            if (constants.audioPlay) {
+                plot.PlayTones(audio);
+            }
         }
     }
     function UpdateAllBraille() {
