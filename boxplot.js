@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // variable initialization
 
     window.constants = new Constants();
+    window.resources = new Resources();
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
@@ -411,23 +412,23 @@ class BoxPlot {
                 // each point, decide based on position with respect to range
                 if (point.type == "outlier") {
                     if (rangeCounter > 0) {
-                        plotData[i][j].label = "Upper Outlier"; // todo: don't hard code these, put in resource file
+                        plotData[i][j].label = resources.GetString('upper_outlier');
                     } else {
-                        plotData[i][j].label = "Lower Outlier";
+                        plotData[i][j].label = resources.GetString('lower_outlier');
                     }
                 } else if (point.type == "whisker") {
                     if (rangeCounter > 0) {
-                        plotData[i][j].label = "Max";
+                        plotData[i][j].label = resources.GetString('max');
                     } else {
-                        plotData[i][j].label = "Min";
+                        plotData[i][j].label = resources.GetString('min');
                     }
                 } else if (point.type == "range") {
                     if (rangeCounter == 0) {
-                        plotData[i][j].label = "25%";
+                        plotData[i][j].label = resources.GetString('25');
                     } else if (rangeCounter == 1) {
-                        plotData[i][j].label = "50%";
+                        plotData[i][j].label = resources.GetString('50');
                     } else if (rangeCounter == 2) {
-                        plotData[i][j].label = "75%";
+                        plotData[i][j].label = resources.GetString('75');
                     }
                     rangeCounter++;
                 }
