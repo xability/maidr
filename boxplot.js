@@ -524,9 +524,7 @@ class BoxplotRect {
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
     rectColorString = 'rgb(3,200,9)';
-
-    svgBoundingOffset = 80; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
-    svgBoudingOffsetRect = 30.3; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
+    rectPaddingOffset = this.rectPadding * 2;
 
     constructor() {
         this.x1 = 0;
@@ -615,8 +613,8 @@ class BoxplotRect {
             this.y1 = this.y2;
             this.y2 = swap;
 
-            this.y1 += -this.svgBoudingOffsetRect + this.rectPadding;
-            this.y2 += -this.svgBoudingOffsetRect - this.rectPadding;
+            this.y1 += -this.rectPaddingOffset + this.rectPadding;
+            this.y2 += -this.rectPaddingOffset - this.rectPadding;
 
         }
 
@@ -643,7 +641,7 @@ class BoxplotRect {
         let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().bottom - this.svgBoundingOffset - this.y1); // y coord is inverse from plot data
+        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.rectPaddingOffset - this.y1); // y coord is inverse from plot data
         rect.setAttribute('width', this.x2 - this.x1);
         rect.setAttribute('height', Math.abs(this.y2 - this.y1));
         rect.setAttribute('stroke', this.rectColorString);
