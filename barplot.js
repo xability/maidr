@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // update display / text / audio
         if (updateInfoThisRound) {
-            UpdateAll();
+            UpdateAllBraille();
         }
 
     });
@@ -130,6 +130,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             audio.playTone();
         }
     }
+    function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+    }
+    function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            plot.Select();
+        }
+        if (constants.audioPlay) {
+            audio.playTone();
+        }
+    }
     function Autoplay(dir) {
         let step = 1; // default right
         if (dir == "left") {
@@ -147,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 lockPosition();
             } else {
-                UpdateAll();
+                UpdateAllAutoplay();
             }
         }, constants.autoPlayRate);
     }
