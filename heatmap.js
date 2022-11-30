@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         lockPosition();
 
         if (updateInfoThisRound) {
-            UpdateAll();
+            UpdateAllBraille();
         }
     });
 
@@ -208,6 +208,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             audio.playTone();
         }
     }
+    function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRectDisplay();
+        }
+        if (constants.audioPlay) {
+            audio.playTone();
+        }
+    }
+    function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRectDisplay();
+        }
+        if (constants.audioPlay) {
+            audio.playTone();
+        }
+    }
 
     function Autoplay(dir) {
         let step = 1; // default right and down
@@ -229,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     this.autoplay = null;
                     lockPosition();
                 } else {
-                    UpdateAll();
+                    UpdateAllAutoplay();
                 }
             } else { // up or down
                 position.y += step;

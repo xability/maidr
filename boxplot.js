@@ -94,11 +94,27 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            position.x += 1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
+            } else {
+                position.x += 1;
+            }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            position.x += -1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x += -1;
+            }
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
@@ -152,14 +168,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
     function UpdateAllAutoplay() {
-        if (constants.showDisplayInAutoplay) {
-            display.displayValues(plot);
-        }
-        if (constants.showRect) {
-            rect.UpdateRect();
-        }
-        if (constants.audioPlay) {
-            plot.PlayTones(audio);
+        if ( constants.brailleMode != "off" ) {
+            UpdateAllBraille();
+        } else {
+            if (constants.showDisplayInAutoplay) {
+                display.displayValues(plot);
+            }
+            if (constants.showRect) {
+                rect.UpdateRect();
+            }
+            if (constants.audioPlay) {
+                plot.PlayTones(audio);
+            }
         }
     }
     function UpdateAllBraille() {
@@ -504,9 +524,7 @@ class BoxplotRect {
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
     rectColorString = 'rgb(3,200,9)';
-
-    svgBoundingOffset = 80; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
-    svgBoudingOffsetRect = 30.3; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
+    rectPaddingOffset = this.rectPadding * 2;
 
     constructor() {
         this.x1 = 0;
@@ -595,8 +613,8 @@ class BoxplotRect {
             this.y1 = this.y2;
             this.y2 = swap;
 
-            this.y1 += -this.svgBoudingOffsetRect + this.rectPadding;
-            this.y2 += -this.svgBoudingOffsetRect - this.rectPadding;
+            this.y1 += -this.rectPaddingOffset + this.rectPadding;
+            this.y2 += -this.rectPaddingOffset - this.rectPadding;
 
         }
 
@@ -623,7 +641,7 @@ class BoxplotRect {
         let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().bottom - this.svgBoundingOffset - this.y1); // y coord is inverse from plot data
+        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.rectPaddingOffset - this.y1); // y coord is inverse from plot data
         rect.setAttribute('width', this.x2 - this.x1);
         rect.setAttribute('height', Math.abs(this.y2 - this.y1));
         rect.setAttribute('stroke', this.rectColorString);
