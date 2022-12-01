@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // variable initialization
 
     window.constants = new Constants();
+    window.resources = new Resources();
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
@@ -25,27 +26,53 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            position.x += 1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
+            } else {
+                position.x += 1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // left arrow 
         if (e.which === 37) {
-            position.x += -1;
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x += -1;
+            }
             constants.navigation = 1;
             updateInfoThisRound = true;
         }
         // up arrow 
         if (e.which === 38) {
-            position.y += 1;
-            position.x = 0;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = plot.plotData.length - 1;
+            } else {
+                position.y += 1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
-            position.y += -1;
-            position.x = 0;
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = 0;
+            } else {
+                position.y += -1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
@@ -67,18 +94,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
-            // update position to match cursor
-            // don't let cursor move past the final braillecharacter or it'll desync and look weird
-            // future todo: this must be delayed, either by firing on keyup or doing a settimeout, because otherwise we change the position before it moves and it doesn't work. However, that means it moves to the wrong position for just a moment. Is that bad? If so, find other options
-            if (e.target.selectionStart > e.target.value.length - 2) {
-                e.preventDefault();
+            e.preventDefault();
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('right');
+                } else {
+                    position.x = plot.plotData[position.y].length - 1;
+                }
             } else {
                 position.x += 1;
-                updateInfoThisRound = true;
             }
+            updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
-            // update position to match cursor
-            position.x += -1;
+            e.preventDefault();
+            if ( e.ctrlKey ) {
+                if ( e.shiftKey ) {
+                    Autoplay('left');
+                } else {
+                    position.x = 0;
+                }
+            } else {
+                position.x += -1;
+            }
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
@@ -86,9 +123,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         lockPosition();
 
-        // update display / text / audio
+        // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {
-            UpdateAll();
+            UpdateAllBraille();
         }
 
     });
@@ -97,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // B: braille mode
         if (e.which == 66) {
+            display.SetBraille(plot);
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -113,6 +151,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
+        if (e.which == 17) { // ctrl (either one)
+            constants.KillAutoplay();
+        }
+
     });
 
     function UpdateAll() {
@@ -123,8 +165,35 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             rect.UpdateRect();
         }
         if (constants.audioPlay) {
-            audio.playTone();
+            plot.PlayTones(audio);
         }
+    }
+    function UpdateAllAutoplay() {
+        if ( constants.brailleMode != "off" ) {
+            UpdateAllBraille();
+        } else {
+            if (constants.showDisplayInAutoplay) {
+                display.displayValues(plot);
+            }
+            if (constants.showRect) {
+                rect.UpdateRect();
+            }
+            if (constants.audioPlay) {
+                plot.PlayTones(audio);
+            }
+        }
+    }
+    function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+        display.UpdateBraillePos(plot);
     }
     function lockPosition() {
         // lock to min / max postions
@@ -142,6 +211,60 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
 
+    function GetRelativeBoxPosition(yOld, yNew) {
+        // Used when we move up / down to another plot
+        // We want to go to the relative position in the new plot
+        // ie, if we were on the 50%, return the position.x of the new 50%
+
+        // init
+        let xNew = 0;
+        // lock yNew
+        if ( yNew < 1 ) {
+            ynew = 0;
+        } else if ( yNew > plot.plotData.length - 1 ) {
+            yNew = plot.plotData.length - 1;
+        }
+
+        if ( yOld < 0 ) {
+            // not on any chart yet, just start at 0
+        } else {
+            let oldLabel = plot.plotData[yOld][position.x].label;
+            // does it exist on the new plot? we'll just get that val
+            for ( let i = 0 ; i < plot.plotData[yNew].length ; i++ ) {
+                if ( plot.plotData[yNew][i].label == oldLabel ) {
+                    xNew = i;
+                }
+            }
+
+            // todo on request: try and find a nearby point. Like, if max doesn't exist, use 75%
+        }
+
+        return xNew;
+       
+    }
+
+    function Autoplay(dir) {
+        let step = 1; // default right
+        if (dir == "left") {
+            step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
+        }
+
+        constants.autoplayId = setInterval(function () {
+            position.x += step;
+            if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                constants.KillAutoplay();
+                lockPosition();
+            } else {
+                UpdateAllAutoplay();
+            }
+        }, constants.autoPlayRate);
+    }
+
 });
 
 // BoxPlot class.
@@ -150,6 +273,19 @@ class BoxPlot {
 
     constructor() {
         this.plotData = this.GetData(); // main json data
+        this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
+        this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
+        this.y_labels = this.GetXLabels();
+    }
+
+    GetXLabels() {
+        let labels = [];
+        let query = 'tspan[dy="5"]';
+        let els = document.querySelectorAll(query);
+        for ( let i = 0 ; i < els.length ; i++ ) {
+            labels.push(els[i].innerHTML.trim());
+        }
+        return labels;
     }
 
     GetData() {
@@ -216,47 +352,46 @@ class BoxPlot {
             return a[0].y - b[0].y;
         });
 
-        // combine outliers into a single average
-        // this is so janky and I'm embarrased by it
+        // combine outliers into a single object for easier display
+        // info to grab: arr of values=x's, x=xmin, xn=xmax. The rest can stay as is
         for (let i = 0; i < plotData.length; i++) {
             let section = plotData[i];
-            // loop through points and find outliers (they'll be grouped)
+            // loop through points and find outliers 
             let outlierGroup = [];
             for (let j = 0; j < section.length + 1; j++) {
-                let runProcessAvg = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
+                let runProcessOutliers = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
                 if (j == section.length) {
-                    runProcessAvg = true;
+                    runProcessOutliers = true;
                 } else if (section[j].type != "outlier") {
-                    runProcessAvg = true;
+                    runProcessOutliers = true;
                 }
-                if (runProcessAvg) {
-                    // process and reset for next round
-                    if (outlierGroup.length > 0) {
-                        let total = 0;
-                        for (let k = 0; k < outlierGroup.length; k++) {
-                            total += outlierGroup[k].x;
-                        }
-                        let outlierAvg = total / outlierGroup.length;
-
-                        // save this as the first val, and mark all others to clear after we're done with these loops
-                        for (let k = 0; k < outlierGroup.length; k++) {
-                            if (k == 0) {
-                                plotData[i][j + k - outlierGroup.length].x = outlierAvg;
-                            } else {
-                                plotData[i][j + k - outlierGroup.length].type = 'delete';
-                            }
-
-                        }
-
-                        // reset for next set
-                        outlierGroup = [];
-                    }
-                } else {
+                if ( ! runProcessOutliers ) {
+                    // add this to the group and continue
                     outlierGroup.push(section[j]);
+                } else if ( outlierGroup.length > 0 ) {
+                    // process!! This is the main bit of work done
+                    let vals = [];
+                    for (let k = 0; k < outlierGroup.length; k++) {
+                        // save array of values
+                        vals.push(outlierGroup[k].x);
+
+                        // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
+                        if ( k > 0 ) {
+                            plotData[i][j + k - outlierGroup.length].type = 'delete';
+                        }
+                    }
+
+                    // save data
+                    plotData[i][j - outlierGroup.length].x = outlierGroup[0].x;
+                    plotData[i][j - outlierGroup.length].xMax = outlierGroup[outlierGroup.length - 1].x;
+                    plotData[i][j - outlierGroup.length].values = vals;
+
+                    // reset for next set
+                    outlierGroup = [];
                 }
             }
         }
-        // clean up
+        // clean up from the above outlier processing
         let cleanData = [];
         for (let i = 0; i < plotData.length; i++) {
             cleanData[i] = [];
@@ -277,23 +412,23 @@ class BoxPlot {
                 // each point, decide based on position with respect to range
                 if (point.type == "outlier") {
                     if (rangeCounter > 0) {
-                        plotData[i][j].label = "Upper Outlier"; // todo: don't hard code these, put in resource file
+                        plotData[i][j].label = resources.GetString('upper_outlier');
                     } else {
-                        plotData[i][j].label = "Lower Outlier";
+                        plotData[i][j].label = resources.GetString('lower_outlier');
                     }
                 } else if (point.type == "whisker") {
                     if (rangeCounter > 0) {
-                        plotData[i][j].label = "Max";
+                        plotData[i][j].label = resources.GetString('max');
                     } else {
-                        plotData[i][j].label = "Min";
+                        plotData[i][j].label = resources.GetString('min');
                     }
                 } else if (point.type == "range") {
                     if (rangeCounter == 0) {
-                        plotData[i][j].label = "25%";
+                        plotData[i][j].label = resources.GetString('25');
                     } else if (rangeCounter == 1) {
-                        plotData[i][j].label = "50%";
+                        plotData[i][j].label = resources.GetString('50');
                     } else if (rangeCounter == 2) {
-                        plotData[i][j].label = "75%";
+                        plotData[i][j].label = resources.GetString('75');
                     }
                     rangeCounter++;
                 }
@@ -314,7 +449,7 @@ class BoxPlot {
         // GRID = whisker
         // points = outlier
 
-        let segmentType = 'outlier'; // default?
+        let segmentType = 'outlier'; // default? todo: should probably default null, and then throw error instead of return if not set after ifs
         if (sectionId.includes('geom_crossbar')) {
             segmentType = 'range';
         } else if (sectionId.includes('GRID')) {
@@ -354,6 +489,32 @@ class BoxPlot {
 
         return points;
     }
+
+    PlayTones(audio) {
+
+        if ( plot.plotData[position.y][position.x].type != "outlier" ) {
+            audio.playTone();
+        } else {
+            // we play a run of tones
+            position.z = 0;
+            let outlierInterval = setInterval(function() {
+                // play this tone
+                audio.playTone();
+
+                // and then set up for the next one
+                position.z += 1;
+
+                // and kill if we're done
+                if ( position.z + 1 > plot.plotData[position.y][position.x].values.length ) {
+                    clearInterval(outlierInterval);
+                    position.z = -1;
+                }
+
+            }, constants.autoPlayOutlierRate);
+        }
+
+    }
+
 }
 
 // BoxplotRect class
@@ -364,9 +525,7 @@ class BoxplotRect {
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
     rectColorString = 'rgb(3,200,9)';
-
-    svgBoundingOffset = 80; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
-    svgBoudingOffsetRect = 30.3; // THIS IS A HACK. I don't know why we need this, but find a better bounding box anchor (todo later)
+    rectPaddingOffset = this.rectPadding * 2;
 
     constructor() {
         this.x1 = 0;
@@ -382,7 +541,7 @@ class BoxplotRect {
         if (plot.plotData[position.y][position.x].type == 'outlier') {
 
             this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-            this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
+            this.x2 = plot.plotData[position.y][position.x].xMax + this.rectPadding;
             this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
             this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
 
@@ -455,8 +614,8 @@ class BoxplotRect {
             this.y1 = this.y2;
             this.y2 = swap;
 
-            this.y1 += -this.svgBoudingOffsetRect + this.rectPadding;
-            this.y2 += -this.svgBoudingOffsetRect - this.rectPadding;
+            this.y1 += -this.rectPaddingOffset + this.rectPadding;
+            this.y2 += -this.rectPaddingOffset - this.rectPadding;
 
         }
 
@@ -483,7 +642,7 @@ class BoxplotRect {
         let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().bottom - this.svgBoundingOffset - this.y1); // y coord is inverse from plot data
+        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.rectPaddingOffset - this.y1); // y coord is inverse from plot data
         rect.setAttribute('width', this.x2 - this.x1);
         rect.setAttribute('height', Math.abs(this.y2 - this.y1));
         rect.setAttribute('stroke', this.rectColorString);

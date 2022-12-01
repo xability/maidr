@@ -43,7 +43,13 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "boxplot") {
-            rawFreq = plot.plotData[position.y][position.x].x;
+            if (position.z == -1) {
+                // normal points
+                rawFreq = plot.plotData[position.y][position.x].x;
+            } else {
+                // outliers are stored in values with a seperate itterator
+                rawFreq = plot.plotData[position.y][position.x].values[position.z];
+            }
             frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "heatmap") {
@@ -92,9 +98,7 @@ class Audio {
                 this.playOscillator(freq2, currentDuration, panning, constants.vol / 4, 'triangle');
             }
         } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
-            if (rawFreq != 0) {
-                this.playOscillator(rawFreq, currentDuration, panning, constants.vol, 'sine');
-            } else {
+            if (rawFreq == 0) {
                 this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
             }
         } else if (constants.chartType == "scatterplot") {

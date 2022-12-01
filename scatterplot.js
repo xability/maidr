@@ -1,7 +1,10 @@
-document.addEventListener('DOMContentLoaded', function(e) {
+
+
+document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+
 
     // variable initialization
-    window.constants = new Constants(); 
+    window.constants = new Constants();
     constants.plotId = 'geom_point.points.2.1';
     window.position = new Position(-1, -1);
     window.plot = new ScatterPlot();
@@ -72,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
     });
 
 
-    constants.brailleInput.addEventListener("keydown", function(e) {
+    constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
         // @TODO
@@ -102,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
     document.addEventListener("keydown", function (e) {
 
         // B: braille mode
-        if ( e.which == 66 ) {
+        if (e.which == 66) {
             display.toggleBrailleMode();
             e.preventDefault();
         }
@@ -124,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function(e) {
     // helper functions
     function lockPosition() {
         // lock to min / max postions
-        if ( position.x < 0 ) {
+        if (position.x < 0) {
             position.x = 0;
         }
         if ( position.x > plot.numPoints - 1 ) {
@@ -133,13 +136,13 @@ document.addEventListener('DOMContentLoaded', function(e) {
     }
 
     function UpdateAll() {
-        if ( constants.showDisplay ) {
-            display.displayValues(plot); 
+        if (constants.showDisplay) {
+            display.displayValues(plot);
         }
         if ( constants.showRect ) {
             point.UpdatePointDisplay(); 
         }
-        if ( constants.audioPlay ) {
+        if (constants.audioPlay) {
             audio.playTone();
         }
     }
@@ -148,10 +151,10 @@ document.addEventListener('DOMContentLoaded', function(e) {
         let step = 1 ; // default right and down
         if ( dir == "left" ) {
             step = -1;
-        } 
+        }
 
         // clear old autoplay if exists
-        if ( this.autoplay != null ) {
+        if (this.autoplay != null) {
             clearInterval(this.autoplay);
             this.autoplay = null;
         }
