@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
+    window.menu = new Menu();
     constants.chartType = "boxplot";
     let rect = new BoxplotRect();
     let audio = new Audio();
@@ -132,6 +133,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     document.addEventListener("keydown", function (e) {
 
+        // todo: put all this in a shared area since it's basically identical across all charts
+
         // B: braille mode
         if (e.which == 66) {
             display.SetBraille(plot);
@@ -153,6 +156,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         if (e.which == 17) { // ctrl (either one)
             constants.KillAutoplay();
+        }
+
+        if ( e.which == 72 || e.which == 77 ) { // H or M, for help / menu
+            menu.Toggle();
         }
 
     });

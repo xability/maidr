@@ -56,11 +56,12 @@ class Constants {
 
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
-    showDisplayInBraille = 0; // true / false
+    showDisplayInBraille = 1; // true / false
     showDisplayInAutoplay = 0; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
-    audioPlay = 1; // true / false
+    audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
+    showHelpMenu = 0; // true / false
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
@@ -114,7 +115,12 @@ class Resources {
                 "max": "High",
                 "25": "25%",
                 "50": "50%", 
-                "75": "75%"
+                "75": "75%",
+                "son_on": "Sonification on",
+                "son_off": "Sonification off", 
+                "son_des": "Sonification descrete",
+                "son_comp": "Sonification compare",
+                "son_ch": "Sonification chord",
             }
         }
     }
@@ -124,6 +130,37 @@ class Resources {
     }
 
 
+}
+
+class Menu {
+
+    constructor() {
+    }
+
+    html = `
+        <div class="modal hidden" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+        <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title">Modal title</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+        </button>
+        </div>
+        <div class="modal-body">
+        <p>Modal body text goes here.</p>
+        </div>
+        <div class="modal-footer">
+        <button type="button" class="btn btn-primary">Save changes</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+        </div>
+        </div>
+        </div>
+        `;
+
+    Toggle(openclose) { // true / false
+    }
 }
 
 class Position {

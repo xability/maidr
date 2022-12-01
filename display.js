@@ -49,12 +49,16 @@ class Display {
     }
 
     toggleSonificationMode() {
-        if (constants.audioPlay) {
-            constants.audioPlay = 0;
-            this.announceText("Sonification off");
-        } else {
+        if (constants.audioPlay == 0 ) {
             constants.audioPlay = 1;
-            this.announceText("Sonification on");
+            if ( constants.chartType == "boxplot" ) {
+                this.announceText(resources.GetString('son_des'));
+            } else {
+                this.announceText(resources.GetString('son_on'));
+            }
+        } else {
+            constants.audioPlay = 0;
+            this.announceText(resources.GetString('son_off'));
         }
 
     }
@@ -479,11 +483,11 @@ class Display {
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
                 for ( let j = 0 ; j < brailleData[i].numChars ; j++ ) {
                     let brailleChar = "⠀"; // blank
-                    if ( brailleData[i].type == "Min" || brailleData[i].type == "Max" ) {
+                    if ( brailleData[i].type == resources.GetString('min') || brailleData[i].type == resources.GetString('max') ) {
                         brailleChar = "⠒";
-                    } else if ( brailleData[i].type == "25%" || brailleData[i].type == "75%" ) {
+                    } else if ( brailleData[i].type == resources.GetString('25') || brailleData[i].type == resources.GetString('75') ) {
                         brailleChar = "⠿";
-                    } else if ( brailleData[i].type == "50%" ) {
+                    } else if ( brailleData[i].type == resources.GetString('50') ) {
                         brailleChar = "⠸";
                     } else if ( brailleData[i].type == "outlier" ) {
                         brailleChar = "⠂";
