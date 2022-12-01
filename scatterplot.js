@@ -55,14 +55,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which == 85) {
             StopAutoplay();
             SpeedUp();
-            console.log(constants.autoPlayRate);
             Autoplay(lastPlayed);
         }
 
         if (e.which == 68) {
             StopAutoplay();
             SpeedDown();
-            console.log(constants.autoPlayRate);
             Autoplay(lastPlayed);
         }
 
