@@ -192,14 +192,22 @@ class ScatterPlot {
         this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
 
         this.x = this.getXCoords();
-        this.bestFitLinePoints = this.getBestFitLinePoints();
-        // this.residualPoints = this.getResidualPoints();
-        this.numPoints = this.bestFitLinePoints.length;
 
         this.svgX = this.getSvgCoords()[0];
         this.svgY = this.getSvgCoords()[1];
 
+        // this.bestFitLinePoints = this.getBestFitLinePoints();
+        // this.residualPoints = this.getResidualPoints();
+        this.bestFitLinePoints = this.svgY;
+        this.numPoints = this.bestFitLinePoints.length;
+
         this.groupLabels = this.getGroupLabels();
+
+        constants.minY = Math.min(...this.svgY);
+        constants.maxY = Math.max(...this.svgX);
+
+        console.log(this.svgX);
+        console.log(this.svgY);
     }
 
     getXCoords() {
@@ -209,20 +217,20 @@ class ScatterPlot {
         return displ;
     }
 
-    getBestFitLinePoints() {
-        let points = [];
+    // getBestFitLinePoints() {
+    //     let points = [];
 
-        for (let i = 0; i < displ.length; i++) {
-            points.push({'x': displ[i], 'y': prediciton_array[i]});
-        }
+    //     for (let i = 0; i < displ.length; i++) {
+    //         points.push({'x': displ[i], 'y': prediciton_array[i]});
+    //     }
 
-        points.sort(function(a, b) { return a.x - b.x });
+    //     points.sort(function(a, b) { return a.x - b.x });
 
-        constants.minY = Math.min(...prediciton_array);
-        constants.maxY = Math.max(...prediciton_array);
+    //     constants.minY = Math.min(...prediciton_array);
+    //     constants.maxY = Math.max(...prediciton_array);
 
-        return points.map(({y}) => y);
-    }
+    //     return points.map(({y}) => y);
+    // }
 
     // @TODO
     // getResidualPoints() {}
@@ -244,7 +252,7 @@ class ScatterPlot {
         let points = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            points.push({'x': this.plots[i].getAttribute('x'), 'y': this.plots[i].getAttribute('y')});
+            points.push({'x': parseFloat(this.plots[i].getAttribute('x')), 'y': parseFloat(this.plots[i].getAttribute('y'))});
         }
 
         points.sort(function(a,b) { return a.x - b.x });
