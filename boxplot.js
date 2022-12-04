@@ -198,18 +198,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
     function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
         if ( constants.brailleMode != "off" ) {
-            UpdateAllBraille();
-        } else {
-            if (constants.showDisplayInAutoplay) {
-                display.displayValues(plot);
-            }
-            if (constants.showRect) {
-                rect.UpdateRect();
-            }
-            if (constants.audioPlay) {
-                plot.PlayTones(audio);
-            }
+            display.UpdateBraillePos(plot);
         }
     }
     function UpdateAllBraille() {

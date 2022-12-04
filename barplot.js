@@ -145,19 +145,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
     function UpdateAllAutoplay() {
-        if ( constants.brailleMode != "off" ) {
-            UpdateAllBraille();
-        } else {
-            if (constants.showDisplayInAutoplay) {
-                display.displayValues(plot);
-            }
-            if (constants.showRect) {
-                plot.Select();
-            }
-            if (constants.audioPlay) {
-                audio.playTone();
-            }
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
         }
+        if (constants.showRect) {
+            plot.Select();
+        }
+        if (constants.audioPlay) {
+            audio.playTone();
+        }
+
+        if ( constants.brailleMode != "off" ) {
+            display.UpdateBraillePos(plot);
+        } 
     }
     function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
