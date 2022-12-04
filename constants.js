@@ -1,11 +1,6 @@
 
 // todo list: 
 // save user data in cookies
-// all html except scripts / css, and main svg need to be in some Init function, including:
-//  * aria live region setup
-//  * tabindex on svg
-//  * hidden braille input
-//  * role application on svg
 
 class Constants {
 
@@ -56,11 +51,12 @@ class Constants {
 
     // user controls (with shortcuts usually)
     showDisplay = 1; // true / false
-    showDisplayInBraille = 0; // true / false
+    showDisplayInBraille = 1; // true / false
     showDisplayInAutoplay = 0; // true / false
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
-    audioPlay = 1; // true / false
+    audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
+    showHelpMenu = 0; // true / false
     colorUnselected = "rgb(89,89,89)";
     colorSelected = "rgb(3,200,9)";
     navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right) => for heatmap
@@ -118,7 +114,12 @@ class Resources {
                 "max": "High",
                 "25": "25%",
                 "50": "50%", 
-                "75": "75%"
+                "75": "75%",
+                "son_on": "Sonification on",
+                "son_off": "Sonification off", 
+                "son_des": "Sonification descrete",
+                "son_comp": "Sonification compare",
+                "son_ch": "Sonification chord",
             }
         }
     }
@@ -128,6 +129,37 @@ class Resources {
     }
 
 
+}
+
+class Menu {
+
+    constructor() {
+    }
+
+    html = `
+        <div class="modal hidden" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+        <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title">Modal title</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+        </button>
+        </div>
+        <div class="modal-body">
+        <p>Modal body text goes here.</p>
+        </div>
+        <div class="modal-footer">
+        <button type="button" class="btn btn-primary">Save changes</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+        </div>
+        </div>
+        </div>
+        `;
+
+    Toggle(openclose) { // true / false
+    }
 }
 
 class Position {

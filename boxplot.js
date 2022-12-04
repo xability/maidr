@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
+    window.menu = new Menu();
     constants.chartType = "boxplot";
     let rect = new BoxplotRect();
     let audio = new Audio();
@@ -117,6 +118,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x += -1;
             }
             updateInfoThisRound = true;
+        } else if (e.which === 38) { // up arrow 
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = plot.plotData.length - 1;
+            } else {
+                position.y += 1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
+            display.SetBraille(plot);
+            constants.navigation = 0;
+            updateInfoThisRound = true;
+        } else if (e.which === 40) { // down arrow 
+            let oldY = position.y;
+            if ( e.ctrlKey ) {
+                position.y = 0;
+            } else {
+                position.y += -1;
+            }
+            position.x = GetRelativeBoxPosition(oldY, position.y);
+            display.SetBraille(plot);
+            constants.navigation = 0;
+            updateInfoThisRound = true;
         } else {
             e.preventDefault();
         }
@@ -125,12 +148,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {
-            UpdateAllBraille();
+            setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
 
     });
 
     document.addEventListener("keydown", function (e) {
+
+        // todo: put all this in a shared area since it's basically identical across all charts
 
         // B: braille mode
         if (e.which == 66) {
@@ -155,6 +180,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        if ( e.which == 72 || e.which == 77 ) { // H or M, for help / menu
+            menu.Toggle();
+        }
+
     });
 
     function UpdateAll() {
@@ -169,18 +198,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
     function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            rect.UpdateRect();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
         if ( constants.brailleMode != "off" ) {
-            UpdateAllBraille();
-        } else {
-            if (constants.showDisplayInAutoplay) {
-                display.displayValues(plot);
-            }
-            if (constants.showRect) {
-                rect.UpdateRect();
-            }
-            if (constants.audioPlay) {
-                plot.PlayTones(audio);
-            }
+            display.UpdateBraillePos(plot);
         }
     }
     function UpdateAllBraille() {

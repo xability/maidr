@@ -26,6 +26,7 @@
 
 .hidden {
     display: none;
+    opacity:0;
 }
 
 .braille-input {
@@ -34,4 +35,27 @@
     resize: none;
     padding: 5px;
     /* pointer-events: none; */
+}
+
+.modal {
+    position:fixed;
+    top:0;
+    right:0;
+    bottom:0;
+    left:0;
+    z-index:1000;
+
+    opacity:0;
+    transition: opacity .15s linear;
+}
+.modal-dialog {
+    position: relative;
+    width: auto;
+    margin: .5rem;
+}
+@media (min-width: 900px) {
+    .modal-dialog {
+        max-width:800px
+        margin: 1.75rem auto;
+    }
 }
