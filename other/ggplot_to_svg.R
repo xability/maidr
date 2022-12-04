@@ -24,11 +24,49 @@ dev.off()
 # Extrac boxplot stat values
 mpg %>%
     group_by(class) %>%
-    summarise(lower_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out < boxplot.stats(hwy)$stats[[1]]], collapse = ", "), minimum = boxplot.stats(hwy)$stats[[1]], first_qu = boxplot.stats(hwy)$stats[[2]], median = boxplot.stats(hwy)$stats[[3]], third_qu = boxplot.stats(hwy)$stats[[4]], maximum = boxplot.stats(hwy)$stats[[5]], upper_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out > boxplot.stats(hwy)$stats[[5]]], collapse = ", ")) %>%
+    summarise(
+        lower_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out < boxplot.stats(hwy)$stats[[1]]], collapse = ", "),
+        minimum = boxplot.stats(hwy)$stats[[1]],
+        Q1 = boxplot.stats(hwy)$stats[[2]],
+        median = boxplot.stats(hwy)$stats[[3]],
+        Q3 = boxplot.stats(hwy)$stats[[4]],
+        maximum = boxplot.stats(hwy)$stats[[5]],
+        upper_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out > boxplot.stats(hwy)$stats[[5]]], collapse = ", ")
+    ) %>%
     jsonlite::write_json("boxplot_data.json")
 
 # gt::gt() %>%
 # gtsave("boxplot_data_frame.html")
+left_boxside <- median - Q1
+right_boxside <- Q3 - median
+
+
+lower_whisker_length <- Q1 - minimum
+upper_whisker_length <- maximum - Q3
+
+total_boxplot_length <- lower_whisker_length + left_boxside + right_boxside + upper_whisker_length
+
+
+
+if (left_boxside == right_boxside) {
+    box_brl <- "⠿⠸⠇⠿"
+} else if (left_boxside < right_boxside) {
+    box_brl <- "⠿⠸⠇⠿⠿"
+} else {
+    box_brl <- "⠿⠿⠸⠇⠿"
+}
+
+lower_whisker_length <- Q1 - min
+upper_whisker_length <- max - Q3
+
+if (lower_whisker_length == upper_whisker_length) {
+    "⠒" + box_brl + "⠒"
+} else if (lower_whisker_length < upper_whisker_length) {
+    "⠒" + box_brl + "⠒⠒"
+} else {
+    "⠒⠒" + box_brl + "⠒"
+}
+
 
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
