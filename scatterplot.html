@@ -4,6 +4,7 @@
 <head>
     <title>SVG Scatterplot</title>
     <meta charset="utf-8">
+    <link rel="stylesheet" href="styles.css" type="text/css">
 </head>
 
 <body>
@@ -11,7 +12,7 @@
     <p>Tab to select the scatterplot.</p>
 
     <div id="container" tabindex="0" data-plottype="scatterplot">
-        <div id="braille-div" tabindex="0">
+        <div id="braille-div">
             <input id="braille-input" class="braille-input hidden" autofocus type="text" />
         </div>
 
@@ -550,6 +551,10 @@
             <div id="announcements" aria-atomic="true" aria-live="assertive"></div>
         </div>
     </div>
+    <script src="scatterplot/displ.js"></script>
+    <script src="scatterplot/hwy.js"></script>
+    <script src="scatterplot/prediction_array.js"></script>
+    <script src="scatterplot/residual_array.js"></script>
     <script src="constants.js"></script>
     <script src="audio.js"></script>
     <script src="display.js"></script>

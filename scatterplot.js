@@ -1,7 +1,7 @@
-import prediction_array from './scatterplot/prediction_array' assert { type: 'json' };
-import residual_array from './scatterplot/residual_array' assert { type: 'json' };
+
 
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+
 
     // variable initialization
     window.constants = new Constants();
@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.chartType = "scatterplot";
     let audio = new Audio();
     let display = new Display();
-
+    let point = new Point();
+    let lastPlayed = '';
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -22,21 +23,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('right');
+                    lastPlayed = 'right';
                 } else {
-                    position.x = plot.num_cols - 1;
+                    position.x = plot.numPoints - 1;
                 }
             } else {
                 position.x += 1;
             }
             updateInfoThisRound = true;
-            constants.navigation = 1;
         }
 
         // left arrow 37
         if (e.which === 37) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left');
+                    Autoplay('left'); 
+                    lastPlayed = 'left';
                 } else {
                     position.x = 0;
                 }
@@ -44,37 +46,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x -= 1;
             }
             updateInfoThisRound = true;
-            constants.navigation = 1;
         }
 
-        // up arrow 38
-        if (e.which === 38) {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.shiftKey) {
-                    Autoplay('up');
-                } else {
-                    position.y = 0;
-                }
-            } else {
-                position.y -= 1;
-            }
-            updateInfoThisRound = true;
-            constants.navigation = 0;
+        if (e.which == 80) {
+            StopAutoplay();
         }
 
-        // down arrow 40
-        if (e.which === 40) {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.shiftKey) {
-                    Autoplay('down');
-                } else {
-                    position.y = plot.num_rows - 1;
-                }
-            } else {
-                position.y += 1;
-            }
-            updateInfoThisRound = true;
-            constants.navigation = 0;
+        if (e.which == 85) {
+            StopAutoplay();
+            SpeedUp();
+            Autoplay(lastPlayed);
+        }
+
+        if (e.which == 68) {
+            StopAutoplay();
+            SpeedDown();
+            Autoplay(lastPlayed);
         }
 
         lockPosition();
@@ -90,12 +77,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let updateInfoThisRound = false;
 
         // @TODO
-        // add manipulation of cursor for up and down keys
-        // very buggy braille display up and down keys are not working
 
         if (e.which == 9) {
         } else if (e.which == 39) { // right arrow
-            if (e.target.selectionStart > e.target.value.length - 2 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
+            if ( e.target.selectionStart > e.target.value.length - 2) {
                 e.preventDefault();
             } else {
                 position.x += 1;
@@ -103,26 +88,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left
             position.x -= 1;
-            updateInfoThisRound = true;
-        } else if (e.which == 40) { // down
-            if (e.target.selectionStart + plot.num_cols + 1 > e.target.value.length - 2) {
-                e.preventDefault();
-            } else {
-                position.y += 1;
-                let pos = position.y * (plot.num_cols + 1) + position.x;
-                constants.brailleInput.focus();
-                constants.brailleInput.setSelectionRange(pos, pos);
-            }
-            updateInfoThisRound = true;
-        } else if (e.which == 38) { // up
-            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
-                e.preventDefault();
-            } else {
-                position.y -= 1;
-                let pos = position.y * (plot.num_cols - 1) + position.x;
-                constants.brailleInput.focus();
-                constants.brailleInput.setSelectionRange(pos, pos);
-            }
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
@@ -163,14 +128,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (position.x < 0) {
             position.x = 0;
         }
-        if (position.x > plot.num_cols - 1) {
-            position.x = plot.num_cols - 1;
-        }
-        if (position.y < 0) {
-            position.y = 0;
-        }
-        if (position.y > plot.num_rows - 1) {
-            position.y = plot.num_rows - 1;
+        if ( position.x > plot.numPoints - 1 ) {
+            position.x = plot.numPoints - 1;
         }
     }
 
@@ -178,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
-            rect.UpdateRectDisplay();
+        if ( constants.showRect ) {
+            point.UpdatePointDisplay(); 
         }
         if (constants.audioPlay) {
             audio.playTone();
@@ -187,8 +146,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function Autoplay(dir) {
-        let step = 1; // default right and down
-        if (dir == "left" || dir == "up") {
+        let step = 1 ; // default right and down
+        if ( dir == "left" ) {
             step = -1;
         }
 
@@ -198,48 +157,136 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             this.autoplay = null;
         }
 
-        this.autoplay = setInterval(function () {
-            if (dir == "left" || dir == "right") {
-                position.x += step;
-                if (position.x < 0 || plot.num_cols - 1 < position.x) {
-                    clearInterval(this.autoplay);
-                    this.autoplay = null;
-                    lockPosition();
-                } else {
-                    UpdateAll();
-                }
-            } else { // up or down
-                position.y += step;
-                if (position.y < 0 || plot.num_rows - 1 < position.y) {
-                    clearInterval(this.autoplay);
-                    this.autoplay = null;
-                    lockPosition();
-                } else {
-                    UpdateAll();
-                }
+        this.autoplay = setInterval(function() {
+            position.x += step;
+            if ( position.x < 0 || plot.numPoints - 1 < position.x ) {
+                clearInterval(this.autoplay);
+                this.autoplay = null;
+                lockPosition();
+            } else {
+                UpdateAll();
             }
         }, constants.autoPlayRate);
+    }
+
+    function StopAutoplay() {
+        clearInterval(this.autoplay);
+        this.autoplay = null;
+    }
+
+    function SpeedUp() {
+        if (constants.autoPlayRate - 50 > 0) { 
+            constants.autoPlayRate -= 50;
+        }
+    }
+
+    function SpeedDown() {
+        if (constants.autoPlayRate + 50 <= 1000) {
+            constants.autoPlayRate += 50;
+        }
     }
 
 });
 class ScatterPlot {
     constructor() {
         this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
-        this.plotData = this.getPoints();
+
+        this.x = this.getXCoords();
+
+        this.svgX = this.getSvgCoords()[0];
+        this.svgY = this.getSvgCoords()[1];
+
+        // this.bestFitLinePoints = this.getBestFitLinePoints();
+        // this.residualPoints = this.getResidualPoints();
+        this.bestFitLinePoints = this.svgY;
+        this.numPoints = this.bestFitLinePoints.length;
+
+        this.groupLabels = this.getGroupLabels();
+
+        constants.minY = Math.min(...this.svgY);
+        constants.maxY = Math.max(...this.svgX);
+
+        console.log(this.svgX);
+        console.log(this.svgY);
     }
 
-    getPoints() {
-        // y values of each points according
-        let x = []
-        let y = [];
+    getXCoords() {
+        displ.sort(function(a,b) { return a - b; });
+        constants.minX = 0;
+        constants.maxX = displ.length;
+        return displ;
+    }
+
+    // getBestFitLinePoints() {
+    //     let points = [];
+
+    //     for (let i = 0; i < displ.length; i++) {
+    //         points.push({'x': displ[i], 'y': prediciton_array[i]});
+    //     }
+
+    //     points.sort(function(a, b) { return a.x - b.x });
+
+    //     constants.minY = Math.min(...prediciton_array);
+    //     constants.maxY = Math.max(...prediciton_array);
+
+    //     return points.map(({y}) => y);
+    // }
+
+    // @TODO
+    // getResidualPoints() {}
+
+    getGroupLabels() {
+        let labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
+
+        let labels = [];
+        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+
+        return labels;
+    }
+
+    // get exact x and y values from data
+    // getXValues() {}
+    // getYValues() {}
+
+    getSvgCoords() {
+        let points = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            x.push(this.plots[i].getAttribute('x'));
-            y.push(this.plots[i].getAttribute('y'));
+            points.push({'x': parseFloat(this.plots[i].getAttribute('x')), 'y': parseFloat(this.plots[i].getAttribute('y'))});
         }
 
-        // sort the points according to x coordinates
-        x.sort(function (a, b) { return a - b; });
-        y.sort(function (a, b) { return x.indexOf(a) - x.indexOf(b); })
+        points.sort(function(a,b) { return a.x - b.x });
+
+        return [points.map(({x}) => x), points.map(({y}) => y)];
+    }
+};
+
+class Point {
+    constructor() {
+        this.x = plot.svgX[0];
+        this.y = plot.svgY[0];
+        this.strokeWidth = 1.35;
+    }
+
+    UpdatePoint() {
+        this.x = plot.svgX[position.x];
+        this.y = plot.svgY[position.x];
+    }
+
+    UpdatePointDisplay() {
+        this.UpdatePoint();
+        if (document.getElementById('highlight_point')) document.getElementById('highlight_point').remove(); // destroy and recreate
+        const svgns = "http://www.w3.org/2000/svg";
+        var point = document.createElementNS(svgns, 'circle');
+        point.setAttribute('id', 'highlight_point');
+        // point.setAttribute('x', this.x);
+        // point.setAttribute('y', constants.svg.getBoundingClientRect().height - this.y); // y coord is inverse from plot data
+        point.setAttribute('cx', this.x);
+        point.setAttribute('cy', constants.svg.getBoundingClientRect().height - this.y);
+        point.setAttribute('r', 3.95);
+        point.setAttribute('stroke', constants.colorSelected);
+        point.setAttribute('stroke-width', this.strokeWidth);
+        point.setAttribute('fill', constants.colorSelected);
+        constants.svg.appendChild(point);
     }
 }
