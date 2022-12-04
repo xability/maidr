@@ -1,11 +1,6 @@
 
 // todo list: 
 // save user data in cookies
-// all html except scripts / css, and main svg need to be in some Init function, including:
-//  * aria live region setup
-//  * tabindex on svg
-//  * hidden braille input
-//  * role application on svg
 
 class Constants {
 

@@ -322,9 +322,8 @@ class Display {
                 }
             }
             // cleanup. A bit of rounding to account for floating point errors
-            let sigFigs = 8; // probably overkill, but anything less than 15 works
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
-                brailleData[i].length = Math.round(brailleData[i].length * Math.pow(10,sigFigs)) / Math.pow(10,sigFigs);
+                brailleData[i].length = Math.round(brailleData[i].length);
             }
             
 
@@ -345,16 +344,16 @@ class Display {
             // prepopulate a single char each
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
                 brailleData[i].numChars = 1;
-                if ( brailleData[i].type == 'Min' ) locMin = i;
-                if ( brailleData[i].type == 'Max' ) locMax = i;
-                if ( brailleData[i].type == '25%' ) loc25 = i;
-                if ( brailleData[i].type == '75%' ) loc75 = i;
+                if ( brailleData[i].type == resources.GetString('min') ) locMin = i;
+                if ( brailleData[i].type == resources.GetString('max') ) locMax = i;
+                if ( brailleData[i].type == resources.GetString('25') ) loc25 = i;
+                if ( brailleData[i].type == resources.GetString('75') ) loc75 = i;
             }
             // add extras to 25/75 min/max if needed
-            let currentPairs = ['25%', '75%'];
+            let currentPairs = [resources.GetString('25'), resources.GetString('75')];
             if ( locMin > -1 && locMax > -1 ) {
-                currentPairs.push('Min');
-                currentPairs.push('Max');
+                currentPairs.push(resources.GetString('min'));
+                currentPairs.push(resources.GetString('max'));
                 if ( brailleData[locMin].length != brailleData[locMax].length ) {
                     if ( brailleData[locMin].length > brailleData[locMax].length ) {
                         brailleData[locMin].numChars++;
@@ -390,7 +389,7 @@ class Display {
                 if ( ! ( brailleData[maxImpactI].type in currentPairs ) ) {
                     brailleData[maxImpactI].numChars++;
                     charsAvailable--;
-                } else if ( brailleData[maxImpactI].type in ['Min', 'Max'] ) {
+                } else if ( brailleData[maxImpactI].type in [resources.GetString('min'), resources.GetString('max')] ) {
                     // if they're equal, add to both
                     if ( brailleData[locMin].length == brailleData[locMax].length ) {
                         if ( charsAvailable > 1 ) {
@@ -429,7 +428,7 @@ class Display {
                             }
                         } 
                     }
-                } else if ( brailleData[maxImpactI].type in ['25%', '75%'] ) {
+                } else if ( brailleData[maxImpactI].type in [resources.GetString('25'), resources.GetString('75')] ) {
                     // if they're equal, add to both
                     if ( brailleData[loc25].length == brailleData[loc75].length ) {
                         if ( charsAvailable > 1 ) {
@@ -508,4 +507,5 @@ class Display {
     CharLenImpact(charData) {
         return ( charData.length / charData.numChars ) ;
     }
+
 }
