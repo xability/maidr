@@ -152,10 +152,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 display.displayValues(plot);
             }
             if (constants.showRect) {
-                rect.UpdateRect();
+                plot.Select();
             }
             if (constants.audioPlay) {
-                plot.PlayTones(audio);
+                audio.playTone();
             }
         }
     }
