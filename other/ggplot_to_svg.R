@@ -43,17 +43,23 @@ right_boxside <- Q3 - median
 
 lower_whisker_length <- Q1 - minimum
 upper_whisker_length <- maximum - Q3
+range_vector <- c(lower_whisker_length, left_boxside, right_boxside, upper_whisker_length)
+total_box_length <- sum(range_vector)
+boxplot_ratio <- (range_vector / total_box_length) * 100
+# Drop decimal point
+boxplot_ratio <- round(boxplot_ratio, 0)
 
-total_boxplot_length <- lower_whisker_length + left_boxside + right_boxside + upper_whisker_length
 
 
 
 if (left_boxside == right_boxside) {
     box_brl <- "⠿⠸⠇⠿"
 } else if (left_boxside < right_boxside) {
-    box_brl <- "⠿⠸⠇⠿⠿"
+    relative_ratio <- round((right_boxside / left_boxside), 0)
+    box_brl <- "⠿⠸⠇" + strrep("⠿", relative_ratio)
 } else {
-    box_brl <- "⠿⠿⠸⠇⠿"
+    relative_ratio <- round((left_boxside / right_boxside), 0)
+    box_brl <- strrep("⠿", relative_ratio) + "⠸⠇⠿"
 }
 
 lower_whisker_length <- Q1 - min
