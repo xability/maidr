@@ -57,7 +57,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 38) {
             let oldY = position.y;
             if ( e.ctrlKey ) {
-                position.y = plot.plotData.length - 1;
+                if ( e.shiftKey ) {
+                    Autoplay('up');
+                } else {
+                    position.y = plot.plotData.length - 1;
+                }
             } else {
                 position.y += 1;
             }
@@ -69,7 +73,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 40) {
             let oldY = position.y;
             if ( e.ctrlKey ) {
-                position.y = 0;
+                if ( e.shiftKey ) {
+                    Autoplay('down');
+                } else {
+                    position.y = 0;
+                }
             } else {
                 position.y += -1;
             }
@@ -272,8 +280,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function Autoplay(dir) {
-        let step = 1; // default right
-        if (dir == "left") {
+        let step = 1; // default right / up
+        if (dir == "left" || dir == "down" ) {
             step = -1;
         }
 
@@ -283,12 +291,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         constants.autoplayId = setInterval(function () {
-            position.x += step;
-            if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
-                constants.KillAutoplay();
-                lockPosition();
+            if ( dir == "left" || dir == "right" ) {
+                position.x += step;
+                if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else {
+                    UpdateAllAutoplay();
+                }
             } else {
-                UpdateAllAutoplay();
+                position.y += step;
+                if (position.y < 0 || plot.plotData.length - 1 < position.y) {
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else {
+                    UpdateAllAutoplay();
+                }
             }
         }, constants.autoPlayRate);
     }
@@ -681,7 +699,7 @@ class BoxplotRect {
 
         }
 
-        if (constants.debugLevel > 1) {
+        if (constants.debugLevel > 5) {
             console.log(
                 "Point", plot.plotData[position.y][position.x].type,
                 "x:", plot.plotData[position.y][position.x].x,
