@@ -129,13 +129,17 @@ class Display {
                 }
             }
         } else if (constants.chartType == "boxplot") {
-            let val = plot.plotData[position.y][position.x].x;
+            let val = 0;
             let plural = false;
             if (plot.plotData[position.y][position.x].type == "outlier") {
                 val = plot.plotData[position.y][position.x].values.join(', ');
                 if (plot.plotData[position.y][position.x].values.length > 1) {
                     plural = true;
                 }
+            } else if (plot.plotData[position.y][position.x].type == "blank") {
+                val = resources.GetString('empty');
+            } else {
+                let val = plot.plotData[position.y][position.x].x;
             }
             if (constants.textMode == "off") {
                 // do nothing
@@ -393,6 +397,9 @@ class Display {
                 if ( brailleData[i].type == resources.GetString('max') ) locMax = i;
                 if ( brailleData[i].type == resources.GetString('25') ) loc25 = i;
                 if ( brailleData[i].type == resources.GetString('75') ) loc75 = i;
+
+                // 50 gets 2 characters by default
+                if ( brailleData[i].type == resources.GetString('50') ) brailleData[i].numChars = 2;
             }
             // add extras to 25/75 min/max if needed
             let currentPairs = [resources.GetString('25'), resources.GetString('75')];
@@ -518,7 +525,7 @@ class Display {
             } // end while (main algorithm)
 
             constants.brailleData = brailleData;
-            if (constants.debugLevel > 5) {
+            if (constants.debugLevel > 1) {
                 console.log(brailleData);
             }
 
@@ -531,7 +538,11 @@ class Display {
                     } else if ( brailleData[i].type == resources.GetString('25') || brailleData[i].type == resources.GetString('75') ) {
                         brailleChar = "⠿";
                     } else if ( brailleData[i].type == resources.GetString('50') ) {
-                        brailleChar = "⠸⠇";
+                        if ( j == 0 ) {
+                            brailleChar = "⠸";
+                        } else {
+                            brailleChar = "⠇";
+                        }
                     } else if ( brailleData[i].type == "outlier" ) {
                         brailleChar = "⠂";
                     }
