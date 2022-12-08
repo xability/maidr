@@ -120,6 +120,7 @@ class Resources {
                 "son_des": "Sonification descrete",
                 "son_comp": "Sonification compare",
                 "son_ch": "Sonification chord",
+                "empty": "Empty"
             }
         }
     }

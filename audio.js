@@ -50,8 +50,13 @@ class Audio {
                 // outliers are stored in values with a seperate itterator
                 rawFreq = plot.plotData[position.y][position.x].values[position.z];
             }
-            frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
-            panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
+            if ( plot.plotData[position.y][position.x].type != 'blank' ) {
+                frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
+            } else {
+                frequency = constants.MIN_FREQUENCY;
+                panning = 0;
+            }
         } else if (constants.chartType == "heatmap") {
             rawFreq = plot.values[position.y][position.x];
             rawPanning = position.x;
@@ -68,7 +73,7 @@ class Audio {
             }
         }
 
-        if (constants.debugLevel > 4) {
+        if (constants.debugLevel > 5) {
             console.log('will play tone at freq', frequency);
             console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
         }

@@ -57,7 +57,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 38) {
             let oldY = position.y;
             if ( e.ctrlKey ) {
-                position.y = plot.plotData.length - 1;
+                if ( e.shiftKey ) {
+                    Autoplay('up');
+                } else {
+                    position.y = plot.plotData.length - 1;
+                }
             } else {
                 position.y += 1;
             }
@@ -69,7 +73,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 40) {
             let oldY = position.y;
             if ( e.ctrlKey ) {
-                position.y = 0;
+                if ( e.shiftKey ) {
+                    Autoplay('down');
+                } else {
+                    position.y = 0;
+                }
             } else {
                 position.y += -1;
             }
@@ -272,8 +280,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function Autoplay(dir) {
-        let step = 1; // default right
-        if (dir == "left") {
+        let step = 1; // default right / up
+        if (dir == "left" || dir == "down" ) {
             step = -1;
         }
 
@@ -283,12 +291,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         constants.autoplayId = setInterval(function () {
-            position.x += step;
-            if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
-                constants.KillAutoplay();
-                lockPosition();
+            if ( dir == "left" || dir == "right" ) {
+                position.x += step;
+                if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else {
+                    UpdateAllAutoplay();
+                }
             } else {
-                UpdateAllAutoplay();
+                position.y += step;
+                if (position.y < 0 || plot.plotData.length - 1 < position.y) {
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else {
+                    UpdateAllAutoplay();
+                }
             }
         }, constants.autoPlayRate);
     }
@@ -318,20 +336,20 @@ class BoxPlot {
 
     GetData() {
         // data in svg is formed as nested <g> elements. Loop through and get all point data
-        // goal is to get bounding x values and type (outlier, whisker, range)
+        // goal is to get bounding x values and type (outlier, whisker, range, placeholder)
 
         let plotData = [];
-        let id = constants.plotId;
 
         if (constants.debugLevel > 0) {
-            document.getElementById(id).setAttribute("data-debug", "MAINCONTAINERHERE");
+            document.getElementById(constants.plotId).setAttribute("data-debug", "MAINCONTAINERHERE");
         }
 
-        let plots = document.getElementById(id).children;
-        for (let i = 0; i < plots.length; i++) {
+        let plots = document.getElementById(constants.plotId).children;
+        for (let i = 0; i < plots.length; i++) { // each plot
+
             let sections = plots[i].children;
             let points = []
-            for (let j = 0; j < sections.length; j++) {
+            for (let j = 0; j < sections.length; j++) { // each segment (outlier, whisker, etc)
                 // get segments for this section, there are 2 each
                 // sometimes they're 0, so ignore those TODO 
                 let segments = sections[j].children;
@@ -432,7 +450,7 @@ class BoxPlot {
         plotData = cleanData;
 
         // add labeling for display
-        for (let i = 0; i < plotData.length; i++) {
+        for ( let i = 0; i < plotData.length; i++ ) {
             // each boxplot section
             let rangeCounter = 0;
             for (let j = 0; j < plotData[i].length; j++) {
@@ -461,6 +479,40 @@ class BoxPlot {
                     rangeCounter++;
                 }
             }
+        }
+
+        // often a plot doesn't have various sections. 
+        // we expect outlier - min - 25 - 50 - 75 - max - outlier
+        // add blank placeholders where they don't exist for better vertical navigation
+        let allWeNeed = [
+            resources.GetString('lower_outlier'), 
+            resources.GetString('min'), 
+            resources.GetString('25'), 
+            resources.GetString('50'), 
+            resources.GetString('75'), 
+            resources.GetString('max'), 
+            resources.GetString('upper_outlier')
+        ];
+        for ( let i = 0; i < plotData.length; i++ ) {
+            if ( plotData[i].length == 7 ) {
+                // skip, this one has it all. The rare boi
+            } else {
+                let whatWeGot = []; // we'll get a set of labels that we have so we can find what's missing
+                for ( let j = 0 ; j < plotData[i].length ; j++ ) {
+                    whatWeGot.push(plotData[i][j].label);
+                }
+
+                // add missing stuff where it should go. We use .label as the user facing var (todo, might be a mistake, maybe use .type?)
+                for ( let j = 0 ; j < allWeNeed.length ; j++ ) {
+                    if ( ! whatWeGot.includes(allWeNeed[j]) ) {
+                        // add a blank where it belongs
+                        let blank = {type: 'blank', label: allWeNeed[j]};
+                        plotData[i].splice(j, 0, blank);
+                        whatWeGot.splice(j, 0, allWeNeed[j]);
+                    }
+                }
+            }
+
         }
 
         if (constants.debugLevel > 0) {
@@ -624,10 +676,10 @@ class BoxplotRect {
                 this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
             }
 
-            // we have no yMax, but whiskers and outliers have a midpoint, so we use that
+            // we have no yMax, but whiskers and outliers have a midpoint, so we use any of them
             let midpoint = 0;
             for (let i = 0; i < plot.plotData[position.y].length; i++) {
-                if (plot.plotData[position.y][i].type != "range") {
+                if ( plot.plotData[position.y][i].type != "range" && plot.plotData[position.y][i].y ) {
                     midpoint = plot.plotData[position.y][i].y;
                 }
             }
@@ -647,7 +699,7 @@ class BoxplotRect {
 
         }
 
-        if (constants.debugLevel > 3) {
+        if (constants.debugLevel > 5) {
             console.log(
                 "Point", plot.plotData[position.y][position.x].type,
                 "x:", plot.plotData[position.y][position.x].x,
@@ -659,13 +711,14 @@ class BoxplotRect {
                 "y2:", this.y2);
         }
 
-        this.UpdateRectDisplay();
+        if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy and recreate
+        if ( plot.plotData[position.y][position.x].type != 'blank' ) this.CreateRectDisplay();
     }
 
-    UpdateRectDisplay() {
-        // UpdateRectDisplay takes bounding points and creates the visual outline 
+    CreateRectDisplay() {
+        // CreateRectDisplay takes bounding points and creates the visual outline 
 
-        if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy and recreate
+
         const svgns = "http://www.w3.org/2000/svg";
         let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');

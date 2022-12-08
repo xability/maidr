@@ -129,13 +129,17 @@ class Display {
                 }
             }
         } else if (constants.chartType == "boxplot") {
-            let val = plot.plotData[position.y][position.x].x;
+            let val = 0;
             let plural = false;
             if (plot.plotData[position.y][position.x].type == "outlier") {
                 val = plot.plotData[position.y][position.x].values.join(', ');
                 if (plot.plotData[position.y][position.x].values.length > 1) {
                     plural = true;
                 }
+            } else if (plot.plotData[position.y][position.x].type == "blank") {
+                val = resources.GetString('empty');
+            } else {
+                let val = plot.plotData[position.y][position.x].x;
             }
             if (constants.textMode == "off") {
                 // do nothing
@@ -364,36 +368,43 @@ class Display {
             }
             // cleanup. A bit of rounding to account for floating point errors
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
-                brailleData[i].length = Math.round(brailleData[i].length);
+                brailleData[i].length = Math.round(brailleData[i].length); // we currently just use rounding to whole number (pixel), but if other rounding is needed add it here
             }
             
 
             // We create a set of braille characters based on the lengths
-            // method: initially give each block a single character, then add characters one by one where they have the most impact
-            // exeption: if there are multiple blocks that have the same values, use this priority:
+            // Method: initially give each block a single character, then add characters one by one where they have the most impact
+            // We use the length and current numChars to get a weight of sorts (eg len 200 numChars 4 -> 50 each char)
+            // then we add the next character where most impactful. 
+            // exception: each must have min 1 character
+            // exception: if there are multiple blocks that have the same values, use this priority:
             //   1: 25/75
             //   2: min/max
             //   3: blanks
-            // exeption: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
+            // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
+            // exception: center is always 456 123
 
-            // store 25/75 min/max locations
             let locMin = -1;
             let locMax = -1;
             let loc25 = -1;
             let loc75 = -1;
-            let pairsWeGot = []
             // prepopulate a single char each
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
                 brailleData[i].numChars = 1;
+
+                // store 25/75 min/max locations so we can check them later more easily
                 if ( brailleData[i].type == resources.GetString('min') ) locMin = i;
                 if ( brailleData[i].type == resources.GetString('max') ) locMax = i;
                 if ( brailleData[i].type == resources.GetString('25') ) loc25 = i;
                 if ( brailleData[i].type == resources.GetString('75') ) loc75 = i;
+
+                // 50 gets 2 characters by default
+                if ( brailleData[i].type == resources.GetString('50') ) brailleData[i].numChars = 2;
             }
             // add extras to 25/75 min/max if needed
             let currentPairs = [resources.GetString('25'), resources.GetString('75')];
             if ( locMin > -1 && locMax > -1 ) {
-                currentPairs.push(resources.GetString('min'));
+                currentPairs.push(resources.GetString('min')); // we add these seperately because we don't always have both min and max
                 currentPairs.push(resources.GetString('max'));
                 if ( brailleData[locMin].length != brailleData[locMax].length ) {
                     if ( brailleData[locMin].length > brailleData[locMax].length ) {
@@ -411,8 +422,9 @@ class Display {
                 }
             }
 
-            // add characters itteritively on max length impact
+            // Main algorithm here: add characters itteritively on max length impact
             let charsAvailable = constants.brailleDisplayLength;
+            charsAvailable += -1; // to account for the double char on midpoint
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
                 charsAvailable -= brailleData[i].numChars;
             }
@@ -510,16 +522,14 @@ class Display {
                     }
                 }
 
-            } // end while
+            } // end while (main algorithm)
 
             constants.brailleData = brailleData;
-
-            if (constants.debugLevel > 5) {
+            if (constants.debugLevel > 1) {
                 console.log(brailleData);
             }
 
             // create braille from this data
-
             for ( let i = 0 ; i < brailleData.length ; i++ ) {
                 for ( let j = 0 ; j < brailleData[i].numChars ; j++ ) {
                     let brailleChar = "⠀"; // blank
@@ -528,7 +538,11 @@ class Display {
                     } else if ( brailleData[i].type == resources.GetString('25') || brailleData[i].type == resources.GetString('75') ) {
                         brailleChar = "⠿";
                     } else if ( brailleData[i].type == resources.GetString('50') ) {
-                        brailleChar = "⠸";
+                        if ( j == 0 ) {
+                            brailleChar = "⠸";
+                        } else {
+                            brailleChar = "⠇";
+                        }
                     } else if ( brailleData[i].type == "outlier" ) {
                         brailleChar = "⠂";
                     }
@@ -542,7 +556,7 @@ class Display {
 
         constants.brailleInput.value = brailleArray.join('');
         if (constants.debugLevel > 5) {
-            console.log('braile:', constants.brailleInput.value);
+            console.log('braille:', constants.brailleInput.value);
         }
     }
 
