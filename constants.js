@@ -86,6 +86,7 @@ class Constants {
         // role app on svg
         if (document.getElementById(this.svg_container_id)) {
             document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('role', 'application');
+            document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('tabindex', '0');
         }
     }
 
