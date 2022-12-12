@@ -8,5 +8,6 @@
     "[html]": {
         "editor.defaultFormatter": "vscode.html-language-features"
     },
-    "editor.wordBreak": "keepAll"
+    "editor.wordBreak": "keepAll",
+    "explorer.copyRelativePathSeparator": "/"
 }
