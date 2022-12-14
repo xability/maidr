@@ -104,11 +104,26 @@ class Audio {
             }
         } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
             if (rawFreq == 0) {
-                this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
+                //this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
+                this.PlayNull();
             }
         } else if (constants.chartType == "scatterplot") {
             // @TODO: residual histogram can have empty bars
         }
+
+    }
+
+    PlayNull() {
+        let frequency = constants.NULL_FREQUENCY;
+        let duration = constants.duration;
+        let panning = 0;
+        let vol = constants.vol;
+        let wave = 'square';
+
+        this.playOscillator(frequency, duration, panning, vol, wave);
+        setTimeout(function(audioThis) {
+            audioThis.playOscillator(frequency * 23/24, duration, panning, vol, wave);
+        }, Math.round(duration/3 * 1000), this);
 
     }
 

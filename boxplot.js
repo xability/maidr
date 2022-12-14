@@ -570,7 +570,9 @@ class BoxPlot {
 
     PlayTones(audio) {
 
-        if ( plot.plotData[position.y][position.x].type != "outlier" ) {
+        if ( plot.plotData[position.y][position.x].type == "blank" ) {
+            audio.PlayNull();
+        } else if ( plot.plotData[position.y][position.x].type != "outlier" ) {
             audio.playTone();
         } else {
             // we play a run of tones
