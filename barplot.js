@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
 
-    window.constants = new Constants();
     constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
     window.plot = new BarChart();

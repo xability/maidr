@@ -10,12 +10,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
 
-    window.constants = new Constants();
-    window.resources = new Resources();
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
-    window.menu = new Menu();
     constants.chartType = "boxplot";
     let rect = new BoxplotRect();
     let audio = new Audio();
@@ -186,10 +183,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         if (e.which == 17) { // ctrl (either one)
             constants.KillAutoplay();
-        }
-
-        if ( e.which == 72 || e.which == 77 ) { // H or M, for help / menu
-            menu.Toggle();
         }
 
     });
@@ -604,7 +597,6 @@ class BoxplotRect {
     // maybe put this stuff in user config?
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
-    rectColorString = 'rgb(3,200,9)';
     rectPaddingOffset = this.rectPadding * 2;
 
     constructor() {
@@ -726,7 +718,7 @@ class BoxplotRect {
         rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.rectPaddingOffset - this.y1); // y coord is inverse from plot data
         rect.setAttribute('width', this.x2 - this.x1);
         rect.setAttribute('height', Math.abs(this.y2 - this.y1));
-        rect.setAttribute('stroke', this.rectColorString);
+        rect.setAttribute('stroke', constants.colorSelected);
         rect.setAttribute('stroke-width', this.rectStrokeWidth);
         rect.setAttribute('fill', 'none');
         constants.svg.appendChild(rect);

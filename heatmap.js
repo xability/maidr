@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-    window.constants = new Constants();
     constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
     window.plot = new HeatMap();
