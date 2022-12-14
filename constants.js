@@ -36,6 +36,7 @@ class Constants {
     // basic audio properties
     MAX_FREQUENCY = 1000;
     MIN_FREQUENCY = 100;
+    NULL_FREQUENCY = 100;
 
     // user settings
     vol = .5;
