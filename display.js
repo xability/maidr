@@ -42,7 +42,7 @@ class Display {
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');
-            constants.svg_container.focus();
+            constants.svg.focus();
         }
 
         this.announceText("Braille " + constants.brailleMode);
