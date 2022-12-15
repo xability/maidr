@@ -134,7 +134,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     function UpdateAll() {
         if (constants.showDisplay) {
-            display.displayValues(plot);
+            if (constants.showDisplayInAutoplay == 0)
+                display.displayValues(plot);
         }
         if ( constants.showRect ) {
             point.UpdatePointDisplay(); 
@@ -145,6 +146,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function Autoplay(dir) {
+        constants.showDisplayInAutoplay = 1;
         let step = 1 ; // default right and down
         if ( dir == "left" ) {
             step = -1;
@@ -166,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 UpdateAll();
             }
         }, constants.autoPlayRate);
+        constants.showDisplayInAutoplay = 0;
     }
 
     function StopAutoplay() {
@@ -186,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
 });
+
 class ScatterPlot {
     constructor() {
         this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
@@ -195,41 +199,45 @@ class ScatterPlot {
         this.svgX = this.getSvgCoords()[0];
         this.svgY = this.getSvgCoords()[1];
 
-        // this.bestFitLinePoints = this.getBestFitLinePoints();
+        this.bestFitLinePoints = this.getBestFitLinePoints();
         // this.residualPoints = this.getResidualPoints();
-        this.bestFitLinePoints = this.svgY;
+        // this.bestFitLinePoints = this.svgY;
         this.numPoints = this.bestFitLinePoints.length;
 
         this.groupLabels = this.getGroupLabels();
 
-        constants.minY = Math.min(...this.svgY);
-        constants.maxY = Math.max(...this.svgX);
+        // constants.minY = Math.min(...this.svgY);
+        // constants.maxY = Math.max(...this.svgX);
 
-        console.log(this.svgX);
-        console.log(this.svgY);
+        // console.log(this.svgX);
+        // console.log(this.svgY);
+        // console.log(this.bestFitLinePoints);
     }
 
     getXCoords() {
-        displ.sort(function(a,b) { return a - b; });
+        let d = [...displ];
+        d.sort(function(a,b) { return a - b; });
         constants.minX = 0;
-        constants.maxX = displ.length;
-        return displ;
+        constants.maxX = d.length;
+        return d;
     }
 
-    // getBestFitLinePoints() {
-    //     let points = [];
+    getBestFitLinePoints() {
+        let points = [];
 
-    //     for (let i = 0; i < displ.length; i++) {
-    //         points.push({'x': displ[i], 'y': prediciton_array[i]});
-    //     }
+        for (let i = 0; i < displ.length; i++) {
+            if (!points.map(({x})=>x).includes(displ[i]))
+                points.push({'x': displ[i], 'y': prediciton_array[i]});
+        }
 
-    //     points.sort(function(a, b) { return a.x - b.x });
+        points.sort(function(a, b) { return a.y - b.y });
+        points.sort(function(a, b) { return a.x - b.x });
 
-    //     constants.minY = Math.min(...prediciton_array);
-    //     constants.maxY = Math.max(...prediciton_array);
+        constants.minY = Math.min(...prediciton_array);
+        constants.maxY = Math.max(...prediciton_array);
 
-    //     return points.map(({y}) => y);
-    // }
+        return points.map(({y}) => y);
+    }
 
     // @TODO
     // getResidualPoints() {}
