@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // menu controls
     document.addEventListener("keydown", function (e) {
-        if ( e.which == 77 ) { // M for menu
+        if ( e.which == 77 || 72 ) { // M for menu, or H for help (which I don't like)
             menu.Toggle();
         }
     });
