@@ -14,6 +14,8 @@
     "editor.wordBreak": "keepAll",
     "explorer.copyRelativePathSeparator": "/",
     "editor.formatOnType": true,
+    "editor.formatOnSave": true,
     "files.eol": "\n",
-    "files.encoding": "utf8"
+    "files.encoding": "utf8",
+    "files.insertFinalNewline": true
 }
