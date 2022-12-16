@@ -9,5 +9,8 @@
         "editor.defaultFormatter": "vscode.html-language-features"
     },
     "editor.wordBreak": "keepAll",
-    "explorer.copyRelativePathSeparator": "/"
+    "explorer.copyRelativePathSeparator": "/",
+    "editor.formatOnType": true,
+    "files.eol": "\n",
+    "files.encoding": "utf8"
 }
