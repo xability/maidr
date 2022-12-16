@@ -154,9 +154,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             audio.playTone();
         }
 
-        if ( constants.brailleMode != "off" ) {
+        if (constants.brailleMode != "off") {
             display.UpdateBraillePos(plot);
-        } 
+        }
     }
     function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {

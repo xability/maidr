@@ -90,7 +90,7 @@ class Constants {
     }
 
     KillAutoplay() {
-        if ( this.autoplayId) {
+        if (this.autoplayId) {
             clearInterval(this.autoplayId);
             this.autoplayId = null;
         }
@@ -98,8 +98,8 @@ class Constants {
 }
 
 class Resources {
-    
-    constructor() {}
+
+    constructor() { }
 
     language = "en"; // 2 char lang code
     knowledgeLevel = "basic" // basic, intermediate, expert
@@ -113,10 +113,10 @@ class Resources {
                 "min": "Low",
                 "max": "High",
                 "25": "25%",
-                "50": "50%", 
+                "50": "50%",
                 "75": "75%",
                 "son_on": "Sonification on",
-                "son_off": "Sonification off", 
+                "son_off": "Sonification off",
                 "son_des": "Sonification descrete",
                 "son_comp": "Sonification compare",
                 "son_ch": "Sonification chord",
@@ -231,15 +231,15 @@ class Menu {
         document.querySelector('body').insertAdjacentHTML('beforeend', this.menuHtml);
     }
 
-    Toggle(onoff) { 
-        if ( typeof(onoff) == 'undefined' ) {
-            if ( document.getElementById('menu').classList.contains('hidden') ) {
+    Toggle(onoff) {
+        if (typeof (onoff) == 'undefined') {
+            if (document.getElementById('menu').classList.contains('hidden')) {
                 onoff = true;
             } else {
                 onoff = false;
             }
         }
-        if ( onoff ) { // open
+        if (onoff) { // open
             this.PopulateData();
             document.getElementById('menu').classList.remove('hidden');
             document.getElementById('modal_backdrop').classList.remove('hidden');
@@ -306,16 +306,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // default page load focus on svg 
     // this is mostly for debugging, as first time load users must click or hit a key to focus
     // todo for publish: probably start users at a help / menu section, and they can tab to svg
-    setTimeout(function() { constants.svg.focus(); }, 100 ); // it needs just a tick after DOMContentLoaded
+    setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
 
     // menu controls
     document.addEventListener("keydown", function (e) {
-        if ( e.which == 77 || 72 ) { // M for menu, or H for help (which I don't like)
+        if (e.which == 77 || 72) { // M for menu, or H for help (which I don't like)
             menu.Toggle();
         }
     });
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
-    for ( let i = 0 ; i < allClose.length ; i++ ) {
+    for (let i = 0; i < allClose.length; i++) {
         allClose[i].addEventListener("click", function (e) {
             menu.Toggle(false);
         });
@@ -327,8 +327,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // save user focus so we can return after menu close
     let allFocus = document.querySelectorAll('#' + constants.svg_container_id + ' > svg, #' + constants.braille_input_id);
-    for ( let i = 0 ; i < allFocus.length ; i++ ) {
-        allFocus[i].addEventListener('focus', function(e) {
+    for (let i = 0; i < allFocus.length; i++) {
+        allFocus[i].addEventListener('focus', function (e) {
             constants.nonMenuFocus = allFocus[i];
         });
     }

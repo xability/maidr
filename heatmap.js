@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let rect = new HeatMapRect();
     let audio = new Audio();
     let display = new Display();
-    
+
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -88,11 +88,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         if (e.which == 9) { // let user tab
         } else if (e.which == 39) { // right arrow
-            if ( e.target.selectionStart > e.target.value.length - 3 ) { 
+            if (e.target.selectionStart > e.target.value.length - 3) {
                 // already at the end, do nothing
                 e.preventDefault();
             } else {
-                if ( position.x + 1 == plot.num_cols ) { // we're at the end of the row, go to next, and skip the spacer
+                if (position.x + 1 == plot.num_cols) { // we're at the end of the row, go to next, and skip the spacer
                     position.y += 1;
                     position.x = 0;
 
@@ -101,28 +101,28 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
 
                 // this is messy. We need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
-                let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+                let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left
-            if ( e.target.selectionStart == 0 ) {
+            if (e.target.selectionStart == 0) {
                 e.preventDefault();
             } else {
-                if ( position.x == 0 ) { // if we're at the start of a row, go to the prev one
+                if (position.x == 0) { // if we're at the start of a row, go to the prev one
                     position.y += -1;
                     position.x = plot.num_cols - 1;
                 } else {
                     position.x += -1;
                 }
-                let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+                let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
-            if ( position.y + 1 == plot.num_rows ) {
+            if (position.y + 1 == plot.num_rows) {
                 // goto very end
                 position.x = plot.num_cols - 1;
                 position.y = plot.num_rows - 1;
@@ -130,19 +130,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
             }
-            let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+            let pos = (position.y * (plot.num_cols + 1)) + position.x;
             e.target.setSelectionRange(pos, pos);
             e.preventDefault();
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
-            if ( position.y == 0 ) {
+            if (position.y == 0) {
                 // goto very start
                 position.x = 0;
                 position.y = 0;
             } else {
                 position.y += -1;
             }
-            let pos = ( position.y * ( plot.num_cols + 1 ) ) + position.x ;
+            let pos = (position.y * (plot.num_cols + 1)) + position.x;
             e.target.setSelectionRange(pos, pos);
             e.preventDefault();
             updateInfoThisRound = true;
@@ -303,8 +303,8 @@ class HeatMap {
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function(a,b) { a - b; }); // ascending
-        y_coord_check.sort(function(a,b) { b - a; }); // descending
+        x_coord_check.sort(function (a, b) { a - b; }); // ascending
+        y_coord_check.sort(function (a, b) { b - a; }); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];

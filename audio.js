@@ -50,7 +50,7 @@ class Audio {
                 // outliers are stored in values with a seperate itterator
                 rawFreq = plot.plotData[position.y][position.x].values[position.z];
             }
-            if ( plot.plotData[position.y][position.x].type != 'blank' ) {
+            if (plot.plotData[position.y][position.x].type != 'blank') {
                 frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
             } else {
@@ -121,9 +121,9 @@ class Audio {
         let wave = 'triangle';
 
         this.playOscillator(frequency, duration, panning, vol, wave);
-        setTimeout(function(audioThis) {
-            audioThis.playOscillator(frequency * 23/24, duration, panning, vol, wave);
-        }, Math.round(duration/5 * 1000), this);
+        setTimeout(function (audioThis) {
+            audioThis.playOscillator(frequency * 23 / 24, duration, panning, vol, wave);
+        }, Math.round(duration / 5 * 1000), this);
 
     }
 

@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left'); 
+                    Autoplay('left');
                     lastPlayed = 'left';
                 } else {
                     position.x = 0;
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         if (e.which == 9) {
         } else if (e.which == 39) { // right arrow
-            if ( e.target.selectionStart > e.target.value.length - 2) {
+            if (e.target.selectionStart > e.target.value.length - 2) {
                 e.preventDefault();
             } else {
                 position.x += 1;
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (position.x < 0) {
             position.x = 0;
         }
-        if ( position.x > plot.numPoints - 1 ) {
+        if (position.x > plot.numPoints - 1) {
             position.x = plot.numPoints - 1;
         }
     }
@@ -137,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.showDisplayInAutoplay == 0)
                 display.displayValues(plot);
         }
-        if ( constants.showRect ) {
-            point.UpdatePointDisplay(); 
+        if (constants.showRect) {
+            point.UpdatePointDisplay();
         }
         if (constants.audioPlay) {
             audio.playTone();
@@ -147,8 +147,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     function Autoplay(dir) {
         constants.showDisplayInAutoplay = 1;
-        let step = 1 ; // default right and down
-        if ( dir == "left" ) {
+        let step = 1; // default right and down
+        if (dir == "left") {
             step = -1;
         }
 
@@ -158,9 +158,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             this.autoplay = null;
         }
 
-        this.autoplay = setInterval(function() {
+        this.autoplay = setInterval(function () {
             position.x += step;
-            if ( position.x < 0 || plot.numPoints - 1 < position.x ) {
+            if (position.x < 0 || plot.numPoints - 1 < position.x) {
                 clearInterval(this.autoplay);
                 this.autoplay = null;
                 lockPosition();
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function SpeedUp() {
-        if (constants.autoPlayRate - 50 > 0) { 
+        if (constants.autoPlayRate - 50 > 0) {
             constants.autoPlayRate -= 50;
         }
     }
@@ -216,7 +216,7 @@ class ScatterPlot {
 
     getXCoords() {
         let d = [...displ];
-        d.sort(function(a,b) { return a - b; });
+        d.sort(function (a, b) { return a - b; });
         constants.minX = 0;
         constants.maxX = d.length;
         return d;
@@ -226,17 +226,17 @@ class ScatterPlot {
         let points = [];
 
         for (let i = 0; i < displ.length; i++) {
-            if (!points.map(({x})=>x).includes(displ[i]))
-                points.push({'x': displ[i], 'y': prediciton_array[i]});
+            if (!points.map(({ x }) => x).includes(displ[i]))
+                points.push({ 'x': displ[i], 'y': prediciton_array[i] });
         }
 
-        points.sort(function(a, b) { return a.y - b.y });
-        points.sort(function(a, b) { return a.x - b.x });
+        points.sort(function (a, b) { return a.y - b.y });
+        points.sort(function (a, b) { return a.x - b.x });
 
         constants.minY = Math.min(...prediciton_array);
         constants.maxY = Math.max(...prediciton_array);
 
-        return points.map(({y}) => y);
+        return points.map(({ y }) => y);
     }
 
     // @TODO
@@ -259,12 +259,12 @@ class ScatterPlot {
         let points = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            points.push({'x': parseFloat(this.plots[i].getAttribute('x')), 'y': parseFloat(this.plots[i].getAttribute('y'))});
+            points.push({ 'x': parseFloat(this.plots[i].getAttribute('x')), 'y': parseFloat(this.plots[i].getAttribute('y')) });
         }
 
-        points.sort(function(a,b) { return a.x - b.x });
+        points.sort(function (a, b) { return a.x - b.x });
 
-        return [points.map(({x}) => x), points.map(({y}) => y)];
+        return [points.map(({ x }) => x), points.map(({ y }) => y)];
     }
 };
 

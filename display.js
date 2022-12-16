@@ -49,9 +49,9 @@ class Display {
     }
 
     toggleSonificationMode() {
-        if (constants.audioPlay == 0 ) {
+        if (constants.audioPlay == 0) {
             constants.audioPlay = 1;
-            if ( constants.chartType == "boxplot" ) {
+            if (constants.chartType == "boxplot") {
                 this.announceText(resources.GetString('son_des'));
             } else {
                 this.announceText(resources.GetString('son_on'));
@@ -68,19 +68,19 @@ class Display {
     }
 
     UpdateBraillePos() {
-        if ( constants.chartType == "barchart" ) {
+        if (constants.chartType == "barchart") {
             constants.brailleInput.setSelectionRange(position.x, position.x);
-        } else if ( constants.chartType == "heatmap" ) {
-        } else if ( constants.chartType == "boxplot" ) {
+        } else if (constants.chartType == "heatmap") {
+        } else if (constants.chartType == "boxplot") {
             // on boxplot we extend characters a lot, so we have to jump around by character sets
             let adjustedPosX = 0;
             let walk = 0;
-            if ( constants.brailleData ) {
-                for ( let i = 0 ; i < constants.brailleData.length ; i++ ) {
-                    if ( walk == position.x ) {
+            if (constants.brailleData) {
+                for (let i = 0; i < constants.brailleData.length; i++) {
+                    if (walk == position.x) {
                         break;
                     }
-                    if ( constants.brailleData[i].type != 'blank' ) {
+                    if (constants.brailleData[i].type != 'blank') {
                         walk++;
                     }
                     adjustedPosX += constants.brailleData[i].numChars;
@@ -186,7 +186,7 @@ class Display {
                     output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.bestFitLinePoints[position.x] + '</p>\n';
                 }
             } else if (constants.layer == 1) { // residual histogram layer
-                if (constants.textMode == "off")  {
+                if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
                     // @TODO
@@ -258,7 +258,7 @@ class Display {
             } else if (constants.layer == 1) { // residual histogram layer
                 // @TODO
             }
-        } else if (constants.chartType == "boxplot" && position.y > -1 ) { // only run if we're on a plot
+        } else if (constants.chartType == "boxplot" && position.y > -1) { // only run if we're on a plot
             // Idea here is to use different braille characters to physically represent the boxplot
             // if sections are longer or shorter we'll add more characters
             // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
@@ -272,29 +272,29 @@ class Display {
             let brailleData = [];
             let isBeforeMid = true;
             let boundingBoxOffsetX = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
-            for ( let i = 0 ; i < plot.plotData[position.y].length ; i++ ) {
+            for (let i = 0; i < plot.plotData[position.y].length; i++) {
                 let point = plot.plotData[position.y][i];
                 let nextPoint = null;
                 let prevPoint = null;
-                if ( i < plot.plotData[position.y].length - 1 ) {
-                    nextPoint = plot.plotData[position.y][i+1];
+                if (i < plot.plotData[position.y].length - 1) {
+                    nextPoint = plot.plotData[position.y][i + 1];
                 }
-                if ( i > 0 ) {
-                    prevPoint = plot.plotData[position.y][i-1];
+                if (i > 0) {
+                    prevPoint = plot.plotData[position.y][i - 1];
                 }
 
                 let charData = {};
 
-                if ( i == 0 ) {
+                if (i == 0) {
                     // first point gotta add extra starting blank space
                     charData = {};
                     charData.length = point.x - 0 - boundingBoxOffsetX;
-                    if ( charData.length < 0 ) charData.length = 0;
+                    if (charData.length < 0) charData.length = 0;
                     charData.type = 'blank';
                     brailleData.push(charData);
                 }
 
-                if ( point.type == "outlier" ) {
+                if (point.type == "outlier") {
                     // there might be lots of these
 
                     // Spacing is messy:
@@ -303,7 +303,7 @@ class Display {
                     // either way add spaces in between outlier points
 
                     // pre point space
-                    if ( isBeforeMid ) {
+                    if (isBeforeMid) {
                         // no pre space 
                     } else {
                         // yes after space
@@ -314,15 +314,15 @@ class Display {
                     }
 
                     // now add points with spaces in between
-                    for ( var k = 0 ; k < point.values.length ; k++ ) {
-                        if ( k == 0 ) {
+                    for (var k = 0; k < point.values.length; k++) {
+                        if (k == 0) {
                             charData = {};
                             charData.length = 0;
                             charData.type = "outlier"
                             brailleData.push(charData);
                         } else {
                             charData = {};
-                            charData.length = point.values[k] - point.values[k-1];
+                            charData.length = point.values[k] - point.values[k - 1];
                             charData.type = "blank";
                             brailleData.push(charData);
 
@@ -334,7 +334,7 @@ class Display {
                     }
 
                     // after point space
-                    if ( isBeforeMid ) {
+                    if (isBeforeMid) {
                         // yes pre space 
                         charData = {};
                         charData.length = nextPoint.x - point.values[point.values.length - 1];
@@ -344,7 +344,7 @@ class Display {
                         // no after space
                     }
                 } else {
-                    if ( point.label == "50%" ) {
+                    if (point.label == "50%") {
                         // exception: another 0 width point here
                         charData = {};
                         charData.length = 0;
@@ -355,7 +355,7 @@ class Display {
                     } else {
                         // normal points: we calc dist between this point and point closest to middle
                         charData = {};
-                        if ( isBeforeMid ) {
+                        if (isBeforeMid) {
                             charData.length = nextPoint.x - point.x;
                         } else {
                             charData.length = point.x - prevPoint.x;
@@ -364,10 +364,10 @@ class Display {
                         brailleData.push(charData);
                     }
                 }
-                if ( i == plot.plotData[position.y].length - 1 ) {
+                if (i == plot.plotData[position.y].length - 1) {
                     // last point gotta add ending space manually
                     charData = {};
-                    if ( point.type == "outlier" ) {
+                    if (point.type == "outlier") {
                         charData.length = constants.maxX - point.xMax;
                     } else {
                         charData.length = constants.maxX - point.x;
@@ -377,10 +377,10 @@ class Display {
                 }
             }
             // cleanup. A bit of rounding to account for floating point errors
-            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+            for (let i = 0; i < brailleData.length; i++) {
                 brailleData[i].length = Math.round(brailleData[i].length); // we currently just use rounding to whole number (pixel), but if other rounding is needed add it here
             }
-            
+
 
             // We create a set of braille characters based on the lengths
             // Method: initially give each block a single character, then add characters one by one where they have the most impact
@@ -399,33 +399,33 @@ class Display {
             let loc25 = -1;
             let loc75 = -1;
             // prepopulate a single char each
-            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+            for (let i = 0; i < brailleData.length; i++) {
                 brailleData[i].numChars = 1;
 
                 // store 25/75 min/max locations so we can check them later more easily
-                if ( brailleData[i].type == resources.GetString('min') ) locMin = i;
-                if ( brailleData[i].type == resources.GetString('max') ) locMax = i;
-                if ( brailleData[i].type == resources.GetString('25') ) loc25 = i;
-                if ( brailleData[i].type == resources.GetString('75') ) loc75 = i;
+                if (brailleData[i].type == resources.GetString('min')) locMin = i;
+                if (brailleData[i].type == resources.GetString('max')) locMax = i;
+                if (brailleData[i].type == resources.GetString('25')) loc25 = i;
+                if (brailleData[i].type == resources.GetString('75')) loc75 = i;
 
                 // 50 gets 2 characters by default
-                if ( brailleData[i].type == resources.GetString('50') ) brailleData[i].numChars = 2;
+                if (brailleData[i].type == resources.GetString('50')) brailleData[i].numChars = 2;
             }
             // add extras to 25/75 min/max if needed
             let currentPairs = [resources.GetString('25'), resources.GetString('75')];
-            if ( locMin > -1 && locMax > -1 ) {
+            if (locMin > -1 && locMax > -1) {
                 currentPairs.push(resources.GetString('min')); // we add these seperately because we don't always have both min and max
                 currentPairs.push(resources.GetString('max'));
-                if ( brailleData[locMin].length != brailleData[locMax].length ) {
-                    if ( brailleData[locMin].length > brailleData[locMax].length ) {
+                if (brailleData[locMin].length != brailleData[locMax].length) {
+                    if (brailleData[locMin].length > brailleData[locMax].length) {
                         brailleData[locMin].numChars++;
                     } else {
                         brailleData[locMax].numChars++;
                     }
                 }
             }
-            if ( brailleData[loc25].length != brailleData[loc75].length ) {
-                if ( brailleData[loc25].length > brailleData[loc75].length ) {
+            if (brailleData[loc25].length != brailleData[loc75].length) {
+                if (brailleData[loc25].length > brailleData[loc75].length) {
                     brailleData[loc25].numChars++;
                 } else {
                     brailleData[loc75].numChars++;
@@ -435,37 +435,37 @@ class Display {
             // Main algorithm here: add characters itteritively on max length impact
             let charsAvailable = constants.brailleDisplayLength;
             charsAvailable += -1; // to account for the double char on midpoint
-            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+            for (let i = 0; i < brailleData.length; i++) {
                 charsAvailable -= brailleData[i].numChars;
             }
             let debugSanity = 0;
-            while ( charsAvailable > 0 && debugSanity < 50 ) {
+            while (charsAvailable > 0 && debugSanity < 50) {
                 debugSanity++;
                 let maxImpactI = 0;
-                for ( let i = 0 ; i < brailleData.length ; i++ ) {
-                    if ( this.CharLenImpact(brailleData[i]) > this.CharLenImpact(brailleData[maxImpactI]) ) {
+                for (let i = 0; i < brailleData.length; i++) {
+                    if (this.CharLenImpact(brailleData[i]) > this.CharLenImpact(brailleData[maxImpactI])) {
                         maxImpactI = i;
                     }
                 }
 
                 // do we potentially need to add chars to the other in the pair?
-                if ( ! ( brailleData[maxImpactI].type in currentPairs ) ) {
+                if (!(brailleData[maxImpactI].type in currentPairs)) {
                     brailleData[maxImpactI].numChars++;
                     charsAvailable--;
-                } else if ( brailleData[maxImpactI].type in [resources.GetString('min'), resources.GetString('max')] ) {
+                } else if (brailleData[maxImpactI].type in [resources.GetString('min'), resources.GetString('max')]) {
                     // if they're equal, add to both
-                    if ( brailleData[locMin].length == brailleData[locMax].length ) {
-                        if ( charsAvailable > 1 ) {
+                    if (brailleData[locMin].length == brailleData[locMax].length) {
+                        if (charsAvailable > 1) {
                             brailleData[locMin].numChars++;
                             brailleData[locMax].numChars++;
                         }
                         charsAvailable += -2;
                     } else {
                         // if not equal, would adding to 1 side make them seem equal?
-                        if ( maxImpactI == locMin ) {
-                            if ( brailleData[locMin].numChars + 1 == brailleData[locMax].numChars ) {
+                        if (maxImpactI == locMin) {
+                            if (brailleData[locMin].numChars + 1 == brailleData[locMax].numChars) {
                                 // if so, then add to both
-                                if ( charsAvailable > 1 ) {
+                                if (charsAvailable > 1) {
                                     brailleData[locMin].numChars++;
                                     brailleData[locMax].numChars++;
                                 }
@@ -477,9 +477,9 @@ class Display {
                             }
                         } else {
                             // same for other side
-                            if ( brailleData[locMax].numChars + 1 == brailleData[locMin].numChars ) {
+                            if (brailleData[locMax].numChars + 1 == brailleData[locMin].numChars) {
                                 // if so, then add to both
-                                if ( charsAvailable > 1 ) {
+                                if (charsAvailable > 1) {
                                     brailleData[locMax].numChars++;
                                     brailleData[locMin].numChars++;
                                 }
@@ -489,22 +489,22 @@ class Display {
                                 brailleData[maxImpactI].numChars++;
                                 charsAvailable--;
                             }
-                        } 
+                        }
                     }
-                } else if ( brailleData[maxImpactI].type in [resources.GetString('25'), resources.GetString('75')] ) {
+                } else if (brailleData[maxImpactI].type in [resources.GetString('25'), resources.GetString('75')]) {
                     // if they're equal, add to both
-                    if ( brailleData[loc25].length == brailleData[loc75].length ) {
-                        if ( charsAvailable > 1 ) {
+                    if (brailleData[loc25].length == brailleData[loc75].length) {
+                        if (charsAvailable > 1) {
                             brailleData[loc25].numChars++;
                             brailleData[loc75].numChars++;
                         }
                         charsAvailable += -2;
                     } else {
                         // if not equal, would adding to 1 side make them seem equal?
-                        if ( maxImpactI == loc25 ) {
-                            if ( brailleData[loc25].numChars + 1 == brailleData[loc75].numChars ) {
+                        if (maxImpactI == loc25) {
+                            if (brailleData[loc25].numChars + 1 == brailleData[loc75].numChars) {
                                 // if so, then add to both
-                                if ( charsAvailable > 1 ) {
+                                if (charsAvailable > 1) {
                                     brailleData[loc25].numChars++;
                                     brailleData[loc75].numChars++;
                                 }
@@ -516,9 +516,9 @@ class Display {
                             }
                         } else {
                             // same for other side
-                            if ( brailleData[loc75].numChars + 1 == brailleData[loc25].numChars ) {
+                            if (brailleData[loc75].numChars + 1 == brailleData[loc25].numChars) {
                                 // if so, then add to both
-                                if ( charsAvailable > 1 ) {
+                                if (charsAvailable > 1) {
                                     brailleData[loc75].numChars++;
                                     brailleData[loc25].numChars++;
                                 }
@@ -528,7 +528,7 @@ class Display {
                                 brailleData[maxImpactI].numChars++;
                                 charsAvailable--;
                             }
-                        } 
+                        }
                     }
                 }
 
@@ -540,20 +540,20 @@ class Display {
             }
 
             // create braille from this data
-            for ( let i = 0 ; i < brailleData.length ; i++ ) {
-                for ( let j = 0 ; j < brailleData[i].numChars ; j++ ) {
+            for (let i = 0; i < brailleData.length; i++) {
+                for (let j = 0; j < brailleData[i].numChars; j++) {
                     let brailleChar = "⠀"; // blank
-                    if ( brailleData[i].type == resources.GetString('min') || brailleData[i].type == resources.GetString('max') ) {
+                    if (brailleData[i].type == resources.GetString('min') || brailleData[i].type == resources.GetString('max')) {
                         brailleChar = "⠒";
-                    } else if ( brailleData[i].type == resources.GetString('25') || brailleData[i].type == resources.GetString('75') ) {
+                    } else if (brailleData[i].type == resources.GetString('25') || brailleData[i].type == resources.GetString('75')) {
                         brailleChar = "⠿";
-                    } else if ( brailleData[i].type == resources.GetString('50') ) {
-                        if ( j == 0 ) {
+                    } else if (brailleData[i].type == resources.GetString('50')) {
+                        if (j == 0) {
                             brailleChar = "⠸";
                         } else {
                             brailleChar = "⠇";
                         }
-                    } else if ( brailleData[i].type == "outlier" ) {
+                    } else if (brailleData[i].type == "outlier") {
                         brailleChar = "⠂";
                     }
                     brailleArray.push(brailleChar);
@@ -571,7 +571,7 @@ class Display {
     }
 
     CharLenImpact(charData) {
-        return ( charData.length / charData.numChars ) ;
+        return (charData.length / charData.numChars);
     }
 
 }
