@@ -1,10 +1,9 @@
 
 class Display {
 
+
     constructor() {
         this.infoDiv = constants.infoDiv;
-
-        this.SetBraille(plot);
 
         this.x = {};
         this.x.id = "x";
@@ -13,6 +12,16 @@ class Display {
         this.y = {};
         this.y.id = "y";
         this.y.textBase = "y-value: ";
+
+        this.boxplotGridPlaceholders = [
+            resources.GetString('lower_outlier'),
+            resources.GetString('min'),
+            resources.GetString('25'),
+            resources.GetString('50'),
+            resources.GetString('75'),
+            resources.GetString('max'),
+            resources.GetString('upper_outlier')];
+
 
     }
 
@@ -39,6 +48,7 @@ class Display {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
             }
+            this.SetBraille(plot);
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');
@@ -70,23 +80,29 @@ class Display {
     UpdateBraillePos() {
         if (constants.chartType == "barchart") {
             constants.brailleInput.setSelectionRange(position.x, position.x);
-        } else if (constants.chartType == "heatmap") {
-        } else if (constants.chartType == "boxplot") {
-            // on boxplot we extend characters a lot, so we have to jump around by character sets
+        } else if ( constants.chartType == "heatmap" ) {
+        } else if ( constants.chartType == "boxplot" ) {
+            // on boxplot we extend characters a lot and have blanks, so we go to our label
+            let targetLabel = this.boxplotGridPlaceholders[position.x];
+            let haveTargetLabel = false;
             let adjustedPosX = 0;
-            let walk = 0;
-            if (constants.brailleData) {
-                for (let i = 0; i < constants.brailleData.length; i++) {
-                    if (walk == position.x) {
-                        break;
-                    }
-                    if (constants.brailleData[i].type != 'blank') {
-                        walk++;
+            if ( constants.brailleData ) {
+                for ( let i = 0 ; i < constants.brailleData.length ; i++ ) {
+                    if ( constants.brailleData[i].type != 'blank' ) {
+                        if ( constants.brailleData[i].label == targetLabel ) {
+                            haveTargetLabel = true;
+                            break;
+                        }
                     }
                     adjustedPosX += constants.brailleData[i].numChars;
                 }
             } else {
                 throw 'Braille data not set up, cannot move cursor in braille, sorry.';
+            }
+            // but sometimes we don't have our targetLabel, go to the start
+            // future todo: look for nearby label and go to the nearby side of that
+            if ( ! haveTargetLabel ) {
+                adjustedPosX = 0;
             }
 
             constants.brailleInput.setSelectionRange(adjustedPosX, adjustedPosX);
@@ -141,7 +157,7 @@ class Display {
             } else if (plot.plotData[position.y][position.x].type == "blank") {
                 val = resources.GetString('empty');
             } else {
-                let val = plot.plotData[position.y][position.x].x;
+                val = plot.plotData[position.y][position.x].x;
             }
             if (constants.textMode == "off") {
                 // do nothing
@@ -202,6 +218,7 @@ class Display {
     }
 
     SetBraille(plot) {
+        // todo: this errors on boxplot when we try and move above or below valid position.y
 
         let brailleArray = [];
 
@@ -285,17 +302,28 @@ class Display {
 
                 let charData = {};
 
-                if (i == 0) {
-                    // first point gotta add extra starting blank space
+                if ( i == 0 ) {
+                    // first point, add space to next actual point
+                    let firstX = 0;
+                    for ( let j = 0 ; j < plot.plotData[position.y].length ; j++ ) { 
+                        // find next actual point
+                        if ( 'x' in plot.plotData[position.y][j] ) {
+                            firstX = plot.plotData[position.y][j].x;
+                            break;
+                        }
+                    }
                     charData = {};
-                    charData.length = point.x - 0 - boundingBoxOffsetX;
-                    if (charData.length < 0) charData.length = 0;
+                    charData.length = firstX - 0 - boundingBoxOffsetX;
+                    if ( charData.length < 0 ) charData.length = 0; // dunno why, but this happens sometimes
                     charData.type = 'blank';
+                    charData.label = 'blank';
                     brailleData.push(charData);
                 }
 
-                if (point.type == "outlier") {
-                    // there might be lots of these
+                if ( point.type == "blank" ) {
+                    // this is a placeholder point, do nothing
+                } else if ( point.type == "outlier" ) {
+                    // there might be lots of these or none
 
                     // Spacing is messy:
                     // isBeforeMid: no pre space, yes after space
@@ -310,6 +338,7 @@ class Display {
                         charData = {};
                         charData.length = point.values[0] - prevPoint.x;
                         charData.type = 'blank';
+                        charData.label = 'blank';
                         brailleData.push(charData);
                     }
 
@@ -319,16 +348,19 @@ class Display {
                             charData = {};
                             charData.length = 0;
                             charData.type = "outlier"
+                            charData.label = point.label;
                             brailleData.push(charData);
                         } else {
                             charData = {};
                             charData.length = point.values[k] - point.values[k - 1];
                             charData.type = "blank";
+                            charData.label = 'blank';
                             brailleData.push(charData);
 
                             charData = {};
                             charData.length = 0;
                             charData.type = "outlier"
+                            charData.label = point.label;
                             brailleData.push(charData);
                         }
                     }
@@ -339,6 +371,7 @@ class Display {
                         charData = {};
                         charData.length = nextPoint.x - point.values[point.values.length - 1];
                         charData.type = 'blank';
+                        charData.label = 'blank';
                         brailleData.push(charData);
                     } else {
                         // no after space
@@ -349,6 +382,7 @@ class Display {
                         charData = {};
                         charData.length = 0;
                         charData.type = point.label;
+                        charData.label = point.label;
                         brailleData.push(charData);
 
                         isBeforeMid = false;
@@ -361,18 +395,26 @@ class Display {
                             charData.length = point.x - prevPoint.x;
                         }
                         charData.type = point.label;
+                        charData.label = point.label;
                         brailleData.push(charData);
                     }
                 }
                 if (i == plot.plotData[position.y].length - 1) {
                     // last point gotta add ending space manually
                     charData = {};
-                    if (point.type == "outlier") {
-                        charData.length = constants.maxX - point.xMax;
-                    } else {
-                        charData.length = constants.maxX - point.x;
+                    let lastX = 0;
+                    for ( let j = 0 ; j < plot.plotData[position.y].length ; j++ ) { 
+                        // find last actual point
+
+                        if ( point.type == "outlier" ) {
+                            lastX = charData.length = point.xMax;
+                        } else if ( 'x' in plot.plotData[position.y][j] ) {
+                            lastX = plot.plotData[position.y][j].x;
+                        }
                     }
+                    charData.length = constants.maxX - lastX;
                     charData.type = "blank";
+                    charData.label = "blank";
                     brailleData.push(charData);
                 }
             }
@@ -380,7 +422,6 @@ class Display {
             for (let i = 0; i < brailleData.length; i++) {
                 brailleData[i].length = Math.round(brailleData[i].length); // we currently just use rounding to whole number (pixel), but if other rounding is needed add it here
             }
-
 
             // We create a set of braille characters based on the lengths
             // Method: initially give each block a single character, then add characters one by one where they have the most impact
@@ -393,14 +434,19 @@ class Display {
             //   3: blanks
             // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
             // exception: center is always 456 123
+            // todo: exception: if there's a tie across a single block (or even multiple blocks), should we assign to the whole block (like, spaces between all 5 outliers)? or just the first chart like current (so the first space between the 5 outliers, which could cause some strange behaviour)
 
             let locMin = -1;
             let locMax = -1;
             let loc25 = -1;
             let loc75 = -1;
             // prepopulate a single char each
-            for (let i = 0; i < brailleData.length; i++) {
-                brailleData[i].numChars = 1;
+            for ( let i = 0 ; i < brailleData.length ; i++ ) {
+                if ( brailleData[i].type != 'blank' ) {
+                    brailleData[i].numChars = 1;
+                } else {
+                    brailleData[i].numChars = 0;
+                }
 
                 // store 25/75 min/max locations so we can check them later more easily
                 if (brailleData[i].type == resources.GetString('min')) locMin = i;
@@ -439,7 +485,7 @@ class Display {
                 charsAvailable -= brailleData[i].numChars;
             }
             let debugSanity = 0;
-            while (charsAvailable > 0 && debugSanity < 50) {
+            while ( charsAvailable > 0 && debugSanity < 2000 ) {
                 debugSanity++;
                 let maxImpactI = 0;
                 for (let i = 0; i < brailleData.length; i++) {
@@ -535,8 +581,9 @@ class Display {
             } // end while (main algorithm)
 
             constants.brailleData = brailleData;
-            if (constants.debugLevel > 1) {
+            if (constants.debugLevel > 5) {
                 console.log(brailleData);
+                console.log(plot.plotData[position.y]);
             }
 
             // create braille from this data
@@ -568,6 +615,8 @@ class Display {
         if (constants.debugLevel > 5) {
             console.log('braille:', constants.brailleInput.value);
         }
+
+        this.UpdateBraillePos();
     }
 
     CharLenImpact(charData) {

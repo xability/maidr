@@ -121,9 +121,11 @@ class Audio {
         let wave = 'triangle';
 
         this.playOscillator(frequency, duration, panning, vol, wave);
-        setTimeout(function (audioThis) {
+
+        setTimeout(function(audioThis) {
             audioThis.playOscillator(frequency * 23 / 24, duration, panning, vol, wave);
         }, Math.round(duration / 5 * 1000), this);
+
 
     }
 
