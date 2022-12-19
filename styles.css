@@ -1,6 +1,7 @@
-
-*, ::after, ::before {
-    box-sizing:border-box;
+*,
+::after,
+::before {
+    box-sizing: border-box;
 }
 
 .sr-only {
@@ -31,7 +32,7 @@
 
 .hidden {
     display: none;
-    opacity:0;
+    opacity: 0;
 }
 
 .braille-input {
@@ -44,48 +45,54 @@
 
 /* Menu stuff */
 .modal {
-    position:fixed;
-    top:0;
-    right:0;
-    bottom:0;
-    left:0;
-    z-index:1072;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1072;
     overflow-x: hidden;
-    overflow-y:auto;
+    overflow-y: auto;
 
-    opacity:1;
+    opacity: 1;
     transition: opacity .15s linear;
 }
+
 .modal-dialog {
     position: relative;
     width: auto;
     margin: .5rem;
 }
+
 @media (min-width: 900px) {
     .modal-dialog {
-        max-width:800px;
+        max-width: 800px;
         margin: 1.75rem auto;
     }
 }
-@media (min-width: 576px)
-.modal-dialog {
+
+@media (min-width: 576px) .modal-dialog {
     max-width: 500px;
     margin: 1.75rem auto;
 }
+
 .close:not(:disabled):not(.disabled) {
     cursor: pointer;
 }
+
 .modal-header .close {
     padding: 1rem;
     margin: -1rem -1rem -1rem auto;
     font-size: 2rem;
 }
+
 button.close {
     padding: 0;
     background-color: transparent;
     border: 0;
     -webkit-appearance: none;
 }
+
 .close {
     float: right;
     font-size: 1.5rem;
@@ -95,20 +102,26 @@ button.close {
     text-shadow: 0 1px 0 #fff;
     opacity: .5;
 }
-button, select {
+
+button,
+select {
     text-transform: none;
 }
+
 .modal-title {
     margin-bottom: 0;
     line-height: 1.5;
 }
+
 h5.modal-title {
     font-size: 1.25rem;
     border-bottom: 1px solid #dee2e6;
 }
+
 h4.modal-title {
     font-size: 1.5rem;
 }
+
 .modal-content {
     position: relative;
     display: -webkit-box;
@@ -122,10 +135,11 @@ h4.modal-title {
     pointer-events: auto;
     background-color: #fff;
     background-clip: padding-box;
-    border: 1px solid rgba(0,0,0,.2);
+    border: 1px solid rgba(0, 0, 0, .2);
     border-radius: 0.3rem;
     outline: 0;
 }
+
 .modal-header {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -141,6 +155,7 @@ h4.modal-title {
     border-top-left-radius: 0.3rem;
     border-top-right-radius: 0.3rem;
 }
+
 .modal-body {
     position: relative;
     -webkit-box-flex: 1;
@@ -148,6 +163,7 @@ h4.modal-title {
     flex: 1 1 auto;
     padding: 1rem;
 }
+
 .modal-footer {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -161,6 +177,7 @@ h4.modal-title {
     padding: 1rem;
     border-top: 1px solid #e9ecef;
 }
+
 /* custom modal stuff */
 .modal button {
     display: inline-block;
@@ -172,6 +189,7 @@ h4.modal-title {
     margin: .125rem;
     font-weight: bold;
 }
+
 .modal-backdrop {
     z-index: 1071;
     position: fixed;
@@ -191,11 +209,14 @@ table {
     background-color: transparent;
     border-collapse: collapse;
 }
+
 table thead th {
     vertical-align: bottom;
     border-bottom: 2px solid #dee2e6;
 }
-table td, table th {
+
+table td,
+table th {
     padding: 0.75rem;
     vertical-align: top;
 }
@@ -205,4 +226,3 @@ label {
     margin: 0 1.5rem;
     vertical-align: middle;
 }
-

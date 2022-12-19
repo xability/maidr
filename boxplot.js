@@ -24,8 +24,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('right');
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
@@ -38,8 +38,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
         // left arrow 
         if (e.which === 37) {
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('left');
                 } else {
                     position.x = 0;
@@ -53,8 +53,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // up arrow 
         if (e.which === 38) {
             let oldY = position.y;
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('up');
                 } else {
                     position.y = plot.plotData.length - 1;
@@ -69,8 +69,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // down arrow 
         if (e.which === 40) {
             let oldY = position.y;
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('down');
                 } else {
                     position.y = 0;
@@ -101,8 +101,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('right');
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            if ( e.ctrlKey ) {
-                if ( e.shiftKey ) {
+            if (e.ctrlKey) {
+                if (e.shiftKey) {
                     Autoplay('left');
                 } else {
                     position.x = 0;
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
-            if ( e.ctrlKey ) {
+            if (e.ctrlKey) {
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
-            if ( e.ctrlKey ) {
+            if (e.ctrlKey) {
                 position.y = 0;
             } else {
                 position.y += -1;
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             plot.PlayTones(audio);
         }
-        if ( constants.brailleMode != "off" ) {
+        if (constants.brailleMode != "off") {
             display.UpdateBraillePos(plot);
         }
     }
@@ -249,31 +249,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // init
         let xNew = 0;
         // lock yNew
-        if ( yNew < 1 ) {
+        if (yNew < 1) {
             ynew = 0;
-        } else if ( yNew > plot.plotData.length - 1 ) {
+        } else if (yNew > plot.plotData.length - 1) {
             yNew = plot.plotData.length - 1;
         }
 
-        if ( yOld < 0 ) {
+        if (yOld < 0) {
             // not on any chart yet, just start at 0
         } else {
             let oldLabel = plot.plotData[yOld][position.x].label;
             // does it exist on the new plot? we'll just get that val
-            for ( let i = 0 ; i < plot.plotData[yNew].length ; i++ ) {
-                if ( plot.plotData[yNew][i].label == oldLabel ) {
+            for (let i = 0; i < plot.plotData[yNew].length; i++) {
+                if (plot.plotData[yNew][i].label == oldLabel) {
                     xNew = i;
                 }
             }
         }
 
         return xNew;
-       
+
     }
 
     function Autoplay(dir) {
         let step = 1; // default right / up
-        if (dir == "left" || dir == "down" ) {
+        if (dir == "left" || dir == "down") {
             step = -1;
         }
 
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         constants.autoplayId = setInterval(function () {
-            if ( dir == "left" || dir == "right" ) {
+            if (dir == "left" || dir == "right") {
                 position.x += step;
                 if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
                     constants.KillAutoplay();
@@ -320,7 +320,7 @@ class BoxPlot {
         let labels = [];
         let query = 'tspan[dy="5"]';
         let els = document.querySelectorAll(query);
-        for ( let i = 0 ; i < els.length ; i++ ) {
+        for (let i = 0; i < els.length; i++) {
             labels.push(els[i].innerHTML.trim());
         }
         return labels;
@@ -403,10 +403,10 @@ class BoxPlot {
                 } else if (section[j].type != "outlier") {
                     runProcessOutliers = true;
                 }
-                if ( ! runProcessOutliers ) {
+                if (!runProcessOutliers) {
                     // add this to the group and continue
                     outlierGroup.push(section[j]);
-                } else if ( outlierGroup.length > 0 ) {
+                } else if (outlierGroup.length > 0) {
                     // process!! This is the main bit of work done
                     let vals = [];
                     for (let k = 0; k < outlierGroup.length; k++) {
@@ -414,7 +414,7 @@ class BoxPlot {
                         vals.push(outlierGroup[k].x);
 
                         // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
-                        if ( k > 0 ) {
+                        if (k > 0) {
                             plotData[i][j + k - outlierGroup.length].type = 'delete';
                         }
                     }
@@ -442,7 +442,7 @@ class BoxPlot {
         plotData = cleanData;
 
         // add labeling for display
-        for ( let i = 0; i < plotData.length; i++ ) {
+        for (let i = 0; i < plotData.length; i++) {
             // each boxplot section
             let rangeCounter = 0;
             for (let j = 0; j < plotData[i].length; j++) {
@@ -477,28 +477,28 @@ class BoxPlot {
         // we expect outlier - min - 25 - 50 - 75 - max - outlier
         // add blank placeholders where they don't exist for better vertical navigation
         let allWeNeed = [
-            resources.GetString('lower_outlier'), 
-            resources.GetString('min'), 
-            resources.GetString('25'), 
-            resources.GetString('50'), 
-            resources.GetString('75'), 
-            resources.GetString('max'), 
+            resources.GetString('lower_outlier'),
+            resources.GetString('min'),
+            resources.GetString('25'),
+            resources.GetString('50'),
+            resources.GetString('75'),
+            resources.GetString('max'),
             resources.GetString('upper_outlier')
         ];
-        for ( let i = 0; i < plotData.length; i++ ) {
-            if ( plotData[i].length == 7 ) {
+        for (let i = 0; i < plotData.length; i++) {
+            if (plotData[i].length == 7) {
                 // skip, this one has it all. The rare boi
             } else {
                 let whatWeGot = []; // we'll get a set of labels that we have so we can find what's missing
-                for ( let j = 0 ; j < plotData[i].length ; j++ ) {
+                for (let j = 0; j < plotData[i].length; j++) {
                     whatWeGot.push(plotData[i][j].label);
                 }
 
                 // add missing stuff where it should go. We use .label as the user facing var (todo, might be a mistake, maybe use .type?)
-                for ( let j = 0 ; j < allWeNeed.length ; j++ ) {
-                    if ( ! whatWeGot.includes(allWeNeed[j]) ) {
+                for (let j = 0; j < allWeNeed.length; j++) {
+                    if (!whatWeGot.includes(allWeNeed[j])) {
                         // add a blank where it belongs
-                        let blank = {type: 'blank', label: allWeNeed[j]};
+                        let blank = { type: 'blank', label: allWeNeed[j] };
                         plotData[i].splice(j, 0, blank);
                         whatWeGot.splice(j, 0, allWeNeed[j]);
                     }
@@ -564,14 +564,14 @@ class BoxPlot {
 
     PlayTones(audio) {
 
-        if ( plot.plotData[position.y][position.x].type == "blank" ) {
+        if (plot.plotData[position.y][position.x].type == "blank") {
             audio.PlayNull();
-        } else if ( plot.plotData[position.y][position.x].type != "outlier" ) {
+        } else if (plot.plotData[position.y][position.x].type != "outlier") {
             audio.playTone();
         } else {
             // we play a run of tones
             position.z = 0;
-            let outlierInterval = setInterval(function() {
+            let outlierInterval = setInterval(function () {
                 // play this tone
                 audio.playTone();
 
@@ -579,7 +579,7 @@ class BoxPlot {
                 position.z += 1;
 
                 // and kill if we're done
-                if ( position.z + 1 > plot.plotData[position.y][position.x].values.length ) {
+                if (position.z + 1 > plot.plotData[position.y][position.x].values.length) {
                     clearInterval(outlierInterval);
                     position.z = -1;
                 }
@@ -672,7 +672,7 @@ class BoxplotRect {
             // we have no yMax, but whiskers and outliers have a midpoint, so we use any of them
             let midpoint = 0;
             for (let i = 0; i < plot.plotData[position.y].length; i++) {
-                if ( plot.plotData[position.y][i].type != "range" && plot.plotData[position.y][i].y ) {
+                if (plot.plotData[position.y][i].type != "range" && plot.plotData[position.y][i].y) {
                     midpoint = plot.plotData[position.y][i].y;
                 }
             }
@@ -705,7 +705,7 @@ class BoxplotRect {
         }
 
         if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy and recreate
-        if ( plot.plotData[position.y][position.x].type != 'blank' ) this.CreateRectDisplay();
+        if (plot.plotData[position.y][position.x].type != 'blank') this.CreateRectDisplay();
     }
 
     CreateRectDisplay() {

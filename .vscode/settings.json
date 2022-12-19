@@ -8,6 +8,14 @@
     "[html]": {
         "editor.defaultFormatter": "vscode.html-language-features"
     },
+    "[css]": {
+        "editor.defaultFormatter": "vscode.css-language-features"
+    },
     "editor.wordBreak": "keepAll",
-    "explorer.copyRelativePathSeparator": "/"
+    "explorer.copyRelativePathSeparator": "/",
+    "editor.formatOnType": true,
+    "editor.formatOnSave": true,
+    "files.eol": "\n",
+    "files.encoding": "utf8",
+    "files.insertFinalNewline": true
 }
