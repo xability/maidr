@@ -157,7 +157,7 @@ class Display {
             } else if (plot.plotData[position.y][position.x].type == "blank") {
                 val = resources.GetString('empty');
             } else {
-                let val = plot.plotData[position.y][position.x].x;
+                val = plot.plotData[position.y][position.x].x;
             }
             if (constants.textMode == "off") {
                 // do nothing
@@ -581,7 +581,7 @@ class Display {
             } // end while (main algorithm)
 
             constants.brailleData = brailleData;
-            if (constants.debugLevel > 1) {
+            if (constants.debugLevel > 5) {
                 console.log(brailleData);
                 console.log(plot.plotData[position.y]);
             }
