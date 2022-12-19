@@ -147,6 +147,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
+            // todo: allow some controls through like page refresh
+
         }
 
         lockPosition();
@@ -164,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // B: braille mode
         if (e.which == 66) {
-            display.SetBraille(plot);
             display.toggleBrailleMode();
             e.preventDefault();
         }

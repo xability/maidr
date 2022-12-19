@@ -36,11 +36,11 @@ class Constants {
 
     // basic audio properties
     MAX_FREQUENCY = 1000;
-    MIN_FREQUENCY = 100;
+    MIN_FREQUENCY = 200;
     NULL_FREQUENCY = 100;
 
     // user settings
-    vol = .5;
+    vol = .4;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
     brailleDisplayLength = 18; // num characters in user's braille display. JooYoung says everyone has at least 18
@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // menu controls
     document.addEventListener("keydown", function (e) {
-        if ( e.which == 77 ) { // M for menu
+        if ( e.which == 77 || e.which == 72 ) { // M(77) for menu, or H(72) for help? I don't like it
             menu.Toggle();
         }
     });
