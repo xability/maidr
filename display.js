@@ -303,14 +303,18 @@ class Display {
                 let charData = {};
 
                 if ( i == 0 ) {
-                    // first point gotta add extra starting blank space
-                    charData = {};
-                    if ( typeof(point.x) == 'undefined' ) { // sometimes we start with a placeholder point
-                        charData.length = 0 ; 
-                    } else {
-                        charData.length = point.x - 0 - boundingBoxOffsetX;
+                    // first point, add space to next actual point
+                    let firstX = 0;
+                    for ( let j = 0 ; j < plot.plotData[position.y].length ; j++ ) { 
+                        // find next actual point
+                        if ( 'x' in plot.plotData[position.y][j] ) {
+                            firstX = plot.plotData[position.y][j].x;
+                            break;
+                        }
                     }
-                    if ( charData.length < 0 ) charData.length = 0;
+                    charData = {};
+                    charData.length = firstX - 0 - boundingBoxOffsetX;
+                    if ( charData.length < 0 ) charData.length = 0; // dunno why, but this happens sometimes
                     charData.type = 'blank';
                     charData.label = 'blank';
                     brailleData.push(charData);
@@ -398,11 +402,17 @@ class Display {
                 if ( i == plot.plotData[position.y].length - 1 ) {
                     // last point gotta add ending space manually
                     charData = {};
-                    if ( point.type == "outlier" ) {
-                        charData.length = constants.maxX - point.xMax;
-                    } else {
-                        charData.length = constants.maxX - point.x;
+                    let lastX = 0;
+                    for ( let j = 0 ; j < plot.plotData[position.y].length ; j++ ) { 
+                        // find last actual point
+
+                        if ( point.type == "outlier" ) {
+                            lastX = charData.length = point.xMax;
+                        } else if ( 'x' in plot.plotData[position.y][j] ) {
+                            lastX = plot.plotData[position.y][j].x;
+                        }
                     }
+                    charData.length = constants.maxX - lastX;
                     charData.type = "blank";
                     charData.label = "blank";
                     brailleData.push(charData);
@@ -475,7 +485,7 @@ class Display {
                 charsAvailable -= brailleData[i].numChars;
             }
             let debugSanity = 0;
-            while ( charsAvailable > 0 && debugSanity < 50 ) {
+            while ( charsAvailable > 0 && debugSanity < 2000 ) {
                 debugSanity++;
                 let maxImpactI = 0;
                 for ( let i = 0 ; i < brailleData.length ; i++ ) {
