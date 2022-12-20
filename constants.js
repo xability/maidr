@@ -39,6 +39,11 @@ class Constants {
     MIN_FREQUENCY = 200;
     NULL_FREQUENCY = 100;
 
+    // autoplay speed
+    MAX_SPEED = 2000;
+    MIN_SPEED = 50;
+    INTERVAL = 50;
+
     // user settings
     vol = .4;
     autoPlayRate = 250; // ms per tone
@@ -93,6 +98,18 @@ class Constants {
         if (this.autoplayId) {
             clearInterval(this.autoplayId);
             this.autoplayId = null;
+        }
+    }
+
+    SpeedUp() {
+        if (constants.autoPlayRate - this.INTERVAL > this.MIN_SPEED) {
+            constants.autoPlayRate -= this.INTERVAL;
+        }
+    }
+
+    SpeedDown() {
+        if (constants.autoPlayRate + this.INTERVAL <= this.MAX_SPEED) {
+            constants.autoPlayRate += this.INTERVAL;
         }
     }
 }
@@ -310,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // menu controls
     document.addEventListener("keydown", function (e) {
-        if ( e.which == 77 || e.which == 72 ) { // M(77) for menu, or H(72) for help? I don't like it
+        if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
             menu.Toggle();
         }
     });

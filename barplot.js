@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let audio = new Audio();
     let display = new Display();
 
+    let lastPlayed = '';
+
     if (constants.debugLevel > 0) {
         constants.svg_container.focus();
     }
@@ -20,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
 
         if (e.which === 39) { // right arrow 39
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('right');
                 } else {
@@ -32,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         }
         if (e.which === 37) { // left arrow 37
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('left');
                 } else {
@@ -62,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('right');
                 } else {
@@ -74,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('left');
                 } else {
@@ -121,6 +123,41 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        // ctrl/cmd: stop autoplay
+        if (e.ctrlKey || e.metaKey) {
+            clearInterval(this.audioplay);
+            this.autoplay = null;
+
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+                position.x = 0;
+                UpdateAll();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+                position.x = plot.bars.length - 1;
+                UpdateAll();
+            }
+        }
+
+        // period: speed up
+        if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
+
+        // comma: speed down
+        if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
     });
 
     function lockPosition() {
@@ -171,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         display.UpdateBraillePos(plot);
     }
     function Autoplay(dir) {
+        lastPlayed = dir;
         let step = 1; // default right
         if (dir == "left") {
             step = -1;
