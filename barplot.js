@@ -119,14 +119,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
-        if (e.which == 17) { // ctrl (either one)
+        if (e.which == 17 || e.which == 91) { // ctrl (either one)
             constants.KillAutoplay();
         }
 
         // ctrl/cmd: stop autoplay
         if (e.ctrlKey || e.metaKey) {
-            clearInterval(this.audioplay);
-            this.autoplay = null;
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {

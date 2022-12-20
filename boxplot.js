@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
+    let lastPlayed = '';
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -186,6 +187,23 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        // period: speed up
+        if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
+
+        // comma: speed down
+        if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
     });
 
     function UpdateAll() {
@@ -272,6 +290,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     function Autoplay(dir) {
+        lastPlayed = dir;
         let step = 1; // default right / up
         if (dir == "left" || dir == "down") {
             step = -1;

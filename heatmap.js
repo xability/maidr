@@ -198,9 +198,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // ctrl/cmd: stop autoplay
+        if (e.which == 17 || e.which == 91) {
+            constants.KillAutoplay();
+        }
+
         if (e.ctrlKey || e.metaKey) {
-            clearInterval(this.audioplay);
-            this.autoplay = null;
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
