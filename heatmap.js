@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let rect = new HeatMapRect();
     let audio = new Audio();
     let display = new Display();
-
+    let lastPlayed = '';
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -88,34 +88,40 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         if (e.which == 9) { // let user tab
         } else if (e.which == 39) { // right arrow
-            if (e.target.selectionStart > e.target.value.length - 3) {
+            if (e.target.selectionStart > e.target.value.length - 3 || e.target.value.substring(e.target.selectionStart + 1, e.target.selectionStart + 2) == '⠳') {
                 // already at the end, do nothing
                 e.preventDefault();
             } else {
-                if (position.x + 1 == plot.num_cols) { // we're at the end of the row, go to next, and skip the spacer
-                    position.y += 1;
-                    position.x = 0;
-
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('right');
+                    } else {
+                        position.x = plot.num_cols - 1;
+                    }
                 } else {
                     position.x += 1;
                 }
 
-                // this is messy. We need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
+                // we need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left
-            if (e.target.selectionStart == 0) {
+            if (e.target.selectionStart == 0 || e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
                 e.preventDefault();
             } else {
-                if (position.x == 0) { // if we're at the start of a row, go to the prev one
-                    position.y += -1;
-                    position.x = plot.num_cols - 1;
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('left');
+                    } else {
+                        position.x = 0;
+                    }
                 } else {
                     position.x += -1;
                 }
+
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
@@ -123,28 +129,41 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 40) { // down
             if (position.y + 1 == plot.num_rows) {
-                // goto very end
-                position.x = plot.num_cols - 1;
-                position.y = plot.num_rows - 1;
-
+                e.preventDefault();
             } else {
-                position.y += 1;
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('down');
+                    } else {
+                        position.y = plot.num_rows - 1;
+                    }
+                } else {
+                    position.y += 1;
+                }
+
+                let pos = (position.y * (plot.num_cols + 1)) + position.x;
+                e.target.setSelectionRange(pos, pos);
+                e.preventDefault();
             }
-            let pos = (position.y * (plot.num_cols + 1)) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
             updateInfoThisRound = true;
         } else if (e.which == 38) { // up
-            if (position.y == 0) {
-                // goto very start
-                position.x = 0;
-                position.y = 0;
+            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
+                e.preventDefault();
             } else {
-                position.y += -1;
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('up');
+                    } else {
+                        position.y = 0;
+                    }
+                } else {
+                    position.y += -1;
+                }
+
+                let pos = (position.y * (plot.num_cols + 1)) + position.x;
+                e.target.setSelectionRange(pos, pos);
+                e.preventDefault();
             }
-            let pos = (position.y * (plot.num_cols + 1)) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
             updateInfoThisRound = true;
         } else {
             e.preventDefault();
@@ -173,10 +192,48 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.toggleSonificationMode();
         }
 
-        if (e.which === 32) { // space 32, replay info but no other changes
+        // space: replay info but no other changes
+        if (e.which === 32) {
             UpdateAll();
         }
 
+        // ctrl/cmd: stop autoplay
+        if (e.ctrlKey || e.metaKey) {
+            clearInterval(this.audioplay);
+            this.autoplay = null;
+
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+                position.x = 0;
+                position.y = 0;
+                UpdateAll();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+                position.x = plot.num_cols - 1;
+                position.y = plot.num_rows - 1;
+                UpdateAll();
+            }
+        }
+
+        // period: speed up
+        if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
+
+        // comma: speed down
+        if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
     });
 
     // helper functions
@@ -217,6 +274,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             audio.playTone();
         }
+        if (constants.brailleMode != "off") {
+            display.UpdateBraillePos(plot);
+        }
     }
     function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
@@ -228,26 +288,26 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.audioPlay) {
             audio.playTone();
         }
+        display.UpdateBraillePos(plot);
     }
 
     function Autoplay(dir) {
+        lastPlayed = dir;
         let step = 1; // default right and down
         if (dir == "left" || dir == "up") {
             step = -1;
         }
 
         // clear old autoplay if exists
-        if (this.autoplay != null) {
-            clearInterval(this.autoplay);
-            this.autoplay = null;
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
         }
 
-        this.autoplay = setInterval(function () {
+        constants.autoplayId = setInterval(function () {
             if (dir == "left" || dir == "right") {
                 position.x += step;
                 if (position.x < 0 || plot.num_cols - 1 < position.x) {
-                    clearInterval(this.autoplay);
-                    this.autoplay = null;
+                    constants.KillAutoplay();
                     lockPosition();
                 } else {
                     UpdateAllAutoplay();
@@ -255,11 +315,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else { // up or down
                 position.y += step;
                 if (position.y < 0 || plot.num_rows - 1 < position.y) {
-                    clearInterval(this.autoplay);
-                    this.autoplay = null;
+                    constants.KillAutoplay();
                     lockPosition();
                 } else {
-                    UpdateAll();
+                    UpdateAllAutoplay();
                 }
             }
         }, constants.autoPlayRate);
