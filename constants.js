@@ -54,6 +54,7 @@ class Constants {
     showRect = 1;  // true / false
     duration = .2;
     autoPlayOutlierRate = 30; // ms per tone
+    autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
 
     // user controls (not exposed to menu, with shortcuts usually)
@@ -63,8 +64,7 @@ class Constants {
     textMode = "terse"; // off / terse / verbose
     brailleMode = "off"; // on / off
     audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
-    navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right) => for heatmap
-    layer = 0; // 0 = line chart; 1 = histogram => for scatterplot
+    layer = 0; // 0 = points; 1 = best fit line => for scatterplot
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc

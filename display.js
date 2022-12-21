@@ -196,23 +196,21 @@ class Display {
                 }
             }
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) { // best fit line layer
+            if (constants.layer == 0) { // point layer
                 if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
-                    output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x];
+                    output += '<p>' + plot.x[position.x] + ", " + "[" + plot.y[position.x] + "]" + '</p>\n';
+                } else if (constants.textMode == "verbose") {
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.y[position.x] + '</p>\n';
+                }
+            } else if (constants.layer == 1) { // best fit line layer
+                if (constants.textMode == "off") {
+                    // do nothing
+                } else if (constants.textMode == "terse") {
+                    output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
                 } else if (constants.textMode == "verbose") {
                     output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.bestFitLinePoints[position.x] + '</p>\n';
-                }
-            } else if (constants.layer == 1) { // residual histogram layer
-                if (constants.textMode == "off") {
-                    // do nothing
-                } else if (constants.textMode == "terse") {
-                    // @TODO
-                    // output += '<p>' + plot.
-                } else if (constants.textMode == "verbose") {
-                    // @TODO
-                    // output += '<p>' + 'residual ' + plot
                 }
             }
         }

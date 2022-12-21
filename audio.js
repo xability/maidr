@@ -63,13 +63,23 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) {
-                rawFreq = plot.bestFitLinePoints[position.x];
+            if (constants.layer == 0) { // point layer
+                if (position.z == -1) {
+                    // one point
+                    rawFreq = plot.y[position.x];
+                } else {
+                    // more than one point with same x-value
+                    rawFreq = plot.y[position.x][position.z];
+                }
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
             } else if (constants.layer == 1) {
                 // @TODO
+                rawFreq = plot.bestFitLinePoints[position.x];
+                rawPanning = position.x;
+                frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
             }
         }
 
@@ -104,7 +114,6 @@ class Audio {
             }
         } else if (constants.chartType == "heatmap") {    // Added heatmap tone feature
             if (rawFreq == 0) {
-                //this.playOscillator(frequency, currentDuration, panning, constants.vol / 2, 'square');
                 this.PlayNull();
             }
         } else if (constants.chartType == "scatterplot") {
@@ -122,7 +131,7 @@ class Audio {
 
         this.playOscillator(frequency, duration, panning, vol, wave);
 
-        setTimeout(function(audioThis) {
+        setTimeout(function (audioThis) {
             audioThis.playOscillator(frequency * 23 / 24, duration, panning, vol, wave);
         }, Math.round(duration / 5 * 1000), this);
 

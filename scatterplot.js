@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
 
     // variable initialization
-    constants.plotId = 'geom_point.points.2.1';
+    constants.plotId = 'geom_point.points.66.1';
     window.position = new Position(-1, -1);
     window.plot = new ScatterPlot();
     constants.chartType = "scatterplot";
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('right');
-                    lastPlayed = 'right';
                 } else {
                     position.x = plot.numPoints - 1;
                 }
@@ -37,7 +36,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     Autoplay('left');
-                    lastPlayed = 'left';
                 } else {
                     position.x = 0;
                 }
@@ -45,22 +43,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x -= 1;
             }
             updateInfoThisRound = true;
-        }
-
-        if (e.which == 80) {
-            StopAutoplay();
-        }
-
-        if (e.which == 85) {
-            StopAutoplay();
-            SpeedUp();
-            Autoplay(lastPlayed);
-        }
-
-        if (e.which == 68) {
-            StopAutoplay();
-            SpeedDown();
-            Autoplay(lastPlayed);
         }
 
         lockPosition();
@@ -95,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         lockPosition();
 
         if (updateInfoThisRound) {
-            UpdateAll();
+            UpdateAllBraille();
         }
     });
 
@@ -115,10 +97,50 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.toggleSonificationMode();
         }
 
-        if (e.which === 32) { // space 32, replay info but no other changes
+        // space: replay info but no other changes
+        if (e.which === 32) {
             UpdateAll();
         }
 
+        // ctrl/cmd: stop autoplay
+        if (e.which == 17 || e.which == 91) {
+            constants.KillAutoplay();
+        }
+
+        if (e.ctrlKey || e.metaKey) {
+
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+                position.x = 0;
+                position.y = 0;
+                UpdateAll();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+                position.x = plot.num_cols - 1;
+                position.y = plot.num_rows - 1;
+                UpdateAll();
+            }
+        }
+
+        // period: speed up
+        if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
+
+        // comma: speed down
+        if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+                constants.KillAutoplay();
+                Autoplay(lastPlayed);
+            }
+        }
     });
 
     // helper functions
@@ -134,92 +156,190 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     function UpdateAll() {
         if (constants.showDisplay) {
-            if (constants.showDisplayInAutoplay == 0)
-                display.displayValues(plot);
+            display.displayValues(plot);
         }
         if (constants.showRect) {
             point.UpdatePointDisplay();
         }
         if (constants.audioPlay) {
-            audio.playTone();
+            plot.PlayTones(audio);
         }
     }
 
+    function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            point.UpdatePointDisplay();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+        if (constants.brailleMode != "off") {
+            display.UpdateBraillePos(plot);
+        }
+    }
+    function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+            display.displayValues(plot);
+        }
+        if (constants.showRect) {
+            point.UpdatePointDisplay();
+        }
+        if (constants.audioPlay) {
+            plot.PlayTones(audio);
+        }
+        display.UpdateBraillePos(plot);
+    }
+
     function Autoplay(dir) {
-        constants.showDisplayInAutoplay = 1;
+        lastPlayed = dir;
         let step = 1; // default right and down
         if (dir == "left") {
             step = -1;
         }
 
         // clear old autoplay if exists
-        if (this.autoplay != null) {
-            clearInterval(this.autoplay);
-            this.autoplay = null;
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
         }
 
-        this.autoplay = setInterval(function () {
+        constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || plot.numPoints - 1 < position.x) {
-                clearInterval(this.autoplay);
-                this.autoplay = null;
+                constants.KillAutoplay();
                 lockPosition();
             } else {
-                UpdateAll();
+                UpdateAllAutoplay();
             }
         }, constants.autoPlayRate);
-        constants.showDisplayInAutoplay = 0;
-    }
-
-    function StopAutoplay() {
-        clearInterval(this.autoplay);
-        this.autoplay = null;
-    }
-
-    function SpeedUp() {
-        if (constants.autoPlayRate - 50 > 0) {
-            constants.autoPlayRate -= 50;
-        }
-    }
-
-    function SpeedDown() {
-        if (constants.autoPlayRate + 50 <= 1000) {
-            constants.autoPlayRate += 50;
-        }
     }
 
 });
 
 class ScatterPlot {
     constructor() {
-        this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
-
-        this.x = this.getXCoords();
-
-        this.svgX = this.getSvgCoords()[0];
-        this.svgY = this.getSvgCoords()[1];
-
-        this.bestFitLinePoints = this.getBestFitLinePoints();
-        // this.residualPoints = this.getResidualPoints();
-        // this.bestFitLinePoints = this.svgY;
-        this.numPoints = this.bestFitLinePoints.length;
-
         this.groupLabels = this.getGroupLabels();
 
-        // constants.minY = Math.min(...this.svgY);
-        // constants.maxY = Math.max(...this.svgX);
+        // layer = 0
+        this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
+        this.svgPointsX = this.getSvgPointCoords()[0];
+        this.svgPointsY = this.getSvgPointCoords()[1];
+        this.x = this.getPointValues()[0];
+        this.y = this.getPointValues()[1];
 
-        // console.log(this.svgX);
-        // console.log(this.svgY);
-        // console.log(this.bestFitLinePoints);
+        // layer = 1
+        this.bestFitLinePoints = this.getBestFitLinePoints();
+        this.numPoints = this.x.length;
+
     }
 
-    getXCoords() {
-        let d = [...displ];
-        d.sort(function (a, b) { return a - b; });
+    getGroupLabels() {
+        let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
+
+        let labels = [];
+        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+
+        return labels;
+    }
+
+    getSvgPointCoords() {
+        let points = new Map();
+
+        for (let i = 0; i < this.plotPoints.length; i++) {
+            let x = parseFloat(this.plotPoints[i].getAttribute('x'));
+            let y = parseFloat(this.plotPoints[i].getAttribute('y'));
+            if (!points.has(x)) {
+                points.set(x, new Set([y]));
+            } else {
+                points.get(x).add(y);
+            }
+        }
+
+        points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
+
+        points.forEach(function (value, key) {
+            points[key] = Array.from(value).sort(function (a, b) { return a - b });
+        });
+
+        let X = [...points.keys()];
+
+        let Y = [];
+        for (let i = 0; i < X.length; i++) {
+            Y.push(points[X[i]]);
+        }
+
+        return [X, Y];
+    }
+
+    getPointValues() {
+        // x values
+        let xValues = [...displ];
+        // for panning
         constants.minX = 0;
-        constants.maxX = d.length;
-        return d;
+        constants.maxX = xValues.length;
+
+        // y values
+        let yValues = [...hwy];
+        // default layer: point layer 
+        // constants.minY & maxY should be adjusted according to layer
+        constants.minY = Math.min([...yValues]);
+        constants.maxY = Math.max([...yValues]);
+
+        let points = new Map();
+
+        for (let i = 0; i < xValues.length; i++) {
+            let x = parseFloat(xValues[i]);
+            let y = parseFloat(yValues[i]);
+            if (!points.has(x)) {
+                points.set(x, new Set([y]));
+            } else {
+                points.get(x).add(y);
+            }
+        }
+
+        points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
+
+        points.forEach(function (value, key) {
+            points[key] = Array.from(value).sort(function (a, b) { return a - b });
+        });
+
+        let X = [...points.keys()];
+
+        let Y = [];
+        for (let i = 0; i < X.length; i++) {
+            Y.push(points[X[i]]);
+        }
+
+        return [X, Y];
+    }
+
+    PlayTones(audio) {
+        if (constants.layer == 0) { // points layer
+            if (plot.y[position.x].length == 1) {
+                audio.playTone();
+            } else {
+                // we play a run of tones
+                position.z = 0;
+                let interval = setInterval(function () {
+                    // play this tone
+                    audio.playTone();
+
+                    // and then set up for the next one
+                    position.z += 1;
+
+                    // and kill if we're done
+                    if (position.z + 1 > plot.y[position.x].length) {
+                        clearInterval(interval);
+                        position.z = -1;
+                    }
+
+                }, constants.autoPlayPointsRate);
+            }
+        } else if (constants.layer == 1) { // best fit line layer
+
+        }
     }
 
     getBestFitLinePoints() {
@@ -238,62 +358,48 @@ class ScatterPlot {
 
         return points.map(({ y }) => y);
     }
-
-    // @TODO
-    // getResidualPoints() {}
-
-    getGroupLabels() {
-        let labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
-
-        let labels = [];
-        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
-
-        return labels;
-    }
-
-    // get exact x and y values from data
-    // getXValues() {}
-    // getYValues() {}
-
-    getSvgCoords() {
-        let points = [];
-
-        for (let i = 0; i < this.plots.length; i++) {
-            points.push({ 'x': parseFloat(this.plots[i].getAttribute('x')), 'y': parseFloat(this.plots[i].getAttribute('y')) });
-        }
-
-        points.sort(function (a, b) { return a.x - b.x });
-
-        return [points.map(({ x }) => x), points.map(({ y }) => y)];
-    }
 };
 
 class Point {
     constructor() {
-        this.x = plot.svgX[0];
-        this.y = plot.svgY[0];
+        this.x = plot.svgPointsX[0];
+        this.y = plot.svgPointsY[0];
         this.strokeWidth = 1.35;
     }
 
-    UpdatePoint() {
-        this.x = plot.svgX[position.x];
-        this.y = plot.svgY[position.x];
+    async UpdatePoints() {
+        await this.ClearPoints();
+        this.x = plot.svgPointsX[position.x];
+        this.y = plot.svgPointsY[position.x];
+    }
+
+    async PrintPoints() {
+        await this.ClearPoints();
+        await this.UpdatePoints();
+        for (let i = 0; i < this.y.length; i++) {
+            const svgns = "http://www.w3.org/2000/svg";
+            var point = document.createElementNS(svgns, 'circle');
+            point.setAttribute('class', 'highlight_point');
+            point.setAttribute('cx', this.x);
+            point.setAttribute('cy', constants.svg.getBoundingClientRect().height - this.y[i]);
+            point.setAttribute('r', 3.95);
+            point.setAttribute('stroke', constants.colorSelected);
+            point.setAttribute('stroke-width', this.strokeWidth);
+            point.setAttribute('fill', constants.colorSelected);
+            constants.svg.appendChild(point);
+        }
+    }
+
+    async ClearPoints() {
+        let points = document.getElementsByClassName('highlight_point');
+        for (let i = 0; i < points.length; i++) {
+            document.getElementsByClassName('highlight_point')[i].remove();
+        }
     }
 
     UpdatePointDisplay() {
-        this.UpdatePoint();
-        if (document.getElementById('highlight_point')) document.getElementById('highlight_point').remove(); // destroy and recreate
-        const svgns = "http://www.w3.org/2000/svg";
-        var point = document.createElementNS(svgns, 'circle');
-        point.setAttribute('id', 'highlight_point');
-        // point.setAttribute('x', this.x);
-        // point.setAttribute('y', constants.svg.getBoundingClientRect().height - this.y); // y coord is inverse from plot data
-        point.setAttribute('cx', this.x);
-        point.setAttribute('cy', constants.svg.getBoundingClientRect().height - this.y);
-        point.setAttribute('r', 3.95);
-        point.setAttribute('stroke', constants.colorSelected);
-        point.setAttribute('stroke-width', this.strokeWidth);
-        point.setAttribute('fill', constants.colorSelected);
-        constants.svg.appendChild(point);
+        this.ClearPoints();
+        this.UpdatePoints();
+        this.PrintPoints();
     }
 }
