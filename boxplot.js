@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
             }
+            constants.navigation = 1;
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
             }
+            constants.navigation = 1;
             updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
