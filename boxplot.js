@@ -11,9 +11,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // variable initialization
 
     constants.plotId = 'geom_boxplot.gTree.68.1';
-    window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
+    window.position = new Position(0, plot.plotData.length-1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
