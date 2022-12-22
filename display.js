@@ -183,15 +183,15 @@ class Display {
                     output += '<p>';
                     if (numPoints != 1) output += numPoints + " ";
                     output += plot.plotData[position.y][position.x].label;
-                    if (numPoints != 1) output += ' is ';
-                    else output += 's are ';
+                    if (numPoints != 1) output += 's are ';
+                    else output += ' is ';
                     output += val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
                     output += plot.y_group_label + ' is ' + plot.y_labels[position.y] + ', ' + plot.plotData[position.y][position.x].label;
                     if (pointType == "outlier") output += numPoints + " ";
-                    if (numPoints != 1) output += ' is ';
-                    else output += 's are ';
+                    if (numPoints != 1) output += 's are ';
+                    else output += ' is ';
                     output += val + '</p>\n';
                 }
             }
