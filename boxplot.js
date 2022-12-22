@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(0, plot.plotData.length-1);
+    window.position = new Position(0, plot.plotData.length - 1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {
-            if ( setBrailleThisRound ) display.SetBraille(plot);
+            if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
 
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // not on any chart yet, just start at 0
         } else {
             let oldLabel = "";
-            if ( 'label' in plot.plotData[yOld][position.x] ) {
+            if ('label' in plot.plotData[yOld][position.x]) {
                 oldLabel = plot.plotData[yOld][position.x].label;
             }
             // does it exist on the new plot? we'll just get that val
