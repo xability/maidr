@@ -12,37 +12,49 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let display = new Display();
     let point = new Point();
     let lastPlayed = '';
+    let lastx = 0;
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
 
-        // right arrow 39
-        if (e.which === 39) {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.shiftKey) {
-                    Autoplay('right');
+        // left and right arrows are enabled only at point layer
+        if (constants.layer == 0) {
+            // right arrow 39
+            if (e.which === 39) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('right');
+                    } else {
+                        position.x = plot.numPoints - 1;
+                    }
                 } else {
-                    position.x = plot.numPoints - 1;
+                    position.x += 1;
                 }
-            } else {
-                position.x += 1;
+                updateInfoThisRound = true;
             }
-            updateInfoThisRound = true;
-        }
 
-        // left arrow 37
-        if (e.which === 37) {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.shiftKey) {
-                    Autoplay('left');
+            // left arrow 37
+            if (e.which === 37) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        Autoplay('left');
+                    } else {
+                        position.x = 0;
+                    }
                 } else {
-                    position.x = 0;
+                    position.x -= 1;
                 }
-            } else {
-                position.x -= 1;
+                updateInfoThisRound = true;
             }
-            updateInfoThisRound = true;
+        } else if (constants.layer == 1) {
+            if (e.which == 39 && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+                PlayLine('right');
+            }
+
+            if (e.which == 37 && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+                PlayLine('left');
+            }
         }
 
         lockPosition();
@@ -139,6 +151,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay(lastPlayed);
             }
         }
+
+        // page down /(fn+down arrow): point layer(0) 
+        if (e.which == 34 && constants.layer == 1) {
+            constants.layer = 0;
+            position.x = lastx;
+            console.log(constants.layer);
+        }
+
+        // page up / (fn+up arrow): line layer(1)
+        if (e.which == 33 & constants.layer == 0) {
+            constants.layer = 1;
+            lastx = position.x;
+            console.log(constants.layer);
+        }
     });
 
     // helper functions
@@ -168,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInAutoplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.layer == 0) {
             point.UpdatePointDisplay();
         }
         if (constants.audioPlay) {
@@ -214,26 +240,85 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }, constants.autoPlayRate);
     }
 
+    // @TODO: implement sound bending
+    function PlayLine(dir) {
+        lastPlayed = dir;
+        let step = 1;
+        if (dir == "left") {
+            step = -1;
+        }
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+            constants.KillAutoplay();
+        }
+        position.x = lastx;
+        constants.autoplayId = setInterval(function () {
+            position.x += step;
+            if (position.x < 0 || plot.numPoints - 1 < position.x) {
+                constants.KillAutoplay();
+                lockPosition();
+            } else {
+                UpdateAllAutoplay();
+            }
+        }, constants.autoPlayRate);
+    }
 });
 
 class ScatterPlot {
     constructor() {
-        this.groupLabels = this.getGroupLabels();
 
         // layer = 0
         this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
-        this.svgPointsX = this.getSvgPointCoords()[0];
-        this.svgPointsY = this.getSvgPointCoords()[1];
-        this.x = this.getPointValues()[0];
-        this.y = this.getPointValues()[1];
+        this.svgPointsX = this.GetSvgPointCoords()[0];
+        this.svgPointsY = this.GetSvgPointCoords()[1];
+        this.x = this.GetPointValues()[0];
+        this.y = this.GetPointValues()[1];
+        constants.minY = Math.min(...hwy);
+        constants.maxY = Math.max(...hwy);
 
         // layer = 1
-        this.bestFitLinePoints = this.getBestFitLinePoints();
-        this.numPoints = this.x.length;
+        this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.67.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
+        this.svgLineX = this.GetSvgLineCoords()[0];
+        this.svgLineY = this.GetSvgLineCoords()[1];
+        this.bestFitLinePoints = this.GetBestFitLinePoints();
+        this.layer1minY = Math.min(...prediciton_array);
+        this.layer1maxY = Math.max(...prediciton_array);
+        // console.log(this.svgLineY);
+        // console.log(this.bestFitLinePoints); // have different lengths; is visual display needed for best fit line?
 
+        // this.numPoints = this.GetXLength(constants.layer);
+        this.numPoints = this.x.length;
+        this.groupLabels = this.GetGroupLabels();
     }
 
-    getGroupLabels() {
+    // SelectLayer(layer) {
+    //     constants.layer = layer;
+    //     if (layer == 0) {
+    //         constants.minX = 0;
+    //         constants.maxX = this.x.length - 1;
+    //         constants.minY = Math.min([...this.y]);
+    //         constants.maxY = Math.max([...this.y]);
+    //         this.numPoints = this.x.length;
+    //     } else if (layer == 1) {
+    //         constants.minX = 0;
+    //         constants.maxX = this.x.length - 1;
+    //         constants.minY = Math.min(...this.bestFitLinePoints);
+    //         constants.maxY = Math.max(...this.bestFitLinePoints);
+    //         this.numPoints = this.x.length;
+    //     }
+    // }
+
+    // GetXLength(layer) {
+    //     if (layer == 0) {
+    //         return this.x.length;
+    //     }
+
+    //     if (layer == 1) {
+    //         return this.svgLineX.length;
+    //     }
+    // }
+
+    GetGroupLabels() {
         let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
 
         let labels = [];
@@ -242,7 +327,7 @@ class ScatterPlot {
         return labels;
     }
 
-    getSvgPointCoords() {
+    GetSvgPointCoords() {
         let points = new Map();
 
         for (let i = 0; i < this.plotPoints.length; i++) {
@@ -271,7 +356,7 @@ class ScatterPlot {
         return [X, Y];
     }
 
-    getPointValues() {
+    GetPointValues() {
         // x values
         let xValues = [...displ];
         // for panning
@@ -282,8 +367,8 @@ class ScatterPlot {
         let yValues = [...hwy];
         // default layer: point layer 
         // constants.minY & maxY should be adjusted according to layer
-        constants.minY = Math.min([...yValues]);
-        constants.maxY = Math.max([...yValues]);
+        constants.minY = Math.min(...yValues);
+        constants.maxY = Math.max(...yValues);
 
         let points = new Map();
 
@@ -336,11 +421,28 @@ class ScatterPlot {
                 }, constants.autoPlayPointsRate);
             }
         } else if (constants.layer == 1) { // best fit line layer
-
+            audio.playTone();
         }
     }
 
-    getBestFitLinePoints() {
+    GetSvgLineCoords() {
+        // extract all the y coordinates from the point attribute of polyline
+        let str = this.plotLine.getAttribute('points');
+        let coords = str.split(' ');
+
+        let X = [];
+        let Y = [];
+
+        for (let i = 0; i < coords.length; i++) {
+            let coord = coords[i].split(',');
+            X.push(parseFloat(coord[0]));
+            Y.push(parseFloat(coord[1]));
+        }
+
+        return [X, Y];
+    }
+
+    GetBestFitLinePoints() {
         let points = [];
 
         for (let i = 0; i < displ.length; i++) {
@@ -350,9 +452,6 @@ class ScatterPlot {
 
         points.sort(function (a, b) { return a.y - b.y });
         points.sort(function (a, b) { return a.x - b.x });
-
-        constants.minY = Math.min(...prediciton_array);
-        constants.maxY = Math.max(...prediciton_array);
 
         return points.map(({ y }) => y);
     }
