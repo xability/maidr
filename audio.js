@@ -73,7 +73,6 @@ class Audio {
                 }
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
-                console.log(rawFreq, constants.minY, constants.maxY, frequency);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
             } else if (constants.layer == 1) { // best fit line layer
                 rawFreq = plot.bestFitLinePoints[position.x];
