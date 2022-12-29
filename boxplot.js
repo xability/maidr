@@ -187,6 +187,23 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        if (e.ctrlKey || e.metaKey) {
+
+            // (ctrl/cmd)+(home/fn+left arrow): top left element
+            if (e.which == 36) {
+                position.x = 0;
+                position.y = plot.plotData.length - 1;
+                UpdateAll();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): right bottom element
+            else if (e.which == 35) {
+                position.x = plot.plotData[0].length - 1;
+                position.y = 0;
+                UpdateAll();
+            }
+        }
+
         // period: speed up
         if (e.which == 190) {
             constants.SpeedUp();
