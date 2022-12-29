@@ -74,6 +74,16 @@ class Display {
 
     }
 
+    toggleLayerMode() {
+        if (constants.layer == 0) {
+            constants.layer = 1;
+            this.announceText("Layer 2: Line");
+        } else if (constants.layer == 1) {
+            constants.layer = 0;
+            this.announceText("Layer 1: Point");
+        }
+    }
+
     announceText(txt) {
         constants.announceContainer.innerHTML = txt;
     }

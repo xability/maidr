@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
 
     // variable initialization
-    constants.plotId = 'geom_point.points.66.1';
+    constants.plotId = 'geom_point.points.12.1';
     window.position = new Position(-1, -1);
     window.plot = new ScatterPlot();
     constants.chartType = "scatterplot";
@@ -109,6 +109,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.toggleSonificationMode();
         }
 
+        // page down /(fn+down arrow): point layer(0) 
+        if (e.which == 34 && constants.layer == 1) {
+            display.toggleLayerMode();
+            position.x = lastx;
+        }
+
+        // page up / (fn+up arrow): line layer(1)
+        if (e.which == 33 & constants.layer == 0) {
+            display.toggleLayerMode();
+            lastx = position.x;
+        }
+
         // space: replay info but no other changes
         if (e.which === 32) {
             UpdateAll();
@@ -150,20 +162,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 Autoplay(lastPlayed);
             }
-        }
-
-        // page down /(fn+down arrow): point layer(0) 
-        if (e.which == 34 && constants.layer == 1) {
-            constants.layer = 0;
-            position.x = lastx;
-            console.log(constants.layer);
-        }
-
-        // page up / (fn+up arrow): line layer(1)
-        if (e.which == 33 & constants.layer == 0) {
-            constants.layer = 1;
-            lastx = position.x;
-            console.log(constants.layer);
         }
     });
 
@@ -277,7 +275,7 @@ class ScatterPlot {
         constants.maxY = Math.max(...hwy);
 
         // layer = 1
-        this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.67.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
+        this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
         this.svgLineX = this.GetSvgLineCoords()[0];
         this.svgLineY = this.GetSvgLineCoords()[1];
         this.bestFitLinePoints = this.GetBestFitLinePoints();
@@ -418,7 +416,7 @@ class ScatterPlot {
                         position.z = -1;
                     }
 
-                }, constants.autoPlayPointsRate);
+                }, 0);
             }
         } else if (constants.layer == 1) { // best fit line layer
             audio.playTone();
