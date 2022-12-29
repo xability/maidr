@@ -11,9 +11,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // variable initialization
 
     constants.plotId = 'geom_boxplot.gTree.68.1';
-    window.position = new Position(-1, -1);
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
+    window.position = new Position(0, plot.plotData.length - 1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
             }
-            position.x = GetRelativeBoxPosition(oldY, position.y);
+            //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += -1;
             }
-            position.x = GetRelativeBoxPosition(oldY, position.y);
+            //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
             updateInfoThisRound = true;
         }
@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // We block all input, except if it's B or Tab so we move focus
 
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        let setBrailleThisRound = false;
 
         if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
@@ -111,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
             }
+            constants.navigation = 1;
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
@@ -123,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
             }
+            constants.navigation = 1;
             updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
@@ -131,8 +134,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
             }
-            position.x = GetRelativeBoxPosition(oldY, position.y);
-            display.SetBraille(plot);
+            //position.x = GetRelativeBoxPosition(oldY, position.y);
+            setBrailleThisRound = true;
             constants.navigation = 0;
             updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
@@ -142,8 +145,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += -1;
             }
-            position.x = GetRelativeBoxPosition(oldY, position.y);
-            display.SetBraille(plot);
+            //position.x = GetRelativeBoxPosition(oldY, position.y);
+            setBrailleThisRound = true;
             constants.navigation = 0;
             updateInfoThisRound = true;
         } else {
@@ -156,6 +159,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {
+            if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
 
@@ -276,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     }
 
+    // deprecated. We now use grid system and x values are always available
     function GetRelativeBoxPosition(yOld, yNew) {
         // Used when we move up / down to another plot
         // We want to go to the relative position in the new plot
@@ -293,7 +298,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (yOld < 0) {
             // not on any chart yet, just start at 0
         } else {
-            let oldLabel = plot.plotData[yOld][position.x].label;
+            let oldLabel = "";
+            if ('label' in plot.plotData[yOld][position.x]) {
+                oldLabel = plot.plotData[yOld][position.x].label;
+            }
             // does it exist on the new plot? we'll just get that val
             for (let i = 0; i < plot.plotData[yNew].length; i++) {
                 if (plot.plotData[yNew][i].label == oldLabel) {

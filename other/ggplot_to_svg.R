@@ -78,10 +78,10 @@ if (lower_whisker_length == upper_whisker_length) {
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
     # geom_point(position = "jitter") +
     geom_point() +
-    geom_smooth(method = "lm", se = FALSE)
+    geom_smooth(method = "loess", se = FALSE)
 
 
-gridSVG::grid.export("scatterplot_no_jitter_with_bestfit.svg")
+gridSVG::grid.export("scatterplot_no_jitter_with_loess_curve.svg")
 dev.off()
 
 

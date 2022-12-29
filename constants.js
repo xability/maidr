@@ -156,8 +156,8 @@ class Menu {
     }
 
     menuHtml = `
-        <div id="menu" class="modal hidden" tabindex="-1" role="dialog">
-            <div class="modal-dialog" role="document">
+        <div id="menu" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h4 class="modal-title">Menu</h4>
