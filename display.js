@@ -211,9 +211,9 @@ class Display {
                 if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
-                    output += '<p>' + plot.x[position.x] + ", " + "[" + plot.y[position.x] + "]" + '</p>\n';
+                    output += '<p>' + plot.x[position.x] + ", " + "[" + plot.y[position.x].join(", ") + "]" + '</p>\n';
                 } else if (constants.textMode == "verbose") {
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.y[position.x] + '</p>\n';
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " [" + plot.y[position.x].join(", ") + "]" + '</p>\n';
                 }
             } else if (constants.layer == 1) { // best fit line layer
                 if (constants.textMode == "off") {
