@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (lastPlayed == 'reverse-left') {
                     Autoplay('right', position.x, lastx);
                 } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x.lastx);
+                    Autoplay('left', position.x, lastx);
                 } else {
                     Autoplay(lastPlayed, position.x, lastx);
                 }
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (lastPlayed == 'reverse-left') {
                     Autoplay('right', position.x, lastx);
                 } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x.lastx);
+                    Autoplay('left', position.x, lastx);
                 } else {
                     Autoplay(lastPlayed, position.x, lastx);
                 }
@@ -265,7 +265,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 UpdateAllAutoplay();
             }
-            console.log(position.x);
         }, constants.autoPlayRate);
     }
 
