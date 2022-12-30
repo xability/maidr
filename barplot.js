@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey) {
-                        Autoplay('reverse-right', position.x, plot.bars.length);
+                        Autoplay('reverse-right', plot.bars.length, position.x);
                     } else {
                         Autoplay('right', position.x, plot.bars.length);
                     }
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey) {
-                        Autoplay('reverse-left', position.x, -1);
+                        Autoplay('reverse-left', -1, position.x);
                     } else {
                         Autoplay('left', position.x, -1);
                     }
