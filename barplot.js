@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let display = new Display();
 
     let lastPlayed = '';
+    let lastx = 0;
 
     if (constants.debugLevel > 0) {
         constants.svg_container.focus();
@@ -24,7 +25,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) { // right arrow 39
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('right');
+                    lastx = position.x;
+                    if (e.altKey) {
+                        Autoplay('reverse-right', position.x, plot.bars.length);
+                    } else {
+                        Autoplay('right', position.x, plot.bars.length);
+                    }
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
                 }
@@ -36,7 +42,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) { // left arrow 37
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left');
+                    lastx = position.x;
+                    if (e.altKey) {
+                        Autoplay('reverse-left', position.x, -1);
+                    } else {
+                        Autoplay('left', position.x, -1);
+                    }
                 } else {
                     position.x = 0; // go all the way
                 }
@@ -66,7 +77,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('right');
+                    lastx = position.x;
+                    if (e.altKey) {
+                        Autoplay('reverse-right', position.x, plot.bars.length);
+                    } else {
+                        Autoplay('right', position.x, plot.bars.length);
+                    }
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
                 }
@@ -78,7 +94,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left');
+                    lastx = position.x;
+                    if (e.altKey) {
+                        Autoplay('reverse-left', position.x, -1);
+                    } else {
+                        Autoplay('left', position.x, -1);
+                    }
                 } else {
                     position.x = 0; // go all the way
                 }
@@ -144,7 +165,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedUp();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
-                Autoplay(lastPlayed);
+                if (lastPlayed == 'reverse-left') {
+                    Autoplay('right', position.x, lastx);
+                } else if (lastPlayed == 'reverse-right') {
+                    Autoplay('left', position.x, lastx);
+                } else {
+                    Autoplay(lastPlayed, position.x, lastx);
+                }
             }
         }
 
@@ -153,7 +180,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedDown();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
-                Autoplay(lastPlayed);
+                if (lastPlayed == 'reverse-left') {
+                    Autoplay('right', position.x, lastx);
+                } else if (lastPlayed == 'reverse-right') {
+                    Autoplay('left', position.x, lastx);
+                } else {
+                    Autoplay(lastPlayed, position.x, lastx);
+                }
             }
         }
     });
@@ -205,10 +238,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
         display.UpdateBraillePos(plot);
     }
-    function Autoplay(dir) {
+    function Autoplay(dir, start, end) {
         lastPlayed = dir;
-        let step = 1; // default right
-        if (dir == "left") {
+        let step = 1; // default right and reverse-left
+        if (dir == "left" || dir == "reverse-right") {
             step = -1;
         }
 
@@ -217,11 +250,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        if (dir == "reverse-right" || dir == "reverse-left") {
+            position.x = end;
+            end = start;
+        }
+
         constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || plot.bars.length - 1 < position.x) {
                 constants.KillAutoplay();
                 lockPosition();
+            } else if (position.x == end) {
+                constants.KillAutoplay();
+                UpdateAllAutoplay();
             } else {
                 UpdateAllAutoplay();
             }
