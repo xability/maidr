@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != plot.num_cols - 1) {
                         Autoplay('reverse-right', plot.num_cols, position.x);
                     } else {
                         Autoplay('right', position.x, plot.num_cols);
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != 0) {
                         Autoplay('reverse-left', -1, position.x);
                     } else {
                         Autoplay('left', position.x, -1);
@@ -59,8 +59,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 38) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
-                    if (e.altKey) {
+                    lastx = position.y;
+                    if (e.altKey && position.y != 0) {
                         Autoplay('reverse-up', -1, position.y);
                     } else {
                         Autoplay('up', position.y, -1);
@@ -79,8 +79,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 40) {
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
-                    if (e.altKey) {
+                    lastx = position.y;
+                    if (e.altKey && position.y != plot.num_rows - 1) {
                         Autoplay('reverse-down', plot.num_rows, position.y);
                     } else {
                         Autoplay('down', position.y, plot.num_rows);
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey) {
+                        if (e.altKey && position.x != plot.num_cols - 1) {
                             Autoplay('reverse-right', plot.num_cols, position.x);
                         } else {
                             Autoplay('right', position.x, plot.num_cols);
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey) {
+                        if (e.altKey && position.x != 0) {
                             Autoplay('reverse-left', -1, position.x);
                         } else {
                             Autoplay('left', position.x, -1);
@@ -164,8 +164,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
-                        if (e.altKey) {
+                        lastx = position.y;
+                        if (e.altKey && position.y != plot.num_rows - 1) {
                             Autoplay('reverse-down', plot.num_rows, position.y);
                         } else {
                             Autoplay('down', position.y, plot.num_rows);
@@ -188,8 +188,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
-                        if (e.altKey) {
+                        lastx = position.y;
+                        if (e.altKey && position.y != 0) {
                             Autoplay('reverse-up', -1, position.y);
                         } else {
                             Autoplay('up', position.y, -1);
