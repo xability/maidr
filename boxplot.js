@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let audio = new Audio();
     let display = new Display();
     let lastPlayed = '';
+    let lastx = 0;
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -25,9 +26,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('right');
+                    lastx = position.x;
+                    if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
+                        Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
+                    } else {
+                        Autoplay('right', position.x, plot.plotData[position.y].length);
+                    }
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
                 }
@@ -39,9 +45,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
         // left arrow 
         if (e.which === 37) {
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
-                    Autoplay('left');
+                    lastx = position.x;
+                    if (e.altKey && position.x != 0) {
+                        Autoplay('reverse-left', -1, position.x);
+                    } else {
+                        Autoplay('left', position.x, -1);
+                    }
                 } else {
                     position.x = 0;
                 }
@@ -56,7 +67,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (e.ctrlKey) {
                 if (e.shiftKey) {
-                    Autoplay('up');
+                    lastx = position.y;
+                    if (e.altKey && position.y != plot.plotData.length - 1) {
+                        Autoplay('reverse-up', plot.plotData.length, position.y);
+                    } else {
+                        Autoplay('up', position.y, plot.plotData.length);
+                    }
                 } else {
                     position.y = plot.plotData.length - 1;
                 }
@@ -72,7 +88,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (e.ctrlKey) {
                 if (e.shiftKey) {
-                    Autoplay('down');
+                    lastx = position.y;
+                    if (e.altKey && position.y != 0) {
+                        Autoplay('reverse-down', -1, position.y);
+                    } else {
+                        Autoplay('down', position.y, -1);
+                    }
                 } else {
                     position.y = 0;
                 }
@@ -105,7 +126,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (e.ctrlKey) {
                 if (e.shiftKey) {
-                    Autoplay('right');
+                    lastx = position.x;
+                    if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
+                        Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
+                    } else {
+                        Autoplay('right', position.x, plot.plotData[position.y].length);
+                    }
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
                 }
@@ -118,7 +144,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (e.ctrlKey) {
                 if (e.shiftKey) {
-                    Autoplay('left');
+                    lastx = position.x;
+                    if (e.altKey && position.x != 0) {
+                        Autoplay('reverse-left', -1, position.x);
+                    } else {
+                        Autoplay('left', position.x, -1);
+                    }
                 } else {
                     position.x = 0;
                 }
@@ -129,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
@@ -140,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 position.y = 0;
             } else {
                 position.y += -1;
@@ -213,7 +244,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedUp();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
-                Autoplay(lastPlayed);
+                if (lastPlayed == 'reverse-left') {
+                    Autoplay('right', position.x, lastx);
+                } else if (lastPlayed == 'reverse-right') {
+                    Autoplay('left', position.x, lastx);
+                } else if (lastPlayed == 'reverse-up') {
+                    Autoplay('down', position.x, lastx);
+                } else if (lastPlayed == 'reverse-down') {
+                    Autoplay('up', position.x, lastx);
+                } else {
+                    Autoplay(lastPlayed, position.x, lastx);
+                }
             }
         }
 
@@ -222,7 +263,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedDown();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
-                Autoplay(lastPlayed);
+                if (lastPlayed == 'reverse-left') {
+                    Autoplay('right', position.x, lastx);
+                } else if (lastPlayed == 'reverse-right') {
+                    Autoplay('left', position.x, lastx);
+                } else if (lastPlayed == 'reverse-up') {
+                    Autoplay('down', position.x, lastx);
+                } else if (lastPlayed == 'reverse-down') {
+                    Autoplay('up', position.x, lastx);
+                } else {
+                    Autoplay(lastPlayed, position.x, lastx);
+                }
             }
         }
     });
@@ -314,10 +365,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     }
 
-    function Autoplay(dir) {
+    function Autoplay(dir, start, end) {
         lastPlayed = dir;
-        let step = 1; // default right / up
-        if (dir == "left" || dir == "down") {
+        let step = 1; // default right / up / reverse-left / reverse-down
+        if (dir == "left" || dir == "down" || dir == "reverse-right" || dir == "reverse-up") {
             step = -1;
         }
 
@@ -326,12 +377,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.KillAutoplay();
         }
 
+        if (dir == "reverse-left" || dir == "reverse-right") {
+            position.x = start;
+        } else if (dir == "reverse-up" || dir == "reverse-down") {
+            position.y = start;
+        }
+
         constants.autoplayId = setInterval(function () {
-            if (dir == "left" || dir == "right") {
+            if (dir == "left" || dir == "right" || dir == "reverse-left" || dir == "reverse-right") {
                 position.x += step;
                 if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
                     constants.KillAutoplay();
                     lockPosition();
+                } else if (position.x == end) {
+                    constants.KillAutoplay();
+                    UpdateAllAutoplay();
                 } else {
                     UpdateAllAutoplay();
                 }
@@ -340,6 +400,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (position.y < 0 || plot.plotData.length - 1 < position.y) {
                     constants.KillAutoplay();
                     lockPosition();
+                } else if (position.y == end) {
+                    constants.KillAutoplay();
+                    UpdateAllAutoplay();
                 } else {
                     UpdateAllAutoplay();
                 }
