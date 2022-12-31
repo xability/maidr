@@ -65,6 +65,7 @@ class Constants {
     brailleMode = "off"; // on / off
     audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
+    isMac = navigator.userAgentData.platform == "macOS"; // true if macOS
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
@@ -183,7 +184,7 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Go to the very left right up down</td>
-                                        <td>Ctrl + Arrow key</td>
+                                        <td>Ctrl/Cmd + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Autoplay speed up</td>
@@ -211,11 +212,11 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Autoplay in a direction</td>
-                                        <td>Ctrl + Shift + Arrow key</td>
+                                        <td>Ctrl/Cmd + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Stop Autoplay</td>
-                                        <td>Ctrl</td>
+                                        <td>Ctrl/Cmd</td>
                                     </tr>
 
 

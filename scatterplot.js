@@ -2,7 +2,6 @@
 
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
-
     // variable initialization
     constants.plotId = 'geom_point.points.12.1';
     window.position = new Position(-1, -1);
@@ -22,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.layer == 0) {
             // right arrow 39
             if (e.which === 39) {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
                         if (e.altKey && position.x != plot.numPoints - 1) {
@@ -41,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
             // left arrow 37
             if (e.which === 37) {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
                         if (e.altKey && position.x != 0) {
@@ -58,11 +57,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 updateInfoThisRound = true;
             }
         } else if (constants.layer == 1) {
-            if (e.which == 39 && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+            if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
                 PlayLine('right');
             }
 
-            if (e.which == 37 && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+            if (e.which == 37 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
                 PlayLine('left');
             }
         }
@@ -137,11 +136,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // ctrl/cmd: stop autoplay
-        if (e.which == 17 || e.which == 91) {
+        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) {
             constants.KillAutoplay();
         }
 
-        if (e.ctrlKey || e.metaKey) {
+        if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
