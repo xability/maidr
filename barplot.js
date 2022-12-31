@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != plot.bars.length - 1) {
                         Autoplay('reverse-right', plot.bars.length, position.x);
                     } else {
                         Autoplay('right', position.x, plot.bars.length);
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != 0) {
                         Autoplay('reverse-left', -1, position.x);
                     } else {
                         Autoplay('left', position.x, -1);
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != plot.bars.length - 1) {
                         Autoplay('reverse-right', plot.bars.length, position.x);
                     } else {
                         Autoplay('right', position.x, plot.bars.length);
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.ctrlKey || e.metaKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey) {
+                    if (e.altKey && position.x != 0) {
                         Autoplay('reverse-left', -1, position.x);
                     } else {
                         Autoplay('left', position.x, -1);
