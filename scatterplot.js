@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey) {
+                        if (e.altKey && position.x != plot.numPoints - 1) {
                             Autoplay('reverse-right', plot.numPoints, position.x);
                         } else {
                             Autoplay('right', position.x, plot.numPoints);
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.ctrlKey || e.metaKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey) {
+                        if (e.altKey && position.x != 0) {
                             Autoplay('reverse-left', -1, position.x);
                         } else {
                             Autoplay('left', position.x, -1);
