@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
 
         if (e.which === 39) { // right arrow 39
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != plot.bars.length - 1) {
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         }
         if (e.which === 37) { // left arrow 37
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != 0) {
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != plot.bars.length - 1) {
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != 0) {
@@ -140,12 +140,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
-        if (e.which == 17 || e.which == 91) { // ctrl (either one)
+        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
             constants.KillAutoplay();
         }
 
         // ctrl/cmd: stop autoplay
-        if (e.ctrlKey || e.metaKey) {
+        if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {

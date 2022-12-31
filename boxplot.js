@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 
         if (e.which === 39) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
         // left arrow 
         if (e.which === 37) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != 0) {
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // up arrow 
         if (e.which === 38) {
             let oldY = position.y;
-            if (e.ctrlKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
                     if (e.altKey && position.y != plot.plotData.length - 1) {
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // down arrow 
         if (e.which === 40) {
             let oldY = position.y;
-            if (e.ctrlKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
                     if (e.altKey && position.y != 0) {
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            if (e.ctrlKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
-            if (e.ctrlKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != 0) {
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = 0;
             } else {
                 position.y += -1;
@@ -218,11 +218,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
-        if (e.which == 17) { // ctrl (either one)
+        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl/cmd (either one)
             constants.KillAutoplay();
         }
 
-        if (e.ctrlKey || e.metaKey) {
+        if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
             // (ctrl/cmd)+(home/fn+left arrow): top left element
             if (e.which == 36) {

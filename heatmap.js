@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // right arrow 39
         if (e.which === 39) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != plot.num_cols - 1) {
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // left arrow 37
         if (e.which === 37) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
                     if (e.altKey && position.x != 0) {
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // up arrow 38
         if (e.which === 38) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
                     if (e.altKey && position.y != 0) {
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // down arrow 40
         if (e.which === 40) {
-            if (e.ctrlKey || e.metaKey) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
                     if (e.altKey && position.y != plot.num_rows - 1) {
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 // already at the end, do nothing
                 e.preventDefault();
             } else {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
                         if (e.altKey && position.x != plot.num_cols - 1) {
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.target.selectionStart == 0 || e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
                 e.preventDefault();
             } else {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
                         if (e.altKey && position.x != 0) {
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (position.y + 1 == plot.num_rows) {
                 e.preventDefault();
             } else {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.y;
                         if (e.altKey && position.y != plot.num_rows - 1) {
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.target.selectionStart - plot.num_cols - 1 < 0) {
                 e.preventDefault();
             } else {
-                if (e.ctrlKey || e.metaKey) {
+                if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.y;
                         if (e.altKey && position.y != 0) {
@@ -239,11 +239,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // ctrl/cmd: stop autoplay
-        if (e.which == 17 || e.which == 91) {
+        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) {
             constants.KillAutoplay();
         }
 
-        if (e.ctrlKey || e.metaKey) {
+        if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
