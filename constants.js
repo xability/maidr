@@ -312,6 +312,108 @@ class Helper {
     }
 }
 
+class Tracker {
+
+    constructor() {
+        this.data = {};
+        this.data.userAgent = Object.assign(navigator.userAgent);
+        this.data.language = Object.assign(navigator.language);
+        this.data.platform = Object.assign(navigator.platform);
+        this.data.events = [];
+    }
+
+    Save() {
+        let link = document.createElement("a");
+        let fileStr = new Blob([JSON.stringify(this.data)], {type: "text/plain"});
+        link.href = URL.createObjectURL(fileStr);
+        link.download = "tracking.json";
+        link.click();
+    }
+
+    LogEvent(e) {
+        console.log(e);
+        let eventToLog = {};
+
+        // computer stuff
+        eventToLog.timestamp = Object.assign(e.timeStamp);
+        eventToLog.time = Date().toString();
+        eventToLog.key = Object.assign(e.key);
+        eventToLog.which = Object.assign(e.which);
+        eventToLog.altKey = Object.assign(e.altKey);
+        eventToLog.ctrlKey = Object.assign(e.ctrlKey);
+        eventToLog.shiftKey = Object.assign(e.shiftKey);
+        eventToLog.focus = Object.assign(e.path[0].tagName);
+
+        // settings etc, which we have to reassign otherwise they'll all be the same val
+        if ( ! ( constants.position === undefined || constants.position === null ) ) {
+            eventToLog.position = Object.assign(constants.position);
+        }
+        if ( ! ( constants.minX === undefined || constants.minX === null ) ) {
+            eventToLog.minX = Object.assign(constants.minX);
+        }
+        if ( ! ( constants.maxX === undefined || constants.maxX === null ) ) {
+            eventToLog.maxX = Object.assign(constants.maxX);
+        }
+        if ( ! ( constants.minY === undefined || constants.minY === null ) ) {
+            eventToLog.minY = Object.assign(constants.minY);
+        }
+        if ( ! ( constants.chartType === undefined || constants.chartType === null ) ) {
+            eventToLog.chartType = Object.assign(constants.chartType);
+        }
+        if ( ! ( constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null ) ) {
+            eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
+        }
+        if ( ! ( constants.MIN_FREQUENCY === undefined || constants.MIN_FREQUENCY === null ) ) {
+            eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
+        }
+        if ( ! ( constants.NULL_FREQUENCY === undefined || constants.NULL_FREQUENCY === null ) ) {
+            eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
+        }
+        if ( ! ( constants.MAX_SPEED === undefined || constants.MAX_SPEED === null ) ) {
+            eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
+        }
+        if ( ! ( constants.MIN_SPEED === undefined || constants.MIN_SPEED === null ) ) {
+            eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
+        }
+        if ( ! ( constants.INTERVAL === undefined || constants.INTERVAL === null ) ) {
+            eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
+        }
+        if ( ! ( constants.vol === undefined || constants.vol === null ) ) {
+            eventToLog.volume = Object.assign(constants.vol);
+        }
+        if ( ! ( constants.autoPlayRate === undefined || constants.autoPlayRate === null ) ) {
+            eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
+        }
+        if ( ! ( constants.colorSelected === undefined || constants.colorSelected === null ) ) {
+            eventToLog.color = Object.assign(constants.colorSelected);
+        }
+        if ( ! ( constants.brailleDisplayLength === undefined || constants.brailleDisplayLength === null ) ) {
+            eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
+        }
+        if ( ! ( constants.duration === undefined || constants.duration === null ) ) {
+            eventToLog.toneDuration = Object.assign(constants.duration);
+        }
+        if ( ! ( constants.autoPlayOutlierRate === undefined || constants.autoPlayOutlierRate === null ) ) {
+            eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
+        }
+        if ( ! ( constants.autoPlayPointsRate === undefined || constants.autoPlayPointsRate === null ) ) {
+            eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
+        }
+        if ( ! ( constants.textMode === undefined || constants.textMode === null ) ) {
+            eventToLog.textMode = Object.assign(constants.textMode);
+        }
+        if ( ! ( constants.audioPlay === undefined || constants.audioPlay === null ) ) {
+            eventToLog.sonificationMode = Object.assign(constants.audioPlay);
+        }
+        if ( ! ( constants.layer === undefined || constants.layer === null ) ) {
+            eventToLog.scatterplotLayer = Object.assign(constants.layer);
+        }
+
+        this.data.events.push(eventToLog);
+
+    }
+}
+
 // events and init functions
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
@@ -320,6 +422,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     window.constants = new Constants();
     window.resources = new Resources();
     window.menu = new Menu();
+    window.tracker = new Tracker();
 
     // default page load focus on svg 
     // this is mostly for debugging, as first time load users must click or hit a key to focus
@@ -350,5 +453,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.nonMenuFocus = allFocus[i];
         });
     }
+
+    // tracker
+    document.addEventListener('keydown', function(e) {
+        if ( e.which == 121 ) {
+            tracker.Save();
+        } else {
+            tracker.LogEvent(e);
+        }
+    });
 
 });
