@@ -6,7 +6,7 @@ library(tidymodels)
 
 # Bar plot sample
 ggplot(mpg, aes(class)) +
-    geom_bar()
+  geom_bar()
 
 
 gridSVG::grid.export("barplot.svg")
@@ -15,25 +15,25 @@ dev.off()
 
 # Box plot sample
 ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
-    geom_boxplot() +
-    coord_flip()
+  geom_boxplot() +
+  coord_flip()
 
 gridSVG::grid.export("boxplot.svg")
 dev.off()
 
 # Extrac boxplot stat values
 mpg %>%
-    group_by(class) %>%
-    summarise(
-        lower_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out < boxplot.stats(hwy)$stats[[1]]], collapse = ", "),
-        minimum = boxplot.stats(hwy)$stats[[1]],
-        Q1 = boxplot.stats(hwy)$stats[[2]],
-        median = boxplot.stats(hwy)$stats[[3]],
-        Q3 = boxplot.stats(hwy)$stats[[4]],
-        maximum = boxplot.stats(hwy)$stats[[5]],
-        upper_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out > boxplot.stats(hwy)$stats[[5]]], collapse = ", ")
-    ) %>%
-    jsonlite::write_json("boxplot_data.json")
+  group_by(class) %>%
+  summarise(
+    lower_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out < boxplot.stats(hwy)$stats[[1]]], collapse = ", "),
+    minimum = boxplot.stats(hwy)$stats[[1]],
+    Q1 = boxplot.stats(hwy)$stats[[2]],
+    median = boxplot.stats(hwy)$stats[[3]],
+    Q3 = boxplot.stats(hwy)$stats[[4]],
+    maximum = boxplot.stats(hwy)$stats[[5]],
+    upper_outlier = paste0(boxplot.stats(hwy)$out[boxplot.stats(hwy)$out > boxplot.stats(hwy)$stats[[5]]], collapse = ", ")
+  ) %>%
+  jsonlite::write_json("boxplot_data.json")
 
 # gt::gt() %>%
 # gtsave("boxplot_data_frame.html")
@@ -53,32 +53,32 @@ boxplot_ratio <- round(boxplot_ratio, 0)
 
 
 if (left_boxside == right_boxside) {
-    box_brl <- "⠿⠸⠇⠿"
+  box_brl <- "⠿⠸⠇⠿"
 } else if (left_boxside < right_boxside) {
-    relative_ratio <- round((right_boxside / left_boxside), 0)
-    box_brl <- "⠿⠸⠇" + strrep("⠿", relative_ratio)
+  relative_ratio <- round((right_boxside / left_boxside), 0)
+  box_brl <- "⠿⠸⠇" + strrep("⠿", relative_ratio)
 } else {
-    relative_ratio <- round((left_boxside / right_boxside), 0)
-    box_brl <- strrep("⠿", relative_ratio) + "⠸⠇⠿"
+  relative_ratio <- round((left_boxside / right_boxside), 0)
+  box_brl <- strrep("⠿", relative_ratio) + "⠸⠇⠿"
 }
 
 lower_whisker_length <- Q1 - min
 upper_whisker_length <- max - Q3
 
 if (lower_whisker_length == upper_whisker_length) {
-    "⠒" + box_brl + "⠒"
+  "⠒" + box_brl + "⠒"
 } else if (lower_whisker_length < upper_whisker_length) {
-    "⠒" + box_brl + "⠒⠒"
+  "⠒" + box_brl + "⠒⠒"
 } else {
-    "⠒⠒" + box_brl + "⠒"
+  "⠒⠒" + box_brl + "⠒"
 }
 
 
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
-    # geom_point(position = "jitter") +
-    geom_point() +
-    geom_smooth(method = "loess", se = FALSE)
+  # geom_point(position = "jitter") +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
 
 
 gridSVG::grid.export("scatterplot_no_jitter_with_loess_curve.svg")
@@ -90,13 +90,13 @@ dev.off()
 
 library(tidymodels)
 lm_fit <- linear_reg() %>%
-    set_engine("lm") %>%
-    fit(hwy ~ displ, data = mpg)
+  set_engine("lm") %>%
+  fit(hwy ~ displ, data = mpg)
 
 fit_tidy <- tidy(lm_fit$fit)
 
 fit_tidy %>%
-    gt()
+  gt()
 
 # Need to learn how sonify package draw a smoothed line
 prediction <- augment(lm_fit$fit)$.fitted
@@ -104,18 +104,18 @@ prediction <- augment(lm_fit$fit)$.fitted
 resid <- augment(lm_fit$fit)$.resid
 
 jsonlite::toJSON(prediction) %>%
-    jsonlite::write_json("prediction_array.json")
+  jsonlite::write_json("prediction_array.json")
 
 
 jsonlite::toJSON(resid) %>%
-    jsonlite::write_json("residual_array.json")
+  jsonlite::write_json("residual_array.json")
 
 
 lm_df <- augment(lm_fit$fit)
 
 lm_df %>%
-    ggplot(aes(x = .resid)) +
-    geom_histogram()
+  ggplot(aes(x = .resid)) +
+  geom_histogram()
 
 
 gridSVG::grid.export("histogram_for_residual.svg")
@@ -134,10 +134,10 @@ library(palmerpenguins)
 library(dplyr)
 
 penguins %>%
-    count(island, species, sort = TRUE) %>%
-    ggplot(aes(x = island, y = species, fill = n)) +
-    geom_tile(color = "black") +
-    coord_fixed()
+  count(island, species, sort = TRUE) %>%
+  ggplot(aes(x = island, y = species, fill = n)) +
+  geom_tile(color = "black") +
+  coord_fixed()
 
 gridSVG::grid.export("heatmap.svg")
 dev.off()
