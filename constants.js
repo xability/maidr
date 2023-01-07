@@ -331,7 +331,6 @@ class Tracker {
     }
 
     LogEvent(e) {
-        console.log(e);
         let eventToLog = {};
 
         // computer stuff
