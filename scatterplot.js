@@ -104,6 +104,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     document.addEventListener("keydown", function (e) {
 
+        // TESTING PLS REMOVE
+        if ( e.which == 13 ) { 
+            audio.playSmooth();
+        }
+
         // B: braille mode
         if (e.which == 66) {
             display.toggleBrailleMode();
@@ -266,27 +271,45 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }, constants.autoPlayRate);
     }
 
-    // @TODO: implement sound bending
     function PlayLine(dir) {
         lastPlayed = dir;
-        let step = 1;
-        if (dir == "left") {
-            step = -1;
-        }
-        // clear old autoplay if exists
-        if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-        }
-        position.x = lastx;
-        constants.autoplayId = setInterval(function () {
-            position.x += step;
-            if (position.x < 0 || plot.numPoints - 1 < position.x) {
-                constants.KillAutoplay();
-                lockPosition();
-            } else {
-                UpdateAllAutoplay();
+        console.log('playing smooth line');
+
+        // temp / todo, redo this with constants.minY or something after we find the right we of points
+        let svgMin = 0;
+        let svgMax = 0;
+        for ( let i = 0 ; i < plot.svgLineY.length ; i++ ) {
+            if ( i == 0 ) {
+                svgMin = plot.svgLineY[i];
+                svgMax = plot.svgLineY[i];
             }
-        }, constants.autoPlayRate);
+            if ( plot.svgLineY[i] < svgMin ) {
+                svgMin = plot.svgLineY[i];
+            }
+            if ( plot.svgLineY[i] > svgMax ) {
+                svgMax = plot.svgLineY[i];
+            }
+        }
+
+        let pointArr = [];
+        let freqArr = [];
+        let panningArr = [];
+        let panPoint = audio.SlideBetween(position.x, 0, plot.numPoints-1, -1, 1);
+        if ( dir == 'right' ) {
+            for ( let i = position.x ; i < plot.svgLineY.length ; i++ ) {
+                freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+            }
+            panningArr = [panPoint, 1]
+        } else {
+            for ( let i = position.x ; i > 0 ; i-- ) {
+                freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+            }
+            panningArr = [-1, panPoint]
+        }
+
+        audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
+
+
     }
 });
 

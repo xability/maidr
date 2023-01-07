@@ -75,6 +75,7 @@ class Audio {
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
             } else if (constants.layer == 1) { // best fit line layer
+
                 rawFreq = plot.bestFitLinePoints[position.x];
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, plot.layer1minY, plot.layer1maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
@@ -118,7 +119,7 @@ class Audio {
         }
 
     }
-
+    
     PlayNull() {
         let frequency = constants.NULL_FREQUENCY;
         let duration = constants.duration;
@@ -175,6 +176,57 @@ class Audio {
         panner.connect(this.compressor);
 
         // create panner node 
+
+        // play sound for duration
+        setTimeout(() => {
+            panner.disconnect();
+            gainThis.disconnect();
+            oscillator.stop();
+            oscillator.disconnect();
+        }, currentDuration * 1e3 * 2);
+    }
+
+    playSmooth(freqArr=[600, 500, 400, 300], currentDuration=2, panningArr=[-1, 0, 1], currentVol = 1, wave = 'sine') {
+
+        let gainArr = new Array(freqArr.length * 3).fill(.5 * currentVol);
+        gainArr.push(1e-4 * currentVol);
+
+        const t = this.audioContext.currentTime;
+        const oscillator = this.audioContext.createOscillator();
+        oscillator.type = wave;
+        oscillator.frequency.setValueCurveAtTime(freqArr, t, currentDuration)
+        oscillator.start();
+
+        // create gain for this event
+        const gainThis = this.audioContext.createGain();
+        gainThis.gain.setValueCurveAtTime(gainArr, t, currentDuration); // this is what makes the tones fade out properly and not clip
+
+        let MAX_DISTANCE = 10000;
+        let posZ = 1;
+        const panner = new PannerNode(this.audioContext, {
+            panningModel: "HRTF",
+            distanceModel: "linear",
+            positionX: position.x,
+            positionY: position.y,
+            positionZ: posZ,
+            orientationX: 0.0,
+            orientationY: 0.0,
+            orientationZ: -1.0,
+            refDistance: 1,
+            maxDistance: MAX_DISTANCE,
+            rolloffFactor: 10,
+            coneInnerAngle: 40,
+            coneOuterAngle: 50,
+            coneOuterGain: 0.4,
+        });
+
+        // create panning
+        const stereoPanner = this.audioContext.createStereoPanner();
+        stereoPanner.pan.setValueCurveAtTime(panningArr, t, currentDuration);
+        oscillator.connect(gainThis);
+        gainThis.connect(stereoPanner);
+        stereoPanner.connect(panner);
+        panner.connect(this.compressor);
 
         // play sound for duration
         setTimeout(() => {
