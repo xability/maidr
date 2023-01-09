@@ -26,38 +26,39 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != plot.bars.length - 1) {
-                        Autoplay('reverse-right', plot.bars.length, position.x);
-                    } else {
-                        Autoplay('right', position.x, plot.bars.length);
-                    }
+                    Autoplay('right', position.x, plot.bars.length);
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != plot.bars.length - 1) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
                 position.x += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
         }
         if (e.which === 37) { // left arrow 37
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != 0) {
-                        Autoplay('reverse-left', -1, position.x);
-                    } else {
-                        Autoplay('left', position.x, -1);
-                    }
+                    Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0; // go all the way
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
         }
 
-        lockPosition();
 
         // update display / text / audio
         if (updateInfoThisRound) {
@@ -78,40 +79,40 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != plot.bars.length - 1) {
-                        Autoplay('reverse-right', plot.bars.length, position.x);
-                    } else {
-                        Autoplay('right', position.x, plot.bars.length);
-                    }
+                    Autoplay('right', position.x, plot.bars.length);
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != plot.bars.length - 1) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
                 position.x += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != 0) {
-                        Autoplay('reverse-left', -1, position.x);
-                    } else {
-                        Autoplay('left', position.x, -1);
-                    }
+                    Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0; // go all the way
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
         } else {
             e.preventDefault();
         }
-
-        lockPosition();
 
         // update display / text / audio
         if (updateInfoThisRound) {

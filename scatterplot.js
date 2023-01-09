@@ -24,18 +24,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey && position.x != plot.numPoints - 1) {
-                            Autoplay('reverse-right', plot.numPoints, position.x);
-                        } else {
-                            Autoplay('right', position.x, plot.numPoints);
-                        }
+                        Autoplay('right', position.x, plot.numPoints);
                     } else {
                         position.x = plot.numPoints - 1;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.x != plot.numPoints - 1) {
+                    lastx = position.x;
+                    Autoplay('reverse-right', plot.numPoints, position.x);
                 } else {
                     position.x += 1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
-                updateInfoThisRound = true;
             }
 
             // left arrow 37
@@ -43,18 +44,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey && position.x != 0) {
-                            Autoplay('reverse-left', -1, position.x);
-                        } else {
-                            Autoplay('left', position.x, -1);
-                        }
+                        Autoplay('left', position.x, -1);
                     } else {
                         position.x = 0;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.x != 0) {
+                    lastx = position.x;
+                    Autoplay('reverse-left', -1, position.x);
                 } else {
                     position.x -= 1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
-                updateInfoThisRound = true;
             }
         } else if (constants.layer == 1) {
             if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
@@ -65,8 +67,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 PlayLine('left');
             }
         }
-
-        lockPosition();
 
         // update text, display, and audio
         if (updateInfoThisRound) {
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     document.addEventListener("keydown", function (e) {
 
         // TESTING PLS REMOVE
-        if ( e.which == 13 ) { 
+        if (e.which == 13) {
             audio.playSmooth();
         }
 
@@ -278,15 +278,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // temp / todo, redo this with constants.minY or something after we find the right we of points
         let svgMin = 0;
         let svgMax = 0;
-        for ( let i = 0 ; i < plot.svgLineY.length ; i++ ) {
-            if ( i == 0 ) {
+        for (let i = 0; i < plot.svgLineY.length; i++) {
+            if (i == 0) {
                 svgMin = plot.svgLineY[i];
                 svgMax = plot.svgLineY[i];
             }
-            if ( plot.svgLineY[i] < svgMin ) {
+            if (plot.svgLineY[i] < svgMin) {
                 svgMin = plot.svgLineY[i];
             }
-            if ( plot.svgLineY[i] > svgMax ) {
+            if (plot.svgLineY[i] > svgMax) {
                 svgMax = plot.svgLineY[i];
             }
         }
@@ -294,14 +294,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let pointArr = [];
         let freqArr = [];
         let panningArr = [];
-        let panPoint = audio.SlideBetween(position.x, 0, plot.numPoints-1, -1, 1);
-        if ( dir == 'right' ) {
-            for ( let i = position.x ; i < plot.svgLineY.length ; i++ ) {
+        let panPoint = audio.SlideBetween(position.x, 0, plot.numPoints - 1, -1, 1);
+        if (dir == 'right') {
+            for (let i = position.x; i < plot.svgLineY.length; i++) {
                 freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1]
         } else {
-            for ( let i = position.x ; i > 0 ; i-- ) {
+            for (let i = position.x; i > 0; i--) {
                 freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint]

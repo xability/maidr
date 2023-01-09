@@ -29,38 +29,40 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
-                        Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
-                    } else {
-                        Autoplay('right', position.x, plot.plotData[position.y].length);
-                    }
+                    Autoplay('right', position.x, plot.plotData[position.y].length);
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
                 position.x += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             constants.navigation = 1;
-            updateInfoThisRound = true;
         }
         // left arrow 
         if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != 0) {
-                        Autoplay('reverse-left', -1, position.x);
-                    } else {
-                        Autoplay('left', position.x, -1);
-                    }
+                    Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             constants.navigation = 1;
-            updateInfoThisRound = true;
         }
         // up arrow 
         if (e.which === 38) {
@@ -68,20 +70,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
-                    if (e.altKey && position.y != plot.plotData.length - 1) {
-                        Autoplay('reverse-up', plot.plotData.length, position.y);
-                    } else {
-                        Autoplay('up', position.y, plot.plotData.length);
-                    }
+                    Autoplay('up', position.y, plot.plotData.length);
                 } else {
                     position.y = plot.plotData.length - 1;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.y != plot.plotData.length - 1) {
+                lastx = position.x;
+                Autoplay('reverse-up', plot.plotData.length, position.y);
             } else {
                 position.y += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
-            updateInfoThisRound = true;
         }
         // down arrow 
         if (e.which === 40) {
@@ -89,23 +92,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
-                    if (e.altKey && position.y != 0) {
-                        Autoplay('reverse-down', -1, position.y);
-                    } else {
-                        Autoplay('down', position.y, -1);
-                    }
+                    Autoplay('down', position.y, -1);
                 } else {
                     position.y = 0;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.y != 0) {
+                lastx = position.x;
+                Autoplay('reverse-down', -1, position.y);
             } else {
                 position.y += -1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
-            updateInfoThisRound = true;
         }
-
-        lockPosition();
 
         // update display / text / audio
         if (updateInfoThisRound) {
@@ -127,43 +129,46 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && plot.plotData[position.y].length - 1 != position.x) {
-                        Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
-                    } else {
-                        Autoplay('right', position.x, plot.plotData[position.y].length);
-                    }
+                    Autoplay('right', position.x, plot.plotData[position.y].length);
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
                 position.x += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             constants.navigation = 1;
-            updateInfoThisRound = true;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != 0) {
-                        Autoplay('reverse-left', -1, position.x);
-                    } else {
-                        Autoplay('left', position.x, -1);
-                    }
+                    Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
             constants.navigation = 1;
-            updateInfoThisRound = true;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
+                lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
@@ -175,6 +180,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.y = 0;
             } else {
                 position.y += -1;
+                lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
@@ -185,8 +191,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // todo: allow some controls through like page refresh
 
         }
-
-        lockPosition();
 
         // update audio. todo: add a setting for this later
         if (updateInfoThisRound) {

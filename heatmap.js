@@ -20,18 +20,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != plot.num_cols - 1) {
-                        Autoplay('reverse-right', plot.num_cols, position.x);
-                    } else {
-                        Autoplay('right', position.x, plot.num_cols);
-                    }
+                    Autoplay('right', position.x, plot.num_cols);
                 } else {
                     position.x = plot.num_cols - 1;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != plot.num_cols - 1) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.num_cols, position.x);
             } else {
                 position.x += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
             constants.navigation = 1;
         }
 
@@ -40,18 +41,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.x;
-                    if (e.altKey && position.x != 0) {
-                        Autoplay('reverse-left', -1, position.x);
-                    } else {
-                        Autoplay('left', position.x, -1);
-                    }
+                    Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x -= 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
             constants.navigation = 1;
         }
 
@@ -60,18 +62,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
-                    if (e.altKey && position.y != 0) {
-                        Autoplay('reverse-up', -1, position.y);
-                    } else {
-                        Autoplay('up', position.y, -1);
-                    }
+                    Autoplay('up', position.y, -1);
                 } else {
                     position.y = 0;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.y != 0) {
+                lastx = position.x;
+                Autoplay('reverse-up', -1, position.y);
             } else {
                 position.y -= 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
             constants.navigation = 0;
         }
 
@@ -80,22 +83,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     lastx = position.y;
-                    if (e.altKey && position.y != plot.num_rows - 1) {
-                        Autoplay('reverse-down', plot.num_rows, position.y);
-                    } else {
-                        Autoplay('down', position.y, plot.num_rows);
-                    }
+                    Autoplay('down', position.y, plot.num_rows);
                 } else {
                     position.y = plot.num_rows - 1;
+                    updateInfoThisRound = true;
                 }
+            } else if (e.altKey && e.shiftKey && position.y != plot.num_rows - 1) {
+                lastx = position.x;
+                Autoplay('reverse-down', plot.num_rows, position.y);
             } else {
                 position.y += 1;
+                updateInfoThisRound = true;
+                lockPosition();
             }
-            updateInfoThisRound = true;
             constants.navigation = 0;
         }
-
-        lockPosition();
 
         // update text, display, and audio
         if (updateInfoThisRound) {
@@ -116,16 +118,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey && position.x != plot.num_cols - 1) {
-                            Autoplay('reverse-right', plot.num_cols, position.x);
-                        } else {
-                            Autoplay('right', position.x, plot.num_cols);
-                        }
+                        Autoplay('right', position.x, plot.num_cols);
                     } else {
                         position.x = plot.num_cols - 1;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.x != plot.num_cols - 1) {
+                    lastx = position.x;
+                    Autoplay('reverse-right', plot.num_cols, position.x);
                 } else {
                     position.x += 1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
 
                 // we need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
@@ -133,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
-            updateInfoThisRound = true;
         } else if (e.which == 37) { // left
             if (e.target.selectionStart == 0 || e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
                 e.preventDefault();
@@ -141,23 +144,24 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.x;
-                        if (e.altKey && position.x != 0) {
-                            Autoplay('reverse-left', -1, position.x);
-                        } else {
-                            Autoplay('left', position.x, -1);
-                        }
+                        Autoplay('left', position.x, -1);
                     } else {
                         position.x = 0;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.x != 0) {
+                    lastx = position.x;
+                    Autoplay('reverse-left', -1, position.x);
                 } else {
                     position.x += -1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
-            updateInfoThisRound = true;
         } else if (e.which == 40) { // down
             if (position.y + 1 == plot.num_rows) {
                 e.preventDefault();
@@ -165,23 +169,24 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.y;
-                        if (e.altKey && position.y != plot.num_rows - 1) {
-                            Autoplay('reverse-down', plot.num_rows, position.y);
-                        } else {
-                            Autoplay('down', position.y, plot.num_rows);
-                        }
+                        Autoplay('down', position.y, plot.num_rows);
                     } else {
                         position.y = plot.num_rows - 1;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.y != plot.num_rows - 1) {
+                    lastx = position.x;
+                    Autoplay('reverse-down', plot.num_rows, position.y);
                 } else {
                     position.y += 1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
-            updateInfoThisRound = true;
         } else if (e.which == 38) { // up
             if (e.target.selectionStart - plot.num_cols - 1 < 0) {
                 e.preventDefault();
@@ -189,28 +194,27 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         lastx = position.y;
-                        if (e.altKey && position.y != 0) {
-                            Autoplay('reverse-up', -1, position.y);
-                        } else {
-                            Autoplay('up', position.y, -1);
-                        }
+                        Autoplay('up', position.y, -1);
                     } else {
                         position.y = 0;
+                        updateInfoThisRound = true;
                     }
+                } else if (e.altKey && e.shiftKey && position.y != 0) {
+                    lastx = position.x;
+                    Autoplay('reverse-up', -1, position.y);
                 } else {
                     position.y += -1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
             }
-            updateInfoThisRound = true;
         } else {
             e.preventDefault();
         }
-
-        lockPosition();
 
         if (updateInfoThisRound) {
             UpdateAllBraille();
