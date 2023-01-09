@@ -65,7 +65,13 @@ class Constants {
     brailleMode = "off"; // on / off
     audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
+
+    // platform controls
     isMac = navigator.userAgentData.platform == "macOS"; // true if macOS
+    control = this.isMac ? 'Cmd' : 'Ctrl';
+    alt = this.isMac ? 'option' : 'Alt';
+    home = this.isMac ? 'fn + Left arrow' : 'Home';
+    end = this.isMac ? 'fn + Right arrow' : 'End';
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
@@ -184,7 +190,7 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Go to the very left right up down</td>
-                                        <td>Ctrl/Cmd + Arrow key</td>
+                                        <td>${constants.control} + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Autoplay speed up</td>
@@ -212,11 +218,23 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Autoplay in a direction</td>
-                                        <td>Ctrl/Cmd + Shift + Arrow key</td>
+                                        <td>${constants.control} + Shift + Arrow key</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Reverse Autoplay in a direction</td>
+                                        <td>${constants.alt} + Shift + Arrow key</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Select the first element</td>
+                                        <td>${constants.control} + ${constants.home}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Select the last element</td>
+                                        <td>${constants.control} + ${constants.end}</td>
                                     </tr>
                                     <tr>
                                         <td>Stop Autoplay</td>
-                                        <td>Ctrl/Cmd</td>
+                                        <td>${constants.control}</td>
                                     </tr>
 
 
@@ -324,7 +342,7 @@ class Tracker {
 
     Save() {
         let link = document.createElement("a");
-        let fileStr = new Blob([JSON.stringify(this.data)], {type: "text/plain"});
+        let fileStr = new Blob([JSON.stringify(this.data)], { type: "text/plain" });
         link.href = URL.createObjectURL(fileStr);
         link.download = "tracking.json";
         link.click();
@@ -344,67 +362,67 @@ class Tracker {
         eventToLog.focus = Object.assign(e.path[0].tagName);
 
         // settings etc, which we have to reassign otherwise they'll all be the same val
-        if ( ! ( constants.position === undefined || constants.position === null ) ) {
+        if (!(constants.position === undefined || constants.position === null)) {
             eventToLog.position = Object.assign(constants.position);
         }
-        if ( ! ( constants.minX === undefined || constants.minX === null ) ) {
+        if (!(constants.minX === undefined || constants.minX === null)) {
             eventToLog.minX = Object.assign(constants.minX);
         }
-        if ( ! ( constants.maxX === undefined || constants.maxX === null ) ) {
+        if (!(constants.maxX === undefined || constants.maxX === null)) {
             eventToLog.maxX = Object.assign(constants.maxX);
         }
-        if ( ! ( constants.minY === undefined || constants.minY === null ) ) {
+        if (!(constants.minY === undefined || constants.minY === null)) {
             eventToLog.minY = Object.assign(constants.minY);
         }
-        if ( ! ( constants.chartType === undefined || constants.chartType === null ) ) {
+        if (!(constants.chartType === undefined || constants.chartType === null)) {
             eventToLog.chartType = Object.assign(constants.chartType);
         }
-        if ( ! ( constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null ) ) {
+        if (!(constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null)) {
             eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
         }
-        if ( ! ( constants.MIN_FREQUENCY === undefined || constants.MIN_FREQUENCY === null ) ) {
+        if (!(constants.MIN_FREQUENCY === undefined || constants.MIN_FREQUENCY === null)) {
             eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
         }
-        if ( ! ( constants.NULL_FREQUENCY === undefined || constants.NULL_FREQUENCY === null ) ) {
+        if (!(constants.NULL_FREQUENCY === undefined || constants.NULL_FREQUENCY === null)) {
             eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
         }
-        if ( ! ( constants.MAX_SPEED === undefined || constants.MAX_SPEED === null ) ) {
+        if (!(constants.MAX_SPEED === undefined || constants.MAX_SPEED === null)) {
             eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
         }
-        if ( ! ( constants.MIN_SPEED === undefined || constants.MIN_SPEED === null ) ) {
+        if (!(constants.MIN_SPEED === undefined || constants.MIN_SPEED === null)) {
             eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
         }
-        if ( ! ( constants.INTERVAL === undefined || constants.INTERVAL === null ) ) {
+        if (!(constants.INTERVAL === undefined || constants.INTERVAL === null)) {
             eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
         }
-        if ( ! ( constants.vol === undefined || constants.vol === null ) ) {
+        if (!(constants.vol === undefined || constants.vol === null)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
-        if ( ! ( constants.autoPlayRate === undefined || constants.autoPlayRate === null ) ) {
+        if (!(constants.autoPlayRate === undefined || constants.autoPlayRate === null)) {
             eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
         }
-        if ( ! ( constants.colorSelected === undefined || constants.colorSelected === null ) ) {
+        if (!(constants.colorSelected === undefined || constants.colorSelected === null)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
-        if ( ! ( constants.brailleDisplayLength === undefined || constants.brailleDisplayLength === null ) ) {
+        if (!(constants.brailleDisplayLength === undefined || constants.brailleDisplayLength === null)) {
             eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
         }
-        if ( ! ( constants.duration === undefined || constants.duration === null ) ) {
+        if (!(constants.duration === undefined || constants.duration === null)) {
             eventToLog.toneDuration = Object.assign(constants.duration);
         }
-        if ( ! ( constants.autoPlayOutlierRate === undefined || constants.autoPlayOutlierRate === null ) ) {
+        if (!(constants.autoPlayOutlierRate === undefined || constants.autoPlayOutlierRate === null)) {
             eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
         }
-        if ( ! ( constants.autoPlayPointsRate === undefined || constants.autoPlayPointsRate === null ) ) {
+        if (!(constants.autoPlayPointsRate === undefined || constants.autoPlayPointsRate === null)) {
             eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
         }
-        if ( ! ( constants.textMode === undefined || constants.textMode === null ) ) {
+        if (!(constants.textMode === undefined || constants.textMode === null)) {
             eventToLog.textMode = Object.assign(constants.textMode);
         }
-        if ( ! ( constants.audioPlay === undefined || constants.audioPlay === null ) ) {
+        if (!(constants.audioPlay === undefined || constants.audioPlay === null)) {
             eventToLog.sonificationMode = Object.assign(constants.audioPlay);
         }
-        if ( ! ( constants.layer === undefined || constants.layer === null ) ) {
+        if (!(constants.layer === undefined || constants.layer === null)) {
             eventToLog.scatterplotLayer = Object.assign(constants.layer);
         }
 
@@ -454,8 +472,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     // tracker
-    document.addEventListener('keydown', function(e) {
-        if ( e.which == 121 ) {
+    document.addEventListener('keydown', function (e) {
+        if (e.which == 121) {
             tracker.Save();
         } else {
             tracker.LogEvent(e);
