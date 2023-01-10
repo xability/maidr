@@ -219,8 +219,11 @@ class Display {
                 if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
-                    output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
+                    // terse mode: gradient trend
+                    // output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
+                    output += '<p>' + plot.gradient[position.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
+                    // verbose mode: x and y values
                     output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.bestFitLinePoints[position.x] + '</p>\n';
                 }
             }
@@ -267,25 +270,21 @@ class Display {
                 }
             }
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) { // best fit line layer
-                let range = (constants.maxY - constants.minY) / 4;
-                let low = constants.minY + range;
-                let medium = low + range;
-                let medium_high = medium + range;
-                let high = medium_high + range;
-                for (let i = 0; i < plot.numPoints; i++) {
-                    if (plot.bestFitLinePoints[i] <= low) {
-                        brailleArray.push("⣀");
-                    } else if (plot.bestFitLinePoints[i] <= medium) {
-                        brailleArray.push("⠤");
-                    } else if (plot.bestFitLinePoints[i] <= medium_high) {
-                        brailleArray.push("⠒");
-                    } else if (plot.bestFitLinePoints[i] <= high) {
-                        brailleArray.push("⠉");
-                    }
+            let range = (constants.maxY - constants.minY) / 4;
+            let low = constants.minY + range;
+            let medium = low + range;
+            let medium_high = medium + range;
+            let high = medium_high + range;
+            for (let i = 0; i < plot.numPoints; i++) {
+                if (plot.bestFitLinePoints[i] <= low) {
+                    brailleArray.push("⣀");
+                } else if (plot.bestFitLinePoints[i] <= medium) {
+                    brailleArray.push("⠤");
+                } else if (plot.bestFitLinePoints[i] <= medium_high) {
+                    brailleArray.push("⠒");
+                } else if (plot.bestFitLinePoints[i] <= high) {
+                    brailleArray.push("⠉");
                 }
-            } else if (constants.layer == 1) { // residual histogram layer
-                // @TODO
             }
         } else if (constants.chartType == "boxplot" && position.y > -1) { // only run if we're on a plot
             // Idea here is to use different braille characters to physically represent the boxplot

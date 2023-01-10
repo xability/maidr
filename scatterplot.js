@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
             }
         } else if (constants.layer == 1) {
+            position.x = lastx;
             if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
                 PlayLine('right');
             }
@@ -79,26 +80,32 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let updateInfoThisRound = false;
 
         // @TODO
+        // only line layer can access to braille display
+        if (constants.layer == 1) {
 
-        if (e.which == 9) {
-        } else if (e.which == 39) { // right arrow
-            if (e.target.selectionStart > e.target.value.length - 2) {
-                e.preventDefault();
+            if (e.which == 9) {
+            } else if (e.which == 39) { // right arrow
+                e.target.setSelectionRange(position.x, position.x);
+                if (e.target.selectionStart > e.target.value.length - 2) {
+                    e.preventDefault();
+                } else {
+                    position.x += 1;
+                }
+                updateInfoThisRound = true;
+            } else if (e.which == 37) { // left
+                e.target.setSelectionRange(position.x, position.x);
+                position.x -= 1;
+                updateInfoThisRound = true;
             } else {
-                position.x += 1;
+                e.preventDefault();
             }
-            updateInfoThisRound = true;
-        } else if (e.which == 37) { // left
-            position.x -= 1;
-            updateInfoThisRound = true;
-        } else {
-            e.preventDefault();
-        }
 
-        lockPosition();
+            lockPosition();
 
-        if (updateInfoThisRound) {
-            UpdateAllBraille();
+            if (updateInfoThisRound) {
+                UpdateAllBraille();
+            }
+
         }
     });
 
@@ -332,6 +339,7 @@ class ScatterPlot {
         this.bestFitLinePoints = this.GetBestFitLinePoints();
         this.layer1minY = Math.min(...prediciton_array);
         this.layer1maxY = Math.max(...prediciton_array);
+        this.gradient = this.GetGradient();
         // console.log(this.svgLineY);
         // console.log(this.bestFitLinePoints); // have different lengths; is visual display needed for best fit line?
 
@@ -503,6 +511,22 @@ class ScatterPlot {
         points.sort(function (a, b) { return a.x - b.x });
 
         return points.map(({ y }) => y);
+    }
+
+    GetGradient() {
+        let gradients = [];
+
+        for (let i = 0; i < this.bestFitLinePoints.length - 1; i++) {
+            if (this.bestFitLinePoints[i + 1] - this.bestFitLinePoints[i] > 0) {
+                gradients.push('up');
+            } else {
+                gradients.push('down');
+            }
+        }
+
+        gradients.push('end');
+
+        return gradients;
     }
 };
 

@@ -225,6 +225,10 @@ class Menu {
                                         <td>${constants.alt} + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
+                                        <td>Stop Autoplay</td>
+                                        <td>${constants.control}</td>
+                                    </tr>
+                                    <tr>
                                         <td>Select the first element</td>
                                         <td>${constants.control} + ${constants.home}</td>
                                     </tr>
@@ -232,11 +236,6 @@ class Menu {
                                         <td>Select the last element</td>
                                         <td>${constants.control} + ${constants.end}</td>
                                     </tr>
-                                    <tr>
-                                        <td>Stop Autoplay</td>
-                                        <td>${constants.control}</td>
-                                    </tr>
-
 
                                 </tbody>
                             </table>
