@@ -120,6 +120,8 @@ class Display {
 
             constants.brailleInput.setSelectionRange(adjustedPosX, adjustedPosX);
 
+        } else if (constants.chartType == "scatterplot") {
+            constants.brailleInput.setSelectionRange(position.x, position.x);
         }
     }
 

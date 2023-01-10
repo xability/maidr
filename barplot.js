@@ -151,13 +151,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
                 position.x = 0;
-                UpdateAll();
+                UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
                 position.x = plot.bars.length - 1;
-                UpdateAll();
+                UpdateAllBraille();
             }
         }
 

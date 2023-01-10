@@ -82,25 +82,26 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // @TODO
         // only line layer can access to braille display
         if (constants.layer == 1) {
-
+            lockPosition();
+            constants.brailleInput.setSelectionRange(position.x, position.x);
             if (e.which == 9) {
             } else if (e.which == 39) { // right arrow
-                e.target.setSelectionRange(position.x, position.x);
+                e.preventDefault();
                 if (e.target.selectionStart > e.target.value.length - 2) {
                     e.preventDefault();
                 } else {
                     position.x += 1;
+                    updateInfoThisRound = true;
+                    lockPosition();
                 }
-                updateInfoThisRound = true;
             } else if (e.which == 37) { // left
-                e.target.setSelectionRange(position.x, position.x);
+                e.preventDefault();
                 position.x -= 1;
                 updateInfoThisRound = true;
+                lockPosition();
             } else {
                 e.preventDefault();
             }
-
-            lockPosition();
 
             if (updateInfoThisRound) {
                 UpdateAllBraille();
@@ -157,13 +158,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
                 position.x = 0;
-                UpdateAll();
+                UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
                 position.x = plot.numPoints - 1;
-                UpdateAll();
+                UpdateAllBraille();
             }
         }
 

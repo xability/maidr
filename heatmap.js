@@ -253,14 +253,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which == 36) {
                 position.x = 0;
                 position.y = 0;
-                UpdateAll();
+                UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
                 position.x = plot.num_cols - 1;
                 position.y = plot.num_rows - 1;
-                UpdateAll();
+                UpdateAllBraille();
             }
         }
 

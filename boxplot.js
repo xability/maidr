@@ -232,14 +232,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which == 36) {
                 position.x = 0;
                 position.y = plot.plotData.length - 1;
-                UpdateAll();
+                UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): right bottom element
             else if (e.which == 35) {
                 position.x = plot.plotData[0].length - 1;
                 position.y = 0;
-                UpdateAll();
+                UpdateAllBraille();
             }
         }
 
