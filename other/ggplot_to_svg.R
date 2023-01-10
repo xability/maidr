@@ -80,6 +80,29 @@ ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE)
 
+# Save ggplot data to json
+library(tidyverse)
+library(tidymodels)
+
+# Best Line
+g <- ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+point_layer <- layer_data(g, 1) %>%
+  select(x, y)
+
+
+smooth_layer <- layer_data(g, 2) %>%
+  select(x, y)
+
+
+point_layer %>%
+  jsonlite::write_json("point_layer.json")
+
+smooth_layer %>%
+  jsonlite::write_json("smooth_layer.json")
+
 
 gridSVG::grid.export("scatterplot_no_jitter_with_loess_curve.svg")
 dev.off()
