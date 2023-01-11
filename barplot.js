@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) { // right arrow 39
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x -= 1;
                     Autoplay('right', position.x, plot.bars.length);
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
@@ -43,7 +44,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) { // left arrow 37
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0; // go all the way
@@ -78,7 +80,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x -= 1;
                     Autoplay('right', position.x, plot.bars.length);
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
@@ -96,7 +99,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0; // go all the way
@@ -254,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (dir == "reverse-right" || dir == "reverse-left") {
             position.x = start;
         }
-
+        
         constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || plot.bars.length - 1 < position.x) {

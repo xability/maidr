@@ -13,13 +13,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(0, plot.plotData.length - 1);
+    window.position = new Position(-1, plot.plotData.length - 1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
     let lastPlayed = '';
     let lastx = 0;
-
+    console.log(position.x);
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x -= 1;
                     Autoplay('right', position.x, plot.plotData[position.y].length);
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
@@ -48,7 +49,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
@@ -69,7 +71,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.y;
+                    //lastx = position.y;
+                    position.y -= 1;
                     Autoplay('up', position.y, plot.plotData.length);
                 } else {
                     position.y = plot.plotData.length - 1;
@@ -91,7 +94,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.y;
+                    // lastx = position.y;
+                    position.y += 1;
                     Autoplay('down', position.y, -1);
                 } else {
                     position.y = 0;
@@ -128,7 +132,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x -= 1;
                     Autoplay('right', position.x, plot.plotData[position.y].length);
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
@@ -147,7 +152,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;

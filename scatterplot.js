@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which === 39) {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
+                        // lastx = position.x;
+                        position.x -= 1;
                         Autoplay('right', position.x, plot.numPoints);
                     } else {
                         position.x = plot.numPoints - 1;
@@ -43,7 +44,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which === 37) {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
+                        // lastx = position.x;
+                        position.x += 1;
                         Autoplay('left', position.x, -1);
                     } else {
                         position.x = 0;
@@ -347,6 +349,9 @@ class ScatterPlot {
         // this.numPoints = this.GetXLength(constants.layer);
         this.numPoints = this.x.length;
         this.groupLabels = this.GetGroupLabels();
+
+        console.log(this.x);
+        console.log(this.y);
     }
 
     // SelectLayer(layer) {

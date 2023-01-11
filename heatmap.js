@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x -= 1;
                     Autoplay('right', position.x, plot.num_cols);
                 } else {
                     position.x = plot.num_cols - 1;
@@ -40,7 +41,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.x;
+                    // lastx = position.x;
+                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
@@ -61,7 +63,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 38) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.y;
+                    // lastx = position.y;
+                    position.y += 1;
                     Autoplay('up', position.y, -1);
                 } else {
                     position.y = 0;
@@ -82,7 +85,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 40) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    lastx = position.y;
+                    // lastx = position.y;
+                    position.y -= 1;
                     Autoplay('down', position.y, plot.num_rows);
                 } else {
                     position.y = plot.num_rows - 1;
@@ -117,7 +121,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
+                        // lastx = position.x;
+                        position.x -= 1;
                         Autoplay('right', position.x, plot.num_cols);
                     } else {
                         position.x = plot.num_cols - 1;
@@ -143,7 +148,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.x;
+                        // lastx = position.x;
+                        position.x += 1;
                         Autoplay('left', position.x, -1);
                     } else {
                         position.x = 0;
@@ -168,7 +174,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.y;
+                        // lastx = position.y;
+                        position.y -= 1;
                         Autoplay('down', position.y, plot.num_rows);
                     } else {
                         position.y = plot.num_rows - 1;
@@ -193,7 +200,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        lastx = position.y;
+                        // lastx = position.y;
+                        position.y += 1;
                         Autoplay('up', position.y, -1);
                     } else {
                         position.y = 0;
