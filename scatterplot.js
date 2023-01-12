@@ -26,14 +26,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     if (e.shiftKey) {
                         // lastx = position.x;
                         position.x -= 1;
-                        Autoplay('right', position.x, plot.numPoints);
+                        Autoplay('right', position.x, plot.x.length);
                     } else {
-                        position.x = plot.numPoints - 1;
+                        console.log(position.x);
+                        position.x = plot.x.length - 1;
                         updateInfoThisRound = true;
                     }
-                } else if (e.altKey && e.shiftKey && position.x != plot.numPoints - 1) {
+                } else if (e.altKey && e.shiftKey && position.x != plot.x.length - 1) {
                     lastx = position.x;
-                    Autoplay('reverse-right', plot.numPoints, position.x);
+                    Autoplay('reverse-right', plot.x.length, position.x);
                 } else {
                     position.x += 1;
                     updateInfoThisRound = true;
@@ -63,12 +64,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         } else if (constants.layer == 1) {
             position.x = lastx;
-            if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
-                PlayLine('right');
+            if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey)) {
+                if (e.shiftKey) {
+                    PlayLine('right');
+                } else if (e.altKey) {
+                    PlayLine('reverse-right');
+                }
             }
 
-            if (e.which == 37 && (constants.isMac ? e.metaKey : e.ctrlKey) && e.shiftKey) {
-                PlayLine('left');
+            if (e.which == 37 && (constants.isMac ? e.metaKey : e.ctrlKey)) {
+                if (e.shiftKey) {
+                    PlayLine('left');
+                } else if (e.altKey) {
+                    PlayLine('reverse-left');
+                }
             }
         }
 
@@ -211,8 +220,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (position.x < 0) {
             position.x = 0;
         }
-        if (position.x > plot.numPoints - 1) {
-            position.x = plot.numPoints - 1;
+        if (constants.layer == 0) {
+            if (position.x > plot.x.length - 1) {
+                position.x = plot.x.length - 1;
+            }
+        } else {
+            if (position.x > plot.curvePoints - 1) {
+                position.x = plot.curvePoints - 1;
+            }
         }
     }
 
@@ -299,29 +314,29 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         for (let i = 0; i < plot.curvePoints.length; i++) {
             if (i == 0) {
                 svgMin = plot.curvePoints[i];
-                svgMax = plot.svgLineY[i];
+                svgMax = plot.curvePoints[i];
             }
-            if (plot.svgLineY[i] < svgMin) {
+            if (plot.curvePoints[i] < svgMin) {
                 svgMin = plot.curvePoints[i];
             }
-            if (plot.svgLineY[i] > svgMax) {
+            if (plot.curvePoints[i] > svgMax) {
                 svgMax = plot.curvePoints[i];
             }
         }
 
         let freqArr = [];
         let panningArr = [];
-        let panPoint = audio.SlideBetween(position.x, 0, plot.numPoints - 1, -1, 1);
+        let panPoint = audio.SlideBetween(position.x, 0, plot.curvePoints.length - 1, -1, 1);
         if (dir == 'right') {
             for (let i = position.x; i < plot.curvePoints.length; i++) {
-                freqArr.push(audio.SlideBetween(plot.curvePoints[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
-            panningArr = [panPoint, 1]
+            panningArr = [panPoint, 1];
         } else {
             for (let i = position.x; i > 0; i--) {
-                freqArr.push(audio.SlideBetween(plot.curvePoints[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
-            panningArr = [-1, panPoint]
+            panningArr = [-1, panPoint];
         }
 
         audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
@@ -352,8 +367,6 @@ class ScatterPlot {
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
 
-        // this.numPoints = this.GetXLength(constants.layer);
-        this.numPoints = this.curvePoints.length;
         this.groupLabels = this.GetGroupLabels();
     }
 

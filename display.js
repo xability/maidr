@@ -226,7 +226,7 @@ class Display {
                     output += '<p>' + plot.gradient[position.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.bestFitLinePoints[position.x] + '</p>\n';
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[position.x] + '</p>\n';
                 }
             }
         }
@@ -277,7 +277,7 @@ class Display {
             let medium = low + range;
             let medium_high = medium + range;
             let high = medium_high + range;
-            for (let i = 0; i < plot.numPoints; i++) {
+            for (let i = 0; i < plot.curvePoints.length; i++) {
                 if (plot.curvePoints[i] <= low) {
                     brailleArray.push("⣀");
                 } else if (plot.curvePoints[i] <= medium) {
