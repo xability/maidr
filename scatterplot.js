@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             for (let i = plot.curvePoints.length - 1; i >= position.x; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
-            panningArr = [1, panPoint];
+            panningArr = [panPoint, 1];
         } else if (dir == 'reverse-left') {
             for (let i = 0; i <= position.x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
