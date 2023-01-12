@@ -9,7 +9,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.chartType = "scatterplot";
     let audio = new Audio();
     let display = new Display();
-    let point = new Point();
+    let layer0Point = new Layer0Point();
+    let layer1Point = new Layer1Point();
     let lastPlayed = '';
     let lastx = 0;
 
@@ -72,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update text, display, and audio
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && constants.layer == 0) {
             UpdateAll();
         }
     });
@@ -83,7 +84,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         // @TODO
         // only line layer can access to braille display
-        if (constants.layer == 1) {
+        if (e.which == 9) {
+        } else if (constants.layer == 1) {
             lockPosition();
             constants.brailleInput.setSelectionRange(position.x, position.x);
             if (e.which == 9) {
@@ -107,8 +109,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
             if (updateInfoThisRound) {
                 UpdateAllBraille();
-            }
+            } 
 
+        } else {
+            e.preventDefault();
         }
     });
 
@@ -217,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.displayValues(plot);
         }
         if (constants.showRect) {
-            point.UpdatePointDisplay();
+            layer0Point.UpdatePointDisplay();
         }
         if (constants.audioPlay) {
             plot.PlayTones(audio);
@@ -228,8 +232,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInAutoplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect && constants.layer == 0) {
-            point.UpdatePointDisplay();
+        if (constants.showRect) {
+            layer0Point.UpdatePointDisplay();
         }
         if (constants.audioPlay) {
             plot.PlayTones(audio);
@@ -243,9 +247,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.displayValues(plot);
         }
         if (constants.showRect) {
-            point.UpdatePointDisplay();
+            if (constants.layer == 0) {
+                layer0Point.UpdatePointDisplay();
+            } else if (constants.layer == 1) {
+                layer1Point.UpdatePointDisplay();
+            }
         }
-        if (constants.audioPlay) {
+        if (constants.audioPlay && constants.layer == 0) {
             plot.PlayTones(audio);
         }
         display.UpdateBraillePos(plot);
@@ -288,31 +296,30 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // temp / todo, redo this with constants.minY or something after we find the right we of points
         let svgMin = 0;
         let svgMax = 0;
-        for (let i = 0; i < plot.svgLineY.length; i++) {
+        for (let i = 0; i < plot.curvePoints.length; i++) {
             if (i == 0) {
-                svgMin = plot.svgLineY[i];
+                svgMin = plot.curvePoints[i];
                 svgMax = plot.svgLineY[i];
             }
             if (plot.svgLineY[i] < svgMin) {
-                svgMin = plot.svgLineY[i];
+                svgMin = plot.curvePoints[i];
             }
             if (plot.svgLineY[i] > svgMax) {
-                svgMax = plot.svgLineY[i];
+                svgMax = plot.curvePoints[i];
             }
         }
 
-        let pointArr = [];
         let freqArr = [];
         let panningArr = [];
         let panPoint = audio.SlideBetween(position.x, 0, plot.numPoints - 1, -1, 1);
         if (dir == 'right') {
-            for (let i = position.x; i < plot.svgLineY.length; i++) {
-                freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+            for (let i = position.x; i < plot.curvePoints.length; i++) {
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1]
         } else {
             for (let i = position.x; i > 0; i--) {
-                freqArr.push(audio.SlideBetween(plot.svgLineY[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], svgMin, svgMax, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint]
         }
@@ -328,30 +335,26 @@ class ScatterPlot {
 
         // layer = 0
         this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
-        this.svgPointsX = this.GetSvgPointCoords()[0];
-        this.svgPointsY = this.GetSvgPointCoords()[1];
-        this.x = this.GetPointValues()[0];
-        this.y = this.GetPointValues()[1];
-        constants.minY = Math.min(...hwy);
-        constants.maxY = Math.max(...hwy);
+        this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
+        this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+        this.x = this.GetPointValues()[0]; // actual values of x
+        this.y = this.GetPointValues()[1]; // actual values of y
+        constants.minY = Math.min(...hwy); // min of actual values of y
+        constants.maxY = Math.max(...hwy); // max of actual values of y
 
         // layer = 1
         this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
-        this.svgLineX = this.GetSvgLineCoords()[0];
-        this.svgLineY = this.GetSvgLineCoords()[1];
-        this.bestFitLinePoints = this.GetBestFitLinePoints();
-        this.layer1minY = Math.min(...prediciton_array);
-        this.layer1maxY = Math.max(...prediciton_array);
+        this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
+        this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
+        // this.bestFitLinePoints = this.GetBestFitLinePoints();
+        this.curvePoints = this.GetSmoothCurvePoints(); // actual values of y 
+        this.curveMinY = Math.min(...this.curvePoints); 
+        this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
-        // console.log(this.svgLineY);
-        // console.log(this.bestFitLinePoints); // have different lengths; is visual display needed for best fit line?
 
         // this.numPoints = this.GetXLength(constants.layer);
-        this.numPoints = this.x.length;
+        this.numPoints = this.curvePoints.length;
         this.groupLabels = this.GetGroupLabels();
-
-        console.log(this.x);
-        console.log(this.y);
     }
 
     // SelectLayer(layer) {
@@ -481,7 +484,7 @@ class ScatterPlot {
                         position.z = -1;
                     }
 
-                }, 0);
+                }, 0); // play all tones at the same time
             }
         } else if (constants.layer == 1) { // best fit line layer
             audio.playTone();
@@ -505,25 +508,35 @@ class ScatterPlot {
         return [X, Y];
     }
 
-    GetBestFitLinePoints() {
+    // GetBestFitLinePoints() {
+    //     let points = [];
+
+    //     for (let i = 0; i < displ.length; i++) {
+    //         if (!points.map(({ x }) => x).includes(displ[i]))
+    //             points.push({ 'x': displ[i], 'y': prediciton_array[i] });
+    //     }
+
+    //     points.sort(function (a, b) { return a.y - b.y });
+    //     points.sort(function (a, b) { return a.x - b.x });
+
+    //     return points.map(({ y }) => y);
+    // }
+
+    GetSmoothCurvePoints() {
         let points = [];
 
-        for (let i = 0; i < displ.length; i++) {
-            if (!points.map(({ x }) => x).includes(displ[i]))
-                points.push({ 'x': displ[i], 'y': prediciton_array[i] });
+        for (let i = 0; i < smooth_layer.length; i++) {
+            points.push(smooth_layer[i]['y']);
         }
 
-        points.sort(function (a, b) { return a.y - b.y });
-        points.sort(function (a, b) { return a.x - b.x });
-
-        return points.map(({ y }) => y);
+        return points;
     }
 
     GetGradient() {
         let gradients = [];
 
-        for (let i = 0; i < this.bestFitLinePoints.length - 1; i++) {
-            if (this.bestFitLinePoints[i + 1] - this.bestFitLinePoints[i] > 0) {
+        for (let i = 0; i < this.curvePoints.length - 1; i++) {
+            if (this.curvePoints[i + 1] - this.curvePoints[i] > 0) {
                 gradients.push('up');
             } else {
                 gradients.push('down');
@@ -536,7 +549,7 @@ class ScatterPlot {
     }
 };
 
-class Point {
+class Layer0Point {
     constructor() {
         this.x = plot.svgPointsX[0];
         this.y = plot.svgPointsY[0];
@@ -571,6 +584,49 @@ class Point {
         for (let i = 0; i < points.length; i++) {
             document.getElementsByClassName('highlight_point')[i].remove();
         }
+    }
+
+    UpdatePointDisplay() {
+        this.ClearPoints();
+        this.UpdatePoints();
+        this.PrintPoints();
+    }
+}
+
+class Layer1Point {
+    constructor() {
+        this.x = plot.svgLineX[0];
+        this.y = plot.svgLineY[0];
+        this.strokeWidth = 1.35;
+    }
+    
+    async UpdatePoints() {
+        await this.ClearPoints();
+        this.x = plot.svgLineX[position.x];
+        this.y = plot.svgLineY[position.x];
+    }
+
+    async PrintPoints() {
+        await this.ClearPoints();
+        await this.UpdatePoints();
+        const svgns = "http://www.w3.org/2000/svg";
+        var point = document.createElementNS(svgns, 'circle');
+        point.setAttribute('id', 'highlight_point');
+        point.setAttribute('cx', this.x);
+        point.setAttribute('cy', constants.svg.getBoundingClientRect().height - this.y);
+        point.setAttribute('r', 3.95);
+        point.setAttribute('stroke', constants.colorSelected);
+        point.setAttribute('stroke-width', this.strokeWidth);
+        point.setAttribute('fill', constants.colorSelected);
+        constants.svg.appendChild(point);
+    }
+
+    async ClearPoints() {
+        let points = document.getElementsByClassName('highlight_point');
+        for (let i = 0; i < points.length; i++) {
+            document.getElementsByClassName('highlight_point')[i].remove();
+        }
+        if (document.getElementById('highlight_point')) document.getElementById('highlight_point').remove();
     }
 
     UpdatePointDisplay() {

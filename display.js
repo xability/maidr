@@ -77,7 +77,7 @@ class Display {
     toggleLayerMode() {
         if (constants.layer == 0) {
             constants.layer = 1;
-            this.announceText("Layer 2: Line");
+            this.announceText("Layer 2: Smooth");
         } else if (constants.layer == 1) {
             constants.layer = 0;
             this.announceText("Layer 1: Point");
@@ -272,19 +272,19 @@ class Display {
                 }
             }
         } else if (constants.chartType == "scatterplot") {
-            let range = (constants.maxY - constants.minY) / 4;
-            let low = constants.minY + range;
+            let range = (plot.curveMaxY - plot.curveMinY) / 4;
+            let low = plot.curveMinY + range;
             let medium = low + range;
             let medium_high = medium + range;
             let high = medium_high + range;
             for (let i = 0; i < plot.numPoints; i++) {
-                if (plot.bestFitLinePoints[i] <= low) {
+                if (plot.curvePoints[i] <= low) {
                     brailleArray.push("⣀");
-                } else if (plot.bestFitLinePoints[i] <= medium) {
+                } else if (plot.curvePoints[i] <= medium) {
                     brailleArray.push("⠤");
-                } else if (plot.bestFitLinePoints[i] <= medium_high) {
+                } else if (plot.curvePoints[i] <= medium_high) {
                     brailleArray.push("⠒");
-                } else if (plot.bestFitLinePoints[i] <= high) {
+                } else if (plot.curvePoints[i] <= high) {
                     brailleArray.push("⠉");
                 }
             }
