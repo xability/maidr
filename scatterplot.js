@@ -64,16 +64,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         } else if (constants.layer == 1) {
             position.x = lastx;
-            if (e.which == 39 && (constants.isMac ? e.metaKey : e.ctrlKey)) {
-                if (e.shiftKey) {
+            if (e.which == 39 && e.shiftKey) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
                     PlayLine('right');
                 } else if (e.altKey) {
                     PlayLine('reverse-right');
                 }
             }
 
-            if (e.which == 37 && (constants.isMac ? e.metaKey : e.ctrlKey)) {
-                if (e.shiftKey) {
+            if (e.which == 37 && e.shiftKey) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
                     PlayLine('left');
                 } else if (e.altKey) {
                     PlayLine('reverse-left');
@@ -306,23 +306,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     function PlayLine(dir) {
         lastPlayed = dir;
-        console.log('playing smooth line');
-
-        // temp / todo, redo this with constants.minY or something after we find the right we of points
-        let svgMin = 0;
-        let svgMax = 0;
-        for (let i = 0; i < plot.curvePoints.length; i++) {
-            if (i == 0) {
-                svgMin = plot.curvePoints[i];
-                svgMax = plot.curvePoints[i];
-            }
-            if (plot.curvePoints[i] < svgMin) {
-                svgMin = plot.curvePoints[i];
-            }
-            if (plot.curvePoints[i] > svgMax) {
-                svgMax = plot.curvePoints[i];
-            }
-        }
 
         let freqArr = [];
         let panningArr = [];
@@ -332,8 +315,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
-        } else {
-            for (let i = position.x; i > 0; i--) {
+        } else if (dir == 'left') {
+            for (let i = position.x; i >= 0; i--) {
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+            }
+            panningArr = [-1, panPoint];
+        } else if (dir == 'reverse-right') {
+            for (let i = plot.curvePoints.length - 1; i >= position.x; i--) {
+                freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
+            }
+            panningArr = [1, panPoint];
+        } else if (dir == 'reverse-left') {
+            for (let i = 0; i <= position.x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
