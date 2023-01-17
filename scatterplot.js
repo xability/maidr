@@ -125,49 +125,45 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    let controlElements = [svg_container, brailleInput];
+    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+        controlElements[i].addEventListener("keydown", function (e) {
+
+            // B: braille mode
+            if (e.which == 66) {
+                display.toggleBrailleMode();
+                e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+                display.toggleTextMode();
+            }
+            // S: sonification mode
+            if (e.which == 83) {
+                display.toggleSonificationMode();
+            }
+
+            // page down /(fn+down arrow): point layer(0) 
+            if (e.which == 34 && constants.layer == 1) {
+                display.toggleLayerMode();
+                position.x = lastx;
+            }
+
+            // page up / (fn+up arrow): line layer(1)
+            if (e.which == 33 & constants.layer == 0) {
+                display.toggleLayerMode();
+                lastx = position.x;
+            }
+
+            // space: replay info but no other changes
+            if (e.which === 32) {
+                UpdateAll();
+            }
+
+        });
+    }
+
     document.addEventListener("keydown", function (e) {
-
-        // TESTING PLS REMOVE
-        if (e.which == 13) {
-            audio.playSmooth();
-        }
-
-        // B: braille mode
-        if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-        }
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
-        // S: sonification mode
-        if (e.which == 83) {
-            display.toggleSonificationMode();
-        }
-
-        // page down /(fn+down arrow): point layer(0) 
-        if (e.which == 34 && constants.layer == 1) {
-            display.toggleLayerMode();
-            position.x = lastx;
-        }
-
-        // page up / (fn+up arrow): line layer(1)
-        if (e.which == 33 & constants.layer == 0) {
-            display.toggleLayerMode();
-            lastx = position.x;
-        }
-
-        // space: replay info but no other changes
-        if (e.which === 32) {
-            UpdateAll();
-        }
-
-        // ctrl/cmd: stop autoplay
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) {
-            constants.KillAutoplay();
-        }
-
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
             // (ctrl/cmd)+(home/fn+left arrow): first element
@@ -605,7 +601,7 @@ class Layer1Point {
         this.y = plot.svgLineY[0];
         this.strokeWidth = 1.35;
     }
-    
+
     async UpdatePoints() {
         await this.ClearPoints();
         this.x = plot.svgLineX[position.x];

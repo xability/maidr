@@ -445,12 +445,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // todo for publish: probably start users at a help / menu section, and they can tab to svg
     setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
 
-    // menu controls
-    document.addEventListener("keydown", function (e) {
+    constants.svg_container.addEventListener("keydown", function (e) {
+        // Menu open
         if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
             menu.Toggle();
         }
     });
+
+    // menu close
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
     for (let i = 0; i < allClose.length; i++) {
         allClose[i].addEventListener("click", function (e) {
@@ -470,12 +472,19 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         });
     }
 
-    // tracker
+    // Global events
     document.addEventListener('keydown', function (e) {
+
+        // Tracker
         if (e.which == 121) {
             tracker.Save();
         } else {
             tracker.LogEvent(e);
+        }
+
+        // Kill autoplay
+        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
+            constants.KillAutoplay();
         }
     });
 

@@ -229,31 +229,33 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    let controlElements = [svg_container, brailleInput];
+    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+        controlElements[i].addEventListener("keydown", function (e) {
+
+            // B: braille mode
+            if (e.which == 66) {
+                display.toggleBrailleMode();
+                e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+                display.toggleTextMode();
+            }
+            // S: sonification mode
+            if (e.which == 83) {
+                display.toggleSonificationMode();
+            }
+
+            // space: replay info but no other changes
+            if (e.which === 32) {
+                UpdateAll();
+            }
+
+        });
+    }
+
     document.addEventListener("keydown", function (e) {
-
-        // B: braille mode
-        if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-        }
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
-        // S: sonification mode
-        if (e.which == 83) {
-            display.toggleSonificationMode();
-        }
-
-        // space: replay info but no other changes
-        if (e.which === 32) {
-            UpdateAll();
-        }
-
-        // ctrl/cmd: stop autoplay
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) {
-            constants.KillAutoplay();
-        }
 
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
 
