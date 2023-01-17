@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
-    let controlElements = [svg_container, brailleInput];
+    let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
 

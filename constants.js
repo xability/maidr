@@ -358,7 +358,9 @@ class Tracker {
         eventToLog.altKey = Object.assign(e.altKey);
         eventToLog.ctrlKey = Object.assign(e.ctrlKey);
         eventToLog.shiftKey = Object.assign(e.shiftKey);
-        eventToLog.focus = Object.assign(e.path[0].tagName);
+        if ( e.path ) {
+            eventToLog.focus = Object.assign(e.path[0].tagName);
+        }
 
         // settings etc, which we have to reassign otherwise they'll all be the same val
         if (!(constants.position === undefined || constants.position === null)) {
