@@ -160,6 +160,7 @@ class Display {
                 }
             }
         } else if (constants.chartType == "boxplot") {
+            // setup
             let val = 0;
             let numPoints = 1;
             let pointType = "";
@@ -174,6 +175,8 @@ class Display {
             } else {
                 val = plot.plotData[position.y][position.x].x;
             }
+
+            // set output
             if (constants.textMode == "off") {
                 // do nothing
             } else if (constants.textMode == "terse") {
@@ -185,8 +188,9 @@ class Display {
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
+                    output += plot.y_labels[position.y] + ", ";
                     if (numPoints > 1) output += numPoints + " ";
-                    output += plot.y_labels[position.y] + ' ' + plot.plotData[position.y][position.x].label;
+                    output += plot.plotData[position.y][position.x].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
