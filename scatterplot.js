@@ -125,51 +125,47 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    let controlElements = [constants.svg_container, constants.brailleInput];
+    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+        controlElements[i].addEventListener("keydown", function (e) {
+
+            // B: braille mode
+            if (e.which == 66) {
+                display.toggleBrailleMode();
+                e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+                display.toggleTextMode();
+            }
+            // S: sonification mode
+            if (e.which == 83) {
+                display.toggleSonificationMode();
+            }
+
+            // page down /(fn+down arrow): point layer(0) 
+            if (e.which == 34 && constants.layer == 1) {
+                display.toggleLayerMode();
+                position.x = lastx;
+            }
+
+            // page up / (fn+up arrow): line layer(1)
+            if (e.which == 33 & constants.layer == 0) {
+                display.toggleLayerMode();
+                lastx = position.x;
+            }
+
+            // space: replay info but no other changes
+            if (e.which === 32) {
+                UpdateAll();
+            }
+
+        });
+    }
+
     document.addEventListener("keydown", function (e) {
 
-        // TESTING PLS REMOVE
-        if (e.which == 13) {
-            audio.playSmooth();
-        }
-
-        // B: braille mode
-        if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-        }
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
-        // S: sonification mode
-        if (e.which == 83) {
-            display.toggleSonificationMode();
-        }
-
-        // page down /(fn+down arrow): point layer(0) 
-        if (e.which == 34 && constants.layer == 1) {
-            display.toggleLayerMode();
-            position.x = lastx;
-        }
-
-        // page up / (fn+up arrow): line layer(1)
-        if (e.which == 33 & constants.layer == 0) {
-            display.toggleLayerMode();
-            lastx = position.x;
-        }
-
-        // space: replay info but no other changes
-        if (e.which === 32) {
-            UpdateAll();
-        }
-
-        // ctrl/cmd: stop autoplay
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) {
-            constants.KillAutoplay();
-        }
-
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
-
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
                 position.x = 0;
@@ -181,6 +177,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x = plot.numPoints - 1;
                 UpdateAllBraille();
             }
+
+            // if you're only hitting control
+            if ( ! e.shiftKey ) {
+                audio.KillSmooth();
+            }
         }
 
         // period: speed up
@@ -188,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedUp();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
+                audio.KillSmooth();
                 if (lastPlayed == 'reverse-left') {
                     Autoplay('right', position.x, lastx);
                 } else if (lastPlayed == 'reverse-right') {
@@ -203,6 +205,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             constants.SpeedDown();
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
+                audio.KillSmooth();
                 if (lastPlayed == 'reverse-left') {
                     Autoplay('right', position.x, lastx);
                 } else if (lastPlayed == 'reverse-right') {
@@ -282,21 +285,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // clear old autoplay if exists
-        if (constants.autoplayId != null) {
+        if (constants.autoplayId) {
             constants.KillAutoplay();
+        }
+        if ( constants.isSmoothAutoplay ) {
+            audio.KillSmooth();
         }
 
         if (dir == "reverse-left" || dir == "reverse-right") {
             position.x = start;
         }
-
+        
         constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || position.x > plot.numPoints - 1) {
-                constants.KillAutoplay();
                 lockPosition();
             } else if (position.x == end) {
-                constants.KillAutoplay();
                 UpdateAllAutoplay();
             } else {
                 UpdateAllAutoplay();
@@ -310,26 +314,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let freqArr = [];
         let panningArr = [];
         let panPoint = audio.SlideBetween(position.x, 0, plot.curvePoints.length - 1, -1, 1);
+        let x = position.x < 0 ? 0 : position.x;
         if (dir == 'right') {
-            for (let i = position.x; i < plot.curvePoints.length; i++) {
+            for (let i = x; i < plot.curvePoints.length; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
         } else if (dir == 'left') {
-            for (let i = position.x; i >= 0; i--) {
+            for (let i = x; i >= 0; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
         } else if (dir == 'reverse-right') {
-            for (let i = plot.curvePoints.length - 1; i >= position.x; i--) {
+            for (let i = plot.curvePoints.length - 1; i >= x; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
         } else if (dir == 'reverse-left') {
-            for (let i = 0; i <= position.x; i++) {
+            for (let i = 0; i <= x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
+        }
+
+        if ( constants.isSmoothAutoplay ) {
+            audio.KillSmooth();
         }
 
         audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
@@ -605,7 +614,7 @@ class Layer1Point {
         this.y = plot.svgLineY[0];
         this.strokeWidth = 1.35;
     }
-    
+
     async UpdatePoints() {
         await this.ClearPoints();
         this.x = plot.svgLineX[position.x];

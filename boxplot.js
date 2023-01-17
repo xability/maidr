@@ -206,9 +206,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
-    document.addEventListener("keydown", function (e) {
-
-        // todo: put all this in a shared area since it's basically identical across all charts
+    // todo: put all this in a shared area since it's basically identical across all charts
+    let controlElements = [constants.svg_container, constants.brailleInput];
+    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+        controlElements[i].addEventListener("keydown", function (e) {
 
         // B: braille mode
         if (e.which == 66) {
@@ -228,9 +229,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             UpdateAll();
         }
 
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl/cmd (either one)
-            constants.KillAutoplay();
-        }
+        });
+    }
+
+    document.addEventListener("keydown", function (e) {
 
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
 

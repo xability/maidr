@@ -192,14 +192,15 @@ class Audio {
         gainArr.push(1e-4 * currentVol);
 
         const t = this.audioContext.currentTime;
-        const oscillator = this.audioContext.createOscillator();
-        oscillator.type = wave;
-        oscillator.frequency.setValueCurveAtTime(freqArr, t, currentDuration)
-        oscillator.start();
+        const smoothOscillator = this.audioContext.createOscillator();
+        smoothOscillator.type = wave;
+        smoothOscillator.frequency.setValueCurveAtTime(freqArr, t, currentDuration)
+        smoothOscillator.start();
+        constants.isSmoothAutoplay = true;
 
         // create gain for this event
-        const gainThis = this.audioContext.createGain();
-        gainThis.gain.setValueCurveAtTime(gainArr, t, currentDuration); // this is what makes the tones fade out properly and not clip
+        this.smoothGain = this.audioContext.createGain();
+        this.smoothGain.gain.setValueCurveAtTime(gainArr, t, currentDuration); // this is what makes the tones fade out properly and not clip
 
         let MAX_DISTANCE = 10000;
         let posZ = 1;
@@ -223,18 +224,29 @@ class Audio {
         // create panning
         const stereoPanner = this.audioContext.createStereoPanner();
         stereoPanner.pan.setValueCurveAtTime(panningArr, t, currentDuration);
-        oscillator.connect(gainThis);
-        gainThis.connect(stereoPanner);
+        smoothOscillator.connect(this.smoothGain);
+        this.smoothGain.connect(stereoPanner);
         stereoPanner.connect(panner);
         panner.connect(this.compressor);
 
         // play sound for duration
         setTimeout(() => {
             panner.disconnect();
-            gainThis.disconnect();
-            oscillator.stop();
-            oscillator.disconnect();
+            this.smoothGain.disconnect();
+            smoothOscillator.stop();
+            smoothOscillator.disconnect();
+            constants.isSmoothAutoplay = false;
         }, currentDuration * 1e3 * 2);
+    }
+
+    KillSmooth() {
+        if ( this.smoothGain) {
+            this.smoothGain.gain.cancelScheduledValues(0);
+            this.smoothGain.gain.exponentialRampToValueAtTime(0.0001, this.audioContext.currentTime + 0.03);
+            constants.isSmoothAutoplay = false;
+        }
+        console.log('killing smooth');
+
     }
 
     SlideBetween(val, a, b, min, max) {

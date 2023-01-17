@@ -125,29 +125,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
+    let controlElements = [constants.svg_container, constants.brailleInput];
+    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+        controlElements[i].addEventListener("keydown", function (e) {
+
+            // B: braille mode
+            if (e.which == 66) {
+                display.toggleBrailleMode();
+                e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+                display.toggleTextMode();
+            }
+            // S: sonification mode
+            if (e.which == 83) {
+                display.toggleSonificationMode();
+            }
+
+            if (e.which === 32) { // space 32, replay info but no other changes
+                UpdateAll();
+            }
+        });
+    }
+
     document.addEventListener("keydown", function (e) {
-
-        // B: braille mode
-        if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-        }
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
-        // S: sonification mode
-        if (e.which == 83) {
-            display.toggleSonificationMode();
-        }
-
-        if (e.which === 32) { // space 32, replay info but no other changes
-            UpdateAll();
-        }
-
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
-            constants.KillAutoplay();
-        }
 
         // ctrl/cmd: stop autoplay
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -258,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (dir == "reverse-right" || dir == "reverse-left") {
             position.x = start;
         }
-        
+
         constants.autoplayId = setInterval(function () {
             position.x += step;
             if (position.x < 0 || plot.bars.length - 1 < position.x) {

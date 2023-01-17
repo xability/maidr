@@ -160,40 +160,47 @@ class Display {
                 }
             }
         } else if (constants.chartType == "boxplot") {
+            // setup
             let val = 0;
             let numPoints = 1;
             let pointType = "";
             if (plot.plotData[position.y][position.x].type == "outlier") {
                 val = plot.plotData[position.y][position.x].values.join(', ');
-                if (plot.plotData[position.y][position.x].values.length > 1) {
+                if (plot.plotData[position.y][position.x].values.length > 0) {
                     numPoints = plot.plotData[position.y][position.x].values.length;
+                } else {
+                    numPoints = 0;
                 }
+
                 pointType = "outlier";
             } else if (plot.plotData[position.y][position.x].type == "blank") {
                 val = resources.GetString('empty');
             } else {
                 val = plot.plotData[position.y][position.x].x;
             }
+
+            // set output
             if (constants.textMode == "off") {
                 // do nothing
             } else if (constants.textMode == "terse") {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
-                    if (numPoints > 1) output += numPoints + " ";
+                    if (pointType == "outlier") output += numPoints + " ";
                     output += plot.plotData[position.y][position.x].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    if (numPoints > 1) output += numPoints + " ";
-                    output += plot.y_labels[position.y] + ' ' + plot.plotData[position.y][position.x].label;
+                    output += plot.y_labels[position.y] + ", ";
+                    if (pointType == "outlier") output += numPoints + " ";
+                    output += plot.plotData[position.y][position.x].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
-                    if (numPoints > 1) output += numPoints + " ";
+                    if (pointType == "outlier") output += numPoints + " ";
                     output += plot.plotData[position.y][position.x].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
@@ -201,7 +208,7 @@ class Display {
                 } else { // new box nav (up / down)
                     output += '<p>';
                     output += plot.y_group_label + ' is ' + plot.y_labels[position.y] + ', ';
-                    if (numPoints > 1) output += numPoints + " ";
+                    if (pointType == "outlier") output += numPoints + " ";
                     output += plot.plotData[position.y][position.x].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
