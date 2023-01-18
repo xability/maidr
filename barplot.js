@@ -78,7 +78,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // do nothing, let the user Tab away 
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            if (e.target.selectionStart > e.target.value.length - 2) {
+                e.preventDefault();
+            } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     // lastx = position.x;
                     position.x -= 1;
