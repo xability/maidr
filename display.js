@@ -60,16 +60,32 @@ class Display {
     }
 
     toggleSonificationMode() {
-        if (constants.audioPlay == 0) {
-            constants.audioPlay = 1;
-            if (constants.chartType == "boxplot") {
-                this.announceText(resources.GetString('son_des'));
-            } else {
-                this.announceText(resources.GetString('son_on'));
+        if (constants.chartType == "scatterplot" && constants.layer == 0) {
+            if (constants.sonifMode == "off") {
+                constants.audioPlay = 1;
+                constants.sonifMode = "sep";
+                this.announceText(resources.GetString("son_sep"));
+            } else if (constants.sonifMode == "sep") {
+                constants.audioPlay = 1;
+                constants.sonifMode = "same";
+                this.announceText(resources.GetString("son_same"));
+            } else if (constants.sonifMode == "same") {
+                constants.audioPlay = 0;
+                constants.sonifMode = "off";
+                this.announceText(resources.GetString("son_off"));
             }
         } else {
-            constants.audioPlay = 0;
-            this.announceText(resources.GetString('son_off'));
+            if (constants.audioPlay == 0) {
+                constants.audioPlay = 1;
+                if (constants.chartType == "boxplot") {
+                    this.announceText(resources.GetString('son_des'));
+                } else {
+                    this.announceText(resources.GetString('son_on'));
+                }
+            } else {
+                constants.audioPlay = 0;
+                this.announceText(resources.GetString('son_off'));
+            }
         }
 
     }
