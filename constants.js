@@ -378,9 +378,6 @@ class Tracker {
         if (!(constants.minY === undefined || constants.minY === null)) {
             eventToLog.minY = Object.assign(constants.minY);
         }
-        if (!(constants.chartType === undefined || constants.chartType === null)) {
-            eventToLog.chartType = Object.assign(constants.chartType);
-        }
         if (!(constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null)) {
             eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
         }
@@ -429,6 +426,14 @@ class Tracker {
         if (!(constants.layer === undefined || constants.layer === null)) {
             eventToLog.scatterplotLayer = Object.assign(constants.layer);
         }
+        if (!(constants.chartType === undefined || constants.chartType === null)) {
+            eventToLog.chartType = Object.assign(constants.chartType);
+        }
+        if (!(constants.infoDiv.innerHTML === undefined || constants.infoDiv.innerHTML === null)) {
+            eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
+        }
+        
+        console.log(eventToLog);
 
         this.data.events.push(eventToLog);
 
@@ -477,6 +482,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         });
     }
 
+    // auto turn off braille mode if we leave the braille box
+    constants.brailleInput.addEventListener('focusout', function(e) {
+        display.toggleBrailleMode('off');
+    });
+
     // Global events
     document.addEventListener('keydown', function (e) {
 
@@ -486,6 +496,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         } else {
             tracker.LogEvent(e);
         }
+
 
         // Kill autoplay
         if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)

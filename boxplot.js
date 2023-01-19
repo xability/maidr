@@ -9,7 +9,6 @@
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let display = new Display();
     let lastPlayed = '';
     let lastx = 0;
-    console.log(position.x);
+
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
