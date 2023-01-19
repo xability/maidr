@@ -478,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
 
     // auto turn off braille mode if we leave the braille box
-    brailleInput.addEventListener('focusout', function(e) {
+    constants.brailleInput.addEventListener('focusout', function(e) {
         display.toggleBrailleMode('off');
     });
 
