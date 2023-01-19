@@ -477,6 +477,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         });
     }
 
+    // auto turn off braille mode if we leave the braille box
+    brailleInput.addEventListener('focusout', function(e) {
+        display.toggleBrailleMode('off');
+    });
+
     // Global events
     document.addEventListener('keydown', function (e) {
 
@@ -486,6 +491,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         } else {
             tracker.LogEvent(e);
         }
+
 
         // Kill autoplay
         if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)

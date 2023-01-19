@@ -37,8 +37,11 @@ class Display {
         this.announceText('<span aria-hidden="true">Text mode:</span> ' + constants.textMode);
     }
 
-    toggleBrailleMode() {
-        if (constants.brailleMode == "off") {
+    toggleBrailleMode(onoff) {
+        if ( typeof(onoff) === 'undefined' ) {
+            onoff = ! constants.brailleMode;
+        }
+        if (onoff == "on") {
             constants.brailleMode = "on";
             constants.brailleInput.classList.remove('hidden');
             constants.brailleInput.focus();
