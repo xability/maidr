@@ -39,7 +39,7 @@ class Display {
 
     toggleBrailleMode(onoff) {
         if ( typeof(onoff) === 'undefined' ) {
-            onoff = ! constants.brailleMode;
+            onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
             constants.brailleMode = "on";

@@ -203,6 +203,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
 
+        // auto turn off braille mode if we leave the braille box
+        constants.brailleInput.addEventListener('focusout', function(e) {
+            display.toggleBrailleMode('off');
+        });
+
     });
 
     // todo: put all this in a shared area since it's basically identical across all charts
