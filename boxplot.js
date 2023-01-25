@@ -9,7 +9,6 @@
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let display = new Display();
     let lastPlayed = '';
     let lastx = 0;
-    console.log(position.x);
+
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -203,6 +202,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
+
+        // auto turn off braille mode if we leave the braille box
+        constants.brailleInput.addEventListener('focusout', function(e) {
+            display.toggleBrailleMode('off');
+        });
 
     });
 
