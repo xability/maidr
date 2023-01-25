@@ -146,7 +146,7 @@ class Resources {
                 "son_comp": "Sonification compare",
                 "son_ch": "Sonification chord",
                 "son_sep": "Sonification separate",
-                "son_same": "Sonification same",
+                "son_same": "Sonification combined",
                 "empty": "Empty"
             }
         }
