@@ -196,12 +196,12 @@ class Menu {
                                         <td>${constants.control} + Arrow key</td>
                                     </tr>
                                     <tr>
-                                        <td>Autoplay speed up</td>
-                                        <td>.</td>
+                                        <td>Select the first element</td>
+                                        <td>${constants.control} + ${constants.home}</td>
                                     </tr>
                                     <tr>
-                                        <td>Autoplay speed down</td>
-                                        <td>,</td>
+                                        <td>Select the last element</td>
+                                        <td>${constants.control} + ${constants.end}</td>
                                     </tr>
                                     <tr>
                                         <td>Toggle Braille Mode</td>
@@ -220,26 +220,25 @@ class Menu {
                                         <td>Space</td>
                                     </tr>
                                     <tr>
-                                        <td>Autoplay in a direction</td>
+                                        <td>Auto-play outward in direction of arrow</td>
                                         <td>${constants.control} + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
-                                        <td>Reverse Autoplay in a direction</td>
+                                        <td>Auto-play inward in direction of arrow</td>
                                         <td>${constants.alt} + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
-                                        <td>Stop Autoplay</td>
+                                        <td>Stop Auto-play</td>
                                         <td>${constants.control}</td>
                                     </tr>
                                     <tr>
-                                        <td>Select the first element</td>
-                                        <td>${constants.control} + ${constants.home}</td>
+                                        <td>Auto-play speed up</td>
+                                        <td>.</td>
                                     </tr>
                                     <tr>
-                                        <td>Select the last element</td>
-                                        <td>${constants.control} + ${constants.end}</td>
+                                        <td>Auto-play speed down</td>
+                                        <td>,</td>
                                     </tr>
-
                                 </tbody>
                             </table>
                         </div>
