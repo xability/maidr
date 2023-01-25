@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which == 33 && constants.layer == 0) {
                 display.toggleLayerMode();
                 lastx = position.x;
+                // position.x = 0; // why not working?
             }
 
             // space: replay info but no other changes
@@ -523,7 +524,7 @@ class ScatterPlot {
     }
 
     PlayTones(audio) {
-        if (constants.layer == 0) { // points layer
+        if (constants.layer == 0) { // point layer
             if (plot.y[position.x].length == 1) {
                 audio.playTone();
             } else {
