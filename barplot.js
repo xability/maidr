@@ -310,7 +310,6 @@ class BarChart {
         this.plotLegend = this.GetLegend();
 
         constants.maxX = this.bars.length - 1;
-        constants.maxY = Number(constants.svg.getAttribute('height').replace(/\D/g, '')); // set max height as entire chart height, not max across all bars
 
         this.autoplay = null;
     }
@@ -323,6 +322,11 @@ class BarChart {
         for (let i = 0; i < this.bars.length; i++) {
             plotData.push(this.bars[i].getAttribute('height'));
         }
+
+        constants.minY = Math.min(...plotData);
+        constants.maxY = Math.max(...plotData);
+        console.log(constants.minY);
+        console.log(constants.maxY);
 
         return plotData;
     }
