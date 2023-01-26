@@ -171,6 +171,7 @@ class Audio {
     }
 
     playSmooth(freqArr=[600, 500, 400, 300], currentDuration=2, panningArr=[-1, 0, 1], currentVol = 1, wave = 'sine') {
+        // todo: make smooth duration dependant on how much line there is to do. Like, at max it should be max duration, but if we only have like a tiny bit to play we should just play for a tiny bit
 
         let gainArr = new Array(freqArr.length * 3).fill(.5 * currentVol);
         gainArr.push(1e-4 * currentVol);
@@ -214,7 +215,7 @@ class Audio {
         panner.connect(this.compressor);
 
         // play sound for duration
-        setTimeout(() => {
+        constants.smoothId = setTimeout(() => {
             panner.disconnect();
             this.smoothGain.disconnect();
             smoothOscillator.stop();
@@ -273,12 +274,14 @@ class Audio {
     }
 
     KillSmooth() {
-        if ( this.smoothGain) {
+        if ( constants.smoothId ) {
             this.smoothGain.gain.cancelScheduledValues(0);
             this.smoothGain.gain.exponentialRampToValueAtTime(0.0001, this.audioContext.currentTime + 0.03);
+
+            clearTimeout(constants.smoothId);
+
             constants.isSmoothAutoplay = false;
         }
-        console.log('killing smooth');
 
     }
 
