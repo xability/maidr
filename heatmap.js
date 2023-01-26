@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
     constants.plotId = 'geom_rect.rect.2.1';
-    window.position = new Position(-1, -1);
+    window.position = new Position(0,0);
     window.plot = new HeatMap();
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
+        let isAtEnd = false;
 
         // right arrow 39
         if (e.which === 39) {
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         }
@@ -54,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x -= 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         }
@@ -76,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y -= 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 0;
         }
@@ -98,14 +99,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 0;
         }
 
         // update text, display, and audio
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             UpdateAll();
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
     });
 
@@ -134,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x += 1;
                     updateInfoThisRound = true;
-                    lockPosition();
+                    isAtEnd = lockPosition();
                 }
 
                 // we need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
@@ -161,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x += -1;
                     updateInfoThisRound = true;
-                    lockPosition();
+                    isAtEnd = lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
@@ -187,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.y += 1;
                     updateInfoThisRound = true;
-                    lockPosition();
+                    isAtEnd = lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
@@ -213,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.y += -1;
                     updateInfoThisRound = true;
-                    lockPosition();
+                    isAtEnd = lockPosition();
                 }
 
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
@@ -229,8 +233,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.toggleBrailleMode('off');
         });
 
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             UpdateAllBraille();
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
     });
 
@@ -321,18 +328,25 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // helper functions
     function lockPosition() {
         // lock to min / max postions
+        let isLockNeeded = false;
         if (position.x < 0) {
             position.x = 0;
+            isLockNeeded = true;
         }
         if (position.x > plot.num_cols - 1) {
             position.x = plot.num_cols - 1;
+            isLockNeeded = true;
         }
         if (position.y < 0) {
             position.y = 0;
+            isLockNeeded = true;
         }
         if (position.y > plot.num_rows - 1) {
             position.y = plot.num_rows - 1;
+            isLockNeeded = true;
         }
+
+        return isLockNeeded;
     }
 
     function UpdateAll() {
