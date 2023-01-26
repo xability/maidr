@@ -29,15 +29,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     if (e.shiftKey) {
                         // lastx = position.x;
                         position.x -= 1;
-                        Autoplay('right', position.x, plot.x.length);
+                        Autoplay('outward_right', position.x, plot.x.length);
                     } else {
-                        console.log(position.x);
                         position.x = plot.x.length - 1;
                         updateInfoThisRound = true;
                     }
                 } else if (e.altKey && e.shiftKey && position.x != plot.x.length - 1) {
                     lastx = position.x;
-                    Autoplay('reverse-right', plot.x.length, position.x);
+                    Autoplay('inward_right', plot.x.length, position.x);
                 } else {
                     position.x += 1;
                     updateInfoThisRound = true;
@@ -51,14 +50,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     if (e.shiftKey) {
                         // lastx = position.x;
                         position.x += 1;
-                        Autoplay('left', position.x, -1);
+                        Autoplay('outward_left', position.x, -1);
                     } else {
                         position.x = 0;
                         updateInfoThisRound = true;
                     }
                 } else if (e.altKey && e.shiftKey && position.x != 0) {
                     lastx = position.x;
-                    Autoplay('reverse-left', -1, position.x);
+                    Autoplay('inward_left', -1, position.x);
                 } else {
                     position.x -= 1;
                     updateInfoThisRound = true;
@@ -69,17 +68,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.x = lastx;
             if (e.which == 39 && e.shiftKey) {
                 if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
-                    PlayLine('right');
+                    PlayLine('outward_right');
                 } else if (e.altKey) {
-                    PlayLine('reverse-right');
+                    PlayLine('inward_right');
                 }
             }
 
             if (e.which == 37 && e.shiftKey) {
                 if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
-                    PlayLine('left');
+                    PlayLine('outward_left');
                 } else if (e.altKey) {
-                    PlayLine('reverse-left');
+                    PlayLine('inward_left');
                 }
             }
         }
@@ -109,14 +108,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         position.x -= 1;
-                        Autoplay('right', position.x, plot.curvePoints.length);
+                        Autoplay('outward_right', position.x, plot.curvePoints.length);
                     } else {
                         position.x = plot.curvePoints.length - 1;
                         updateInfoThisRound = true;
                     }
                 } else if (e.altKey && e.shiftKey && position.x != plot.curvePoints.length - 1) {
                     lastx = position.x;
-                    Autoplay('reverse-right', plot.curvePoints.length, position.x);
+                    Autoplay('inward_right', plot.curvePoints.length, position.x);
                 } else {
                     position.x += 1;
                     updateInfoThisRound = true;
@@ -128,14 +127,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     if (e.shiftKey) {
                         // lastx = position.x;
                         position.x += 1;
-                        Autoplay('left', position.x, -1);
+                        Autoplay('outward_left', position.x, -1);
                     } else {
                         position.x = 0; // go all the way
                         updateInfoThisRound = true;
                     }
                 } else if (e.altKey && e.shiftKey && position.x != 0) {
                     lastx = position.x;
-                    Autoplay('reverse-left', -1, position.x);
+                    Autoplay('inward_left', -1, position.x);
                 } else {
                     position.x -= 1;
                     updateInfoThisRound = true;
@@ -229,10 +228,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 audio.KillSmooth();
-                if (lastPlayed == 'reverse-left') {
-                    Autoplay('right', position.x, lastx);
-                } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x, lastx);
+                if (lastPlayed == 'inward_left') {
+                    Autoplay('outward_right', position.x, lastx);
+                } else if (lastPlayed == 'inward_right') {
+                    Autoplay('outward_left', position.x, lastx);
                 } else {
                     Autoplay(lastPlayed, position.x, lastx);
                 }
@@ -245,10 +244,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 audio.KillSmooth();
-                if (lastPlayed == 'reverse-left') {
-                    Autoplay('right', position.x, lastx);
-                } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x, lastx);
+                if (lastPlayed == 'inward_left') {
+                    Autoplay('outward_right', position.x, lastx);
+                } else if (lastPlayed == 'inward_right') {
+                    Autoplay('outward_left', position.x, lastx);
                 } else {
                     Autoplay(lastPlayed, position.x, lastx);
                 }
@@ -319,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function Autoplay(dir, start, end) {
         lastPlayed = dir;
         let step = 1; // default right and reverse left
-        if (dir == "left" || dir == "reverse-right") {
+        if (dir == "outward_left" || dir == "inward_right") {
             step = -1;
         }
 
@@ -338,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             audio.KillSmooth();
         }
 
-        if (dir == "reverse-left" || dir == "reverse-right") {
+        if (dir == "inward_left" || dir == "inward_right") {
             position.x = start;
         }
         
@@ -347,6 +346,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // autoplay for two layers: point layer & line layer in braille
             // plot.numPoints is not available anymore
             if (position.x < 0 || position.x > numPoints - 1) { 
+                constants.KillAutoplay();
                 lockPosition();
             } else if (position.x == end) {
                 constants.KillAutoplay();
@@ -364,22 +364,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let panningArr = [];
         let panPoint = audio.SlideBetween(position.x, 0, plot.curvePoints.length - 1, -1, 1);
         let x = position.x < 0 ? 0 : position.x;
-        if (dir == 'right') {
+        if (dir == 'outward_right') {
             for (let i = x; i < plot.curvePoints.length; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
-        } else if (dir == 'left') {
+        } else if (dir == 'outward_left') {
             for (let i = x; i >= 0; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, -1];
-        } else if (dir == 'reverse-right') {
+        } else if (dir == 'inward_right') {
             for (let i = plot.curvePoints.length - 1; i >= x; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [1, panPoint];
-        } else if (dir == 'reverse-left') {
+        } else if (dir == 'inward_left') {
             for (let i = 0; i <= x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
