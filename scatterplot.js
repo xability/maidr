@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
-        console.log(positionL1.x);
+        
         // @TODO
         // only line layer can access to braille display
         if (e.which == 9) {
