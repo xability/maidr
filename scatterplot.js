@@ -411,7 +411,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
 
-
     }
 });
 
