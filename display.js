@@ -140,7 +140,7 @@ class Display {
             constants.brailleInput.setSelectionRange(adjustedPosX, adjustedPosX);
 
         } else if (constants.chartType == "scatterplot") {
-            constants.brailleInput.setSelectionRange(position.x, position.x);
+            constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
         }
     }
 
@@ -254,10 +254,10 @@ class Display {
                 } else if (constants.textMode == "terse") {
                     // terse mode: gradient trend
                     // output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
-                    output += '<p>' + plot.gradient[position.x] + '<p>\n';
+                    output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[position.x] + '</p>\n';
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[positionL1.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[positionL1.x] + '</p>\n';
                 }
             }
         }

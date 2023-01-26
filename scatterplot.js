@@ -13,9 +13,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let layer1Point = new Layer1Point();
 
     let lastPlayed = ''; // for autoplay use
-    let lastx = 0; // for autoplay use
-    let layer0x = 0; // for changing layer use (temp)
-    let layer1x = 0; // for changing layer use (temp)
+    let lastx = 0; // for layer 0 autoplay use
+    let lastx1 = 0; // for layer 1 autoplay use
+
+    window.positionL1 = new Position(lastx1, lastx1);
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -68,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
             }
         } else if (constants.layer == 1) {
-            position.x = lastx;
+            positionL1.x = lastx1;
             if (e.which == 39 && e.shiftKey) {
                 if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
                     PlayLine('outward_right');
@@ -100,33 +101,33 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
-
+        console.log(positionL1.x);
         // @TODO
         // only line layer can access to braille display
         if (e.which == 9) {
-            constants.brailleInput.setSelectionRange(position.x, position.x);
+            constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
         } else if (constants.layer == 1) {
             lockPosition();
             if (e.which == 9) {
             } else if (e.which == 39) { // right arrow
                 e.preventDefault();
-                constants.brailleInput.setSelectionRange(position.x, position.x);
+                constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
                 if (e.target.selectionStart > e.target.value.length - 2) {
                     e.preventDefault();
                 } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
-                        position.x -= 1;
-                        Autoplay('outward_right', position.x, plot.curvePoints.length);
+                        positionL1.x -= 1;
+                        Autoplay('outward_right', positionL1.x, plot.curvePoints.length);
                     } else {
-                        position.x = plot.curvePoints.length - 1;
+                        positionL1.x = plot.curvePoints.length - 1;
                         updateInfoThisRound = true;
                         isAtEnd = lockPosition();
                     }
-                } else if (e.altKey && e.shiftKey && position.x != plot.curvePoints.length - 1) {
-                    lastx = position.x;
-                    Autoplay('inward_right', plot.curvePoints.length, position.x);
+                } else if (e.altKey && e.shiftKey && positionL1.x != plot.curvePoints.length - 1) {
+                    lastx1 = positionL1.x;
+                    Autoplay('inward_right', plot.curvePoints.length, positionL1.x);
                 } else {
-                    position.x += 1;
+                    positionL1.x += 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
@@ -135,18 +136,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
                     if (e.shiftKey) {
                         // lastx = position.x;
-                        position.x += 1;
-                        Autoplay('outward_left', position.x, -1);
+                        positionL1.x += 1;
+                        Autoplay('outward_left', positionL1.x, -1);
                     } else {
-                        position.x = 0; // go all the way
+                        positionL1.x = 0; // go all the way
                         updateInfoThisRound = true;
                         isAtEnd = lockPosition();
                     }
-                } else if (e.altKey && e.shiftKey && position.x != 0) {
-                    lastx = position.x;
-                    Autoplay('inward_left', -1, position.x);
+                } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
+                    lastx1 = positionL1.x;
+                    Autoplay('inward_left', -1, positionL1.x);
                 } else {
-                    position.x -= 1;
+                    positionL1.x -= 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
@@ -191,15 +192,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
             // page down /(fn+down arrow): point layer(0) 
             if (e.which == 34 && constants.layer == 1) {
+                lastx1 = positionL1.x;
                 display.toggleLayerMode();
-                position.x = lastx;
             }
 
             // page up / (fn+up arrow): line layer(1)
             if (e.which == 33 && constants.layer == 0) {
                 display.toggleLayerMode();
-                lastx = position.x;
-                // position.x = 0; // why not working?
             }
 
             // space: replay info but no other changes
@@ -215,7 +214,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
-                position.x = 0;
+                if (constants.layer == 0) {
+                    position.x = 0;
+                } else if (constants.layer == 1) {
+                    positionL1.x = 0;
+                }
                 UpdateAllBraille();
             }
 
@@ -224,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.layer == 0) {
                     position.x = plot.y.length - 1;
                 } else {
-                    position.x = plot.curvePoints.length - 1;
+                    positionL1.x = plot.curvePoints.length - 1;
                 }
                 UpdateAllBraille();
             }
@@ -242,11 +245,23 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 audio.KillSmooth();
                 if (lastPlayed == 'inward_left') {
-                    Autoplay('outward_right', position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay('outward_right', position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay('outward_right', positionL1.x, lastx1);
+                    }
                 } else if (lastPlayed == 'inward_right') {
-                    Autoplay('outward_left', position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay('outward_left', position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay('outward_left', positionL1.x, lastx1);
+                    }
                 } else {
-                    Autoplay(lastPlayed, position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay(lastPlayed, position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay(lastPlayed, positionL1.x, lastx1);
+                    }
                 }
             }
         }
@@ -258,11 +273,23 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 audio.KillSmooth();
                 if (lastPlayed == 'inward_left') {
-                    Autoplay('outward_right', position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay('outward_right', position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay('outward_right', positionL1.x, lastx1);
+                    }
                 } else if (lastPlayed == 'inward_right') {
-                    Autoplay('outward_left', position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay('outward_left', position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay('outward_left', positionL1.x, lastx1);
+                    }
                 } else {
-                    Autoplay(lastPlayed, position.x, lastx);
+                    if (constants.layer == 0) {
+                        Autoplay(lastPlayed, position.x, lastx);
+                    } else if (constants.layer == 1) {
+                        Autoplay('outward_left', positionL1.x, lastx1);
+                    }
                 }
             }
         }
@@ -272,18 +299,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (position.x < 0) {
-            position.x = 0;
-            isLockNeeded = true;
-        }
         if (constants.layer == 0) {
+            if (position.x < 0) {
+                position.x = 0;
+                isLockNeeded = true;
+            }
             if (position.x > plot.x.length - 1) {
                 position.x = plot.x.length - 1;
                 isLockNeeded = true;
             }
-        } else {
-            if (position.x > plot.curvePoints - 1) {
-                position.x = plot.curvePoints - 1;
+        } else if (constants.layer == 1) {
+            if (positionL1.x < 0) {
+                positionL1.x = 0;
+                isLockNeeded = true;
+            } 
+            if (positionL1.x > plot.curvePoints - 1) {
+                positionL1.x = plot.curvePoints - 1;
                 isLockNeeded = true;
             }
         }
@@ -341,13 +372,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             step = -1;
         }
 
-        let numPoints;
-        if (constants.layer == 0) {
-            numPoints = plot.y.length;
-        } else if (constants.layer == 1) {
-            numPoints = plot.curvePoints.length;
-        }
-
         // clear old autoplay if exists
         if (constants.autoplayId) {
             constants.KillAutoplay();
@@ -360,20 +384,37 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.x = start;
         }
         
-        constants.autoplayId = setInterval(function () {
-            position.x += step;
-            // autoplay for two layers: point layer & line layer in braille
-            // plot.numPoints is not available anymore
-            if (position.x < 0 || position.x > numPoints - 1) { 
-                constants.KillAutoplay();
-                lockPosition();
-            } else if (position.x == end) {
-                constants.KillAutoplay();
-                UpdateAllAutoplay();
-            } else {
-                UpdateAllAutoplay();
-            }
-        }, constants.autoPlayRate);
+        if (constants.layer == 0) {
+            constants.autoplayId = setInterval(function () {
+                position.x += step;
+                // autoplay for two layers: point layer & line layer in braille
+                // plot.numPoints is not available anymore
+                if (position.x < 0 || position.x > plot.y.length - 1) { 
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else if (position.x == end) {
+                    constants.KillAutoplay();
+                    UpdateAllAutoplay();
+                } else {
+                    UpdateAllAutoplay();
+                }
+            }, constants.autoPlayRate);
+        } else if (constants.layer == 1) {
+            constants.autoplayId = setInterval(function () {
+                positionL1.x += step;
+                // autoplay for two layers: point layer & line layer in braille
+                // plot.numPoints is not available anymore
+                if (positionL1.x < 0 || positionL1.x > plot.curvePoints.length - 1) { 
+                    constants.KillAutoplay();
+                    lockPosition();
+                } else if (positionL1.x == end) {
+                    constants.KillAutoplay();
+                    UpdateAllAutoplay();
+                } else {
+                    UpdateAllAutoplay();
+                }
+            }, constants.autoPlayRate);
+        }
     }
 
     function PlayLine(dir) {
@@ -381,8 +422,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         let freqArr = [];
         let panningArr = [];
-        let panPoint = audio.SlideBetween(position.x, 0, plot.curvePoints.length - 1, -1, 1);
-        let x = position.x < 0 ? 0 : position.x;
+        let panPoint = audio.SlideBetween(positionL1.x, 0, plot.curvePoints.length - 1, -1, 1);
+        let x = positionL1.x < 0 ? 0 : positionL1.x;
         if (dir == 'outward_right') {
             for (let i = x; i < plot.curvePoints.length; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
@@ -685,8 +726,8 @@ class Layer1Point {
 
     async UpdatePoints() {
         await this.ClearPoints();
-        this.x = plot.svgLineX[position.x];
-        this.y = plot.svgLineY[position.x];
+        this.x = plot.svgLineX[positionL1.x];
+        this.y = plot.svgLineY[positionL1.x];
     }
 
     async PrintPoints() {
