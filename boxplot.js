@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        let isAtEnd = false;
 
         // right arrow 
         if (e.which === 39) {
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
                 lastx = position.x;
@@ -40,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         }
@@ -54,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = 0;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
                 lastx = position.x;
@@ -61,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         }
@@ -76,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.y = plot.plotData.length - 1;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != plot.plotData.length - 1) {
                 lastx = position.x;
@@ -83,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
@@ -99,6 +103,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.y = 0;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
                 lastx = position.x;
@@ -106,15 +111,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.y += -1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
         }
 
         // update display / text / audio
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             UpdateAll();
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
 
     });
@@ -124,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
         let setBrailleThisRound = false;
+        let isAtEnd = false;
 
         if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
@@ -137,6 +146,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = plot.plotData[position.y].length - 1;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
                 lastx = position.x;
@@ -144,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         } else if (e.which == 37) { // left arrow
@@ -157,6 +167,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = 0;
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
                 lastx = position.x;
@@ -164,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
             constants.navigation = 1;
         } else if (e.which === 38) { // up arrow 
@@ -173,24 +184,24 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
-                lockPosition();
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
             constants.navigation = 0;
-            updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = 0;
             } else {
                 position.y += -1;
-                lockPosition();
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
             constants.navigation = 0;
-            updateInfoThisRound = true;
         } else {
             e.preventDefault();
             // todo: allow some controls through like page refresh
@@ -198,9 +209,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update audio. todo: add a setting for this later
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
 
         // auto turn off braille mode if we leave the braille box
@@ -333,18 +347,25 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
     function lockPosition() {
         // lock to min / max postions
-        if (position.x < 1) {
+        let isLockNeeded = false;
+        if (position.x < 0) {
             position.x = 0;
+            isLockNeeded = true;
         }
-        if (position.y < 1) {
+        if (position.y < 0) {
             position.y = 0;
+            isLockNeeded = true;
         }
         if (position.y > plot.plotData.length - 1) {
             position.y = plot.plotData.length - 1;
+            isLockNeeded = true;
         }
         if (position.x > plot.plotData[position.y].length - 1) {
             position.x = plot.plotData[position.y].length - 1;
+            isLockNeeded = true;
         }
+
+        return isLockNeeded;
     }
 
     // deprecated. We now use grid system and x values are always available

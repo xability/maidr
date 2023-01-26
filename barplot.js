@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        let isAtEnd = false;
 
         if (e.which === 39) { // right arrow 39
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != plot.bars.length - 1) {
                 lastx = position.x;
@@ -38,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
         }
         if (e.which === 37) { // left arrow 37
@@ -50,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = 0; // go all the way
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
                 lastx = position.x;
@@ -57,14 +60,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
         }
 
-
         // update display / text / audio
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             UpdateAll();
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
 
     });
@@ -73,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // We block all input, except if it's B or Tab so we move focus
 
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
+        let isAtEnd = false;
 
         if (e.which == 9) { // tab
             // do nothing, let the user Tab away 
@@ -88,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = plot.bars.length - 1; // go all the way
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != plot.bars.length - 1) {
                 lastx = position.x;
@@ -95,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += 1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
@@ -107,6 +114,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 } else {
                     position.x = 0; // go all the way
                     updateInfoThisRound = true;
+                    isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
                 lastx = position.x;
@@ -114,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 position.x += -1;
                 updateInfoThisRound = true;
-                lockPosition();
+                isAtEnd = lockPosition();
             }
         } else {
             e.preventDefault();
@@ -126,8 +134,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         });
 
         // update display / text / audio
-        if (updateInfoThisRound) {
+        if (updateInfoThisRound && ! isAtEnd) {
             UpdateAllBraille();
+        }
+        if ( isAtEnd ) {
+            audio.playEnd();
         }
 
     });
@@ -207,12 +218,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     function lockPosition() {
         // lock to min / max postions
+        let isLockNeeded = false;
         if (position.x < 0) {
             position.x = 0;
+            isLockNeeded = true;
         }
         if (position.x > plot.bars.length - 1) {
             position.x = plot.bars.length - 1;
+            isLockNeeded = true;
         }
+
+        return isLockNeeded;
     }
     function UpdateAll() {
         if (constants.showDisplay) {

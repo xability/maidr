@@ -431,8 +431,6 @@ class Tracker {
         if (!(constants.infoDiv.innerHTML === undefined || constants.infoDiv.innerHTML === null)) {
             eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
         }
-        
-        console.log(eventToLog);
 
         this.data.events.push(eventToLog);
 
