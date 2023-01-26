@@ -325,8 +325,6 @@ class BarChart {
 
         constants.minY = Math.min(...plotData);
         constants.maxY = Math.max(...plotData);
-        console.log(constants.minY);
-        console.log(constants.maxY);
 
         return plotData;
     }
