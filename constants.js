@@ -109,6 +109,13 @@ class Constants {
         }
     }
 
+    KillSepPlay() {
+        if (this.sepPlayId) {
+            clearInterval(this.sepPlayId);
+            this.sepPlayId = null;
+        }
+    }
+
     SpeedUp() {
         if (constants.autoPlayRate - this.INTERVAL > this.MIN_SPEED) {
             constants.autoPlayRate -= this.INTERVAL;

@@ -547,27 +547,27 @@ class ScatterPlot {
     }
 
     PlayTones(audio) {
+        // kill the previous separate-points play before starting the next play
+        if (constants.sepPlayId) {
+            constants.KillSepPlay();
+        }
         if (constants.layer == 0) { // point layer
-            if (plot.y[position.x].length == 1) {
+            // we play a run of tones
+            position.z = 0;
+            constants.sepPlayId = setInterval(function () {
+                // play this tone
                 audio.playTone();
-            } else {
-                // we play a run of tones
-                position.z = 0;
-                let interval = setInterval(function () {
-                    // play this tone
-                    audio.playTone();
 
-                    // and then set up for the next one
-                    position.z += 1;
+                // and then set up for the next one
+                position.z += 1;
 
-                    // and kill if we're done
-                    if (position.z + 1 > plot.y[position.x].length) {
-                        clearInterval(interval);
-                        position.z = -1;
-                    }
+                // and kill if we're done
+                if (position.z + 1 > plot.y[position.x].length) {
+                    constants.KillSepPlay();
+                    position.z = -1;
+                }
 
-                }, constants.sonifMode == "sep" ? constants.autoPlayPointsRate : 0); // play all tones at the same time
-            }
+            }, constants.sonifMode == "sep" ? constants.autoPlayPointsRate : 0); // play all tones at the same time
         } else if (constants.layer == 1) { // best fit line layer
             audio.playTone();
         }
