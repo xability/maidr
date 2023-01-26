@@ -120,22 +120,6 @@ class Audio {
 
     }
     
-    PlayNull() {
-        let frequency = constants.NULL_FREQUENCY;
-        let duration = constants.duration;
-        let panning = 0;
-        let vol = constants.vol;
-        let wave = 'triangle';
-
-        this.playOscillator(frequency, duration, panning, vol, wave);
-
-        setTimeout(function (audioThis) {
-            audioThis.playOscillator(frequency * 23 / 24, duration, panning, vol, wave);
-        }, Math.round(duration / 5 * 1000), this);
-
-
-    }
-
     playOscillator(frequency, currentDuration, panning, currentVol = 1, wave = 'sine') {
 
         const t = this.audioContext.currentTime;
@@ -237,6 +221,55 @@ class Audio {
             smoothOscillator.disconnect();
             constants.isSmoothAutoplay = false;
         }, currentDuration * 1e3 * 2);
+    }
+
+    PlayNull() {
+        let frequency = constants.NULL_FREQUENCY;
+        let duration = constants.duration;
+        let panning = 0;
+        let vol = constants.vol;
+        let wave = 'triangle';
+
+        this.playOscillator(frequency, duration, panning, vol, wave);
+
+        setTimeout(function (audioThis) {
+            audioThis.playOscillator(frequency * 23 / 24, duration, panning, vol, wave);
+        }, Math.round(duration / 5 * 1000), this);
+    }
+
+    playEnd() {
+        // play a pleasent end chime. I'm going to do 1-3 -> 3-5 quickly
+
+        let freq1 = Math.round(( constants.MIN_FREQUENCY + constants.MAX_FREQUENCY ) / 2);
+        let freq3 = Math.round(freq1 * 5 / 4);
+        let freq5 = Math.round(freq1 * 3 / 2);
+
+        let panning = 0;
+        try {
+            if ( constants.chartType == 'barchart' ) {
+                panning = SlideBetween(position.x, 0, plot.bars.length, -1, 1);
+            } else if ( constants.chartType == 'boxplot' ) {
+                panning = SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
+            } else if ( constants.chartType == 'heatmap' ) {
+                panning = SlideBetween(position.x, 0, plot.num_cols-1, -1, 1);
+            } else if ( constants.chartType == 'scatterplot' ) {
+                panning = SlideBetween(position.x, 0, plot.x.length-1, -1, 1);
+            }
+        } catch {
+        }
+        let duration = constants.duration;
+        let vol = constants.vol;
+        let wave = 'sine';
+
+        // play first and maj third
+        this.playOscillator(freq1, duration, panning, vol, wave);
+        this.playOscillator(freq3, duration, panning, vol, wave);
+
+        // delay a tick and play maj third and perfect fifth
+        setTimeout(function (audioThis) {
+            audioThis.playOscillator(freq3, duration, panning, vol, wave);
+            audioThis.playOscillator(freq5, duration, panning, vol, wave);
+        }, Math.round(duration / 2 * 1000), this);
     }
 
     KillSmooth() {

@@ -39,8 +39,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
                 position.x += 1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             constants.navigation = 1;
         }
@@ -60,8 +59,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             constants.navigation = 1;
         }
@@ -82,8 +80,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-up', plot.plotData.length, position.y);
             } else {
                 position.y += 1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
@@ -105,8 +102,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-down', -1, position.y);
             } else {
                 position.y += -1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             constants.navigation = 0;
@@ -115,6 +111,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // update display / text / audio
         if (updateInfoThisRound) {
             UpdateAll();
+        } else { 
+            audio.playEnd();
         }
 
     });
@@ -143,8 +141,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
                 position.x += 1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             constants.navigation = 1;
         } else if (e.which == 37) { // left arrow
@@ -163,8 +160,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
-                updateInfoThisRound = true;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             constants.navigation = 1;
         } else if (e.which === 38) { // up arrow 
@@ -173,24 +169,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.y = plot.plotData.length - 1;
             } else {
                 position.y += 1;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
             constants.navigation = 0;
-            updateInfoThisRound = true;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = 0;
             } else {
                 position.y += -1;
-                lockPosition();
+                updateInfoThisRound = ! lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
             setBrailleThisRound = true;
             constants.navigation = 0;
-            updateInfoThisRound = true;
         } else {
             e.preventDefault();
             // todo: allow some controls through like page refresh
@@ -201,6 +195,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (updateInfoThisRound) {
             if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
+        } else { 
+            audio.playEnd();
         }
 
         // auto turn off braille mode if we leave the braille box
@@ -332,19 +328,30 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         display.UpdateBraillePos(plot);
     }
     function lockPosition() {
+        //console.log("x: 0 < ", position.x, " < ", plot.plotData[position.y].length-1);
+        //console.log("y: 0 < ", position.y, " < ", plot.plotData.length-1);
         // lock to min / max postions
-        if (position.x < 1) {
+        let isLockNeeded = false;
+        if (position.x < 0) {
             position.x = 0;
+            isLockNeeded = true;
         }
-        if (position.y < 1) {
+        if (position.y < 0) {
             position.y = 0;
+            isLockNeeded = true;
         }
         if (position.y > plot.plotData.length - 1) {
             position.y = plot.plotData.length - 1;
+            isLockNeeded = true;
         }
         if (position.x > plot.plotData[position.y].length - 1) {
             position.x = plot.plotData[position.y].length - 1;
+            isLockNeeded = true;
         }
+
+        //console.log('isLockNeeded', isLockNeeded);
+
+        return isLockNeeded;
     }
 
     // deprecated. We now use grid system and x values are always available
