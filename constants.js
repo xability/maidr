@@ -45,7 +45,8 @@ class Constants {
     INTERVAL = 50;
 
     // user settings
-    vol = .4;
+    vol = .1; 
+    MAX_VOL = 1;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
     brailleDisplayLength = 18; // num characters in user's braille display. JooYoung says everyone has at least 18
@@ -54,7 +55,7 @@ class Constants {
     showRect = 1;  // true / false
     duration = .2;
     autoPlayOutlierRate = 30; // ms per tone
-    autoPlayPointsRate = 30;
+    autoPlayPointsRate = 100;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
 
     // user controls (not exposed to menu, with shortcuts usually)

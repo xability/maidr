@@ -464,8 +464,8 @@ class ScatterPlot {
         this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
         this.x = this.GetPointValues()[0]; // actual values of x
         this.y = this.GetPointValues()[1]; // actual values of y
-        constants.minY = Math.min(...hwy); // min of actual values of y
-        constants.maxY = Math.max(...hwy); // max of actual values of y
+        this.points_count = this.GetPointValues()[2]; // number of each points
+        this.max_count = this.GetPointValues()[3];
 
         // layer = 1
         this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
@@ -546,45 +546,97 @@ class ScatterPlot {
     }
 
     GetPointValues() {
-        // x values
-        let xValues = [...displ];
-        // for panning
-        constants.minX = 0;
-        constants.maxX = xValues.length;
+        // // x values
+        // let xValues = [...displ];
+        // // for panning
+        // constants.minX = 0;
+        // constants.maxX = xValues.length;
 
-        // y values
-        let yValues = [...hwy];
-        // default layer: point layer 
-        // constants.minY & maxY should be adjusted according to layer
-        constants.minY = Math.min(...yValues);
-        constants.maxY = Math.max(...yValues);
+        // // y values
+        // let yValues = [...hwy];
+        // // default layer: point layer 
+        // // constants.minY & maxY should be adjusted according to layer
+        // constants.minY = Math.min(...yValues);
+        // constants.maxY = Math.max(...yValues);
 
-        let points = new Map();
+        // let points = new Map();
 
-        for (let i = 0; i < xValues.length; i++) {
-            let x = parseFloat(xValues[i]);
-            let y = parseFloat(yValues[i]);
+        // for (let i = 0; i < xValues.length; i++) {
+        //     let x = parseFloat(xValues[i]);
+        //     let y = parseFloat(yValues[i]);
+        //     if (!points.has(x)) {
+        //         points.set(x, new Set([y]));
+        //     } else {
+        //         points.get(x).add(y);
+        //     }
+        // }
+
+        // points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
+
+        // points.forEach(function (value, key) {
+        //     points[key] = Array.from(value).sort(function (a, b) { return a - b });
+        // });
+
+        // let X = [...points.keys()];
+
+        // let Y = [];
+        // for (let i = 0; i < X.length; i++) {
+        //     Y.push(points[X[i]]);
+        // }
+
+        // return [X, Y];
+
+        let points = new Map(); // keep track of x and y values
+
+        let xValues = [];
+        let yValues = [];
+        
+        for (let i = 0; i < point_layer.length; i++) {
+            let x = point_layer[i]["x"];
+            let y = point_layer[i]["y"];
+            xValues.push(x);
+            yValues.push(y);
             if (!points.has(x)) {
-                points.set(x, new Set([y]));
+                points.set(x, new Map([[y, 1]]));
             } else {
-                points.get(x).add(y);
+                if (points.get(x).has(y)) {
+                    let mapy = points.get(x);
+                    mapy.set(y, mapy.get(y) + 1);
+                } else {
+                    points.get(x).set(y, 1);
+                }
             }
         }
 
-        points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
+        constants.minX = 0;
+        constants.maxX = [...new Set(xValues)].length;
 
+        constants.minY = Math.min(...yValues);
+        constants.maxY = Math.max(...yValues);
+
+        points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
+        
         points.forEach(function (value, key) {
-            points[key] = Array.from(value).sort(function (a, b) { return a - b });
+            points[key] = Array.from(value).sort(function (a, b) { return a[0] - b[0] });
         });
 
-        let X = [...points.keys()];
-
+        let X = [];
         let Y = [];
-        for (let i = 0; i < X.length; i++) {
-            Y.push(points[X[i]]);
+        let points_count = [];
+        for (const [x_val, y_val] of points) {
+            X.push(x_val);
+            let y_arr = [];
+            let y_count = [];
+            for (const [y, count] of y_val) {
+                y_arr.push(y);
+                y_count.push(count);
+            }
+            Y.push(y_arr);
+            points_count.push(y_count);
         }
+        let max_points = Math.max(...points_count.map(a => Math.max(...a)));
 
-        return [X, Y];
+        return [X, Y, points_count, max_points];
     }
 
     PlayTones(audio) {

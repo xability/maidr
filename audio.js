@@ -31,6 +31,7 @@ class Audio {
     playTone() {
 
         let currentDuration = constants.duration;
+        let volume = constants.vol;
 
         let rawPanning = 0;
         let rawFreq = 0;
@@ -70,6 +71,7 @@ class Audio {
                 } else {
                     // more than one point with same x-value
                     rawFreq = plot.y[position.x][position.z];
+                    volume = this.SlideBetween(plot.points_count[position.x][position.z], 1, plot.max_count, constants.vol, constants.MAX_VOL);
                 }
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
@@ -104,7 +106,7 @@ class Audio {
         }
 
         // create tones
-        this.playOscillator(frequency, currentDuration, panning, constants.vol, 'sine');
+        this.playOscillator(frequency, currentDuration, panning, /*constants.vol*/ volume, 'sine');
         if (constants.chartType == "boxplot") {
             let sectionType = plot.plotData[position.y][position.x].type;
             if (sectionType == "range") {
@@ -116,7 +118,7 @@ class Audio {
             if (rawFreq == 0) {
                 this.PlayNull();
             }
-        }
+        } 
 
     }
     
