@@ -10,6 +10,7 @@ class Constants {
     braille_input_id = "braille-input";
     info_id = "info";
     announcement_container_id = "announcements";
+    end_chime_id = "end_chime";
 
     // default constructor for boxplot
     constructor() {
@@ -23,6 +24,7 @@ class Constants {
         this.infoDiv = document.getElementById(this.info_id);
         this.announceContainer = document.getElementById(this.announcement_container_id);
         this.nonMenuFocus = this.svg;
+        this.endChime = document.getElementById(this.end_chime_id);
     }
 
     // basic chart properties
@@ -88,7 +90,7 @@ class Constants {
 
         // announcements aria live
         if (!document.getElementById(this.announcement_container_id)) {
-            document.getElementById(info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+            document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
         }
 
         // braille
@@ -100,6 +102,11 @@ class Constants {
         if (document.getElementById(this.svg_container_id)) {
             document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('role', 'application');
             document.querySelector('#' + this.svg_container_id + ' > svg').setAttribute('tabindex', '0');
+        }
+
+        // end chime audio element
+        if ( ! document.getElementById(this.end_chime_id) ) {
+            document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="terminalBell.mp3" id="end_chime"></audio> </div>');
         }
     }
 
