@@ -243,6 +243,26 @@ class Audio {
     playEnd() {
         // play a pleasent end chime. We'll use terminal chime from VSCode
         let chimeClone = constants.endChime.cloneNode(true); // we clone so that we can trigger a tone while one is already playing
+        /* 
+         * the following (panning) only works if we're on a server
+        let panning = 0;
+        try {
+            if ( constants.chartType == 'barchart' ) {
+                panning = this.SlideBetween(position.x, 0, plot.bars.length-1, -1, 1);
+            } else if ( constants.chartType == 'boxplot' ) {
+                panning = this.SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
+            } else if ( constants.chartType == 'heatmap' ) {
+                panning = this.SlideBetween(position.x, 0, plot.num_cols-1, -1, 1);
+            } else if ( constants.chartType == 'scatterplot' ) {
+                panning = this.SlideBetween(position.x, 0, plot.x.length-1, -1, 1);
+            }
+        } catch {
+        }
+
+        const track = this.audioContext.createMediaElementSource(chimeClone);
+        const stereoNode = new StereoPannerNode(this.audioContext, {pan:panning} );
+        track.connect(stereoNode).connect(this.audioContext.destination);
+        */
         chimeClone.play();
         chimeClone = null;
     }
