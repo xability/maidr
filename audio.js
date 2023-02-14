@@ -242,9 +242,10 @@ class Audio {
 
     playEnd() {
         // play a pleasent end chime. We'll use terminal chime from VSCode
-        let chimeClone = constants.endChime.cloneNode(true); // we clone so that we can trigger a tone while one is already playing
-        /* 
-         * the following (panning) only works if we're on a server
+        if ( constants.canPlayEndChime ) {
+            let chimeClone = constants.endChime.cloneNode(true); // we clone so that we can trigger a tone while one is already playing
+            /* 
+             * the following (panning) only works if we're on a server
         let panning = 0;
         try {
             if ( constants.chartType == 'barchart' ) {
@@ -263,8 +264,9 @@ class Audio {
         const stereoNode = new StereoPannerNode(this.audioContext, {pan:panning} );
         track.connect(stereoNode).connect(this.audioContext.destination);
         */
-        chimeClone.play();
-        chimeClone = null;
+            chimeClone.play();
+            chimeClone = null;
+        }
     }
 
     KillSmooth() {

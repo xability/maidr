@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let lastPlayed = '';
     let lastx = 0;
 
+    
+
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -454,10 +456,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BoxPlot {
 
     constructor() {
-        this.plotData = this.GetData(); // main json data
-        this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
-        this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
-        this.y_labels = this.GetXLabels();
+        if ( constants.manualData ) {
+            this.plotData = boxplotData;
+            this.x_group_label = boxplotLabels.x_group_label;
+            this.y_group_label = boxplotLabels.y_group_label;
+            this.y_labels = boxplotLabels.y_labels;
+            this.CleanData();
+        } else {
+            this.plotData = this.GetData(); // main json data
+            this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
+            this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
+            this.y_labels = this.GetXLabels();
+        }
     }
 
     GetXLabels() {
@@ -469,6 +479,41 @@ class BoxPlot {
         }
         return labels;
     }
+
+    CleanData() {
+        // we manually input data, so now we need to clean it up and set other vars
+
+        constants.minX = 0;
+        constants.maxX = 0;
+        for ( let i = 0 ; i < boxplotData.length ; i++ ) { // each plot
+            for ( let j = 0 ; j < boxplotData[i].length; j++ ) { // each section in plot
+                let point = boxplotData[i][j];
+                if ( point.hasOwnProperty('x') ) {
+                    if ( point.x < constants.minX ) {
+                        constants.xMin = point.x;
+                    }
+                    if ( point.hasOwnProperty('xMax') ) {
+                        if ( point.xMax > constants.maxX ) {
+                            constants.maxX = point.xMax;
+                        }
+                    } else {
+                        if ( point.x > constants.maxX ) {
+                            constants.maxX = point.x;
+                        }
+                    }
+                }
+                if ( point.hasOwnProperty('y') ) {
+                    if ( point.y < constants.minY ) {
+                        constants.minY = point.y;
+                    }
+                    if ( point.y > constants.maxY ) {
+                        constants.maxY = point.y;
+                    }
+                }
+            }
+        }
+    }
+
 
     GetData() {
         // data in svg is formed as nested <g> elements. Loop through and get all point data
