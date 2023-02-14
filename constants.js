@@ -79,6 +79,7 @@ class Constants {
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
+    canPlayEndChime = false;
 
     PrepHtml() {
         // init html stuff. aria live regions, braille input, etc
