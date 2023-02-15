@@ -100,8 +100,12 @@ if (lower_whisker_length == upper_whisker_length) {
 
 gapminder %>%
   filter(year == 2007) %>%
-  ggplot(aes(x = lifeExp, y = continent)) +
+  ggplot(aes(y = lifeExp, x = continent)) +
   geom_boxplot()
+
+
+gridSVG::grid.export("boxplot_user_study.svg")
+dev.off()
 
 
 # Scatter plot sample
