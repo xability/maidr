@@ -304,11 +304,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BarChart {
 
     constructor() {
-        this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
-        this.plotData = this.GetData();
-        this.plotColumns = this.GetColumns();
-        this.plotLegend = this.GetLegend();
+        if ( constants.manualData ) {
+            this.bars = barplotBars;
+            this.plotData = barplotData;
+            this.plotColumns = barplotColumns;
+            this.plotLegend = barplotLegend;
+        } else {
+            this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
+            this.plotData = this.GetData();
+            this.plotColumns = this.GetColumns();
+            this.plotLegend = this.GetLegend();
+        }
 
+        constants.minY = Math.min(...this.plotData);
+        constants.maxY = Math.max(...this.plotData);
         constants.maxX = this.bars.length - 1;
 
         this.autoplay = null;
@@ -322,9 +331,6 @@ class BarChart {
         for (let i = 0; i < this.bars.length; i++) {
             plotData.push(this.bars[i].getAttribute('height'));
         }
-
-        constants.minY = Math.min(...plotData);
-        constants.maxY = Math.max(...plotData);
 
         return plotData;
     }
