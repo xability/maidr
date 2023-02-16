@@ -102,10 +102,13 @@ g <- gapminder %>%
   ggplot(aes(y = lifeExp, x = continent)) +
   geom_boxplot()
 
+g
 
 gridSVG::grid.export("boxplot_user_study.svg")
 dev.off()
 
+layer_data(g, 2) %>%
+  gt::gt()
 
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
