@@ -98,8 +98,7 @@ if (lower_whisker_length == upper_whisker_length) {
   "⠒⠒" + box_brl + "⠒"
 }
 
-gapminder %>%
-  filter(year == 2007) %>%
+g <- gapminder %>%
   ggplot(aes(y = lifeExp, x = continent)) +
   geom_boxplot()
 
