@@ -107,8 +107,22 @@ g
 gridSVG::grid.export("boxplot_user_study.svg")
 dev.off()
 
-layer_data(g, 2) %>%
+layer_data(g, 1) %>%
   gt::gt()
+
+# Extract boxplot raw data as a json format:
+gapminder %>%
+  group_by(continent) %>%
+  summarise(
+    lower_outlier = paste0(boxplot.stats(lifeExp)$out[boxplot.stats(lifeExp)$out < boxplot.stats(lifeExp)$stats[[1]]], collapse = ", "),
+    minimum = boxplot.stats(lifeExp)$stats[[1]],
+    Q1 = boxplot.stats(lifeExp)$stats[[2]],
+    median = boxplot.stats(lifeExp)$stats[[3]],
+    Q3 = boxplot.stats(lifeExp)$stats[[4]],
+    maximum = boxplot.stats(lifeExp)$stats[[5]],
+    upper_outlier = paste0(boxplot.stats(lifeExp)$out[boxplot.stats(lifeExp)$out > boxplot.stats(lifeExp)$stats[[5]]], collapse = ", ")
+  ) %>%
+  jsonlite::write_json("boxplot_user_study_raw_data.json")
 
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
@@ -200,12 +214,22 @@ penguins %>%
 
 gridSVG::grid.export("heatmap.svg")
 dev.off()
+# heat map for user study
+gapminder %>%
+  ggplot(aes(x = continent, y = country, fill = gdpPercap)) +
+  geom_tile(color = "black") +
+  coord_fixed()
 
+gridSVG::grid.export("heatmap.svg")
+dev.off()
+
+
+# Scatterplot for user study
 
 g <- gapminder %>%
   ggplot(aes(x = gdpPercap, y = lifeExp)) +
   geom_point() +
-  geom_smooth(method = "loess") +
+  geom_smooth(method = "loess", se = FALSE) +
   scale_x_log10(labels = scales::comma) +
   labs(title = "The Relationship between GDP and Life Expectancy", x = "GDP (log10 transfermed)", y = "Life Expectancy")
 
@@ -213,7 +237,6 @@ g
 
 gridSVG::grid.export("scatterplot_user_study.svg")
 dev.off()
-
 
 point_layer <- layer_data(g, 1) %>%
   select(x, y)
