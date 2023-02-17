@@ -438,8 +438,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class HeatMap {
 
     constructor() {
-        this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
-        this.plotData = this.getHeatMapData();
+
+        if ( constants.manualData ) {
+            this.plots = heatmapPlots;
+            this.plotData = heatmapData;
+        } else {
+            this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
+            this.plotData = this.getHeatMapData();
+        }
+        this.updateConstants();
+
+        this.group_labels = this.getGroupLabels();
 
         this.x_coord = this.plotData[0];
         this.y_coord = this.plotData[1];
@@ -447,7 +456,6 @@ class HeatMap {
         this.num_rows = this.plotData[3];
         this.num_cols = this.plotData[4];
 
-        this.group_labels = this.getGroupLabels();
         this.x_group_label = this.group_labels[0];
         this.y_group_label = this.group_labels[1];
 
@@ -495,14 +503,23 @@ class HeatMap {
             if (norm > max_norm) max_norm = norm;
         }
 
-        constants.minX = 0;
-        constants.maxX = num_cols;
-        constants.minY = min_norm;
-        constants.maxY = max_norm;
-
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
-        // console.log(plotData);
+
         return plotData;
+    }
+
+    updateConstants() {
+
+        constants.minX = 0;
+        constants.maxX = this.plotData[4]
+        constants.minY = this.plotData[2][0][0]; // initial val
+        constants.maxY = this.plotData[2][0][0]; // initial val
+        for ( let i = 0 ; i < this.plotData[2].length ; i++ ) {
+            for ( let j = 0 ; j < this.plotData[2][i].length ; j++ ) {
+                if ( this.plotData[2][i][j] < constants.minY ) constants.minY = this.plotData[2][i][j];
+                if ( this.plotData[2][i][j] > constants.maxY ) constants.maxY = this.plotData[2][i][j];
+            }
+        }
     }
 
     getRGBNorm(i) {
@@ -517,7 +534,12 @@ class HeatMap {
     }
 
     getGroupLabels() {
-        let labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
+        let labels_nodelist;
+        if ( constants.manualData ) {
+            labels_nodelist = heatmapLabelsNodelist;
+        } else {
+            labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
+        }
         // console.log(labels_nodelist);
 
         let labels = [];
@@ -527,7 +549,12 @@ class HeatMap {
     }
 
     getXLabels() {
-        let x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
+        let x_labels_nodelist;
+        if ( constants.manualData ) {
+            x_labels_nodelist = heatmapXNodelist;
+        } else {
+            x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
+        }
         // console.log(x_labels_nodelist);
 
         let labels = [];
@@ -540,8 +567,12 @@ class HeatMap {
 
     getYLabels() {
         // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
-        let y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
-        // console.log(y_labels_nodelist);
+        let y_labels_nodelist;
+        if ( constants.manualData ) {
+            y_labels_nodelist = heatmapYNodelist;
+        } else {
+            y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
+        }
 
         let labels = [];
         for (let i = 0; i < y_labels_nodelist.length; i++) {
