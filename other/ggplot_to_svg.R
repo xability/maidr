@@ -24,7 +24,7 @@ gapminder %>%
   ggplot(aes(x = country, y = pop)) +
   geom_col() +
   scale_y_continuous(labels = scales::label_number_auto()) +
-  labs(title = "The Top Countries Having the Least Population in 2007", x = "Country", y = "Population")
+  labs(title = "The Top 10 Countries Having the Least Population in 2007", x = "Country", y = "Population")
 
 gridSVG::grid.export("barplot_user_study.svg")
 dev.off()
