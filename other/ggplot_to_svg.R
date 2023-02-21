@@ -100,7 +100,8 @@ if (lower_whisker_length == upper_whisker_length) {
 
 g <- gapminder %>%
   ggplot(aes(y = lifeExp, x = continent)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = "Life Expectancy by Continent.", x = "Continent", y = "Life Expectancy")
 
 g
 
