@@ -216,9 +216,10 @@ penguins %>%
 gridSVG::grid.export("heatmap.svg")
 dev.off()
 
+
 # heat map for user study
 gapminder %>%
-  dplyr::filter(year >= 1987) %>%
+  filter(year >= 1987) %>%
   group_by(year, continent) %>%
   summarise(mean_gdp = round(mean(gdpPercap, rm.na = TRUE), digits = 2)) %>%
   ungroup() %>%
@@ -228,11 +229,10 @@ gapminder %>%
   ggplot(aes(x = year, y = continent, fill = mean_gdp)) +
   geom_tile(color = "black") +
   coord_fixed() +
-  labs(title = "Average GDP per Continent by Year.", x = "Year", y = "Continent", fill = "Average GDP")
+  labs(title = "Average GDP per Continent by Year.", x = "Year (from 1987 to 2007 in increments of 5 years)", y = "Continent", fill = "Average GDP")
 
 gridSVG::grid.export("heatmap_user_study.svg")
 dev.off()
-
 
 # Scatterplot for user study
 
