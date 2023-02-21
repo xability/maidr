@@ -459,7 +459,11 @@ class ScatterPlot {
     constructor() {
 
         // layer = 0
-        this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
+        if ( constants.manualInput ) {
+            this.plotPoints = scatterPlotPoints;
+        } else {
+            this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
+        }
         this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
         this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
         this.x = this.GetPointValues()[0]; // actual values of x
@@ -468,7 +472,11 @@ class ScatterPlot {
         this.max_count = this.GetPointValues()[3];
 
         // layer = 1
-        this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
+        if ( constants.manualInput ) {
+            this.plotLine = scatterPlotLine;
+        } else {
+            this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
+        }
         this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
         this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
         // this.bestFitLinePoints = this.GetBestFitLinePoints();
