@@ -307,8 +307,8 @@ class BarChart {
         if ( constants.manualData ) {
             this.bars = barplotBars;
             this.plotData = barplotData;
-            this.plotColumns = barplotColumns;
-            this.plotLegend = barplotLegend;
+            this.plotColumns = this.GetColumnsFromManualData(barplotColumns);
+            this.plotLegend = this.GetLegendFromManualData(barplotLegend);
         } else {
             this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
             this.plotData = this.GetData();
@@ -321,6 +321,25 @@ class BarChart {
         constants.maxX = this.bars.length - 1;
 
         this.autoplay = null;
+    }
+
+    GetColumnsFromManualData() {
+        let plotColumns = [];
+
+        for (var i = 0; i < barplotColumns.length; i++) {
+            plotColumns.push(barplotColumns[i].innerHTML);
+        }
+
+        return plotColumns;
+    }
+
+    GetLegendFromManualData() {
+        let legend = {};
+
+        legend.x = barplotLegend[1].innerHTML;
+        legend.y = barplotLegend[0].innerHTML;
+
+        return legend;
     }
 
     GetData() {
