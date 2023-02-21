@@ -143,6 +143,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     lastx = position.x;
                     Autoplay('reverse-right', plot.num_cols, position.x);
                 } else {
+                    if (position.x == -1 && position.y == -1) {
+                        position.y += 1;
+                    }
                     position.x += 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
@@ -200,6 +203,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     lastx = position.x;
                     Autoplay('reverse-down', plot.num_rows, position.y);
                 } else {
+                    if (position.x == -1 && position.y == -1) {
+                        position.x += 1;
+                    }
                     position.y += 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
