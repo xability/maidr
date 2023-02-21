@@ -237,11 +237,13 @@ dev.off()
 # Scatterplot for user study
 
 g <- gapminder %>%
+filter(year == 2007 & continent == "Europe") %>% 
+
   ggplot(aes(x = gdpPercap, y = lifeExp)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE) +
   scale_x_log10(labels = scales::comma) +
-  labs(title = "The Relationship between GDP and Life Expectancy", x = "GDP (log10 transfermed)", y = "Life Expectancy")
+  labs(title = "The Relationship between GDP and Life Expectancy of European Countries in 2007.", x = "GDP (log10 transformed)", y = "Life Expectancy")
 
 g
 
