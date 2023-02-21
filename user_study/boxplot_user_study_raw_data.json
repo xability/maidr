@@ -1,0 +1,52 @@
+[
+    {
+        "continent": "Africa",
+        "lower_outlier": "23.599",
+        "minimum": 30,
+        "Q1": 42.361,
+        "median": 47.792,
+        "Q3": 54.416,
+        "maximum": 72.301,
+        "upper_outlier": "72.737, 73.952, 72.801, 73.615, 74.772, 75.744, 76.442, 73.042, 73.923"
+    },
+    {
+        "continent": "Americas",
+        "lower_outlier": "37.579",
+        "minimum": 40.414,
+        "Q1": 58.373,
+        "median": 67.048,
+        "Q3": 71.717,
+        "maximum": 80.653,
+        "upper_outlier": ""
+    },
+    {
+        "continent": "Asia",
+        "lower_outlier": "",
+        "minimum": 28.801,
+        "Q1": 51.3955,
+        "median": 61.7915,
+        "Q3": 69.5105,
+        "maximum": 82.603,
+        "upper_outlier": ""
+    },
+    {
+        "continent": "Europe",
+        "lower_outlier": "55.23, 59.28, 53.82, 58.45, 59.6, 59.164, 59.82, 57.996, 43.585, 48.079, 52.098, 54.336, 57.005, 59.507",
+        "minimum": 61.036,
+        "Q1": 69.56,
+        "median": 72.241,
+        "Q3": 75.456,
+        "maximum": 81.757,
+        "upper_outlier": ""
+    },
+    {
+        "continent": "Oceania",
+        "lower_outlier": "",
+        "minimum": 69.12,
+        "Q1": 71.17,
+        "median": 73.665,
+        "Q3": 77.555,
+        "maximum": 81.235,
+        "upper_outlier": ""
+    }
+]

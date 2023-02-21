@@ -3,6 +3,9 @@ library(gridSVG)
 library(ggplot2)
 library(gt)
 library(tidymodels)
+library(gapminder)
+
+
 
 # Bar plot sample
 ggplot(mpg, aes(class)) +
@@ -12,6 +15,27 @@ ggplot(mpg, aes(class)) +
 gridSVG::grid.export("barplot.svg")
 dev.off()
 
+library(tidyverse)
+
+gapminder %>%
+  filter(year == 2007) %>%
+  arrange(desc(pop)) %>%
+  tail(10) %>%
+  ggplot(aes(x = country, y = pop)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::label_number_auto()) +
+  labs(title = "The Top 10 Countries Having the Least Population in 2007", x = "Country", y = "Population")
+
+gridSVG::grid.export("barplot_user_study.svg")
+dev.off()
+
+
+gapminder %>%
+  filter(year == 2007) %>%
+  arrange(desc(pop)) %>%
+  tail(10) %>%
+  select(country, pop) %>%
+  jsonlite::write_json("barplot_user_study_raw_data.json")
 
 # Box plot sample
 ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
@@ -20,6 +44,7 @@ ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
 
 gridSVG::grid.export("boxplot.svg")
 dev.off()
+
 
 # Extrac boxplot stat values
 mpg %>%
@@ -73,6 +98,31 @@ if (lower_whisker_length == upper_whisker_length) {
   "⠒⠒" + box_brl + "⠒"
 }
 
+g <- gapminder %>%
+  ggplot(aes(y = lifeExp, x = continent)) +
+  geom_boxplot()
+
+g
+
+gridSVG::grid.export("boxplot_user_study.svg")
+dev.off()
+
+layer_data(g, 1) %>%
+  gt::gt()
+
+# Extract boxplot raw data as a json format:
+gapminder %>%
+  group_by(continent) %>%
+  summarise(
+    lower_outlier = paste0(boxplot.stats(lifeExp)$out[boxplot.stats(lifeExp)$out < boxplot.stats(lifeExp)$stats[[1]]], collapse = ", "),
+    minimum = boxplot.stats(lifeExp)$stats[[1]],
+    Q1 = boxplot.stats(lifeExp)$stats[[2]],
+    median = boxplot.stats(lifeExp)$stats[[3]],
+    Q3 = boxplot.stats(lifeExp)$stats[[4]],
+    maximum = boxplot.stats(lifeExp)$stats[[5]],
+    upper_outlier = paste0(boxplot.stats(lifeExp)$out[boxplot.stats(lifeExp)$out > boxplot.stats(lifeExp)$stats[[5]]], collapse = ", ")
+  ) %>%
+  jsonlite::write_json("boxplot_user_study_raw_data.json")
 
 # Scatter plot sample
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
@@ -164,3 +214,40 @@ penguins %>%
 
 gridSVG::grid.export("heatmap.svg")
 dev.off()
+# heat map for user study
+gapminder %>%
+  ggplot(aes(x = continent, y = country, fill = gdpPercap)) +
+  geom_tile(color = "black") +
+  coord_fixed()
+
+gridSVG::grid.export("heatmap.svg")
+dev.off()
+
+
+# Scatterplot for user study
+
+g <- gapminder %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  scale_x_log10(labels = scales::comma) +
+  labs(title = "The Relationship between GDP and Life Expectancy", x = "GDP (log10 transfermed)", y = "Life Expectancy")
+
+g
+
+gridSVG::grid.export("scatterplot_user_study.svg")
+dev.off()
+
+point_layer <- layer_data(g, 1) %>%
+  select(x, y)
+
+
+smooth_layer <- layer_data(g, 2) %>%
+  select(x, y)
+
+
+point_layer %>%
+  jsonlite::write_json("scatterplot_user_study_point_layer.json")
+
+smooth_layer %>%
+  jsonlite::write_json("scatterplot_user_study_smooth_layer.json")
