@@ -41,6 +41,11 @@ class Display {
             onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
+            if (constants.chartType == "boxplot" && position.x == -1 && position.y == plot.plotData.length) {
+                this.announceText("Braille " + constants.brailleMode + ": Please select a box before turning on Braille mode.");
+                return;
+            }
+
             constants.brailleMode = "on";
             constants.brailleInput.classList.remove('hidden');
             constants.brailleInput.focus();
@@ -51,6 +56,10 @@ class Display {
             if (constants.chartType == "heatmap") {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
+            }
+
+            if (constants.chartType != "boxplot" && position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
+                constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
             constants.brailleMode = "off";
@@ -252,7 +261,9 @@ class Display {
                     // do nothing
                 } else if (constants.textMode == "terse") {
                     // terse mode: gradient trend
-                    // output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
+                    // output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
+
+                    // display absolute gradient of the graph
                     output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values

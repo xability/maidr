@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
     constants.plotId = 'geom_rect.rect.2.1';
-    window.position = new Position(0,0);
+    window.position = new Position(-1,-1);
     window.plot = new HeatMap();
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 lastx = position.x;
                 Autoplay('reverse-right', plot.num_cols, position.x);
             } else {
+                if (position.x == -1 && position.y == -1) {
+                    position.y += 1;
+                }
                 position.x += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -97,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 lastx = position.x;
                 Autoplay('reverse-down', plot.num_rows, position.y);
             } else {
+                if (position.x == -1 && position.y == -1) {
+                    position.x += 1;
+                }
                 position.y += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -116,6 +122,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
+        let isAtEnd = false;
 
         if (e.which == 9) { // let user tab
         } else if (e.which == 39) { // right arrow
@@ -136,6 +143,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     lastx = position.x;
                     Autoplay('reverse-right', plot.num_cols, position.x);
                 } else {
+                    if (position.x == -1 && position.y == -1) {
+                        position.y += 1;
+                    }
                     position.x += 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
@@ -145,6 +155,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
+
+                constants.navigation = 1;
             }
         } else if (e.which == 37) { // left
             if (e.target.selectionStart == 0 || e.target.value.substring(e.target.selectionStart - 1, e.target.selectionStart) == '⠳') {
@@ -171,6 +183,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
+
+                constants.navigation = 1;
             }
         } else if (e.which == 40) { // down
             if (position.y + 1 == plot.num_rows) {
@@ -189,6 +203,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     lastx = position.x;
                     Autoplay('reverse-down', plot.num_rows, position.y);
                 } else {
+                    if (position.x == -1 && position.y == -1) {
+                        position.x += 1;
+                    }
                     position.y += 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
@@ -197,6 +214,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
+
+                constants.navigation = 0;
             }
         } else if (e.which == 38) { // up
             if (e.target.selectionStart - plot.num_cols - 1 < 0) {
@@ -223,6 +242,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 let pos = (position.y * (plot.num_cols + 1)) + position.x;
                 e.target.setSelectionRange(pos, pos);
                 e.preventDefault();
+
+                constants.navigation = 0;
             }
         } else {
             e.preventDefault();
@@ -329,6 +350,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
+        
         if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
