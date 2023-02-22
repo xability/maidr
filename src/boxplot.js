@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.68.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(-1, plot.plotData.length - 1);
+    window.position = new Position(-1, plot.plotData.length);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 lastx = position.x;
                 Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                    position.y -= 1;
+                }
                 position.x += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -111,6 +114,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 lastx = position.x;
                 Autoplay('reverse-down', -1, position.y);
             } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                    position.x += 1;
+                }
                 position.y += -1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -154,6 +160,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 lastx = position.x;
                 Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
             } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                    position.y -= 1;
+                }
                 position.x += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -197,6 +206,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = 0;
             } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                    position.x += 1;
+                }
                 position.y += -1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();

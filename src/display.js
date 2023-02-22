@@ -42,6 +42,11 @@ class Display {
             onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
+            if (constants.chartType == "boxplot" && position.x == -1 && position.y == plot.plotData.length) {
+                this.announceText("Braille " + constants.brailleMode + ": Please select a box before turning on Braille mode.");
+                return;
+            }
+
             constants.brailleMode = "on";
             constants.brailleInput.classList.remove('hidden');
             constants.brailleInput.focus();
@@ -53,7 +58,8 @@ class Display {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
             }
-            if (position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
+
+            if (constants.chartType != "boxplot" && position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
                 constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
