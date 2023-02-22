@@ -1,7 +1,6 @@
 
 class Display {
 
-
     constructor() {
         this.infoDiv = constants.infoDiv;
 
