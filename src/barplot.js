@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BarChart {
 
     constructor() {
-        if ( constants.manualData ) {
+        if ( ! constants.manualData ) {
             this.bars = barplotBars;
             this.plotData = barplotData;
             this.plotColumns = this.GetColumnsFromManualData(barplotColumns);

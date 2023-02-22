@@ -463,11 +463,10 @@ class HeatMap {
 
         if ( constants.manualData ) {
             this.plots = heatmapPlots;
-            this.plotData = heatmapData;
         } else {
             this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
-            this.plotData = this.getHeatMapData();
         }
+        this.plotData = this.getHeatMapData();
         this.updateConstants();
 
         this.group_labels = this.getGroupLabels();
@@ -483,9 +482,6 @@ class HeatMap {
 
         this.x_labels = this.getXLabels();
         this.y_labels = this.getYLabels();
-
-        // hardcoded frequency information (in another file); extraction should be done afterwards
-        this.z = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
     }
 
     getHeatMapData() {
@@ -523,6 +519,10 @@ class HeatMap {
 
             if (norm < min_norm) min_norm = norm;
             if (norm > max_norm) max_norm = norm;
+        }
+
+        if ( constants.manualData ) {
+            norms = heatmapData;
         }
 
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
