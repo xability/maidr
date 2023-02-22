@@ -1,42 +1,22 @@
 [
     {
-        "country": "Swaziland",
-        "pop": 1133066
+        "continent": "Africa",
+        "total_pop": 929539693
     },
     {
-        "country": "Trinidad and Tobago",
-        "pop": 1056608
+        "continent": "Americas",
+        "total_pop": 898871185
     },
     {
-        "country": "Reunion",
-        "pop": 798094
+        "continent": "Asia",
+        "total_pop": 3811953828
     },
     {
-        "country": "Comoros",
-        "pop": 710960
+        "continent": "Europe",
+        "total_pop": 586098530
     },
     {
-        "country": "Bahrain",
-        "pop": 708573
-    },
-    {
-        "country": "Montenegro",
-        "pop": 684736
-    },
-    {
-        "country": "Equatorial Guinea",
-        "pop": 551201
-    },
-    {
-        "country": "Djibouti",
-        "pop": 496374
-    },
-    {
-        "country": "Iceland",
-        "pop": 301931
-    },
-    {
-        "country": "Sao Tome and Principe",
-        "pop": 199579
+        "continent": "Oceania",
+        "total_pop": 24549948
     }
 ]

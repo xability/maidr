@@ -19,12 +19,13 @@ library(tidyverse)
 
 gapminder %>%
   filter(year == 2007) %>%
-  arrange(desc(pop)) %>%
-  tail(10) %>%
-  ggplot(aes(x = country, y = pop)) +
+  group_by(continent) %>%
+  summarise(total_pop = sum(pop, rm.na = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = continent, y = total_pop)) +
   geom_col() +
   scale_y_continuous(labels = scales::label_number_auto()) +
-  labs(title = "The Top 10 Countries Having the Least Population in 2007", x = "Country", y = "Population")
+  labs(title = "The Total Population of Each Continent in 2007.", x = "Continent", y = "Total Population")
 
 gridSVG::grid.export("barplot_user_study.svg")
 dev.off()
@@ -216,9 +217,10 @@ penguins %>%
 gridSVG::grid.export("heatmap.svg")
 dev.off()
 
+
 # heat map for user study
 gapminder %>%
-  dplyr::filter(year >= 1987) %>%
+  filter(year >= 1987) %>%
   group_by(year, continent) %>%
   summarise(mean_gdp = round(mean(gdpPercap, rm.na = TRUE), digits = 2)) %>%
   ungroup() %>%
@@ -228,20 +230,20 @@ gapminder %>%
   ggplot(aes(x = year, y = continent, fill = mean_gdp)) +
   geom_tile(color = "black") +
   coord_fixed() +
-  labs(title = "Average GDP per Continent by Year.", x = "Year", y = "Continent", fill = "Average GDP")
+  labs(title = "Average GDP per Continent by Year.", x = "Year (from 1987 to 2007 in increments of 5 years)", y = "Continent", fill = "Average GDP")
 
 gridSVG::grid.export("heatmap_user_study.svg")
 dev.off()
 
-
 # Scatterplot for user study
 
 g <- gapminder %>%
+  filter(year == 2007 & continent == "Europe") %>%
   ggplot(aes(x = gdpPercap, y = lifeExp)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE) +
   scale_x_log10(labels = scales::comma) +
-  labs(title = "The Relationship between GDP and Life Expectancy", x = "GDP (log10 transfermed)", y = "Life Expectancy")
+  labs(title = "The Relationship between GDP and Life Expectancy of European Countries in 2007.", x = "GDP (log10 transformed)", y = "Life Expectancy")
 
 g
 
