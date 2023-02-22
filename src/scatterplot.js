@@ -482,7 +482,8 @@ class ScatterPlot {
         this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
         this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
         // this.bestFitLinePoints = this.GetBestFitLinePoints();
-        this.curvePoints = this.GetSmoothCurvePoints(); // actual values of y 
+        this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
+        this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y 
         this.curveMinY = Math.min(...this.curvePoints); 
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
@@ -708,24 +709,31 @@ class ScatterPlot {
     // }
 
     GetSmoothCurvePoints() {
-        let points = [];
+        let x_points = [];
+        let y_points = [];
 
         for (let i = 0; i < smooth_layer.length; i++) {
-            points.push(smooth_layer[i]['y']);
+            x_points.push(smooth_layer[i]['x']);
+            y_points.push(smooth_layer[i]['y']);
         }
 
-        return points;
+        return [x_points, y_points];
     }
 
     GetGradient() {
         let gradients = [];
 
+        // for (let i = 0; i < this.curvePoints.length - 1; i++) {
+        //     if (this.curvePoints[i + 1] - this.curvePoints[i] > 0) {
+        //         gradients.push('up');
+        //     } else {
+        //         gradients.push('down');
+        //     }
+        // }
+
         for (let i = 0; i < this.curvePoints.length - 1; i++) {
-            if (this.curvePoints[i + 1] - this.curvePoints[i] > 0) {
-                gradients.push('up');
-            } else {
-                gradients.push('down');
-            }
+            let abs_grad = Math.abs((this.curvePoints[i + 1] - this.curvePoints[i]) / (this.curveX[i + 1] - this.curveX[i])).toFixed(3);
+            gradients.push(abs_grad);
         }
 
         gradients.push('end');

@@ -262,7 +262,9 @@ class Display {
                     // do nothing
                 } else if (constants.textMode == "terse") {
                     // terse mode: gradient trend
-                    // output += '<p>' + plot.x[position.x] + ", " + plot.bestFitLinePoints[position.x] + '</p>\ns';
+                    // output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
+
+                    // display absolute gradient of the graph
                     output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values
