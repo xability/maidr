@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         } else if (constants.layer == 1) {
             positionL1.x = lastx1;
+           
             if (e.which == 39 && e.shiftKey) {
                 if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
                     PlayLine('outward_right');
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // @TODO
         // only line layer can access to braille display
         if (e.which == 9) {
-            constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
+            // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
         } else if (constants.layer == 1) {
             lockPosition();
             if (e.which == 9) {
@@ -144,7 +145,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                         isAtEnd = lockPosition();
                     }
                 } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
-                    lastx1 = positionL1.x;
                     Autoplay('inward_left', -1, positionL1.x);
                 } else {
                     positionL1.x -= 1;
@@ -163,6 +163,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         constants.brailleInput.addEventListener('focusout', function(e) {
             display.toggleBrailleMode('off');
         });
+
+        lastx1 = positionL1.x;
 
         if (updateInfoThisRound && ! isAtEnd) {
             UpdateAllBraille();
