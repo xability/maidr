@@ -468,8 +468,10 @@ class ScatterPlot {
         }
         this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
         this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+
         this.x = this.GetPointValues()[0]; // actual values of x
         this.y = this.GetPointValues()[1]; // actual values of y
+
         this.points_count = this.GetPointValues()[2]; // number of each points
         this.max_count = this.GetPointValues()[3];
 
@@ -481,9 +483,10 @@ class ScatterPlot {
         }
         this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
         this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
-        // this.bestFitLinePoints = this.GetBestFitLinePoints();
+
         this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
         this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y 
+        
         this.curveMinY = Math.min(...this.curvePoints); 
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
@@ -491,38 +494,14 @@ class ScatterPlot {
         this.groupLabels = this.GetGroupLabels();
     }
 
-    // SelectLayer(layer) {
-    //     constants.layer = layer;
-    //     if (layer == 0) {
-    //         constants.minX = 0;
-    //         constants.maxX = this.x.length - 1;
-    //         constants.minY = Math.min([...this.y]);
-    //         constants.maxY = Math.max([...this.y]);
-    //         this.numPoints = this.x.length;
-    //     } else if (layer == 1) {
-    //         constants.minX = 0;
-    //         constants.maxX = this.x.length - 1;
-    //         constants.minY = Math.min(...this.bestFitLinePoints);
-    //         constants.maxY = Math.max(...this.bestFitLinePoints);
-    //         this.numPoints = this.x.length;
-    //     }
-    // }
-
-    // GetXLength(layer) {
-    //     if (layer == 0) {
-    //         return this.x.length;
-    //     }
-
-    //     if (layer == 1) {
-    //         return this.svgLineX.length;
-    //     }
-    // }
-
     GetGroupLabels() {
-        let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
-
         let labels = [];
-        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+        if (constants.manual) {
+            labels.push(scatterPlotLegend["x"], scatterPlotLegend["y"]);
+        } else {
+            let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
+            labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+        }
 
         return labels;
     }
@@ -557,45 +536,6 @@ class ScatterPlot {
     }
 
     GetPointValues() {
-        // // x values
-        // let xValues = [...displ];
-        // // for panning
-        // constants.minX = 0;
-        // constants.maxX = xValues.length;
-
-        // // y values
-        // let yValues = [...hwy];
-        // // default layer: point layer 
-        // // constants.minY & maxY should be adjusted according to layer
-        // constants.minY = Math.min(...yValues);
-        // constants.maxY = Math.max(...yValues);
-
-        // let points = new Map();
-
-        // for (let i = 0; i < xValues.length; i++) {
-        //     let x = parseFloat(xValues[i]);
-        //     let y = parseFloat(yValues[i]);
-        //     if (!points.has(x)) {
-        //         points.set(x, new Set([y]));
-        //     } else {
-        //         points.get(x).add(y);
-        //     }
-        // }
-
-        // points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
-
-        // points.forEach(function (value, key) {
-        //     points[key] = Array.from(value).sort(function (a, b) { return a - b });
-        // });
-
-        // let X = [...points.keys()];
-
-        // let Y = [];
-        // for (let i = 0; i < X.length; i++) {
-        //     Y.push(points[X[i]]);
-        // }
-
-        // return [X, Y];
 
         let points = new Map(); // keep track of x and y values
 
@@ -693,20 +633,6 @@ class ScatterPlot {
 
         return [X, Y];
     }
-
-    // GetBestFitLinePoints() {
-    //     let points = [];
-
-    //     for (let i = 0; i < displ.length; i++) {
-    //         if (!points.map(({ x }) => x).includes(displ[i]))
-    //             points.push({ 'x': displ[i], 'y': prediciton_array[i] });
-    //     }
-
-    //     points.sort(function (a, b) { return a.y - b.y });
-    //     points.sort(function (a, b) { return a.x - b.x });
-
-    //     return points.map(({ y }) => y);
-    // }
 
     GetSmoothCurvePoints() {
         let x_points = [];
