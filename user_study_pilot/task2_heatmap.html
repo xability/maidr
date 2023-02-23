@@ -27,7 +27,7 @@
         <div class="container mt-3">
             <h1>Task 2: Heatmap</h1>
             <p>Given the heatmap below, the researcher will ask one question each time, please answer the question verbally using the MAIDR system. Once you have completed all the questions, please click the “Go To Next Section” hyperlink at the bottom of the page.</p>
-            <div id="container" data-plottype="bar">
+            <div id="container" data-plottype="heatmap">
                 <div id="braille-div">
                     <input id="braille-input" class="braille-input hidden" type="text" />
                 </div>
@@ -774,9 +774,13 @@
             var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.61\\.1 > rect');
             var heatmapData = [ [ 20448.04, 20894.05, 24024.18, 26938.78, 29810.19 ], [ 17214.31, 17061.57, 19076.78, 21711.73, 25054.48 ], [ 7608.23, 8639.69, 9834.09, 10174.09, 12473.03 ], [ 7793.4, 8044.93, 8889.3, 9287.68, 11003.03 ], [ 2282.67, 2281.81, 2378.76, 2599.39, 3089.03 ] ];
             
-            var heatmapLabelsNodelist = document.querySelectorAll('tspan[dy="12"]');
-            var heatmapXNodelist = document.querySelectorAll('tspan[dy="10"]');
-            var heatmapYNodelist = document.querySelectorAll('tspan[id^="GRID.text.77.1"]');
+        //     var heatmapLabelsNodelist = document.querySelectorAll('tspan[dy="12"]');
+        //     var heatmapXNodelist = document.querySelectorAll('tspan[dy="10"]');
+        //     var heatmapYNodelist = document.querySelectorAll('tspan[id^="GRID.text.77.1"]');
+
+            var heatmapLabelsNodelist = ["Year", "Continent"];
+            var heatmapXNodelist = ["1987", "1992", "1997", "2002", "2007"];
+            var heatmapYNodelist = ["Oceania", "Europe", "Asia", "Americas", "Africa"];
         </script>
         <script src="../src/constants.js"></script>
         <script src="../src/audio.js"></script>
