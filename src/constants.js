@@ -57,7 +57,7 @@ class Constants {
     showRect = 1;  // true / false
     duration = .2;
     autoPlayOutlierRate = 30; // ms per tone
-    autoPlayPointsRate = 150;
+    autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
 
     // user controls (not exposed to menu, with shortcuts usually)
