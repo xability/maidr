@@ -97,7 +97,7 @@ class Audio {
             // range = chord 
             let sectionType = plot.plotData[position.y][position.x].type;
             if (sectionType == "outlier") {
-                currentDuration = constants.duration / 2;
+                currentDuration = constants.duration;
             } else if (sectionType == "whisker") {
                 currentDuration = constants.duration * 2;
             } else {
