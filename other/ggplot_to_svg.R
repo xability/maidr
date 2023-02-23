@@ -33,15 +33,14 @@ dev.off()
 
 gapminder %>%
   filter(year == 2007) %>%
-  arrange(desc(pop)) %>%
-  tail(10) %>%
-  select(country, pop) %>%
+  group_by(continent) %>%
+  summarise(total_pop = sum(pop, rm.na = TRUE)) %>%
+  ungroup() %>%
   jsonlite::write_json("barplot_user_study_raw_data.json")
 
 # Box plot sample
 ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
-  geom_boxplot() +
-  coord_flip()
+  geom_boxplot()
 
 gridSVG::grid.export("boxplot.svg")
 dev.off()
@@ -225,12 +224,10 @@ gapminder %>%
   summarise(mean_gdp = round(mean(gdpPercap, rm.na = TRUE), digits = 2)) %>%
   ungroup() %>%
   mutate(year = factor(year)) %>%
-  # gt()
-  # jsonlite::write_json("heatmap_user_study_raw_data.json")
   ggplot(aes(x = year, y = continent, fill = mean_gdp)) +
   geom_tile(color = "black") +
   coord_fixed() +
-  labs(title = "Average GDP per Continent by Year.", x = "Year (from 1987 to 2007 in increments of 5 years)", y = "Continent", fill = "Average GDP")
+  labs(title = "Average GDP per Continent by Year.", x = "Year (from 1987 to 2007 in Increments of 5 Years)", y = "Continent", fill = "Average GDP")
 
 gridSVG::grid.export("heatmap_user_study.svg")
 dev.off()
