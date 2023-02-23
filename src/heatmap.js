@@ -491,13 +491,13 @@ class HeatMap {
         let y_coord_check = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            x_coord_check.push(this.plots[i].getAttribute('x'));
-            y_coord_check.push(this.plots[i].getAttribute('y'));
+            x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
+            y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function (a, b) { a - b; }); // ascending
-        y_coord_check.sort(function (a, b) { b - a; }); // descending
+        x_coord_check.sort(function(a,b) { return a - b }); // ascending
+        y_coord_check.sort(function(a,b) { return a - b }).reverse(); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
@@ -630,12 +630,7 @@ class HeatMapRect {
         var rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x);
-        if (constants.manualData) {
-            let offset = 15; // temporary offset. In the user study dataset, y coord is same as the plot data but there's unalignment between given svg coord and real svg coord
-            rect.setAttribute('y', this.y - offset);
-        } else {
-            rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.height - this.y); // y coord is inverse from plot data
-        }
+        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.height - this.y); // y coord is inverse from plot data
         rect.setAttribute('width', this.height);
         rect.setAttribute('height', this.height);
         rect.setAttribute('stroke', constants.colorSelected);
