@@ -507,23 +507,26 @@ class HeatMap {
         let num_rows = unique_y_coord.length;
         let num_cols = unique_x_coord.length;
 
-        let norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
-        let min_norm = 3 * (Math.pow(255, 2));
-        let max_norm = 0;
-
-        for (var i = 0; i < this.plots.length; i++) {
-            var x_index = unique_x_coord.indexOf(x_coord_check[i]);
-            var y_index = unique_y_coord.indexOf(y_coord_check[i]);
-            let norm = this.getRGBNorm(i);
-            norms[y_index][x_index] = norm;
-
-            if (norm < min_norm) min_norm = norm;
-            if (norm > max_norm) max_norm = norm;
-        }
-
+        let norms;
         if ( constants.manualData ) {
-            norms = heatmapData;
+            norms = [...heatmapData];
+        } else {
+            norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
+            let min_norm = 3 * (Math.pow(255, 2));
+            let max_norm = 0;
+
+            for (var i = 0; i < this.plots.length; i++) {
+                var x_index = unique_x_coord.indexOf(x_coord_check[i]);
+                var y_index = unique_y_coord.indexOf(y_coord_check[i]);
+                let norm = this.getRGBNorm(i);
+                norms[y_index][x_index] = norm;
+
+                if (norm < min_norm) min_norm = norm;
+                if (norm > max_norm) max_norm = norm;
+            }
         }
+
+        
 
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
 
@@ -590,13 +593,13 @@ class HeatMap {
     getYLabels() {
         // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
         let y_labels_nodelist;
+        let labels = [];
         if ( constants.manualData ) {
             y_labels_nodelist = heatmapYNodelist;
         } else {
             y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
         }
 
-        let labels = [];
         for (let i = 0; i < y_labels_nodelist.length; i++) {
             labels.push(y_labels_nodelist[i].innerHTML);
         }
@@ -627,7 +630,12 @@ class HeatMapRect {
         var rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.height - this.y); // y coord is inverse from plot data
+        if (constants.manualData) {
+            let offset = 15; // temporary offset. In the user study dataset, y coord is same as the plot data but there's unalignment between given svg coord and real svg coord
+            rect.setAttribute('y', this.y - offset);
+        } else {
+            rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.height - this.y); // y coord is inverse from plot data
+        }
         rect.setAttribute('width', this.height);
         rect.setAttribute('height', this.height);
         rect.setAttribute('stroke', constants.colorSelected);
