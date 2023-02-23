@@ -486,7 +486,7 @@ class ScatterPlot {
 
         this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
         this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y 
-        
+
         this.curveMinY = Math.min(...this.curvePoints); 
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
@@ -531,6 +531,8 @@ class ScatterPlot {
         for (let i = 0; i < X.length; i++) {
             Y.push(points[X[i]]);
         }
+
+        console.log(X, Y);
 
         return [X, Y];
     }
@@ -586,6 +588,8 @@ class ScatterPlot {
             points_count.push(y_count);
         }
         let max_points = Math.max(...points_count.map(a => Math.max(...a)));
+
+        console.log(X, Y);
 
         return [X, Y, points_count, max_points];
     }
@@ -648,14 +652,6 @@ class ScatterPlot {
 
     GetGradient() {
         let gradients = [];
-
-        // for (let i = 0; i < this.curvePoints.length - 1; i++) {
-        //     if (this.curvePoints[i + 1] - this.curvePoints[i] > 0) {
-        //         gradients.push('up');
-        //     } else {
-        //         gradients.push('down');
-        //     }
-        // }
 
         for (let i = 0; i < this.curvePoints.length - 1; i++) {
             let abs_grad = Math.abs((this.curvePoints[i + 1] - this.curvePoints[i]) / (this.curveX[i + 1] - this.curveX[i])).toFixed(3);

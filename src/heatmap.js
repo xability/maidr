@@ -562,6 +562,9 @@ class HeatMap {
         let labels_nodelist;
         if ( constants.manualData ) {
             labels_nodelist = heatmapLabelsNodelist;
+            if (typeof(labels_nodelist[0]) == "string") {
+                return labels_nodelist;
+            }
         } else {
             labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
         }
@@ -577,6 +580,9 @@ class HeatMap {
         let x_labels_nodelist;
         if ( constants.manualData ) {
             x_labels_nodelist = heatmapXNodelist;
+            if (typeof(x_labels_nodelist[0]) == "string") {
+                return x_labels_nodelist;
+            }
         } else {
             x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
         }
@@ -596,6 +602,9 @@ class HeatMap {
         let labels = [];
         if ( constants.manualData ) {
             y_labels_nodelist = heatmapYNodelist;
+            if (typeof(y_labels_nodelist[0]) == "string") {
+                return y_labels_nodelist;
+            }
         } else {
             y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
         }
