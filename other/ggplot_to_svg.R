@@ -250,6 +250,13 @@ dev.off()
 point_layer <- layer_data(g, 1) %>%
   select(x, y)
 
+# Yu Jun said the above did not work so I am extracting from the original data directly:
+gapminder %>%
+  filter(year == 2007 & continent == "Europe") %>%
+  select(gdpPercap, lifeExp) %>%
+  mutate(gdpPercap = log10(gdpPercap)) %>%
+  rename(x = gdpPercap, y = lifeExp) %>%
+  jsonlite::write_json("new_scatterplot_user_study_point_layer.json")
 
 smooth_layer <- layer_data(g, 2) %>%
   select(x, y)
