@@ -225,9 +225,10 @@ gapminder %>%
   ungroup() %>%
   mutate(year = factor(year)) %>%
   ggplot(aes(x = year, y = continent, fill = mean_gdp)) +
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
   geom_tile(color = "black") +
   coord_fixed() +
-  labs(title = "Average GDP per Continent by Year.", x = "Year (from 1987 to 2007 in Increments of 5 Years)", y = "Continent", fill = "Average GDP")
+  labs(title = "Average GDP per Continent by Year.", x = "Year", y = "Continent", fill = "Average GDP")
 
 gridSVG::grid.export("heatmap_user_study.svg")
 dev.off()
