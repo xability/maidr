@@ -9,24 +9,7 @@
     </head>
 
     <body>
-        <nav class="navbar navbar-expand bg-dark" data-bs-theme="dark">
-            <div class="container-fluid">
-                <ul class="navbar-nav">
-                    <li class="nav-item"><a class="nav-link" href="intro.html">Intro</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial1_bar_chart.html">Tutorial 1: Bar Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task1_bar_chart.html">Task 1: Bar Chart</a></li>
-                    <li class="nav-item"><a class="nav-link active" aria-current="page" href="tutorial2_heatmap.html">Tutorial 2: Heatmap</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task2_heatmap.html">Task 2: Heatmap</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial3_box_chart.html">Tutorial 3: Box Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task3_box_chart.html">Task 3: Box Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial4_scatterplot.html">Tutorial 4: Scatter Plot</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task4_scatterplot.html">Task 4: Scatter Plot</a></li>
-                </ul>
-            </div>
-        </nav>
         <div class="container mt-3">
-            <h1>Task 2: Heatmap</h1>
-            <p>Given the heatmap below, the researcher will ask one question each time, please answer the question verbally using the MAIDR system. Once you have completed all the questions, please click the “Go To Next Section” hyperlink at the bottom of the page.</p>
             <div id="container" data-plottype="heatmap">
                 <div id="braille-div">
                     <input id="braille-input" class="braille-input hidden" type="text" />
@@ -768,7 +751,6 @@
                 <div id="announcements" aria-live="assertive" aria-atomic="true" class="mb-3">
                 </div>
             </div>
-            <div><a href="tutorial3_box_chart.html" class="btn btn-primary">Go to Next Section</a></div>
         </div>
         <script>
             var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.61\\.1 > rect');
@@ -787,5 +769,4 @@
         <script src="../src/display.js"></script>
         <script src="../src/heatmap.js"></script>
     </body>
-
 </html>

@@ -9,26 +9,7 @@
     </head>
 
     <body>
-        <nav class="navbar navbar-expand bg-dark" data-bs-theme="dark">
-            <div class="container-fluid">
-                <ul class="navbar-nav">
-                    <li class="nav-item"><a class="nav-link" href="intro.html">Intro</a></li>
-                    <li class="nav-item"><a class="nav-link active" aria-current="page" href="tutorial1_bar_chart.html">Tutorial 1: Bar Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task1_bar_chart.html">Task 1: Bar Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial2_heatmap.html">Tutorial 2: Heatmap</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task2_heatmap.html">Task 2: Heatmap</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial3_box_chart.html">Tutorial 3: Box Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task3_box_chart.html">Task 3: Box Chart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="tutorial4_scatterplot.html">Tutorial 4: Scatter Plot</a></li>
-                    <li class="nav-item"><a class="nav-link" href="task4_scatterplot.html">Task 4: Scatter Plot</a></li>
-                </ul>
-            </div>
-        </nav>
         <div class="container mt-3">
-            <h1>Tutorial 1: Bar Chart</h1>
-            <p>A bar chart is one of the most common types of graphics. It shows the relationship between a numerical and a categorical variable. Each entity of the categoric variable is represented as a bar. The height of the bar represents its numeric value (source: <a href="https://www.data-to-viz.com/" target="_blank">www.data-to-viz.com</a>). </p>
-            <p>The researcher will play an audio tutorial to help you utilize the MAIDR system. Once you are familiar with the system, please click the “Start Task” hyperlink at the bottom of the page.</p>
-            <p>[audio goes here, todo]</p>
             <div id="container" data-plottype="bar">
                 <div id="braille-div">
                     <input id="braille-input" class="braille-input hidden" type="text" />
@@ -562,7 +543,6 @@
                 <div id="announcements" aria-live="assertive" aria-atomic="true" class="mb-3">
                 </div>
             </div>
-            <div><a href="task1_bar_chart.html" class="btn btn-primary">Start Task</a></div>
         </div>
         <script>
             var barplotBars = document.querySelectorAll("#geom_rect\\.rect\\.2\\.1 > rect");
@@ -575,5 +555,4 @@
         <script src="../src/display.js"></script>
         <script src="../src/barplot.js"></script>
     </body>
-
 </html>

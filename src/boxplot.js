@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let lastPlayed = '';
     let lastY = 0;
 
-
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys

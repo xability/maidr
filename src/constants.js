@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // default page load focus on svg 
     // this is mostly for debugging, as first time load users must click or hit a key to focus
     // todo for publish: probably start users at a help / menu section, and they can tab to svg
-    if ( constants.debugLevel > 4 ) {
+    if ( constants.debugLevel > -1 ) {
         setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
     }
 
