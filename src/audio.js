@@ -46,14 +46,14 @@ class Audio {
         } else if (constants.chartType == "boxplot") {
             if (position.z == -1) {
                 // normal points
-                rawFreq = plot.plotData[position.y][position.x].x;
+                rawFreq = plot.plotData[position.x][position.y].x;
             } else {
                 // outliers are stored in values with a seperate itterator
-                rawFreq = plot.plotData[position.y][position.x].values[position.z];
+                rawFreq = plot.plotData[position.x][position.y].values[position.z];
             }
-            if (plot.plotData[position.y][position.x].type != 'blank') {
-                frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
-                panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
+            if (plot.plotData[position.x][position.y].type != 'blank') {
+                frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                panning = this.SlideBetween(rawFreq, constants.minY, constants.maxY, -1, 1);
             } else {
                 frequency = constants.MIN_FREQUENCY;
                 panning = 0;
@@ -87,7 +87,11 @@ class Audio {
 
         if (constants.debugLevel > 5) {
             console.log('will play tone at freq', frequency);
-            console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+            if ( constants.chartType == "boxplot" ) {
+                console.log('based on', constants.minY, '<', rawFreq, '<', constants.maxY, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+            } else {
+                console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
+            }
         }
 
         if (constants.chartType == "boxplot") {
@@ -106,7 +110,7 @@ class Audio {
         }
 
         // create tones
-        this.playOscillator(frequency, currentDuration, panning, /*constants.vol*/ volume, 'sine');
+        this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
         if (constants.chartType == "boxplot") {
             let sectionType = plot.plotData[position.y][position.x].type;
             if (sectionType == "range") {
