@@ -120,7 +120,7 @@ class Display {
             constants.brailleInput.setSelectionRange(pos, pos);
         } else if (constants.chartType == "boxplot") {
             // on boxplot we extend characters a lot and have blanks, so we go to our label
-            let targetLabel = this.boxplotGridPlaceholders[position.x];
+            let targetLabel = this.boxplotGridPlaceholders[position.y];
             let haveTargetLabel = false;
             let adjustedPosX = 0;
             if (constants.brailleData) {
@@ -340,32 +340,32 @@ class Display {
             // First, we make an array of lengths and types that represent our plot
             let brailleData = [];
             let isBeforeMid = true;
-            let boundingBoxOffsetX = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
-            for (let i = 0; i < plot.plotData[position.y].length; i++) {
-                let point = plot.plotData[position.y][i];
+            let boundingBoxOffsetY = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
+            for (let i = 0; i < plot.plotData[position.x].length; i++) {
+                let point = plot.plotData[position.x][i];
                 let nextPoint = null;
                 let prevPoint = null;
-                if (i < plot.plotData[position.y].length - 1) {
-                    nextPoint = plot.plotData[position.y][i + 1];
+                if (i < plot.plotData[position.x].length - 1) {
+                    nextPoint = plot.plotData[position.x][i + 1];
                 }
                 if (i > 0) {
-                    prevPoint = plot.plotData[position.y][i - 1];
+                    prevPoint = plot.plotData[position.x][i - 1];
                 }
 
                 let charData = {};
 
                 if (i == 0) {
                     // first point, add space to next actual point
-                    let firstX = 0;
-                    for (let j = 0; j < plot.plotData[position.y].length; j++) {
+                    let firstY = 0;
+                    for (let j = 0; j < plot.plotData[position.x].length; j++) {
                         // find next actual point
-                        if ('x' in plot.plotData[position.y][j]) {
-                            firstX = plot.plotData[position.y][j].x;
+                        if ('y' in plot.plotData[position.x][j]) {
+                            firstY = plot.plotData[position.x][j].y;
                             break;
                         }
                     }
                     charData = {};
-                    charData.length = firstX - 0 - boundingBoxOffsetX;
+                    charData.length = firstY - 0 - boundingBoxOffsetY;
                     if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
                     charData.type = 'blank';
                     charData.label = 'blank';
@@ -388,7 +388,7 @@ class Display {
                     } else {
                         // yes after space
                         charData = {};
-                        charData.length = point.values[0] - prevPoint.x;
+                        charData.length = point.values[0] - prevPoint.y;
                         charData.type = 'blank';
                         charData.label = 'blank';
                         brailleData.push(charData);
@@ -421,7 +421,7 @@ class Display {
                     if (isBeforeMid) {
                         // yes pre space 
                         charData = {};
-                        charData.length = nextPoint.x - point.values[point.values.length - 1];
+                        charData.length = nextPoint.y - point.values[point.values.length - 1];
                         charData.type = 'blank';
                         charData.label = 'blank';
                         brailleData.push(charData);
@@ -442,29 +442,29 @@ class Display {
                         // normal points: we calc dist between this point and point closest to middle
                         charData = {};
                         if (isBeforeMid) {
-                            charData.length = nextPoint.x - point.x;
+                            charData.length = nextPoint.y - point.y;
                         } else {
-                            charData.length = point.x - prevPoint.x;
+                            charData.length = point.y - prevPoint.y;
                         }
                         charData.type = point.label;
                         charData.label = point.label;
                         brailleData.push(charData);
                     }
                 }
-                if (i == plot.plotData[position.y].length - 1) {
+                if (i == plot.plotData[position.x].length - 1) {
                     // last point gotta add ending space manually
                     charData = {};
-                    let lastX = 0;
-                    for (let j = 0; j < plot.plotData[position.y].length; j++) {
+                    let lastY = 0;
+                    for (let j = 0; j < plot.plotData[position.x].length; j++) {
                         // find last actual point
 
                         if (point.type == "outlier") {
-                            lastX = charData.length = point.xMax;
-                        } else if ('x' in plot.plotData[position.y][j]) {
-                            lastX = plot.plotData[position.y][j].x;
+                            lastY = charData.length = point.yMax;
+                        } else if ('y' in plot.plotData[position.x][j]) {
+                            lastY = plot.plotData[position.x][j].y;
                         }
                     }
-                    charData.length = constants.maxX - lastX;
+                    charData.length = constants.maxX - lastY;
                     charData.type = "blank";
                     charData.label = "blank";
                     brailleData.push(charData);
@@ -635,7 +635,7 @@ class Display {
             constants.brailleData = brailleData;
             if (constants.debugLevel > 5) {
                 console.log(brailleData);
-                console.log(plot.plotData[position.y]);
+                console.log(plot.plotData[position.x]);
             }
 
             // create braille from this data

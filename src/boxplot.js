@@ -160,6 +160,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
             }
+            setBrailleThisRound = true;
             constants.navigation = 1;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
@@ -180,6 +181,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
             }
+            setBrailleThisRound = true;
             constants.navigation = 1;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
@@ -191,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
-            setBrailleThisRound = true;
             constants.navigation = 0;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
@@ -206,7 +207,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
-            setBrailleThisRound = true;
             constants.navigation = 0;
         } else {
             e.preventDefault();
@@ -999,15 +999,14 @@ class BoxplotRect {
     // maybe put this stuff in user config?
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
-    //rectPaddingOffset = this.rectPadding * 3;
-    //rectPaddingOffsetX = 0;
-    rectPaddingOffsetY = 45;
 
     constructor() {
         this.x1 = 0;
         this.width = 0;
         this.y1 = 0;
         this.height = 0;
+        this.svgOffsetLeft = constants.svg.getBoundingClientRect().left;
+        this.svgOffsetTop = constants.svg.getBoundingClientRect().top;
     }
 
     UpdateRect() {
@@ -1021,14 +1020,14 @@ class BoxplotRect {
 
             if ( bounds.type != 'blank' ) {
 
-                let svgBounds = constants.svg.getBoundingClientRect();
+                //let svgBounds = constants.svg.getBoundingClientRect();
 
-                this.x1 = bounds.left - this.rectPadding - svgBounds.left;
+                this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
                 this.width = bounds.width + ( this.rectPadding * 2 ) ;
-                this.y1 = bounds.top - this.rectPadding - svgBounds.top;
+                this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
                 this.height = bounds.height + ( this.rectPadding * 2 ) ;
 
-                if (constants.debugLevel > 5) {
+                if (constants.debugLevel > 1) {
                     console.log(
                         "Point", plot.plotData[position.x][position.y].label,
                         "bottom:", bounds.bottom,
