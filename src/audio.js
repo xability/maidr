@@ -46,7 +46,7 @@ class Audio {
         } else if (constants.chartType == "boxplot") {
             if (position.z == -1) {
                 // normal points
-                rawFreq = plot.plotData[position.x][position.y].x;
+                rawFreq = plot.plotData[position.x][position.y].y;
             } else {
                 // outliers are stored in values with a seperate itterator
                 rawFreq = plot.plotData[position.x][position.y].values[position.z];
@@ -99,7 +99,7 @@ class Audio {
             // outlier = short tone
             // whisker = normal tone
             // range = chord 
-            let sectionType = plot.plotData[position.y][position.x].type;
+            let sectionType = plot.plotData[position.x][position.y].type;
             if (sectionType == "outlier") {
                 currentDuration = constants.duration;
             } else if (sectionType == "whisker") {
@@ -112,7 +112,7 @@ class Audio {
         // create tones
         this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
         if (constants.chartType == "boxplot") {
-            let sectionType = plot.plotData[position.y][position.x].type;
+            let sectionType = plot.plotData[position.x][position.y].type;
             if (sectionType == "range") {
                 // also play an octive below at lower vol
                 let freq2 = frequency / 2;

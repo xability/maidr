@@ -587,7 +587,7 @@ class BoxPlot {
                     let vals = [];
                     for (let k = 0; k < outlierGroup.length; k++) {
                         // save array of values
-                        vals.push(outlierGroup[k].x);
+                        vals.push(outlierGroup[k].y);
 
                         // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
                         if (k > 0) {
@@ -681,7 +681,7 @@ class BoxPlot {
             plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y)/2);
         }
 
-        if (constants.debugLevel > 5) {
+        if (constants.debugLevel > 1) {
             console.log('plotData:', plotData);
         }
 
@@ -874,7 +874,7 @@ class BoxPlot {
             plotBounds.push(plotBound);
         }
 
-        if ( constants.debugLevel > 0 ) {
+        if ( constants.debugLevel > 5 ) {
             console.log('plotBounds', plotBounds);
         }
 
@@ -964,7 +964,7 @@ class BoxPlot {
         } else if (plot.plotData[position.x][position.y].type != "outlier") {
             audio.playTone();
         } else {
-            // we play a run of tones
+            // outlier(s): we play a run of tones
             position.z = 0;
             let outlierInterval = setInterval(function () {
                 // play this tone
@@ -1017,24 +1017,16 @@ class BoxplotRect {
 
                 let svgBounds = constants.svg.getBoundingClientRect();
 
-                //this.x1 = bounds.left - this.rectPadding - svgBounds.left;
-                //this.x2 = bounds.right + this.rectPadding - svgBounds.left;
-                //this.y1 = -bounds.bottom - this.rectPadding + svgBounds.bottom;
-                //this.y2 = -bounds.top + this.rectPadding + svgBounds.bottom;
                 this.x1 = bounds.left - this.rectPadding - svgBounds.left;
                 this.width = bounds.width + ( this.rectPadding * 2 ) ;
-                //this.x2 = bounds.right + this.rectPadding - svgBounds.left;
                 this.y1 = bounds.top - this.rectPadding - svgBounds.top;
                 this.height = bounds.height + ( this.rectPadding * 2 ) ;
-                //this.y2 = bounds.top - this.rectPadding - this.rectPaddingOffsetY;
 
-                if (constants.debugLevel > 0) {
+                if (constants.debugLevel > 5) {
                     console.log(
                         "Point", plot.plotData[position.x][position.y].label,
                         "bottom:", bounds.bottom,
                         "top:", bounds.top);
-                        //"x:", plot.plotData[position.x][position.y].x,
-                        //"y:", plot.plotData[position.x][position.y].y);
                     console.log(
                         "x1:", this.x1,
                         "y1:", this.y1,
@@ -1049,7 +1041,6 @@ class BoxplotRect {
 
     CreateRectDisplay() {
         // CreateRectDisplay takes bounding points and creates the visual outline 
-
 
         const svgns = "http://www.w3.org/2000/svg";
         let rect = document.createElementNS(svgns, 'rect');
