@@ -681,7 +681,7 @@ class BoxPlot {
             plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y)/2);
         }
 
-        if (constants.debugLevel > 0) {
+        if (constants.debugLevel > 5) {
             console.log('plotData:', plotData);
         }
 
@@ -720,7 +720,7 @@ class BoxPlot {
             // we get the midpoint from actual point values in the svg GRID.segments
             let midPoints = initialElemSet[i].range.querySelector('polyline[id^="GRID"]').getAttribute('points').match(re);
             let rangePoints = initialElemSet[i].range.querySelector('polygon[id^="geom_polygon"]').getAttribute('points').match(re);
-            // get midpoint as percentage from points to apply to bounding boxes: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
+            // get midpoint as percentage from bottom to mid to apply to bounding boxes: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
             let midPercent = (midPoints[1] - rangePoints[3]) / (rangePoints[1] - rangePoints[3]);
             let midHeight = rangeBounds.height * midPercent;
 
@@ -738,7 +738,7 @@ class BoxPlot {
             plotBound[3].label = allWeNeed[3];
             plotBound[3].type = 'range';
             plotBound[3].height = 0;
-            plotBound[3].top = rangeBounds.top + midHeight;
+            plotBound[3].top = rangeBounds.bottom - midHeight;
             plotBound[3].y = plotBound[3].top;
             plotBound[3].bottom = plotBound[3].top;
             // 75%
@@ -746,7 +746,7 @@ class BoxPlot {
             plotBound[4].label = allWeNeed[4];
             plotBound[4].type = 'range';
             plotBound[4].height = rangeBounds.height - midHeight;
-            plotBound[4].bottom = plotBound[4].top + plotBound[4].height;
+            plotBound[4].bottom = plotBound[3].top;
 
             // now the tricky ones, outliers and whiskers, if we have them
             if ( Object.hasOwn(initialElemSet[i], 'whisker') ) {
@@ -754,8 +754,8 @@ class BoxPlot {
                 let whiskerBounds = initialElemSet[i].whisker.getBoundingClientRect();
                 let hasBelow = false;
                 let hasAbove = false;
-                if ( whiskerBounds.bottom < rangeBounds.bottom ) hasBelow = true;
-                if ( whiskerBounds.top > rangeBounds.top ) hasAbove = true;
+                if ( whiskerBounds.bottom > rangeBounds.bottom ) hasBelow = true;
+                if ( whiskerBounds.top < rangeBounds.top ) hasAbove = true;
 
                 if ( hasBelow && hasAbove ) {
                     // split it up!
@@ -781,13 +781,16 @@ class BoxPlot {
                     plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[1].label = allWeNeed[1];
                     plotBound[1].type = 'whisker';
+                    plotBound[1].top = plotBound[2].bottom;
+                    plotBound[1].y = plotBound[1].top;
+                    plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
 
                     // upper
                     plotBound[5] = {};
                     plotBound[5].label = allWeNeed[5];
                     plotBound[5].type = 'blank';
 
-                } else {
+                } else if ( hasAbove ) {
                     // apply directly to [5], blank the other
 
                     // lower
@@ -799,6 +802,8 @@ class BoxPlot {
                     plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[5].label = allWeNeed[5];
                     plotBound[5].type = 'whisker';
+                    plotBound[5].bottom = plotBound[4].top;
+                    plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
                 }
 
             }
@@ -832,8 +837,10 @@ class BoxPlot {
                     }
                 }
 
-                // now we add plotBound stuff
+                // now we add plotBound outlier stuff
                 if ( outlierLowerBounds ) {
+                    outlierLowerBounds.height = outlierLowerBounds.bottom - outlierLowerBounds.top;
+
                     plotBound[0] = this.convertBoundingClientRectToObj(outlierLowerBounds);
                     plotBound[0].label = allWeNeed[0];
                     plotBound[0].type = 'outlier';
@@ -843,6 +850,8 @@ class BoxPlot {
                     plotBound[0].type = 'blank';
                 }
                 if ( outlierUpperBounds ) {
+                    outlierUpperBounds.height = outlierUpperBounds.bottom - outlierUpperBounds.top;
+
                     plotBound[6] = this.convertBoundingClientRectToObj(outlierUpperBounds);
                     plotBound[6].label = allWeNeed[6];
                     plotBound[6].type = 'outlier';
@@ -863,6 +872,10 @@ class BoxPlot {
             }
 
             plotBounds.push(plotBound);
+        }
+
+        if ( constants.debugLevel > 0 ) {
+            console.log('plotBounds', plotBounds);
         }
 
         return plotBounds;
@@ -981,14 +994,14 @@ class BoxplotRect {
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
     //rectPaddingOffset = this.rectPadding * 3;
-    rectPaddingOffsetX = 0;
-    rectPaddingOffsetY = 400;
+    //rectPaddingOffsetX = 0;
+    rectPaddingOffsetY = 45;
 
     constructor() {
         this.x1 = 0;
-        this.x2 = 0;
+        this.width = 0;
         this.y1 = 0;
-        this.y2 = 0;
+        this.height = 0;
     }
 
     UpdateRect() {
@@ -996,28 +1009,37 @@ class BoxplotRect {
 
         if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy to be recreated
 
-        if ( position.y > -1 ) {
+        if ( position.y > -1 ) { // initial value is -1, which throws errors, so ignore that
+
             let bounds = plot.plotBounds[position.x][position.y];
 
             if ( bounds.type != 'blank' ) {
 
                 let svgBounds = constants.svg.getBoundingClientRect();
 
+                //this.x1 = bounds.left - this.rectPadding - svgBounds.left;
+                //this.x2 = bounds.right + this.rectPadding - svgBounds.left;
+                //this.y1 = -bounds.bottom - this.rectPadding + svgBounds.bottom;
+                //this.y2 = -bounds.top + this.rectPadding + svgBounds.bottom;
                 this.x1 = bounds.left - this.rectPadding - svgBounds.left;
-                this.x2 = bounds.right + this.rectPadding - svgBounds.left;
-                this.y1 = -bounds.bottom - this.rectPadding + svgBounds.bottom;
-                this.y2 = -bounds.top + this.rectPadding + svgBounds.bottom;
+                this.width = bounds.width + ( this.rectPadding * 2 ) ;
+                //this.x2 = bounds.right + this.rectPadding - svgBounds.left;
+                this.y1 = bounds.top - this.rectPadding - svgBounds.top;
+                this.height = bounds.height + ( this.rectPadding * 2 ) ;
+                //this.y2 = bounds.top - this.rectPadding - this.rectPaddingOffsetY;
 
-                if (constants.debugLevel > 1) {
+                if (constants.debugLevel > 0) {
                     console.log(
                         "Point", plot.plotData[position.x][position.y].label,
-                        "x:", plot.plotData[position.x][position.y].x,
-                        "y:", plot.plotData[position.x][position.y].y);
+                        "bottom:", bounds.bottom,
+                        "top:", bounds.top);
+                        //"x:", plot.plotData[position.x][position.y].x,
+                        //"y:", plot.plotData[position.x][position.y].y);
                     console.log(
                         "x1:", this.x1,
                         "y1:", this.y1,
-                        "x2:", this.x2,
-                        "y2:", this.y2);
+                        "width:", this.width,
+                        "height:", this.height);
                 }
 
                 this.CreateRectDisplay();
@@ -1034,8 +1056,8 @@ class BoxplotRect {
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
         rect.setAttribute('y', this.y1); // y coord is inverse from plot data
-        rect.setAttribute('width', this.x2 - this.x1);
-        rect.setAttribute('height', Math.abs(this.y2 - this.y1));
+        rect.setAttribute('width', this.width);
+        rect.setAttribute('height', this.height);
         rect.setAttribute('stroke', constants.colorSelected);
         rect.setAttribute('stroke-width', this.rectStrokeWidth);
         rect.setAttribute('fill', 'none');
