@@ -41,8 +41,9 @@ class Display {
             onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
-            if (constants.chartType == "boxplot" && position.x == -1 && position.y == plot.plotData.length) {
+            if (constants.chartType == "boxplot" && position.y == -1 ) { // braille mode is on before any plot is selected
                 this.announceText("Braille " + constants.brailleMode + ": Please select a box before turning on Braille mode.");
+                constants.brailleInput.setSelectionRange(0, 0);
                 return;
             }
 
@@ -56,10 +57,6 @@ class Display {
             if (constants.chartType == "heatmap") {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
-            }
-
-            if (constants.chartType != "boxplot" && position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
-                constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
             constants.brailleMode = "off";
@@ -223,7 +220,7 @@ class Display {
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    output += plot.y_labels[position.x] + ", ";
+                    if ( plot.y_labels[position.x] ) output += plot.y_labels[position.x] + ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's';
@@ -239,7 +236,8 @@ class Display {
                     output += val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    output += plot.y_group_label + ' is ' + plot.y_labels[position.x] + ', ';
+                    output += plot.y_group_label;
+                    if ( plot.y_labels[position.x] ) output += ' is ' + plot.y_labels[position.x] + ', '; else output += ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's are ';

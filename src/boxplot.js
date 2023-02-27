@@ -7,7 +7,6 @@
 
 
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
-    constants.manualData = false;
 
     // variable initialization
     constants.plotId = 'geom_boxplot.gTree.78.1';
@@ -474,6 +473,13 @@ class BoxPlot {
             this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
         }
         this.CleanData();
+
+        console.log('output for the html');
+        console.log('x_group_label', this.x_group_label);
+        console.log('y_group_label', this.y_group_label);
+        console.log('y_labels', this.y_labels);
+        console.log('plotData', this.plotData);
+        console.log('boxplotId', constants.plotId);
     }
 
     GetXLabels() {
