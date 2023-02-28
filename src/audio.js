@@ -44,12 +44,12 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "boxplot") {
-            if (position.z == -1) {
-                // normal points
-                rawFreq = plot.plotData[position.x][position.y].y;
-            } else {
+            if (position.z > -1 && Object.hasOwn(plot.plotData[position.x][position.y], 'values')) {
                 // outliers are stored in values with a seperate itterator
                 rawFreq = plot.plotData[position.x][position.y].values[position.z];
+            } else {
+                // normal points
+                rawFreq = plot.plotData[position.x][position.y].y;
             }
             if (plot.plotData[position.x][position.y].type != 'blank') {
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);

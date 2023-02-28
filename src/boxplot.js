@@ -8,6 +8,8 @@
 
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
+    constants.manualData = false;
+
     // variable initialization
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
@@ -459,15 +461,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BoxPlot {
 
     constructor() {
+        if ( boxplotId ) {
+            constants.plotId = boxplotId;
+        }
         if ( constants.manualData ) {
             this.x_group_label = boxplotLabels.x_group_label;
             this.y_group_label = boxplotLabels.y_group_label;
             this.y_labels = boxplotLabels.y_labels;
             this.plotData = boxplotData;
-            this.plotBounds = this.GetPlotBounds(boxplotId);
+            this.plotBounds = this.GetPlotBounds(constants.plotId);
         } else {
-            this.x_group_label = document.getElementById('GRID.text.101.1.1.tspan.1').innerHTML;
-            this.y_group_label = document.getElementById('GRID.text.105.1.1.tspan.1').innerHTML;
+            this.x_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
+            this.y_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
             this.y_labels = this.GetXLabels();
             this.plotData = this.GetData(); // main json data
             this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
@@ -980,7 +985,10 @@ class BoxPlot {
                 position.z += 1;
 
                 // and kill if we're done
-                if (position.z + 1 > plot.plotData[position.x][position.y].values.length) {
+                if ( ! Object.hasOwn(plot.plotData[position.x][position.y], 'values' ) ) {
+                    clearInterval(outlierInterval);
+                    position.z = -1;
+                } else if (position.z + 1 > plot.plotData[position.x][position.y].values.length) {
                     clearInterval(outlierInterval);
                     position.z = -1;
                 }
