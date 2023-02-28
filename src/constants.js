@@ -108,7 +108,7 @@ class Constants {
 
         // end chime audio element
         if ( ! document.getElementById(this.end_chime_id) ) {
-            document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="terminalBell.mp3" id="end_chime"></audio> </div>');
+            document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
         }
     }
 
@@ -467,7 +467,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     // default page load focus on svg 
     // this is mostly for debugging, as first time load users must click or hit a key to focus
     // todo for publish: probably start users at a help / menu section, and they can tab to svg
-    setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
+    if ( constants.debugLevel > -1 ) {
+        setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
+    }
 
     constants.svg_container.addEventListener("keydown", function (e) {
         // Menu open

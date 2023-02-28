@@ -9,17 +9,15 @@
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // variable initialization
-    constants.plotId = 'geom_boxplot.gTree.68.1';
+    constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(-1, plot.plotData.length);
+    window.position = new Position(0, -1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
     let lastPlayed = '';
-    let lastx = 0;
-
-    
+    let lastY = 0;
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -30,19 +28,18 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    // lastx = position.x;
                     position.x -= 1;
-                    Autoplay('right', position.x, plot.plotData[position.y].length);
+                    Autoplay('right', position.x, plot.plotData.length);
                 } else {
-                    position.x = plot.plotData[position.y].length - 1;
+                    position.x = plot.plotData.length - 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
-                lastx = position.x;
-                Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
+            } else if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
+                lastY = position.y;
+                Autoplay('reverse-right', plot.plotData.length, position.x);
             } else {
-                if (position.x == -1 && position.y == plot.plotData.length) {
+                if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                     position.y -= 1;
                 }
                 position.x += 1;
@@ -55,7 +52,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    // lastx = position.x;
                     position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
@@ -64,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                lastY = position.y;
                 Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
@@ -78,17 +74,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    //lastx = position.y;
                     position.y -= 1;
-                    Autoplay('up', position.y, plot.plotData.length);
+                    Autoplay('up', position.y, plot.plotData[position.x].length);
                 } else {
-                    position.y = plot.plotData.length - 1;
+                    position.y = plot.plotData[position.x].length - 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (e.altKey && e.shiftKey && position.y != plot.plotData.length - 1) {
-                lastx = position.x;
-                Autoplay('reverse-up', plot.plotData.length, position.y);
+            } else if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1) {
+                lastY = position.y;
+                Autoplay('reverse-up', plot.plotData[position.x].length, position.y);
             } else {
                 position.y += 1;
                 updateInfoThisRound = true;
@@ -102,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    // lastx = position.y;
                     position.y += 1;
                     Autoplay('down', position.y, -1);
                 } else {
@@ -111,10 +105,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-                lastx = position.x;
+                lastY = position.y;
                 Autoplay('reverse-down', -1, position.y);
             } else {
-                if (position.x == -1 && position.y == plot.plotData.length) {
+                if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                     position.x += 1;
                 }
                 position.y += -1;
@@ -148,31 +142,30 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    // lastx = position.x;
                     position.x -= 1;
-                    Autoplay('right', position.x, plot.plotData[position.y].length);
+                    Autoplay('right', position.x, plot.plotData.length);
                 } else {
-                    position.x = plot.plotData[position.y].length - 1;
+                    position.x = plot.plotData.length - 1;
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (e.altKey && e.shiftKey && plot.plotData[position.y].length - 1 != position.x) {
-                lastx = position.x;
-                Autoplay('reverse-right', plot.plotData[position.y].length, position.x);
+            } else if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
+                lastY = position.y;
+                Autoplay('reverse-right', plot.plotData.length, position.x);
             } else {
-                if (position.x == -1 && position.y == plot.plotData.length) {
+                if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                     position.y -= 1;
                 }
                 position.x += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
             }
+            setBrailleThisRound = true;
             constants.navigation = 1;
         } else if (e.which == 37) { // left arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    // lastx = position.x;
                     position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
@@ -181,32 +174,32 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                lastY = position.y;
                 Autoplay('reverse-left', -1, position.x);
             } else {
                 position.x += -1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
             }
+            setBrailleThisRound = true;
             constants.navigation = 1;
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
-                position.y = plot.plotData.length - 1;
+                position.y = plot.plotData[position.x].length - 1;
             } else {
                 position.y += 1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
-            setBrailleThisRound = true;
             constants.navigation = 0;
         } else if (e.which === 40) { // down arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 position.y = 0;
             } else {
-                if (position.x == -1 && position.y == plot.plotData.length) {
+                if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                     position.x += 1;
                 }
                 position.y += -1;
@@ -214,7 +207,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 isAtEnd = lockPosition();
             }
             //position.x = GetRelativeBoxPosition(oldY, position.y);
-            setBrailleThisRound = true;
             constants.navigation = 0;
         } else {
             e.preventDefault();
@@ -238,28 +230,27 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
-    // todo: put all this in a shared area since it's basically identical across all charts
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
 
-        // B: braille mode
-        if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-        }
-        // T: aria live text output mode
-        if (e.which == 84) {
-            display.toggleTextMode();
-        }
-        // S: sonification mode
-        if (e.which == 83) {
-            display.toggleSonificationMode();
-        }
+            // B: braille mode
+            if (e.which == 66) {
+                display.toggleBrailleMode();
+                e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+                display.toggleTextMode();
+            }
+            // S: sonification mode
+            if (e.which == 83) {
+                display.toggleSonificationMode();
+            }
 
-        if (e.which === 32) { // space 32, replay info but no other changes
-            UpdateAll();
-        }
+            if (e.which === 32) { // space 32, replay info but no other changes
+                UpdateAll();
+            }
 
         });
     }
@@ -289,15 +280,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    Autoplay('right', position.x, lastx);
+                    Autoplay('right', position.y, lastY);
                 } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x, lastx);
+                    Autoplay('left', position.y, lastY);
                 } else if (lastPlayed == 'reverse-up') {
-                    Autoplay('down', position.x, lastx);
+                    Autoplay('down', position.y, lastY);
                 } else if (lastPlayed == 'reverse-down') {
-                    Autoplay('up', position.x, lastx);
+                    Autoplay('up', position.y, lastY);
                 } else {
-                    Autoplay(lastPlayed, position.x, lastx);
+                    Autoplay(lastPlayed, position.y, lastY);
                 }
             }
         }
@@ -308,15 +299,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    Autoplay('right', position.x, lastx);
+                    Autoplay('right', position.y, lastY);
                 } else if (lastPlayed == 'reverse-right') {
-                    Autoplay('left', position.x, lastx);
+                    Autoplay('left', position.y, lastY);
                 } else if (lastPlayed == 'reverse-up') {
-                    Autoplay('down', position.x, lastx);
+                    Autoplay('down', position.y, lastY);
                 } else if (lastPlayed == 'reverse-down') {
-                    Autoplay('up', position.x, lastx);
+                    Autoplay('up', position.y, lastY);
                 } else {
-                    Autoplay(lastPlayed, position.x, lastx);
+                    Autoplay(lastPlayed, position.y, lastY);
                 }
             }
         }
@@ -362,20 +353,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
-        if (position.x < 0) {
-            position.x = 0;
-            isLockNeeded = true;
-        }
         if (position.y < 0) {
             position.y = 0;
             isLockNeeded = true;
         }
-        if (position.y > plot.plotData.length - 1) {
-            position.y = plot.plotData.length - 1;
+        if (position.x < 0) {
+            position.x = 0;
             isLockNeeded = true;
         }
-        if (position.x > plot.plotData[position.y].length - 1) {
-            position.x = plot.plotData[position.y].length - 1;
+        if (position.x > plot.plotData.length - 1) {
+            position.x = plot.plotData.length - 1;
+            isLockNeeded = true;
+        }
+        if (position.y > plot.plotData[position.x].length - 1) {
+            position.y = plot.plotData[position.x].length - 1;
             isLockNeeded = true;
         }
 
@@ -429,29 +420,29 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         if (dir == "reverse-left" || dir == "reverse-right") {
-            position.x = start;
-        } else if (dir == "reverse-up" || dir == "reverse-down") {
             position.y = start;
+        } else if (dir == "reverse-up" || dir == "reverse-down") {
+            position.x = start;
         }
 
         constants.autoplayId = setInterval(function () {
             if (dir == "left" || dir == "right" || dir == "reverse-left" || dir == "reverse-right") {
-                position.x += step;
-                if (position.x < 0 || plot.plotData[position.y].length - 1 < position.x) {
+                position.y += step;
+                if (position.y < 0 || plot.plotData[position.x].length - 1 < position.y) {
                     constants.KillAutoplay();
                     lockPosition();
-                } else if (position.x == end) {
+                } else if (position.y == end) {
                     constants.KillAutoplay();
                     UpdateAllAutoplay();
                 } else {
                     UpdateAllAutoplay();
                 }
             } else {
-                position.y += step;
-                if (position.y < 0 || plot.plotData.length - 1 < position.y) {
+                position.x += step;
+                if (position.x < 0 || plot.plotData.length - 1 < position.x) {
                     constants.KillAutoplay();
                     lockPosition();
-                } else if (position.y == end) {
+                } else if (position.x == end) {
                     constants.KillAutoplay();
                     UpdateAllAutoplay();
                 } else {
@@ -468,21 +459,33 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BoxPlot {
 
     constructor() {
+        if ( boxplotId ) {
+            constants.plotId = boxplotId;
+        }
         if ( constants.manualData ) {
-            this.plotData = boxplotData;
             this.x_group_label = boxplotLabels.x_group_label;
             this.y_group_label = boxplotLabels.y_group_label;
             this.y_labels = boxplotLabels.y_labels;
-            this.CleanData();
+            this.plotData = boxplotData;
+            this.plotBounds = this.GetPlotBounds(constants.plotId);
         } else {
+            this.x_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
+            this.y_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
+            this.y_labels = this.GetYLabels();
             this.plotData = this.GetData(); // main json data
-            this.x_group_label = document.getElementById('GRID.text.91.1.1.tspan.1').innerHTML;
-            this.y_group_label = document.getElementById('GRID.text.95.1.1.tspan.1').innerHTML;
-            this.y_labels = this.GetXLabels();
+            this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
         }
+        this.CleanData();
+
+        console.log('output for the html');
+        console.log('x_group_label', this.x_group_label);
+        console.log('y_group_label', this.y_group_label);
+        console.log('y_labels', this.y_labels);
+        console.log('plotData', this.plotData);
+        console.log('boxplotId', constants.plotId);
     }
 
-    GetXLabels() {
+    GetYLabels() {
         let labels = [];
         let query = 'tspan[dy="5"]';
         let els = document.querySelectorAll(query);
@@ -495,47 +498,42 @@ class BoxPlot {
     CleanData() {
         // we manually input data, so now we need to clean it up and set other vars
 
-        constants.minX = 0;
-        constants.maxX = 0;
+        constants.minY = 0;
+        constants.maxY = 0;
         for ( let i = 0 ; i < boxplotData.length ; i++ ) { // each plot
             for ( let j = 0 ; j < boxplotData[i].length; j++ ) { // each section in plot
                 let point = boxplotData[i][j];
-                if ( point.hasOwnProperty('x') ) {
-                    if ( point.x < constants.minX ) {
-                        constants.xMin = point.x;
+                if ( point.hasOwnProperty('y') ) {
+                    if ( point.y < constants.minY ) {
+                        constants.yMin = point.y;
                     }
-                    if ( point.hasOwnProperty('xMax') ) {
-                        if ( point.xMax > constants.maxX ) {
-                            constants.maxX = point.xMax;
+                    if ( point.hasOwnProperty('yMax') ) {
+                        if ( point.yMax > constants.maxY ) {
+                            constants.maxY = point.yMax;
                         }
                     } else {
-                        if ( point.x > constants.maxX ) {
-                            constants.maxX = point.x;
+                        if ( point.y > constants.maxY ) {
+                            constants.maxY = point.y;
                         }
                     }
                 }
-                if ( point.hasOwnProperty('y') ) {
-                    if ( point.y < constants.minY ) {
-                        constants.minY = point.y;
+                if ( point.hasOwnProperty('x') ) {
+                    if ( point.x < constants.minX ) {
+                        constants.minX = point.x;
                     }
-                    if ( point.y > constants.maxY ) {
-                        constants.maxY = point.y;
+                    if ( point.x > constants.maxX ) {
+                        constants.maxX = point.x;
                     }
                 }
             }
         }
     }
 
-
     GetData() {
         // data in svg is formed as nested <g> elements. Loop through and get all point data
         // goal is to get bounding x values and type (outlier, whisker, range, placeholder)
 
         let plotData = [];
-
-        if (constants.debugLevel > 0) {
-            document.getElementById(constants.plotId).setAttribute("data-debug", "MAINCONTAINERHERE");
-        }
 
         let plots = document.getElementById(constants.plotId).children;
         for (let i = 0; i < plots.length; i++) { // each plot
@@ -553,9 +551,12 @@ class BoxPlot {
                     let segmentPoints = this.GetBoxplotSegmentPoints(segment, segmentType);
 
                     for (let l = 0; l < segmentPoints.length; l += 2) {
-                        let thisPoint = { 'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l + 1]), 'type': segmentType }
-                        if (thisPoint.x > constants.maxX) constants.maxX = thisPoint.x;
-                        points.push(thisPoint);
+                        if ( segmentType == 'whisker' && l == 0 ) {
+                        } else {
+                            let thisPoint = { 'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l + 1]), 'type': segmentType }
+                            if (thisPoint.y > constants.maxY) constants.maxY = thisPoint.y;
+                            points.push(thisPoint);
+                        }
                     }
                 }
             }
@@ -563,36 +564,19 @@ class BoxPlot {
             // post processing
             // Sort this plot
             points.sort(function (a, b) {
-                return a.x - b.x;
+                return a.y - b.y;
             });
-            // and remove whisker from range dups
-            let noDupPoints = [];
-            for (let d = 0; d < points.length; d++) {
-                if (d > 0) {
-                    if (points[d - 1].x == points[d].x) {
-                        if (points[d - 1].type == "whisker") {
-                            noDupPoints.splice(-1, 1);
-                            noDupPoints.push(points[d]);
-                        } else {
-                        }
-                    } else {
-                        noDupPoints.push(points[d]);
-                    }
-                } else {
-                    noDupPoints.push(points[d]);
-                }
-            }
 
-            plotData.push(noDupPoints);
+            plotData.push(points);
         }
 
         // put plots in order
         plotData.sort(function (a, b) {
-            return a[0].y - b[0].y;
+            return a[0].x - b[0].x;
         });
 
         // combine outliers into a single object for easier display
-        // info to grab: arr of values=x's, x=xmin, xn=xmax. The rest can stay as is
+        // info to grab: arr of values=y's, y=ymin, yn=ymax. The rest can stay as is
         for (let i = 0; i < plotData.length; i++) {
             let section = plotData[i];
             // loop through points and find outliers 
@@ -612,7 +596,7 @@ class BoxPlot {
                     let vals = [];
                     for (let k = 0; k < outlierGroup.length; k++) {
                         // save array of values
-                        vals.push(outlierGroup[k].x);
+                        vals.push(outlierGroup[k].y);
 
                         // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
                         if (k > 0) {
@@ -621,8 +605,8 @@ class BoxPlot {
                     }
 
                     // save data
-                    plotData[i][j - outlierGroup.length].x = outlierGroup[0].x;
-                    plotData[i][j - outlierGroup.length].xMax = outlierGroup[outlierGroup.length - 1].x;
+                    plotData[i][j - outlierGroup.length].y = outlierGroup[0].y;
+                    plotData[i][j - outlierGroup.length].yMax = outlierGroup[outlierGroup.length - 1].y;
                     plotData[i][j - outlierGroup.length].values = vals;
 
                     // reset for next set
@@ -639,6 +623,7 @@ class BoxPlot {
                     cleanData[i][j] = plotData[i][j];
                 }
             }
+            cleanData[i] = cleanData[i].filter(function(){return true;});
         }
         plotData = cleanData;
 
@@ -677,15 +662,7 @@ class BoxPlot {
         // often a plot doesn't have various sections. 
         // we expect outlier - min - 25 - 50 - 75 - max - outlier
         // add blank placeholders where they don't exist for better vertical navigation
-        let allWeNeed = [
-            resources.GetString('lower_outlier'),
-            resources.GetString('min'),
-            resources.GetString('25'),
-            resources.GetString('50'),
-            resources.GetString('75'),
-            resources.GetString('max'),
-            resources.GetString('upper_outlier')
-        ];
+        let allWeNeed = this.GetAllSegmentTypes();
         for (let i = 0; i < plotData.length; i++) {
             if (plotData[i].length == 7) {
                 // skip, this one has it all. The rare boi
@@ -708,11 +685,224 @@ class BoxPlot {
 
         }
 
-        if (constants.debugLevel > 0) {
+        // update 50% value as a midpoint of 25 and 75
+        for ( let i = 0 ; i < plotData.length ; i++ ) {
+            plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y)/2);
+        }
+
+        if (constants.debugLevel > 1) {
             console.log('plotData:', plotData);
         }
 
         return plotData;
+    }
+
+    GetPlotBounds(plotId) {
+        // we fetch the elements in our parent, and similar to GetData we run through and get bounding boxes (or blanks) for everything, and store in an identical structure
+
+        let plotBounds = [];
+        let allWeNeed = this.GetAllSegmentTypes();
+        let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
+
+        // get initial set of elements, a parent element for all outliers, whiskers, and range
+        let initialElemSet = [];
+        let plots = document.getElementById(constants.plotId).children;
+        for (let i = 0; i < plots.length; i++) { // each plot
+            let plotSet = {};
+            let sections = plots[i].children;
+            for (let j = 0; j < sections.length; j++) { 
+                let elemType = this.GetBoxplotSegmentType(sections[j].getAttribute('id'));
+                plotSet[elemType] = sections[j];
+            }
+            initialElemSet.push(plotSet);
+        }
+
+        // we build our structure based on the full set we need, and have blanks as placeholders
+        // many of these overlap or are missing, so now we go through and make the actual array structure we need
+        // like, all outliers are in 1 set, so we have to split those out and then get the bounding boxes
+        for ( let i = 0 ; i < initialElemSet.length ; i++ ) {
+            let plotBound = [];
+
+            // we always have a range, and need those bounds to set others, so we'll do this first
+            let rangeBounds = initialElemSet[i].range.getBoundingClientRect();
+
+            // we get the midpoint from actual point values in the svg GRID.segments
+            let midPoints = initialElemSet[i].range.querySelector('polyline[id^="GRID"]').getAttribute('points').match(re);
+            let rangePoints = initialElemSet[i].range.querySelector('polygon[id^="geom_polygon"]').getAttribute('points').match(re);
+            // get midpoint as percentage from bottom to mid to apply to bounding boxes: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
+            let midPercent = (midPoints[1] - rangePoints[3]) / (rangePoints[1] - rangePoints[3]);
+            let midHeight = rangeBounds.height * midPercent;
+
+            // set bounding box values
+            
+            // 25%
+            plotBound[2] = this.convertBoundingClientRectToObj(rangeBounds);
+            plotBound[2].label = allWeNeed[2];
+            plotBound[2].type = 'range';
+            plotBound[2].height = midHeight;
+            plotBound[2].top = plotBound[2].bottom - midHeight;
+            plotBound[2].y = plotBound[2].top;
+            // 50%
+            plotBound[3] = this.convertBoundingClientRectToObj(rangeBounds); 
+            plotBound[3].label = allWeNeed[3];
+            plotBound[3].type = 'range';
+            plotBound[3].height = 0;
+            plotBound[3].top = rangeBounds.bottom - midHeight;
+            plotBound[3].y = plotBound[3].top;
+            plotBound[3].bottom = plotBound[3].top;
+            // 75%
+            plotBound[4] = this.convertBoundingClientRectToObj(rangeBounds); 
+            plotBound[4].label = allWeNeed[4];
+            plotBound[4].type = 'range';
+            plotBound[4].height = rangeBounds.height - midHeight;
+            plotBound[4].bottom = plotBound[3].top;
+
+            // now the tricky ones, outliers and whiskers, if we have them
+            if ( Object.hasOwn(initialElemSet[i], 'whisker') ) {
+                // ok great we have a whisker. It could be just above or below or span across the range (in which case we need to split it up). Let's check
+                let whiskerBounds = initialElemSet[i].whisker.getBoundingClientRect();
+                let hasBelow = false;
+                let hasAbove = false;
+                if ( whiskerBounds.bottom > rangeBounds.bottom ) hasBelow = true;
+                if ( whiskerBounds.top < rangeBounds.top ) hasAbove = true;
+
+                if ( hasBelow && hasAbove ) {
+                    // split it up!
+
+                    // lower whisker
+                    plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
+                    plotBound[1].label = allWeNeed[1];
+                    plotBound[1].type = 'whisker';
+                    plotBound[1].top = plotBound[2].bottom;
+                    plotBound[1].y = plotBound[1].top;
+                    plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
+
+                    // upper whisker
+                    plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
+                    plotBound[5].label = allWeNeed[5];
+                    plotBound[5].type = 'whisker';
+                    plotBound[5].bottom = plotBound[4].top;
+                    plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
+                } else if ( hasBelow ) {
+                    // apply directly to [1], blank the other
+
+                    // lower
+                    plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
+                    plotBound[1].label = allWeNeed[1];
+                    plotBound[1].type = 'whisker';
+                    plotBound[1].top = plotBound[2].bottom;
+                    plotBound[1].y = plotBound[1].top;
+                    plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
+
+                    // upper
+                    plotBound[5] = {};
+                    plotBound[5].label = allWeNeed[5];
+                    plotBound[5].type = 'blank';
+
+                } else if ( hasAbove ) {
+                    // apply directly to [5], blank the other
+
+                    // lower
+                    plotBound[1] = {};
+                    plotBound[1].label = allWeNeed[1];
+                    plotBound[1].type = 'blank';
+
+                    // upper
+                    plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
+                    plotBound[5].label = allWeNeed[5];
+                    plotBound[5].type = 'whisker';
+                    plotBound[5].bottom = plotBound[4].top;
+                    plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
+                }
+
+            }
+            if ( Object.hasOwn(initialElemSet[i], 'outlier') ) {
+                // we have one or more outliers. 
+                // Where do they appear? above or below the range? both?
+                // we want to split them up and put 1 bounding box around each above and below
+
+                let outlierElems = initialElemSet[i].outlier.children;
+                let outlierUpperBounds = null;
+                let outlierLowerBounds = null;
+                for ( let j = 0 ; j < outlierElems.length ; j++ ) {
+                    // add this outlier's bounds, or expand if more than one
+                    let newOutlierBounds = outlierElems[j].getBoundingClientRect();
+                    if ( newOutlierBounds.y < rangeBounds.y ) { // higher, remember y=0 is at the bottom of the page
+                        if ( ! outlierUpperBounds ) {
+                            outlierUpperBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
+                        } else {
+                            if ( newOutlierBounds.y < outlierUpperBounds.y ) outlierUpperBounds.y = newOutlierBounds.y;
+                            if ( newOutlierBounds.top < outlierUpperBounds.top ) outlierUpperBounds.top = newOutlierBounds.top;
+                            if ( newOutlierBounds.bottom > outlierUpperBounds.bottom ) outlierUpperBounds.bottom = newOutlierBounds.bottom;
+                        }
+                    } else {
+                        if ( ! outlierLowerBounds ) {
+                            outlierLowerBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
+                        } else {
+                            if ( newOutlierBounds.y > outlierLowerBounds.y ) outlierLowerBounds.y = newOutlierBounds.y;
+                            if ( newOutlierBounds.top > outlierLowerBounds.top ) outlierLowerBounds.top = newOutlierBounds.top;
+                            if ( newOutlierBounds.bottom < outlierLowerBounds.bottom ) outlierLowerBounds.bottom = newOutlierBounds.bottom;
+                        }
+                    }
+                }
+
+                // now we add plotBound outlier stuff
+                if ( outlierLowerBounds ) {
+                    outlierLowerBounds.height = outlierLowerBounds.bottom - outlierLowerBounds.top;
+
+                    plotBound[0] = this.convertBoundingClientRectToObj(outlierLowerBounds);
+                    plotBound[0].label = allWeNeed[0];
+                    plotBound[0].type = 'outlier';
+                } else {
+                    plotBound[0] = {};
+                    plotBound[0].label = allWeNeed[0];
+                    plotBound[0].type = 'blank';
+                }
+                if ( outlierUpperBounds ) {
+                    outlierUpperBounds.height = outlierUpperBounds.bottom - outlierUpperBounds.top;
+
+                    plotBound[6] = this.convertBoundingClientRectToObj(outlierUpperBounds);
+                    plotBound[6].label = allWeNeed[6];
+                    plotBound[6].type = 'outlier';
+                } else {
+                    plotBound[6] = {};
+                    plotBound[6].label = allWeNeed[6];
+                    plotBound[6].type = 'blank';
+                }
+
+            } else {
+                // add all blanks
+                plotBound[0] = {};
+                plotBound[0].label = allWeNeed[0];
+                plotBound[0].type = 'blank';
+                plotBound[6] = {};
+                plotBound[6].label = allWeNeed[6];
+                plotBound[6].type = 'blank';
+            }
+
+            plotBounds.push(plotBound);
+        }
+
+        if ( constants.debugLevel > 5 ) {
+            console.log('plotBounds', plotBounds);
+        }
+
+        return plotBounds;
+
+    }
+
+    GetAllSegmentTypes() {
+        let allWeNeed = [
+            resources.GetString('lower_outlier'),
+            resources.GetString('min'),
+            resources.GetString('25'),
+            resources.GetString('50'),
+            resources.GetString('75'),
+            resources.GetString('max'),
+            resources.GetString('upper_outlier')
+        ];
+
+        return allWeNeed;
     }
 
     GetBoxplotSegmentType(sectionId) {
@@ -755,7 +945,7 @@ class BoxPlot {
             // whisker. Get first and third number from points attr
             // but sometimes it's null, giving the same for both, and don't add if that's true
             let matches = segment.getAttribute('points').match(re);
-            if (matches[0] != matches[2]) {
+            if (matches[1] != matches[3]) {
                 points.push(matches[0], matches[1], matches[2], matches[3]);
             }
         }
@@ -763,14 +953,27 @@ class BoxPlot {
         return points;
     }
 
+    convertBoundingClientRectToObj(rect) {
+        return {
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            x: rect.x,
+            y: rect.y
+        };
+    }
+
     PlayTones(audio) {
 
-        if (plot.plotData[position.y][position.x].type == "blank") {
+        if (plot.plotData[position.x][position.y].type == "blank") {
             audio.PlayNull();
-        } else if (plot.plotData[position.y][position.x].type != "outlier") {
+        } else if (plot.plotData[position.x][position.y].type != "outlier") {
             audio.playTone();
         } else {
-            // we play a run of tones
+            // outlier(s): we play a run of tones
             position.z = 0;
             let outlierInterval = setInterval(function () {
                 // play this tone
@@ -780,7 +983,10 @@ class BoxPlot {
                 position.z += 1;
 
                 // and kill if we're done
-                if (position.z + 1 > plot.plotData[position.y][position.x].values.length) {
+                if ( ! Object.hasOwn(plot.plotData[position.x][position.y], 'values' ) ) {
+                    clearInterval(outlierInterval);
+                    position.z = -1;
+                } else if (position.z + 1 > plot.plotData[position.x][position.y].values.length) {
                     clearInterval(outlierInterval);
                     position.z = -1;
                 }
@@ -799,127 +1005,61 @@ class BoxplotRect {
     // maybe put this stuff in user config?
     rectPadding = 15; // px
     rectStrokeWidth = 4; // px
-    rectPaddingOffset = this.rectPadding * 2;
 
     constructor() {
         this.x1 = 0;
-        this.x2 = 0;
+        this.width = 0;
         this.y1 = 0;
-        this.y2 = 0;
+        this.height = 0;
+        this.svgOffsetLeft = constants.svg.getBoundingClientRect().left;
+        this.svgOffsetTop = constants.svg.getBoundingClientRect().top;
     }
 
     UpdateRect() {
-        // UpdateRect does some horrible calculations to get bounds of visual outline to be drawn
+        // UpdateRect takes bounding box values from the object and gets bounds of visual outline to be drawn
 
-        // get rect bounds
-        if (plot.plotData[position.y][position.x].type == 'outlier') {
+        if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy to be recreated
 
-            this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-            this.x2 = plot.plotData[position.y][position.x].xMax + this.rectPadding;
-            this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
-            this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
+        if ( position.y > -1 ) { // initial value is -1, which throws errors, so ignore that
 
-        } else if (plot.plotData[position.y][position.x].type == 'whisker') {
+            let bounds = plot.plotBounds[position.x][position.y];
 
-            let whichWhisker = 'before'; // before / after the range. We steal the other point from range and need to know which one
-            if (position.x > 0) {
-                if (plot.plotData[position.y][position.x - 1].type == 'range') {
-                    whichWhisker = 'after';
+            if ( bounds.type != 'blank' ) {
+
+                //let svgBounds = constants.svg.getBoundingClientRect();
+
+                this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
+                this.width = bounds.width + ( this.rectPadding * 2 ) ;
+                this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
+                this.height = bounds.height + ( this.rectPadding * 2 ) ;
+
+                if (constants.debugLevel > 5) {
+                    console.log(
+                        "Point", plot.plotData[position.x][position.y].label,
+                        "bottom:", bounds.bottom,
+                        "top:", bounds.top);
+                    console.log(
+                        "x1:", this.x1,
+                        "y1:", this.y1,
+                        "width:", this.width,
+                        "height:", this.height);
                 }
+
+                this.CreateRectDisplay();
             }
-            if (whichWhisker == 'before') {
-                // we're on the before one, use this and next
-                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = plot.plotData[position.y][position.x + 1].x + this.rectPadding;
-            } else {
-                // we're on the after one, use this and prev
-                this.x1 = plot.plotData[position.y][position.x - 1].x - this.rectPadding;
-                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
-            }
-            this.y1 = plot.plotData[position.y][position.x].y - this.rectPadding;
-            this.y2 = plot.plotData[position.y][position.x].y + this.rectPadding;
-
-        } else if (plot.plotData[position.y][position.x].type == 'range') {
-
-            // we have 3 points, and do the middle one as just that midpoint line
-            // which one are we on though? look up and down
-            let whichRange = 'middle';
-            if (position.x > 0) {
-                if (plot.plotData[position.y][position.x - 1].type != 'range') {
-                    whichRange = 'first';
-                }
-            } else {
-                whichRange = 'first';
-            }
-            if (position.x < plot.plotData[position.y].length - 2) {
-                if (plot.plotData[position.y][position.x + 1].type != 'range') {
-                    whichRange = 'last';
-                }
-            } else {
-                whichRange = 'last';
-            }
-
-            if (whichRange == 'first') {
-                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = plot.plotData[position.y][position.x + 1].x + this.rectPadding;
-            } else if (whichRange == 'middle') {
-                this.x1 = plot.plotData[position.y][position.x].x - this.rectPadding;
-                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
-            } else if (whichRange == 'last') {
-                this.x1 = plot.plotData[position.y][position.x - 1].x - this.rectPadding;
-                this.x2 = plot.plotData[position.y][position.x].x + this.rectPadding;
-            }
-
-            // we have no yMax, but whiskers and outliers have a midpoint, so we use any of them
-            let midpoint = 0;
-            for (let i = 0; i < plot.plotData[position.y].length; i++) {
-                if (plot.plotData[position.y][i].type != "range" && plot.plotData[position.y][i].y) {
-                    midpoint = plot.plotData[position.y][i].y;
-                }
-            }
-            // y1 and midpoint to get y2
-            let height = (midpoint - plot.plotData[position.y][position.x].y) * 2;
-            this.y1 = plot.plotData[position.y][position.x].y;
-            this.y2 = this.y1 + height;
-
-
-            // swap y1 y2 so height is > 0
-            let swap = this.y1;
-            this.y1 = this.y2;
-            this.y2 = swap;
-
-            this.y1 += -this.rectPaddingOffset + this.rectPadding;
-            this.y2 += -this.rectPaddingOffset - this.rectPadding;
-
         }
-
-        if (constants.debugLevel > 5) {
-            console.log(
-                "Point", plot.plotData[position.y][position.x].type,
-                "x:", plot.plotData[position.y][position.x].x,
-                "y:", plot.plotData[position.y][position.x].y);
-            console.log(
-                "x1:", this.x1,
-                "y1:", this.y1,
-                "x2:", this.x2,
-                "y2:", this.y2);
-        }
-
-        if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy and recreate
-        if (plot.plotData[position.y][position.x].type != 'blank') this.CreateRectDisplay();
     }
 
     CreateRectDisplay() {
         // CreateRectDisplay takes bounding points and creates the visual outline 
 
-
         const svgns = "http://www.w3.org/2000/svg";
         let rect = document.createElementNS(svgns, 'rect');
         rect.setAttribute('id', 'highlight_rect');
         rect.setAttribute('x', this.x1);
-        rect.setAttribute('y', constants.svg.getBoundingClientRect().height - this.rectPaddingOffset - this.y1); // y coord is inverse from plot data
-        rect.setAttribute('width', this.x2 - this.x1);
-        rect.setAttribute('height', Math.abs(this.y2 - this.y1));
+        rect.setAttribute('y', this.y1); // y coord is inverse from plot data
+        rect.setAttribute('width', this.width);
+        rect.setAttribute('height', this.height);
         rect.setAttribute('stroke', constants.colorSelected);
         rect.setAttribute('stroke-width', this.rectStrokeWidth);
         rect.setAttribute('fill', 'none');

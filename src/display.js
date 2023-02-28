@@ -1,7 +1,6 @@
 
 class Display {
 
-
     constructor() {
         this.infoDiv = constants.infoDiv;
 
@@ -42,8 +41,9 @@ class Display {
             onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
-            if (constants.chartType == "boxplot" && position.x == -1 && position.y == plot.plotData.length) {
+            if (constants.chartType == "boxplot" && position.y == -1 ) { // braille mode is on before any plot is selected
                 this.announceText("Braille " + constants.brailleMode + ": Please select a box before turning on Braille mode.");
+                constants.brailleInput.setSelectionRange(0, 0);
                 return;
             }
 
@@ -57,10 +57,6 @@ class Display {
             if (constants.chartType == "heatmap") {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
-            }
-
-            if (constants.chartType != "boxplot" && position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
-                constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
             constants.brailleMode = "off";
@@ -124,7 +120,7 @@ class Display {
             constants.brailleInput.setSelectionRange(pos, pos);
         } else if (constants.chartType == "boxplot") {
             // on boxplot we extend characters a lot and have blanks, so we go to our label
-            let targetLabel = this.boxplotGridPlaceholders[position.x];
+            let targetLabel = this.boxplotGridPlaceholders[position.y];
             let haveTargetLabel = false;
             let adjustedPosX = 0;
             if (constants.brailleData) {
@@ -175,16 +171,16 @@ class Display {
             } else if (constants.textMode == "terse") {
                 // value only
                 if (constants.navigation == 1) { // column navigation
-                    output += '<p>' + plot.x_labels[position.x] + ' ' + plot.z[position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.x_labels[position.x] + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 } else { // row navigation
-                    output += '<p>' + plot.y_labels[position.y] + ' ' + plot.z[position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.y_labels[position.y] + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
                 // col name and value
                 if (constants.navigation == 1) {
-                    output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.x_group_label + ' is ' + (plot.x_labels[position.x]).trim() + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 } else {
-                    output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', is ' + plot.z[position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.y_group_label + ' is ' + (plot.y_labels[position.y]).trim() + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             }
         } else if (constants.chartType == "boxplot") {
@@ -193,23 +189,23 @@ class Display {
             let numPoints = 1;
             let pointType = "";
             let isOutlier = false;
-            if ( plot.plotData[position.y][position.x].label == resources.GetString('lower_outlier') || plot.plotData[position.y][position.x].label == resources.GetString('upper_outlier') ) {
+            if ( plot.plotData[position.x][position.y].label == resources.GetString('lower_outlier') || plot.plotData[position.x][position.y].label == resources.GetString('upper_outlier') ) {
                 isOutlier = true;
             }
-            if (plot.plotData[position.y][position.x].type == "outlier") {
-                val = plot.plotData[position.y][position.x].values.join(', ');
-                if (plot.plotData[position.y][position.x].values.length > 0) {
-                    numPoints = plot.plotData[position.y][position.x].values.length;
+            if (plot.plotData[position.x][position.y].type == "outlier") {
+                val = plot.plotData[position.x][position.y].values.join(', ');
+                if (plot.plotData[position.x][position.y].values.length > 0) {
+                    numPoints = plot.plotData[position.x][position.y].values.length;
                 } else {
                     numPoints = 0;
                 }
 
                 pointType = "outlier";
-            } else if (plot.plotData[position.y][position.x].type == "blank") {
+            } else if (plot.plotData[position.x][position.y].type == "blank") {
                 val = '';
                 if ( isOutlier ) numPoints = 0;
             } else {
-                val = plot.plotData[position.y][position.x].x;
+                val = plot.plotData[position.x][position.y].y;
             }
 
             // set output
@@ -219,14 +215,14 @@ class Display {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.y][position.x].label;
+                    output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    output += plot.y_labels[position.y] + ", ";
+                    if ( plot.y_labels[position.x] ) output += plot.y_labels[position.x] + ", ";
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.y][position.x].label;
+                    output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
@@ -234,15 +230,16 @@ class Display {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.y][position.x].label;
+                    output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
                     output += val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    output += plot.y_group_label + ' is ' + plot.y_labels[position.y] + ', ';
+                    output += plot.y_group_label;
+                    if ( plot.y_labels[position.x] ) output += ' is ' + plot.y_labels[position.x] + ', '; else output += ", ";
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.y][position.x].label;
+                    output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
                     output += val + '</p>\n';
@@ -294,7 +291,7 @@ class Display {
                         brailleArray.push("⠤");
                     } else if (plot.values[i][j] <= medium) {
                         brailleArray.push("⠒");
-                    } else if (plot.values[i][j] <= high) {
+                    } else {
                         brailleArray.push("⠉");
                     }
                 }
@@ -343,32 +340,32 @@ class Display {
             // First, we make an array of lengths and types that represent our plot
             let brailleData = [];
             let isBeforeMid = true;
-            let boundingBoxOffsetX = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
-            for (let i = 0; i < plot.plotData[position.y].length; i++) {
-                let point = plot.plotData[position.y][i];
+            let boundingBoxOffsetY = 127; // 0 comes through as 127 for some reason, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
+            for (let i = 0; i < plot.plotData[position.x].length; i++) {
+                let point = plot.plotData[position.x][i];
                 let nextPoint = null;
                 let prevPoint = null;
-                if (i < plot.plotData[position.y].length - 1) {
-                    nextPoint = plot.plotData[position.y][i + 1];
+                if (i < plot.plotData[position.x].length - 1) {
+                    nextPoint = plot.plotData[position.x][i + 1];
                 }
                 if (i > 0) {
-                    prevPoint = plot.plotData[position.y][i - 1];
+                    prevPoint = plot.plotData[position.x][i - 1];
                 }
 
                 let charData = {};
 
                 if (i == 0) {
                     // first point, add space to next actual point
-                    let firstX = 0;
-                    for (let j = 0; j < plot.plotData[position.y].length; j++) {
+                    let firstY = 0;
+                    for (let j = 0; j < plot.plotData[position.x].length; j++) {
                         // find next actual point
-                        if ('x' in plot.plotData[position.y][j]) {
-                            firstX = plot.plotData[position.y][j].x;
+                        if ('y' in plot.plotData[position.x][j]) {
+                            firstY = plot.plotData[position.x][j].y;
                             break;
                         }
                     }
                     charData = {};
-                    charData.length = firstX - 0 - boundingBoxOffsetX;
+                    charData.length = firstY - 0 - boundingBoxOffsetY;
                     if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
                     charData.type = 'blank';
                     charData.label = 'blank';
@@ -391,7 +388,7 @@ class Display {
                     } else {
                         // yes after space
                         charData = {};
-                        charData.length = point.values[0] - prevPoint.x;
+                        charData.length = point.values[0] - prevPoint.y;
                         charData.type = 'blank';
                         charData.label = 'blank';
                         brailleData.push(charData);
@@ -424,7 +421,7 @@ class Display {
                     if (isBeforeMid) {
                         // yes pre space 
                         charData = {};
-                        charData.length = nextPoint.x - point.values[point.values.length - 1];
+                        charData.length = nextPoint.y - point.values[point.values.length - 1];
                         charData.type = 'blank';
                         charData.label = 'blank';
                         brailleData.push(charData);
@@ -445,29 +442,29 @@ class Display {
                         // normal points: we calc dist between this point and point closest to middle
                         charData = {};
                         if (isBeforeMid) {
-                            charData.length = nextPoint.x - point.x;
+                            charData.length = nextPoint.y - point.y;
                         } else {
-                            charData.length = point.x - prevPoint.x;
+                            charData.length = point.y - prevPoint.y;
                         }
                         charData.type = point.label;
                         charData.label = point.label;
                         brailleData.push(charData);
                     }
                 }
-                if (i == plot.plotData[position.y].length - 1) {
+                if (i == plot.plotData[position.x].length - 1) {
                     // last point gotta add ending space manually
                     charData = {};
-                    let lastX = 0;
-                    for (let j = 0; j < plot.plotData[position.y].length; j++) {
+                    let lastY = 0;
+                    for (let j = 0; j < plot.plotData[position.x].length; j++) {
                         // find last actual point
 
                         if (point.type == "outlier") {
-                            lastX = charData.length = point.xMax;
-                        } else if ('x' in plot.plotData[position.y][j]) {
-                            lastX = plot.plotData[position.y][j].x;
+                            lastY = charData.length = point.yMax;
+                        } else if ('y' in plot.plotData[position.x][j]) {
+                            lastY = plot.plotData[position.x][j].y;
                         }
                     }
-                    charData.length = constants.maxX - lastX;
+                    charData.length = constants.maxX - lastY;
                     charData.type = "blank";
                     charData.label = "blank";
                     brailleData.push(charData);
@@ -638,7 +635,7 @@ class Display {
             constants.brailleData = brailleData;
             if (constants.debugLevel > 5) {
                 console.log(brailleData);
-                console.log(plot.plotData[position.y]);
+                console.log(plot.plotData[position.x]);
             }
 
             // create braille from this data

@@ -463,11 +463,10 @@ class HeatMap {
 
         if ( constants.manualData ) {
             this.plots = heatmapPlots;
-            this.plotData = heatmapData;
         } else {
             this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
-            this.plotData = this.getHeatMapData();
         }
+        this.plotData = this.getHeatMapData();
         this.updateConstants();
 
         this.group_labels = this.getGroupLabels();
@@ -483,9 +482,6 @@ class HeatMap {
 
         this.x_labels = this.getXLabels();
         this.y_labels = this.getYLabels();
-
-        // hardcoded frequency information (in another file); extraction should be done afterwards
-        this.z = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
     }
 
     getHeatMapData() {
@@ -495,13 +491,13 @@ class HeatMap {
         let y_coord_check = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            x_coord_check.push(this.plots[i].getAttribute('x'));
-            y_coord_check.push(this.plots[i].getAttribute('y'));
+            x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
+            y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function (a, b) { a - b; }); // ascending
-        y_coord_check.sort(function (a, b) { b - a; }); // descending
+        x_coord_check.sort(function(a,b) { return a - b }); // ascending
+        y_coord_check.sort(function(a,b) { return a - b }).reverse(); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
@@ -511,19 +507,26 @@ class HeatMap {
         let num_rows = unique_y_coord.length;
         let num_cols = unique_x_coord.length;
 
-        let norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
-        let min_norm = 3 * (Math.pow(255, 2));
-        let max_norm = 0;
+        let norms;
+        if ( constants.manualData ) {
+            norms = [...heatmapData];
+        } else {
+            norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
+            let min_norm = 3 * (Math.pow(255, 2));
+            let max_norm = 0;
 
-        for (var i = 0; i < this.plots.length; i++) {
-            var x_index = unique_x_coord.indexOf(x_coord_check[i]);
-            var y_index = unique_y_coord.indexOf(y_coord_check[i]);
-            let norm = this.getRGBNorm(i);
-            norms[y_index][x_index] = norm;
+            for (var i = 0; i < this.plots.length; i++) {
+                var x_index = unique_x_coord.indexOf(x_coord_check[i]);
+                var y_index = unique_y_coord.indexOf(y_coord_check[i]);
+                let norm = this.getRGBNorm(i);
+                norms[y_index][x_index] = norm;
 
-            if (norm < min_norm) min_norm = norm;
-            if (norm > max_norm) max_norm = norm;
+                if (norm < min_norm) min_norm = norm;
+                if (norm > max_norm) max_norm = norm;
+            }
         }
+
+        
 
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
 
@@ -559,6 +562,9 @@ class HeatMap {
         let labels_nodelist;
         if ( constants.manualData ) {
             labels_nodelist = heatmapLabelsNodelist;
+            if (typeof(labels_nodelist[0]) == "string") {
+                return labels_nodelist;
+            }
         } else {
             labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
         }
@@ -574,6 +580,9 @@ class HeatMap {
         let x_labels_nodelist;
         if ( constants.manualData ) {
             x_labels_nodelist = heatmapXNodelist;
+            if (typeof(x_labels_nodelist[0]) == "string") {
+                return x_labels_nodelist;
+            }
         } else {
             x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
         }
@@ -590,13 +599,16 @@ class HeatMap {
     getYLabels() {
         // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
         let y_labels_nodelist;
+        let labels = [];
         if ( constants.manualData ) {
             y_labels_nodelist = heatmapYNodelist;
+            if (typeof(y_labels_nodelist[0]) == "string") {
+                return y_labels_nodelist;
+            }
         } else {
             y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
         }
 
-        let labels = [];
         for (let i = 0; i < y_labels_nodelist.length; i++) {
             labels.push(y_labels_nodelist[i].innerHTML);
         }

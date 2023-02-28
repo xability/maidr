@@ -787,11 +787,13 @@
             </div>
         </div>
         <script>
-            var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.2\\.1');
-            var heatmapData = [ [ "102.08", "257.58", "413.08" ], [ "432.36", "276.87", "121.37" ], [ [ 99734, 0, 0 ], [ 0, 21533, 0 ], [ 6699, 12786, 10539 ] ], 3, 3 ];
+            var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.2\\.1 > rect');
+            var heatmapData = [ [ 99734, 0, 0 ], [ 0, 21533, 0 ], [ 6699, 12786, 10539 ] ];
             var heatmapLabelsNodelist = document.querySelectorAll('tspan[dy="12"]');
             var heatmapXNodelist = document.querySelectorAll('tspan[dy="10"]');
             var heatmapYNodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
+            // bookmark: redoing data input for all heatmaps, so we pull data from plots except for actual data from rect
+            // in progress, tutorial2_heatmap is nearly done, just some errors, then we'll copy that to the dev build heatmap 1:1, then do task2_heatmap
         </script>
         <script src="../src/constants.js"></script>
         <script src="../src/audio.js"></script>
