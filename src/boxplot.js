@@ -8,8 +8,6 @@
 
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
-    constants.manualData = false;
-
     // variable initialization
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
@@ -473,7 +471,7 @@ class BoxPlot {
         } else {
             this.x_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
             this.y_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
-            this.y_labels = this.GetXLabels();
+            this.y_labels = this.GetYLabels();
             this.plotData = this.GetData(); // main json data
             this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
         }
@@ -487,7 +485,7 @@ class BoxPlot {
         console.log('boxplotId', constants.plotId);
     }
 
-    GetXLabels() {
+    GetYLabels() {
         let labels = [];
         let query = 'tspan[dy="5"]';
         let els = document.querySelectorAll(query);
@@ -1035,7 +1033,7 @@ class BoxplotRect {
                 this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
                 this.height = bounds.height + ( this.rectPadding * 2 ) ;
 
-                if (constants.debugLevel > 1) {
+                if (constants.debugLevel > 5) {
                     console.log(
                         "Point", plot.plotData[position.x][position.y].label,
                         "bottom:", bounds.bottom,
