@@ -472,6 +472,7 @@ class ScatterPlot {
         this.x = this.GetPointValues()[0]; // actual values of x
         this.y = this.GetPointValues()[1]; // actual values of y
 
+        // for sound weight use
         this.points_count = this.GetPointValues()[2]; // number of each points
         this.max_count = this.GetPointValues()[3];
 
@@ -510,7 +511,7 @@ class ScatterPlot {
         let points = new Map();
 
         for (let i = 0; i < this.plotPoints.length; i++) {
-            let x = parseFloat(this.plotPoints[i].getAttribute('x'));
+            let x = parseFloat(this.plotPoints[i].getAttribute('x')).toFixed(1);
             let y = parseFloat(this.plotPoints[i].getAttribute('y'));
             if (!points.has(x)) {
                 points.set(x, new Set([y]));
@@ -531,8 +532,6 @@ class ScatterPlot {
         for (let i = 0; i < X.length; i++) {
             Y.push(points[X[i]]);
         }
-
-        console.log(X, Y);
 
         return [X, Y];
     }
@@ -588,8 +587,6 @@ class ScatterPlot {
             points_count.push(y_count);
         }
         let max_points = Math.max(...points_count.map(a => Math.max(...a)));
-
-        console.log(X, Y);
 
         return [X, Y, points_count, max_points];
     }

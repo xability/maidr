@@ -65,14 +65,14 @@ class Audio {
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "scatterplot") {
             if (constants.layer == 0) { // point layer
-                if (position.z == -1) {
-                    // one point
-                    rawFreq = plot.y[position.x];
-                } else {
                     // more than one point with same x-value
-                    rawFreq = plot.y[position.x][position.z];
+                rawFreq = plot.y[position.x][position.z];
+                if (plot.max_count == 1) {
+                    volume = constants.vol;
+                } else {
                     volume = this.SlideBetween(plot.points_count[position.x][position.z], 1, plot.max_count, constants.vol, constants.MAX_VOL);
                 }
+
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
