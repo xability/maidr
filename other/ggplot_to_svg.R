@@ -211,6 +211,7 @@ penguins %>%
   count(island, species, sort = TRUE) %>%
   ggplot(aes(x = island, y = species, fill = n)) +
   geom_tile(color = "black") +
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
   coord_fixed()
 
 gridSVG::grid.export("heatmap.svg")
