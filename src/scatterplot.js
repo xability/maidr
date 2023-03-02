@@ -471,6 +471,8 @@ class ScatterPlot {
 
         this.x = this.GetPointValues()[0]; // actual values of x
         this.y = this.GetPointValues()[1]; // actual values of y
+        console.log(this.svgPointsX);
+        console.log(this.x);
 
         // for sound weight use
         this.points_count = this.GetPointValues()[2]; // number of each points
@@ -511,7 +513,7 @@ class ScatterPlot {
         let points = new Map();
 
         for (let i = 0; i < this.plotPoints.length; i++) {
-            let x = parseFloat(this.plotPoints[i].getAttribute('x')).toFixed(1);
+            let x = parseFloat(this.plotPoints[i].getAttribute('x')); // .toFixed(1);
             let y = parseFloat(this.plotPoints[i].getAttribute('y'));
             if (!points.has(x)) {
                 points.set(x, new Set([y]));
