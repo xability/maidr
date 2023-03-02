@@ -85,11 +85,7 @@ class Display {
         } else {
             if (constants.audioPlay == 0) {
                 constants.audioPlay = 1;
-                if (constants.chartType == "boxplot") {
-                    this.announceText(resources.GetString('son_des'));
-                } else {
-                    this.announceText(resources.GetString('son_on'));
-                }
+                this.announceText(resources.GetString('son_on'));
             } else {
                 constants.audioPlay = 0;
                 this.announceText(resources.GetString('son_off'));
