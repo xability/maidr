@@ -59,6 +59,7 @@ class Constants {
     autoPlayOutlierRate = 30; // ms per tone
     autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
+    isTracking = 1; // 0 / 1, is tracking on or off
 
     // user controls (not exposed to menu, with shortcuts usually)
     showDisplay = 1; // true / false
@@ -382,76 +383,117 @@ class Tracker {
         }
 
         // settings etc, which we have to reassign otherwise they'll all be the same val
-        if (!(constants.position === undefined || constants.position === null)) {
+        if (! this.isUndefinedOrNull(constants.position)) {
             eventToLog.position = Object.assign(constants.position);
         }
-        if (!(constants.minX === undefined || constants.minX === null)) {
+        if (! this.isUndefinedOrNull(constants.minX)) {
             eventToLog.minX = Object.assign(constants.minX);
         }
-        if (!(constants.maxX === undefined || constants.maxX === null)) {
+        if (! this.isUndefinedOrNull(constants.maxX)) {
             eventToLog.maxX = Object.assign(constants.maxX);
         }
-        if (!(constants.minY === undefined || constants.minY === null)) {
+        if (! this.isUndefinedOrNull(constants.minY)) {
             eventToLog.minY = Object.assign(constants.minY);
         }
-        if (!(constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
             eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
         }
-        if (!(constants.MIN_FREQUENCY === undefined || constants.MIN_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
             eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
         }
-        if (!(constants.NULL_FREQUENCY === undefined || constants.NULL_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
             eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
         }
-        if (!(constants.MAX_SPEED === undefined || constants.MAX_SPEED === null)) {
+        if (! this.isUndefinedOrNull(constants.MAX_SPEED)) {
             eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
         }
-        if (!(constants.MIN_SPEED === undefined || constants.MIN_SPEED === null)) {
+        if (! this.isUndefinedOrNull(constants.MIN_SPEED)) {
             eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
         }
-        if (!(constants.INTERVAL === undefined || constants.INTERVAL === null)) {
+        if (! this.isUndefinedOrNull(constants.INTERVAL)) {
             eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
         }
-        if (!(constants.vol === undefined || constants.vol === null)) {
+        if (! this.isUndefinedOrNull(constants.vol)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
-        if (!(constants.autoPlayRate === undefined || constants.autoPlayRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayRate)) {
             eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
         }
-        if (!(constants.colorSelected === undefined || constants.colorSelected === null)) {
+        if (! this.isUndefinedOrNull(constants.colorSelected)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
-        if (!(constants.brailleDisplayLength === undefined || constants.brailleDisplayLength === null)) {
+        if (! this.isUndefinedOrNull(constants.brailleDisplayLength)) {
             eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
         }
-        if (!(constants.duration === undefined || constants.duration === null)) {
+        if (! this.isUndefinedOrNull(constants.duration)) {
             eventToLog.toneDuration = Object.assign(constants.duration);
         }
-        if (!(constants.autoPlayOutlierRate === undefined || constants.autoPlayOutlierRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
             eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
         }
-        if (!(constants.autoPlayPointsRate === undefined || constants.autoPlayPointsRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
             eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
         }
-        if (!(constants.textMode === undefined || constants.textMode === null)) {
+        if (! this.isUndefinedOrNull(constants.textMode)) {
             eventToLog.textMode = Object.assign(constants.textMode);
         }
-        if (!(constants.audioPlay === undefined || constants.audioPlay === null)) {
+        if (! this.isUndefinedOrNull(constants.audioPlay)) {
             eventToLog.sonificationMode = Object.assign(constants.audioPlay);
         }
-        if (!(constants.layer === undefined || constants.layer === null)) {
+        if (! this.isUndefinedOrNull(constants.layer)) {
             eventToLog.scatterplotLayer = Object.assign(constants.layer);
         }
-        if (!(constants.chartType === undefined || constants.chartType === null)) {
+        if (! this.isUndefinedOrNull(constants.chartType)) {
             eventToLog.chartType = Object.assign(constants.chartType);
         }
-        if (!(constants.infoDiv.innerHTML === undefined || constants.infoDiv.innerHTML === null)) {
+        if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
         }
 
+        // chart specific values
+        if ( constants.chartType == "barchart" ) {
+            if (! this.isUndefinedOrNull(plot.plotColumns[position.x])) {
+                eventToLog.chart_label = Object.assign(plot.plotColumns[position.x]);
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
+                eventToLog.chart_legend_y = Object.assign(plot.plotLegend.y);
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.x)) {
+                eventToLog.chart_legend_x = Object.assign(plot.plotLegend.x);
+            }
+        } else if ( constants.chartType == "heatmap" ) {
+            if (! this.isUndefinedOrNull(plot.x_labels[position.x].trim())) {
+                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x].trim());
+            }
+            if (! this.isUndefinedOrNull(plot.y_labels[position.y].trim())) {
+                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
+            }
+        } else if ( constants.chartType == "boxplot" ) {
+            if (! this.isUndefinedOrNull(plot.y_labels[position.x])) {
+                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.x]);
+            }
+            if (! this.isUndefinedOrNull(plot.plotData[position.x][position.y].label)) {
+                eventToLog.chart_section = Object.assign(plot.plotData[position.x][position.y].label);
+            }
+        } else if ( constants.chartType == "scatterplot" ) {
+            if (! this.isUndefinedOrNull(plot.groupLabels[0])) {
+                eventToLog.chart_label_x = Object.assign(plot.groupLabels[0]);
+            }
+            if (! this.isUndefinedOrNull(plot.groupLabels[1])) {
+                eventToLog.chart_label_y = Object.assign(plot.groupLabels[1]);
+            }
+        }
+
         this.data.events.push(eventToLog);
+        console.log(eventToLog);
 
     }
+
+    isUndefinedOrNull(item) {
+        return ( item === undefined || item === null ) ;
+    }
+
+
 }
 
 // events and init functions
@@ -502,10 +544,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     document.addEventListener('keydown', function (e) {
 
         // Tracker
-        if (e.which == 121) {
-            tracker.Save();
-        } else {
-            tracker.LogEvent(e);
+        if ( constants.isTracking ) {
+            if (e.which == 121) {
+                tracker.Save();
+            } else {
+                tracker.LogEvent(e);
+            }
         }
 
 
