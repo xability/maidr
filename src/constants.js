@@ -352,6 +352,10 @@ class Helper {
 class Tracker {
 
     constructor() {
+        this.DataSetup();
+    }
+
+    DataSetup() {
         this.data = {};
         this.data.userAgent = Object.assign(navigator.userAgent);
         this.data.language = Object.assign(navigator.language);
@@ -365,6 +369,11 @@ class Tracker {
         link.href = URL.createObjectURL(fileStr);
         link.download = "tracking.json";
         link.click();
+    }
+
+    Delete() {
+        this.data = null;
+        this.DataSetup();
     }
 
     LogEvent(e) {
@@ -550,6 +559,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             } else {
                 tracker.LogEvent(e);
             }
+        }
+
+        // reset tracking with Ctrl + F5 / command + F5
+        if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
+            e.preventDefault();
+            tracker.Delete();
+            location.reload(true);
         }
 
 
