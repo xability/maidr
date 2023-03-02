@@ -64,10 +64,10 @@ class Constants {
     showDisplay = 1; // true / false
     showDisplayInBraille = 1; // true / false
     showDisplayInAutoplay = 0; // true / false
-    textMode = "terse"; // off / terse / verbose
+    textMode = "off"; // off / terse / verbose
     brailleMode = "off"; // on / off
-    sonifMode = "sep"; // sep / same / off
-    audioPlay = 1; // 0/1 for most plots, also 2,3 for boxplot
+    sonifMode = "off"; // sep / same / off
+    audioPlay = 0; // 0/1 for most plots, also 2,3 for boxplot
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
 
     // platform controls
