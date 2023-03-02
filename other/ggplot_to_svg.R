@@ -256,7 +256,7 @@ point_layer <- layer_data(g, 1) %>%
 gapminder %>%
   filter(year == 2007 & continent == "Europe") %>%
   select(gdpPercap, lifeExp) %>%
-  mutate(gdpPercap = log10(gdpPercap)) %>%
+  # mutate(gdpPercap = log10(gdpPercap)) %>%
   rename(x = gdpPercap, y = lifeExp) %>%
   jsonlite::write_json("new_scatterplot_user_study_point_layer.json")
 
