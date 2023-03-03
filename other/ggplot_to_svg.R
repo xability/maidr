@@ -16,6 +16,7 @@ gridSVG::grid.export("barplot.svg")
 dev.off()
 
 library(tidyverse)
+library(gapminder)
 
 gapminder %>%
   filter(year == 2007) %>%
@@ -39,7 +40,7 @@ gapminder %>%
   jsonlite::write_json("barplot_user_study_raw_data.json")
 
 # Box plot sample
-ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
+ggplot(data = mpg, mapping = aes(y = class, x = hwy)) +
   geom_boxplot()
 
 gridSVG::grid.export("boxplot.svg")
@@ -99,7 +100,7 @@ if (lower_whisker_length == upper_whisker_length) {
 }
 
 g <- gapminder %>%
-  ggplot(aes(y = lifeExp, x = continent)) +
+  ggplot(aes(x = lifeExp, y = continent)) +
   geom_boxplot() +
   labs(title = "Life Expectancy by Continent.", x = "Continent", y = "Life Expectancy")
 
