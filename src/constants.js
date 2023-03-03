@@ -11,6 +11,8 @@ class Constants {
     info_id = "info";
     announcement_container_id = "announcements";
     end_chime_id = "end_chime";
+    container_id = "container"
+    project_id = "maidr";
 
     // default constructor for boxplot
     constructor() {
@@ -59,6 +61,7 @@ class Constants {
     autoPlayOutlierRate = 30; // ms per tone
     autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
+    isTracking = 1; // 0 / 1, is tracking on or off
 
     // user controls (not exposed to menu, with shortcuts usually)
     showDisplay = 1; // true / false
@@ -87,17 +90,23 @@ class Constants {
 
         // info aria live
         if (!document.getElementById(this.info_id)) {
-            document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
+            if ( document.getElementById(this.svg_container_id) ) {
+                document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
+            }
         }
 
         // announcements aria live
         if (!document.getElementById(this.announcement_container_id)) {
-            document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+            if ( document.getElementById(this.info_id) ) {
+                document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+            }
         }
 
         // braille
         if (!document.getElementById(this.braille_container_id)) {
-            document.getElementById('container').insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+            if ( document.getElementById(this.container_id) ) {
+            document.getElementById(this.container_id).insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+            }
         }
 
         // role app on svg
@@ -108,7 +117,9 @@ class Constants {
 
         // end chime audio element
         if ( ! document.getElementById(this.end_chime_id) ) {
-            document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
+            if ( document.getElementById(this.info_id) ) {
+                document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
+            }
         }
     }
 
@@ -351,19 +362,48 @@ class Helper {
 class Tracker {
 
     constructor() {
-        this.data = {};
-        this.data.userAgent = Object.assign(navigator.userAgent);
-        this.data.language = Object.assign(navigator.language);
-        this.data.platform = Object.assign(navigator.platform);
-        this.data.events = [];
+        this.DataSetup();
     }
 
-    Save() {
+    DataSetup() {
+
+        let prevData = this.GetTrackerData();
+        if ( prevData ) {
+            // good to go already, do nothing
+        } else {
+            let data = {};
+            data.userAgent = Object.assign(navigator.userAgent);
+            data.language = Object.assign(navigator.language);
+            data.platform = Object.assign(navigator.platform);
+            data.events = [];
+
+            this.SaveTrackerData(data);
+        }
+    }
+
+    DownloadTrackerData() {
         let link = document.createElement("a");
-        let fileStr = new Blob([JSON.stringify(this.data)], { type: "text/plain" });
+        let data = this.GetTrackerData();
+        let fileStr = new Blob([JSON.stringify(data)], { type: "text/plain" });
         link.href = URL.createObjectURL(fileStr);
         link.download = "tracking.json";
         link.click();
+    }
+
+    SaveTrackerData(data) {
+        localStorage.setItem(constants.project_id, JSON.stringify(data));
+    }
+
+    GetTrackerData() {
+        let data = JSON.parse(localStorage.getItem(constants.project_id));
+        return data;
+    }
+
+    Delete() {
+        localStorage.removeItem(constants.project_id);
+        this.data = null;
+
+        this.DataSetup();
     }
 
     LogEvent(e) {
@@ -382,137 +422,203 @@ class Tracker {
         }
 
         // settings etc, which we have to reassign otherwise they'll all be the same val
-        if (!(constants.position === undefined || constants.position === null)) {
+        if (! this.isUndefinedOrNull(constants.position)) {
             eventToLog.position = Object.assign(constants.position);
         }
-        if (!(constants.minX === undefined || constants.minX === null)) {
+        if (! this.isUndefinedOrNull(constants.minX)) {
             eventToLog.minX = Object.assign(constants.minX);
         }
-        if (!(constants.maxX === undefined || constants.maxX === null)) {
+        if (! this.isUndefinedOrNull(constants.maxX)) {
             eventToLog.maxX = Object.assign(constants.maxX);
         }
-        if (!(constants.minY === undefined || constants.minY === null)) {
+        if (! this.isUndefinedOrNull(constants.minY)) {
             eventToLog.minY = Object.assign(constants.minY);
         }
-        if (!(constants.MAX_FREQUENCY === undefined || constants.MAX_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
             eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
         }
-        if (!(constants.MIN_FREQUENCY === undefined || constants.MIN_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
             eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
         }
-        if (!(constants.NULL_FREQUENCY === undefined || constants.NULL_FREQUENCY === null)) {
+        if (! this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
             eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
         }
-        if (!(constants.MAX_SPEED === undefined || constants.MAX_SPEED === null)) {
+        if (! this.isUndefinedOrNull(constants.MAX_SPEED)) {
             eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
         }
-        if (!(constants.MIN_SPEED === undefined || constants.MIN_SPEED === null)) {
+        if (! this.isUndefinedOrNull(constants.MIN_SPEED)) {
             eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
         }
-        if (!(constants.INTERVAL === undefined || constants.INTERVAL === null)) {
+        if (! this.isUndefinedOrNull(constants.INTERVAL)) {
             eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
         }
-        if (!(constants.vol === undefined || constants.vol === null)) {
+        if (! this.isUndefinedOrNull(constants.vol)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
-        if (!(constants.autoPlayRate === undefined || constants.autoPlayRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayRate)) {
             eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
         }
-        if (!(constants.colorSelected === undefined || constants.colorSelected === null)) {
+        if (! this.isUndefinedOrNull(constants.colorSelected)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
-        if (!(constants.brailleDisplayLength === undefined || constants.brailleDisplayLength === null)) {
+        if (! this.isUndefinedOrNull(constants.brailleDisplayLength)) {
             eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
         }
-        if (!(constants.duration === undefined || constants.duration === null)) {
+        if (! this.isUndefinedOrNull(constants.duration)) {
             eventToLog.toneDuration = Object.assign(constants.duration);
         }
-        if (!(constants.autoPlayOutlierRate === undefined || constants.autoPlayOutlierRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
             eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
         }
-        if (!(constants.autoPlayPointsRate === undefined || constants.autoPlayPointsRate === null)) {
+        if (! this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
             eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
         }
-        if (!(constants.textMode === undefined || constants.textMode === null)) {
+        if (! this.isUndefinedOrNull(constants.textMode)) {
             eventToLog.textMode = Object.assign(constants.textMode);
         }
-        if (!(constants.audioPlay === undefined || constants.audioPlay === null)) {
+        if (! this.isUndefinedOrNull(constants.audioPlay)) {
             eventToLog.sonificationMode = Object.assign(constants.audioPlay);
         }
-        if (!(constants.layer === undefined || constants.layer === null)) {
+        if (! this.isUndefinedOrNull(constants.layer)) {
             eventToLog.scatterplotLayer = Object.assign(constants.layer);
         }
-        if (!(constants.chartType === undefined || constants.chartType === null)) {
+        if (! this.isUndefinedOrNull(constants.chartType)) {
             eventToLog.chartType = Object.assign(constants.chartType);
         }
-        if (!(constants.infoDiv.innerHTML === undefined || constants.infoDiv.innerHTML === null)) {
+        if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
         }
+        if (! this.isUndefinedOrNull(location.href)) {
+            eventToLog.location = Object.assign(location.href);
+        }
 
-        this.data.events.push(eventToLog);
+        // chart specific values
+        if ( constants.chartType == "barchart" ) {
+            if (! this.isUndefinedOrNull(plot.plotColumns[position.x])) {
+                eventToLog.chart_label = Object.assign(plot.plotColumns[position.x]);
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
+                eventToLog.chart_legend_y = Object.assign(plot.plotLegend.y);
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.x)) {
+                eventToLog.chart_legend_x = Object.assign(plot.plotLegend.x);
+            }
+        } else if ( constants.chartType == "heatmap" ) {
+            if (! this.isUndefinedOrNull(plot.x_labels[position.x].trim())) {
+                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x].trim());
+            }
+            if (! this.isUndefinedOrNull(plot.y_labels[position.y].trim())) {
+                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
+            }
+        } else if ( constants.chartType == "boxplot" ) {
+            if (! this.isUndefinedOrNull(plot.y_labels[position.x])) {
+                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.x]);
+            }
+            if (! this.isUndefinedOrNull(plot.plotData[position.x][position.y].label)) {
+                eventToLog.chart_section = Object.assign(plot.plotData[position.x][position.y].label);
+            }
+        } else if ( constants.chartType == "scatterplot" ) {
+            if (! this.isUndefinedOrNull(plot.groupLabels[0])) {
+                eventToLog.chart_label_x = Object.assign(plot.groupLabels[0]);
+            }
+            if (! this.isUndefinedOrNull(plot.groupLabels[1])) {
+                eventToLog.chart_label_y = Object.assign(plot.groupLabels[1]);
+            }
+        }
 
+        //this.data.events.push(eventToLog);
+        let data = this.GetTrackerData();
+        data.events.push(eventToLog);
+        console.log(data.events);
+        this.SaveTrackerData(data);
     }
+
+    isUndefinedOrNull(item) {
+        return ( item === undefined || item === null ) ;
+    }
+
 }
 
 // events and init functions
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // create global vars
-    // todo: add the rest
     window.constants = new Constants();
     window.resources = new Resources();
     window.menu = new Menu();
     window.tracker = new Tracker();
 
-    // default page load focus on svg 
-    // this is mostly for debugging, as first time load users must click or hit a key to focus
-    // todo for publish: probably start users at a help / menu section, and they can tab to svg
-    if ( constants.debugLevel > -1 ) {
-        setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
+    // run events and functions only on user study page
+    if ( document.getElementById('download_data_trigger') ) {
+        document.getElementById('download_data_trigger').addEventListener('click', function(e) {
+            tracker.DownloadTrackerData();
+        });
     }
 
-    constants.svg_container.addEventListener("keydown", function (e) {
-        // Menu open
-        if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
-            menu.Toggle();
+    // run events only on pages with a chart (svg)
+    if ( document.getElementById(constants.svg_container_id) ) {
+        // default page load focus on svg 
+        // this is mostly for debugging, as first time load users must click or hit a key to focus
+        // todo for publish: probably start users at a help / menu section, and they can tab to svg
+        if ( constants.debugLevel > -1 ) {
+            setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
         }
-    });
 
-    // menu close
-    let allClose = document.querySelectorAll('#close_menu, #menu .close');
-    for (let i = 0; i < allClose.length; i++) {
-        allClose[i].addEventListener("click", function (e) {
+        if ( constants.svg_container ) {
+            constants.svg_container.addEventListener("keydown", function (e) {
+                // Menu open
+                if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
+                    menu.Toggle();
+                }
+            });
+        }
+
+        // menu close
+        let allClose = document.querySelectorAll('#close_menu, #menu .close');
+        for (let i = 0; i < allClose.length; i++) {
+            allClose[i].addEventListener("click", function (e) {
+                menu.Toggle(false);
+            });
+        }
+        document.getElementById('save_and_close_menu').addEventListener("click", function (e) {
+            menu.SaveData();
             menu.Toggle(false);
         });
-    }
-    document.getElementById('save_and_close_menu').addEventListener("click", function (e) {
-        menu.SaveData();
-        menu.Toggle(false);
-    });
 
-    // save user focus so we can return after menu close
-    let allFocus = document.querySelectorAll('#' + constants.svg_container_id + ' > svg, #' + constants.braille_input_id);
-    for (let i = 0; i < allFocus.length; i++) {
-        allFocus[i].addEventListener('focus', function (e) {
-            constants.nonMenuFocus = allFocus[i];
+        // save user focus so we can return after menu close
+        let allFocus = document.querySelectorAll('#' + constants.svg_container_id + ' > svg, #' + constants.braille_input_id);
+        for (let i = 0; i < allFocus.length; i++) {
+            allFocus[i].addEventListener('focus', function (e) {
+                constants.nonMenuFocus = allFocus[i];
+            });
+        }
+
+        // Global events
+        document.addEventListener('keydown', function (e) {
+
+            // Tracker
+            if ( constants.isTracking ) {
+                if (e.which == 121) {
+                    //tracker.DownloadTrackerData();
+                } else {
+                    tracker.LogEvent(e);
+                }
+            }
+
+            // reset tracking with Ctrl + F5 / command + F5
+            // future todo: this should probably be a button with a confirmation. This is dangerous
+            if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
+                e.preventDefault();
+                tracker.Delete();
+                location.reload(true);
+            }
+
+
+            // Kill autoplay
+            if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
+                constants.KillAutoplay();
+            }
         });
     }
-
-    // Global events
-    document.addEventListener('keydown', function (e) {
-
-        // Tracker
-        if (e.which == 121) {
-            tracker.Save();
-        } else {
-            tracker.LogEvent(e);
-        }
-
-
-        // Kill autoplay
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
-            constants.KillAutoplay();
-        }
-    });
 
 });
