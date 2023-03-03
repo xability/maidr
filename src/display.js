@@ -167,9 +167,9 @@ class Display {
             } else if (constants.textMode == "terse") {
                 // value only
                 if (constants.navigation == 1) { // column navigation
-                    output += '<p>' + plot.x_labels[position.x].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
-                } else { // row navigation
                     output += '<p>' + plot.y_labels[position.y].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                } else { // row navigation
+                    output += '<p>' + plot.x_labels[position.x].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
                 // col name and value
@@ -210,13 +210,13 @@ class Display {
             } else if (constants.textMode == "terse") {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
+                    if ( plot.x_labels[position.x] ) output += plot.x_labels[position.x] + ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    if ( plot.y_labels[position.x] ) output += plot.y_labels[position.x] + ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's';
@@ -225,6 +225,8 @@ class Display {
             } else if (constants.textMode == "verbose") {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
+                    if ( plot.x_group_label ) output += plot.x_group_label + ' is ';
+                    if ( plot.x_labels[position.x] ) output += plot.x_labels[position.x] + ', '; else output += ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's are ';
@@ -232,8 +234,7 @@ class Display {
                     output += val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
-                    output += plot.y_group_label;
-                    if ( plot.y_labels[position.x] ) output += ' is ' + plot.y_labels[position.x] + ', '; else output += ", ";
+                    if ( plot.y_group_label ) output += plot.y_group_label + ", ";
                     if (isOutlier) output += numPoints + " ";
                     output += plot.plotData[position.x][position.y].label;
                     if (numPoints != 1) output += 's are ';
