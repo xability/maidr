@@ -313,8 +313,6 @@ class Menu {
             document.getElementById('menu').classList.add('hidden');
             document.getElementById('modal_backdrop').classList.add('hidden');
             constants.nonMenuFocus.focus();
-            console.log('nonMenuFocus', constants.nonMenuFocus);
-            console.log('active focus', document.activeElement);
 
         }
     }
@@ -511,11 +509,15 @@ class Tracker {
                 eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
             }
         } else if ( constants.chartType == "boxplot" ) {
-            if (! this.isUndefinedOrNull(plot.y_labels[position.x])) {
-                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.x]);
+            if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
+                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x]);
             }
-            if (! this.isUndefinedOrNull(plot.plotData[position.x][position.y].label)) {
-                eventToLog.chart_section = Object.assign(plot.plotData[position.x][position.y].label);
+            if ( position ) {
+                if ( position.x > -1 && position.y > -1 ) {
+                    if (! this.isUndefinedOrNull(plot.plotData[position.x][position.y].label)) {
+                        eventToLog.chart_section = Object.assign(plot.plotData[position.x][position.y].label);
+                    }
+                }
             }
         } else if ( constants.chartType == "scatterplot" ) {
             if (! this.isUndefinedOrNull(plot.groupLabels[0])) {
@@ -529,7 +531,6 @@ class Tracker {
         //this.data.events.push(eventToLog);
         let data = this.GetTrackerData();
         data.events.push(eventToLog);
-        console.log(data.events);
         this.SaveTrackerData(data);
     }
 
@@ -601,7 +602,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (e.which == 121) {
                     //tracker.DownloadTrackerData();
                 } else {
-                    tracker.LogEvent(e);
+                    if ( plot ) {
+                        tracker.LogEvent(e);
+                    }
                 }
             }
 

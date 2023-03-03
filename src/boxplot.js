@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(plot.plotData[0].length, -1);
+    window.position = new Position(0, plot.plotData[0].length-1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
@@ -481,20 +481,20 @@ class BoxPlot {
         if ( constants.manualData ) {
             this.x_group_label = boxplotLabels.x_group_label;
             this.y_group_label = boxplotLabels.y_group_label;
-            this.y_labels = boxplotLabels.y_labels;
+            this.x_labels = boxplotLabels.x_labels;
             this.plotData = boxplotData;
             this.plotBounds = this.GetPlotBounds(constants.plotId);
         } else {
             this.x_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
             this.y_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
-            this.y_labels = this.GetYLabels();
+            this.x_labels = this.GetXLabels();
             this.plotData = this.GetData(); // main json data
             this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
         }
         this.CleanData();
     }
 
-    GetYLabels() {
+    GetXLabels() {
         let labels = [];
         let query = 'tspan[dy="5"]';
         let els = document.querySelectorAll(query);
