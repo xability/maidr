@@ -11,6 +11,8 @@ class Constants {
     info_id = "info";
     announcement_container_id = "announcements";
     end_chime_id = "end_chime";
+    container_id = "container"
+    project_id = "maidr";
 
     // default constructor for boxplot
     constructor() {
@@ -88,17 +90,23 @@ class Constants {
 
         // info aria live
         if (!document.getElementById(this.info_id)) {
-            document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
+            if ( document.getElementById(this.svg_container_id) ) {
+                document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
+            }
         }
 
         // announcements aria live
         if (!document.getElementById(this.announcement_container_id)) {
-            document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+            if ( document.getElementById(this.info_id) ) {
+                document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
+            }
         }
 
         // braille
         if (!document.getElementById(this.braille_container_id)) {
-            document.getElementById('container').insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+            if ( document.getElementById(this.container_id) ) {
+            document.getElementById(this.container_id).insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+            }
         }
 
         // role app on svg
@@ -109,7 +117,9 @@ class Constants {
 
         // end chime audio element
         if ( ! document.getElementById(this.end_chime_id) ) {
-            document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
+            if ( document.getElementById(this.info_id) ) {
+                document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
+            }
         }
     }
 
@@ -356,23 +366,43 @@ class Tracker {
     }
 
     DataSetup() {
-        this.data = {};
-        this.data.userAgent = Object.assign(navigator.userAgent);
-        this.data.language = Object.assign(navigator.language);
-        this.data.platform = Object.assign(navigator.platform);
-        this.data.events = [];
+
+        let prevData = this.GetTrackerData();
+        if ( prevData ) {
+            // good to go already, do nothing
+        } else {
+            let data = {};
+            data.userAgent = Object.assign(navigator.userAgent);
+            data.language = Object.assign(navigator.language);
+            data.platform = Object.assign(navigator.platform);
+            data.events = [];
+
+            this.SaveTrackerData(data);
+        }
     }
 
-    Save() {
+    DownloadTrackerData() {
         let link = document.createElement("a");
-        let fileStr = new Blob([JSON.stringify(this.data)], { type: "text/plain" });
+        let data = this.GetTrackerData();
+        let fileStr = new Blob([JSON.stringify(data)], { type: "text/plain" });
         link.href = URL.createObjectURL(fileStr);
         link.download = "tracking.json";
         link.click();
     }
 
+    SaveTrackerData(data) {
+        localStorage.setItem(constants.project_id, JSON.stringify(data));
+    }
+
+    GetTrackerData() {
+        let data = JSON.parse(localStorage.getItem(constants.project_id));
+        return data;
+    }
+
     Delete() {
+        localStorage.removeItem(constants.project_id);
         this.data = null;
+
         this.DataSetup();
     }
 
@@ -458,6 +488,9 @@ class Tracker {
         if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
         }
+        if (! this.isUndefinedOrNull(location.href)) {
+            eventToLog.location = Object.assign(location.href);
+        }
 
         // chart specific values
         if ( constants.chartType == "barchart" ) {
@@ -493,15 +526,16 @@ class Tracker {
             }
         }
 
-        this.data.events.push(eventToLog);
-        console.log(eventToLog);
-
+        //this.data.events.push(eventToLog);
+        let data = this.GetTrackerData();
+        data.events.push(eventToLog);
+        console.log(data.events);
+        this.SaveTrackerData(data);
     }
 
     isUndefinedOrNull(item) {
         return ( item === undefined || item === null ) ;
     }
-
 
 }
 
@@ -509,70 +543,82 @@ class Tracker {
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
     // create global vars
-    // todo: add the rest
     window.constants = new Constants();
     window.resources = new Resources();
     window.menu = new Menu();
     window.tracker = new Tracker();
 
-    // default page load focus on svg 
-    // this is mostly for debugging, as first time load users must click or hit a key to focus
-    // todo for publish: probably start users at a help / menu section, and they can tab to svg
-    if ( constants.debugLevel > -1 ) {
-        setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
+    // run events and functions only on user study page
+    if ( document.getElementById('download_data_trigger') ) {
+        document.getElementById('download_data_trigger').addEventListener('click', function(e) {
+            tracker.DownloadTrackerData();
+        });
     }
 
-    constants.svg_container.addEventListener("keydown", function (e) {
-        // Menu open
-        if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
-            menu.Toggle();
+    // run events only on pages with a chart (svg)
+    if ( document.getElementById(constants.svg_container_id) ) {
+        // default page load focus on svg 
+        // this is mostly for debugging, as first time load users must click or hit a key to focus
+        // todo for publish: probably start users at a help / menu section, and they can tab to svg
+        if ( constants.debugLevel > -1 ) {
+            setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
         }
-    });
 
-    // menu close
-    let allClose = document.querySelectorAll('#close_menu, #menu .close');
-    for (let i = 0; i < allClose.length; i++) {
-        allClose[i].addEventListener("click", function (e) {
+        if ( constants.svg_container ) {
+            constants.svg_container.addEventListener("keydown", function (e) {
+                // Menu open
+                if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
+                    menu.Toggle();
+                }
+            });
+        }
+
+        // menu close
+        let allClose = document.querySelectorAll('#close_menu, #menu .close');
+        for (let i = 0; i < allClose.length; i++) {
+            allClose[i].addEventListener("click", function (e) {
+                menu.Toggle(false);
+            });
+        }
+        document.getElementById('save_and_close_menu').addEventListener("click", function (e) {
+            menu.SaveData();
             menu.Toggle(false);
         });
-    }
-    document.getElementById('save_and_close_menu').addEventListener("click", function (e) {
-        menu.SaveData();
-        menu.Toggle(false);
-    });
 
-    // save user focus so we can return after menu close
-    let allFocus = document.querySelectorAll('#' + constants.svg_container_id + ' > svg, #' + constants.braille_input_id);
-    for (let i = 0; i < allFocus.length; i++) {
-        allFocus[i].addEventListener('focus', function (e) {
-            constants.nonMenuFocus = allFocus[i];
+        // save user focus so we can return after menu close
+        let allFocus = document.querySelectorAll('#' + constants.svg_container_id + ' > svg, #' + constants.braille_input_id);
+        for (let i = 0; i < allFocus.length; i++) {
+            allFocus[i].addEventListener('focus', function (e) {
+                constants.nonMenuFocus = allFocus[i];
+            });
+        }
+
+        // Global events
+        document.addEventListener('keydown', function (e) {
+
+            // Tracker
+            if ( constants.isTracking ) {
+                if (e.which == 121) {
+                    //tracker.DownloadTrackerData();
+                } else {
+                    tracker.LogEvent(e);
+                }
+            }
+
+            // reset tracking with Ctrl + F5 / command + F5
+            // future todo: this should probably be a button with a confirmation. This is dangerous
+            if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
+                e.preventDefault();
+                tracker.Delete();
+                location.reload(true);
+            }
+
+
+            // Kill autoplay
+            if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
+                constants.KillAutoplay();
+            }
         });
     }
-
-    // Global events
-    document.addEventListener('keydown', function (e) {
-
-        // Tracker
-        if ( constants.isTracking ) {
-            if (e.which == 121) {
-                tracker.Save();
-            } else {
-                tracker.LogEvent(e);
-            }
-        }
-
-        // reset tracking with Ctrl + F5 / command + F5
-        if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
-            e.preventDefault();
-            tracker.Delete();
-            location.reload(true);
-        }
-
-
-        // Kill autoplay
-        if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
-            constants.KillAutoplay();
-        }
-    });
 
 });

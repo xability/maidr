@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    window.position = new Position(0, -1);
+    window.position = new Position(plot.plotData[0].length, -1);
     let rect = new BoxplotRect();
     let audio = new Audio();
     let display = new Display();
@@ -492,13 +492,6 @@ class BoxPlot {
             this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
         }
         this.CleanData();
-
-        console.log('output for the html');
-        console.log('x_group_label', this.x_group_label);
-        console.log('y_group_label', this.y_group_label);
-        console.log('y_labels', this.y_labels);
-        console.log('plotData', this.plotData);
-        console.log('boxplotId', constants.plotId);
     }
 
     GetYLabels() {
