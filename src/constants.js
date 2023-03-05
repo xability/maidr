@@ -509,13 +509,15 @@ class Tracker {
                 eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
             }
         } else if ( constants.chartType == "boxplot" ) {
-            if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
-                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x]);
+            let xy = orientation == "vert" ? position.x : position.y;
+            let yx = orientation == "vert" ? position.y : position.x;
+            if (! this.isUndefinedOrNull(plot.x_labels[xy])) {
+                eventToLog.chart_label_x = Object.assign(plot.x_labels[xy]);
             }
             if ( position ) {
                 if ( position.x > -1 && position.y > -1 ) {
-                    if (! this.isUndefinedOrNull(plot.plotData[position.x][position.y].label)) {
-                        eventToLog.chart_section = Object.assign(plot.plotData[position.x][position.y].label);
+                    if (! this.isUndefinedOrNull(plot.plotData[xy][yx].label)) {
+                        eventToLog.chart_section = Object.assign(plot.plotData[xy][yx].label);
                     }
                 }
             }

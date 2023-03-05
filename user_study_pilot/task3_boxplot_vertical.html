@@ -702,15 +702,17 @@
             </div>
         </div>
         <script>
+            var orientation = "vert";
             let x_labels = [];
             let els = document.querySelectorAll('tspan[dy="6.3"]');
             for (let i = 0; i < els.length; i++) {
                             x_labels.push(els[i].innerHTML.trim());
                         }
             var boxplotLabels = {
-                            "x_group_label": document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML,
-                            "y_group_label": document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML,
-                            "x_labels": x_labels
+                            "x_group_label": document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML,
+                            "y_group_label": document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML,
+                            "x_labels": x_labels,
+                            "y_labels": []
                         };
             var boxplotId = "geom_boxplot.gTree.177.1"
             var boxplotData = [ [ { "x": 98.72, "y": 49.01, "type": "outlier", "yMax": 49.01, "values": [ 49.01 ], "label": "Lower Outlier" }, { "x": 98.72, "y": 87.01, "type": "whisker", "label": "Low" }, { "x": 57.73, "y": 192.64, "type": "range", "label": "25%" }, { "x": 139.71, "y": 212, "type": "range", "label": "50%" }, { "x": 57.73, "y": 231.94, "type": "range", "label": "75%" }, { "x": 98.72, "y": 338.15, "type": "whisker", "label": "High" }, { "x": 98.72, "y": 340.74, "type": "outlier", "yMax": 362.73, "values": [ 340.74, 341.12, 342.55, 345.95, 347.78, 347.95, 352.82, 358.59, 362.73 ], "label": "Upper Outlier" } ], [ { "x": 208.02, "y": 132.01, "type": "outlier", "yMax": 132.01, "values": [ 132.01 ], "label": "Lower Outlier" }, { "x": 208.02, "y": 148.84, "type": "whisker", "label": "Low" }, { "x": 167.04, "y": 306.96, "type": "range", "label": "25%" }, { "x": 249.01, "y": 321, "type": "range", "label": "50%" }, { "x": 167.04, "y": 334.58, "type": "range", "label": "75%" }, { "x": 208.02, "y": 387.73, "type": "whisker", "label": "High" }, { "type": "blank", "label": "Upper Outlier" } ], [ { "type": "blank", "label": "Lower Outlier" }, { "x": 317.33, "y": 79.89, "type": "whisker", "label": "Low" }, { "x": 276.34, "y": 275.75, "type": "range", "label": "25%" }, { "x": 358.32, "y": 299, "type": "range", "label": "50%" }, { "x": 276.34, "y": 321.55, "type": "range", "label": "75%" }, { "x": 317.33, "y": 399.31, "type": "whisker", "label": "High" }, { "type": "blank", "label": "Upper Outlier" } ], [ { "x": 426.63, "y": 167.66, "type": "outlier", "yMax": 264.05, "values": [ 167.66, 194.34, 218.2, 228.43, 231.49, 236.8, 247.34, 253.22, 255.92, 260.15, 260.84, 262.19, 262.74, 264.05 ], "label": "Lower Outlier" }, { "x": 426.63, "y": 271.27, "type": "whisker", "label": "Low" }, { "x": 385.64, "y": 337.79, "type": "range", "label": "25%" }, { "x": 467.62, "y": 347, "type": "range", "label": "50%" }, { "x": 385.64, "y": 356.84, "type": "range", "label": "75%" }, { "x": 426.63, "y": 394.29, "type": "whisker", "label": "High" }, { "type": "blank", "label": "Upper Outlier" } ], [ { "type": "blank", "label": "Lower Outlier" }, { "x": 535.94, "y": 319.26, "type": "whisker", "label": "Low" }, { "x": 494.95, "y": 346.24, "type": "range", "label": "25%" }, { "x": 576.93, "y": 358, "type": "range", "label": "50%" }, { "x": 494.95, "y": 369.32, "type": "range", "label": "75%" }, { "x": 535.94, "y": 391.19, "type": "whisker", "label": "High" }, { "type": "blank", "label": "Upper Outlier" } ] ] ;

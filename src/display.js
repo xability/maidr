@@ -185,23 +185,29 @@ class Display {
             let numPoints = 1;
             let pointType = "";
             let isOutlier = false;
-            if ( plot.plotData[position.x][position.y].label == resources.GetString('lower_outlier') || plot.plotData[position.x][position.y].label == resources.GetString('upper_outlier') ) {
+            let xy = orientation == "vert" ? position.x : position.y;
+            let yx = orientation == "vert" ? position.y : position.x;
+            if ( plot.plotData[xy][yx].label == resources.GetString('lower_outlier') || plot.plotData[xy][yx].label == resources.GetString('upper_outlier') ) {
                 isOutlier = true;
             }
-            if (plot.plotData[position.x][position.y].type == "outlier") {
-                val = plot.plotData[position.x][position.y].values.join(', ');
-                if (plot.plotData[position.x][position.y].values.length > 0) {
-                    numPoints = plot.plotData[position.x][position.y].values.length;
+            if (plot.plotData[xy][yx].type == "outlier") {
+                val = plot.plotData[xy][yx].values.join(', ');
+                if (plot.plotData[xy][yx].values.length > 0) {
+                    numPoints = plot.plotData[xy][yx].values.length;
                 } else {
                     numPoints = 0;
                 }
 
                 pointType = "outlier";
-            } else if (plot.plotData[position.x][position.y].type == "blank") {
+            } else if (plot.plotData[xy][yx].type == "blank") {
                 val = '';
                 if ( isOutlier ) numPoints = 0;
             } else {
-                val = plot.plotData[position.x][position.y].y;
+                if ( orientation == "vert" ) {
+                    val = plot.plotData[xy][yx].y;
+                } else {
+                    val = plot.plotData[xy][yx].x;
+                }
             }
 
             // set output
@@ -210,15 +216,15 @@ class Display {
             } else if (constants.textMode == "terse") {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
-                    if ( plot.x_labels[position.x] ) output += plot.x_labels[position.x] + ", ";
+                    if ( plot.x_labels[xy] ) output += plot.x_labels[xy] + ", ";
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.x][position.y].label;
+                    output += plot.plotData[xy][yx].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 } else { // new box nav (up / down)
                     output += '<p>';
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.x][position.y].label;
+                    output += plot.plotData[xy][yx].label;
                     if (numPoints != 1) output += 's';
                     output += ' ' + val + '</p>\n';
                 }
@@ -226,9 +232,9 @@ class Display {
                 if (constants.navigation == 1) { // within box nav (left / right)
                     output += '<p>';
                     if ( plot.x_group_label ) output += plot.x_group_label + ' is ';
-                    if ( plot.x_labels[position.x] ) output += plot.x_labels[position.x] + ', '; else output += ", ";
+                    if ( plot.x_labels[xy] ) output += plot.x_labels[xy] + ', '; else output += ", ";
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.x][position.y].label;
+                    output += plot.plotData[xy][yx].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
                     output += val + '</p>\n';
@@ -236,7 +242,7 @@ class Display {
                     output += '<p>';
                     if ( plot.y_group_label ) output += plot.y_group_label + ", ";
                     if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[position.x][position.y].label;
+                    output += plot.plotData[xy][yx].label;
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
                     output += val + '</p>\n';
