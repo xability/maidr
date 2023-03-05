@@ -44,16 +44,27 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "boxplot") {
-            if (position.z > -1 && Object.hasOwn(plot.plotData[position.x][position.y], 'values')) {
+            let xy = orientation == "vert" ? position.x : position.y;
+            let yx = orientation == "vert" ? position.y : position.x;
+            if (position.z > -1 && Object.hasOwn(plot.plotData[xy][yx], 'values')) {
                 // outliers are stored in values with a seperate itterator
-                rawFreq = plot.plotData[position.x][position.y].values[position.z];
+                rawFreq = plot.plotData[xy][yx].values[position.z];
             } else {
                 // normal points
-                rawFreq = plot.plotData[position.x][position.y].y;
+                if ( orientation == "vert" ) {
+                    rawFreq = plot.plotData[xy][yx].y;
+                } else {
+                    rawFreq = plot.plotData[xy][yx].x;
+                }
             }
-            if (plot.plotData[position.x][position.y].type != 'blank') {
-                frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
-                panning = this.SlideBetween(rawFreq, constants.minY, constants.maxY, -1, 1);
+            if (plot.plotData[xy][yx].type != 'blank') {
+                if ( orientation == "vert" ) {
+                    frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                    panning = this.SlideBetween(rawFreq, constants.minY, constants.maxY, -1, 1);
+                } else {
+                    frequency = this.SlideBetween(rawFreq, constants.minX, constants.maxX, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
+                    panning = this.SlideBetween(rawFreq, constants.minX, constants.maxX, -1, 1);
+                }
             } else {
                 frequency = constants.MIN_FREQUENCY;
                 panning = 0;
@@ -85,6 +96,7 @@ class Audio {
             }
         }
 
+
         if (constants.debugLevel > 5) {
             console.log('will play tone at freq', frequency);
             if ( constants.chartType == "boxplot" ) {
@@ -94,12 +106,15 @@ class Audio {
             }
         }
 
+        let xy = orientation == "vert" ? position.x : position.y;
+        let yx = orientation == "vert" ? position.y : position.x;
+
         if (constants.chartType == "boxplot") {
             // different types of sounds for different regions. 
             // outlier = short tone
             // whisker = normal tone
             // range = chord 
-            let sectionType = plot.plotData[position.x][position.y].type;
+            let sectionType = plot.plotData[xy][yx].type;
             if (sectionType == "outlier") {
                 currentDuration = constants.duration;
             } else if (sectionType == "whisker") {
@@ -112,7 +127,7 @@ class Audio {
         // create tones
         this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
         if (constants.chartType == "boxplot") {
-            let sectionType = plot.plotData[position.x][position.y].type;
+            let sectionType = plot.plotData[xy][yx].type;
             if (sectionType == "range") {
                 // also play an octive below at lower vol
                 let freq2 = frequency / 2;
