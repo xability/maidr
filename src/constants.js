@@ -576,6 +576,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             });
         }
 
+        if ( constants.brailleInput ) {
+            constants.brailleInput.addEventListener("keydown", function (e) {
+                if (e.which == 72) {
+                    e.preventDefault();
+                    menu.Toggle(true);
+                }
+            });
+        }
+
         // menu close
         let allClose = document.querySelectorAll('#close_menu, #menu .close');
         for (let i = 0; i < allClose.length; i++) {
@@ -590,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         document.getElementById('menu').addEventListener("keydown", function (e) {
             if (e.which == 27) { // esc
                 menu.Toggle(false);
-                svg.focus();
+                // svg.focus(); // commented this out because menu might be toggled in brailleInput too
             }
         });
 

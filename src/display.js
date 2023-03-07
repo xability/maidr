@@ -58,8 +58,10 @@ class Display {
                 let pos = position.y * (plot.num_cols + 1) + position.x;
                 constants.brailleInput.setSelectionRange(pos, pos);
             }
-            
-            if (position.x == -1 && position.y == -1) { // braille mode is on before navigation of svg
+
+            // braille mode is on before navigation of svg
+            // very important to make sure braille works properly
+            if (position.x == -1 && position.y == -1) { 
                 constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
