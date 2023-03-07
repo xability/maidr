@@ -213,40 +213,50 @@ class Display {
             // set output
             if (constants.textMode == "off") {
                 // do nothing
-            } else if (constants.textMode == "terse") {
-                if (constants.navigation == 1) { // within box nav (left / right)
-                    output += '<p>';
-                    if ( plot.x_labels[xy] ) output += plot.x_labels[xy] + ", ";
-                    if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[xy][yx].label;
-                    if (numPoints != 1) output += 's';
-                    output += ' ' + val + '</p>\n';
-                } else { // new box nav (up / down)
-                    output += '<p>';
-                    if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[xy][yx].label;
-                    if (numPoints != 1) output += 's';
-                    output += ' ' + val + '</p>\n';
+            } else {
+                output += '<p>';
+                // group label
+                if ( constants.textMode == "verbose" ) {
+                    if ( constants.navigation ) {
+                        if ( plot.x_group_label ) output += plot.x_group_label;
+                    } else if ( ! constants.navigation ) {
+                        if ( plot.y_group_label ) output += plot.y_group_label;
+                    }
                 }
-            } else if (constants.textMode == "verbose") {
-                if (constants.navigation == 1) { // within box nav (left / right)
-                    output += '<p>';
-                    if ( plot.x_group_label ) output += plot.x_group_label + ' is ';
-                    if ( plot.x_labels[xy] ) output += plot.x_labels[xy] + ', '; else output += ", ";
-                    if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[xy][yx].label;
+                // and axis label
+                if ( constants.navigation ) {
+                    if ( plot.x_labels[xy] ) {
+                        if ( constants.textMode == "verbose" ) output += " is ";
+                        output += plot.x_labels[xy] + ", ";
+                    } else if ( constants.textMode == "verbose" ) {
+                        output += ", ";
+                    }
+                } else if ( ! constants.navigation ) {
+                    if ( plot.y_labels[xy] ) {
+                        if ( constants.textMode == "verbose" ) output += " is ";
+                        output += plot.y_labels[xy] + ", ";
+                    } else if ( constants.textMode == "verbose" ) {
+                        output += ", ";
+                    }
+                }
+                // outliers
+                if ( isOutlier ) {
+                    output += numPoints + " ";
+                }
+                // label
+                output += plot.plotData[xy][yx].label;
+                // grammar
+                if ( constants.textMode == "verbose" ) {
                     if (numPoints != 1) output += 's are ';
                     else output += ' is ';
-                    output += val + '</p>\n';
-                } else { // new box nav (up / down)
-                    output += '<p>';
-                    if ( plot.y_group_label ) output += plot.y_group_label + ", ";
-                    if (isOutlier) output += numPoints + " ";
-                    output += plot.plotData[xy][yx].label;
-                    if (numPoints != 1) output += 's are ';
-                    else output += ' is ';
-                    output += val + '</p>\n';
+                } else {
+                    if (numPoints != 1) output += 's';
+                    output += " ";
                 }
+                // val
+                output += val;
+
+                output += '<p>\n';
             }
         } else if (constants.chartType == "scatterplot") {
             if (constants.layer == 0) { // point layer

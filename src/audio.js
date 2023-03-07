@@ -106,14 +106,14 @@ class Audio {
             }
         }
 
-        let xy = orientation == "vert" ? position.x : position.y;
-        let yx = orientation == "vert" ? position.y : position.x;
 
         if (constants.chartType == "boxplot") {
             // different types of sounds for different regions. 
             // outlier = short tone
             // whisker = normal tone
             // range = chord 
+            let xy = orientation == "vert" ? position.x : position.y;
+            let yx = orientation == "vert" ? position.y : position.x;
             let sectionType = plot.plotData[xy][yx].type;
             if (sectionType == "outlier") {
                 currentDuration = constants.duration;
