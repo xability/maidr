@@ -163,8 +163,8 @@ class Resources {
             "basic": {
                 "upper_outlier": "Upper Outlier",
                 "lower_outlier": "Lower Outlier",
-                "min": "Low",
-                "max": "High",
+                "min": "Minimum",
+                "max": "Maximum",
                 "25": "25%",
                 "50": "50%",
                 "75": "75%",
