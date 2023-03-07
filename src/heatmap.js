@@ -249,10 +249,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
         }
 
+        // commented this so that menu can be enabled when toggle in brailleInput
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function(e) {
-            display.toggleBrailleMode('off');
-        });
+        // constants.brailleInput.addEventListener('focusout', function(e) {
+        //     display.toggleBrailleMode('off');
+        // });
 
         if (updateInfoThisRound && ! isAtEnd) {
             UpdateAllBraille();
