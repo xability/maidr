@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             menu.Toggle(false);
         });
         document.getElementById('menu').addEventListener("keydown", function (e) {
-            if (e.which == 72) { // H(72) 
+            if (e.which == 27) { // esc
                 menu.Toggle(false);
                 svg.focus();
             }
