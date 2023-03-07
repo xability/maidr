@@ -164,7 +164,7 @@ class Display {
                 output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
             } else if (constants.textMode == "verbose") {
                 // {legend x} is {colname x}, {legend y} is {value y}
-                output += '<p>' + plot.plotLegend.y + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.x + ' is ' + plot.plotData[position.x] + '</p>\n';
+                output += '<p>' + plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x] + '</p>\n';
             }
         } else if (constants.chartType == "heatmap") {
             // terse and verbose alternate between columns and rows
@@ -173,9 +173,9 @@ class Display {
             } else if (constants.textMode == "terse") {
                 // value only
                 if (constants.navigation == 1) { // column navigation
-                    output += '<p>' + plot.y_labels[position.y].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
-                } else { // row navigation
                     output += '<p>' + plot.x_labels[position.x].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                } else { // row navigation
+                    output += '<p>' + plot.y_labels[position.y].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
                 // col name and value
