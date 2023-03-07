@@ -81,7 +81,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         } else if (e.which == 39) { // right arrow
             e.preventDefault();
             if (e.target.selectionStart > e.target.value.length - 2) {
-                e.preventDefault();
             } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                     // lastx = position.x;

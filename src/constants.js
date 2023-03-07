@@ -570,8 +570,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if ( constants.svg_container ) {
             constants.svg_container.addEventListener("keydown", function (e) {
                 // Menu open
-                if (e.which == 77 || e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
-                    menu.Toggle();
+                if (e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
+                    menu.Toggle(true);
                 }
             });
         }
@@ -586,6 +586,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         document.getElementById('save_and_close_menu').addEventListener("click", function (e) {
             menu.SaveData();
             menu.Toggle(false);
+        });
+        document.getElementById('menu').addEventListener("keydown", function (e) {
+            if (e.which == 72) { // H(72) 
+                menu.Toggle(false);
+                svg.focus();
+            }
         });
 
         // save user focus so we can return after menu close
