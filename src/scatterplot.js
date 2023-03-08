@@ -219,6 +219,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.layer == 0) {
                     position.x = 0;
                     UpdateAll();
+                    // move cursor for braille
+                    constants.brailleInput.setSelectionRange(0,0);
                 } else if (constants.layer == 1) {
                     positionL1.x = 0;
                     UpdateAllBraille();
@@ -230,7 +232,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 if (constants.layer == 0) {
                     position.x = plot.y.length - 1;
                     UpdateAll();
-                } else {
+                    // move cursor for braille
+                    constants.brailleInput.setSelectionRange(plot.curvePoints.length - 1, plot.curvePoints.length - 1);
+                } else if (constants.layer == 1) {
                     positionL1.x = plot.curvePoints.length - 1;
                     UpdateAllBraille();
                 }
