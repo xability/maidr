@@ -127,6 +127,8 @@ class Audio {
         // create tones
         this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
         if (constants.chartType == "boxplot") {
+            let xy = orientation == "vert" ? position.x : position.y;
+            let yx = orientation == "vert" ? position.y : position.x;
             let sectionType = plot.plotData[xy][yx].type;
             if (sectionType == "range") {
                 // also play an octive below at lower vol
