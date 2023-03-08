@@ -128,7 +128,7 @@ class Display {
             if (constants.brailleData) {
                 for (let i = 0; i < constants.brailleData.length; i++) {
                     if (constants.brailleData[i].type != 'blank') {
-                        if (constants.brailleData[i].label == targetLabel) {
+                        if (resources.GetString(constants.brailleData[i].label) == targetLabel) {
                             haveTargetLabel = true;
                             break;
                         }
@@ -193,7 +193,7 @@ class Display {
             let isOutlier = false;
             let xy = orientation == "vert" ? position.x : position.y;
             let yx = orientation == "vert" ? position.y : position.x;
-            if ( plot.plotData[xy][yx].label == resources.GetString('lower_outlier') || plot.plotData[xy][yx].label == resources.GetString('upper_outlier') ) {
+            if ( plot.plotData[xy][yx].label == 'lower_outlier' || plot.plotData[xy][yx].label == 'upper_outlier' ) {
                 isOutlier = true;
             }
             if (plot.plotData[xy][yx].type == "outlier") {
@@ -250,7 +250,7 @@ class Display {
                     output += numPoints + " ";
                 }
                 // label
-                output += plot.plotData[xy][yx].label;
+                output += resources.GetString(plot.plotData[xy][yx].label);
                 // grammar
                 if ( constants.textMode == "verbose" ) {
                     if (numPoints != 1) output += 's are ';
