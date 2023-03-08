@@ -250,19 +250,26 @@ class Display {
                     output += numPoints + " ";
                 }
                 // label
-                if ( ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
+                if ( isOutlier || constants.textMode == "verbose" || ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
                     output += resources.GetString(plot.plotData[xy][yx].label);
-                }
-                // grammar
-                if ( constants.textMode == "verbose" ) {
-                    if (numPoints != 1) output += 's are ';
-                    else output += ' is ';
-                } else {
-                    if (numPoints != 1) output += 's';
-                    output += " ";
+                    // grammar
+                    if ( constants.textMode == "verbose" ) {
+                        if ( numPoints == 1 ) output += ' is ';
+                        else {
+                            output += 's ';
+                            if ( numPoints > 1 ) output += ' are ';
+                        }
+                    } else {
+                        if (numPoints != 1) output += 's';
+                        output += " ";
+                    }
                 }
                 // val
-                output += val;
+                if ( plot.plotData[xy][yx].type == "blank" && ! isOutlier ) {
+                    output += "empty";
+                } else {
+                    output += val;
+                }
 
                 output += '<p>\n';
             }
