@@ -666,7 +666,7 @@ class BoxPlot {
                 this.y_labels = this.GetLabels();
             }
             this.plotData = this.GetData(); // main json data
-            this.plotBounds = this.GetPlotBounds(constants.plotId); // main json data
+            this.plotBounds = this.GetPlotBounds(constants.plotId); // bound data
         }
         this.CleanData();
     }
