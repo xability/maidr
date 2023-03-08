@@ -72,17 +72,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             positionL1.x = lastx1;
            
             if (e.which == 39 && e.shiftKey) {
-                if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.audioPlay) {
                     PlayLine('outward_right');
-                } else if (e.altKey) {
+                } else if (e.altKey && constants.audioPlay) {
                     PlayLine('inward_right');
                 }
             }
 
             if (e.which == 37 && e.shiftKey) {
-                if ((constants.isMac ? e.metaKey : e.ctrlKey)) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.audioPlay) {
                     PlayLine('outward_left');
-                } else if (e.altKey) {
+                } else if (e.altKey && constants.audioPlay) {
                     PlayLine('inward_left');
                 }
             }
@@ -218,20 +218,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (e.which == 36) {
                 if (constants.layer == 0) {
                     position.x = 0;
+                    UpdateAll();
                 } else if (constants.layer == 1) {
                     positionL1.x = 0;
+                    UpdateAllBraille();
                 }
-                UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
                 if (constants.layer == 0) {
                     position.x = plot.y.length - 1;
+                    UpdateAll();
                 } else {
                     positionL1.x = plot.curvePoints.length - 1;
+                    UpdateAllBraille();
                 }
-                UpdateAllBraille();
             }
 
             // if you're only hitting control
@@ -290,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     if (constants.layer == 0) {
                         Autoplay(lastPlayed, position.x, lastx);
                     } else if (constants.layer == 1) {
-                        Autoplay('outward_left', positionL1.x, lastx1);
+                        Autoplay(lastPlayed, positionL1.x, lastx1);
                     }
                 }
             }
@@ -315,8 +317,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 positionL1.x = 0;
                 isLockNeeded = true;
             } 
-            if (positionL1.x > plot.curvePoints - 1) {
-                positionL1.x = plot.curvePoints - 1;
+            if (positionL1.x > plot.curvePoints.length - 1) {
+                positionL1.x = plot.curvePoints.length - 1;
                 isLockNeeded = true;
             }
         }
@@ -409,14 +411,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 // plot.numPoints is not available anymore
                 if (positionL1.x < 0 || positionL1.x > plot.curvePoints.length - 1) { 
                     constants.KillAutoplay();
+                    console.log(positionL1.x);
                     lockPosition();
+                    console.log(positionL1.x);
                 } else if (positionL1.x == end) {
                     constants.KillAutoplay();
                     UpdateAllAutoplay();
                 } else {
                     UpdateAllAutoplay();
                 }
-                console.log(positionL1.x);
             }, constants.autoPlayRate);
         }
     }
