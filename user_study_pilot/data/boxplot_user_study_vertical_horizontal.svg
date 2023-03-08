@@ -594,7 +594,7 @@
                             font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif"
                             fill="rgb(0,0,0)" stroke-opacity="1" fill-opacity="1"
                             font-weight="normal" font-style="normal">
-                            <tspan id="GRID.text.199.1.1.tspan.1" dy="7.88" x="0">Continent</tspan>
+                            <tspan id="GRID.text.199.1.1.tspan.1" dy="7.88" x="0">Life Expectancy</tspan>
                           </text>
                         </g>
                       </g>
@@ -620,7 +620,7 @@
                             font-family="Helvetica, Arial, FreeSans, Liberation Sans, Nimbus Sans L, sans-serif"
                             fill="rgb(0,0,0)" stroke-opacity="1" fill-opacity="1"
                             font-weight="normal" font-style="normal">
-                            <tspan id="GRID.text.202.1.1.tspan.1" dy="7.88" x="0">Life Expectancy</tspan>
+                            <tspan id="GRID.text.202.1.1.tspan.1" dy="7.88" x="0">Continent</tspan>
                           </text>
                         </g>
                       </g>
