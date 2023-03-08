@@ -250,7 +250,9 @@ class Display {
                     output += numPoints + " ";
                 }
                 // label
-                output += resources.GetString(plot.plotData[xy][yx].label);
+                if ( ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
+                    output += resources.GetString(plot.plotData[xy][yx].label);
+                }
                 // grammar
                 if ( constants.textMode == "verbose" ) {
                     if (numPoints != 1) output += 's are ';
