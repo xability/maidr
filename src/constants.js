@@ -57,7 +57,7 @@ class Constants {
 
     // advanced user settings
     showRect = 1;  // true / false
-    duration = .2;
+    duration = .3;
     autoPlayOutlierRate = 30; // ms per tone
     autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
@@ -576,14 +576,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             });
         }
 
-        if ( constants.brailleInput ) {
-            constants.brailleInput.addEventListener("keydown", function (e) {
-                if (e.which == 72) {
-                    e.preventDefault();
-                    menu.Toggle(true);
-                }
-            });
-        }
+        // if ( constants.brailleInput ) {
+        //     constants.brailleInput.addEventListener("keydown", function (e) {
+        //         if (e.which == 72) {
+        //             e.preventDefault();
+        //             menu.Toggle(true);
+        //         }
+        //     });
+        // }
 
         // menu close
         let allClose = document.querySelectorAll('#close_menu, #menu .close');
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         document.getElementById('menu').addEventListener("keydown", function (e) {
             if (e.which == 27) { // esc
                 menu.Toggle(false);
-                // svg.focus(); // commented this out because menu might be toggled in brailleInput too
+                svg.focus();
             }
         });
 
