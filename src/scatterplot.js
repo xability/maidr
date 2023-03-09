@@ -441,25 +441,25 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
-            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 5;
+            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 3;
         } else if (dir == 'outward_left') {
             for (let i = x; i >= 0; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, -1];
-            duration = Math.abs(x) / plot.curvePoints.length * 5;
+            duration = Math.abs(x) / plot.curvePoints.length * 3;
         } else if (dir == 'inward_right') {
             for (let i = plot.curvePoints.length - 1; i >= x; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [1, panPoint];
-            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 5;
+            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 3;
         } else if (dir == 'inward_left') {
             for (let i = 0; i <= x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
-            duration = Math.abs(x)  / plot.curvePoints.length * 5;
+            duration = Math.abs(x)  / plot.curvePoints.length * 3;
         }
 
         if ( constants.isSmoothAutoplay ) {
