@@ -333,13 +333,28 @@ class Display {
                 brailleArray.push("⠳");
             }
         } else if (constants.chartType == "barchart") {
-            let range = ((constants.minY + constants.maxY) / 4) + constants.minY;
+            // let range = ((constants.minY + constants.maxY) / 4) + constants.minY;
+            // for (let i = 0; i < plot.plotData.length; i++) {
+            //     if (plot.plotData[i] < range) {
+            //         brailleArray.push("⣀");
+            //     } else if (plot.plotData[i] < range * 2) {
+            //         brailleArray.push("⠤");
+            //     } else if (plot.plotData[i] < range * 3) {
+            //         brailleArray.push("⠒");
+            //     } else {
+            //         brailleArray.push("⠉");
+            //     }
+            // }
+            let range = (constants.maxY - constants.minY) / 4;
+            let low = constants.minY + range;
+            let medium = low + range;
+            let medium_high = medium + range;
             for (let i = 0; i < plot.plotData.length; i++) {
-                if (plot.plotData[i] < range) {
+                if (plot.plotData[i] <= low) {
                     brailleArray.push("⣀");
-                } else if (plot.plotData[i] < range * 2) {
+                } else if (plot.plotData[i] <= medium) {
                     brailleArray.push("⠤");
-                } else if (plot.plotData[i] < range * 3) {
+                } else if (plot.plotData[i] <= medium_high) {
                     brailleArray.push("⠒");
                 } else {
                     brailleArray.push("⠉");
