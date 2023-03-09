@@ -435,33 +435,39 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let panningArr = [];
         let panPoint = audio.SlideBetween(positionL1.x, 0, plot.curvePoints.length - 1, -1, 1);
         let x = positionL1.x < 0 ? 0 : positionL1.x;
+        let duration = 0;
         if (dir == 'outward_right') {
             for (let i = x; i < plot.curvePoints.length; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, 1];
+            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 5;
         } else if (dir == 'outward_left') {
             for (let i = x; i >= 0; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [panPoint, -1];
+            duration = Math.abs(x) / plot.curvePoints.length * 5;
         } else if (dir == 'inward_right') {
             for (let i = plot.curvePoints.length - 1; i >= x; i--) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [1, panPoint];
+            duration = Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length * 5;
         } else if (dir == 'inward_left') {
             for (let i = 0; i <= x; i++) {
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
+            duration = Math.abs(x)  / plot.curvePoints.length * 5;
         }
 
         if ( constants.isSmoothAutoplay ) {
             audio.KillSmooth();
         }
 
-        audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
+        // audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
+        audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
 
     }
 });
