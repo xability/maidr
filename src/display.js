@@ -175,16 +175,16 @@ class Display {
             } else if (constants.textMode == "terse") {
                 // value only
                 if (constants.navigation == 1) { // column navigation
-                    output += '<p>' + plot.x_labels[position.x].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.x_labels[position.x] + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 } else { // row navigation
-                    output += '<p>' + plot.y_labels[position.y].trim() + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.y_labels[position.y] + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
                 // col name and value
                 if (constants.navigation == 1) {
-                    output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 } else {
-                    output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]).trim() + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]).trim() + ', is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
+                    output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             }
         } else if (constants.chartType == "boxplot") {
@@ -333,18 +333,6 @@ class Display {
                 brailleArray.push("⠳");
             }
         } else if (constants.chartType == "barchart") {
-            // let range = ((constants.minY + constants.maxY) / 4) + constants.minY;
-            // for (let i = 0; i < plot.plotData.length; i++) {
-            //     if (plot.plotData[i] < range) {
-            //         brailleArray.push("⣀");
-            //     } else if (plot.plotData[i] < range * 2) {
-            //         brailleArray.push("⠤");
-            //     } else if (plot.plotData[i] < range * 3) {
-            //         brailleArray.push("⠒");
-            //     } else {
-            //         brailleArray.push("⠉");
-            //     }
-            // }
             let range = (constants.maxY - constants.minY) / 4;
             let low = constants.minY + range;
             let medium = low + range;

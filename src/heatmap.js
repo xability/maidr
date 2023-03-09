@@ -483,8 +483,9 @@ class HeatMap {
         this.num_rows = this.plotData[3];
         this.num_cols = this.plotData[4];
 
-        this.x_group_label = this.group_labels[0];
-        this.y_group_label = this.group_labels[1];
+        this.x_group_label = this.group_labels[0].trim();
+        this.y_group_label = this.group_labels[1].trim();
+        this.box_label = this.group_labels[2].trim();
 
         this.x_labels = this.getXLabels();
         this.y_labels = this.getYLabels();
@@ -577,7 +578,7 @@ class HeatMap {
         // console.log(labels_nodelist);
 
         let labels = [];
-        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML, labels_nodelist[2]);
 
         return labels;
     }
@@ -596,7 +597,7 @@ class HeatMap {
 
         let labels = [];
         for (let i = 0; i < x_labels_nodelist.length; i++) {
-            labels.push(x_labels_nodelist[i].innerHTML);
+            labels.push(x_labels_nodelist[i].innerHTML.trim());
         }
 
         return labels;
@@ -616,7 +617,7 @@ class HeatMap {
         }
 
         for (let i = 0; i < y_labels_nodelist.length; i++) {
-            labels.push(y_labels_nodelist[i].innerHTML);
+            labels.push(y_labels_nodelist[i].innerHTML.trim());
         }
 
         return labels.reverse();
