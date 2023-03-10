@@ -1271,18 +1271,18 @@ class BoxPlot {
 
     PlayTones(audio) {
 
-        let xy = null;
-        let yx = null;
+        let plotPos = null;
+        let sectionPos = null;
         if ( orientation == "vert" ) {
-            xy = position.x;
-            yx = position.y;
+            plotPos = position.x;
+            sectionPos = position.y;
         } else {
-            xy = position.y;
-            yx = position.x;
+            plotPos = position.y;
+            sectionPos = position.x;
         }
-        if (plot.plotData[xy][yx].type == "blank") {
+        if (plot.plotData[plotPos][sectionPos].type == "blank") {
             audio.PlayNull();
-        } else if (plot.plotData[xy][yx].type != "outlier") {
+        } else if (plot.plotData[plotPos][sectionPos].type != "outlier") {
             audio.playTone();
         } else {
             // outlier(s): we play a run of tones
@@ -1295,10 +1295,10 @@ class BoxPlot {
                 position.z += 1;
 
                 // and kill if we're done
-                if ( ! Object.hasOwn(plot.plotData[xy][yx], 'values' ) ) {
+                if ( ! Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values' ) ) {
                     clearInterval(outlierInterval);
                     position.z = -1;
-                } else if (position.z + 1 > plot.plotData[xy][yx].values.length) {
+                } else if (position.z + 1 > plot.plotData[plotPos][sectionPos].values.length) {
                     clearInterval(outlierInterval);
                     position.z = -1;
                 }
@@ -1332,17 +1332,17 @@ class BoxplotRect {
 
         if (document.getElementById('highlight_rect')) document.getElementById('highlight_rect').remove(); // destroy to be recreated
 
-        let xy = position.x;
-        let yx = position.y;
+        let plotPos = position.x;
+        let sectionPos = position.y;
         if ( orientation == "vert" ) {
         } else {
-            xy = position.y;
-            yx = position.x;
+            plotPos = position.y;
+            sectionPos = position.x;
         }
 
         if ( ( orientation == "vert" && position.y > -1 ) || ( orientation == "horz" && position.x > -1 ) ) { // initial value could be -1, which throws errors, so ignore that
 
-            let bounds = plot.plotBounds[xy][yx];
+            let bounds = plot.plotBounds[plotPos][sectionPos];
 
             if ( bounds.type != 'blank' ) {
 
@@ -1355,7 +1355,7 @@ class BoxplotRect {
 
                 if (constants.debugLevel > 5) {
                     console.log(
-                        "Point", plot.plotData[xy][yx].label,
+                        "Point", plot.plotData[plotPos][sectionPos].label,
                         "bottom:", bounds.bottom,
                         "top:", bounds.top);
                     console.log(
