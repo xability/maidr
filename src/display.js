@@ -295,7 +295,7 @@ class Display {
                     output += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[positionL1.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[positionL1.x] + '</p>\n';
+                    output += '<p>' + plot.groupLabels[0] + " " + plot.curveX[positionL1.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[positionL1.x] + '</p>\n';
                     // if (positionL1.x == plot.gradient.length - 1) {
                     //     output += '<p>end</end';
                     // } else {
