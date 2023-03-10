@@ -193,28 +193,28 @@ class Display {
             let numPoints = 1;
             let pointType = "";
             let isOutlier = false;
-            let xy = orientation == "vert" ? position.x : position.y;
-            let yx = orientation == "vert" ? position.y : position.x;
-            if ( plot.plotData[xy][yx].label == 'lower_outlier' || plot.plotData[xy][yx].label == 'upper_outlier' ) {
+            let plotPos = orientation == "vert" ? position.x : position.y;
+            let sectionPos = orientation == "vert" ? position.y : position.x;
+            if ( plot.plotData[plotPos][sectionPos].label == 'lower_outlier' || plot.plotData[plotPos][sectionPos].label == 'upper_outlier' ) {
                 isOutlier = true;
             }
-            if (plot.plotData[xy][yx].type == "outlier") {
-                val = plot.plotData[xy][yx].values.join(', ');
-                if (plot.plotData[xy][yx].values.length > 0) {
-                    numPoints = plot.plotData[xy][yx].values.length;
+            if (plot.plotData[plotPos][sectionPos].type == "outlier") {
+                val = plot.plotData[plotPos][sectionPos].values.join(', ');
+                if (plot.plotData[plotPos][sectionPos].values.length > 0) {
+                    numPoints = plot.plotData[plotPos][sectionPos].values.length;
                 } else {
                     numPoints = 0;
                 }
 
                 pointType = "outlier";
-            } else if (plot.plotData[xy][yx].type == "blank") {
+            } else if (plot.plotData[plotPos][sectionPos].type == "blank") {
                 val = '';
                 if ( isOutlier ) numPoints = 0;
             } else {
                 if ( orientation == "vert" ) {
-                    val = plot.plotData[xy][yx].y;
+                    val = plot.plotData[plotPos][sectionPos].y;
                 } else {
-                    val = plot.plotData[xy][yx].x;
+                    val = plot.plotData[plotPos][sectionPos].x;
                 }
             }
 
@@ -233,16 +233,16 @@ class Display {
                 }
                 // and axis label
                 if ( constants.navigation ) {
-                    if ( plot.x_labels[xy] ) {
+                    if ( plot.x_labels[plotPos] ) {
                         if ( constants.textMode == "verbose" ) output += " is ";
-                        output += plot.x_labels[xy] + ", ";
+                        output += plot.x_labels[plotPos] + ", ";
                     } else if ( constants.textMode == "verbose" ) {
                         output += ", ";
                     }
                 } else if ( ! constants.navigation ) {
-                    if ( plot.y_labels[xy] ) {
+                    if ( plot.y_labels[plotPos] ) {
                         if ( constants.textMode == "verbose" ) output += " is ";
-                        output += plot.y_labels[xy] + ", ";
+                        output += plot.y_labels[plotPos] + ", ";
                     } else if ( constants.textMode == "verbose" ) {
                         output += ", ";
                     }
@@ -253,7 +253,7 @@ class Display {
                 }
                 // label
                 if ( isOutlier || constants.textMode == "verbose" || ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
-                    output += resources.GetString(plot.plotData[xy][yx].label);
+                    output += resources.GetString(plot.plotData[plotPos][sectionPos].label);
                     // grammar
                     if ( constants.textMode == "verbose" ) {
                         if ( numPoints == 1 ) output += ' is ';
@@ -267,7 +267,7 @@ class Display {
                     }
                 }
                 // val
-                if ( plot.plotData[xy][yx].type == "blank" && ! isOutlier ) {
+                if ( plot.plotData[plotPos][sectionPos].type == "blank" && ! isOutlier ) {
                     output += "empty";
                 } else {
                     output += val;
