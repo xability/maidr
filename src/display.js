@@ -384,8 +384,9 @@ class Display {
             let boundingBoxOffset = constants.manualData ? 0 : 127; // 0 comes through as 127 for some reason if pulling from svg, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
             for (let i = 0; i < plot.plotData[plotPos].length; i++) {
                 let point = plot.plotData[plotPos][i];
-                // pre clean up, we want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
-                if ( point.values ) {
+                // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
+                let visualBraille = false;
+                if ( point.values && visualBraille ) {
                     point.values = [...new Set(point.values)];
                 }
 
