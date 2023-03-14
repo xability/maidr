@@ -478,7 +478,7 @@ class Tracker {
             eventToLog.sonificationMode = Object.assign(constants.audioPlay);
         }
         if (! this.isUndefinedOrNull(constants.brailleMode)) {
-            eventToLog.textMode = Object.assign(constants.brailleMode);
+            eventToLog.brailleMode = Object.assign(constants.brailleMode);
         }
         if (! this.isUndefinedOrNull(constants.layer)) {
             eventToLog.scatterplotLayer = Object.assign(constants.layer);
