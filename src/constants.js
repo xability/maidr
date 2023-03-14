@@ -492,7 +492,7 @@ class Tracker {
         }
         if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             let textDisplay = Object.assign(constants.infoDiv.innerHTML);
-            textDisplay = textDisplay.replaceAll("\\<[^>]*>","");
+            textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, '');
             eventToLog.textDisplay = textDisplay;
         }
         if (! this.isUndefinedOrNull(location.href)) {
