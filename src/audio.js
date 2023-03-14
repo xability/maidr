@@ -44,20 +44,20 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "boxplot") {
-            let xy = orientation == "vert" ? position.x : position.y;
-            let yx = orientation == "vert" ? position.y : position.x;
-            if (position.z > -1 && Object.hasOwn(plot.plotData[xy][yx], 'values')) {
+            let plotPos = orientation == "vert" ? position.x : position.y;
+            let sectionPos = orientation == "vert" ? position.y : position.x;
+            if (position.z > -1 && Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')) {
                 // outliers are stored in values with a seperate itterator
-                rawFreq = plot.plotData[xy][yx].values[position.z];
+                rawFreq = plot.plotData[plotPos][sectionPos].values[position.z];
             } else {
                 // normal points
                 if ( orientation == "vert" ) {
-                    rawFreq = plot.plotData[xy][yx].y;
+                    rawFreq = plot.plotData[plotPos][sectionPos].y;
                 } else {
-                    rawFreq = plot.plotData[xy][yx].x;
+                    rawFreq = plot.plotData[plotPos][sectionPos].x;
                 }
             }
-            if (plot.plotData[xy][yx].type != 'blank') {
+            if (plot.plotData[plotPos][sectionPos].type != 'blank') {
                 if ( orientation == "vert" ) {
                     frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                     panning = this.SlideBetween(rawFreq, constants.minY, constants.maxY, -1, 1);
@@ -112,24 +112,24 @@ class Audio {
             // outlier = short tone
             // whisker = normal tone
             // range = chord 
-            let xy = orientation == "vert" ? position.x : position.y;
-            let yx = orientation == "vert" ? position.y : position.x;
-            let sectionType = plot.plotData[xy][yx].type;
+            let plotPos = orientation == "vert" ? position.x : position.y;
+            let sectionPos = orientation == "vert" ? position.y : position.x;
+            let sectionType = plot.plotData[plotPos][sectionPos].type;
             if (sectionType == "outlier") {
-                currentDuration = constants.duration;
+                currentDuration = constants.duration / 2;
             } else if (sectionType == "whisker") {
-                currentDuration = constants.duration * 2;
+                //currentDuration = constants.duration * 2;
             } else {
-                currentDuration = constants.duration * 2;
+                //currentDuration = constants.duration * 2;
             }
         }
 
         // create tones
         this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
         if (constants.chartType == "boxplot") {
-            let xy = orientation == "vert" ? position.x : position.y;
-            let yx = orientation == "vert" ? position.y : position.x;
-            let sectionType = plot.plotData[xy][yx].type;
+            let plotPos = orientation == "vert" ? position.x : position.y;
+            let sectionPos = orientation == "vert" ? position.y : position.x;
+            let sectionType = plot.plotData[plotPos][sectionPos].type;
             if (sectionType == "range") {
                 // also play an octive below at lower vol
                 let freq2 = frequency / 2;

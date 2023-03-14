@@ -17,7 +17,7 @@
         "median": 27,
         "third_qu": 29,
         "maximum": 33,
-        "upper_outlier": "35, 37, 35, 44"
+        "upper_outlier": "35, 35, 37, 44"
     },
     {
         "class": "midsize",
@@ -67,6 +67,6 @@
         "median": 17.5,
         "third_qu": 19,
         "maximum": 22,
-        "upper_outlier": "25, 24, 27, 25, 26, 23"
+        "upper_outlier": "23, 24, 25, 25, 26, 27"
     }
 ]

@@ -512,15 +512,19 @@ class Tracker {
                 eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
             }
         } else if ( constants.chartType == "boxplot" ) {
-            let xy = orientation == "vert" ? position.x : position.y;
-            let yx = orientation == "vert" ? position.y : position.x;
-            if (! this.isUndefinedOrNull(plot.x_labels[xy])) {
-                eventToLog.chart_label_x = Object.assign(plot.x_labels[xy]);
+            let plotPos = orientation == "vert" ? position.x : position.y;
+            let sectionPos = orientation == "vert" ? position.y : position.x;
+            if (! this.isUndefinedOrNull(plot.x_labels[plotPos])) {
+                eventToLog.chart_label_x = Object.assign(plot.x_labels[plotPos]);
             }
             if ( position ) {
-                if ( position.x > -1 && position.y > -1 ) {
-                    if (! this.isUndefinedOrNull(plot.plotData[xy][yx].label)) {
-                        eventToLog.chart_section = Object.assign(plot.plotData[xy][yx].label);
+                if ( plotPos > -1 && sectionPos > -1 ) {
+                    if ( plotPos < plot.plotData.length ) {
+                        if ( sectionPos < plot.plotData[plotPos].length ) {
+                            if (! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
+                                eventToLog.chart_section = Object.assign(plot.plotData[plotPos][sectionPos].label);
+                            }
+                        }
                     }
                 }
             }
