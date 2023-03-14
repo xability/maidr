@@ -401,6 +401,10 @@ class Tracker {
         localStorage.removeItem(constants.project_id);
         this.data = null;
 
+        if ( constants.debugLevel > 0 ) {
+            console.log("tracking data cleared");
+        }
+
         this.DataSetup();
     }
 
@@ -487,7 +491,9 @@ class Tracker {
             eventToLog.chartType = Object.assign(constants.chartType);
         }
         if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
-            eventToLog.textDisplay = Object.assign(constants.infoDiv.innerHTML);
+            let textDisplay = Object.assign(constants.infoDiv.innerHTML);
+            textDisplay = textDisplay.replaceAll("\\<[^>]*>","");
+            eventToLog.textDisplay = textDisplay;
         }
         if (! this.isUndefinedOrNull(location.href)) {
             eventToLog.location = Object.assign(location.href);
@@ -618,7 +624,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             });
         }
 
-        // Global events
+        // Global events for svg
         document.addEventListener('keydown', function (e) {
 
             // Tracker
@@ -632,14 +638,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
             }
 
-            // reset tracking with Ctrl + F5 / command + F5
-            // future todo: this should probably be a button with a confirmation. This is dangerous
-            if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
-                e.preventDefault();
-                tracker.Delete();
-                location.reload(true);
-            }
-
 
             // Kill autoplay
             if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
@@ -647,5 +645,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         });
     }
+
+    // global events for all files
+    document.addEventListener('keydown', function (e) {
+        // reset tracking with Ctrl + F5 / command + F5
+        // future todo: this should probably be a button with a confirmation. This is dangerous
+        if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
+            e.preventDefault();
+            tracker.Delete();
+            location.reload(true);
+        }
+    });
 
 });
