@@ -116,7 +116,7 @@ class Audio {
             let sectionPos = orientation == "vert" ? position.y : position.x;
             let sectionType = plot.plotData[plotPos][sectionPos].type;
             if (sectionType == "outlier") {
-                currentDuration = constants.duration / 2;
+                currentDuration = constants.duration / 5;
             } else if (sectionType == "whisker") {
                 //currentDuration = constants.duration * 2;
             } else {

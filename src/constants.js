@@ -49,7 +49,7 @@ class Constants {
     INTERVAL = 50;
 
     // user settings
-    vol = .4; 
+    vol = .6; 
     MAX_VOL = 30;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
@@ -58,7 +58,7 @@ class Constants {
     // advanced user settings
     showRect = 1;  // true / false
     duration = .3;
-    autoPlayOutlierRate = 30; // ms per tone
+    autoPlayOutlierRate = 50; // ms per tone
     autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
     isTracking = 1; // 0 / 1, is tracking on or off
