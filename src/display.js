@@ -310,7 +310,6 @@ class Display {
     }
 
     SetBraille(plot) {
-        // todo: this errors on boxplot when we try and move above or below valid position.y
 
         let brailleArray = [];
 
@@ -381,7 +380,6 @@ class Display {
             let isBeforeMid = true;
             let plotPos = orientation == "vert" ? position.x : position.y;
             let valCoord = orientation == "vert" ? 'y' : 'x';
-            let boundingBoxOffset = constants.manualData ? 0 : 127; // 0 comes through as 127 for some reason if pulling from svg, so ignore values smaller than this for starting blank space. todo: find out why and set this according to px offset from actual bounding box
             for (let i = 0; i < plot.plotData[plotPos].length; i++) {
                 let point = plot.plotData[plotPos][i];
                 // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
@@ -412,7 +410,12 @@ class Display {
                         }
                     }
                     charData = {};
-                    charData.length = firstCoord - 0 - boundingBoxOffset;
+                    let minVal = orientation == "vert" ? constants.minY : constants.minX;
+                    if ( firstCoord - minVal > 0 ) {
+                        charData.length = firstCoord;
+                    } else {
+                        charData.length = 0;
+                    }
                     if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
                     charData.type = 'blank';
                     charData.label = 'blank';
@@ -542,28 +545,28 @@ class Display {
             let loc75 = -1;
             // prepopulate a single char each
             for (let i = 0; i < brailleData.length; i++) {
-                if (brailleData[i].type != 'blank') {
+                if (brailleData[i].type != 'blank' && ( brailleData[i].length > 0 || brailleData[i].type == 'outlier' ) ) {
                     brailleData[i].numChars = 1;
                 } else {
                     brailleData[i].numChars = 0;
                 }
 
                 // store 25/75 min/max locations so we can check them later more easily
-                if (brailleData[i].label == 'min') locMin = i;
-                if (brailleData[i].label == 'max') locMax = i;
-                if (brailleData[i].label == '25') loc25 = i;
-                if (brailleData[i].label == '75') loc75 = i;
+                if (brailleData[i].label == 'min' && brailleData[i].length > 0 ) locMin = i;
+                if (brailleData[i].label == 'max' && brailleData[i].length > 0 ) locMax = i;
+                if (brailleData[i].label == '25' ) loc25 = i;
+                if (brailleData[i].label == '75' ) loc75 = i;
 
                 // 50 gets 2 characters by default
                 if (brailleData[i].label == '50') brailleData[i].numChars = 2;
             }
-            // add extras to 25/75 min/max if needed
+            // add extras to 25/75 min/max if needed 
             let currentPairs = ['25','75'];
             if (locMin > -1 && locMax > -1) {
                 currentPairs.push('min'); // we add these seperately because we don't always have both min and max
                 currentPairs.push('max');
                 if (brailleData[locMin].length != brailleData[locMax].length) {
-                    if (brailleData[locMin].length > brailleData[locMax].length) {
+                    if (brailleData[locMin].length > brailleData[locMax].length ) { // make sure if they're different, they appear different
                         brailleData[locMin].numChars++;
                     } else {
                         brailleData[locMax].numChars++;
@@ -584,7 +587,7 @@ class Display {
             for (let i = 0; i < brailleData.length; i++) {
                 charsAvailable -= brailleData[i].numChars;
             }
-            let debugSanity = 0;
+            let debugSanity = 0; // so if I mess up this doesn't lock up. while loop scare me
             while (charsAvailable > 0 && debugSanity < 2000) {
                 debugSanity++;
                 let maxImpactI = 0;
