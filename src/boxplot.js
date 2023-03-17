@@ -33,9 +33,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.x -= 1;
                     if ( orientation == "vert" ) {
-                        Autoplay('right', position.x, plot.plotData.length);
+                        Autoplay('right', position.x, plot.plotData.length-1);
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
                     }
@@ -79,7 +78,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.x += 1;
                     Autoplay('left', position.x, -1);
                 } else {
                     position.x = 0;
@@ -105,7 +103,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.y -= 1;
                     if ( orientation == "vert" ) {
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
@@ -146,7 +143,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.y += 1;
                     Autoplay('down', position.y, -1);
                 } else {
                     position.y = 0;
@@ -201,7 +197,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.x -= 1;
                     if ( orientation == "vert" ) {
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
@@ -246,7 +241,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    position.x += 1;
                     if ( orientation == "vert" ) {
                     } else {
                         Autoplay('left', position.x, -1);
@@ -275,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if ( orientation == "vert" ) {
                     if ( e.shiftKey ) {
-                        position.y += 1;
                         if ( position.x < 0 ) position.x = 0;
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
@@ -611,30 +604,34 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.y = start;
         }
 
+        console.log('starting autoplay', dir);
+
+        UpdateAllAutoplay(); // play current tone before we move
         constants.autoplayId = setInterval(function () {
-            if (dir == "left" || dir == "right" || dir == "reverse-left" || dir == "reverse-right") {
-                position.x += step;
-                if (position.x < 0 || plot.plotData.length - 1 < position.x) {
-                    constants.KillAutoplay();
-                    lockPosition();
-                } else if (position.y == end) {
-                    constants.KillAutoplay();
-                    UpdateAllAutoplay();
-                } else {
-                    UpdateAllAutoplay();
-                }
-            } else {
-                position.y += step;
-                if (position.y < 0 || plot.plotData[position.x].length - 1 < position.y) {
-                    constants.KillAutoplay();
-                    lockPosition();
-                } else if (position.y == end) {
-                    constants.KillAutoplay();
-                    UpdateAllAutoplay();
-                } else {
-                    UpdateAllAutoplay();
-                }
+            let outOfBoundsNext = false;
+            if ( 
+                ( position.x < 1 && dir == "left" ) ||
+                ( orientation == "vert" && dir == "up" && position.y > plot.plotData[position.x].length - 2 ) ||
+                ( orientation == "horz" && dir == "up" && position.y > plot.plotData.length - 2 ) ||
+                ( orientation == "horz" && dir == "right" && position.x > plot.plotData[position.y].length - 2 ) ||
+                ( orientation == "vert" && dir == "right" && position.x > plot.plotData.length - 2 ) ||
+                ( orientation == "horz" && dir == "down" && position.y < 1 ) ||
+                ( orientation == "vert" && dir == "down" && position.y < 1 ) 
+            ) {
+                outOfBoundsNext = true;
             }
+
+            if ( outOfBoundsNext ) {
+                constants.KillAutoplay();
+            } else {
+                if (dir == "left" || dir == "right" || dir == "reverse-left" || dir == "reverse-right") {
+                    position.x += step;
+                } else {
+                    position.y += step;
+                }
+                UpdateAllAutoplay();
+            }
+            console.log('autoplay pos', position);
         }, constants.autoPlayRate);
     }
 
