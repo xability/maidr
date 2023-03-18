@@ -261,11 +261,11 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Auto-play speed up</td>
-                                        <td>.</td>
+                                        <td>Period</td>
                                     </tr>
                                     <tr>
                                         <td>Auto-play speed down</td>
-                                        <td>,</td>
+                                        <td>Comma</td>
                                     </tr>
                                 </tbody>
                             </table>
