@@ -415,9 +415,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 // plot.numPoints is not available anymore
                 if (positionL1.x < 0 || positionL1.x > plot.curvePoints.length - 1) { 
                     constants.KillAutoplay();
-                    console.log(positionL1.x);
                     lockPosition();
-                    console.log(positionL1.x);
                 } else if (positionL1.x == end) {
                     constants.KillAutoplay();
                     UpdateAllAutoplay();
