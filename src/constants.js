@@ -49,7 +49,7 @@ class Constants {
     INTERVAL = 50;
 
     // user settings
-    vol = .6; 
+    vol = .5; 
     MAX_VOL = 30;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
