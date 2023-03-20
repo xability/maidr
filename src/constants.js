@@ -371,6 +371,7 @@ class Tracker {
         } else {
             let data = {};
             data.userAgent = Object.assign(navigator.userAgent);
+            data.vendor = Object.assign(navigator.vendor);
             data.language = Object.assign(navigator.language);
             data.platform = Object.assign(navigator.platform);
             data.events = [];
