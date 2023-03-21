@@ -480,7 +480,12 @@ class Tracker {
             eventToLog.textMode = Object.assign(constants.textMode);
         }
         if (! this.isUndefinedOrNull(constants.audioPlay)) {
-            eventToLog.sonificationMode = Object.assign(constants.audioPlay);
+            //eventToLog.sonificationMode = Object.assign(constants.audioPlay);
+            if ( constants.audioPlay ) {
+                eventToLog.sonificationMode = "on";
+            } else {
+                eventToLog.sonificationMode = "off";
+            }
         }
         if (! this.isUndefinedOrNull(constants.brailleMode)) {
             eventToLog.brailleMode = Object.assign(constants.brailleMode);
@@ -521,9 +526,42 @@ class Tracker {
         } else if ( constants.chartType == "boxplot" ) {
             let plotPos = orientation == "vert" ? position.x : position.y;
             let sectionPos = orientation == "vert" ? position.y : position.x;
-            if (! this.isUndefinedOrNull(plot.x_labels[plotPos])) {
-                eventToLog.chart_label_x = Object.assign(plot.x_labels[plotPos]);
+            let y_label = "";
+            let x_label = "";
+
+            if ( orientation == "vert" ) {
+                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
+                    x_label += plot.x_group_label + ": ";
+                }
+                if ( ! this.isUndefinedOrNull(plot.x_labels) ) {
+                    x_label += plot.x_labels[plotPos];
+                }
+                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
+                    y_label += plot.y_group_label + ": ";
+                }
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
+                    y_label += plot.plotData[plotPos][sectionPos].label;
+                }
+            } else {
+                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
+                    y_label += plot.y_group_label + ": ";
+                }
+                if ( ! this.isUndefinedOrNull(plot.y_labels) ) {
+                    y_label += plot.y_labels[plotPos];
+                }
+                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
+                    x_label += plot.x_group_label + ": ";
+                }
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
+                    x_label += plot.plotData[plotPos][sectionPos].label;
+                }
             }
+
+            eventToLog.chart_label_x = x_label;
+            eventToLog.chart_label_y = y_label;
+            console.log('x', x_label);
+            console.log('y', y_label);
+
             if ( position ) {
                 if ( plotPos > -1 && sectionPos > -1 ) {
                     if ( plotPos < plot.plotData.length ) {
