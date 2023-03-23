@@ -283,7 +283,7 @@ class Display {
                 } else if (constants.textMode == "terse") {
                     output += '<p>' + plot.x[position.x] + ", " + "[" + plot.y[position.x].join(", ") + "]" + '</p>\n';
                 } else if (constants.textMode == "verbose") {
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.x[position.x] + ", " + plot.groupLabels[1] + " [" + plot.y[position.x].join(", ") + "]" + '</p>\n';
+                    output += '<p>' + plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]" + '</p>\n';
                 }
             } else if (constants.layer == 1) { // best fit line layer
                 if (constants.textMode == "off") {
@@ -296,7 +296,7 @@ class Display {
                     output += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
                     // verbose mode: x and y values
-                    output += '<p>' + plot.groupLabels[0] + " " + plot.curveX[positionL1.x] + ", " + plot.groupLabels[1] + " " + plot.curvePoints[positionL1.x] + '</p>\n';
+                    output += '<p>' + plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x] + '</p>\n';
                     // if (positionL1.x == plot.gradient.length - 1) {
                     //     output += '<p>end</end';
                     // } else {
@@ -307,6 +307,48 @@ class Display {
         }
 
         constants.infoDiv.innerHTML = output;
+    }
+
+    displayXLabel(plot) {
+        if (constants.textMode == "terse" || constants.textMode == "verbose") {
+            let xlabel = "";
+            if (constants.chartType == "barchart") {
+                xlabel = plot.plotLegend.x;
+            } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
+                xlabel = plot.x_group_label;
+            } 
+            constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
+        }
+    }
+    
+    displayYLabel(plot) {
+        if (constants.textMode == "terse" || constants.textMode == "verbose") {
+            let ylabel = "";
+            if (constants.chartType == "barchart") {
+                ylabel = plot.plotLegend.y;
+            } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
+                ylabel = plot.y_group_label;
+            } 
+            constants.infoDiv.innerHTML = '<p>y label is ' + ylabel + '<p>';
+        }
+    }
+
+    displayTitle(plot) {
+        if ((constants.textMode == "terse" || constants.textMode == "verbose")) {
+            if (plot.title != "") {
+                constants.infoDiv.innerHTML = '<p>Title is ' + plot.title + '<p>';
+            } else {
+                constants.infoDiv.innerHTML = "<p>Plot does not have a title.<p>";
+            }
+        }  
+    }
+
+    displayFill(plot) {
+        if (constants.textMode == "terse" || constants.textMode == "verbose") {
+            if (constants.chartType == "heatmap") {
+                constants.infoDiv.innerHTML = '<p>Fill label is ' + plot.box_label + '<p>';
+            }
+        }
     }
 
     SetBraille(plot) {

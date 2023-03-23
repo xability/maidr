@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
@@ -184,7 +185,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.preventDefault();
             }
             // T: aria live text output mode
-            if (e.which == 84) {
+            keys = (keys || []);
+            keys[e.keyCode] = true;
+            if (keys[84] && !keys[76]) {
                 display.toggleTextMode();
             }
             // S: sonification mode
@@ -246,6 +249,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         }
 
+        keys = (keys || []);
+        keys[e.keyCode] = true;
+        // lx: x label, ly: y label, lt: title, lf: fill
+        if (keys[76] && keys[88]) { // lx
+            display.displayXLabel(plot);
+        }
+
+        if (keys[76] && keys[89]) { // ly
+            display.displayYLabel(plot);
+        }
+        
+        if (keys[76] && keys[84]) { // lt
+            display.displayTitle(plot);
+        }
+
         // period: speed up
         if (e.which == 190) {
             constants.SpeedUp();
@@ -302,6 +320,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         }
     });
+
+    document.addEventListener("keyup", function (e) {
+        keys[e.keyCode] = false;
+        stop();
+    }, false);
 
     // helper functions
     function lockPosition() {
@@ -505,7 +528,9 @@ class ScatterPlot {
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
 
-        this.groupLabels = this.GetGroupLabels();
+        this.x_group_label = this.GetGroupLabels()[0];
+        this.y_group_label = this.GetGroupLabels()[1];
+        this.title = (typeof scatterPlotTitle !== 'undefined' && typeof scatterPlotTitle != null) ? scatterPlotTitle : "";
     }
 
     GetGroupLabels() {

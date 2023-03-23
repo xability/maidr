@@ -350,6 +350,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
+    var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
@@ -360,7 +361,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.preventDefault();
             }
             // T: aria live text output mode
-            if (e.which == 84) {
+            keys = (keys || []);
+            keys[e.keyCode] = true;
+            if (keys[84] && !keys[76]) {
                 display.toggleTextMode();
             }
             // S: sonification mode
@@ -392,6 +395,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.y = 0;
                 UpdateAllBraille();
             }
+        }
+
+        keys = (keys || []);
+        keys[e.keyCode] = true;
+        // lx: x label, ly: y label, lt: title, lf: fill
+        if (keys[76] && keys[88]) { // lx
+            display.displayXLabel(plot);
+        }
+
+        if (keys[76] && keys[89]) { // ly
+            display.displayYLabel(plot);
+        }
+        
+        if (keys[76] && keys[84]) { // lt
+            display.displayTitle(plot);
         }
 
         // period: speed up
@@ -472,6 +490,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         }
     });
+
+    document.addEventListener("keyup", function (e) {
+        keys[e.keyCode] = false;
+        stop();
+    }, false);
 
     function UpdateAll() {
         if (constants.showDisplay) {
@@ -646,6 +669,7 @@ class BoxPlot {
             constants.plotId = boxplotId;
         }
         if ( constants.manualData ) {
+            this.title = (typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null) ? boxplotTitle : "";
             this.x_group_label = boxplotLabels.x_group_label;
             this.y_group_label = boxplotLabels.y_group_label;
             this.x_labels = boxplotLabels.x_labels;

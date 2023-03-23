@@ -138,6 +138,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     });
 
+    var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
@@ -147,8 +148,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 display.toggleBrailleMode();
                 e.preventDefault();
             }
+            keys = (keys || []);
+            keys[e.keyCode] = true;
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (keys[84] && !keys[76]) {
                 display.toggleTextMode();
             }
             // S: sonification mode
@@ -178,6 +181,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x = plot.bars.length - 1;
                 UpdateAllBraille();
             }
+        }
+
+        keys = (keys || []);
+        keys[e.keyCode] = true;
+        // lx: x label, ly: y label, lt: title
+        if (keys[76] && keys[88]) { // lx
+            display.displayXLabel(plot);
+        }
+
+        if (keys[76] && keys[89]) { // ly
+            display.displayYLabel(plot);
+        }
+        
+        if (keys[76] && keys[84]) { // lt
+            display.displayTitle(plot);
         }
 
         // period: speed up
@@ -211,6 +229,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    document.addEventListener("keyup", function (e) {
+        keys[e.keyCode] = false;
+        stop();
+    }, false);
+    
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
@@ -304,6 +327,7 @@ class BarChart {
             this.plotData = barplotData;
             this.plotColumns = barplotColumns;
             this.plotLegend = this.GetLegendFromManualData(barplotLegend);
+            this.title = (typeof barplotTitle !== 'undefined' && typeof barplotTitle != null) ? barplotTitle : "";
         } else {
             this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
             this.plotData = this.GetData();

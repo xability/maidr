@@ -268,6 +268,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
+    var keys;
+    
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
         controlElements[i].addEventListener("keydown", function (e) {
@@ -277,8 +279,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 display.toggleBrailleMode();
                 e.preventDefault();
             }
+            keys = (keys || []);
+            keys[e.keyCode] = true;
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (keys[84] && !keys[76]) {
                 display.toggleTextMode();
             }
             // S: sonification mode
@@ -311,6 +315,25 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.y = plot.num_rows - 1;
                 UpdateAllBraille();
             }
+        }
+
+        keys = (keys || []);
+        keys[e.keyCode] = true;
+        // lx: x label, ly: y label, lt: title, lf: fill
+        if (keys[76] && keys[88]) { // lx
+            display.displayXLabel(plot);
+        }
+
+        if (keys[76] && keys[89]) { // ly
+            display.displayYLabel(plot);
+        }
+        
+        if (keys[76] && keys[84]) { // lt
+            display.displayTitle(plot);
+        }
+        
+        if (keys[76] && keys[70]) { // lf
+            display.displayFill(plot);
         }
 
         // period: speed up
@@ -351,6 +374,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         }
     });
+
+    document.addEventListener("keyup", function (e) {
+        keys[e.keyCode] = false;
+        stop();
+    }, false);
 
     // helper functions
     function lockPosition() {
@@ -489,6 +517,7 @@ class HeatMap {
 
         this.x_labels = this.getXLabels();
         this.y_labels = this.getYLabels();
+        this.title = this.getTitle();
     }
 
     getHeatMapData() {
@@ -621,6 +650,14 @@ class HeatMap {
         }
 
         return labels.reverse();
+    }
+
+    getTitle() {
+        if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
+            return heatmapTitle;
+        } else {
+            return "";
+        }
     }
 }
 
