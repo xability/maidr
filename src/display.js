@@ -310,41 +310,55 @@ class Display {
     }
 
     displayXLabel(plot) {
-        if (constants.textMode == "terse" || constants.textMode == "verbose") {
-            let xlabel = "";
-            if (constants.chartType == "barchart") {
-                xlabel = plot.plotLegend.x;
-            } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
-                xlabel = plot.x_group_label;
-            } 
+        let xlabel = "";
+        if (constants.chartType == "barchart") {
+            xlabel = plot.plotLegend.x;
+        } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
+            xlabel = plot.x_group_label;
+        } 
+        if (constants.textMode == "terse") {
+            constants.infoDiv.innerHTML = '<p>' + xlabel + '<p>';
+        } else if (constants.textMode == "verbose") {
             constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
         }
     }
     
     displayYLabel(plot) {
-        if (constants.textMode == "terse" || constants.textMode == "verbose") {
-            let ylabel = "";
-            if (constants.chartType == "barchart") {
-                ylabel = plot.plotLegend.y;
-            } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
-                ylabel = plot.y_group_label;
-            } 
+        let ylabel = "";
+        if (constants.chartType == "barchart") {
+            ylabel = plot.plotLegend.y;
+        } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
+            ylabel = plot.y_group_label;
+        } 
+        if (constants.textMode == "terse") {
+            constants.infoDiv.innerHTML = '<p>' + ylabel + '<p>';
+        } else if (constants.textMode == "verbose") {
             constants.infoDiv.innerHTML = '<p>y label is ' + ylabel + '<p>';
         }
     }
 
     displayTitle(plot) {
-        if ((constants.textMode == "terse" || constants.textMode == "verbose")) {
+        if (constants.textMode == "terse") {
+            if (plot.title != "") {
+                constants.infoDiv.innerHTML = '<p>' + plot.title + '<p>';
+            } else {
+                constants.infoDiv.innerHTML = "<p>Plot does not have a title.<p>";
+            }
+        } else if (constants.textMode == "verbose") {
             if (plot.title != "") {
                 constants.infoDiv.innerHTML = '<p>Title is ' + plot.title + '<p>';
             } else {
                 constants.infoDiv.innerHTML = "<p>Plot does not have a title.<p>";
             }
-        }  
+        }
     }
 
     displayFill(plot) {
-        if (constants.textMode == "terse" || constants.textMode == "verbose") {
+        if (constants.textMode == "terse") {
+            if (constants.chartType == "heatmap") {
+                constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
+            }
+        } else if (constants.textMode == "verbose") {
             if (constants.chartType == "heatmap") {
                 constants.infoDiv.innerHTML = '<p>Fill label is ' + plot.box_label + '<p>';
             }
