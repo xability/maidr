@@ -497,7 +497,7 @@ class ScatterPlot {
     constructor() {
 
         // layer = 0
-        if ( constants.manualInput ) {
+        if ( constants.manualData ) {
             this.plotPoints = scatterPlotPoints;
         } else {
             this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
@@ -513,7 +513,7 @@ class ScatterPlot {
         this.max_count = this.GetPointValues()[3];
 
         // layer = 1
-        if ( constants.manualInput ) {
+        if ( constants.manualData ) {
             this.plotLine = scatterPlotLine;
         } else {
             this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
@@ -535,7 +535,7 @@ class ScatterPlot {
 
     GetGroupLabels() {
         let labels = [];
-        if (constants.manual) {
+        if (constants.manualData) {
             labels.push(scatterPlotLegend["x"], scatterPlotLegend["y"]);
         } else {
             let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
