@@ -560,8 +560,6 @@ class Tracker {
 
             eventToLog.chart_label_x = x_label;
             eventToLog.chart_label_y = y_label;
-            console.log('x', x_label);
-            console.log('y', y_label);
 
             if ( position ) {
                 if ( plotPos > -1 && sectionPos > -1 ) {
