@@ -1294,6 +1294,7 @@ class BoxPlot {
 
         let plotPos = null;
         let sectionPos = null;
+        if ( constants.outlierInterval ) clearInterval(constants.outlierInterval);
         if ( orientation == "vert" ) {
             plotPos = position.x;
             sectionPos = position.y;
@@ -1308,7 +1309,7 @@ class BoxPlot {
         } else {
             // outlier(s): we play a run of tones
             position.z = 0;
-            let outlierInterval = setInterval(function () {
+            constants.outlierInterval = setInterval(function () {
                 // play this tone
                 audio.playTone();
 
@@ -1317,10 +1318,10 @@ class BoxPlot {
 
                 // and kill if we're done
                 if ( ! Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values' ) ) {
-                    clearInterval(outlierInterval);
+                    clearInterval(constants.outlierInterval);
                     position.z = -1;
                 } else if (position.z + 1 > plot.plotData[plotPos][sectionPos].values.length) {
-                    clearInterval(outlierInterval);
+                    clearInterval(constants.outlierInterval);
                     position.z = -1;
                 }
 
