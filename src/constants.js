@@ -72,6 +72,7 @@ class Constants {
     sonifMode = "off"; // sep / same / off
     audioPlay = 0; // 0/1 for most plots, also 2,3 for boxplot
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
+    outlierInterval = null;
 
     // platform controls
     isMac = navigator.userAgent.toLowerCase().includes("mac"); // true if macOS
@@ -559,8 +560,6 @@ class Tracker {
 
             eventToLog.chart_label_x = x_label;
             eventToLog.chart_label_y = y_label;
-            console.log('x', x_label);
-            console.log('y', y_label);
 
             if ( position ) {
                 if ( plotPos > -1 && sectionPos > -1 ) {
