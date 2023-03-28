@@ -573,11 +573,10 @@ class Tracker {
                 }
             }
         } else if ( constants.chartType == "scatterplot" ) {
-            if (! this.isUndefinedOrNull(plot.groupLabels[0])) {
-                eventToLog.chart_label_x = Object.assign(plot.groupLabels[0]);
-            }
-            if (! this.isUndefinedOrNull(plot.groupLabels[1])) {
-                eventToLog.chart_label_y = Object.assign(plot.groupLabels[1]);
+            if ( constants.layer == 0 ) {
+                eventToLog.chart_label_x = Object.assign(plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]");
+            } else {
+                eventToLog.chart_label_y = Object.assign(plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]);
             }
         }
 
