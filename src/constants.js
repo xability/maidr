@@ -70,7 +70,6 @@ class Constants {
     textMode = "off"; // off / terse / verbose
     brailleMode = "off"; // on / off
     sonifMode = "off"; // sep / same / off
-    audioPlay = 0; // 0/1 for most plots, also 2,3 for boxplot
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
     outlierInterval = null;
 
@@ -480,13 +479,8 @@ class Tracker {
         if (! this.isUndefinedOrNull(constants.textMode)) {
             eventToLog.textMode = Object.assign(constants.textMode);
         }
-        if (! this.isUndefinedOrNull(constants.audioPlay)) {
-            //eventToLog.sonificationMode = Object.assign(constants.audioPlay);
-            if ( constants.audioPlay ) {
-                eventToLog.sonificationMode = "on";
-            } else {
-                eventToLog.sonificationMode = "off";
-            }
+        if (! this.isUndefinedOrNull(constants.sonifMode)) {
+            eventToLog.sonificationMode = Object.assign(constants.sonifMode);
         }
         if (! this.isUndefinedOrNull(constants.brailleMode)) {
             eventToLog.brailleMode = Object.assign(constants.brailleMode);

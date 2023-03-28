@@ -248,6 +248,7 @@ class Audio {
     }
 
     PlayNull() {
+        console.log('playing null');
         let frequency = constants.NULL_FREQUENCY;
         let duration = constants.duration;
         let panning = 0;

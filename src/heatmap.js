@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showRect) {
             rect.UpdateRectDisplay();
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             audio.playTone();
         }
     }
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showRect) {
             rect.UpdateRectDisplay();
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             audio.playTone();
         }
         if (constants.brailleMode != "off") {
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showRect) {
             rect.UpdateRectDisplay();
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             audio.playTone();
         }
         display.UpdateBraillePos(plot);
