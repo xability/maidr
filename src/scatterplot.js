@@ -72,17 +72,17 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             positionL1.x = lastx1;
            
             if (e.which == 39 && e.shiftKey) {
-                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.audioPlay) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.sonifMode != "off") {
                     PlayLine('outward_right');
-                } else if (e.altKey && constants.audioPlay) {
+                } else if (e.altKey && constants.sonifMode != "off") {
                     PlayLine('inward_right');
                 }
             }
 
             if (e.which == 37 && e.shiftKey) {
-                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.audioPlay) {
+                if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.sonifMode != "off") {
                     PlayLine('outward_left');
-                } else if (e.altKey && constants.audioPlay) {
+                } else if (e.altKey && constants.sonifMode != "off") {
                     PlayLine('inward_left');
                 }
             }
@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showRect) {
             layer0Point.UpdatePointDisplay();
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             plot.PlayTones(audio);
         }
     }
@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 layer1Point.UpdatePointDisplay();
             }
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             plot.PlayTones(audio);
         }
         if (constants.brailleMode != "off") {
@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showRect) {
             layer1Point.UpdatePointDisplay();
         }
-        if (constants.audioPlay) {
+        if (constants.sonifMode != "off") {
             plot.PlayTones(audio);
         }
         display.UpdateBraillePos(plot);
