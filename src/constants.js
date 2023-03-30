@@ -512,10 +512,10 @@ class Tracker {
                 eventToLog.chart_legend_x = Object.assign(plot.plotLegend.x);
             }
         } else if ( constants.chartType == "heatmap" ) {
-            if (! this.isUndefinedOrNull(plot.x_labels[position.x].trim())) {
+            if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
                 eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x].trim());
             }
-            if (! this.isUndefinedOrNull(plot.y_labels[position.y].trim())) {
+            if (! this.isUndefinedOrNull(plot.y_labels[position.y])) {
                 eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
             }
         } else if ( constants.chartType == "boxplot" ) {

@@ -131,14 +131,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.preventDefault();
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                    if (position.x == -1 && position.y == -1) {
+                        position.x += 1;
+                        position.y += 1;
+                    }
                     if (e.shiftKey) {
-                        // lastx = position.x;
                         position.x -= 1;
                         Autoplay('right', position.x, plot.num_cols);
                     } else {
-                        if (position.x == -1 && position.y == -1) {
-                            position.y += 1;
-                        }
                         position.x = plot.num_cols - 1;
                         updateInfoThisRound = true;
                     }
@@ -194,14 +194,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 e.preventDefault();
             } else {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                    if (position.x == -1 && position.y == -1) {
+                        position.x += 1;
+                        position.y += 1;
+                    }
                     if (e.shiftKey) {
-                        // lastx = position.y;
                         position.y -= 1;
                         Autoplay('down', position.y, plot.num_rows);
                     } else {
-                        if (position.x == -1 && position.y == -1) {
-                            position.x += 1;
-                        }
                         position.y = plot.num_rows - 1;
                         updateInfoThisRound = true;
                     }
@@ -379,6 +379,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         keys[e.keyCode] = false;
         stop();
     }, false);
+
+    function sleep (time) {
+        return new Promise((resolve) => setTimeout(resolve, time));
+    }
 
     // helper functions
     function lockPosition() {
