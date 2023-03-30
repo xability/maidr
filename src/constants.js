@@ -679,9 +679,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // global events for all files
     document.addEventListener('keydown', function (e) {
-        // reset tracking with Ctrl + F5 / command + F5
+        // reset tracking with Ctrl + F5 / command + F5, and Ctrl + Shift + R / command + Shift + R
         // future todo: this should probably be a button with a confirmation. This is dangerous
-        if ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) {
+        if ( ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) || ( e.which == 82 && e.shiftKey && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) ) {
             e.preventDefault();
             tracker.Delete();
             location.reload(true);
