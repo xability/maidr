@@ -567,7 +567,7 @@ class Tracker {
                 }
             }
         } else if ( constants.chartType == "scatterplot" ) {
-            if ( constants.layer == 0 ) {
+            if ( constants.layer == 0 && plot.y[position.x] != undefined) {
                 eventToLog.chart_label_x = Object.assign(plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]");
             } else {
                 eventToLog.chart_label_y = Object.assign(plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]);
