@@ -13,10 +13,12 @@ class Constants {
     end_chime_id = "end_chime";
     container_id = "container"
     project_id = "maidr";
+    review_id_container = "review_container";
+    review_id = "review";
+    reviewSaveSpot;
 
     // default constructor for boxplot
     constructor() {
-        this.PrepHtml(); // init html
 
         // page elements
         this.svg_container = document.getElementById(this.svg_container_id);
@@ -70,6 +72,7 @@ class Constants {
     textMode = "off"; // off / terse / verbose
     brailleMode = "off"; // on / off
     sonifMode = "off"; // sep / same / off
+    reviewMode = "off"; // on / off
     layer = 0; // 0 = points; 1 = best fit line => for scatterplot
     outlierInterval = null;
 
@@ -86,7 +89,7 @@ class Constants {
     canPlayEndChime = false; // 
     manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the svg (false)
 
-    PrepHtml() {
+    PrepChartHelperComponents() {
         // init html stuff. aria live regions, braille input, etc
 
         // info aria live
@@ -119,9 +122,10 @@ class Constants {
         // end chime audio element
         if ( ! document.getElementById(this.end_chime_id) ) {
             if ( document.getElementById(this.info_id) ) {
-                document.getElementById(this.info_id).insertAdjacentHTML('afterend', ' <div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
+                document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
             }
         }
+
     }
 
     KillAutoplay() {
@@ -587,6 +591,33 @@ class Tracker {
 
 }
 
+class Review {
+    constructor() {
+        // review mode form field
+        if ( ! document.getElementById(constants.review_id) ) {
+            if ( document.getElementById(constants.info_id) ) {
+                document.getElementById(constants.info_id).insertAdjacentHTML('beforebegin', '<div id="' + constants.review_id_container + '" class="hidden sr-only sr-only-focusable"><input id="' + constants.review_id + '" type="text" readonly size="50" /></div>')
+            }
+        }
+
+        if ( constants ) {
+            constants.review_container = document.querySelector('#' + constants.review_id_container);
+            constants.review = document.querySelector('#' + constants.review_id);
+        }
+    }
+
+    ToggleReviewMode(onoff = true) { // true means on or show
+        if ( onoff ) {
+            constants.reviewSaveSpot = document.activeElement;
+            constants.review_container.classList.remove('hidden');
+            constants.review.focus();
+        } else {
+            constants.review_container.classList.add('hidden');
+            constants.reviewSaveSpot.focus();
+        }
+    }
+}
+
 // events and init functions
 document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
@@ -605,6 +636,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // run events only on pages with a chart (svg)
     if ( document.getElementById(constants.svg_container_id) ) {
+
+        constants.PrepChartHelperComponents(); // init html
+        window.review = new Review();
+
         // default page load focus on svg 
         // this is mostly for debugging, as first time load users must click or hit a key to focus
         // todo for publish: probably start users at a help / menu section, and they can tab to svg
@@ -620,15 +655,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
             });
         }
-
-        // if ( constants.brailleInput ) {
-        //     constants.brailleInput.addEventListener("keydown", function (e) {
-        //         if (e.which == 72) {
-        //             e.preventDefault();
-        //             menu.Toggle(true);
-        //         }
-        //     });
-        // }
 
         // menu close
         let allClose = document.querySelectorAll('#close_menu, #menu .close');
@@ -656,7 +682,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             });
         }
 
-        // Global events for svg
+        // Global events for pages with svg
         document.addEventListener('keydown', function (e) {
 
             // Tracker
@@ -674,6 +700,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             // Kill autoplay
             if (constants.isMac ? (e.which == 91 || e.which == 93) : e.which == 17) { // ctrl (either one)
                 constants.KillAutoplay();
+            }
+
+            // Review mode
+            if ( e.which == 82 && ! e.ctrlKey && ! e.shiftKey && ! e.altKey ) { // R, but let Ctrl etc R go through cause I use that to refresh
+                e.preventDefault();
+                if ( constants.review_container.classList.contains('hidden') ) {
+                    review.ToggleReviewMode(true);
+                } else {
+                    review.ToggleReviewMode(false);
+                }
             }
         });
     }
