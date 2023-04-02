@@ -79,6 +79,7 @@ class Constants {
     alt = this.isMac ? 'option' : 'Alt';
     home = this.isMac ? 'fn + Left arrow' : 'Home';
     end = this.isMac ? 'fn + Right arrow' : 'End';
+    keypressInterval = 2000; // ms or 2s
 
     // debug stuff
     debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc

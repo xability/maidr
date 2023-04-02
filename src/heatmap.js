@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let display = new Display();
     let lastPlayed = '';
     let lastx = 0;
+    let lastKeyTime = 0;
+    let pressedL = false;
 
     // control eventlisteners
     constants.svg_container.addEventListener("keydown", function (e) {
@@ -268,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
-    var keys;
+    // var keys;
     
     let controlElements = [constants.svg_container, constants.brailleInput];
     for ( let i = 0 ; i < controlElements.length ; i++ ) {
@@ -279,12 +281,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 display.toggleBrailleMode();
                 e.preventDefault();
             }
-            keys = (keys || []);
-            keys[e.keyCode] = true;
+            // keys = (keys || []);
+            // keys[e.keyCode] = true;
+            // if (keys[84] && !keys[76]) {
+            //     display.toggleTextMode();
+            // }
+
             // T: aria live text output mode
-            if (keys[84] && !keys[76]) {
-                display.toggleTextMode();
+            if (e.which == 84) {
+                let timediff = window.performance.now() - lastKeyTime;
+                if (!pressedL || timediff > constants.keypressInterval) {
+                    display.toggleTextMode();
+                }
             }
+
             // S: sonification mode
             if (e.which == 83) {
                 display.toggleSonificationMode();
@@ -317,23 +327,64 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         }
 
-        keys = (keys || []);
-        keys[e.keyCode] = true;
-        // lx: x label, ly: y label, lt: title, lf: fill
-        if (keys[76] && keys[88]) { // lx
-            display.displayXLabel(plot);
+        // keys = (keys || []);
+        // keys[e.keyCode] = true;
+        // // lx: x label, ly: y label, lt: title, lf: fill
+        // if (keys[76] && keys[88]) { // lx
+        //     display.displayXLabel(plot);
+        // }
+
+        // if (keys[76] && keys[89]) { // ly
+        //     display.displayYLabel(plot);
+        // }
+        
+        // if (keys[76] && keys[84]) { // lt
+        //     display.displayTitle(plot);
+        // }
+        
+        // if (keys[76] && keys[70]) { // lf
+        //     display.displayFill(plot);
+        // }
+
+        // L: prefix for label
+        if (e.which == 76) {
+            lastKeyTime = window.performance.now();
+            pressedL = true;
         }
 
-        if (keys[76] && keys[89]) { // ly
-            display.displayYLabel(plot);
+        // X: x label
+        if (e.which == 88) {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayXLabel(plot);
+            }
+            pressedL = false;
         }
-        
-        if (keys[76] && keys[84]) { // lt
-            display.displayTitle(plot);
+
+        // Y: y label
+        if (e.which == 89) {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayYLabel(plot);
+            }
+            pressedL = false;
         }
-        
-        if (keys[76] && keys[70]) { // lf
-            display.displayFill(plot);
+
+        // T: title
+        if (e.which == 84) {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayTitle(plot);
+            }
+            pressedL = false;
+        }
+
+        if (e.which == 70) {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayFill(plot);
+            }
+            pressedL = false;
         }
 
         // period: speed up
@@ -375,10 +426,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
     });
 
-    document.addEventListener("keyup", function (e) {
-        keys[e.keyCode] = false;
-        stop();
-    }, false);
+    // document.addEventListener("keyup", function (e) {
+    //     keys[e.keyCode] = false;
+    //     stop();
+    // }, false);
 
     function sleep (time) {
         return new Promise((resolve) => setTimeout(resolve, time));
