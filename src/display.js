@@ -38,7 +38,7 @@ class Display {
 
     toggleBrailleMode(onoff) {
         if (constants.chartType == "scatterplot" && constants.layer == 0) {
-            this.announceText("Braille " + constants.brailleMode + ": Braille is disabled for point layer.");
+            this.announceText("Braille is not supported in point layer.");
             return;
         }
         if ( typeof(onoff) === 'undefined' ) {
