@@ -16,6 +16,7 @@ class Constants {
     review_id_container = "review_container";
     review_id = "review";
     reviewSaveSpot;
+    reviewSaveBrailleMode;
 
     // default constructor for boxplot
     constructor() {
@@ -610,10 +611,18 @@ class Review {
         if ( onoff ) {
             constants.reviewSaveSpot = document.activeElement;
             constants.review_container.classList.remove('hidden');
+            if ( constants.brailleMode == "on" ) {
+                constants.reviewSaveBrailleMode = constants.brailleMode;
+            }
             constants.review.focus();
         } else {
             constants.review_container.classList.add('hidden');
-            constants.reviewSaveSpot.focus();
+            if ( constants.reviewSaveBrailleMode == "on" ) {
+                // we have to turn braille mode back on
+                display.toggleBrailleMode('on');
+            } else {
+                constants.reviewSaveSpot.focus();
+            }
         }
     }
 }
@@ -639,6 +648,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
         constants.PrepChartHelperComponents(); // init html
         window.review = new Review();
+        window.display = new Display();
 
         // default page load focus on svg 
         // this is mostly for debugging, as first time load users must click or hit a key to focus

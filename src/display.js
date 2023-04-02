@@ -73,7 +73,16 @@ class Display {
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');
-            constants.svg.focus();
+
+            if ( constants.review_container ) {
+                if ( ! constants.review_container.classList.contains('hidden') ) {
+                    constants.review.focus();
+                } else {
+                    constants.svg.focus();
+                }
+            } else {
+                constants.svg.focus();
+            }
         }
 
         this.announceText("Braille " + constants.brailleMode);
