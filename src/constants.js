@@ -615,6 +615,7 @@ class Review {
                 constants.reviewSaveBrailleMode = constants.brailleMode;
             }
             constants.review.focus();
+            display.announceText("Review mode on");
         } else {
             constants.review_container.classList.add('hidden');
             if ( constants.reviewSaveBrailleMode == "on" ) {
@@ -623,6 +624,7 @@ class Review {
             } else {
                 constants.reviewSaveSpot.focus();
             }
+            display.announceText("Review mode off");
         }
     }
 }
