@@ -170,6 +170,7 @@ class Display {
 
         let output = "";
         let verboseText = "";
+        let reviewText = "";
         if (constants.chartType == "barchart") {
             // {legend x} is {colname x}, {legend y} is {value y}
             verboseText = plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
@@ -326,7 +327,11 @@ class Display {
 
         if ( constants.infoDiv ) constants.infoDiv.innerHTML = output;
         if ( constants.review ) {
-            constants.review.value = verboseText;
+            if ( output.length > 0 ) {
+                constants.review.value = output.replace(/<[^>]*>?/gm, '');
+            } else {
+                constants.review.value = verboseText;
+            }
         }
     }
 
