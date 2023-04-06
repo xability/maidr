@@ -438,72 +438,72 @@ class Tracker {
             eventToLog.position = Object.assign(constants.position);
         }
         if (! this.isUndefinedOrNull(constants.minX)) {
-            eventToLog.minX = Object.assign(constants.minX);
+            eventToLog.min_x = Object.assign(constants.minX);
         }
         if (! this.isUndefinedOrNull(constants.maxX)) {
-            eventToLog.maxX = Object.assign(constants.maxX);
+            eventToLog.max_x = Object.assign(constants.maxX);
         }
         if (! this.isUndefinedOrNull(constants.minY)) {
-            eventToLog.minY = Object.assign(constants.minY);
+            eventToLog.min_y = Object.assign(constants.minY);
         }
         if (! this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
-            eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
+            eventToLog.max_frequency = Object.assign(constants.MAX_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
-            eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
+            eventToLog.min_frequency = Object.assign(constants.MIN_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
-            eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
+            eventToLog.null_frequency = Object.assign(constants.NULL_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.MAX_SPEED)) {
-            eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
+            eventToLog.max_speed = Object.assign(constants.MAX_SPEED);
         }
         if (! this.isUndefinedOrNull(constants.MIN_SPEED)) {
-            eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
+            eventToLog.min_speed = Object.assign(constants.MIN_SPEED);
         }
         if (! this.isUndefinedOrNull(constants.INTERVAL)) {
-            eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
+            eventToLog.interval = Object.assign(constants.INTERVAL);
         }
         if (! this.isUndefinedOrNull(constants.vol)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayRate)) {
-            eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
+            eventToLog.autoplay_rate = Object.assign(constants.autoPlayRate);
         }
         if (! this.isUndefinedOrNull(constants.colorSelected)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
         if (! this.isUndefinedOrNull(constants.brailleDisplayLength)) {
-            eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
+            eventToLog.braille_display_length = Object.assign(constants.brailleDisplayLength);
         }
         if (! this.isUndefinedOrNull(constants.duration)) {
-            eventToLog.toneDuration = Object.assign(constants.duration);
+            eventToLog.tone_duration = Object.assign(constants.duration);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
-            eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
+            eventToLog.autoplay_outlier_rate = Object.assign(constants.autoPlayOutlierRate);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
-            eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
+            eventToLog.autoplay_points_rate = Object.assign(constants.autoPlayPointsRate);
         }
         if (! this.isUndefinedOrNull(constants.textMode)) {
-            eventToLog.textMode = Object.assign(constants.textMode);
+            eventToLog.text_mode = Object.assign(constants.textMode);
         }
         if (! this.isUndefinedOrNull(constants.sonifMode)) {
-            eventToLog.sonificationMode = Object.assign(constants.sonifMode);
+            eventToLog.sonification_mode = Object.assign(constants.sonifMode);
         }
         if (! this.isUndefinedOrNull(constants.brailleMode)) {
-            eventToLog.brailleMode = Object.assign(constants.brailleMode);
+            eventToLog.braille_mode = Object.assign(constants.brailleMode);
         }
         if (! this.isUndefinedOrNull(constants.layer)) {
-            eventToLog.scatterplotLayer = Object.assign(constants.layer);
+            eventToLog.scatterplot_layer = Object.assign(constants.layer);
         }
         if (! this.isUndefinedOrNull(constants.chartType)) {
-            eventToLog.chartType = Object.assign(constants.chartType);
+            eventToLog.chart_type = Object.assign(constants.chartType);
         }
         if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             let textDisplay = Object.assign(constants.infoDiv.innerHTML);
             textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, '');
-            eventToLog.textDisplay = textDisplay;
+            eventToLog.text_display = textDisplay;
         }
         if (! this.isUndefinedOrNull(location.href)) {
             eventToLog.location = Object.assign(location.href);
