@@ -46,10 +46,11 @@ class Display {
         }
         if (onoff == "on") {
             if (constants.chartType == "boxplot") { // braille mode is on before any plot is selected
-                if ((orientation == "vert" && position.x == 0 && position.y == plot.plotData[0].length - 1) || (orientation != "vert" && position.x == -1 && position.y == plot.plotData.length)) {
-                    this.announceText("Braille " + constants.brailleMode + ": Please select a box before turning on Braille mode.");
-                    constants.brailleInput.setSelectionRange(0, 0);
-                    return;
+                if (orientation != "vert" && position.x == -1 && position.y == plot.plotData.length) {
+                    position.x += 1;
+                    position.y -= 1;
+                } else if (orientation == "vert" && position.x == 0 && position.y == plot.plotData[0].length - 1) {
+                    // do nothing; don't think there's any problem
                 }
             }
 
