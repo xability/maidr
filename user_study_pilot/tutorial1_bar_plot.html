@@ -575,7 +575,7 @@
       </div>
    </div>
    <script>
-      var barplotBars = document.querySelectorAll("#geom_rect\\.rect\\.2\\.1 > rect");
+      var barplotBars = document.querySelectorAll('g[id^="geom_rect"] > rect');
       var barplotColumns = ["Fair", "Good", "Very Good", "Premium", "Ideal"];
       var barplotLegend = { "x": "cut", "y": "count" };
       var barplotData = [1610, 4906, 12082, 13791, 21551];
