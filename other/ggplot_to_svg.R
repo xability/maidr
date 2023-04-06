@@ -132,7 +132,8 @@ gapminder %>%
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
   # geom_point(position = "jitter") +
   geom_point() +
-  geom_smooth(method = "loess", se = FALSE)
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Highway Mileage by Engine Displacement.", x = "Engine Displacement", y = "Highway Mileage")
 
 # Save ggplot data to json
 library(tidyverse)
@@ -215,9 +216,10 @@ penguins %>%
   ggplot(aes(x = island, y = species, fill = n)) +
   geom_tile(color = "black") +
   scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
-  coord_fixed()
+  coord_fixed() +
+  labs(title = "Penguin Species by Island", x = "Island", y = "Species", fill = "Count")
 
-gridSVG::grid.export("heatmap.svg")
+gridSVG::grid.export("heatmap_label.svg")
 dev.off()
 
 
