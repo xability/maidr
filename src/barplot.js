@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.chartType = "barchart";
 
     let audio = new Audio();
-    let display = new Display();
 
     // global variables
     let lastPlayed = '';

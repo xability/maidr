@@ -14,6 +14,16 @@
     padding: 0;
     position: absolute;
 }
+.sr-only-focusable {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    -webkit-clip-path: none;
+    clip-path: none;
+}
 
 #skip a {
     position: absolute;

@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     window.plot = new ScatterPlot();
     constants.chartType = "scatterplot";
     let audio = new Audio();
-    let display = new Display();
     let layer0Point = new Layer0Point();
     let layer1Point = new Layer1Point();
 

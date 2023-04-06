@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     }
     let rect = new BoxplotRect();
     let audio = new Audio();
-    let display = new Display();
     let lastPlayed = '';
     let lastY = 0;
     let lastx = 0;

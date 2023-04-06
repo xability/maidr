@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
     let audio = new Audio();
-    let display = new Display();
     let lastPlayed = '';
     let lastx = 0;
     let lastKeyTime = 0;

@@ -38,7 +38,7 @@ class Display {
 
     toggleBrailleMode(onoff) {
         if (constants.chartType == "scatterplot" && constants.layer == 0) {
-            this.announceText("Braille " + constants.brailleMode + ": Braille is disabled for point layer.");
+            this.announceText("Braille is not supported in point layer.");
             return;
         }
         if ( typeof(onoff) === 'undefined' ) {
@@ -73,7 +73,16 @@ class Display {
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');
-            constants.svg.focus();
+
+            if ( constants.review_container ) {
+                if ( ! constants.review_container.classList.contains('hidden') ) {
+                    constants.review.focus();
+                } else {
+                    constants.svg.focus();
+                }
+            } else {
+                constants.svg.focus();
+            }
         }
 
         this.announceText("Braille " + constants.brailleMode);
@@ -160,17 +169,26 @@ class Display {
         // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
         let output = "";
+        let verboseText = "";
+        let reviewText = "";
         if (constants.chartType == "barchart") {
+            // {legend x} is {colname x}, {legend y} is {value y}
+            verboseText = plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
             if (constants.textMode == "off") {
                 // do nothing :D
             } else if (constants.textMode == "terse") {
                 // {colname} {value}
                 output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
             } else if (constants.textMode == "verbose") {
-                // {legend x} is {colname x}, {legend y} is {value y}
-                output += '<p>' + plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x] + '</p>\n';
+                output += '<p>' + verboseText + '</p>\n';
             }
         } else if (constants.chartType == "heatmap") {
+            // col name and value
+            if (constants.navigation == 1) {
+                verboseText += plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x];
+            } else {
+                verboseText += plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x];
+            }
             // terse and verbose alternate between columns and rows
             if (constants.textMode == "off") {
                 // do nothing :D
@@ -182,21 +200,19 @@ class Display {
                     output += '<p>' + plot.y_labels[position.y] + ', ' + plot.plotData[2][position.y][position.x] + '</p>\n';
                 }
             } else if (constants.textMode == "verbose") {
-                // col name and value
-                if (constants.navigation == 1) {
-                    output += '<p>' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
-                } else {
-                    output += '<p>' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x] + '</p>\n';
-                }
+                output += '<p>' + verboseText + '</p>\n';
             }
         } else if (constants.chartType == "boxplot") {
+
             // setup
             let val = 0;
             let numPoints = 1;
-            let pointType = "";
             let isOutlier = false;
             let plotPos = orientation == "vert" ? position.x : position.y;
             let sectionPos = orientation == "vert" ? position.y : position.x;
+            let textTerse = "";
+            let textVerbose = "";
+
             if ( plot.plotData[plotPos][sectionPos].label == 'lower_outlier' || plot.plotData[plotPos][sectionPos].label == 'upper_outlier' ) {
                 isOutlier = true;
             }
@@ -208,7 +224,6 @@ class Display {
                     numPoints = 0;
                 }
 
-                pointType = "outlier";
             } else if (plot.plotData[plotPos][sectionPos].type == "blank") {
                 val = '';
                 if ( isOutlier ) numPoints = 0;
@@ -221,72 +236,80 @@ class Display {
             }
 
             // set output
-            if (constants.textMode == "off") {
-                // do nothing
-            } else {
-                output += '<p>';
-                // group label
-                if ( constants.textMode == "verbose" ) {
-                    if ( constants.navigation ) {
-                        if ( plot.x_group_label ) output += plot.x_group_label;
-                    } else if ( ! constants.navigation ) {
-                        if ( plot.y_group_label ) output += plot.y_group_label;
-                    }
-                }
-                // and axis label
-                if ( constants.navigation ) {
-                    if ( plot.x_labels[plotPos] ) {
-                        if ( constants.textMode == "verbose" ) output += " is ";
-                        output += plot.x_labels[plotPos] + ", ";
-                    } else if ( constants.textMode == "verbose" ) {
-                        output += ", ";
-                    }
-                } else if ( ! constants.navigation ) {
-                    if ( plot.y_labels[plotPos] ) {
-                        if ( constants.textMode == "verbose" ) output += " is ";
-                        output += plot.y_labels[plotPos] + ", ";
-                    } else if ( constants.textMode == "verbose" ) {
-                        output += ", ";
-                    }
-                }
-                // outliers
-                if ( isOutlier ) {
-                    output += numPoints + " ";
-                }
-                // label
-                if ( isOutlier || constants.textMode == "verbose" || ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
-                    output += resources.GetString(plot.plotData[plotPos][sectionPos].label);
-                    // grammar
-                    if ( constants.textMode == "verbose" ) {
-                        if ( numPoints == 1 ) output += ' is ';
-                        else {
-                            output += 's ';
-                            if ( numPoints > 1 ) output += ' are ';
-                        }
-                    } else {
-                        if (numPoints != 1) output += 's';
-                        output += " ";
-                    }
-                }
-                // val
-                if ( plot.plotData[plotPos][sectionPos].type == "blank" && ! isOutlier ) {
-                    output += "empty";
-                } else {
-                    output += val;
-                }
 
-                output += '<p>\n';
+            // group label for verbose
+                if ( constants.navigation ) {
+                    if ( plot.x_group_label ) textVerbose += plot.x_group_label;
+                } else if ( ! constants.navigation ) {
+                    if ( plot.y_group_label ) textVerbose += plot.y_group_label;
+                }
+            // and axis label
+            if ( constants.navigation ) {
+                if ( plot.x_labels[plotPos] ) {
+                    textVerbose += " is ";
+                    textTerse += plot.x_labels[plotPos] + ", ";
+                    textVerbose += plot.x_labels[plotPos] + ", ";
+                } else {
+                    textVerbose += ", ";
+                }
+            } else if ( ! constants.navigation ) {
+                if ( plot.y_labels[plotPos] ) {
+                    textVerbose += " is ";
+                    textTerse += plot.y_labels[plotPos] + ", ";
+                    textVerbose += plot.y_labels[plotPos] + ", ";
+                } else {
+                    textVerbose += ", ";
+                }
             }
+            // outliers
+            if ( isOutlier ) {
+                textTerse += numPoints + " ";
+                textVerbose += numPoints + " ";
+            }
+            // label
+            textVerbose += resources.GetString(plot.plotData[plotPos][sectionPos].label);
+            if ( numPoints == 1 ) textVerbose += ' is ';
+            else {
+                textVerbose += 's ';
+                if ( numPoints > 1 ) textVerbose += ' are ';
+            }
+            if ( isOutlier || ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
+
+                textTerse += resources.GetString(plot.plotData[plotPos][sectionPos].label);
+
+                // grammar
+                if (numPoints != 1) {
+                    textTerse += 's';
+                }
+                textTerse += " ";
+            }
+            // val
+            if ( plot.plotData[plotPos][sectionPos].type == "blank" && ! isOutlier ) {
+                textTerse += "empty";
+                textVerbose += "empty";
+            } else {
+                textTerse += val;
+                textVerbose += val;
+            }
+
+            verboseText = textVerbose; // yeah it's an extra var, who cares
+            if ( constants.textMode == "verbose" ) output = '<p>' + textVerbose + '</p>\n';
+            else if ( constants.textMode == "terse" ) output = '<p>' + textTerse + '</p>\n';
+
         } else if (constants.chartType == "scatterplot") {
             if (constants.layer == 0) { // point layer
+                verboseText += plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]";
+
                 if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
                     output += '<p>' + plot.x[position.x] + ", " + "[" + plot.y[position.x].join(", ") + "]" + '</p>\n';
                 } else if (constants.textMode == "verbose") {
-                    output += '<p>' + plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]" + '</p>\n';
+                    // set from verboseText
                 }
             } else if (constants.layer == 1) { // best fit line layer
+                verboseText += plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]; // verbose mode: x and y values
+
                 if (constants.textMode == "off") {
                     // do nothing
                 } else if (constants.textMode == "terse") {
@@ -296,18 +319,20 @@ class Display {
                     // display absolute gradient of the graph
                     output += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
                 } else if (constants.textMode == "verbose") {
-                    // verbose mode: x and y values
-                    output += '<p>' + plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x] + '</p>\n';
-                    // if (positionL1.x == plot.gradient.length - 1) {
-                    //     output += '<p>end</end';
-                    // } else {
-                    //     output += '<p>y-value of smooth line is ' + plot.gradient[positionL1.x] + '<p>\n';
-                    // }
+                    // set from verboseText
                 }
             }
+            if ( constants.textMode == "verbose" ) output = '<p>' + verboseText + '</p>\n';
         }
 
-        constants.infoDiv.innerHTML = output;
+        if ( constants.infoDiv ) constants.infoDiv.innerHTML = output;
+        if ( constants.review ) {
+            if ( output.length > 0 ) {
+                constants.review.value = output.replace(/<[^>]*>?/gm, '');
+            } else {
+                constants.review.value = verboseText;
+            }
+        }
     }
 
     displayXLabel(plot) {
