@@ -1834,9 +1834,10 @@
             </div>
         </div>
         <script>
-            var scatterPlotPoints = document.querySelectorAll('#geom_point\\.points\\.12\\.1 > use');
-            var scatterPlotLine = document.querySelectorAll('#' + 'GRID\\.polyline\\.13\\.1 > polyline')[0];
-            var scatterPlotLegend = { "x": "displ", "y": "hwy" };
+            var scatterPlotPoints = document.querySelectorAll('g[id^="geom_point"] > use');;
+            var scatterPlotLine = document.querySelectorAll('#' + 'GRID\\.polyline\\.206\\.1 > polyline')[0];
+            var scatterPlotLegend = { "x": "Engine Displacement", "y": "Highway Mileage" };
+            var scatterPlotTitle = "Highway Mileage by Engine Displacement.";
             var point_layer = [
                 {
                     "x": 1.8,
