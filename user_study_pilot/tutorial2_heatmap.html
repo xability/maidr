@@ -588,7 +588,8 @@
     </div>
   </div>
   <script>
-    var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.12\\.1 > rect');
+    // var heatmapPlots = document.querySelectorAll('#geom_rect\\.rect\\.136\\.1 > rect');
+    var heatmapPlots = document.querySelectorAll('g[id^="geom_rect"] > rect');
     var heatmapData = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
     //     var heatmapLabelsNodelist = document.querySelectorAll('tspan[dy="12"]');
     //     var heatmapXNodelist = document.querySelectorAll('tspan[dy="10"]');
@@ -596,6 +597,7 @@
     var heatmapLabelsNodelist = ['island', 'species', 'n'];
     var heatmapXNodelist = ['Biscoe', 'Dream', 'Torgeson'];
     var heatmapYNodelist = ['Gentoo', 'Chinstrap', 'Adelie'];
+    var heatmapTitle = "Penguin Species by Island";
   </script>
   <script src="../src/constants.js"></script>
   <script src="../src/audio.js"></script>
