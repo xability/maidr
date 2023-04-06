@@ -8,11 +8,12 @@ library(gapminder)
 
 
 # Bar plot sample
-ggplot(mpg, aes(class)) +
-  geom_bar()
+ggplot(diamonds, aes(cut)) +
+  geom_bar() +
+  labs(title = "The Number of Diamonds by Cut.", x = "Cut", y = "Count")
 
 
-gridSVG::grid.export("barplot.svg")
+gridSVG::grid.export("barplot_labels.svg")
 dev.off()
 
 library(tidyverse)
