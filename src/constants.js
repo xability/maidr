@@ -281,6 +281,7 @@ class Menu {
                             <p><input type="color" id="color_selected" name="color_selected"><label for="color_selected">Outline Color</label></p>
                             <p><input type="number" min="10" max="2000" step="10" id="min_freq" name="min_freq"><label for="min_freq">Min Frequency (Hz)</label></p>
                             <p><input type="number" min="20" max="2010" step="10" id="max_freq" name="max_freq"><label for="max_freq">Max Frequency (Hz)</label></p>
+                            <p><input type="number" min="500" max="5000" step="500" id="keypress_interval" name="keypress_interval"><label for="keypress_interval">Keypress Interval (ms)</label></p>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -326,6 +327,7 @@ class Menu {
         document.getElementById('color_selected').value = constants.colorSelected;
         document.getElementById('min_freq').value = constants.MIN_FREQUENCY;
         document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
+        document.getElementById('keypress_interval').value = constants.keypressInterval;
     }
 
     SaveData() {
@@ -336,6 +338,7 @@ class Menu {
         constants.colorSelected = document.getElementById('color_selected').value;
         constants.MIN_FREQUENCY = document.getElementById('min_freq').value;
         constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
+        constants.keypressInterval = document.getElementById('keypress_interval').value;
     }
 }
 
