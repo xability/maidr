@@ -42,9 +42,10 @@ gapminder %>%
 
 # Box plot sample
 ggplot(data = mpg, mapping = aes(y = class, x = hwy)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = "Highway Mileage by Car Class.", x = "Highway Mileage", y = "Car Class")
 
-gridSVG::grid.export("boxplot.svg")
+gridSVG::grid.export("boxplot_label.svg")
 dev.off()
 
 
