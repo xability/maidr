@@ -210,37 +210,38 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         //     display.displayTitle(plot);
         // }
 
-        // L: prefix for label
+        // must come before prefix L
+        if (pressedL) {
+            if (e.which == 88) { // X: x label
+                let timediff = window.performance.now() - lastKeyTime;
+                if (pressedL && timediff <= constants.keypressInterval) {
+                    display.displayXLabel(plot);
+                }
+                pressedL = false;
+            } else if (e.which == 89) { // Y: y label
+                let timediff = window.performance.now() - lastKeyTime;
+                if (pressedL && timediff <= constants.keypressInterval) {
+                    display.displayYLabel(plot);
+                }
+                pressedL = false;
+            } else if (e.which == 84) { // T: title
+                let timediff = window.performance.now() - lastKeyTime;
+                if (pressedL && timediff <= constants.keypressInterval) {
+                    display.displayTitle(plot);
+                }
+                pressedL = false;
+            } else if (e.which == 76) {
+                lastKeyTime = window.performance.now();
+                pressedL = true;
+            } else {
+                pressedL = false;
+            }
+        }
+
+        // L: prefix for label; must come after the suffix
         if (e.which == 76) {
             lastKeyTime = window.performance.now();
             pressedL = true;
-        }
-
-        // X: x label
-        if (e.which == 88) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayXLabel(plot);
-            }
-            pressedL = false;
-        }
-
-        // Y: y label
-        if (e.which == 89) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayYLabel(plot);
-            }
-            pressedL = false;
-        }
-
-        // T: title
-        if (e.which == 84) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayTitle(plot);
-            }
-            pressedL = false;
         }
 
         // period: speed up
