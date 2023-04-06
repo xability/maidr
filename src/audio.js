@@ -75,7 +75,7 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) { // point layer
+            if (constants.layer == 1) { // point layer
                     // more than one point with same x-value
                 rawFreq = plot.y[position.x][position.z];
                 if (plot.max_count == 1) {
@@ -87,7 +87,7 @@ class Audio {
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
-            } else if (constants.layer == 1) { // best fit line layer
+            } else if (constants.layer == 2) { // best fit line layer
 
                 rawFreq = plot.curvePoints[positionL1.x];
                 rawPanning = positionL1.x;

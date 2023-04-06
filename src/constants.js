@@ -74,7 +74,7 @@ class Constants {
     brailleMode = "off"; // on / off
     sonifMode = "off"; // sep / same / off
     reviewMode = "off"; // on / off
-    layer = 0; // 0 = points; 1 = best fit line => for scatterplot
+    layer = 1; // 1 = points; 2 = best fit line => for scatterplot
     outlierInterval = null;
 
     // platform controls
@@ -495,7 +495,7 @@ class Tracker {
             eventToLog.braille_mode = Object.assign(constants.brailleMode);
         }
         if (! this.isUndefinedOrNull(constants.layer)) {
-            eventToLog.scatterplot_layer = Object.assign(constants.layer);
+            eventToLog.layer = Object.assign(constants.layer);
         }
         if (! this.isUndefinedOrNull(constants.chartType)) {
             eventToLog.chart_type = Object.assign(constants.chartType);
@@ -576,7 +576,7 @@ class Tracker {
                 }
             }
         } else if ( constants.chartType == "scatterplot" ) {
-            if ( constants.layer == 0 && plot.y[position.x] != undefined) {
+            if ( constants.layer == 1 && plot.y[position.x] != undefined) {
                 eventToLog.chart_label_x = Object.assign(plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]");
             } else {
                 eventToLog.chart_label_y = Object.assign(plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]);

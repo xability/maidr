@@ -37,7 +37,7 @@ class Display {
     }
 
     toggleBrailleMode(onoff) {
-        if (constants.chartType == "scatterplot" && constants.layer == 0) {
+        if (constants.chartType == "scatterplot" && constants.layer == 1) {
             this.announceText("Braille is not supported in point layer.");
             return;
         }
@@ -89,7 +89,7 @@ class Display {
     }
 
     toggleSonificationMode() {
-        if (constants.chartType == "scatterplot" && constants.layer == 0) {
+        if (constants.chartType == "scatterplot" && constants.layer == 1) {
             if (constants.sonifMode == "off") {
                 constants.sonifMode = "sep";
                 this.announceText(resources.GetString("son_sep"));
@@ -113,11 +113,11 @@ class Display {
     }
 
     toggleLayerMode() {
-        if (constants.layer == 0) {
-            constants.layer = 1;
+        if (constants.layer == 1) {
+            constants.layer = 2;
             this.announceText("Layer 2: Smoothed line");
-        } else if (constants.layer == 1) {
-            constants.layer = 0;
+        } else if (constants.layer == 2) {
+            constants.layer = 1;
             this.announceText("Layer 1: Point");
         }
     }
@@ -297,7 +297,7 @@ class Display {
             else if ( constants.textMode == "terse" ) output = '<p>' + textTerse + '</p>\n';
 
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) { // point layer
+            if (constants.layer == 1) { // point layer
                 verboseText += plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]";
 
                 if (constants.textMode == "off") {
@@ -307,7 +307,7 @@ class Display {
                 } else if (constants.textMode == "verbose") {
                     // set from verboseText
                 }
-            } else if (constants.layer == 1) { // best fit line layer
+            } else if (constants.layer == 2) { // best fit line layer
                 verboseText += plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]; // verbose mode: x and y values
 
                 if (constants.textMode == "off") {

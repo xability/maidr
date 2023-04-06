@@ -12,8 +12,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     let layer1Point = new Layer1Point();
 
     let lastPlayed = ''; // for autoplay use
-    let lastx = 0; // for layer 0 autoplay use
-    let lastx1 = 0; // for layer 1 autoplay use
+    let lastx = 0; // for layer 1 autoplay use
+    let lastx1 = 0; // for layer 2 autoplay use
     let lastKeyTime = 0;
     let pressedL = false;
 
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         let isAtEnd = false;
 
         // left and right arrows are enabled only at point layer
-        if (constants.layer == 0) {
+        if (constants.layer == 1) {
             // right arrow 39
             if (e.which === 39) {
                 if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             }
-        } else if (constants.layer == 1) {
+        } else if (constants.layer == 2) {
             positionL1.x = lastx1;
            
             if (e.which == 39 && e.shiftKey) {
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update text, display, and audio
-        if (updateInfoThisRound && constants.layer == 0 && ! isAtEnd) {
+        if (updateInfoThisRound && constants.layer == 1 && ! isAtEnd) {
             UpdateAll();
         }
         if ( isAtEnd ) {
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // only line layer can access to braille display
         if (e.which == 9) {
             // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-        } else if (constants.layer == 1) {
+        } else if (constants.layer == 2) {
             lockPosition();
             if (e.which == 9) {
             } else if (e.which == 39) { // right arrow
@@ -204,14 +204,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 display.toggleSonificationMode();
             }
 
-            // page down /(fn+down arrow): point layer(0) 
-            if (e.which == 34 && constants.layer == 1) {
+            // page down /(fn+down arrow): point layer(1) 
+            if (e.which == 34 && constants.layer == 2) {
                 lastx1 = positionL1.x;
                 display.toggleLayerMode();
             }
 
-            // page up / (fn+up arrow): line layer(1)
-            if (e.which == 33 && constants.layer == 0) {
+            // page up / (fn+up arrow): line layer(2)
+            if (e.which == 33 && constants.layer == 1) {
                 display.toggleLayerMode();
             }
 
@@ -228,12 +228,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
-                if (constants.layer == 0) {
+                if (constants.layer == 1) {
                     position.x = 0;
                     UpdateAll();
                     // move cursor for braille
                     constants.brailleInput.setSelectionRange(0,0);
-                } else if (constants.layer == 1) {
+                } else if (constants.layer == 2) {
                     positionL1.x = 0;
                     UpdateAllBraille();
                 }
@@ -241,12 +241,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
-                if (constants.layer == 0) {
+                if (constants.layer == 1) {
                     position.x = plot.y.length - 1;
                     UpdateAll();
                     // move cursor for braille
                     constants.brailleInput.setSelectionRange(plot.curvePoints.length - 1, plot.curvePoints.length - 1);
-                } else if (constants.layer == 1) {
+                } else if (constants.layer == 2) {
                     positionL1.x = plot.curvePoints.length - 1;
                     UpdateAllBraille();
                 }
@@ -314,21 +314,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 audio.KillSmooth();
                 if (lastPlayed == 'inward_left') {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay('outward_right', position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay('outward_right', positionL1.x, lastx1);
                     }
                 } else if (lastPlayed == 'inward_right') {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay('outward_left', position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay('outward_left', positionL1.x, lastx1);
                     }
                 } else {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay(lastPlayed, position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay(lastPlayed, positionL1.x, lastx1);
                     }
                 }
@@ -342,21 +342,21 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 constants.KillAutoplay();
                 audio.KillSmooth();
                 if (lastPlayed == 'inward_left') {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay('outward_right', position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay('outward_right', positionL1.x, lastx1);
                     }
                 } else if (lastPlayed == 'inward_right') {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay('outward_left', position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay('outward_left', positionL1.x, lastx1);
                     }
                 } else {
-                    if (constants.layer == 0) {
+                    if (constants.layer == 1) {
                         Autoplay(lastPlayed, position.x, lastx);
-                    } else if (constants.layer == 1) {
+                    } else if (constants.layer == 2) {
                         Autoplay(lastPlayed, positionL1.x, lastx1);
                     }
                 }
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (constants.layer == 0) {
+        if (constants.layer == 1) {
             if (position.x < 0) {
                 position.x = 0;
                 isLockNeeded = true;
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 position.x = plot.x.length - 1;
                 isLockNeeded = true;
             }
-        } else if (constants.layer == 1) {
+        } else if (constants.layer == 2) {
             if (positionL1.x < 0) {
                 positionL1.x = 0;
                 isLockNeeded = true;
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             display.displayValues(plot);
         }
         if (constants.showRect) {
-            if (constants.layer == 0) {
+            if (constants.layer == 1) {
                 layer0Point.UpdatePointDisplay();
             } else {
                 layer1Point.UpdatePointDisplay();
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.L1x = start;
         }
         
-        if (constants.layer == 0) {
+        if (constants.layer == 1) {
             constants.autoplayId = setInterval(function () {
                 position.x += step;
                 // autoplay for two layers: point layer & line layer in braille
@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     UpdateAllAutoplay();
                 }
             }, constants.autoPlayRate);
-        } else if (constants.layer == 1) {
+        } else if (constants.layer == 2) {
             constants.autoplayId = setInterval(function () {
                 positionL1.x += step;
                 // autoplay for two layers: point layer & line layer in braille
@@ -539,7 +539,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class ScatterPlot {
     constructor() {
 
-        // layer = 0
+        // layer = 1
         if ( constants.manualData ) {
             this.plotPoints = scatterPlotPoints;
         } else {
@@ -555,7 +555,7 @@ class ScatterPlot {
         this.points_count = this.GetPointValues()[2]; // number of each points
         this.max_count = this.GetPointValues()[3];
 
-        // layer = 1
+        // layer = 2
         if ( constants.manualData ) {
             this.plotLine = scatterPlotLine;
         } else {
@@ -677,7 +677,7 @@ class ScatterPlot {
         if (constants.sepPlayId) {
             constants.KillSepPlay();
         }
-        if (constants.layer == 0) { // point layer
+        if (constants.layer == 1) { // point layer
             // we play a run of tones
             position.z = 0;
             constants.sepPlayId = setInterval(function () {
@@ -694,7 +694,7 @@ class ScatterPlot {
                 }
 
             }, constants.sonifMode == "sep" ? constants.autoPlayPointsRate : 0); // play all tones at the same time
-        } else if (constants.layer == 1) { // best fit line layer
+        } else if (constants.layer == 2) { // best fit line layer
             audio.playTone();
         }
     }
