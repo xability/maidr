@@ -565,7 +565,9 @@ class Tracker {
                 if ( ! this.isUndefinedOrNull(plot.x_labels[position.x]) ) {
                     x_tickmark = plot.x_labels[position.x]
                 }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y) ) {
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values) ) {
+                    value = plot.plotData[plotPos][sectionPos].values;
+                } else if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y) ) {
                     value = plot.plotData[plotPos][sectionPos].y;
                 }
             } else {
@@ -575,7 +577,9 @@ class Tracker {
                 if ( ! this.isUndefinedOrNull(plot.y_labels[position.y]) ) {
                     y_tickmark = plot.y_labels[position.y]
                 }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x) ) {
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values ) ) {
+                    value = plot.plotData[plotPos][sectionPos].values;
+                } else if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x) ) {
                     value = plot.plotData[plotPos][sectionPos].x;
                 }
             }

@@ -1208,9 +1208,9 @@ class BoxPlot {
                             if ( ! outlierLowerBounds ) {
                                 outlierLowerBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
                             } else {
-                                if ( newOutlierBounds.y > outlierLowerBounds.y ) outlierLowerBounds.y = newOutlierBounds.y;
-                                if ( newOutlierBounds.top > outlierLowerBounds.top ) outlierLowerBounds.top = newOutlierBounds.top;
-                                if ( newOutlierBounds.bottom < outlierLowerBounds.bottom ) outlierLowerBounds.bottom = newOutlierBounds.bottom;
+                                if ( newOutlierBounds.y < outlierLowerBounds.y ) outlierLowerBounds.y = newOutlierBounds.y;
+                                if ( newOutlierBounds.top < outlierLowerBounds.top ) outlierLowerBounds.top = newOutlierBounds.top;
+                                if ( newOutlierBounds.bottom > outlierLowerBounds.bottom ) outlierLowerBounds.bottom = newOutlierBounds.bottom;
                             }
                         }
                     } else {
