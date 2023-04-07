@@ -159,7 +159,7 @@ smooth_layer %>%
   jsonlite::write_json("smooth_layer.json")
 
 
-gridSVG::grid.export("scatterplot_no_jitter_with_loess_curve.svg")
+gridSVG::grid.export("scatterplot_label.svg")
 dev.off()
 
 
