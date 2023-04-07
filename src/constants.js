@@ -510,87 +510,113 @@ class Tracker {
         }
 
         // chart specific values
+        let x_tickmark = "";
+        let y_tickmark = "";
+        let x_label = "";
+        let y_label = "";
+        let value = "";
+        let fill_value = "";
         if ( constants.chartType == "barchart" ) {
             if (! this.isUndefinedOrNull(plot.plotColumns[position.x])) {
-                eventToLog.chart_label = Object.assign(plot.plotColumns[position.x]);
-            }
-            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
-                eventToLog.chart_legend_y = Object.assign(plot.plotLegend.y);
+                x_tickmark = plot.plotColumns[position.x];
             }
             if (! this.isUndefinedOrNull(plot.plotLegend.x)) {
-                eventToLog.chart_legend_x = Object.assign(plot.plotLegend.x);
+                x_label = plot.plotLegend.x;
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
+                y_label = plot.plotLegend.y;
+            }
+            if (! this.isUndefinedOrNull(plot.plotData[position.x])) {
+                value = plot.plotData[position.x];
             }
         } else if ( constants.chartType == "heatmap" ) {
             if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
-                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x].trim());
+                x_tickmark = plot.x_labels[position.x].trim();
             }
             if (! this.isUndefinedOrNull(plot.y_labels[position.y])) {
-                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
+                y_tickmark = plot.y_labels[position.y].trim();
+            }
+            if (! this.isUndefinedOrNull(plot.x_group_label)) {
+                x_label = plot.x_group_label;
+            }
+            if (! this.isUndefinedOrNull(plot.y_group_label)) {
+                y_label = plot.y_group_label;
+            }
+            if (! this.isUndefinedOrNull(plot.values[position.x][position.y])) {
+                value = plot.values[position.x][position.y];
+            }
+            if (! this.isUndefinedOrNull(plot.group_labels[2]) ) {
+                fill_value = plot.group_labels[2];
             }
         } else if ( constants.chartType == "boxplot" ) {
             let plotPos = orientation == "vert" ? position.x : position.y;
             let sectionPos = orientation == "vert" ? position.y : position.x;
-            let y_label = "";
-            let x_label = "";
 
+            if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
+                x_label = plot.x_group_label;
+            }
+            if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
+                y_label = plot.y_group_label;
+            }
             if ( orientation == "vert" ) {
-                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
-                    x_label += plot.x_group_label + ": ";
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+                    y_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.x_labels) ) {
-                    x_label += plot.x_labels[plotPos];
+                if ( ! this.isUndefinedOrNull(plot.x_labels[position.x]) ) {
+                    x_tickmark = plot.x_labels[position.x]
                 }
-                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
-                    y_label += plot.y_group_label + ": ";
-                }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
-                    y_label += plot.plotData[plotPos][sectionPos].label;
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y) ) {
+                    value = plot.plotData[plotPos][sectionPos].y;
                 }
             } else {
-                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
-                    y_label += plot.y_group_label + ": ";
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+                    x_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.y_labels) ) {
-                    y_label += plot.y_labels[plotPos];
+                if ( ! this.isUndefinedOrNull(plot.y_labels[position.y]) ) {
+                    y_tickmark = plot.y_labels[position.y]
                 }
-                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
-                    x_label += plot.x_group_label + ": ";
-                }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
-                    x_label += plot.plotData[plotPos][sectionPos].label;
-                }
-            }
-
-            eventToLog.chart_label_x = x_label;
-            eventToLog.chart_label_y = y_label;
-
-            if ( position ) {
-                if ( plotPos > -1 && sectionPos > -1 ) {
-                    if ( plotPos < plot.plotData.length ) {
-                        if ( sectionPos < plot.plotData[plotPos].length ) {
-                            if (! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
-                                eventToLog.chart_section = Object.assign(plot.plotData[plotPos][sectionPos].label);
-                            }
-                        }
-                    }
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x) ) {
+                    value = plot.plotData[plotPos][sectionPos].x;
                 }
             }
         } else if ( constants.chartType == "scatterplot" ) {
-            if ( constants.layer == 1 && plot.y[position.x] != undefined) {
-                eventToLog.chart_label_x = Object.assign(plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]");
-            } else {
-                eventToLog.chart_label_y = Object.assign(plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]);
+            if ( ! this.isUndefinedOrNull(plot.x_group_label) ) {
+                x_label = plot.x_group_label;
             }
+            if ( ! this.isUndefinedOrNull(plot.y_group_label) ) {
+                y_label = plot.y_group_label;
+            }
+
+            if ( ! this.isUndefinedOrNull(plot.x[position.x]) ) {
+                x_tickmark = plot.x[position.x];
+            }
+            if ( ! this.isUndefinedOrNull(plot.y[position.x]) ) {
+                y_tickmark = plot.y[position.x];
+            }
+
+            value = [x_tickmark, y_tickmark];
         }
 
-        //this.data.events.push(eventToLog);
+        eventToLog.x_tickmark = Object.assign(x_tickmark);
+        eventToLog.y_tickmark = Object.assign(y_tickmark);
+        eventToLog.x_label = Object.assign(x_label);
+        eventToLog.y_label = Object.assign(y_label);
+        eventToLog.value = Object.assign(value);
+        eventToLog.fill_value = Object.assign(fill_value);
+
+        //console.log("x_tickmark: '", x_tickmark, "', y_tickmark: '", y_tickmark, "', x_label: '", x_label, "', y_label: '", y_label, "', value: '", value, "', fill_value: '", fill_value);
+
         let data = this.GetTrackerData();
         data.events.push(eventToLog);
         this.SaveTrackerData(data);
     }
 
     isUndefinedOrNull(item) {
-        return ( item === undefined || item === null ) ;
+        try {
+            return ( item === undefined || item === null ) ;
+        } catch {
+            return true;
+        }
     }
 
 }
