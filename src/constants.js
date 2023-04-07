@@ -74,7 +74,7 @@ class Constants {
     brailleMode = "off"; // on / off
     sonifMode = "off"; // sep / same / off
     reviewMode = "off"; // on / off
-    layer = 0; // 0 = points; 1 = best fit line => for scatterplot
+    layer = 1; // 1 = points; 2 = best fit line => for scatterplot
     outlierInterval = null;
 
     // platform controls
@@ -438,159 +438,185 @@ class Tracker {
             eventToLog.position = Object.assign(constants.position);
         }
         if (! this.isUndefinedOrNull(constants.minX)) {
-            eventToLog.minX = Object.assign(constants.minX);
+            eventToLog.min_x = Object.assign(constants.minX);
         }
         if (! this.isUndefinedOrNull(constants.maxX)) {
-            eventToLog.maxX = Object.assign(constants.maxX);
+            eventToLog.max_x = Object.assign(constants.maxX);
         }
         if (! this.isUndefinedOrNull(constants.minY)) {
-            eventToLog.minY = Object.assign(constants.minY);
+            eventToLog.min_y = Object.assign(constants.minY);
         }
         if (! this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
-            eventToLog.MAX_FREQUENCY = Object.assign(constants.MAX_FREQUENCY);
+            eventToLog.max_frequency = Object.assign(constants.MAX_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
-            eventToLog.MIN_FREQUENCY = Object.assign(constants.MIN_FREQUENCY);
+            eventToLog.min_frequency = Object.assign(constants.MIN_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
-            eventToLog.NULL_FREQUENCY = Object.assign(constants.NULL_FREQUENCY);
+            eventToLog.null_frequency = Object.assign(constants.NULL_FREQUENCY);
         }
         if (! this.isUndefinedOrNull(constants.MAX_SPEED)) {
-            eventToLog.MAX_SPEED = Object.assign(constants.MAX_SPEED);
+            eventToLog.max_speed = Object.assign(constants.MAX_SPEED);
         }
         if (! this.isUndefinedOrNull(constants.MIN_SPEED)) {
-            eventToLog.MIN_SPEED = Object.assign(constants.MIN_SPEED);
+            eventToLog.min_speed = Object.assign(constants.MIN_SPEED);
         }
         if (! this.isUndefinedOrNull(constants.INTERVAL)) {
-            eventToLog.INTERVAL = Object.assign(constants.INTERVAL);
+            eventToLog.interval = Object.assign(constants.INTERVAL);
         }
         if (! this.isUndefinedOrNull(constants.vol)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayRate)) {
-            eventToLog.autoPlayRate = Object.assign(constants.autoPlayRate);
+            eventToLog.autoplay_rate = Object.assign(constants.autoPlayRate);
         }
         if (! this.isUndefinedOrNull(constants.colorSelected)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
         if (! this.isUndefinedOrNull(constants.brailleDisplayLength)) {
-            eventToLog.brailleDisplayLength = Object.assign(constants.brailleDisplayLength);
+            eventToLog.braille_display_length = Object.assign(constants.brailleDisplayLength);
         }
         if (! this.isUndefinedOrNull(constants.duration)) {
-            eventToLog.toneDuration = Object.assign(constants.duration);
+            eventToLog.tone_duration = Object.assign(constants.duration);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
-            eventToLog.autoPlayOutlierRate = Object.assign(constants.autoPlayOutlierRate);
+            eventToLog.autoplay_outlier_rate = Object.assign(constants.autoPlayOutlierRate);
         }
         if (! this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
-            eventToLog.autoPlayPointsRate = Object.assign(constants.autoPlayPointsRate);
+            eventToLog.autoplay_points_rate = Object.assign(constants.autoPlayPointsRate);
         }
         if (! this.isUndefinedOrNull(constants.textMode)) {
-            eventToLog.textMode = Object.assign(constants.textMode);
+            eventToLog.text_mode = Object.assign(constants.textMode);
         }
         if (! this.isUndefinedOrNull(constants.sonifMode)) {
-            eventToLog.sonificationMode = Object.assign(constants.sonifMode);
+            eventToLog.sonification_mode = Object.assign(constants.sonifMode);
         }
         if (! this.isUndefinedOrNull(constants.brailleMode)) {
-            eventToLog.brailleMode = Object.assign(constants.brailleMode);
+            eventToLog.braille_mode = Object.assign(constants.brailleMode);
         }
         if (! this.isUndefinedOrNull(constants.layer)) {
-            eventToLog.scatterplotLayer = Object.assign(constants.layer);
+            eventToLog.layer = Object.assign(constants.layer);
         }
         if (! this.isUndefinedOrNull(constants.chartType)) {
-            eventToLog.chartType = Object.assign(constants.chartType);
+            eventToLog.chart_type = Object.assign(constants.chartType);
         }
         if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             let textDisplay = Object.assign(constants.infoDiv.innerHTML);
             textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, '');
-            eventToLog.textDisplay = textDisplay;
+            eventToLog.text_display = textDisplay;
         }
         if (! this.isUndefinedOrNull(location.href)) {
             eventToLog.location = Object.assign(location.href);
         }
 
         // chart specific values
+        let x_tickmark = "";
+        let y_tickmark = "";
+        let x_label = "";
+        let y_label = "";
+        let value = "";
+        let fill_value = "";
         if ( constants.chartType == "barchart" ) {
             if (! this.isUndefinedOrNull(plot.plotColumns[position.x])) {
-                eventToLog.chart_label = Object.assign(plot.plotColumns[position.x]);
-            }
-            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
-                eventToLog.chart_legend_y = Object.assign(plot.plotLegend.y);
+                x_tickmark = plot.plotColumns[position.x];
             }
             if (! this.isUndefinedOrNull(plot.plotLegend.x)) {
-                eventToLog.chart_legend_x = Object.assign(plot.plotLegend.x);
+                x_label = plot.plotLegend.x;
+            }
+            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
+                y_label = plot.plotLegend.y;
+            }
+            if (! this.isUndefinedOrNull(plot.plotData[position.x])) {
+                value = plot.plotData[position.x];
             }
         } else if ( constants.chartType == "heatmap" ) {
             if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
-                eventToLog.chart_label_x = Object.assign(plot.x_labels[position.x].trim());
+                x_tickmark = plot.x_labels[position.x].trim();
             }
             if (! this.isUndefinedOrNull(plot.y_labels[position.y])) {
-                eventToLog.chart_label_y = Object.assign(plot.y_labels[position.y].trim());
+                y_tickmark = plot.y_labels[position.y].trim();
+            }
+            if (! this.isUndefinedOrNull(plot.x_group_label)) {
+                x_label = plot.x_group_label;
+            }
+            if (! this.isUndefinedOrNull(plot.y_group_label)) {
+                y_label = plot.y_group_label;
+            }
+            if (! this.isUndefinedOrNull(plot.values[position.x][position.y])) {
+                value = plot.values[position.x][position.y];
+            }
+            if (! this.isUndefinedOrNull(plot.group_labels[2]) ) {
+                fill_value = plot.group_labels[2];
             }
         } else if ( constants.chartType == "boxplot" ) {
             let plotPos = orientation == "vert" ? position.x : position.y;
             let sectionPos = orientation == "vert" ? position.y : position.x;
-            let y_label = "";
-            let x_label = "";
 
+            if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
+                x_label = plot.x_group_label;
+            }
+            if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
+                y_label = plot.y_group_label;
+            }
             if ( orientation == "vert" ) {
-                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
-                    x_label += plot.x_group_label + ": ";
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+                    y_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.x_labels) ) {
-                    x_label += plot.x_labels[plotPos];
+                if ( ! this.isUndefinedOrNull(plot.x_labels[position.x]) ) {
+                    x_tickmark = plot.x_labels[position.x]
                 }
-                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
-                    y_label += plot.y_group_label + ": ";
-                }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
-                    y_label += plot.plotData[plotPos][sectionPos].label;
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y) ) {
+                    value = plot.plotData[plotPos][sectionPos].y;
                 }
             } else {
-                if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
-                    y_label += plot.y_group_label + ": ";
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+                    x_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.y_labels) ) {
-                    y_label += plot.y_labels[plotPos];
+                if ( ! this.isUndefinedOrNull(plot.y_labels[position.y]) ) {
+                    y_tickmark = plot.y_labels[position.y]
                 }
-                if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
-                    x_label += plot.x_group_label + ": ";
-                }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label ) ) {
-                    x_label += plot.plotData[plotPos][sectionPos].label;
-                }
-            }
-
-            eventToLog.chart_label_x = x_label;
-            eventToLog.chart_label_y = y_label;
-
-            if ( position ) {
-                if ( plotPos > -1 && sectionPos > -1 ) {
-                    if ( plotPos < plot.plotData.length ) {
-                        if ( sectionPos < plot.plotData[plotPos].length ) {
-                            if (! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
-                                eventToLog.chart_section = Object.assign(plot.plotData[plotPos][sectionPos].label);
-                            }
-                        }
-                    }
+                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x) ) {
+                    value = plot.plotData[plotPos][sectionPos].x;
                 }
             }
         } else if ( constants.chartType == "scatterplot" ) {
-            if ( constants.layer == 0 && plot.y[position.x] != undefined) {
-                eventToLog.chart_label_x = Object.assign(plot.x_group_label + " " + plot.x[position.x] + ", " + plot.y_group_label + " [" + plot.y[position.x].join(", ") + "]");
-            } else {
-                eventToLog.chart_label_y = Object.assign(plot.x_group_label + " " + plot.curveX[positionL1.x] + ", " + plot.y_group_label + " " + plot.curvePoints[positionL1.x]);
+            if ( ! this.isUndefinedOrNull(plot.x_group_label) ) {
+                x_label = plot.x_group_label;
             }
+            if ( ! this.isUndefinedOrNull(plot.y_group_label) ) {
+                y_label = plot.y_group_label;
+            }
+
+            if ( ! this.isUndefinedOrNull(plot.x[position.x]) ) {
+                x_tickmark = plot.x[position.x];
+            }
+            if ( ! this.isUndefinedOrNull(plot.y[position.x]) ) {
+                y_tickmark = plot.y[position.x];
+            }
+
+            value = [x_tickmark, y_tickmark];
         }
 
-        //this.data.events.push(eventToLog);
+        eventToLog.x_tickmark = Object.assign(x_tickmark);
+        eventToLog.y_tickmark = Object.assign(y_tickmark);
+        eventToLog.x_label = Object.assign(x_label);
+        eventToLog.y_label = Object.assign(y_label);
+        eventToLog.value = Object.assign(value);
+        eventToLog.fill_value = Object.assign(fill_value);
+
+        //console.log("x_tickmark: '", x_tickmark, "', y_tickmark: '", y_tickmark, "', x_label: '", x_label, "', y_label: '", y_label, "', value: '", value, "', fill_value: '", fill_value);
+
         let data = this.GetTrackerData();
         data.events.push(eventToLog);
         this.SaveTrackerData(data);
     }
 
     isUndefinedOrNull(item) {
-        return ( item === undefined || item === null ) ;
+        try {
+            return ( item === undefined || item === null ) ;
+        } catch {
+            return true;
+        }
     }
 
 }
