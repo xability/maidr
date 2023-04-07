@@ -8,11 +8,12 @@ library(gapminder)
 
 
 # Bar plot sample
-ggplot(mpg, aes(class)) +
-  geom_bar()
+ggplot(diamonds, aes(cut)) +
+  geom_bar() +
+  labs(title = "The Number of Diamonds by Cut.", x = "Cut", y = "Count")
 
 
-gridSVG::grid.export("barplot.svg")
+gridSVG::grid.export("barplot_labels.svg")
 dev.off()
 
 library(tidyverse)
@@ -41,9 +42,10 @@ gapminder %>%
 
 # Box plot sample
 ggplot(data = mpg, mapping = aes(y = class, x = hwy)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = "Highway Mileage by Car Class.", x = "Highway Mileage", y = "Car Class")
 
-gridSVG::grid.export("boxplot.svg")
+gridSVG::grid.export("boxplot_label.svg")
 dev.off()
 
 
@@ -130,7 +132,8 @@ gapminder %>%
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
   # geom_point(position = "jitter") +
   geom_point() +
-  geom_smooth(method = "loess", se = FALSE)
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Highway Mileage by Engine Displacement.", x = "Engine Displacement", y = "Highway Mileage")
 
 # Save ggplot data to json
 library(tidyverse)
@@ -213,9 +216,10 @@ penguins %>%
   ggplot(aes(x = island, y = species, fill = n)) +
   geom_tile(color = "black") +
   scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
-  coord_fixed()
+  coord_fixed() +
+  labs(title = "Penguin Species by Island", x = "Island", y = "Species", fill = "Count")
 
-gridSVG::grid.export("heatmap.svg")
+gridSVG::grid.export("heatmap_label.svg")
 dev.off()
 
 
