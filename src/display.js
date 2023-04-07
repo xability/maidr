@@ -41,7 +41,7 @@ class Display {
             this.announceText("Braille is not supported in point layer.");
             return;
         }
-        if ( typeof(onoff) === 'undefined' ) {
+        if (typeof (onoff) === 'undefined') {
             onoff = constants.brailleMode == "on" ? "off" : "on";
         }
         if (onoff == "on") {
@@ -68,15 +68,15 @@ class Display {
 
             // braille mode is on before navigation of svg
             // very important to make sure braille works properly
-            if (position.x == -1 && position.y == -1) { 
+            if (position.x == -1 && position.y == -1) {
                 constants.brailleInput.setSelectionRange(0, 0);
             }
         } else {
             constants.brailleMode = "off";
             constants.brailleInput.classList.add('hidden');
 
-            if ( constants.review_container ) {
-                if ( ! constants.review_container.classList.contains('hidden') ) {
+            if (constants.review_container) {
+                if (!constants.review_container.classList.contains('hidden')) {
                     constants.review.focus();
                 } else {
                     constants.svg.focus();
@@ -214,7 +214,7 @@ class Display {
             let textTerse = "";
             let textVerbose = "";
 
-            if ( plot.plotData[plotPos][sectionPos].label == 'lower_outlier' || plot.plotData[plotPos][sectionPos].label == 'upper_outlier' ) {
+            if (plot.plotData[plotPos][sectionPos].label == 'lower_outlier' || plot.plotData[plotPos][sectionPos].label == 'upper_outlier') {
                 isOutlier = true;
             }
             if (plot.plotData[plotPos][sectionPos].type == "outlier") {
@@ -227,9 +227,9 @@ class Display {
 
             } else if (plot.plotData[plotPos][sectionPos].type == "blank") {
                 val = '';
-                if ( isOutlier ) numPoints = 0;
+                if (isOutlier) numPoints = 0;
             } else {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     val = plot.plotData[plotPos][sectionPos].y;
                 } else {
                     val = plot.plotData[plotPos][sectionPos].x;
@@ -239,22 +239,22 @@ class Display {
             // set output
 
             // group label for verbose
-                if ( constants.navigation ) {
-                    if ( plot.x_group_label ) textVerbose += plot.x_group_label;
-                } else if ( ! constants.navigation ) {
-                    if ( plot.y_group_label ) textVerbose += plot.y_group_label;
-                }
+            if (constants.navigation) {
+                if (plot.x_group_label) textVerbose += plot.x_group_label;
+            } else if (!constants.navigation) {
+                if (plot.y_group_label) textVerbose += plot.y_group_label;
+            }
             // and axis label
-            if ( constants.navigation ) {
-                if ( plot.x_labels[plotPos] ) {
+            if (constants.navigation) {
+                if (plot.x_labels[plotPos]) {
                     textVerbose += " is ";
                     textTerse += plot.x_labels[plotPos] + ", ";
                     textVerbose += plot.x_labels[plotPos] + ", ";
                 } else {
                     textVerbose += ", ";
                 }
-            } else if ( ! constants.navigation ) {
-                if ( plot.y_labels[plotPos] ) {
+            } else if (!constants.navigation) {
+                if (plot.y_labels[plotPos]) {
                     textVerbose += " is ";
                     textTerse += plot.y_labels[plotPos] + ", ";
                     textVerbose += plot.y_labels[plotPos] + ", ";
@@ -263,18 +263,18 @@ class Display {
                 }
             }
             // outliers
-            if ( isOutlier ) {
+            if (isOutlier) {
                 textTerse += numPoints + " ";
                 textVerbose += numPoints + " ";
             }
             // label
             textVerbose += resources.GetString(plot.plotData[plotPos][sectionPos].label);
-            if ( numPoints == 1 ) textVerbose += ' is ';
+            if (numPoints == 1) textVerbose += ' is ';
             else {
                 textVerbose += 's ';
-                if ( numPoints > 1 ) textVerbose += ' are ';
+                if (numPoints > 1) textVerbose += ' are ';
             }
-            if ( isOutlier || ( constants.navigation && orientation == "horz" ) || ( ! constants.navigation && orientation == "vert" ) ) {
+            if (isOutlier || (constants.navigation && orientation == "horz") || (!constants.navigation && orientation == "vert")) {
 
                 textTerse += resources.GetString(plot.plotData[plotPos][sectionPos].label);
 
@@ -285,7 +285,7 @@ class Display {
                 textTerse += " ";
             }
             // val
-            if ( plot.plotData[plotPos][sectionPos].type == "blank" && ! isOutlier ) {
+            if (plot.plotData[plotPos][sectionPos].type == "blank" && !isOutlier) {
                 textTerse += "empty";
                 textVerbose += "empty";
             } else {
@@ -294,8 +294,8 @@ class Display {
             }
 
             verboseText = textVerbose; // yeah it's an extra var, who cares
-            if ( constants.textMode == "verbose" ) output = '<p>' + textVerbose + '</p>\n';
-            else if ( constants.textMode == "terse" ) output = '<p>' + textTerse + '</p>\n';
+            if (constants.textMode == "verbose") output = '<p>' + textVerbose + '</p>\n';
+            else if (constants.textMode == "terse") output = '<p>' + textTerse + '</p>\n';
 
         } else if (constants.chartType == "scatterplot") {
             if (constants.layer == 1) { // point layer
@@ -323,12 +323,12 @@ class Display {
                     // set from verboseText
                 }
             }
-            if ( constants.textMode == "verbose" ) output = '<p>' + verboseText + '</p>\n';
+            if (constants.textMode == "verbose") output = '<p>' + verboseText + '</p>\n';
         }
 
-        if ( constants.infoDiv ) constants.infoDiv.innerHTML = output;
-        if ( constants.review ) {
-            if ( output.length > 0 ) {
+        if (constants.infoDiv) constants.infoDiv.innerHTML = output;
+        if (constants.review) {
+            if (output.length > 0) {
                 constants.review.value = output.replace(/<[^>]*>?/gm, '');
             } else {
                 constants.review.value = verboseText;
@@ -342,21 +342,21 @@ class Display {
             xlabel = plot.plotLegend.x;
         } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
             xlabel = plot.x_group_label;
-        } 
+        }
         if (constants.textMode == "terse") {
             constants.infoDiv.innerHTML = '<p>' + xlabel + '<p>';
         } else if (constants.textMode == "verbose") {
             constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
         }
     }
-    
+
     displayYLabel(plot) {
         let ylabel = "";
         if (constants.chartType == "barchart") {
             ylabel = plot.plotLegend.y;
         } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
             ylabel = plot.y_group_label;
-        } 
+        }
         if (constants.textMode == "terse") {
             constants.infoDiv.innerHTML = '<p>' + ylabel + '<p>';
         } else if (constants.textMode == "verbose") {
@@ -467,7 +467,7 @@ class Display {
                 let point = plot.plotData[plotPos][i];
                 // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
                 let visualBraille = false;
-                if ( point.values && visualBraille ) {
+                if (point.values && visualBraille) {
                     point.values = [...new Set(point.values)];
                 }
 
@@ -494,7 +494,7 @@ class Display {
                     }
                     charData = {};
                     let minVal = orientation == "vert" ? constants.minY : constants.minX;
-                    if ( firstCoord - minVal > 0 ) {
+                    if (firstCoord - minVal > 0) {
                         charData.length = firstCoord;
                     } else {
                         charData.length = 0;
@@ -628,28 +628,28 @@ class Display {
             let loc75 = -1;
             // prepopulate a single char each
             for (let i = 0; i < brailleData.length; i++) {
-                if (brailleData[i].type != 'blank' && ( brailleData[i].length > 0 || brailleData[i].type == 'outlier' ) ) {
+                if (brailleData[i].type != 'blank' && (brailleData[i].length > 0 || brailleData[i].type == 'outlier')) {
                     brailleData[i].numChars = 1;
                 } else {
                     brailleData[i].numChars = 0;
                 }
 
                 // store 25/75 min/max locations so we can check them later more easily
-                if (brailleData[i].label == 'min' && brailleData[i].length > 0 ) locMin = i;
-                if (brailleData[i].label == 'max' && brailleData[i].length > 0 ) locMax = i;
-                if (brailleData[i].label == '25' ) loc25 = i;
-                if (brailleData[i].label == '75' ) loc75 = i;
+                if (brailleData[i].label == 'min' && brailleData[i].length > 0) locMin = i;
+                if (brailleData[i].label == 'max' && brailleData[i].length > 0) locMax = i;
+                if (brailleData[i].label == '25') loc25 = i;
+                if (brailleData[i].label == '75') loc75 = i;
 
                 // 50 gets 2 characters by default
                 if (brailleData[i].label == '50') brailleData[i].numChars = 2;
             }
             // add extras to 25/75 min/max if needed 
-            let currentPairs = ['25','75'];
+            let currentPairs = ['25', '75'];
             if (locMin > -1 && locMax > -1) {
                 currentPairs.push('min'); // we add these seperately because we don't always have both min and max
                 currentPairs.push('max');
                 if (brailleData[locMin].length != brailleData[locMax].length) {
-                    if (brailleData[locMin].length > brailleData[locMax].length ) { // make sure if they're different, they appear different
+                    if (brailleData[locMin].length > brailleData[locMax].length) { // make sure if they're different, they appear different
                         brailleData[locMin].numChars++;
                     } else {
                         brailleData[locMax].numChars++;
@@ -684,7 +684,7 @@ class Display {
                 if (!(brailleData[maxImpactI].label in currentPairs)) {
                     brailleData[maxImpactI].numChars++;
                     charsAvailable--;
-                } else if (brailleData[maxImpactI].label in ['min','max']) {
+                } else if (brailleData[maxImpactI].label in ['min', 'max']) {
                     // if they're equal, add to both
                     if (brailleData[locMin].length == brailleData[locMax].length) {
                         if (charsAvailable > 1) {

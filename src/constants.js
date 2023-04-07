@@ -52,7 +52,7 @@ class Constants {
     INTERVAL = 50;
 
     // user settings
-    vol = .5; 
+    vol = .5;
     MAX_VOL = 30;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
@@ -95,22 +95,22 @@ class Constants {
 
         // info aria live
         if (!document.getElementById(this.info_id)) {
-            if ( document.getElementById(this.svg_container_id) ) {
+            if (document.getElementById(this.svg_container_id)) {
                 document.getElementById(this.svg_container_id).insertAdjacentHTML('afterend', '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n');
             }
         }
 
         // announcements aria live
         if (!document.getElementById(this.announcement_container_id)) {
-            if ( document.getElementById(this.info_id) ) {
+            if (document.getElementById(this.info_id)) {
                 document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n');
             }
         }
 
         // braille
         if (!document.getElementById(this.braille_container_id)) {
-            if ( document.getElementById(this.container_id) ) {
-            document.getElementById(this.container_id).insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
+            if (document.getElementById(this.container_id)) {
+                document.getElementById(this.container_id).insertAdjacentHTML('afterbegin', '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n');
             }
         }
 
@@ -121,8 +121,8 @@ class Constants {
         }
 
         // end chime audio element
-        if ( ! document.getElementById(this.end_chime_id) ) {
-            if ( document.getElementById(this.info_id) ) {
+        if (!document.getElementById(this.end_chime_id)) {
+            if (document.getElementById(this.info_id)) {
                 document.getElementById(this.info_id).insertAdjacentHTML('afterend', '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>');
             }
         }
@@ -375,7 +375,7 @@ class Tracker {
     DataSetup() {
 
         let prevData = this.GetTrackerData();
-        if ( prevData ) {
+        if (prevData) {
             // good to go already, do nothing
         } else {
             let data = {};
@@ -411,7 +411,7 @@ class Tracker {
         localStorage.removeItem(constants.project_id);
         this.data = null;
 
-        if ( constants.debugLevel > 0 ) {
+        if (constants.debugLevel > 0) {
             console.log("tracking data cleared");
         }
 
@@ -429,83 +429,83 @@ class Tracker {
         eventToLog.altKey = Object.assign(e.altKey);
         eventToLog.ctrlKey = Object.assign(e.ctrlKey);
         eventToLog.shiftKey = Object.assign(e.shiftKey);
-        if ( e.path ) {
+        if (e.path) {
             eventToLog.focus = Object.assign(e.path[0].tagName);
         }
 
         // settings etc, which we have to reassign otherwise they'll all be the same val
-        if (! this.isUndefinedOrNull(constants.position)) {
+        if (!this.isUndefinedOrNull(constants.position)) {
             eventToLog.position = Object.assign(constants.position);
         }
-        if (! this.isUndefinedOrNull(constants.minX)) {
+        if (!this.isUndefinedOrNull(constants.minX)) {
             eventToLog.min_x = Object.assign(constants.minX);
         }
-        if (! this.isUndefinedOrNull(constants.maxX)) {
+        if (!this.isUndefinedOrNull(constants.maxX)) {
             eventToLog.max_x = Object.assign(constants.maxX);
         }
-        if (! this.isUndefinedOrNull(constants.minY)) {
+        if (!this.isUndefinedOrNull(constants.minY)) {
             eventToLog.min_y = Object.assign(constants.minY);
         }
-        if (! this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
+        if (!this.isUndefinedOrNull(constants.MAX_FREQUENCY)) {
             eventToLog.max_frequency = Object.assign(constants.MAX_FREQUENCY);
         }
-        if (! this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
+        if (!this.isUndefinedOrNull(constants.MIN_FREQUENCY)) {
             eventToLog.min_frequency = Object.assign(constants.MIN_FREQUENCY);
         }
-        if (! this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
+        if (!this.isUndefinedOrNull(constants.NULL_FREQUENCY)) {
             eventToLog.null_frequency = Object.assign(constants.NULL_FREQUENCY);
         }
-        if (! this.isUndefinedOrNull(constants.MAX_SPEED)) {
+        if (!this.isUndefinedOrNull(constants.MAX_SPEED)) {
             eventToLog.max_speed = Object.assign(constants.MAX_SPEED);
         }
-        if (! this.isUndefinedOrNull(constants.MIN_SPEED)) {
+        if (!this.isUndefinedOrNull(constants.MIN_SPEED)) {
             eventToLog.min_speed = Object.assign(constants.MIN_SPEED);
         }
-        if (! this.isUndefinedOrNull(constants.INTERVAL)) {
+        if (!this.isUndefinedOrNull(constants.INTERVAL)) {
             eventToLog.interval = Object.assign(constants.INTERVAL);
         }
-        if (! this.isUndefinedOrNull(constants.vol)) {
+        if (!this.isUndefinedOrNull(constants.vol)) {
             eventToLog.volume = Object.assign(constants.vol);
         }
-        if (! this.isUndefinedOrNull(constants.autoPlayRate)) {
+        if (!this.isUndefinedOrNull(constants.autoPlayRate)) {
             eventToLog.autoplay_rate = Object.assign(constants.autoPlayRate);
         }
-        if (! this.isUndefinedOrNull(constants.colorSelected)) {
+        if (!this.isUndefinedOrNull(constants.colorSelected)) {
             eventToLog.color = Object.assign(constants.colorSelected);
         }
-        if (! this.isUndefinedOrNull(constants.brailleDisplayLength)) {
+        if (!this.isUndefinedOrNull(constants.brailleDisplayLength)) {
             eventToLog.braille_display_length = Object.assign(constants.brailleDisplayLength);
         }
-        if (! this.isUndefinedOrNull(constants.duration)) {
+        if (!this.isUndefinedOrNull(constants.duration)) {
             eventToLog.tone_duration = Object.assign(constants.duration);
         }
-        if (! this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
+        if (!this.isUndefinedOrNull(constants.autoPlayOutlierRate)) {
             eventToLog.autoplay_outlier_rate = Object.assign(constants.autoPlayOutlierRate);
         }
-        if (! this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
+        if (!this.isUndefinedOrNull(constants.autoPlayPointsRate)) {
             eventToLog.autoplay_points_rate = Object.assign(constants.autoPlayPointsRate);
         }
-        if (! this.isUndefinedOrNull(constants.textMode)) {
+        if (!this.isUndefinedOrNull(constants.textMode)) {
             eventToLog.text_mode = Object.assign(constants.textMode);
         }
-        if (! this.isUndefinedOrNull(constants.sonifMode)) {
+        if (!this.isUndefinedOrNull(constants.sonifMode)) {
             eventToLog.sonification_mode = Object.assign(constants.sonifMode);
         }
-        if (! this.isUndefinedOrNull(constants.brailleMode)) {
+        if (!this.isUndefinedOrNull(constants.brailleMode)) {
             eventToLog.braille_mode = Object.assign(constants.brailleMode);
         }
-        if (! this.isUndefinedOrNull(constants.layer)) {
+        if (!this.isUndefinedOrNull(constants.layer)) {
             eventToLog.layer = Object.assign(constants.layer);
         }
-        if (! this.isUndefinedOrNull(constants.chartType)) {
+        if (!this.isUndefinedOrNull(constants.chartType)) {
             eventToLog.chart_type = Object.assign(constants.chartType);
         }
-        if (! this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
+        if (!this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
             let textDisplay = Object.assign(constants.infoDiv.innerHTML);
             textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, '');
             eventToLog.text_display = textDisplay;
         }
-        if (! this.isUndefinedOrNull(location.href)) {
+        if (!this.isUndefinedOrNull(location.href)) {
             eventToLog.location = Object.assign(location.href);
         }
 
@@ -516,85 +516,85 @@ class Tracker {
         let y_label = "";
         let value = "";
         let fill_value = "";
-        if ( constants.chartType == "barchart" ) {
-            if (! this.isUndefinedOrNull(plot.plotColumns[position.x])) {
+        if (constants.chartType == "barchart") {
+            if (!this.isUndefinedOrNull(plot.plotColumns[position.x])) {
                 x_tickmark = plot.plotColumns[position.x];
             }
-            if (! this.isUndefinedOrNull(plot.plotLegend.x)) {
+            if (!this.isUndefinedOrNull(plot.plotLegend.x)) {
                 x_label = plot.plotLegend.x;
             }
-            if (! this.isUndefinedOrNull(plot.plotLegend.y)) {
+            if (!this.isUndefinedOrNull(plot.plotLegend.y)) {
                 y_label = plot.plotLegend.y;
             }
-            if (! this.isUndefinedOrNull(plot.plotData[position.x])) {
+            if (!this.isUndefinedOrNull(plot.plotData[position.x])) {
                 value = plot.plotData[position.x];
             }
-        } else if ( constants.chartType == "heatmap" ) {
-            if (! this.isUndefinedOrNull(plot.x_labels[position.x])) {
+        } else if (constants.chartType == "heatmap") {
+            if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
                 x_tickmark = plot.x_labels[position.x].trim();
             }
-            if (! this.isUndefinedOrNull(plot.y_labels[position.y])) {
+            if (!this.isUndefinedOrNull(plot.y_labels[position.y])) {
                 y_tickmark = plot.y_labels[position.y].trim();
             }
-            if (! this.isUndefinedOrNull(plot.x_group_label)) {
+            if (!this.isUndefinedOrNull(plot.x_group_label)) {
                 x_label = plot.x_group_label;
             }
-            if (! this.isUndefinedOrNull(plot.y_group_label)) {
+            if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if (! this.isUndefinedOrNull(plot.values[position.x][position.y])) {
+            if (!this.isUndefinedOrNull(plot.values[position.x][position.y])) {
                 value = plot.values[position.x][position.y];
             }
-            if (! this.isUndefinedOrNull(plot.group_labels[2]) ) {
+            if (!this.isUndefinedOrNull(plot.group_labels[2])) {
                 fill_value = plot.group_labels[2];
             }
-        } else if ( constants.chartType == "boxplot" ) {
+        } else if (constants.chartType == "boxplot") {
             let plotPos = orientation == "vert" ? position.x : position.y;
             let sectionPos = orientation == "vert" ? position.y : position.x;
 
-            if ( ! this.isUndefinedOrNull(plot.x_group_label ) ) {
+            if (!this.isUndefinedOrNull(plot.x_group_label)) {
                 x_label = plot.x_group_label;
             }
-            if ( ! this.isUndefinedOrNull(plot.y_group_label ) ) {
+            if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if ( orientation == "vert" ) {
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+            if (orientation == "vert") {
+                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
                     y_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.x_labels[position.x]) ) {
+                if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
                     x_tickmark = plot.x_labels[position.x]
                 }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values) ) {
+                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
                     value = plot.plotData[plotPos][sectionPos].values;
-                } else if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y) ) {
+                } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y)) {
                     value = plot.plotData[plotPos][sectionPos].y;
                 }
             } else {
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label) ) {
+                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
                     x_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }
-                if ( ! this.isUndefinedOrNull(plot.y_labels[position.y]) ) {
+                if (!this.isUndefinedOrNull(plot.y_labels[position.y])) {
                     y_tickmark = plot.y_labels[position.y]
                 }
-                if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values ) ) {
+                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
                     value = plot.plotData[plotPos][sectionPos].values;
-                } else if ( ! this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x) ) {
+                } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x)) {
                     value = plot.plotData[plotPos][sectionPos].x;
                 }
             }
-        } else if ( constants.chartType == "scatterplot" ) {
-            if ( ! this.isUndefinedOrNull(plot.x_group_label) ) {
+        } else if (constants.chartType == "scatterplot") {
+            if (!this.isUndefinedOrNull(plot.x_group_label)) {
                 x_label = plot.x_group_label;
             }
-            if ( ! this.isUndefinedOrNull(plot.y_group_label) ) {
+            if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
 
-            if ( ! this.isUndefinedOrNull(plot.x[position.x]) ) {
+            if (!this.isUndefinedOrNull(plot.x[position.x])) {
                 x_tickmark = plot.x[position.x];
             }
-            if ( ! this.isUndefinedOrNull(plot.y[position.x]) ) {
+            if (!this.isUndefinedOrNull(plot.y[position.x])) {
                 y_tickmark = plot.y[position.x];
             }
 
@@ -617,7 +617,7 @@ class Tracker {
 
     isUndefinedOrNull(item) {
         try {
-            return ( item === undefined || item === null ) ;
+            return (item === undefined || item === null);
         } catch {
             return true;
         }
@@ -628,20 +628,20 @@ class Tracker {
 class Review {
     constructor() {
         // review mode form field
-        if ( ! document.getElementById(constants.review_id) ) {
-            if ( document.getElementById(constants.info_id) ) {
+        if (!document.getElementById(constants.review_id)) {
+            if (document.getElementById(constants.info_id)) {
                 document.getElementById(constants.info_id).insertAdjacentHTML('beforebegin', '<div id="' + constants.review_id_container + '" class="hidden sr-only sr-only-focusable"><input id="' + constants.review_id + '" type="text" readonly size="50" /></div>')
             }
         }
 
-        if ( constants ) {
+        if (constants) {
             constants.review_container = document.querySelector('#' + constants.review_id_container);
             constants.review = document.querySelector('#' + constants.review_id);
         }
     }
 
     ToggleReviewMode(onoff = true) { // true means on or show
-        if ( onoff ) {
+        if (onoff) {
             constants.reviewSaveSpot = document.activeElement;
             constants.review_container.classList.remove('hidden');
             constants.reviewSaveBrailleMode = constants.brailleMode;
@@ -650,7 +650,7 @@ class Review {
             display.announceText("Review on");
         } else {
             constants.review_container.classList.add('hidden');
-            if ( constants.reviewSaveBrailleMode == "on" ) {
+            if (constants.reviewSaveBrailleMode == "on") {
                 // we have to turn braille mode back on
                 display.toggleBrailleMode('on');
             } else {
@@ -671,14 +671,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     window.tracker = new Tracker();
 
     // run events and functions only on user study page
-    if ( document.getElementById('download_data_trigger') ) {
-        document.getElementById('download_data_trigger').addEventListener('click', function(e) {
+    if (document.getElementById('download_data_trigger')) {
+        document.getElementById('download_data_trigger').addEventListener('click', function (e) {
             tracker.DownloadTrackerData();
         });
     }
 
     // run events only on pages with a chart (svg)
-    if ( document.getElementById(constants.svg_container_id) ) {
+    if (document.getElementById(constants.svg_container_id)) {
 
         constants.PrepChartHelperComponents(); // init html
         window.review = new Review();
@@ -687,11 +687,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // default page load focus on svg 
         // this is mostly for debugging, as first time load users must click or hit a key to focus
         // todo for publish: probably start users at a help / menu section, and they can tab to svg
-        if ( constants.debugLevel > 5 ) {
+        if (constants.debugLevel > 5) {
             setTimeout(function () { constants.svg.focus(); }, 100); // it needs just a tick after DOMContentLoaded
         }
 
-        if ( constants.svg_container ) {
+        if (constants.svg_container) {
             constants.svg_container.addEventListener("keydown", function (e) {
                 // Menu open
                 if (e.which == 72) { // M(77) for menu, or H(72) for help? I don't like it
@@ -730,11 +730,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         document.addEventListener('keydown', function (e) {
 
             // Tracker
-            if ( constants.isTracking ) {
+            if (constants.isTracking) {
                 if (e.which == 121) {
                     //tracker.DownloadTrackerData();
                 } else {
-                    if ( plot ) {
+                    if (plot) {
                         tracker.LogEvent(e);
                     }
                 }
@@ -747,9 +747,9 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
 
             // Review mode
-            if ( e.which == 82 && ! e.ctrlKey && ! e.shiftKey && ! e.altKey ) { // R, but let Ctrl etc R go through cause I use that to refresh
+            if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) { // R, but let Ctrl etc R go through cause I use that to refresh
                 e.preventDefault();
-                if ( constants.review_container.classList.contains('hidden') ) {
+                if (constants.review_container.classList.contains('hidden')) {
                     review.ToggleReviewMode(true);
                 } else {
                     review.ToggleReviewMode(false);
@@ -762,7 +762,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     document.addEventListener('keydown', function (e) {
         // reset tracking with Ctrl + F5 / command + F5, and Ctrl + Shift + R / command + Shift + R
         // future todo: this should probably be a button with a confirmation. This is dangerous
-        if ( ( e.which == 116 && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) || ( e.which == 82 && e.shiftKey && ( constants.isMac ? e.metaKey : e.ctrlKey ) ) ) {
+        if ((e.which == 116 && (constants.isMac ? e.metaKey : e.ctrlKey)) || (e.which == 82 && e.shiftKey && (constants.isMac ? e.metaKey : e.ctrlKey))) {
             e.preventDefault();
             tracker.Delete();
             location.reload(true);

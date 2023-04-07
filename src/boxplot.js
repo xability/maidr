@@ -12,8 +12,8 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    if ( orientation == "vert" ) {
-        window.position = new Position(0, plot.plotData[0].length-1);
+    if (orientation == "vert") {
+        window.position = new Position(0, plot.plotData[0].length - 1);
     } else {
         window.position = new Position(-1, plot.plotData.length);
     }
@@ -34,14 +34,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if ( orientation == "vert" ) {
-                        Autoplay('right', position.x, plot.plotData.length-1);
+                    if (orientation == "vert") {
+                        Autoplay('right', position.x, plot.plotData.length - 1);
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
                     }
                 } else {
                     isAtEnd = lockPosition();
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         position.x = plot.plotData.length - 1;
                     } else {
                         position.x = plot.plotData[position.y].length - 1;
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if ( orientation == "vert" ) {
+            } else if (orientation == "vert") {
                 if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
                     lastY = position.y;
                     Autoplay('reverse-right', plot.plotData.length - 1, position.x);
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x > 0) {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
@@ -105,13 +105,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
                         Autoplay('up', position.y, plot.plotData.length);
                     }
                 } else {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         position.y = plot.plotData[position.x].length - 1;
                     } else {
                         position.y = plot.plotData.length - 1;
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if ( orientation == "vert" ) {
+            } else if (orientation == "vert") {
                 if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1) {
                     lastY = position.y;
                     Autoplay('reverse-up', plot.plotData[position.x].length - 1, position.y);
@@ -152,14 +152,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
                 }
                 Autoplay('reverse-down', 0, position.y);
             } else {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                         position.x += 1;
                     }
@@ -177,10 +177,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update display / text / audio
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
 
@@ -199,13 +199,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if ( orientation == "vert" ) {
-                        Autoplay('right', position.x, plot.plotData.length-1);
+                    if (orientation == "vert") {
+                        Autoplay('right', position.x, plot.plotData.length - 1);
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
                     }
                 } else {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         position.x = plot.plotData.length - 1;
                     } else {
                         position.x = plot.plotData[position.y].length - 1;
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if ( orientation == "vert" ) {
+            } else if (orientation == "vert") {
                 if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
                     lastY = position.y;
                     Autoplay('reverse-right', plot.plotData.length - 1, position.x);
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x > 0) {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
@@ -267,22 +267,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         } else if (e.which === 38) { // up arrow 
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
-                if ( e.shiftKey ) {
-                    if ( orientation == "vert" ) {
-                        if ( position.x < 0 ) position.x = 0;
+                if (e.shiftKey) {
+                    if (orientation == "vert") {
+                        if (position.x < 0) position.x = 0;
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
                         Autoplay('up', position.y, plot.plotData.length);
                     }
-                } else if ( orientation == "vert" ) {
+                } else if (orientation == "vert") {
                     position.y = plot.plotData[position.x].length - 1;
                     updateInfoThisRound = true;
                 } else {
                     position.y = plot.plotData.length - 1;
                     updateInfoThisRound = true;
                 }
-            } else if ( orientation == "vert" ) {
-                if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1 ) {
+            } else if (orientation == "vert") {
+                if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1) {
                     lasY = position.y;
                     Autoplay('reverse-up', plot.plotData[position.x].length - 1, position.y);
                 } else {
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             }
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
             } else {
                 setBrailleThisRound = true;
             }
@@ -316,14 +316,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
                 }
                 Autoplay('reverse-down', 0, position.y);
             } else {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                         position.x += 1;
                     }
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 isAtEnd = lockPosition();
             }
             constants.navigation = 0;
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
             } else {
                 setBrailleThisRound = true;
             }
@@ -349,16 +349,16 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update audio. todo: add a setting for this later
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             if (setBrailleThisRound) display.SetBraille(plot);
             setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function(e) {
+        constants.brailleInput.addEventListener('focusout', function (e) {
             display.toggleBrailleMode('off');
         });
 
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
-    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+    for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener("keydown", function (e) {
 
             // B: braille mode
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // if (keys[76] && keys[89]) { // ly
         //     display.displayYLabel(plot);
         // }
-        
+
         // if (keys[76] && keys[84]) { // lt
         //     display.displayTitle(plot);
         // }
@@ -475,31 +475,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('right', position.y, lastY);
                     } else {
                         Autoplay('right', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-right') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('left', position.y, lastY);
                     } else {
                         Autoplay('left', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-up') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('down', position.y, lastY);
                     } else {
                         Autoplay('down', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-down') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('up', position.y, lastY);
                     } else {
                         Autoplay('up', position.x, lastx);
                     }
                 } else {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay(lastPlayed, position.y, lastY);
                     } else {
                         Autoplay(lastPlayed, position.x, lastx);
@@ -514,31 +514,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('right', position.y, lastY);
                     } else {
                         Autoplay('right', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-right') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('left', position.y, lastY);
                     } else {
                         Autoplay('left', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-up') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('down', position.y, lastY);
                     } else {
                         Autoplay('down', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-down') {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay('up', position.y, lastY);
                     } else {
                         Autoplay('up', position.x, lastx);
                     }
                 } else {
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         Autoplay(lastPlayed, position.y, lastY);
                     } else {
                         Autoplay(lastPlayed, position.x, lastx);
@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
-        if ( orientation == "vert" ) {
+        if (orientation == "vert") {
             if (position.y < 0) {
                 position.y = 0;
                 isLockNeeded = true;
@@ -684,37 +684,37 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.y = start;
         }
 
-        if ( constants.debugLevel > 0 ) {
+        if (constants.debugLevel > 0) {
             console.log('starting autoplay', dir);
         }
 
         UpdateAllAutoplay(); // play current tone before we move
         constants.autoplayId = setInterval(function () {
             let doneNext = false;
-            if ( dir == "left" || dir == "right" || dir == "up" || dir == "down" ) {
-                if ( 
-                    ( position.x < 1 && dir == "left" ) ||
-                    ( orientation == "vert" && dir == "up" && position.y > plot.plotData[position.x].length - 2 ) ||
-                    ( orientation == "horz" && dir == "up" && position.y > plot.plotData.length - 2 ) ||
-                    ( orientation == "horz" && dir == "right" && position.x > plot.plotData[position.y].length - 2 ) ||
-                    ( orientation == "vert" && dir == "right" && position.x > plot.plotData.length - 2 ) ||
-                    ( orientation == "horz" && dir == "down" && position.y < 1 ) ||
-                    ( orientation == "vert" && dir == "down" && position.y < 1 ) 
+            if (dir == "left" || dir == "right" || dir == "up" || dir == "down") {
+                if (
+                    (position.x < 1 && dir == "left") ||
+                    (orientation == "vert" && dir == "up" && position.y > plot.plotData[position.x].length - 2) ||
+                    (orientation == "horz" && dir == "up" && position.y > plot.plotData.length - 2) ||
+                    (orientation == "horz" && dir == "right" && position.x > plot.plotData[position.y].length - 2) ||
+                    (orientation == "vert" && dir == "right" && position.x > plot.plotData.length - 2) ||
+                    (orientation == "horz" && dir == "down" && position.y < 1) ||
+                    (orientation == "vert" && dir == "down" && position.y < 1)
                 ) {
                     doneNext = true;
                 }
             } else {
-                if ( 
-                    ( dir == "reverse-left" && position.x >= end ) || 
-                    ( dir == "reverse-right" && position.x <= end ) || 
-                    ( dir == "reverse-up" && position.y <= end ) || 
-                    ( dir == "reverse-down" && position.y >= end ) 
+                if (
+                    (dir == "reverse-left" && position.x >= end) ||
+                    (dir == "reverse-right" && position.x <= end) ||
+                    (dir == "reverse-up" && position.y <= end) ||
+                    (dir == "reverse-down" && position.y >= end)
                 ) {
                     doneNext = true;
                 }
             }
 
-            if ( doneNext ) {
+            if (doneNext) {
                 constants.KillAutoplay();
             } else {
                 if (dir == "left" || dir == "right" || dir == "reverse-left" || dir == "reverse-right") {
@@ -724,7 +724,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 }
                 UpdateAllAutoplay();
             }
-            if ( constants.debugLevel > 5 ) {
+            if (constants.debugLevel > 5) {
                 console.log('autoplay pos', position);
             }
         }, constants.autoPlayRate);
@@ -737,10 +737,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BoxPlot {
 
     constructor() {
-        if ( boxplotId ) {
+        if (boxplotId) {
             constants.plotId = boxplotId;
         }
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             this.title = (typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null) ? boxplotTitle : "";
             this.x_group_label = boxplotLabels.x_group_label;
             this.y_group_label = boxplotLabels.y_group_label;
@@ -751,7 +751,7 @@ class BoxPlot {
         } else {
             this.x_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
             this.y_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 this.x_labels = this.GetLabels();
                 this.y_labels = [];
             } else {
@@ -777,31 +777,31 @@ class BoxPlot {
     CleanData() {
         // we manually input data, so now we need to clean it up and set other vars
 
-        if ( orientation == "vert" ) {
+        if (orientation == "vert") {
             constants.minY = 0;
             constants.maxY = 0;
-            for ( let i = 0 ; i < boxplotData.length ; i++ ) { // each plot
-                for ( let j = 0 ; j < boxplotData[i].length; j++ ) { // each section in plot
+            for (let i = 0; i < boxplotData.length; i++) { // each plot
+                for (let j = 0; j < boxplotData[i].length; j++) { // each section in plot
                     let point = boxplotData[i][j];
-                    if ( point.hasOwnProperty('y') ) {
-                        if ( point.y < constants.minY ) {
+                    if (point.hasOwnProperty('y')) {
+                        if (point.y < constants.minY) {
                             constants.yMin = point.y;
                         }
-                        if ( point.hasOwnProperty('yMax') ) {
-                            if ( point.yMax > constants.maxY ) {
+                        if (point.hasOwnProperty('yMax')) {
+                            if (point.yMax > constants.maxY) {
                                 constants.maxY = point.yMax;
                             }
                         } else {
-                            if ( point.y > constants.maxY ) {
+                            if (point.y > constants.maxY) {
                                 constants.maxY = point.y;
                             }
                         }
                     }
-                    if ( point.hasOwnProperty('x') ) {
-                        if ( point.x < constants.minX ) {
+                    if (point.hasOwnProperty('x')) {
+                        if (point.x < constants.minX) {
                             constants.minX = point.x;
                         }
-                        if ( point.x > constants.maxX ) {
+                        if (point.x > constants.maxX) {
                             constants.maxX = point.x;
                         }
                     }
@@ -810,28 +810,28 @@ class BoxPlot {
         } else {
             constants.minX = 0;
             constants.maxX = 0;
-            for ( let i = 0 ; i < boxplotData.length ; i++ ) { // each plot
-                for ( let j = 0 ; j < boxplotData[i].length; j++ ) { // each section in plot
+            for (let i = 0; i < boxplotData.length; i++) { // each plot
+                for (let j = 0; j < boxplotData[i].length; j++) { // each section in plot
                     let point = boxplotData[i][j];
-                    if ( point.hasOwnProperty('x') ) {
-                        if ( point.x < constants.minX ) {
+                    if (point.hasOwnProperty('x')) {
+                        if (point.x < constants.minX) {
                             constants.xMin = point.x;
                         }
-                        if ( point.hasOwnProperty('xMax') ) {
-                            if ( point.xMax > constants.maxX ) {
+                        if (point.hasOwnProperty('xMax')) {
+                            if (point.xMax > constants.maxX) {
                                 constants.maxX = point.xMax;
                             }
                         } else {
-                            if ( point.x > constants.maxX ) {
+                            if (point.x > constants.maxX) {
                                 constants.maxX = point.x;
                             }
                         }
                     }
-                    if ( point.hasOwnProperty('y') ) {
-                        if ( point.y < constants.minY ) {
+                    if (point.hasOwnProperty('y')) {
+                        if (point.y < constants.minY) {
                             constants.minY = point.y;
                         }
-                        if ( point.y > constants.maxY ) {
+                        if (point.y > constants.maxY) {
                             constants.maxY = point.y;
                         }
                     }
@@ -862,7 +862,7 @@ class BoxPlot {
                     let segmentPoints = this.GetBoxplotSegmentPoints(segment, segmentType);
 
                     for (let l = 0; l < segmentPoints.length; l += 2) {
-                        if ( segmentType == 'whisker' && l == 0  && orientation == "vert" ) {
+                        if (segmentType == 'whisker' && l == 0 && orientation == "vert") {
                         } else {
                             let thisPoint = { 'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l + 1]), 'type': segmentType }
                             if (thisPoint.y > constants.maxY) constants.maxY = thisPoint.y;
@@ -875,14 +875,14 @@ class BoxPlot {
             // post processing
             // Sort this plot
             points.sort(function (a, b) {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     return a.y - b.y;
                 } else {
                     return a.x - b.x;
                 }
             });
 
-            if ( orientation == "horz" ) {
+            if (orientation == "horz") {
                 // and remove whisker from range dups
                 let noDupPoints = [];
                 for (let d = 0; d < points.length; d++) {
@@ -908,7 +908,7 @@ class BoxPlot {
 
         // put plots in order
         plotData.sort(function (a, b) {
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 return a[0].x - b[0].x;
             } else {
                 return a[0].y - b[0].y;
@@ -936,7 +936,7 @@ class BoxPlot {
                     let vals = [];
                     for (let k = 0; k < outlierGroup.length; k++) {
                         // save array of values
-                        if ( orientation == "vert" ) {
+                        if (orientation == "vert") {
                             vals.push(outlierGroup[k].y);
                         } else {
                             vals.push(outlierGroup[k].x);
@@ -949,7 +949,7 @@ class BoxPlot {
                     }
 
                     // save data
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         plotData[i][j - outlierGroup.length].y = outlierGroup[0].y;
                         plotData[i][j - outlierGroup.length].yMax = outlierGroup[outlierGroup.length - 1].y;
                     } else {
@@ -972,7 +972,7 @@ class BoxPlot {
                     cleanData[i][j] = plotData[i][j];
                 }
             }
-            cleanData[i] = cleanData[i].filter(function(){return true;});
+            cleanData[i] = cleanData[i].filter(function () { return true; });
         }
         plotData = cleanData;
 
@@ -1035,8 +1035,8 @@ class BoxPlot {
         }
 
         // update 50% value as a midpoint of 25 and 75
-        for ( let i = 0 ; i < plotData.length ; i++ ) {
-            plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y)/2);
+        for (let i = 0; i < plotData.length; i++) {
+            plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y) / 2);
         }
 
         if (constants.debugLevel > 1) {
@@ -1059,7 +1059,7 @@ class BoxPlot {
         for (let i = 0; i < plots.length; i++) { // each plot
             let plotSet = {};
             let sections = plots[i].children;
-            for (let j = 0; j < sections.length; j++) { 
+            for (let j = 0; j < sections.length; j++) {
                 let elemType = this.GetBoxplotSegmentType(sections[j].getAttribute('id'));
                 plotSet[elemType] = sections[j];
             }
@@ -1069,7 +1069,7 @@ class BoxPlot {
         // we build our structure based on the full set we need, and have blanks as placeholders
         // many of these overlap or are missing, so now we go through and make the actual array structure we need
         // like, all outliers are in 1 set, so we have to split those out and then get the bounding boxes
-        for ( let i = 0 ; i < initialElemSet.length ; i++ ) {
+        for (let i = 0; i < initialElemSet.length; i++) {
             let plotBound = [];
 
             // we always have a range, and need those bounds to set others, so we'll do this first
@@ -1082,13 +1082,13 @@ class BoxPlot {
             // vert: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
             // horz: top(rangePoints[0]) | mid(midPoints[0]) | bottom(rangePoints[2])
             let midPercent = 0;
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 midPercent = (midPoints[1] - rangePoints[3]) / (rangePoints[1] - rangePoints[3]);
             } else {
                 midPercent = (midPoints[0] - rangePoints[2]) / (rangePoints[0] - rangePoints[2]);
             }
             let midSize = 0;
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 midSize = rangeBounds.height * midPercent;
             } else {
                 midSize = rangeBounds.width * midPercent;
@@ -1101,7 +1101,7 @@ class BoxPlot {
             plotBound[2] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[2].label = allWeNeed[2];
             plotBound[2].type = 'range';
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 plotBound[2].height = midSize;
                 plotBound[2].top = plotBound[2].bottom - midSize;
                 plotBound[2].y = plotBound[2].top;
@@ -1109,10 +1109,10 @@ class BoxPlot {
                 plotBound[2].width = midSize;
             }
             // 50%
-            plotBound[3] = this.convertBoundingClientRectToObj(rangeBounds); 
+            plotBound[3] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[3].label = allWeNeed[3];
             plotBound[3].type = 'range';
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 plotBound[3].height = 0;
                 plotBound[3].top = rangeBounds.bottom - midSize;
                 plotBound[3].y = plotBound[3].top;
@@ -1122,10 +1122,10 @@ class BoxPlot {
                 plotBound[3].left = rangeBounds.left + midSize;
             }
             // 75%
-            plotBound[4] = this.convertBoundingClientRectToObj(rangeBounds); 
+            plotBound[4] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[4].label = allWeNeed[4];
             plotBound[4].type = 'range';
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 plotBound[4].height = rangeBounds.height - midSize;
                 plotBound[4].bottom = plotBound[3].top;
             } else {
@@ -1134,25 +1134,25 @@ class BoxPlot {
             }
 
             // now the tricky ones, outliers and whiskers, if we have them
-            if ( Object.hasOwn(initialElemSet[i], 'whisker') ) {
+            if (Object.hasOwn(initialElemSet[i], 'whisker')) {
                 // ok great we have a whisker. It could be just above or below or span across the range (in which case we need to split it up). Let's check
                 let whiskerBounds = initialElemSet[i].whisker.getBoundingClientRect();
                 let hasBelow = false;
                 let hasAbove = false;
-                if ( orientation == "vert" ) {
-                    if ( whiskerBounds.bottom > rangeBounds.bottom ) hasBelow = true;
-                    if ( whiskerBounds.top < rangeBounds.top ) hasAbove = true;
+                if (orientation == "vert") {
+                    if (whiskerBounds.bottom > rangeBounds.bottom) hasBelow = true;
+                    if (whiskerBounds.top < rangeBounds.top) hasAbove = true;
                 } else {
-                    if ( whiskerBounds.left < rangeBounds.left ) hasBelow = true;
-                    if ( whiskerBounds.right > rangeBounds.right ) hasAbove = true;
+                    if (whiskerBounds.left < rangeBounds.left) hasBelow = true;
+                    if (whiskerBounds.right > rangeBounds.right) hasAbove = true;
                 }
 
                 // lower whisker
-                if ( hasBelow ) {
+                if (hasBelow) {
                     plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[1].label = allWeNeed[1];
                     plotBound[1].type = 'whisker';
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         plotBound[1].top = plotBound[2].bottom;
                         plotBound[1].y = plotBound[1].top;
                         plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
@@ -1165,11 +1165,11 @@ class BoxPlot {
                     plotBound[1].type = 'blank';
                 }
                 // upper whisker
-                if ( hasAbove ) {
+                if (hasAbove) {
                     plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[5].label = allWeNeed[5];
                     plotBound[5].type = 'whisker';
-                    if ( orientation == "vert" ) {
+                    if (orientation == "vert") {
                         plotBound[5].bottom = plotBound[4].top;
                         plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
                     } else {
@@ -1183,7 +1183,7 @@ class BoxPlot {
                     plotBound[5].type = 'blank';
                 }
             }
-            if ( Object.hasOwn(initialElemSet[i], 'outlier') ) {
+            if (Object.hasOwn(initialElemSet[i], 'outlier')) {
                 // we have one or more outliers. 
                 // Where do they appear? above or below the range? both?
                 // we want to split them up and put 1 bounding box around each above and below
@@ -1191,51 +1191,51 @@ class BoxPlot {
                 let outlierElems = initialElemSet[i].outlier.children;
                 let outlierUpperBounds = null;
                 let outlierLowerBounds = null;
-                for ( let j = 0 ; j < outlierElems.length ; j++ ) {
+                for (let j = 0; j < outlierElems.length; j++) {
                     // add this outlier's bounds, or expand if more than one
                     let newOutlierBounds = outlierElems[j].getBoundingClientRect();
 
-                    if ( orientation == "vert" ) {
-                        if ( newOutlierBounds.y < rangeBounds.y ) { // higher, remember y=0 is at the bottom of the page
-                            if ( ! outlierUpperBounds ) {
+                    if (orientation == "vert") {
+                        if (newOutlierBounds.y < rangeBounds.y) { // higher, remember y=0 is at the bottom of the page
+                            if (!outlierUpperBounds) {
                                 outlierUpperBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
                             } else {
-                                if ( newOutlierBounds.y < outlierUpperBounds.y ) outlierUpperBounds.y = newOutlierBounds.y;
-                                if ( newOutlierBounds.top < outlierUpperBounds.top ) outlierUpperBounds.top = newOutlierBounds.top;
-                                if ( newOutlierBounds.bottom > outlierUpperBounds.bottom ) outlierUpperBounds.bottom = newOutlierBounds.bottom;
+                                if (newOutlierBounds.y < outlierUpperBounds.y) outlierUpperBounds.y = newOutlierBounds.y;
+                                if (newOutlierBounds.top < outlierUpperBounds.top) outlierUpperBounds.top = newOutlierBounds.top;
+                                if (newOutlierBounds.bottom > outlierUpperBounds.bottom) outlierUpperBounds.bottom = newOutlierBounds.bottom;
                             }
                         } else {
-                            if ( ! outlierLowerBounds ) {
+                            if (!outlierLowerBounds) {
                                 outlierLowerBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
                             } else {
-                                if ( newOutlierBounds.y < outlierLowerBounds.y ) outlierLowerBounds.y = newOutlierBounds.y;
-                                if ( newOutlierBounds.top < outlierLowerBounds.top ) outlierLowerBounds.top = newOutlierBounds.top;
-                                if ( newOutlierBounds.bottom > outlierLowerBounds.bottom ) outlierLowerBounds.bottom = newOutlierBounds.bottom;
+                                if (newOutlierBounds.y < outlierLowerBounds.y) outlierLowerBounds.y = newOutlierBounds.y;
+                                if (newOutlierBounds.top < outlierLowerBounds.top) outlierLowerBounds.top = newOutlierBounds.top;
+                                if (newOutlierBounds.bottom > outlierLowerBounds.bottom) outlierLowerBounds.bottom = newOutlierBounds.bottom;
                             }
                         }
                     } else {
-                        if ( newOutlierBounds.x > rangeBounds.x ) { // higher, remember x=0 is at the left of the page
-                            if ( ! outlierUpperBounds ) {
+                        if (newOutlierBounds.x > rangeBounds.x) { // higher, remember x=0 is at the left of the page
+                            if (!outlierUpperBounds) {
                                 outlierUpperBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
                             } else {
-                                if ( newOutlierBounds.x < outlierUpperBounds.x ) outlierUpperBounds.x = newOutlierBounds.x;
-                                if ( newOutlierBounds.left < outlierUpperBounds.left ) outlierUpperBounds.left = newOutlierBounds.left;
-                                if ( newOutlierBounds.right > outlierUpperBounds.right ) outlierUpperBounds.right = newOutlierBounds.right;
+                                if (newOutlierBounds.x < outlierUpperBounds.x) outlierUpperBounds.x = newOutlierBounds.x;
+                                if (newOutlierBounds.left < outlierUpperBounds.left) outlierUpperBounds.left = newOutlierBounds.left;
+                                if (newOutlierBounds.right > outlierUpperBounds.right) outlierUpperBounds.right = newOutlierBounds.right;
                             }
                         } else {
-                            if ( ! outlierLowerBounds ) {
+                            if (!outlierLowerBounds) {
                                 outlierLowerBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
                             } else {
-                                if ( newOutlierBounds.x < outlierLowerBounds.x ) outlierLowerBounds.x = newOutlierBounds.x;
-                                if ( newOutlierBounds.left < outlierLowerBounds.left ) outlierLowerBounds.left = newOutlierBounds.left;
-                                if ( newOutlierBounds.right > outlierLowerBounds.right ) outlierLowerBounds.right = newOutlierBounds.right;
+                                if (newOutlierBounds.x < outlierLowerBounds.x) outlierLowerBounds.x = newOutlierBounds.x;
+                                if (newOutlierBounds.left < outlierLowerBounds.left) outlierLowerBounds.left = newOutlierBounds.left;
+                                if (newOutlierBounds.right > outlierLowerBounds.right) outlierLowerBounds.right = newOutlierBounds.right;
                             }
                         }
                     }
                 }
 
                 // now we add plotBound outlier stuff
-                if ( outlierLowerBounds ) {
+                if (outlierLowerBounds) {
                     outlierLowerBounds.height = outlierLowerBounds.bottom - outlierLowerBounds.top;
                     outlierLowerBounds.width = outlierLowerBounds.right - outlierLowerBounds.left;
 
@@ -1247,7 +1247,7 @@ class BoxPlot {
                     plotBound[0].label = allWeNeed[0];
                     plotBound[0].type = 'blank';
                 }
-                if ( outlierUpperBounds ) {
+                if (outlierUpperBounds) {
                     outlierUpperBounds.height = outlierUpperBounds.bottom - outlierUpperBounds.top;
                     outlierUpperBounds.width = outlierUpperBounds.right - outlierUpperBounds.left;
 
@@ -1273,7 +1273,7 @@ class BoxPlot {
             plotBounds.push(plotBound);
         }
 
-        if ( constants.debugLevel > 5 ) {
+        if (constants.debugLevel > 5) {
             console.log('plotBounds', plotBounds);
         }
 
@@ -1335,7 +1335,7 @@ class BoxPlot {
             // whisker. Get first and third number from points attr
             // but sometimes it's null, giving the same for both, and don't add if that's true
             let matches = segment.getAttribute('points').match(re);
-            if ( orientation == "vert" ) {
+            if (orientation == "vert") {
                 if (matches[1] != matches[3]) {
                     points.push(matches[0], matches[1], matches[2], matches[3]);
                 }
@@ -1366,8 +1366,8 @@ class BoxPlot {
 
         let plotPos = null;
         let sectionPos = null;
-        if ( constants.outlierInterval ) clearInterval(constants.outlierInterval);
-        if ( orientation == "vert" ) {
+        if (constants.outlierInterval) clearInterval(constants.outlierInterval);
+        if (orientation == "vert") {
             plotPos = position.x;
             sectionPos = position.y;
         } else {
@@ -1389,7 +1389,7 @@ class BoxPlot {
                 position.z += 1;
 
                 // and kill if we're done
-                if ( ! Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values' ) ) {
+                if (!Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')) {
                     clearInterval(constants.outlierInterval);
                     position.z = -1;
                 } else if (position.z + 1 > plot.plotData[plotPos][sectionPos].values.length) {
@@ -1428,24 +1428,24 @@ class BoxplotRect {
 
         let plotPos = position.x;
         let sectionPos = position.y;
-        if ( orientation == "vert" ) {
+        if (orientation == "vert") {
         } else {
             plotPos = position.y;
             sectionPos = position.x;
         }
 
-        if ( ( orientation == "vert" && position.y > -1 ) || ( orientation == "horz" && position.x > -1 ) ) { // initial value could be -1, which throws errors, so ignore that
+        if ((orientation == "vert" && position.y > -1) || (orientation == "horz" && position.x > -1)) { // initial value could be -1, which throws errors, so ignore that
 
             let bounds = plot.plotBounds[plotPos][sectionPos];
 
-            if ( bounds.type != 'blank' ) {
+            if (bounds.type != 'blank') {
 
                 //let svgBounds = constants.svg.getBoundingClientRect();
 
                 this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
-                this.width = bounds.width + ( this.rectPadding * 2 ) ;
+                this.width = bounds.width + (this.rectPadding * 2);
                 this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
-                this.height = bounds.height + ( this.rectPadding * 2 ) ;
+                this.height = bounds.height + (this.rectPadding * 2);
 
                 if (constants.debugLevel > 5) {
                     console.log(

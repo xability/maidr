@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
         } else if (constants.layer == 2) {
             positionL1.x = lastx1;
-           
+
             if (e.which == 39 && e.shiftKey) {
                 if ((constants.isMac ? e.metaKey : e.ctrlKey) && constants.sonifMode != "off") {
                     PlayLine('outward_right');
@@ -90,10 +90,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update text, display, and audio
-        if (updateInfoThisRound && constants.layer == 1 && ! isAtEnd) {
+        if (updateInfoThisRound && constants.layer == 1 && !isAtEnd) {
             UpdateAll();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
 
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.brailleInput.addEventListener("keydown", function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
-        
+
         // @TODO
         // only line layer can access to braille display
         if (e.which == 9) {
@@ -161,23 +161,23 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function(e) {
+        constants.brailleInput.addEventListener('focusout', function (e) {
             display.toggleBrailleMode('off');
         });
 
         lastx1 = positionL1.x;
 
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
-        } 
-        if ( isAtEnd ) {
+        }
+        if (isAtEnd) {
             audio.playEnd();
         }
     });
 
     // var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
-    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+    for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener("keydown", function (e) {
 
             // B: braille mode
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     position.x = 0;
                     UpdateAll();
                     // move cursor for braille
-                    constants.brailleInput.setSelectionRange(0,0);
+                    constants.brailleInput.setSelectionRange(0, 0);
                 } else if (constants.layer == 2) {
                     positionL1.x = 0;
                     UpdateAllBraille();
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
 
             // if you're only hitting control
-            if ( ! e.shiftKey ) {
+            if (!e.shiftKey) {
                 audio.KillSmooth();
             }
         }
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // if (keys[76] && keys[89]) { // ly
         //     display.displayYLabel(plot);
         // }
-        
+
         // if (keys[76] && keys[84]) { // lt
         //     display.displayTitle(plot);
         // }
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (positionL1.x < 0) {
                 positionL1.x = 0;
                 isLockNeeded = true;
-            } 
+            }
             if (positionL1.x > plot.curvePoints.length - 1) {
                 positionL1.x = plot.curvePoints.length - 1;
                 isLockNeeded = true;
@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.autoplayId) {
             constants.KillAutoplay();
         }
-        if ( constants.isSmoothAutoplay ) {
+        if (constants.isSmoothAutoplay) {
             audio.KillSmooth();
         }
 
@@ -458,13 +458,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             position.x = start;
             position.L1x = start;
         }
-        
+
         if (constants.layer == 1) {
             constants.autoplayId = setInterval(function () {
                 position.x += step;
                 // autoplay for two layers: point layer & line layer in braille
                 // plot.numPoints is not available anymore
-                if (position.x < 0 || position.x > plot.y.length - 1) { 
+                if (position.x < 0 || position.x > plot.y.length - 1) {
                     constants.KillAutoplay();
                     lockPosition();
                 } else if (position.x == end) {
@@ -479,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 positionL1.x += step;
                 // autoplay for two layers: point layer & line layer in braille
                 // plot.numPoints is not available anymore
-                if (positionL1.x < 0 || positionL1.x > plot.curvePoints.length - 1) { 
+                if (positionL1.x < 0 || positionL1.x > plot.curvePoints.length - 1) {
                     constants.KillAutoplay();
                     lockPosition();
                 } else if (positionL1.x == end) {
@@ -523,10 +523,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 freqArr.push(audio.SlideBetween(plot.curvePoints[i], plot.curveMinY, plot.curveMaxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY));
             }
             panningArr = [-1, panPoint];
-            duration = Math.abs(x)  / plot.curvePoints.length * 3;
+            duration = Math.abs(x) / plot.curvePoints.length * 3;
         }
 
-        if ( constants.isSmoothAutoplay ) {
+        if (constants.isSmoothAutoplay) {
             audio.KillSmooth();
         }
 
@@ -540,7 +540,7 @@ class ScatterPlot {
     constructor() {
 
         // layer = 1
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             this.plotPoints = scatterPlotPoints;
         } else {
             this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
@@ -556,7 +556,7 @@ class ScatterPlot {
         this.max_count = this.GetPointValues()[3];
 
         // layer = 2
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             this.plotLine = scatterPlotLine;
         } else {
             this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
@@ -567,7 +567,7 @@ class ScatterPlot {
         this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
         this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y 
 
-        this.curveMinY = Math.min(...this.curvePoints); 
+        this.curveMinY = Math.min(...this.curvePoints);
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
 
@@ -623,7 +623,7 @@ class ScatterPlot {
 
         let xValues = [];
         let yValues = [];
-        
+
         for (let i = 0; i < point_layer.length; i++) {
             let x = point_layer[i]["x"];
             let y = point_layer[i]["y"];
@@ -648,7 +648,7 @@ class ScatterPlot {
         constants.maxY = Math.max(...yValues);
 
         points = new Map([...points].sort(function (a, b) { return a[0] - b[0] }));
-        
+
         points.forEach(function (value, key) {
             points[key] = Array.from(value).sort(function (a, b) { return a[0] - b[0] });
         });

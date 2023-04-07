@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
     constants.plotId = 'geom_rect.rect.2.1';
-    window.position = new Position(-1,-1);
+    window.position = new Position(-1, -1);
     window.plot = new HeatMap();
     constants.chartType = "heatmap";
     let rect = new HeatMapRect();
@@ -112,10 +112,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update text, display, and audio
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
     });
@@ -257,22 +257,22 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function(e) {
+        constants.brailleInput.addEventListener('focusout', function (e) {
             display.toggleBrailleMode('off');
         });
 
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
     });
 
     // var keys;
-    
+
     let controlElements = [constants.svg_container, constants.brailleInput];
-    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+    for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener("keydown", function (e) {
 
             // B: braille mode
@@ -336,11 +336,11 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // if (keys[76] && keys[89]) { // ly
         //     display.displayYLabel(plot);
         // }
-        
+
         // if (keys[76] && keys[84]) { // lt
         //     display.displayTitle(plot);
         // }
-        
+
         // if (keys[76] && keys[70]) { // lf
         //     display.displayFill(plot);
         // }
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     //     stop();
     // }, false);
 
-    function sleep (time) {
+    function sleep(time) {
         return new Promise((resolve) => setTimeout(resolve, time));
     }
 
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
-        
+
         if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
@@ -548,7 +548,7 @@ class HeatMap {
 
     constructor() {
 
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             this.plots = heatmapPlots;
         } else {
             this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
@@ -585,8 +585,8 @@ class HeatMap {
         }
 
         // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function(a,b) { return a - b }); // ascending
-        y_coord_check.sort(function(a,b) { return a - b }).reverse(); // descending
+        x_coord_check.sort(function (a, b) { return a - b }); // ascending
+        y_coord_check.sort(function (a, b) { return a - b }).reverse(); // descending
 
         // get unique elements from x_coord and y_coord
         let unique_x_coord = [...new Set(x_coord_check)];
@@ -597,7 +597,7 @@ class HeatMap {
         let num_cols = unique_x_coord.length;
 
         let norms;
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             norms = [...heatmapData];
         } else {
             norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
@@ -615,7 +615,7 @@ class HeatMap {
             }
         }
 
-        
+
 
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
 
@@ -628,10 +628,10 @@ class HeatMap {
         constants.maxX = this.plotData[4]
         constants.minY = this.plotData[2][0][0]; // initial val
         constants.maxY = this.plotData[2][0][0]; // initial val
-        for ( let i = 0 ; i < this.plotData[2].length ; i++ ) {
-            for ( let j = 0 ; j < this.plotData[2][i].length ; j++ ) {
-                if ( this.plotData[2][i][j] < constants.minY ) constants.minY = this.plotData[2][i][j];
-                if ( this.plotData[2][i][j] > constants.maxY ) constants.maxY = this.plotData[2][i][j];
+        for (let i = 0; i < this.plotData[2].length; i++) {
+            for (let j = 0; j < this.plotData[2][i].length; j++) {
+                if (this.plotData[2][i][j] < constants.minY) constants.minY = this.plotData[2][i][j];
+                if (this.plotData[2][i][j] > constants.maxY) constants.maxY = this.plotData[2][i][j];
             }
         }
     }
@@ -649,9 +649,9 @@ class HeatMap {
 
     getGroupLabels() {
         let labels_nodelist;
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             labels_nodelist = heatmapLabelsNodelist;
-            if (typeof(labels_nodelist[0]) == "string") {
+            if (typeof (labels_nodelist[0]) == "string") {
                 return labels_nodelist;
             }
         } else {
@@ -667,9 +667,9 @@ class HeatMap {
 
     getXLabels() {
         let x_labels_nodelist;
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             x_labels_nodelist = heatmapXNodelist;
-            if (typeof(x_labels_nodelist[0]) == "string") {
+            if (typeof (x_labels_nodelist[0]) == "string") {
                 return x_labels_nodelist;
             }
         } else {
@@ -689,9 +689,9 @@ class HeatMap {
         // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
         let y_labels_nodelist;
         let labels = [];
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             y_labels_nodelist = heatmapYNodelist;
-            if (typeof(y_labels_nodelist[0]) == "string") {
+            if (typeof (y_labels_nodelist[0]) == "string") {
                 return y_labels_nodelist;
             }
         } else {
