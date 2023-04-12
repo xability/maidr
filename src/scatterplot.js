@@ -205,13 +205,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             }
 
             // page down /(fn+down arrow): point layer(1) 
-            if (e.which == 34 && constants.layer == 2) {
+            if (e.which == 34 && constants.layer == 2 && constants.brailleMode == "off" ) {
                 lastx1 = positionL1.x;
                 display.toggleLayerMode();
             }
 
             // page up / (fn+up arrow): line layer(2)
-            if (e.which == 33 && constants.layer == 1) {
+            if (e.which == 33 && constants.layer == 1 && constants.brailleMode == "off" ) {
                 display.toggleLayerMode();
             }
 
