@@ -39,6 +39,8 @@ To use MAIDR, follow these steps:
 </html>
 ```
 
+3. Add your data: Include your data as JavaScript variables directly in the HTML file. Refer to the example HTML files provided in the repository for the appropriate data structure.
+
 ## Controls
 
 To interact with the charts using MAIDR, follow these steps:
