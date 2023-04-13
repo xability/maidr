@@ -424,11 +424,11 @@ class Display {
                 if (plot.plotData[i] <= low) {
                     brailleArray.push("⣀");
                 } else if (plot.plotData[i] <= medium) {
-                    brailleArray.push("⠤");
+                    brailleArray.push("⣤");
                 } else if (plot.plotData[i] <= medium_high) {
-                    brailleArray.push("⠒");
+                    brailleArray.push("⣶");
                 } else {
-                    brailleArray.push("⠉");
+                    brailleArray.push("⣿");
                 }
             }
         } else if (constants.chartType == "scatterplot") {
