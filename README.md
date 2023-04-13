@@ -153,7 +153,7 @@ Last, we enforce our overarching rules:
 
 And we get the braille output:
 
- ⠂  ⠒⠒⠒⠒⠿⠿⠿⠇⠿⠿⠿⠒⠒⠒⠒     ⠂
+ ⠂  ⠒⠒⠒⠒⠿⠿⠿⠸⠿⠿⠿⠒⠒⠒⠒     ⠂
 
 ### Heatmap
 
@@ -162,7 +162,7 @@ And we get the braille output:
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the GPL 3 License. 
 
 ## Contact
 
