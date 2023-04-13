@@ -7,9 +7,10 @@ MAIDR is an interface for nonvisual access and control of scientific charts. It 
 
 1. [Usage](#usage)
 2. [Controls](#controls)
-3. [License](#license)
-4. [Contact](#contact)
-5. [Acknowledgements](#acknowledgements)
+3. [Braille Generation](#braille-generation)
+4. [License](#license)
+5. [Contact](#contact)
+6. [Acknowledgements](#acknowledgements)
 
 ## Usage
 
@@ -26,15 +27,16 @@ To use MAIDR, follow these steps:
   <meta charset="UTF-8">
   <title>MAIDR Example</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="constants.js"></script>
-  <script src="audio.js"></script>
-  <script src="display.js"></script>
-  <script src="barplot.js"></script>
 </head>
 <body>
   <div id="svg_container">
     <!-- Your SVG chart goes here -->
   </div>
+  <script><!-- data goes here --></script>
+  <script src="constants.js"></script>
+  <script src="audio.js"></script>
+  <script src="display.js"></script>
+  <script src="barplot.js"></script>
 </body>
 </html>
 ```
@@ -69,9 +71,98 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Auto-play speed up                     | Period                         |
 | Auto-play speed down                   | Comma                          |
 
+## Braille Generation
+
+MAIDR incorporates a Braille mode that represents the chart using Braille symbols. This allows users with visual impairments to explore and interact with the chart using a refreshable Braille display. To achieve this, our system translates the chart's visual elements and data points into a corresponding tactile representation using Braille patterns.
+
+### Barplot
+
+In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the chart. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the three height levels of Braille, the encoding is as follows:
+
+ * ⠤ represents the lowest third of values
+ * ⠶ represents the middle third of values
+ * ⠿ represents the upper third of values
+
+This tactile encoding allows users to easily differentiate between the various value ranges in the barplot, facilitating their understanding of the data distribution and its underlying trends.
+
+### Boxplot
+
+The Braille representation of a boxplot employs Braille characters that visually resemble the corresponding sections of the boxplot. The size of each section is denoted by the number of Braille characters used. The sections are encoded as follows:
+
+ * ⠂ represents outlier(s)
+ * ⠒ represents the minimum or maximum whiskers
+ * ⠿ represents the first or third quartiles
+ * ⠇ represents the 50% midpoint (median)
+ * blank spaces represent empty spaces
+
+We also impose some overarching rules:
+ * Each section must be represented with at least 1 braille character
+ * Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
+
+This tactile encoding enables users to discern the various components of the boxplot, allowing them to comprehend the data distribution, detect outliers, and identify central tendencies and dispersion within the dataset.
+
+To generate the braille, we use an algorithm that generates a distribution of characters based on a given proportional distribution and a specified total number of characters. This can be described mathematically as follows:
+
+c_i = round(n * p_i), for i = 1, 2, 3, ..., k
+c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., k
+
+Where
+
+ * n: Total number of characters (integer)
+ * C: Total number of length 0 characters to offset the total characters (outliers and median) (integer)
+ * p_i: Proportional distribution of each category i, where i ∈ {1, 2, 3, ..., k} (real numbers, 0 ≤ p_i ≤ 1, and the sum of all p_i equals 1)
+ * c_i: Number of characters for each category i (integer)
+
+As an example, consider a boxplot with the following:
+ * Visual sections from left to right: blank space, outlier, larger blank space, large min whisker, moderate sized lower quartile, the median, moderate sized upper quartile, another large max whisker, a large blank space, an outlier, then a small blank space
+ * Distribution for these sections: [10, 0, 20, 40, 30, 0, 30, 40, 50, 30, 0, 10]
+ * A braille display length of 26
+
+We normalize these distributions, taking into account the 3 values that will need default characters (meaning n changes to 23 with the offset of C = 3): (p_i): [10/260, 0/260, 20/260, 40/260, 30/260, 0/260, 30/260, 40/260, 50/260, 30/260, 0/260, 10/260]
+Then we apply our equation: 
+n = 26
+C = 3
+
+c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., 11
+
+ * c_1 = round(23 * 0.0385) = round(1) = 1
+ * c_2 = round(23 * 0) = round(0) = 0
+ * c_3 = round(23 * 0.0769) = round(2) = 2
+ * c_4 = round(23 * 0.1538) = round(4) = 4
+ * c_5 = round(23 * 0.1154) = round(3) = 3
+ * c_6 = round(23 * 0) = round(0) = 0
+ * c_7 = round(23 * 0.1154) = round(3) = 3
+ * c_8 = round(23 * 0.1538) = round(4) = 4
+ * c_9 = round(23 * 0.1923) = round(5) = 5
+ * c_10 = round(23 * 0) = round(0) = 0
+ * c_11 = round(23 * 0.0385) = round(1) = 1
+
+Last, we enforce our overarching rules:
+
+ * c_1 = 1
+ * c_2 = 1
+ * c_3 = 2
+ * c_4 = 4
+ * c_5 = 3
+ * c_6 = 1
+ * c_7 = 3
+ * c_8 = 4
+ * c_9 = 5
+ * c_10 = 1
+ * c_11 = 1
+
+And we get the braille output:
+
+ ⠂  ⠒⠒⠒⠒⠿⠿⠿⠇⠿⠿⠿⠒⠒⠒⠒     ⠂
+
+### Heatmap
+
+### Scatterplot
+
+
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. 
 
 ## Contact
 
