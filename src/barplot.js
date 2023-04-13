@@ -63,10 +63,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // update display / text / audio
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
 
@@ -126,15 +126,15 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function(e) {
+        constants.brailleInput.addEventListener('focusout', function (e) {
             display.toggleBrailleMode('off');
         });
 
         // update display / text / audio
-        if (updateInfoThisRound && ! isAtEnd) {
+        if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
         }
-        if ( isAtEnd ) {
+        if (isAtEnd) {
             audio.playEnd();
         }
 
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // var keys;
     let controlElements = [constants.svg_container, constants.brailleInput];
-    for ( let i = 0 ; i < controlElements.length ; i++ ) {
+    for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener("keydown", function (e) {
 
             // B: braille mode
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         // if (keys[76] && keys[89]) { // ly
         //     display.displayYLabel(plot);
         // }
-        
+
         // if (keys[76] && keys[84]) { // lt
         //     display.displayTitle(plot);
         // }
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     //     keys[e.keyCode] = false;
     //     stop();
     // }, false);
-    
+
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BarChart {
 
     constructor() {
-        if ( constants.manualData ) {
+        if (constants.manualData) {
             this.bars = barplotBars;
             this.plotData = barplotData;
             this.plotColumns = barplotColumns;

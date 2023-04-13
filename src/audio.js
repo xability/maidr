@@ -51,14 +51,14 @@ class Audio {
                 rawFreq = plot.plotData[plotPos][sectionPos].values[position.z];
             } else {
                 // normal points
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     rawFreq = plot.plotData[plotPos][sectionPos].y;
                 } else {
                     rawFreq = plot.plotData[plotPos][sectionPos].x;
                 }
             }
             if (plot.plotData[plotPos][sectionPos].type != 'blank') {
-                if ( orientation == "vert" ) {
+                if (orientation == "vert") {
                     frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                     panning = this.SlideBetween(rawFreq, constants.minY, constants.maxY, -1, 1);
                 } else {
@@ -75,8 +75,8 @@ class Audio {
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
             panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
         } else if (constants.chartType == "scatterplot") {
-            if (constants.layer == 0) { // point layer
-                    // more than one point with same x-value
+            if (constants.layer == 1) { // point layer
+                // more than one point with same x-value
                 rawFreq = plot.y[position.x][position.z];
                 if (plot.max_count == 1) {
                     volume = constants.vol;
@@ -87,7 +87,7 @@ class Audio {
                 rawPanning = position.x;
                 frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
                 panning = this.SlideBetween(rawPanning, constants.minX, constants.maxX, -1, 1);
-            } else if (constants.layer == 1) { // best fit line layer
+            } else if (constants.layer == 2) { // best fit line layer
 
                 rawFreq = plot.curvePoints[positionL1.x];
                 rawPanning = positionL1.x;
@@ -99,7 +99,7 @@ class Audio {
 
         if (constants.debugLevel > 5) {
             console.log('will play tone at freq', frequency);
-            if ( constants.chartType == "boxplot" ) {
+            if (constants.chartType == "boxplot") {
                 console.log('based on', constants.minY, '<', rawFreq, '<', constants.maxY, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
             } else {
                 console.log('based on', constants.minX, '<', rawFreq, '<', constants.maxX, ' | freq min', constants.MIN_FREQUENCY, 'max', constants.MAX_FREQUENCY);
@@ -139,10 +139,10 @@ class Audio {
             if (rawFreq == 0) {
                 this.PlayNull();
             }
-        } 
+        }
 
     }
-    
+
     playOscillator(frequency, currentDuration, panning, currentVol = 1, wave = 'sine') {
 
         const t = this.audioContext.currentTime;
@@ -193,7 +193,7 @@ class Audio {
         }, currentDuration * 1e3 * 2);
     }
 
-    playSmooth(freqArr=[600, 500, 400, 300], currentDuration=2, panningArr=[-1, 0, 1], currentVol = 1, wave = 'sine') {
+    playSmooth(freqArr = [600, 500, 400, 300], currentDuration = 2, panningArr = [-1, 0, 1], currentVol = 1, wave = 'sine') {
         // todo: make smooth duration dependant on how much line there is to do. Like, at max it should be max duration, but if we only have like a tiny bit to play we should just play for a tiny bit
 
         let gainArr = new Array(freqArr.length * 3).fill(.5 * currentVol);
@@ -264,7 +264,7 @@ class Audio {
 
     playEnd() {
         // play a pleasent end chime. We'll use terminal chime from VSCode
-        if ( constants.canPlayEndChime ) {
+        if (constants.canPlayEndChime) {
             let chimeClone = constants.endChime.cloneNode(true); // we clone so that we can trigger a tone while one is already playing
             /* 
              * the following (panning) only works if we're on a server
@@ -292,7 +292,7 @@ class Audio {
     }
 
     KillSmooth() {
-        if ( constants.smoothId ) {
+        if (constants.smoothId) {
             this.smoothGain.gain.cancelScheduledValues(0);
             this.smoothGain.gain.exponentialRampToValueAtTime(0.0001, this.audioContext.currentTime + 0.03);
 
