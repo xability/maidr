@@ -664,7 +664,7 @@ class ScatterPlot {
                 y_arr.push(y);
                 y_count.push(count);
             }
-            Y.push(y_arr);
+            Y.push(y_arr.sort());
             points_count.push(y_count);
         }
         let max_points = Math.max(...points_count.map(a => Math.max(...a)));
