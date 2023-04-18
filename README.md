@@ -80,11 +80,11 @@ In the Scatterplot chart, there are two layers: point mode (layer 1) and line mo
 
 ## Braille Generation
 
-MAIDR incorporates a Braille mode that represents the chart using Braille symbols. This allows users with visual impairments to explore and interact with the chart using a refreshable Braille display. To achieve this, our system translates the chart's visual elements and data points into a corresponding tactile representation using Braille patterns.
+MAIDR incorporates a Braille mode that represents the chart using Braille symbols. This allows users with visual impairments to explore and interact with the chart using a refreshable Braille display. To achieve this, our system translates the chart's visual elements and data points into a corresponding tactile representation using Braille patterns. For different chart types, such as barplot, boxplot, heatmap, and scatterplot, MAIDR employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends. These tactile encodings range from using distinct Braille characters to represent value ranges, to employing characters that visually resemble the corresponding sections of a chart. By providing a comprehensive Braille representation for various chart types, MAIDR enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
 
 ### Barplot
 
-In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the chart. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the three height levels of Braille, the encoding is as follows:
+In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the chart. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the four height levels of Braille, the encoding is as follows:
 
  * ⣀ represents values 0 to 25%
  * ⣤ represents the 25% to 50%
@@ -175,6 +175,12 @@ In the Braille representation of a heatmap, values are depicted based on their r
 
 ### Scatterplot
 
+In the Braille representation of a scatterplot, the encoding is performed only for the line layer (layer 2). The method is similar to that used for barplots, wherein data values are represented as Braille characters based on their relative magnitude within the chart. Low values are denoted by dots along the bottom, while high values are indicated by dots along the top. With four height levels of Braille, the encoding is as follows:
+
+ * ⣀ represents values from 0% to 25%
+ * ⣤ represents values from 25% to 50%
+ * ⣶ represents values from 50% to 75%
+ * ⣿ represents values from 75% to 100%
 
 ## License
 
