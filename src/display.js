@@ -412,7 +412,7 @@ class Display {
                     } else if (plot.values[i][j] <= high) {
                         brailleArray.push("⠒")
                     } else {
-                        brailleArray.push("⠉");
+                        brailleArray.push("⢳");
                     }
                 }
                 brailleArray.push("⠳");
