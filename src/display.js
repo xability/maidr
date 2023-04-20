@@ -412,10 +412,10 @@ class Display {
                     } else if (plot.values[i][j] <= high) {
                         brailleArray.push("⠒")
                     } else {
-                        brailleArray.push("⢳");
+                        brailleArray.push("⠉");
                     }
                 }
-                brailleArray.push("⠳");
+                brailleArray.push("⢳");
             }
         } else if (constants.chartType == "barplot") {
             let range = (constants.maxY - constants.minY) / 4;
