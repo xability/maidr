@@ -122,28 +122,31 @@ Where
  * c_i: Number of characters for each category i (integer)
 
 As an example, consider a boxplot with the following:
- * Visual sections from left to right: blank space, outlier, larger blank space, large min whisker, moderate sized lower quartile, the median, moderate sized upper quartile, another large max whisker, a large blank space, an outlier, then a small blank space
- * Distribution for these sections: [10, 0, 20, 40, 30, 0, 30, 40, 50, 30, 0, 10]
- * A braille display length of 26
+ * Visual sections from left to right: blank space, outlier, larger blank space, large min whisker, moderate sized lower quartile, the median, moderate sized upper quartile, another larger max whisker, a large blank space, an outlier, a small blank space, then another outlier
+ * Distribution for these sections: [10, 0, 20, 40, 30, 0, 30, 60, 50, 30, 0, 10, 0]
+ * An offset of 5 to account for 0 length characters
+ * A braille display length of 33
 
-We normalize these distributions, taking into account the 3 values that will need default characters (meaning n changes to 23 with the offset of C = 3): (p_i): [10/260, 0/260, 20/260, 40/260, 30/260, 0/260, 30/260, 40/260, 50/260, 30/260, 0/260, 10/260]
+We normalize these distributions, taking into account the values that will need default characters (meaning n changes to 28 with the offset of C = 5): (p_i): [10/280, 0/280, 20/280, 40/280, 30/280, 0/280, 30/280, 60/280, 50/280, 30/280, 0/280, 10/280, 0/280]
 Then we apply our equation: 
-n = 26
-C = 3
+n = 33
+C = 5
 
 c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., 11
 
- * c_1 = round(23 * 0.0385) = round(1) = 1
- * c_2 = round(23 * 0) = round(0) = 0
- * c_3 = round(23 * 0.0769) = round(2) = 2
- * c_4 = round(23 * 0.1538) = round(4) = 4
- * c_5 = round(23 * 0.1154) = round(3) = 3
- * c_6 = round(23 * 0) = round(0) = 0
- * c_7 = round(23 * 0.1154) = round(3) = 3
- * c_8 = round(23 * 0.1538) = round(4) = 4
- * c_9 = round(23 * 0.1923) = round(5) = 5
- * c_10 = round(23 * 0) = round(0) = 0
- * c_11 = round(23 * 0.0385) = round(1) = 1
+ * c_1 = round(28 * 0.0357) = round(1) = 1
+ * c_2 = round(28 * 0) = round(0) = 0
+ * c_3 = round(28 * 0.0724) = round(2) = 2
+ * c_4 = round(28 * 0.1429) = round(4) = 4
+ * c_5 = round(28 * 0.1071) = round(3) = 3
+ * c_6 = round(28 * 0) = round(0) = 0
+ * c_7 = round(28 * 0.1071) = round(3) = 3
+ * c_8 = round(28 * 0.2143) = round(6) = 6
+ * c_9 = round(28 * 0.1786) = round(5) = 5
+ * c_10 = round(28 * 0.1071) = round(3) = 3
+ * c_11 = round(28 * 0) = round(0) = 0
+ * c_12 = round(28 * 0.0357) = round(1) = 1
+ * c_13 = round(28 * 0) = round(0) = 0
 
 Last, we enforce our overarching rules:
 
@@ -152,16 +155,18 @@ Last, we enforce our overarching rules:
  * c_3 = 2
  * c_4 = 4
  * c_5 = 3
- * c_6 = 1
+ * c_6 = 2
  * c_7 = 3
- * c_8 = 4
+ * c_8 = 6
  * c_9 = 5
- * c_10 = 1
+ * c_10 = 3
  * c_11 = 1
+ * c_12 = 1
+ * c_13 = 1
 
 And we get the braille output:
 
- ⠂  ⠒⠒⠒⠒⠿⠿⠿⠸⠿⠿⠿⠒⠒⠒⠒     ⠂
+ ⠂  ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒     ⠂ ⠂
 
 ### Heatmap
 
@@ -172,7 +177,7 @@ In the Braille representation of a heatmap, values are depicted based on their r
  * ⠒ represents values from 50% to 75%
  * ⠉ represents values from 75% to 100%
  * "⠀" (braille space) represents null or empty values
- * "⠳" represents a row seperator 
+ * "⢳" represents a row seperator 
 
 ### Scatterplot
 
@@ -196,6 +201,3 @@ JooYoung Seo - jseo1005@illinois.edu
 ## Acknowledgments
 
 This project is conducted through the University of Illinois.
-
-
-
