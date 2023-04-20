@@ -397,7 +397,7 @@ class Display {
         let brailleArray = [];
 
         if (constants.chartType == "heatmap") {
-            let range = (constants.maxY - constants.minY) / 3;
+            let range = (constants.maxY - constants.minY) / 4;
             let low = constants.minY + range;
             let medium = low + range;
             let high = medium + range;
@@ -406,9 +406,11 @@ class Display {
                     if (plot.values[i][j] == 0) {
                         brailleArray.push("⠀");
                     } else if (plot.values[i][j] <= low) {
-                        brailleArray.push("⠤");
+                        brailleArray.push("⣀");
                     } else if (plot.values[i][j] <= medium) {
-                        brailleArray.push("⠒");
+                        brailleArray.push("⠤");
+                    } else if (plot.values[i][j] <= high) {
+                        brailleArray.push("⠒")
                     } else {
                         brailleArray.push("⠉");
                     }
