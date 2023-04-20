@@ -415,7 +415,7 @@ class Display {
                         brailleArray.push("⠉");
                     }
                 }
-                brailleArray.push("⠳");
+                brailleArray.push("⢳");
             }
         } else if (constants.chartType == "barplot") {
             let range = (constants.maxY - constants.minY) / 4;
