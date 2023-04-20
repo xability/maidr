@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_rect.rect.2.1';
     window.position = new Position(-1, -1);
     window.plot = new BarChart();
-    constants.chartType = "barchart";
+    constants.chartType = "barplot";
 
     let audio = new Audio();
 

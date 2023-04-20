@@ -128,7 +128,7 @@ class Display {
     }
 
     UpdateBraillePos() {
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             constants.brailleInput.setSelectionRange(position.x, position.x);
         } else if (constants.chartType == "heatmap") {
             let pos = (position.y * (plot.num_cols + 1)) + position.x;
@@ -172,7 +172,7 @@ class Display {
         let output = "";
         let verboseText = "";
         let reviewText = "";
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             // {legend x} is {colname x}, {legend y} is {value y}
             verboseText = plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
             if (constants.textMode == "off") {
@@ -338,7 +338,7 @@ class Display {
 
     displayXLabel(plot) {
         let xlabel = "";
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             xlabel = plot.plotLegend.x;
         } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
             xlabel = plot.x_group_label;
@@ -352,7 +352,7 @@ class Display {
 
     displayYLabel(plot) {
         let ylabel = "";
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             ylabel = plot.plotLegend.y;
         } else if (constants.chartType == "heatmap" || constants.chartType == "boxplot" || constants.chartType == "scatterplot") {
             ylabel = plot.y_group_label;
@@ -417,7 +417,7 @@ class Display {
                 }
                 brailleArray.push("⠳");
             }
-        } else if (constants.chartType == "barchart") {
+        } else if (constants.chartType == "barplot") {
             let range = (constants.maxY - constants.minY) / 4;
             let low = constants.minY + range;
             let medium = low + range;

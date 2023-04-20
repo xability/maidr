@@ -516,7 +516,7 @@ class Tracker {
         let y_label = "";
         let value = "";
         let fill_value = "";
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             if (!this.isUndefinedOrNull(plot.plotColumns[position.x])) {
                 x_tickmark = plot.plotColumns[position.x];
             }

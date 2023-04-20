@@ -38,7 +38,7 @@ class Audio {
         let frequency = 0;
         let panning = 0;
         // freq goes between min / max as rawFreq goes between min(0) / max
-        if (constants.chartType == "barchart") {
+        if (constants.chartType == "barplot") {
             rawFreq = plot.plotData[position.x];
             rawPanning = position.x;
             frequency = this.SlideBetween(rawFreq, constants.minY, constants.maxY, constants.MIN_FREQUENCY, constants.MAX_FREQUENCY);
@@ -270,7 +270,7 @@ class Audio {
              * the following (panning) only works if we're on a server
         let panning = 0;
         try {
-            if ( constants.chartType == 'barchart' ) {
+            if ( constants.chartType == 'barplot' ) {
                 panning = this.SlideBetween(position.x, 0, plot.bars.length-1, -1, 1);
             } else if ( constants.chartType == 'boxplot' ) {
                 panning = this.SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
