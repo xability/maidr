@@ -274,3 +274,53 @@ point_layer %>%
 
 smooth_layer %>%
   jsonlite::write_json("scatterplot_user_study_smooth_layer.json")
+
+
+# Histogram
+## Tutorial
+# Create a histogram from mpg data
+g <- ggplot(data = mpg, mapping = aes(x = displ)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Engine Displacement", x = "Displacement", y = "Count")
+
+g
+
+gridSVG::grid.export("histogram_tutorial.svg")
+dev.off()
+
+layer_data(g, 1) %>%
+  jsonlite::write_json("histogram_tutorial_raw_data.json")
+
+
+# Create histogram from gampminder package
+g <- gapminder %>%
+  filter(year == 2007) %>%
+  ggplot(aes(x = lifeExp)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Life Expectancy in 2007", x = "Life Expectancy", y = "Count")
+
+g
+
+gridSVG::grid.export("histogram_user_study.svg")
+dev.off()
+
+layer_data(g, 1) %>%
+  jsonlite::write_json("histogram_user_study_raw_data.json")
+
+
+# Lineplot
+## Tutorial
+### Create a lineplot from gapminder data
+g <- gapminder %>%
+  filter(continent == "Europe") %>%
+  ggplot(aes(x = year, y = lifeExp)) +
+  geom_line() +
+  labs(title = "Life Expectancy in Europe", x = "Year", y = "Life Expectancy")
+
+g
+
+gridSVG::grid.export("lineplot_user_study.svg")
+dev.off()
+
+layer_data(g, 1) %>%
+  jsonlite::write_json("lineplot_user_study_raw_data.json")
