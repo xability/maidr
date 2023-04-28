@@ -87,9 +87,9 @@ MAIDR incorporates a Braille mode that represents the chart using Braille symbol
 In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the chart. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the four height levels of Braille, the encoding is as follows:
 
  * ⣀ represents values 0 to 25%
- * ⣤ represents the 25% to 50%
- * ⣶ represents the 50% to 75%
- * ⣿ represents the 75% to 100%
+ * ⠤ represents the 25% to 50%
+ * ⠒ represents the 50% to 75%
+ * ⠉ represents the 75% to 100%
 
 This tactile encoding allows users to easily differentiate between the various value ranges in the barplot, facilitating their understanding of the data distribution and its underlying trends.
 
@@ -172,10 +172,9 @@ And we get the braille output:
 
 In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the chart, much like the approach used for barplots and scatterplots. Low values are denoted by Braille characters with dots only along the bottom, high values are represented by characters filled with dots, and blank or null values are indicated by empty spaces. With three height levels of Braille, the encoding is as follows:
 
- * ⣀ represents values from 0% to 25%
- * ⠤ represents values from 25% to 50%
- * ⠒ represents values from 50% to 75%
- * ⠉ represents values from 75% to 100%
+ * ⠤ represents values from 0% to 33%
+ * ⠒ represents values from 33% to 66%
+ * ⠉ represents values from 66% to 100%
  * "⠀" (braille space) represents null or empty values
  * "⢳" represents a row seperator 
 

@@ -397,7 +397,7 @@ class Display {
         let brailleArray = [];
 
         if (constants.chartType == "heatmap") {
-            let range = (constants.maxY - constants.minY) / 4;
+            let range = (constants.maxY - constants.minY) / 3;
             let low = constants.minY + range;
             let medium = low + range;
             let high = medium + range;
@@ -406,16 +406,14 @@ class Display {
                     if (plot.values[i][j] == 0) {
                         brailleArray.push("⠀");
                     } else if (plot.values[i][j] <= low) {
-                        brailleArray.push("⣀");
-                    } else if (plot.values[i][j] <= medium) {
                         brailleArray.push("⠤");
-                    } else if (plot.values[i][j] <= high) {
-                        brailleArray.push("⠒")
+                    } else if (plot.values[i][j] <= medium) {
+                        brailleArray.push("⠒");
                     } else {
                         brailleArray.push("⠉");
                     }
                 }
-                brailleArray.push("⢳");
+                brailleArray.push("⠳");
             }
         } else if (constants.chartType == "barplot") {
             let range = (constants.maxY - constants.minY) / 4;
@@ -426,11 +424,11 @@ class Display {
                 if (plot.plotData[i] <= low) {
                     brailleArray.push("⣀");
                 } else if (plot.plotData[i] <= medium) {
-                    brailleArray.push("⣤");
+                    brailleArray.push("⠤");
                 } else if (plot.plotData[i] <= medium_high) {
-                    brailleArray.push("⣶");
+                    brailleArray.push("⠒");
                 } else {
-                    brailleArray.push("⣿");
+                    brailleArray.push("⠉");
                 }
             }
         } else if (constants.chartType == "scatterplot") {
