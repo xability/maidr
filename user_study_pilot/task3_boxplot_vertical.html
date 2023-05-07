@@ -703,70 +703,74 @@
         </div>
         <script>
             var orientation = "vert";
-            let x_labels = [];
+            let labels = [];
             let els = document.querySelectorAll('tspan[dy="6.3"]');
             for (let i = 0; i < els.length; i++) {
-                            x_labels.push(els[i].innerHTML.trim());
+                            labels.push(els[i].innerHTML.trim());
                         }
             var boxplotLabels = {
-                            "x_group_label": document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML,
-                            "y_group_label": document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML,
-                            "x_labels": x_labels,
-                            "y_labels": []
-                        };
-            var boxplotId = "geom_boxplot.gTree.177.1";
-            var boxplotTitle = "Life Expectancy by Continent.";
+              "x_group_label": document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML,
+              "y_group_label": document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML,
+              "x_labels": [],
+              "y_labels": labels
+            };
+            var boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
+            var boxplotTitle = "";
+            if ( document.querySelector('tspan[dy="9.45"]') ) {
+              boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+              boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+            }
             var boxplotData = [
-                                  [
-                                    { "x": 98.72, "y": 23.599, "type": "outlier", "yMax": 23.599, "values": [ 23.599 ], "label": "lower_outlier" },
-                                    { "x": 98.72, "y": 30, "type": "whisker", "label": "min" },
-                                    { "x": 57.73, "y": 42.361, "type": "range", "label": "25" },
-                                    { "x": 139.71, "y": 47.792, "type": "range", "label": "50" },
-                                    { "x": 57.73, "y": 54.416, "type": "range", "label": "75" },
-                                    { "x": 98.72, "y": 338.15, "type": "whisker", "label": "max" },
-                                    { "x": 98.72, "y": 72.301, "type": "outlier", "yMax": 76.442, "values": [72.737, 72.801, 73.042, 73.615, 73.923, 73.952, 74.772, 75.744, 76.442], "label": "upper_outlier" }
-                                  ],
-                                  [
-                                    { "x": 208.02, "y": 37.579, "type": "outlier", "yMax": 37.579, "values": [ 37.579 ], "label": "lower_outlier" },
-                                    { "x": 208.02, "y": 40.414, "type": "whisker", "label": "min" },
-                                    { "x": 167.04, "y": 58.373, "type": "range", "label": "25" },
-                                    { "x": 249.01, "y": 67.048, "type": "range", "label": "50" },
-                                    { "x": 167.04, "y": 71.717, "type": "range", "label": "75" },
-                                    { "x": 208.02, "y": 80.653, "type": "whisker", "label": "max" },
-                                    { "type": "blank", "label": "upper_outlier" }
-                                  ],
-                                  [
-                                    { "type": "blank", "label": "lower_outlier" },
-                                    { "x": 317.33, "y": 28.801, "type": "whisker", "label": "min" },
-                                    { "x": 276.34, "y": 51.3955, "type": "range", "label": "25" },
-                                    { "x": 358.32, "y": 61.7915, "type": "range", "label": "50" },
-                                    { "x": 276.34, "y": 69.5105, "type": "range", "label": "75" },
-                                    { "x": 317.33, "y": 82.603, "type": "whisker", "label": "max" },
-                                    { "type": "blank", "label": "upper_outlier" }
-                                  ],
-                                  [
-                                    { "x": 426.63, "y": 43.585, "type": "outlier", "yMax": 55.23, "values": [43.585, 48.079, 52.098, 53.82, 54.336, 55.23, 57.005, 57.996, 58.45, 59.164, 59.28, 59.507, 59.6, 59.82], "label": "lower_outlier" },
-                                    { "x": 426.63, "y": 61.036, "type": "whisker", "label": "min" },
-                                    { "x": 385.64, "y": 69.56, "type": "range", "label": "25" },
-                                    { "x": 467.62, "y": 72.241, "type": "range", "label": "50" },
-                                    { "x": 385.64, "y": 75.456, "type": "range", "label": "75" },
-                                    { "x": 426.63, "y": 81.757, "type": "whisker", "label": "max" },
-                                    { "type": "blank", "label": "upper_outlier" }
-                                  ],
-                                  [
-                                    { "type": "blank", "label": "lower_outlier" },
-                                    { "x": 535.94, "y": 69.12, "type": "whisker", "label": "min" },
-                                    { "x": 494.95, "y": 71.17, "type": "range", "label": "25" },
-                                    { "x": 576.93, "y": 73.665, "type": "range", "label": "50" },
-                                    { "x": 494.95, "y": 77.555, "type": "range", "label": "75" },
-                                    { "x": 535.94, "y": 81.235, "type": "whisker", "label": "max" },
-                                    { "type": "blank", "label": "upper_outlier" }
-                                  ]
-                                ] ;
-        </script>
+              [
+                { "x": 98.72, "y": 23.599, "type": "outlier", "yMax": 23.599, "values": [23.599], "label": "lower_outlier" },
+                { "x": 98.72, "y": 30, "type": "whisker", "label": "min" },
+                { "x": 57.73, "y": 42.361, "type": "range", "label": "25" },
+                { "x": 139.71, "y": 47.792, "type": "range", "label": "50" },
+                { "x": 57.73, "y": 54.416, "type": "range", "label": "75" },
+                { "x": 98.72, "y": 338.15, "type": "whisker", "label": "max" },
+                { "x": 98.72, "y": 72.301, "type": "outlier", "yMax": 76.442, "values": [72.737, 72.801, 73.042, 73.615, 73.923, 73.952, 74.772, 75.744, 76.442], "label": "upper_outlier" }
+              ],
+              [
+                { "x": 208.02, "y": 37.579, "type": "outlier", "yMax": 37.579, "values": [37.579], "label": "lower_outlier" },
+                { "x": 208.02, "y": 40.414, "type": "whisker", "label": "min" },
+                { "x": 167.04, "y": 58.373, "type": "range", "label": "25" },
+                { "x": 249.01, "y": 67.048, "type": "range", "label": "50" },
+                { "x": 167.04, "y": 71.717, "type": "range", "label": "75" },
+                { "x": 208.02, "y": 80.653, "type": "whisker", "label": "max" },
+                { "type": "blank", "label": "upper_outlier" }
+              ],
+              [
+                { "type": "blank", "label": "lower_outlier" },
+                { "x": 317.33, "y": 28.801, "type": "whisker", "label": "min" },
+                { "x": 276.34, "y": 51.3955, "type": "range", "label": "25" },
+                { "x": 358.32, "y": 61.7915, "type": "range", "label": "50" },
+                { "x": 276.34, "y": 69.5105, "type": "range", "label": "75" },
+                { "x": 317.33, "y": 82.603, "type": "whisker", "label": "max" },
+                { "type": "blank", "label": "upper_outlier" }
+              ],
+              [
+                { "x": 426.63, "y": 43.585, "type": "outlier", "yMax": 55.23, "values": [43.585, 48.079, 52.098, 53.82, 54.336, 55.23, 57.005, 57.996, 58.45, 59.164, 59.28, 59.507, 59.6, 59.82], "label": "lower_outlier" },
+                { "x": 426.63, "y": 61.036, "type": "whisker", "label": "min" },
+                { "x": 385.64, "y": 69.56, "type": "range", "label": "25" },
+                { "x": 467.62, "y": 72.241, "type": "range", "label": "50" },
+                { "x": 385.64, "y": 75.456, "type": "range", "label": "75" },
+                { "x": 426.63, "y": 81.757, "type": "whisker", "label": "max" },
+                { "type": "blank", "label": "upper_outlier" }
+              ],
+              [
+                { "type": "blank", "label": "lower_outlier" },
+                { "x": 535.94, "y": 69.12, "type": "whisker", "label": "min" },
+                { "x": 494.95, "y": 71.17, "type": "range", "label": "25" },
+                { "x": 576.93, "y": 73.665, "type": "range", "label": "50" },
+                { "x": 494.95, "y": 77.555, "type": "range", "label": "75" },
+                { "x": 535.94, "y": 81.235, "type": "whisker", "label": "max" },
+                { "type": "blank", "label": "upper_outlier" }
+              ]
+            ];
+          </script>
         <script src="../src/constants.js"></script>
         <script src="../src/audio.js"></script>
         <script src="../src/display.js"></script>
         <script src="../src/boxplot.js"></script>
-    </body>
-<html>
+        </body>
+        <html>

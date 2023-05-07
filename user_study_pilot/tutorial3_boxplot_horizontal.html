@@ -734,85 +734,89 @@
     let els = document.querySelectorAll('tspan[dy="3.15"]');
     for (let i = 0; i < els.length; i++) {
       labels.push(els[i].innerHTML.trim());
-    }
-    var boxplotLabels = {
-      "x_group_label": document.getElementById('GRID.text.101.1.1.tspan.1').innerHTML,
-      "y_group_label": document.getElementById('GRID.text.105.1.1.tspan.1').innerHTML,
-      "x_labels": [],
-      "y_labels": labels
-    };
-    var boxplotTitle = "Highway Mileage by Car Class.";
-    var boxplotId = "geom_boxplot.gTree.78.1";
-    var boxplotData = [
-      [
-        { "type": "blank", "label": "lower_outlier" },
-        { "x": 23, "y": 57.08, "type": "whisker", "label": "min" },
-        { "x": 24, "y": 41.09, "type": "range", "label": "25" },
-        { "x": 25, "y": 41, "type": "range", "label": "50" },
-        { "x": 26, "y": 41.09, "type": "range", "label": "75" },
-        { "x": 26, "y": 41.09, "type": "whisker", "label": "max" },
-        { "type": "blank", "label": "upper_outlier" }
-      ],
-      [
-        { "type": "blank", "label": "lower_outlier" },
-        { "x": 23, "y": 99.72, "type": "whisker", "label": "min" },
-        { "x": 26, "y": 83.73, "type": "range", "label": "25" },
-        { "x": 27, "y": 84, "type": "range", "label": "50" },
-        { "x": 29, "y": 83.73, "type": "range", "label": "75" },
-        { "x": 33, "y": 99.72, "type": "whisker", "label": "max" },
-        { "x": 35, "y": 99.72, "type": "outlier", "xMax": 44, "values": [35, 35, 37, 44], "label": "upper_outlier" }
-      ],
-      [
-        { "type": "blank", "label": "lower_outlier" },
-        { "x": 23, "y": 142.37, "type": "whisker", "label": "min" },
-        { "x": 26, "y": 126.38, "type": "range", "label": "25" },
-        { "x": 27, "y": 126, "type": "range", "label": "50" },
-        { "x": 29, "y": 126.38, "type": "range", "label": "75" },
-        { "x": 32, "y": 142.37, "type": "whisker", "label": "max" },
-        { "type": "blank", "label": "upper_outlier" }
-      ],
-      [
-        { "x": 17, "y": 185.01, "type": "outlier", "xMax": 17, "values": [17], "label": "lower_outlier" },
-        { "x": 21, "y": 185.01, "type": "whisker", "label": "min" },
-        { "x": 22, "y": 169.02, "type": "range", "label": "25" },
-        { "x": 23, "y": 169, "type": "range", "label": "50" },
-        { "x": 24, "y": 169.02, "type": "range", "label": "75" },
-        { "x": 24, "y": 169.02, "type": "whisker", "label": "max" },
-        { "type": "blank", "label": "upper_outlier" }
-      ],
-      [
-        { "x": 12, "y": 227.65, "type": "outlier", "xMax": 12, "values": [12, 12, 12], "label": "lower_outlier" },
-        { "x": 15, "y": 227.65, "type": "whisker", "label": "min" },
-        { "x": 16, "y": 211.66, "type": "range", "label": "25" },
-        { "x": 17, "y": 212, "type": "range", "label": "50" },
-        { "x": 18, "y": 211.66, "type": "range", "label": "75" },
-        { "x": 20, "y": 227.65, "type": "whisker", "label": "max" },
-        { "x": 22, "y": 227.65, "type": "outlier", "xMax": 22, "values": [22], "label": "upper_outlier" }
-      ],
-      [
-        { "type": "blank", "label": "lower_outlier" },
-        { "x": 20, "y": 270.29, "type": "whisker", "label": "min" },
-        { "x": 24.5, "y": 254.3, "type": "range", "label": "25" },
-        { "x": 26, "y": 254, "type": "range", "label": "50" },
-        { "x": 30.5, "y": 254.3, "type": "range", "label": "75" },
-        { "x": 36, "y": 270.29, "type": "whisker", "label": "max" },
-        { "x": 41, "y": 270.29, "type": "outlier", "xMax": 44, "values": [41, 44], "label": "upper_outlier" }
-      ],
-      [
-        { "x": 12, "y": 312.94, "type": "outlier", "xMax": 12, "values": [12, 12], "label": "lower_outlier" },
-        { "x": 14, "y": 312.94, "type": "whisker", "label": "min" },
-        { "x": 17, "y": 296.94, "type": "range", "label": "25" },
-        { "x": 17.5, "y": 297, "type": "range", "label": "50" },
-        { "x": 19, "y": 296.94, "type": "range", "label": "75" },
-        { "x": 22, "y": 312.94, "type": "whisker", "label": "max" },
-        { "x": 24, "y": 312.94, "type": "outlier", "xMax": 27, "values": [23, 24, 25, 25, 26, 27], "label": "upper_outlier" }
-      ]
-    ];
-  </script>
+      }
+      var boxplotLabels = {
+        "x_group_label": document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML,
+        "y_group_label": document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML,
+        "x_labels": [],
+        "y_labels": labels
+      };
+      var boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
+      var boxplotTitle = "";
+      if ( document.querySelector('tspan[dy="9.45"]') ) {
+          boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+          boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+      }
+      var boxplotData = [
+        [
+          { "type": "blank", "label": "lower_outlier" },
+          { "x": 23, "y": 57.08, "type": "whisker", "label": "min" },
+          { "x": 24, "y": 41.09, "type": "range", "label": "25" },
+          { "x": 25, "y": 41, "type": "range", "label": "50" },
+          { "x": 26, "y": 41.09, "type": "range", "label": "75" },
+          { "x": 26, "y": 41.09, "type": "whisker", "label": "max" },
+          { "type": "blank", "label": "upper_outlier" }
+        ],
+        [
+          { "type": "blank", "label": "lower_outlier" },
+          { "x": 23, "y": 99.72, "type": "whisker", "label": "min" },
+          { "x": 26, "y": 83.73, "type": "range", "label": "25" },
+          { "x": 27, "y": 84, "type": "range", "label": "50" },
+          { "x": 29, "y": 83.73, "type": "range", "label": "75" },
+          { "x": 33, "y": 99.72, "type": "whisker", "label": "max" },
+          { "x": 35, "y": 99.72, "type": "outlier", "xMax": 44, "values": [35, 35, 37, 44], "label": "upper_outlier" }
+        ],
+        [
+          { "type": "blank", "label": "lower_outlier" },
+          { "x": 23, "y": 142.37, "type": "whisker", "label": "min" },
+          { "x": 26, "y": 126.38, "type": "range", "label": "25" },
+          { "x": 27, "y": 126, "type": "range", "label": "50" },
+          { "x": 29, "y": 126.38, "type": "range", "label": "75" },
+          { "x": 32, "y": 142.37, "type": "whisker", "label": "max" },
+          { "type": "blank", "label": "upper_outlier" }
+        ],
+        [
+          { "x": 17, "y": 185.01, "type": "outlier", "xMax": 17, "values": [17], "label": "lower_outlier" },
+          { "x": 21, "y": 185.01, "type": "whisker", "label": "min" },
+          { "x": 22, "y": 169.02, "type": "range", "label": "25" },
+          { "x": 23, "y": 169, "type": "range", "label": "50" },
+          { "x": 24, "y": 169.02, "type": "range", "label": "75" },
+          { "x": 24, "y": 169.02, "type": "whisker", "label": "max" },
+          { "type": "blank", "label": "upper_outlier" }
+        ],
+        [
+          { "x": 12, "y": 227.65, "type": "outlier", "xMax": 12, "values": [12, 12, 12], "label": "lower_outlier" },
+          { "x": 15, "y": 227.65, "type": "whisker", "label": "min" },
+          { "x": 16, "y": 211.66, "type": "range", "label": "25" },
+          { "x": 17, "y": 212, "type": "range", "label": "50" },
+          { "x": 18, "y": 211.66, "type": "range", "label": "75" },
+          { "x": 20, "y": 227.65, "type": "whisker", "label": "max" },
+          { "x": 22, "y": 227.65, "type": "outlier", "xMax": 22, "values": [22], "label": "upper_outlier" }
+        ],
+        [
+          { "type": "blank", "label": "lower_outlier" },
+          { "x": 20, "y": 270.29, "type": "whisker", "label": "min" },
+          { "x": 24.5, "y": 254.3, "type": "range", "label": "25" },
+          { "x": 26, "y": 254, "type": "range", "label": "50" },
+          { "x": 30.5, "y": 254.3, "type": "range", "label": "75" },
+          { "x": 36, "y": 270.29, "type": "whisker", "label": "max" },
+          { "x": 41, "y": 270.29, "type": "outlier", "xMax": 44, "values": [41, 44], "label": "upper_outlier" }
+        ],
+        [
+          { "x": 12, "y": 312.94, "type": "outlier", "xMax": 12, "values": [12, 12], "label": "lower_outlier" },
+          { "x": 14, "y": 312.94, "type": "whisker", "label": "min" },
+          { "x": 17, "y": 296.94, "type": "range", "label": "25" },
+          { "x": 17.5, "y": 297, "type": "range", "label": "50" },
+          { "x": 19, "y": 296.94, "type": "range", "label": "75" },
+          { "x": 22, "y": 312.94, "type": "whisker", "label": "max" },
+          { "x": 24, "y": 312.94, "type": "outlier", "xMax": 27, "values": [23, 24, 25, 25, 26, 27], "label": "upper_outlier" }
+        ]
+      ];
+    </script>
   <script src="../src/constants.js"></script>
   <script src="../src/audio.js"></script>
   <script src="../src/display.js"></script>
   <script src="../src/boxplot.js"></script>
-</body>
-
-</html>
+  </body>
+  
+  </html>
