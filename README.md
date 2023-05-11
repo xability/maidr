@@ -1,7 +1,7 @@
 
 # MAIDR: Multimodal Access and Interactive Data Representation
 
-MAIDR is an interface for nonvisual access and control of scientific charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a more diverse scientific community. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html).
+MAIDR is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html).
 
 ## Table of Contents
 
@@ -55,21 +55,21 @@ To interact with the charts using MAIDR, follow these steps:
 
 Below is a detailed list of keyboard shortcuts for various functions:
 
-| Function                               | Key                            |
-|----------------------------------------|--------------------------------|
-| Move around plot                       | Arrow keys                     |
-| Go to the very left, right, up, or down | Control + Arrow key           |
-| Select the first element               | Control + Home                 |
-| Select the last element                | Control + End                  |
-| Toggle Braille Mode                    | B                              |
-| Toggle Sonification Mode               | S                              |
-| Toggle Text Mode                       | T                              |
-| Repeat current sound                   | Space                          |
-| Auto-play outward in direction of arrow | Control + Shift + Arrow key   |
-| Auto-play inward in direction of arrow | Alt + Shift + Arrow key       |
-| Stop Auto-play                         | Control                        |
-| Auto-play speed up                     | Period                         |
-| Auto-play speed down                   | Comma                          |
+| Function                               | Key (Windows)                  |Key (Mac)                      |
+|----------------------------------------|--------------------------------|-------------------------------|
+| Move around plot                       | Arrow keys                     |Arrow keys                     |
+| Go to the very left, right, up, or down | Control + Arrow key           |Command + Arrow key            |
+| Select the first element               | Control + Home                 |Command + Function + Left      |
+| Select the last element                | Control + End                  |Control + Function + Right     |
+| Toggle Braille Mode                    | B                              |B                              |
+| Toggle Sonification Mode               | S                              |S                              |
+| Toggle Text Mode                       | T                              |T                              |
+| Repeat current sound                   | Space                          |Space                          |
+| Auto-play outward in direction of arrow | Control + Shift + Arrow key   |Command + Shift + Arrow key    |
+| Auto-play inward in direction of arrow | Alt + Shift + Arrow key        |Option + Shift + Arrow key     |
+| Stop Auto-play                         | Control                        |Command                        |
+| Auto-play speed up                     | Period                         |Period                         |
+| Auto-play speed down                   | Comma                          |Comma                          |
 
 ### Scatterplot Controls
 
@@ -92,14 +92,22 @@ In the Braille representation of a barplot, data values are encoded as Braille c
  * ⠉ represents the 75% to 100%
 
 This tactile encoding allows users to easily differentiate between the various value ranges in the barplot, facilitating their understanding of the data distribution and its underlying trends.
+### Heatmap
 
+In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the chart, much like the approach used for barplots and scatterplots. Low values are denoted by Braille characters with dots only along the bottom, high values are represented by characters filled with dots, and blank or null values are indicated by empty spaces. With three height levels of Braille, the encoding is as follows:
+
+ * ⠤ represents values from 0% to 33%
+ * ⠒ represents values from 33% to 66%
+ * ⠉ represents values from 66% to 100%
+ * "⠀" (braille space) represents null or empty values
+ * "⢳" represents a row seperator 
 ### Boxplot
 
 The Braille representation of a boxplot employs Braille characters that visually resemble the corresponding sections of the boxplot. The size of each section is denoted by the number of Braille characters used. The sections are encoded as follows:
 
- * ⠂ represents outlier(s)
- * ⠒ represents the minimum or maximum whiskers
- * ⠿ represents the first or third quartiles
+ * ⠂ represents lower outlier and upper outlier(s)
+ * ⠒ represents the left or right whiskers
+ * ⠿ represents the second or third quartiles
  * ⠇ represents the 50% midpoint (median)
  * blank spaces represent empty spaces
 
@@ -170,15 +178,7 @@ And we get the braille output:
 
  ⠂  ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒     ⠂ ⠂
 
-### Heatmap
 
-In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the chart, much like the approach used for barplots and scatterplots. Low values are denoted by Braille characters with dots only along the bottom, high values are represented by characters filled with dots, and blank or null values are indicated by empty spaces. With three height levels of Braille, the encoding is as follows:
-
- * ⠤ represents values from 0% to 33%
- * ⠒ represents values from 33% to 66%
- * ⠉ represents values from 66% to 100%
- * "⠀" (braille space) represents null or empty values
- * "⢳" represents a row seperator 
 
 ### Scatterplot
 
