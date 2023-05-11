@@ -148,6 +148,8 @@ c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., 11
  * c_12 = round(28 * 0.0357) = round(1) = 1
  * c_13 = round(28 * 0) = round(0) = 0
 
+To account for rounding errors, we run this process a few times, allocating a positive or negative number of additional characters to the set, and as a fallback, finally add or remove them from the sections with the most characters.
+
 Last, we enforce our overarching rules:
 
  * c_1 = 1

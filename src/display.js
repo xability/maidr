@@ -455,10 +455,11 @@ class Display {
             //
             // So, we get weighted lengths of each section (or gaps between outliers, etc),
             // and then create the appropriate number of characters
+            // Full explanation on readme
             //
             // This is messy and long (250 lines). If anyone wants to improve. Be my guest
 
-            // First, we make an array of lengths and types that represent our plot
+            // First some prep work, we make an array of lengths and types that represent our plot
             let brailleData = [];
             let isBeforeMid = true;
             let plotPos = orientation == "vert" ? position.x : position.y;
@@ -466,8 +467,7 @@ class Display {
             for (let i = 0; i < plot.plotData[plotPos].length; i++) {
                 let point = plot.plotData[plotPos][i];
                 // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
-                let visualBraille = false;
-                if (point.values && visualBraille) {
+                if (point.values && constants.visualBraille) {
                     point.values = [...new Set(point.values)];
                 }
 
@@ -610,26 +610,28 @@ class Display {
             }
 
             // We create a set of braille characters based on the lengths
-            // Method: initially give each block a single character, then add characters one by one where they have the most impact
-            // We use the length and current numChars to get a weight of sorts (eg len 200 numChars 4 -> 50 each char)
-            // then we add the next character where most impactful. 
-            // exception: each must have min 1 character
-            // exception: if there are multiple blocks that have the same values, use this priority:
-            //   1: 25/75
-            //   2: min/max
-            //   3: blanks
+
+            // Method: 
+            // We normalize the lengths of each characters needed length 
+            // by the total number of characters we have availble 
+            // (including offset from characters requiring 1 character).
+            // Then apply the appropriate number of characters to each 
+
+            // A few exceptions: 
+            // exception: each must have min 1 character (not blanks)
             // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
             // exception: center is always 456 123
-            // todo: exception: if there's a tie across a single block (or even multiple blocks), should we assign to the whole block (like, spaces between all 5 outliers)? or just the first chart like current (so the first space between the 5 outliers, which could cause some strange behaviour)
 
+            // Step 1, prepopulate each section with a single character, and log for character offset
             let locMin = -1;
             let locMax = -1;
             let loc25 = -1;
             let loc75 = -1;
-            // prepopulate a single char each
+            let numDefaultChars = 0;
             for (let i = 0; i < brailleData.length; i++) {
                 if (brailleData[i].type != 'blank' && (brailleData[i].length > 0 || brailleData[i].type == 'outlier')) {
                     brailleData[i].numChars = 1;
+                    numDefaultChars++;
                 } else {
                     brailleData[i].numChars = 0;
                 }
@@ -641,7 +643,10 @@ class Display {
                 if (brailleData[i].label == '75') loc75 = i;
 
                 // 50 gets 2 characters by default
-                if (brailleData[i].label == '50') brailleData[i].numChars = 2;
+                if (brailleData[i].label == '50') {
+                    brailleData[i].numChars = 2;
+                    numDefaultChars++;
+                }
             }
             // add extras to 25/75 min/max if needed 
             let currentPairs = ['25', '75'];
@@ -651,120 +656,35 @@ class Display {
                 if (brailleData[locMin].length != brailleData[locMax].length) {
                     if (brailleData[locMin].length > brailleData[locMax].length) { // make sure if they're different, they appear different
                         brailleData[locMin].numChars++;
+                        numDefaultChars++;
                     } else {
                         brailleData[locMax].numChars++;
+                        numDefaultChars++;
                     }
                 }
             }
             if (brailleData[loc25].length != brailleData[loc75].length) {
                 if (brailleData[loc25].length > brailleData[loc75].length) {
                     brailleData[loc25].numChars++;
+                    numDefaultChars++;
                 } else {
                     brailleData[loc75].numChars++;
+                    numDefaultChars++;
                 }
             }
 
-            // Main algorithm here: add characters itteritively on max length impact
-            let charsAvailable = constants.brailleDisplayLength;
-            charsAvailable += -1; // to account for the double char on midpoint
-            for (let i = 0; i < brailleData.length; i++) {
-                charsAvailable -= brailleData[i].numChars;
+
+            // Step 2: normalize and allocate remaining characters and add to our main braille array
+            let charsAvailable = constants.brailleDisplayLength - numDefaultChars;
+            let allocateCharacters = this.AllocateCharacters(brailleData, charsAvailable)
+            for ( let i = 0 ; i < allocateCharacters.length ; i++ ) {
+                if ( allocateCharacters[i] ) {
+                    brailleData[i].numChars += allocateCharacters[i];
+                }
             }
-            let debugSanity = 0; // so if I mess up this doesn't lock up. while loop scare me
-            while (charsAvailable > 0 && debugSanity < 2000) {
-                debugSanity++;
-                let maxImpactI = 0;
-                for (let i = 0; i < brailleData.length; i++) {
-                    if (this.CharLenImpact(brailleData[i]) > this.CharLenImpact(brailleData[maxImpactI])) {
-                        maxImpactI = i;
-                    }
-                }
 
-                // do we potentially need to add chars to the other in the pair?
-                if (!(brailleData[maxImpactI].label in currentPairs)) {
-                    brailleData[maxImpactI].numChars++;
-                    charsAvailable--;
-                } else if (brailleData[maxImpactI].label in ['min', 'max']) {
-                    // if they're equal, add to both
-                    if (brailleData[locMin].length == brailleData[locMax].length) {
-                        if (charsAvailable > 1) {
-                            brailleData[locMin].numChars++;
-                            brailleData[locMax].numChars++;
-                        }
-                        charsAvailable += -2;
-                    } else {
-                        // if not equal, would adding to 1 side make them seem equal?
-                        if (maxImpactI == locMin) {
-                            if (brailleData[locMin].numChars + 1 == brailleData[locMax].numChars) {
-                                // if so, then add to both
-                                if (charsAvailable > 1) {
-                                    brailleData[locMin].numChars++;
-                                    brailleData[locMax].numChars++;
-                                }
-                                charsAvailable += -2;
-                            } else {
-                                // if not, then it's fine, just add it
-                                brailleData[maxImpactI].numChars++;
-                                charsAvailable--;
-                            }
-                        } else {
-                            // same for other side
-                            if (brailleData[locMax].numChars + 1 == brailleData[locMin].numChars) {
-                                // if so, then add to both
-                                if (charsAvailable > 1) {
-                                    brailleData[locMax].numChars++;
-                                    brailleData[locMin].numChars++;
-                                }
-                                charsAvailable += -2;
-                            } else {
-                                // if not, then it's fine, just add it
-                                brailleData[maxImpactI].numChars++;
-                                charsAvailable--;
-                            }
-                        }
-                    }
-                } else if (brailleData[maxImpactI].label in ['25', '75']) {
-                    // if they're equal, add to both
-                    if (brailleData[loc25].length == brailleData[loc75].length) {
-                        if (charsAvailable > 1) {
-                            brailleData[loc25].numChars++;
-                            brailleData[loc75].numChars++;
-                        }
-                        charsAvailable += -2;
-                    } else {
-                        // if not equal, would adding to 1 side make them seem equal?
-                        if (maxImpactI == loc25) {
-                            if (brailleData[loc25].numChars + 1 == brailleData[loc75].numChars) {
-                                // if so, then add to both
-                                if (charsAvailable > 1) {
-                                    brailleData[loc25].numChars++;
-                                    brailleData[loc75].numChars++;
-                                }
-                                charsAvailable += -2;
-                            } else {
-                                // if not, then it's fine, just add it
-                                brailleData[maxImpactI].numChars++;
-                                charsAvailable--;
-                            }
-                        } else {
-                            // same for other side
-                            if (brailleData[loc75].numChars + 1 == brailleData[loc25].numChars) {
-                                // if so, then add to both
-                                if (charsAvailable > 1) {
-                                    brailleData[loc75].numChars++;
-                                    brailleData[loc25].numChars++;
-                                }
-                                charsAvailable += -2;
-                            } else {
-                                // if not, then it's fine, just add it
-                                brailleData[maxImpactI].numChars++;
-                                charsAvailable--;
-                            }
-                        }
-                    }
-                }
-
-            } // end while (main algorithm)
+            // Step 3: ensure overarching rules have been followed
+            // todo
 
             constants.brailleData = brailleData;
             if (constants.debugLevel > 5) {
@@ -807,6 +727,106 @@ class Display {
 
     CharLenImpact(charData) {
         return (charData.length / charData.numChars);
+    }
+
+    /**
+     * This function allocates a total number of characters among an array of lengths, 
+     * proportionally to each length.
+     *
+     * @param {Array} arr - The array of lengths. Each length should be a positive number.
+     * @param {number} totalCharacters - The total number of characters to be allocated.
+     *
+     * The function first calculates the sum of all lengths in the array. Then, it 
+     * iterates over the array and calculates an initial allocation for each length, 
+     * rounded to the nearest integer, based on its proportion of the total length.
+     *
+     * If the sum of these initial allocations is not equal to the total number of 
+     * characters due to rounding errors, the function makes adjustments to the allocations.
+     *
+     * The adjustments are made in a loop that continues until the difference between 
+     * the total number of characters and the sum of the allocations is zero, or until 
+     * the loop has run a maximum number of iterations equal to the length of the array.
+     *
+     * In each iteration of the loop, the function calculates a rounding adjustment for 
+     * each length, again based on its proportion of the total length, and adds this 
+     * adjustment to the length's allocation.
+     *
+     * If there's still a difference after the maximum number of iterations, the function 
+     * falls back to a simpler method of distributing the difference: it sorts the lengths 
+     * by their allocations and adds or subtracts 1 from each length in this order until 
+     * the difference is zero.
+     *
+     * The function returns an array of the final allocations.
+     *
+     * @returns {Array} The array of allocations.
+     */
+    AllocateCharacters(arr, totalCharacters) {
+
+        // init
+        let allocation = [];
+        let sumLen = 0;
+        for (let i = 0; i < arr.length; i++) {
+            sumLen += arr[i].length;
+        }
+        let notAllowed = ['lower_outlier', 'upper_outlier', '50'];
+
+        // main allocation
+        for (let i = 0; i < arr.length; i++) {
+            if ( ! notAllowed.includes(arr[i].label) ) {
+                allocation[i] = Math.round(arr[i].length / sumLen * totalCharacters);
+            }
+        }
+
+        // did it work? check for differences
+        let allocatedSum = allocation.reduce((a, b) => a + b, 0);
+        let difference = totalCharacters - allocatedSum;
+
+        // If there's a rounding error, add/subtract characters proportionally
+        let maxIterations = arr.length; // inf loop handler :D
+        while (difference !== 0 && maxIterations > 0) {
+            // (same method as above)
+            for ( let i = 0 ; i < arr.length ; i++ ) {
+                if ( ! notAllowed.includes(arr[i].label) ) {
+                    allocation[i] += Math.round(arr[i].length / sumLen * difference);
+                }
+            }
+            allocatedSum = allocation.reduce((a, b) => a + b, 0);
+            difference = totalCharacters - allocatedSum;
+
+            maxIterations--;
+        }
+
+        // if there's still a rounding error after max iterations, fuck it, just distribute it evenly
+        if (difference !== 0) {
+            // create an array of indices sorted low to high based on current allocations
+            let indices = [];
+            for (let i = 0; i < arr.length; i++) {
+                indices.push(i);
+            }
+            indices.sort((a, b) => allocation[a] - allocation[b]);
+
+            // if we need to add or remove characters, do so from the beginning 
+            let plusminus = -1; // add or remove?
+            if (difference > 0) {
+                plusminus = 1;
+            }
+            let i = 0;
+            let maxIterations = indices.length * 3; // run it for a while just in case
+            while (difference > 0 && maxIterations > 0) {
+                allocation[indices[i]] += plusminus;
+                difference += -plusminus;
+
+                i += 1;
+                // loop back to start if we end
+                if (i >= indices.length) {
+                    i = 0;
+                }
+
+                maxIterations += -1;
+            }
+        }
+
+        return allocation;
     }
 
 }
