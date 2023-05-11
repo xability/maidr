@@ -61,6 +61,7 @@ class Constants {
     // advanced user settings
     showRect = 1;  // true / false
     duration = .3;
+    outlierDuration = .06;
     autoPlayOutlierRate = 50; // ms per tone
     autoPlayPointsRate = 30;
     colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
