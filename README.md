@@ -104,7 +104,7 @@ The Braille representation of a boxplot employs Braille characters that visually
  * blank spaces represent empty spaces
 
 We also impose some overarching rules:
- * Each section must be represented with at least 1 braille character
+ * Each section must be represented with at least 1 braille character, assuming they have some positive length.
  * Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
 
 This tactile encoding enables users to discern the various components of the boxplot, allowing them to comprehend the data distribution, detect outliers, and identify central tendencies and dispersion within the dataset.

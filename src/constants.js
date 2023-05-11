@@ -56,7 +56,7 @@ class Constants {
     MAX_VOL = 30;
     autoPlayRate = 250; // ms per tone
     colorSelected = "#03C809";
-    brailleDisplayLength = 18; // num characters in user's braille display. JooYoung says everyone has at least 18
+    brailleDisplayLength = 40; // num characters in user's braille display. Common length for desktop / mobile applications
 
     // advanced user settings
     showRect = 1;  // true / false
@@ -199,6 +199,7 @@ class Menu {
 
     constructor() {
         this.CreateMenu();
+        this.LoadDataFromLocalStorage();
     }
 
     menuHtml = `
@@ -346,6 +347,33 @@ class Menu {
         constants.MIN_FREQUENCY = document.getElementById('min_freq').value;
         constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
         constants.keypressInterval = document.getElementById('keypress_interval').value;
+    }
+
+    SaveDataToLocalStorage() {
+        // save all data in this.SaveData() to local storage
+        let data = {};
+        data.vol = constants.vol;
+        //data.showRect = constants.showRect;
+        data.autoPlayRate = constants.autoPlayRate;
+        data.brailleDisplayLength = constants.brailleDisplayLength;
+        data.colorSelected = constants.colorSelected;
+        data.MIN_FREQUENCY = constants.MIN_FREQUENCY;
+        data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
+        data.keypressInterval = constants.keypressInterval;
+        localStorage.setItem('settings_data', JSON.stringify(data));
+    }
+    LoadDataFromLocalStorage() {
+        let data = JSON.parse(localStorage.getItem('settings_data'));
+        if (data) {
+            constants.vol = data.vol;
+            //constants.showRect = data.showRect;
+            constants.autoPlayRate = data.autoPlayRate;
+            constants.brailleDisplayLength = data.brailleDisplayLength;
+            constants.colorSelected = data.colorSelected;
+            constants.MIN_FREQUENCY = data.MIN_FREQUENCY;
+            constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
+            constants.keypressInterval = data.keypressInterval;
+        }
     }
 }
 
