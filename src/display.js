@@ -618,7 +618,7 @@ class Display {
             // Then apply the appropriate number of characters to each 
 
             // A few exceptions: 
-            // exception: each must have min 1 character (not blanks)
+            // exception: each must have min 1 character (not blanks or length 0)
             // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
             // exception: center is always 456 123
 
@@ -682,9 +682,6 @@ class Display {
                     brailleData[i].numChars += allocateCharacters[i];
                 }
             }
-
-            // Step 3: ensure overarching rules have been followed
-            // todo
 
             constants.brailleData = brailleData;
             if (constants.debugLevel > 5) {
