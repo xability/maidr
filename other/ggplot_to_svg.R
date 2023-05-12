@@ -1,5 +1,6 @@
 # Load required packages
 library(gridSVG)
+library(svglite)
 library(ggplot2)
 library(gt)
 library(tidymodels)
@@ -8,6 +9,7 @@ library(gapminder)
 
 
 # Bar plot sample
+# svglite("svglite_bar.svg")
 ggplot(diamonds, aes(cut)) +
   geom_bar() +
   labs(title = "The Number of Diamonds by Cut.", x = "Cut", y = "Count")
