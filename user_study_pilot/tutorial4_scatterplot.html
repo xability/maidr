@@ -1834,17 +1834,17 @@
             </div>
         </div>
         <script>
-            var scatterPlotPoints = document.querySelectorAll('g[id^="geom_point"] > use');;
-            var scatterPlotLine = document.querySelector('g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]');
-            var scatterPlotLegend = {
-                "x": document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML,
-                "y": document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML
-            }
-            var scatterPlotTitle = "";
-            if ( document.querySelector('tspan[dy="9.45"]') ) {
-                scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
-                scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
-            }
+            //var scatterPlotPoints = document.querySelectorAll('g[id^="geom_point"] > use');;
+            //var scatterPlotLine = document.querySelector('g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]');
+            //var scatterPlotLegend = {
+                //"x": document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML,
+                //"y": document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML
+            //}
+            //var scatterPlotTitle = "";
+            //if ( document.querySelector('tspan[dy="9.45"]') ) {
+                //scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+                //scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+            //}
             var point_layer = [
                 {
                     "x": 1.8,
