@@ -548,11 +548,8 @@ class HeatMap {
 
     constructor() {
 
-        if (constants.manualData) {
-            this.plots = heatmapPlots;
-        } else {
-            this.plots = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect');
-        }
+        this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
+
         this.plotData = this.getHeatMapData();
         this.updateConstants();
 
@@ -598,7 +595,8 @@ class HeatMap {
 
         let norms;
         if (constants.manualData) {
-            norms = [...heatmapData];
+
+            norms = [...data];
         } else {
             norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
             let min_norm = 3 * (Math.pow(255, 2));
@@ -650,7 +648,11 @@ class HeatMap {
     getGroupLabels() {
         let labels_nodelist;
         if (constants.manualData) {
-            labels_nodelist = heatmapLabelsNodelist;
+            labels_nodelist = [
+                document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
+                document.querySelector('g[id^="ylab"] text > tspan').innerHTML,
+                document.querySelector('g[id^="guide.title"] text > tspan').innerHTML
+            ];
             if (typeof (labels_nodelist[0]) == "string") {
                 return labels_nodelist;
             }
@@ -668,7 +670,7 @@ class HeatMap {
     getXLabels() {
         let x_labels_nodelist;
         if (constants.manualData) {
-            x_labels_nodelist = heatmapXNodelist;
+            x_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="middle"] > tspan');
             if (typeof (x_labels_nodelist[0]) == "string") {
                 return x_labels_nodelist;
             }
@@ -690,7 +692,7 @@ class HeatMap {
         let y_labels_nodelist;
         let labels = [];
         if (constants.manualData) {
-            y_labels_nodelist = heatmapYNodelist;
+            y_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="end"] > tspan');
             if (typeof (y_labels_nodelist[0]) == "string") {
                 return y_labels_nodelist;
             }
@@ -706,6 +708,7 @@ class HeatMap {
     }
 
     getTitle() {
+        let heatmapTitle = document.querySelector('g[id^="layout::title"] text > tspan').innerHTML;
         if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
             return heatmapTitle;
         } else {
