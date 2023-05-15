@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
 
-    constants.plotId = 'geom_rect.rect.2.1';
+    constants.plotId = document.querySelector('g[id^="layout::panel"] > g g[id^="geom_rect.rect"]').getAttribute('id');
     window.position = new Position(-1, -1);
     window.plot = new BarChart();
     constants.chartType = "barplot";
@@ -368,16 +368,26 @@ class BarChart {
 
     constructor() {
         if (constants.manualData) {
-            this.bars = barplotBars;
-            this.plotData = barplotData;
-            this.plotColumns = barplotColumns;
-            this.plotLegend = this.GetLegendFromManualData(barplotLegend);
-            this.title = (typeof barplotTitle !== 'undefined' && typeof barplotTitle != null) ? barplotTitle : "";
+            // todo: these should be fallbacks, try to pull data from data{} first
+
+            this.bars = document.querySelectorAll('g[id^="geom_rect"] > rect');
+                this.plotColumns = this.ParseInnerHTML(document.querySelectorAll('g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'));
+            this.plotLegend = {
+                "x": document.querySelector('g[id^="xlab"] tspan').innerHTML,
+                "y": document.querySelector('g[id^="ylab"] tspan').innerHTML
+            };
+            this.title = "";
+            if (document.querySelector('g[id^="plot.title..titleGrob"] tspan')) {
+                this.title = document.querySelector('g[id^="plot.title..titleGrob"] tspan').innerHTML;
+                this.title = this.title.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+            }
+
+            this.plotData = data;
         } else {
             this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
-            this.plotData = this.GetData();
             this.plotColumns = this.GetColumns();
             this.plotLegend = this.GetLegend();
+            this.plotData = this.GetData();
         }
 
         constants.minY = Math.min(...this.plotData);
@@ -429,6 +439,15 @@ class BarChart {
 
         return legend;
 
+    }
+
+    ParseInnerHTML(els) {
+        // parse innerHTML of elements
+        let parsed = [];
+        for (var i = 0; i < els.length; i++) {
+            parsed.push(els[i].innerHTML);
+        }
+        return parsed;
     }
 
     Select() {

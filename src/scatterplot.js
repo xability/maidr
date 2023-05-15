@@ -541,7 +541,7 @@ class ScatterPlot {
 
         // layer = 1
         if (constants.manualData) {
-            this.plotPoints = scatterPlotPoints;
+            this.plotPoints = document.querySelectorAll('g[id^="geom_point"] > use');;
         } else {
             this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
         }
@@ -557,7 +557,7 @@ class ScatterPlot {
 
         // layer = 2
         if (constants.manualData) {
-            this.plotLine = scatterPlotLine;
+            this.plotLine = document.querySelector('g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]');
         } else {
             this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
         }
@@ -573,13 +573,22 @@ class ScatterPlot {
 
         this.x_group_label = this.GetGroupLabels()[0];
         this.y_group_label = this.GetGroupLabels()[1];
+        let scatterPlotTitle = "";
+        if ( document.querySelector('tspan[dy="9.45"]') ) {
+            scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+            scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+        }
         this.title = (typeof scatterPlotTitle !== 'undefined' && typeof scatterPlotTitle != null) ? scatterPlotTitle : "";
     }
 
     GetGroupLabels() {
         let labels = [];
         if (constants.manualData) {
-            labels.push(scatterPlotLegend["x"], scatterPlotLegend["y"]);
+            labels.push(
+                // bookmark: these aren't right. It's 7.87 not 7.88, need a new method
+                document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
+                document.querySelector('g[id^="ylab"] text > tspan').innerHTML
+                );
         } else {
             let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
             labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
