@@ -730,24 +730,24 @@
   </div>
   <script>
     var orientation = "horz";
-    let labels = [];
-    let els = document.querySelectorAll('tspan[dy="3.15"]');
-    for (let i = 0; i < els.length; i++) {
-      labels.push(els[i].innerHTML.trim());
-      }
-      var boxplotLabels = {
-        "x_group_label": document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML,
-        "y_group_label": document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML,
-        "x_labels": [],
-        "y_labels": labels
-      };
-      var boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
-      var boxplotTitle = "";
-      if ( document.querySelector('tspan[dy="9.45"]') ) {
-          boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
-          boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
-      }
-      var boxplotData = [
+    //let labels = [];
+    //let els = document.querySelectorAll('tspan[dy="3.15"]');
+    //for (let i = 0; i < els.length; i++) {
+      //labels.push(els[i].innerHTML.trim());
+      //}
+      //var boxplotLabels = {
+        //"x_group_label": 
+        //"y_group_label": 
+        //"x_labels": [],
+        //"y_labels": labels
+      //};
+      //var boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
+      //var boxplotTitle = "";
+      //if ( document.querySelector('tspan[dy="9.45"]') ) {
+          //boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+          //boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+      //}
+      var data = [
         [
           { "type": "blank", "label": "lower_outlier" },
           { "x": 23, "y": 57.08, "type": "whisker", "label": "min" },

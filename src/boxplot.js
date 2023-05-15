@@ -737,16 +737,41 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BoxPlot {
 
     constructor() {
+
+        let boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
         if (boxplotId) {
             constants.plotId = boxplotId;
         }
+
         if (constants.manualData) {
+
+            let boxplotTitle = "";
+            if (document.querySelector('tspan[dy="9.45"]')) {
+                boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+                boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+            }
             this.title = (typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null) ? boxplotTitle : "";
-            this.x_group_label = boxplotLabels.x_group_label;
-            this.y_group_label = boxplotLabels.y_group_label;
-            this.x_labels = boxplotLabels.x_labels;
-            this.y_labels = boxplotLabels.y_labels;
-            this.plotData = boxplotData;
+
+            this.x_group_label = document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML;
+            this.y_group_label = document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML;
+
+            let labels = [];
+            let elDy = "3.15";;
+            if ( orientation == "vert" ) {
+                elDy = "6.3";
+            }
+            let els = document.querySelectorAll('tspan[dy="' + elDy + '"]');
+            for (let i = 0; i < els.length; i++) {
+                labels.push(els[i].innerHTML.trim());
+            }
+            if ( orientation == "vert" ) {
+                this.x_labels = labels;
+                this.y_labels = [];
+            } else {
+                this.x_labels = [];
+                this.y_labels = labels;
+            }
+            this.plotData = data;
             this.plotBounds = this.GetPlotBounds(constants.plotId);
         } else {
             this.x_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
@@ -780,9 +805,9 @@ class BoxPlot {
         if (orientation == "vert") {
             constants.minY = 0;
             constants.maxY = 0;
-            for (let i = 0; i < boxplotData.length; i++) { // each plot
-                for (let j = 0; j < boxplotData[i].length; j++) { // each section in plot
-                    let point = boxplotData[i][j];
+            for (let i = 0; i < data.length; i++) { // each plot
+                for (let j = 0; j < data[i].length; j++) { // each section in plot
+                    let point = data[i][j];
                     if (point.hasOwnProperty('y')) {
                         if (point.y < constants.minY) {
                             constants.yMin = point.y;
@@ -810,9 +835,9 @@ class BoxPlot {
         } else {
             constants.minX = 0;
             constants.maxX = 0;
-            for (let i = 0; i < boxplotData.length; i++) { // each plot
-                for (let j = 0; j < boxplotData[i].length; j++) { // each section in plot
-                    let point = boxplotData[i][j];
+            for (let i = 0; i < data.length; i++) { // each plot
+                for (let j = 0; j < data[i].length; j++) { // each section in plot
+                    let point = data[i][j];
                     if (point.hasOwnProperty('x')) {
                         if (point.x < constants.minX) {
                             constants.xMin = point.x;
