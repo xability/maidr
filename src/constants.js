@@ -579,8 +579,8 @@ class Tracker {
                 fill_value = plot.group_labels[2];
             }
         } else if (constants.chartType == "boxplot") {
-            let plotPos = orientation == "vert" ? position.x : position.y;
-            let sectionPos = orientation == "vert" ? position.y : position.x;
+            let plotPos = plotOrientation == "vert" ? position.x : position.y;
+            let sectionPos = plotOrientation == "vert" ? position.y : position.x;
 
             if (!this.isUndefinedOrNull(plot.x_group_label)) {
                 x_label = plot.x_group_label;
@@ -588,7 +588,7 @@ class Tracker {
             if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
                     y_tickmark = plot.plotData[plotPos][sectionPos].label;
                 }

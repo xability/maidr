@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     constants.plotId = 'geom_boxplot.gTree.78.1';
     window.plot = new BoxPlot();
     constants.chartType = "boxplot";
-    if (orientation == "vert") {
+    if (plotOrientation == "vert") {
         window.position = new Position(0, plot.plotData[0].length - 1);
     } else {
         window.position = new Position(-1, plot.plotData.length);
@@ -34,14 +34,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('right', position.x, plot.plotData.length - 1);
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
                     }
                 } else {
                     isAtEnd = lockPosition();
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         position.x = plot.plotData.length - 1;
                     } else {
                         position.x = plot.plotData[position.y].length - 1;
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (orientation == "vert") {
+            } else if (plotOrientation == "vert") {
                 if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
                     lastY = position.y;
                     Autoplay('reverse-right', plot.plotData.length - 1, position.x);
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x > 0) {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
@@ -105,13 +105,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
                         Autoplay('up', position.y, plot.plotData.length);
                     }
                 } else {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         position.y = plot.plotData[position.x].length - 1;
                     } else {
                         position.y = plot.plotData.length - 1;
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (orientation == "vert") {
+            } else if (plotOrientation == "vert") {
                 if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1) {
                     lastY = position.y;
                     Autoplay('reverse-up', plot.plotData[position.x].length - 1, position.y);
@@ -152,14 +152,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
                 }
                 Autoplay('reverse-down', 0, position.y);
             } else {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                         position.x += 1;
                     }
@@ -199,13 +199,13 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('right', position.x, plot.plotData.length - 1);
                     } else {
                         Autoplay('right', position.x, plot.plotData[position.y].length);
                     }
                 } else {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         position.x = plot.plotData.length - 1;
                     } else {
                         position.x = plot.plotData[position.y].length - 1;
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     updateInfoThisRound = true;
                     isAtEnd = lockPosition();
                 }
-            } else if (orientation == "vert") {
+            } else if (plotOrientation == "vert") {
                 if (e.altKey && e.shiftKey && plot.plotData.length - 1 != position.x) {
                     lastY = position.y;
                     Autoplay('reverse-right', plot.plotData.length - 1, position.x);
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.x > 0) {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
@@ -268,20 +268,20 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         if (position.x < 0) position.x = 0;
                         Autoplay('up', position.y, plot.plotData[position.x].length);
                     } else {
                         Autoplay('up', position.y, plot.plotData.length);
                     }
-                } else if (orientation == "vert") {
+                } else if (plotOrientation == "vert") {
                     position.y = plot.plotData[position.x].length - 1;
                     updateInfoThisRound = true;
                 } else {
                     position.y = plot.plotData.length - 1;
                     updateInfoThisRound = true;
                 }
-            } else if (orientation == "vert") {
+            } else if (plotOrientation == "vert") {
                 if (e.altKey && e.shiftKey && position.y != plot.plotData[position.x].length - 1) {
                     lasY = position.y;
                     Autoplay('reverse-up', plot.plotData[position.x].length - 1, position.y);
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             }
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
             } else {
                 setBrailleThisRound = true;
             }
@@ -316,14 +316,14 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                     isAtEnd = lockPosition();
                 }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     lastY = position.y;
                 } else {
                     lastx = position.x;
                 }
                 Autoplay('reverse-down', 0, position.y);
             } else {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     if (position.x == -1 && position.y == plot.plotData[position.x].length) {
                         position.x += 1;
                     }
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
                 isAtEnd = lockPosition();
             }
             constants.navigation = 0;
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
             } else {
                 setBrailleThisRound = true;
             }
@@ -475,31 +475,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('right', position.y, lastY);
                     } else {
                         Autoplay('right', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-right') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('left', position.y, lastY);
                     } else {
                         Autoplay('left', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-up') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('down', position.y, lastY);
                     } else {
                         Autoplay('down', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-down') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('up', position.y, lastY);
                     } else {
                         Autoplay('up', position.x, lastx);
                     }
                 } else {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay(lastPlayed, position.y, lastY);
                     } else {
                         Autoplay(lastPlayed, position.x, lastx);
@@ -514,31 +514,31 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (constants.autoplayId != null) {
                 constants.KillAutoplay();
                 if (lastPlayed == 'reverse-left') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('right', position.y, lastY);
                     } else {
                         Autoplay('right', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-right') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('left', position.y, lastY);
                     } else {
                         Autoplay('left', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-up') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('down', position.y, lastY);
                     } else {
                         Autoplay('down', position.x, lastx);
                     }
                 } else if (lastPlayed == 'reverse-down') {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay('up', position.y, lastY);
                     } else {
                         Autoplay('up', position.x, lastx);
                     }
                 } else {
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         Autoplay(lastPlayed, position.y, lastY);
                     } else {
                         Autoplay(lastPlayed, position.x, lastx);
@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
-        if (orientation == "vert") {
+        if (plotOrientation == "vert") {
             if (position.y < 0) {
                 position.y = 0;
                 isLockNeeded = true;
@@ -694,12 +694,12 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
             if (dir == "left" || dir == "right" || dir == "up" || dir == "down") {
                 if (
                     (position.x < 1 && dir == "left") ||
-                    (orientation == "vert" && dir == "up" && position.y > plot.plotData[position.x].length - 2) ||
-                    (orientation == "horz" && dir == "up" && position.y > plot.plotData.length - 2) ||
-                    (orientation == "horz" && dir == "right" && position.x > plot.plotData[position.y].length - 2) ||
-                    (orientation == "vert" && dir == "right" && position.x > plot.plotData.length - 2) ||
-                    (orientation == "horz" && dir == "down" && position.y < 1) ||
-                    (orientation == "vert" && dir == "down" && position.y < 1)
+                    (plotOrientation == "vert" && dir == "up" && position.y > plot.plotData[position.x].length - 2) ||
+                    (plotOrientation == "horz" && dir == "up" && position.y > plot.plotData.length - 2) ||
+                    (plotOrientation == "horz" && dir == "right" && position.x > plot.plotData[position.y].length - 2) ||
+                    (plotOrientation == "vert" && dir == "right" && position.x > plot.plotData.length - 2) ||
+                    (plotOrientation == "horz" && dir == "down" && position.y < 1) ||
+                    (plotOrientation == "vert" && dir == "down" && position.y < 1)
                 ) {
                     doneNext = true;
                 }
@@ -757,14 +757,14 @@ class BoxPlot {
 
             let labels = [];
             let elDy = "3.15";;
-            if ( orientation == "vert" ) {
+            if ( plotOrientation == "vert" ) {
                 elDy = "6.3";
             }
             let els = document.querySelectorAll('tspan[dy="' + elDy + '"]');
             for (let i = 0; i < els.length; i++) {
                 labels.push(els[i].innerHTML.trim());
             }
-            if ( orientation == "vert" ) {
+            if ( plotOrientation == "vert" ) {
                 this.x_labels = labels;
                 this.y_labels = [];
             } else {
@@ -776,7 +776,7 @@ class BoxPlot {
         } else {
             this.x_group_label = document.getElementById('GRID.text.199.1.1.tspan.1').innerHTML;
             this.y_group_label = document.getElementById('GRID.text.202.1.1.tspan.1').innerHTML;
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 this.x_labels = this.GetLabels();
                 this.y_labels = [];
             } else {
@@ -802,7 +802,7 @@ class BoxPlot {
     CleanData() {
         // we manually input data, so now we need to clean it up and set other vars
 
-        if (orientation == "vert") {
+        if (plotOrientation == "vert") {
             constants.minY = 0;
             constants.maxY = 0;
             for (let i = 0; i < data.length; i++) { // each plot
@@ -887,7 +887,7 @@ class BoxPlot {
                     let segmentPoints = this.GetBoxplotSegmentPoints(segment, segmentType);
 
                     for (let l = 0; l < segmentPoints.length; l += 2) {
-                        if (segmentType == 'whisker' && l == 0 && orientation == "vert") {
+                        if (segmentType == 'whisker' && l == 0 && plotOrientation == "vert") {
                         } else {
                             let thisPoint = { 'x': Number(segmentPoints[l]), 'y': Number(segmentPoints[l + 1]), 'type': segmentType }
                             if (thisPoint.y > constants.maxY) constants.maxY = thisPoint.y;
@@ -900,14 +900,14 @@ class BoxPlot {
             // post processing
             // Sort this plot
             points.sort(function (a, b) {
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     return a.y - b.y;
                 } else {
                     return a.x - b.x;
                 }
             });
 
-            if (orientation == "horz") {
+            if (plotOrientation == "horz") {
                 // and remove whisker from range dups
                 let noDupPoints = [];
                 for (let d = 0; d < points.length; d++) {
@@ -933,7 +933,7 @@ class BoxPlot {
 
         // put plots in order
         plotData.sort(function (a, b) {
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 return a[0].x - b[0].x;
             } else {
                 return a[0].y - b[0].y;
@@ -961,7 +961,7 @@ class BoxPlot {
                     let vals = [];
                     for (let k = 0; k < outlierGroup.length; k++) {
                         // save array of values
-                        if (orientation == "vert") {
+                        if (plotOrientation == "vert") {
                             vals.push(outlierGroup[k].y);
                         } else {
                             vals.push(outlierGroup[k].x);
@@ -974,7 +974,7 @@ class BoxPlot {
                     }
 
                     // save data
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         plotData[i][j - outlierGroup.length].y = outlierGroup[0].y;
                         plotData[i][j - outlierGroup.length].yMax = outlierGroup[outlierGroup.length - 1].y;
                     } else {
@@ -1107,13 +1107,13 @@ class BoxPlot {
             // vert: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
             // horz: top(rangePoints[0]) | mid(midPoints[0]) | bottom(rangePoints[2])
             let midPercent = 0;
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 midPercent = (midPoints[1] - rangePoints[3]) / (rangePoints[1] - rangePoints[3]);
             } else {
                 midPercent = (midPoints[0] - rangePoints[2]) / (rangePoints[0] - rangePoints[2]);
             }
             let midSize = 0;
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 midSize = rangeBounds.height * midPercent;
             } else {
                 midSize = rangeBounds.width * midPercent;
@@ -1126,7 +1126,7 @@ class BoxPlot {
             plotBound[2] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[2].label = allWeNeed[2];
             plotBound[2].type = 'range';
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 plotBound[2].height = midSize;
                 plotBound[2].top = plotBound[2].bottom - midSize;
                 plotBound[2].y = plotBound[2].top;
@@ -1137,7 +1137,7 @@ class BoxPlot {
             plotBound[3] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[3].label = allWeNeed[3];
             plotBound[3].type = 'range';
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 plotBound[3].height = 0;
                 plotBound[3].top = rangeBounds.bottom - midSize;
                 plotBound[3].y = plotBound[3].top;
@@ -1150,7 +1150,7 @@ class BoxPlot {
             plotBound[4] = this.convertBoundingClientRectToObj(rangeBounds);
             plotBound[4].label = allWeNeed[4];
             plotBound[4].type = 'range';
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 plotBound[4].height = rangeBounds.height - midSize;
                 plotBound[4].bottom = plotBound[3].top;
             } else {
@@ -1164,7 +1164,7 @@ class BoxPlot {
                 let whiskerBounds = initialElemSet[i].whisker.getBoundingClientRect();
                 let hasBelow = false;
                 let hasAbove = false;
-                if (orientation == "vert") {
+                if (plotOrientation == "vert") {
                     if (whiskerBounds.bottom > rangeBounds.bottom) hasBelow = true;
                     if (whiskerBounds.top < rangeBounds.top) hasAbove = true;
                 } else {
@@ -1177,7 +1177,7 @@ class BoxPlot {
                     plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[1].label = allWeNeed[1];
                     plotBound[1].type = 'whisker';
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         plotBound[1].top = plotBound[2].bottom;
                         plotBound[1].y = plotBound[1].top;
                         plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
@@ -1194,7 +1194,7 @@ class BoxPlot {
                     plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
                     plotBound[5].label = allWeNeed[5];
                     plotBound[5].type = 'whisker';
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         plotBound[5].bottom = plotBound[4].top;
                         plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
                     } else {
@@ -1220,7 +1220,7 @@ class BoxPlot {
                     // add this outlier's bounds, or expand if more than one
                     let newOutlierBounds = outlierElems[j].getBoundingClientRect();
 
-                    if (orientation == "vert") {
+                    if (plotOrientation == "vert") {
                         if (newOutlierBounds.y < rangeBounds.y) { // higher, remember y=0 is at the bottom of the page
                             if (!outlierUpperBounds) {
                                 outlierUpperBounds = this.convertBoundingClientRectToObj(newOutlierBounds);
@@ -1360,7 +1360,7 @@ class BoxPlot {
             // whisker. Get first and third number from points attr
             // but sometimes it's null, giving the same for both, and don't add if that's true
             let matches = segment.getAttribute('points').match(re);
-            if (orientation == "vert") {
+            if (plotOrientation == "vert") {
                 if (matches[1] != matches[3]) {
                     points.push(matches[0], matches[1], matches[2], matches[3]);
                 }
@@ -1392,7 +1392,7 @@ class BoxPlot {
         let plotPos = null;
         let sectionPos = null;
         if (constants.outlierInterval) clearInterval(constants.outlierInterval);
-        if (orientation == "vert") {
+        if (plotOrientation == "vert") {
             plotPos = position.x;
             sectionPos = position.y;
         } else {
@@ -1453,13 +1453,13 @@ class BoxplotRect {
 
         let plotPos = position.x;
         let sectionPos = position.y;
-        if (orientation == "vert") {
+        if (plotOrientation == "vert") {
         } else {
             plotPos = position.y;
             sectionPos = position.x;
         }
 
-        if ((orientation == "vert" && position.y > -1) || (orientation == "horz" && position.x > -1)) { // initial value could be -1, which throws errors, so ignore that
+        if ((plotOrientation == "vert" && position.y > -1) || (plotOrientation == "horz" && position.x > -1)) { // initial value could be -1, which throws errors, so ignore that
 
             let bounds = plot.plotBounds[plotPos][sectionPos];
 
