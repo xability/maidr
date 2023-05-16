@@ -174,12 +174,12 @@ class Display {
         let reviewText = "";
         if (constants.chartType == "barplot") {
             // {legend x} is {colname x}, {legend y} is {value y}
-            verboseText = plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
+            verboseText = plot.plotLegend.x + ' is ' + plot.columnLabels[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
             if (constants.textMode == "off") {
                 // do nothing :D
             } else if (constants.textMode == "terse") {
                 // {colname} {value}
-                output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
+                output += '<p>' + plot.columnLabels[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
             } else if (constants.textMode == "verbose") {
                 output += '<p>' + verboseText + '</p>\n';
             }
