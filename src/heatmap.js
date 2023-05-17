@@ -593,10 +593,18 @@ class HeatMap {
         let num_rows = unique_y_coord.length;
         let num_cols = unique_x_coord.length;
 
-        let norms;
+        let norms = [];
         if (constants.manualData) {
-
-            norms = [...data];
+            if (typeof (data) == "array") {
+                norms = [...data];
+            } else {
+                for (let i = 0; i < data.data.length; i++) {
+                    norms[i] = [];
+                    for (let j = 0; j < data.data[i].length; j++) {
+                        norms[i][j] = data.data[i][j].value;
+                    }
+                }
+            }
         } else {
             norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
             let min_norm = 3 * (Math.pow(255, 2));
@@ -648,71 +656,112 @@ class HeatMap {
     getGroupLabels() {
         let labels_nodelist;
         if (constants.manualData) {
+
+            let legendX = "";
+            if ( 'legend_x' in data ) {
+                legendX = data.legend_x;
+            } else {
+                legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
+            }
+
+            let legendY = "";
+            if ( 'legend_y' in data ) {
+                legendY = data.legend_y;
+            } else {
+                legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
+            }
+
+            let title = "";
+            if ( 'title' in data ) {
+                title = data.title;
+            } else {
+                title = document.querySelector('g[id^="guide.title"] text > tspan').innerHTML;
+            }
+
             labels_nodelist = [
-                document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
-                document.querySelector('g[id^="ylab"] text > tspan').innerHTML,
-                document.querySelector('g[id^="guide.title"] text > tspan').innerHTML
+                legendX,
+                legendY,
+                title
             ];
             if (typeof (labels_nodelist[0]) == "string") {
                 return labels_nodelist;
             }
         } else {
             labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
+            let labels = [];
+            labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML, labels_nodelist[2]);
+            return labels;
         }
-        // console.log(labels_nodelist);
-
-        let labels = [];
-        labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML, labels_nodelist[2]);
-
-        return labels;
     }
 
     getXLabels() {
-        let x_labels_nodelist;
         if (constants.manualData) {
-            x_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="middle"] > tspan');
-            if (typeof (x_labels_nodelist[0]) == "string") {
-                return x_labels_nodelist;
+
+            if (typeof (data) == "array") {
+                let x_labels_nodelist;
+                x_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="middle"] > tspan');
+                if (typeof (x_labels_nodelist[0]) == "string") {
+                    return x_labels_nodelist;
+                }
+            } else {
+                // this should be the main case
+                let labels = [];
+                for (let i = 0; i < data.data[0].length; i++) {
+                    labels.push(data.data[0][i].label_x);
+                }
+                return labels;
             }
         } else {
+            let x_labels_nodelist;
             x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
-        }
-        // console.log(x_labels_nodelist);
+            let labels = [];
+            for (let i = 0; i < x_labels_nodelist.length; i++) {
+                labels.push(x_labels_nodelist[i].innerHTML.trim());
+            }
 
-        let labels = [];
-        for (let i = 0; i < x_labels_nodelist.length; i++) {
-            labels.push(x_labels_nodelist[i].innerHTML.trim());
+            return labels;
         }
-
-        return labels;
     }
 
     getYLabels() {
-        // tried 'tspan[dy="5"]' but other elements are sharing the same attributes
-        let y_labels_nodelist;
-        let labels = [];
         if (constants.manualData) {
-            y_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="end"] > tspan');
-            if (typeof (y_labels_nodelist[0]) == "string") {
-                return y_labels_nodelist;
+            if (typeof (data) == "array") {
+                let y_labels_nodelist;
+                y_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="end"] > tspan');
+                if (typeof (y_labels_nodelist[0]) == "string") {
+                    return y_labels_nodelist;
+                }
+            } else {
+                // this should be the main case
+                let labels = [];
+                for (let i = 0; i < data.data.length; i++) {
+                    labels.push(data.data[i][0].label_y);
+                }
+                return labels;
             }
         } else {
+            let y_labels_nodelist;
+            let labels = [];
             y_labels_nodelist = document.querySelectorAll('tspan[id^="GRID.text.19.1"]');
+            for (let i = 0; i < y_labels_nodelist.length; i++) {
+                labels.push(y_labels_nodelist[i].innerHTML.trim());
+            }
+
+            return labels.reverse();
         }
 
-        for (let i = 0; i < y_labels_nodelist.length; i++) {
-            labels.push(y_labels_nodelist[i].innerHTML.trim());
-        }
-
-        return labels.reverse();
     }
 
     getTitle() {
-        let heatmapTitle = document.querySelector('g[id^="layout::title"] text > tspan').innerHTML;
-        if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
-            return heatmapTitle;
+        if (typeof (data) == "array") {
+            let heatmapTitle = document.querySelector('g[id^="layout::title"] text > tspan').innerHTML;
+            if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
+                return heatmapTitle;
+            } else {
+                return "";
+            }
         } else {
-            return "";
+            return data.title;
         }
     }
 }
