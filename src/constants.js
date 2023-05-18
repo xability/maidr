@@ -579,8 +579,8 @@ class Tracker {
                 fill_value = plot.group_labels[2];
             }
         } else if (constants.chartType == "boxplot") {
-            let plotPos = plotOrientation == "vert" ? position.x : position.y;
-            let sectionPos = plotOrientation == "vert" ? position.y : position.x;
+            let plotPos = constants.plotOrientation == "vert" ? position.x : position.y;
+            let sectionPos = constants.plotOrientation == "vert" ? position.y : position.x;
 
             if (!this.isUndefinedOrNull(plot.x_group_label)) {
                 x_label = plot.x_group_label;
@@ -588,29 +588,33 @@ class Tracker {
             if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if (plotOrientation == "vert") {
-                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
-                    y_tickmark = plot.plotData[plotPos][sectionPos].label;
-                }
-                if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
-                    x_tickmark = plot.x_labels[position.x]
-                }
-                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
-                    value = plot.plotData[plotPos][sectionPos].values;
-                } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y)) {
-                    value = plot.plotData[plotPos][sectionPos].y;
+            if (constants.plotOrientation == "vert") {
+                if (plotPos > -1 && sectionPos > -1) {
+                    if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
+                        y_tickmark = plot.plotData[plotPos][sectionPos].label;
+                    }
+                    if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
+                        x_tickmark = plot.x_labels[position.x]
+                    }
+                    if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
+                        value = plot.plotData[plotPos][sectionPos].values;
+                    } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y)) {
+                        value = plot.plotData[plotPos][sectionPos].y;
+                    }
                 }
             } else {
-                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
-                    x_tickmark = plot.plotData[plotPos][sectionPos].label;
-                }
-                if (!this.isUndefinedOrNull(plot.y_labels[position.y])) {
-                    y_tickmark = plot.y_labels[position.y]
-                }
-                if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
-                    value = plot.plotData[plotPos][sectionPos].values;
-                } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x)) {
-                    value = plot.plotData[plotPos][sectionPos].x;
+                if (plotPos > -1 && sectionPos > -1) {
+                    if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)) {
+                        x_tickmark = plot.plotData[plotPos][sectionPos].label;
+                    }
+                    if (!this.isUndefinedOrNull(plot.y_labels[position.y])) {
+                        y_tickmark = plot.y_labels[position.y]
+                    }
+                    if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)) {
+                        value = plot.plotData[plotPos][sectionPos].values;
+                    } else if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x)) {
+                        value = plot.plotData[plotPos][sectionPos].x;
+                    }
                 }
             }
         } else if (constants.chartType == "scatterplot") {
