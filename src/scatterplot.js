@@ -574,7 +574,9 @@ class ScatterPlot {
         this.x_group_label = this.GetGroupLabels()[0];
         this.y_group_label = this.GetGroupLabels()[1];
         let scatterPlotTitle = "";
-        if ( document.querySelector('tspan[dy="9.45"]') ) {
+        if ( typeof(data) !== 'undefined') {
+            scatterPlotTitle = data.title;
+        } else if ( document.querySelector('tspan[dy="9.45"]') ) {
             scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
             scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
         }
@@ -584,11 +586,14 @@ class ScatterPlot {
     GetGroupLabels() {
         let labels = [];
         if (constants.manualData) {
-            labels.push(
-                // bookmark: these aren't right. It's 7.87 not 7.88, need a new method
-                document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
-                document.querySelector('g[id^="ylab"] text > tspan').innerHTML
+            if ( typeof(data) !== 'undefined') {
+                labels.push(data.x_group_label, data.y_group_label);
+            } else {
+                labels.push(
+                    document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
+                    document.querySelector('g[id^="ylab"] text > tspan').innerHTML
                 );
+            }
         } else {
             let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
             labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
@@ -633,9 +638,9 @@ class ScatterPlot {
         let xValues = [];
         let yValues = [];
 
-        for (let i = 0; i < point_layer.length; i++) {
-            let x = point_layer[i]["x"];
-            let y = point_layer[i]["y"];
+        for (let i = 0; i < data.data_point_layer.length; i++) {
+            let x = data.data_point_layer[i]["x"];
+            let y = data.data_point_layer[i]["y"];
             xValues.push(x);
             yValues.push(y);
             if (!points.has(x)) {
@@ -729,9 +734,9 @@ class ScatterPlot {
         let x_points = [];
         let y_points = [];
 
-        for (let i = 0; i < smooth_layer.length; i++) {
-            x_points.push(smooth_layer[i]['x']);
-            y_points.push(smooth_layer[i]['y']);
+        for (let i = 0; i < data.data_smooth_layer.length; i++) {
+            x_points.push(data.data_smooth_layer[i]['x']);
+            y_points.push(data.data_smooth_layer[i]['y']);
         }
 
         return [x_points, y_points];

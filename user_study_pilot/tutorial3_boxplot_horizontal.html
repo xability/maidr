@@ -729,25 +729,14 @@
     </div>
   </div>
   <script>
-    var plotOrientation = "horz";
-    //let labels = [];
-    //let els = document.querySelectorAll('tspan[dy="3.15"]');
-    //for (let i = 0; i < els.length; i++) {
-      //labels.push(els[i].innerHTML.trim());
-      //}
-      //var boxplotLabels = {
-        //"x_group_label": 
-        //"y_group_label": 
-        //"x_labels": [],
-        //"y_labels": labels
-      //};
-      //var boxplotId = document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]').getAttribute('id');
-      //var boxplotTitle = "";
-      //if ( document.querySelector('tspan[dy="9.45"]') ) {
-          //boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
-          //boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
-      //}
-      var data = [
+    var data = {
+      x_group_label: "Highway Mileage",
+      y_group_label: "Car Class",
+      title: "Highway Mileage by Car Class.",
+      x_labels: [],
+      y_labels: ["2seater", "compact", "midsize", "minivan", "pickup", "subcompact", "suv"],
+      orientation: "horz",
+      data: [
         [
           { "type": "blank", "label": "lower_outlier" },
           { "x": 23, "y": 57.08, "type": "whisker", "label": "min" },
@@ -811,12 +800,13 @@
           { "x": 22, "y": 312.94, "type": "whisker", "label": "max" },
           { "x": 24, "y": 312.94, "type": "outlier", "xMax": 27, "values": [23, 24, 25, 25, 26, 27], "label": "upper_outlier" }
         ]
-      ];
-    </script>
+      ]
+    };
+  </script>
   <script src="../src/constants.js"></script>
   <script src="../src/audio.js"></script>
   <script src="../src/display.js"></script>
   <script src="../src/boxplot.js"></script>
-  </body>
-  
-  </html>
+</body>
+
+</html>

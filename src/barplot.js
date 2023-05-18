@@ -367,34 +367,80 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 class BarChart {
 
     constructor() {
-        if (constants.manualData) {
-            // todo: these should be fallbacks, try to pull data from data{} first
 
-            this.bars = document.querySelectorAll('g[id^="geom_rect"] > rect');
-                this.plotColumns = this.ParseInnerHTML(document.querySelectorAll('g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'));
-            this.plotLegend = {
-                "x": document.querySelector('g[id^="xlab"] tspan').innerHTML,
-                "y": document.querySelector('g[id^="ylab"] tspan').innerHTML
-            };
-            this.title = "";
-            if (document.querySelector('g[id^="plot.title..titleGrob"] tspan')) {
-                this.title = document.querySelector('g[id^="plot.title..titleGrob"] tspan').innerHTML;
-                this.title = this.title.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+        // bars. The actual bar elements in the SVG. Used to highlight visually
+        this.bars = document.querySelectorAll('g[id^="geom_rect"] > rect'); 
+
+        // column labels, used for the x axis, either pulled from data or from the SVG
+        this.columnLabels = [];
+        if ('label' in data.data[0]) {
+            for (let i = 0; i < data.data.length; i++) {
+                this.columnLabels.push(data.data[i].label);
             }
-
-            this.plotData = data;
         } else {
-            this.bars = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > rect'); // get rect children of plotId. Note that we have to escape the . in plotId
-            this.plotColumns = this.GetColumns();
-            this.plotLegend = this.GetLegend();
-            this.plotData = this.GetData();
+            this.columnLabels = this.ParseInnerHTML(document.querySelectorAll('g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'));
         }
 
-        constants.minY = Math.min(...this.plotData);
-        constants.maxY = Math.max(...this.plotData);
-        constants.maxX = this.bars.length - 1;
+        // row labels, used for the y axis, either pulled from data or from the SVG
+        let legendX = "";
+        let legendY = "";
+        if ( 'legend_x' in data ) {
+            legendX = data.legend_x;
+        } else if (document.querySelector('g[id^="xlab"] tspan')) {
+            legendX = document.querySelector('g[id^="xlab"] tspan').innerHTML;
+        }
+        if ( 'legend_y' in data ) {
+            legendY = data.legend_y;
+        } else if (document.querySelector('g[id^="ylab"] tspan')) {
+            legendY = document.querySelector('g[id^="ylab"] tspan').innerHTML;
+        }
+        this.plotLegend = {
+            "x": legendX,
+            "y": legendY
+        };
+
+        // title, either pulled from data or from the SVG
+        this.title = "";
+        if ( 'title' in data ) {
+            this.title = data.title;
+        } else if (document.querySelector('g[id^="plot.title..titleGrob"] tspan')) {
+            this.title = document.querySelector('g[id^="plot.title..titleGrob"] tspan').innerHTML;
+            this.title = this.title.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+        }
+
+        if ( typeof(data) == "array" ) {
+            this.plotData = data;
+        } else if ( typeof(data) == "object" ) {
+            this.plotData = [];
+            for ( let i = 0; i < data.data.length; i++ ) {
+                this.plotData.push(data.data[i].value);
+            }
+        } else {
+            // TODO: throw error
+        } 
+
+
+        // set the max and min values for the plot
+        this.SetMaxMin();
 
         this.autoplay = null;
+    }
+
+    SetMaxMin() {
+        for ( let i = 0; i < this.plotData.length; i++ ) {
+            if ( i == 0 ) {
+                constants.maxY = this.plotData[i];
+                constants.minY = this.plotData[i];
+            } else {
+                if ( this.plotData[i] > constants.maxY ) {
+                    constants.maxY = this.plotData[i];
+                }
+                if ( this.plotData[i] < constants.minY ) {
+                    constants.minY = this.plotData[i];
+                }
+            }
+        }
+        constants.maxX = this.bars.length - 1;
     }
 
     GetLegendFromManualData() {
@@ -422,13 +468,13 @@ class BarChart {
         // get column names
         // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
 
-        let plotColumns = [];
+        let columnLabels = [];
         let els = document.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
         for (var i = 0; i < els.length; i++) {
-            plotColumns.push(els[i].innerHTML);
+            columnLabels.push(els[i].innerHTML);
         }
 
-        return plotColumns;
+        return columnLabels;
     }
 
     GetLegend() {

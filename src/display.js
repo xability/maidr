@@ -46,10 +46,10 @@ class Display {
         }
         if (onoff == "on") {
             if (constants.chartType == "boxplot") { // braille mode is on before any plot is selected
-                if (plotOrientation != "vert" && position.x == -1 && position.y == plot.plotData.length) {
+                if (constants.plotOrientation != "vert" && position.x == -1 && position.y == plot.plotData.length) {
                     position.x += 1;
                     position.y -= 1;
-                } else if (plotOrientation == "vert" && position.x == 0 && position.y == plot.plotData[0].length - 1) {
+                } else if (constants.plotOrientation == "vert" && position.x == 0 && position.y == plot.plotData[0].length - 1) {
                     // do nothing; don't think there's any problem
                 }
             }
@@ -135,7 +135,7 @@ class Display {
             constants.brailleInput.setSelectionRange(pos, pos);
         } else if (constants.chartType == "boxplot") {
             // on boxplot we extend characters a lot and have blanks, so we go to our label
-            let sectionPos = plotOrientation == "vert" ? position.y : position.x;
+            let sectionPos = constants.plotOrientation == "vert" ? position.y : position.x;
             let targetLabel = this.boxplotGridPlaceholders[sectionPos];
             let haveTargetLabel = false;
             let adjustedPos = 0;
@@ -174,12 +174,12 @@ class Display {
         let reviewText = "";
         if (constants.chartType == "barplot") {
             // {legend x} is {colname x}, {legend y} is {value y}
-            verboseText = plot.plotLegend.x + ' is ' + plot.plotColumns[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
+            verboseText = plot.plotLegend.x + ' is ' + plot.columnLabels[position.x] + ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
             if (constants.textMode == "off") {
                 // do nothing :D
             } else if (constants.textMode == "terse") {
                 // {colname} {value}
-                output += '<p>' + plot.plotColumns[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
+                output += '<p>' + plot.columnLabels[position.x] + ' ' + plot.plotData[position.x] + '</p>\n';
             } else if (constants.textMode == "verbose") {
                 output += '<p>' + verboseText + '</p>\n';
             }
@@ -209,8 +209,8 @@ class Display {
             let val = 0;
             let numPoints = 1;
             let isOutlier = false;
-            let plotPos = plotOrientation == "vert" ? position.x : position.y;
-            let sectionPos = plotOrientation == "vert" ? position.y : position.x;
+            let plotPos = constants.plotOrientation == "vert" ? position.x : position.y;
+            let sectionPos = constants.plotOrientation == "vert" ? position.y : position.x;
             let textTerse = "";
             let textVerbose = "";
 
@@ -229,7 +229,7 @@ class Display {
                 val = '';
                 if (isOutlier) numPoints = 0;
             } else {
-                if (plotOrientation == "vert") {
+                if (constants.plotOrientation == "vert") {
                     val = plot.plotData[plotPos][sectionPos].y;
                 } else {
                     val = plot.plotData[plotPos][sectionPos].x;
@@ -274,7 +274,7 @@ class Display {
                 textVerbose += 's ';
                 if (numPoints > 1) textVerbose += ' are ';
             }
-            if (isOutlier || (constants.navigation && plotOrientation == "horz") || (!constants.navigation && plotOrientation == "vert")) {
+            if (isOutlier || (constants.navigation && constants.plotOrientation == "horz") || (!constants.navigation && constants.plotOrientation == "vert")) {
 
                 textTerse += resources.GetString(plot.plotData[plotPos][sectionPos].label);
 
@@ -462,8 +462,8 @@ class Display {
             // First some prep work, we make an array of lengths and types that represent our plot
             let brailleData = [];
             let isBeforeMid = true;
-            let plotPos = plotOrientation == "vert" ? position.x : position.y;
-            let valCoord = plotOrientation == "vert" ? 'y' : 'x';
+            let plotPos = constants.plotOrientation == "vert" ? position.x : position.y;
+            let valCoord = constants.plotOrientation == "vert" ? 'y' : 'x';
             for (let i = 0; i < plot.plotData[plotPos].length; i++) {
                 let point = plot.plotData[plotPos][i];
                 // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
@@ -493,7 +493,7 @@ class Display {
                         }
                     }
                     charData = {};
-                    let minVal = plotOrientation == "vert" ? constants.minY : constants.minX;
+                    let minVal = constants.plotOrientation == "vert" ? constants.minY : constants.minX;
                     if (firstCoord - minVal > 0) {
                         charData.length = firstCoord;
                     } else {
