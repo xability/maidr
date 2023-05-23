@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect ) {
             rect.UpdateRect();
         }
         if (constants.sonifMode != "off") {
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInAutoplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect ) {
             rect.UpdateRect();
         }
         if (constants.sonifMode != "off") {
@@ -582,7 +582,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInBraille) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect ) {
             rect.UpdateRect();
         }
         if (constants.sonifMode != "off") {
@@ -741,8 +741,8 @@ class BoxPlot {
         constants.plotId = 0;
 
         constants.plotOrientation = "horz"; // default
-        if ( typeof(data) !== 'undefined' ) {
-            constants.plotOrientation = data.orientation;
+        if ( typeof(maidr) !== 'undefined' ) {
+            constants.plotOrientation = maidr.orientation;
         }
 
         if ( document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]') ) {
@@ -751,30 +751,33 @@ class BoxPlot {
 
         if (constants.manualData) {
 
+            // title
             let boxplotTitle = "";
-            if ( typeof(data) !== 'undefined' && typeof(data.title) !== 'undefined' ) {
-                boxplotTitle = data.title;
+            if ( typeof(maidr) !== 'undefined' && typeof(maidr.title) !== 'undefined' ) {
+                boxplotTitle = maidr.title;
             } else if (document.querySelector('tspan[dy="9.45"]')) {
                 boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
                 boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
             }
             this.title = (typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null) ? boxplotTitle : "";
 
-            if ( typeof(data) !== 'undefined' ) {
-                this.x_group_label = data.x_group_label;
+            // axis labels
+            if ( typeof(maidr) !== 'undefined' ) {
+                this.x_group_label = maidr.x_group_label;
             } else {
                 this.x_group_label = document.querySelector('text:not([transform^="rotate"]) > tspan[dy="7.88"]').innerHTML;
             }
-            if ( typeof(data) !== 'undefined' ) {
-                this.y_group_label = data.y_group_label;
+            if ( typeof(maidr) !== 'undefined' ) {
+                this.y_group_label = maidr.y_group_label;
             } else {
                 this.y_group_label = document.querySelector('text[transform^="rotate"] > tspan[dy="7.88"]').innerHTML;
             }
 
+            // x y tick labels
             let labels = [];
-            if ( typeof(data) !== 'undefined' ) {
-                this.x_labels = data.x_labels;
-                this.y_labels = data.y_labels;
+            if ( typeof(maidr) !== 'undefined' ) {
+                this.x_labels = maidr.x_labels;
+                this.y_labels = maidr.y_labels;
             } else {
                 let elDy = "3.15";;
                 if (constants.plotOrientation == "vert") {
@@ -792,10 +795,12 @@ class BoxPlot {
                     this.y_labels = labels;
                 }
             }
-            if ( typeof(data) !== 'undefined' ) {
-                this.plotData = data.data;
+
+            // main data
+            if ( typeof(maidr) !== 'undefined' ) {
+                this.plotData = maidr.data;
             } else {
-                this.plotData = data;
+                this.plotData = maidr;
             }
 
         } else {
@@ -811,7 +816,12 @@ class BoxPlot {
             this.plotData = this.GetData(); // main json data
         }
 
-        this.plotBounds = this.GetPlotBounds(constants.plotId); // bound data
+        if ( constants.plotId ) {
+            this.plotBounds = this.GetPlotBounds(constants.plotId); // bound data
+            constants.hasRect = true;
+        } else {
+            constants.hasRect = false;
+        }
 
         this.CleanData();
     }
