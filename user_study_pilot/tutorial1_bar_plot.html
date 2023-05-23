@@ -575,7 +575,7 @@
       </div>
    </div>
    <script>
-      var data = {
+      var maidr = {
          type: 'bar',
          legend_x: 'Cut',
          legend_y: 'Count',
@@ -583,23 +583,28 @@
          data: [
             {
                label: 'Fair',
-               value: 1610
+               value: 1610,
+               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(1)')
             }, 
             {
                label: 'Good',
-               value: 4906
+               value: 4906,
+               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(2)')
             }, 
             {
                label: 'Very Good',
-               value: 12082
+               value: 12082,
+               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(3)')
             }, 
             {
                label: 'Premium',
-               value: 13791
+               value: 13791,
+               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(4)')
             }, 
             {
                label: 'Ideal',
-               value: 21551
+               value: 21551,
+               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(5)')
             }
          ]
       }

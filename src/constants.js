@@ -60,6 +60,7 @@ class Constants {
 
     // advanced user settings
     showRect = 1;  // true / false
+    hasRect = 1; // true / false
     duration = .3;
     outlierDuration = .06;
     autoPlayOutlierRate = 50; // ms per tone
