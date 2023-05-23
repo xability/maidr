@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect) {
             rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != "off") {
@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInAutoplay) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect) {
             rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != "off") {
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
         if (constants.showDisplayInBraille) {
             display.displayValues(plot);
         }
-        if (constants.showRect) {
+        if (constants.showRect && constants.hasRect) {
             rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != "off") {
@@ -548,26 +548,39 @@ class HeatMap {
 
     constructor() {
 
-        this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
-
-        this.plotData = this.getHeatMapData();
-        this.updateConstants();
+        if ( 'element' in maidr.data[0][0] ) {
+            this.plots = [];
+            for (let i = 0; i < maidr.data.length; i++) {
+                for ( let j = 0 ; j < maidr.data[i].length ; j++ ) {
+                    this.plots.push(maidr.data[i][j].element);
+                }
+            }
+            constants.hasRect = 1;
+        } else {
+            this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
+            constants.hasRect = 0;
+        }
 
         this.group_labels = this.getGroupLabels();
-
-        this.x_coord = this.plotData[0];
-        this.y_coord = this.plotData[1];
-        this.values = this.plotData[2];
-        this.num_rows = this.plotData[3];
-        this.num_cols = this.plotData[4];
-
-        this.x_group_label = this.group_labels[0].trim();
-        this.y_group_label = this.group_labels[1].trim();
-        this.box_label = this.group_labels[2].trim();
-
         this.x_labels = this.getXLabels();
         this.y_labels = this.getYLabels();
         this.title = this.getTitle();
+
+        if ( constants.hasRect ) {
+            this.plotData = this.getHeatMapData();
+            this.updateConstants();
+
+            this.x_coord = this.plotData[0];
+            this.y_coord = this.plotData[1];
+            this.values = this.plotData[2];
+            this.num_rows = this.plotData[3];
+            this.num_cols = this.plotData[4];
+
+            this.x_group_label = this.group_labels[0].trim();
+            this.y_group_label = this.group_labels[1].trim();
+            this.box_label = this.group_labels[2].trim();
+        }
+
     }
 
     getHeatMapData() {
@@ -577,8 +590,10 @@ class HeatMap {
         let y_coord_check = [];
 
         for (let i = 0; i < this.plots.length; i++) {
-            x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
-            y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
+            if (this.plots[i]) {
+                x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
+                y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
+            }
         }
 
         // sort the squares to access from left to right, up to down
@@ -595,13 +610,13 @@ class HeatMap {
 
         let norms = [];
         if (constants.manualData) {
-            if (typeof (data) == "array") {
-                norms = [...data];
+            if (typeof (maidr) == "array") {
+                norms = [...maidr];
             } else {
-                for (let i = 0; i < data.data.length; i++) {
+                for (let i = 0; i < maidr.data.length; i++) {
                     norms[i] = [];
-                    for (let j = 0; j < data.data[i].length; j++) {
-                        norms[i][j] = data.data[i][j].value;
+                    for (let j = 0; j < maidr.data[i].length; j++) {
+                        norms[i][j] = maidr.data[i][j].value;
                     }
                 }
             }
@@ -658,22 +673,22 @@ class HeatMap {
         if (constants.manualData) {
 
             let legendX = "";
-            if ( 'legend_x' in data ) {
-                legendX = data.legend_x;
+            if ( 'legend_x' in maidr ) {
+                legendX = maidr.legend_x;
             } else {
                 legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
             }
 
             let legendY = "";
-            if ( 'legend_y' in data ) {
-                legendY = data.legend_y;
+            if ( 'legend_y' in maidr ) {
+                legendY = maidr.legend_y;
             } else {
                 legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
             }
 
             let title = "";
-            if ( 'title' in data ) {
-                title = data.title;
+            if ( 'title' in maidr ) {
+                title = maidr.title;
             } else {
                 title = document.querySelector('g[id^="guide.title"] text > tspan').innerHTML;
             }
@@ -697,7 +712,7 @@ class HeatMap {
     getXLabels() {
         if (constants.manualData) {
 
-            if (typeof (data) == "array") {
+            if (typeof (maidr) == "array") {
                 let x_labels_nodelist;
                 x_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="middle"] > tspan');
                 if (typeof (x_labels_nodelist[0]) == "string") {
@@ -706,8 +721,8 @@ class HeatMap {
             } else {
                 // this should be the main case
                 let labels = [];
-                for (let i = 0; i < data.data[0].length; i++) {
-                    labels.push(data.data[0][i].label_x);
+                for (let i = 0; i < maidr.data[0].length; i++) {
+                    labels.push(maidr.data[0][i].label_x);
                 }
                 return labels;
             }
@@ -725,7 +740,7 @@ class HeatMap {
 
     getYLabels() {
         if (constants.manualData) {
-            if (typeof (data) == "array") {
+            if (typeof (maidr) == "array") {
                 let y_labels_nodelist;
                 y_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="end"] > tspan');
                 if (typeof (y_labels_nodelist[0]) == "string") {
@@ -734,8 +749,8 @@ class HeatMap {
             } else {
                 // this should be the main case
                 let labels = [];
-                for (let i = 0; i < data.data.length; i++) {
-                    labels.push(data.data[i][0].label_y);
+                for (let i = 0; i < maidr.data.length; i++) {
+                    labels.push(maidr.data[i][0].label_y);
                 }
                 return labels;
             }
@@ -753,7 +768,7 @@ class HeatMap {
     }
 
     getTitle() {
-        if (typeof (data) == "array") {
+        if (typeof (maidr) == "array") {
             let heatmapTitle = document.querySelector('g[id^="layout::title"] text > tspan').innerHTML;
             if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
                 return heatmapTitle;
@@ -761,7 +776,7 @@ class HeatMap {
                 return "";
             }
         } else {
-            return data.title;
+            return maidr.title;
         }
     }
 }
@@ -770,10 +785,12 @@ class HeatMap {
 class HeatMapRect {
 
     constructor() {
-        this.x = plot.x_coord[0];
-        this.y = plot.y_coord[0];
-        this.rectStrokeWidth = 4; // px
-        this.height = Math.abs(plot.y_coord[1] - plot.y_coord[0]);
+        if (constants.hasRect) {
+            this.x = plot.x_coord[0];
+            this.y = plot.y_coord[0];
+            this.rectStrokeWidth = 4; // px
+            this.height = Math.abs(plot.y_coord[1] - plot.y_coord[0]);
+        }
     }
 
     UpdateRect() {

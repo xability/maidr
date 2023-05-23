@@ -573,8 +573,10 @@ class Tracker {
             if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if (!this.isUndefinedOrNull(plot.values[position.x][position.y])) {
-                value = plot.values[position.x][position.y];
+            if (!this.isUndefinedOrNull(plot.values)) {
+                if (!this.isUndefinedOrNull(plot.values[position.x][position.y])) {
+                    value = plot.values[position.x][position.y];
+                }
             }
             if (!this.isUndefinedOrNull(plot.group_labels[2])) {
                 fill_value = plot.group_labels[2];

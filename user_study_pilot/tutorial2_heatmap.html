@@ -590,7 +590,7 @@
   </div>
   <script>
     //var data = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
-      var data = {
+      var maidr = {
         type: "heatmap",
         legend_x: 'Island',
         legend_y: 'Species',
@@ -600,51 +600,60 @@
             { 
               label_x: 'Biscoe',
               label_y: 'Gentoo', 
-              value: 124
+              value: 124, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(1)')
             }, 
             {
               label_x: 'Dream',
               label_y: 'Gentoo',
-              value: 0
+              value: 0, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(2)')
             }, 
             {
               label_x: 'Torgersen',
               label_y: 'Gentoo',
-              value: 0
+              value: 0, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(3)')
             }
           ], 
           [
             {
               label_x: 'Biscoe',
               label_y: 'Chinstrap',
-              value: 0
+              value: 0, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(4)')
             },
             {
               label_x: 'Dream',
               label_y: 'Chinstrap',
-              value: 68
+              value: 68, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(5)')
             },
             {
               label_x: 'Torgersen',
               label_y: 'Chinstrap',
-              value: 0
+              value: 0, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(6)')
             }
           ],
           [
             {
               label_x: 'Biscoe',
               label_y: 'Adelie',
-              value: 44
+              value: 44, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(7)')
             },
             {
               label_x: 'Dream',
               label_y: 'Adelie',
-              value: 0
+              value: 0, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(8)')
             },
             {
               label_x: 'Torgersen',
               label_y: 'Adelie',
-              value: 52
+              value: 52, 
+              element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(9)')
             }
           ]
         ]
