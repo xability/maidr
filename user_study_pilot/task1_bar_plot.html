@@ -621,31 +621,37 @@
         </div>
     </div>
     <script>
-        var data = {
+        var maidr = {
             type: "bar",
             legend_x: "Continent",
             legend_y: "Total Population",
             title: "The Total Population of Each Continent in 2007.",
+            elements: document.querySelectorAll('g[id^="geom_rect"] > rect'), 
             data: [
                 {
                     label: "Africa",
-                    value: 929539693
+                    value: 929539693,
+                    element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(1)')
                 }, 
                 {
                     label: "Asia",
-                    value: 898871185
+                    value: 898871185,
+                    element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(2)')
                 }, 
                 {
                     label: "Europe",
-                    value: 3811953828
+                    value: 3811953828,
+                    element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(3)')
                 }, 
                 {
                     label: "North America",
-                    value: 586098530
+                    value: 586098530,
+                    element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(4)')
                 }, 
                 {
                     label: "South America",
-                    value: 24549948
+                    value: 24549948,
+                    element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(5)')
                 }
             ]
         }

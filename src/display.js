@@ -186,9 +186,15 @@ class Display {
         } else if (constants.chartType == "heatmap") {
             // col name and value
             if (constants.navigation == 1) {
-                verboseText += plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x];
+                verboseText += plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.box_label + ' is ';
+                if ( constants.hasRect ) {
+                    verboseText += plot.plotData[2][position.y][position.x];
+                }
             } else {
-                verboseText += plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.box_label + ' is ' + plot.plotData[2][position.y][position.x];
+                verboseText += plot.y_group_label + ' ' + (plot.y_labels[position.y]) + ', ' + plot.x_group_label + ' ' + (plot.x_labels[position.x]) + ', ' + plot.box_label + ' is ';
+                if ( constants.hasRect ) {
+                    verboseText += plot.plotData[2][position.y][position.x];
+                }
             }
             // terse and verbose alternate between columns and rows
             if (constants.textMode == "off") {

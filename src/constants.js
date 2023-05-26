@@ -60,6 +60,7 @@ class Constants {
 
     // advanced user settings
     showRect = 1;  // true / false
+    hasRect = 1; // true / false
     duration = .3;
     outlierDuration = .06;
     autoPlayOutlierRate = 50; // ms per tone
@@ -572,8 +573,10 @@ class Tracker {
             if (!this.isUndefinedOrNull(plot.y_group_label)) {
                 y_label = plot.y_group_label;
             }
-            if (!this.isUndefinedOrNull(plot.values[position.x][position.y])) {
-                value = plot.values[position.x][position.y];
+            if (!this.isUndefinedOrNull(plot.values)) {
+                if (!this.isUndefinedOrNull(plot.values[position.x][position.y])) {
+                    value = plot.values[position.x][position.y];
+                }
             }
             if (!this.isUndefinedOrNull(plot.group_labels[2])) {
                 fill_value = plot.group_labels[2];
