@@ -580,31 +580,27 @@
          legend_x: 'Cut',
          legend_y: 'Count',
          title: 'The Number of Diamonds by Cut.',
+         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
          data: [
             {
                label: 'Fair',
                value: 1610,
-               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(1)')
             }, 
             {
                label: 'Good',
                value: 4906,
-               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(2)')
             }, 
             {
                label: 'Very Good',
                value: 12082,
-               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(3)')
             }, 
             {
                label: 'Premium',
                value: 13791,
-               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(4)')
             }, 
             {
                label: 'Ideal',
                value: 21551,
-               element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(5)')
             }
          ]
       }

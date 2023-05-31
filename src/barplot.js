@@ -369,11 +369,8 @@ class BarChart {
     constructor() {
 
         // bars. The actual bar elements in the SVG. Used to highlight visually
-        if ( 'element' in maidr.data[0] ) {
-            this.bars = [];
-            for (let i = 0; i < maidr.data.length; i++) {
-                this.bars.push(maidr.data[i].element);
-            }
+        if ( 'elements' in maidr ) {
+            this.bars = maidr.elements;
             constants.hasRect = 1;
         } else {
             this.bars = document.querySelectorAll('g[id^="geom_rect"] > rect'); 

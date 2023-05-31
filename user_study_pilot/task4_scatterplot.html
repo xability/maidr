@@ -821,10 +821,11 @@
         </div>
     </div>
     <script>
-        var data = {
+        var maidr = {
             x_group_label: "GDP (log10 transformed)",
             y_group_label: "Life Expectancy",
             title: "The Relationship between GDP and Life Expectancy of European Countries in 2007.",
+            elements: document.querySelectorAll('g[id^="geom_point"] > use'),
             data_point_layer: [
                 {
                     "x": 5937.0295,
