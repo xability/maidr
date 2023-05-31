@@ -540,8 +540,8 @@ class ScatterPlot {
     constructor() {
 
         // layer = 1
-        if (constants.manualData) {
-            this.plotPoints = document.querySelectorAll('g[id^="geom_point"] > use');;
+        if ( 'elements' in maidr ) {
+            this.plotPoints = maidr.elements;
         } else {
             this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
         }
@@ -575,7 +575,7 @@ class ScatterPlot {
         this.y_group_label = this.GetGroupLabels()[1];
         let scatterPlotTitle = "";
         if ( typeof(data) !== 'undefined') {
-            scatterPlotTitle = data.title;
+            scatterPlotTitle = maidr.title;
         } else if ( document.querySelector('tspan[dy="9.45"]') ) {
             scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
             scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
@@ -587,7 +587,7 @@ class ScatterPlot {
         let labels = [];
         if (constants.manualData) {
             if ( typeof(data) !== 'undefined') {
-                labels.push(data.x_group_label, data.y_group_label);
+                labels.push(maidr.x_group_label, maidr.y_group_label);
             } else {
                 labels.push(
                     document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
@@ -638,9 +638,9 @@ class ScatterPlot {
         let xValues = [];
         let yValues = [];
 
-        for (let i = 0; i < data.data_point_layer.length; i++) {
-            let x = data.data_point_layer[i]["x"];
-            let y = data.data_point_layer[i]["y"];
+        for (let i = 0; i < maidr.data_point_layer.length; i++) {
+            let x = maidr.data_point_layer[i]["x"];
+            let y = maidr.data_point_layer[i]["y"];
             xValues.push(x);
             yValues.push(y);
             if (!points.has(x)) {
@@ -734,9 +734,9 @@ class ScatterPlot {
         let x_points = [];
         let y_points = [];
 
-        for (let i = 0; i < data.data_smooth_layer.length; i++) {
-            x_points.push(data.data_smooth_layer[i]['x']);
-            y_points.push(data.data_smooth_layer[i]['y']);
+        for (let i = 0; i < maidr.data_smooth_layer.length; i++) {
+            x_points.push(maidr.data_smooth_layer[i]['x']);
+            y_points.push(maidr.data_smooth_layer[i]['y']);
         }
 
         return [x_points, y_points];

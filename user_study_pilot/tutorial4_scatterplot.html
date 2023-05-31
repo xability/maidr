@@ -1834,12 +1834,13 @@
             </div>
         </div>
         <script>
-            var data = {
+            var maidr = {
                 type: ["scatterplot", "lineplot"],
                 x_group_label: "Engine Displacement",
                 y_group_label: "Highway Mileage",
                 title: "Highway Mileage by Engine Displacement.",
-                scatterplot: [
+                elements: document.querySelectorAll('g[id^="geom_point"] > use'),
+                data_point_layer: [
                     {
                         "x": 1.8,
                         "y": 29

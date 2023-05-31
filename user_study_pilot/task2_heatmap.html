@@ -646,37 +646,33 @@
           legend_x: 'Year',
           legend_y: 'Continent',
           title: 'Average GDP per Continent by Year.',
+          elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
           data: [
             [
               {
                 label_x: '1987', 
                 label_y: 'Oceania',
                 value: 20448.04,
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(1)')
               }, 
               {
                 label_x: '1992', 
                 label_y: 'Oceania',
                 value: 20894.05, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(2)')
               }, 
               {
                 label_x: '1997', 
                 label_y: 'Oceania',
                 value: 24024.18, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(3)')
               }, 
               {
                 label_x: '2002', 
                 label_y: 'Oceania',
                 value: 26938.78, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(4)')
               }, 
               {
                 label_x: '2007', 
                 label_y: 'Oceania',
                 value: 29810.19, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(5)')
               }
             ], 
             [
@@ -684,31 +680,26 @@
                 label_x: '1987', 
                 label_y: 'Europe', 
                 value: 17214.31, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(6)')
               }, 
               {
                 label_x: '1992', 
                 label_y: 'Europe', 
                 value: 17061.57, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(7)')
               }, 
               {
                 label_x: '1997', 
                 label_y: 'Europe', 
                 value: 19076.78, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(8)')
               }, 
               {
                 label_x: '2002', 
                 label_y: 'Europe', 
                 value: 21711.73, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(9)')
               }, 
               {
                 label_x: '2007', 
                 label_y: 'Europe', 
                 value: 25054.48, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(10)')
               }
             ], 
             [
@@ -716,31 +707,26 @@
                 label_x: '1987', 
                 label_y: 'Asia', 
                 value: 7608.23, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(11)')
               }, 
               {
                 label_x: '1992', 
                 label_y: 'Asia', 
                 value: 8639.69, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(12)')
               }, 
               {
                 label_x: '1997', 
                 label_y: 'Asia', 
                 value: 9834.09, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(13)')
               }, 
               {
                 label_x: '2002', 
                 label_y: 'Asia', 
                 value: 10174.09, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(14)')
               }, 
               {
                 label_x: '2007', 
                 label_y: 'Asia', 
                 value: 12473.03, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(15)')
               }
             ], 
             [
@@ -748,31 +734,26 @@
                 label_x: '1987', 
                 label_y: 'Americas', 
                 value: 7793.4, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(16)')
               }, 
               {
                 label_x: '1992', 
                 label_y: 'Americas', 
                 value: 8044.93, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(17)')
               }, 
               {
                 label_x: '1997', 
                 label_y: 'Americas', 
                 value: 8889.3, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(18)')
               }, 
               {
                 label_x: '2002', 
                 label_y: 'Americas', 
                 value: 9287.68, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(19)')
               }, 
               {
                 label_x: '2007', 
                 label_y: 'Americas', 
                 value: 11003.03, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(20)')
               }
             ], 
             [
@@ -780,31 +761,26 @@
                 label_x: '1987', 
                 label_y: 'Africa', 
                 value: 2282.67, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(21)')
               }, 
               {
                 label_x: '1992', 
                 label_y: 'Africa', 
                 value: 2281.81, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(22)')
               }, 
               {
                 label_x: '1997', 
                 label_y: 'Africa', 
                 value: 2378.76, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(23)')
               }, 
               {
                 label_x: '2002', 
                 label_y: 'Africa', 
                 value: 2599.39, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(24)')
               }, 
               {
                 label_x: '2007', 
                 label_y: 'Africa', 
                 value: 3089.03, 
-                element: document.querySelector('g[id^="geom_rect"] > rect:nth-child(25)')
               }
             ]
           ]

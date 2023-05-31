@@ -548,13 +548,8 @@ class HeatMap {
 
     constructor() {
 
-        if ( 'element' in maidr.data[0][0] ) {
-            this.plots = [];
-            for (let i = 0; i < maidr.data.length; i++) {
-                for ( let j = 0 ; j < maidr.data[i].length ; j++ ) {
-                    this.plots.push(maidr.data[i][j].element);
-                }
-            }
+        if ( 'elements' in maidr ) {
+            this.plots = maidr.elements;
             constants.hasRect = 1;
         } else {
             this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
