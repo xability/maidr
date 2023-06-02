@@ -172,11 +172,40 @@
       </div>
    </div>
    <script>
-      var barplotBars = document.querySelectorAll('g[id^="geom_rect"] > rect');
-      var barplotColumns = ["Fair", "Good", "Very Good", "Premium", "Ideal"];
-      var barplotLegend = { "x": "cut", "y": "count" };
-      var barplotData = [1610, 4906, 12082, 13791, 21551];
-      var barplotTitle = "The Number of Diamonds by Cut.";
+      var maidr = {
+         type: "bar",
+         legend_x: "cut",
+         legend_y: "count",
+         title: "The Number of Diamonds by Cut.",
+         elements: document.querySelectorAll('#svg-container > svg > g > rect[width="115.39"'),
+         data: [
+            {
+               label: "Fair",
+               value: 1610
+            }, 
+            {
+               label: "Good",
+               value: 4906
+            }, 
+            {
+               label: "Very Good",
+               value: 12082
+            }, 
+            {
+               label: "Premium",
+               value: 13791
+            }, 
+            {
+               label: "Ideal",
+               value: 21551
+            }
+         ]
+      };
+      //var barplotBars = document.querySelectorAll('g[id^="geom_rect"] > rect');
+      //var barplotColumns = ["Fair", "Good", "Very Good", "Premium", "Ideal"];
+      //var barplotLegend = { "x": "cut", "y": "count" };
+      //var barplotData = [1610, 4906, 12082, 13791, 21551];
+      //var barplotTitle = "The Number of Diamonds by Cut.";
    </script>
    <script src="../src/constants.js"></script>
    <script src="../src/audio.js"></script>

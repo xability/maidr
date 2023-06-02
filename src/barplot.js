@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
 
     // variable initialization
 
-    constants.plotId = document.querySelector('g[id^="layout::panel"] > g g[id^="geom_rect.rect"]').getAttribute('id');
+    //constants.plotId = document.querySelector('g[id^="layout::panel"] > g g[id^="geom_rect.rect"]').getAttribute('id');
     window.position = new Position(-1, -1);
     window.plot = new BarChart();
     constants.chartType = "barplot";
