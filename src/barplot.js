@@ -282,6 +282,10 @@ document.addEventListener('DOMContentLoaded', function (e) { // we wrap in DOMCo
     function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
+        if ( ! constants.hasRect ) {
+            return isLockNeeded;
+        }
+
         if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
