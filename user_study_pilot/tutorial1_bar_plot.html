@@ -577,32 +577,18 @@
    <script>
       var maidr = {
          type: 'bar',
-         legend_x: 'Cut',
-         legend_y: 'Count',
          title: 'The Number of Diamonds by Cut.',
          elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
-         data: [
-            {
-               label: 'Fair',
-               value: 1610,
-            }, 
-            {
-               label: 'Good',
-               value: 4906,
-            }, 
-            {
-               label: 'Very Good',
-               value: 12082,
-            }, 
-            {
-               label: 'Premium',
-               value: 13791,
-            }, 
-            {
-               label: 'Ideal',
-               value: 21551,
+         axes: {
+            x: {
+               label: 'Cut',
+               format: ['Fair', 'Good', 'Very Good', 'Premium', 'Ideal']
+            },
+            y: {
+               label: 'Count',
             }
-         ]
+         },
+         data: [1610, 4906, 12082, 13791, 21551],
       }
    </script>
    <script src="../src/constants.js"></script>

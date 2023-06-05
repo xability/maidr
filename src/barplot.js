@@ -381,29 +381,48 @@ class BarChart {
             constants.hasRect = 0;
         }
 
-        // column labels, used for the x axis, either pulled from data or from the SVG
+        // column labels, both legend and tick 
         this.columnLabels = [];
-        if ('label' in maidr.data[0]) {
-            for (let i = 0; i < maidr.data.length; i++) {
-                this.columnLabels.push(maidr.data[i].label);
+        let legendX = "";
+        let legendY = "";
+        if ('axis' in maidr ) {
+
+            // legend labels
+            if ( maidr.axis.x ) {
+                if ( maidr.axis.x.label ) {
+                    legendX = maidr.axis.x.label;
+                }
+            }
+            if ( maidr.axis.y ) {
+                if ( maidr.axis.y.label ) {
+                    legendY = maidr.axis.y.label;
+                }
+            }
+
+            // tick labels
+            if ( maidr.axis.x ) {
+                if ( maidr.axis.x.format ) {
+                    this.columnLabels = maidr.axis.x.format;
+                }
+            }
+            if ( maidr.axis.y ) {
+                if ( maidr.axis.y.format ) {
+                    this.columnLabels = maidr.axis.y.format;
+                }
             }
         } else {
+            // legend labels
+            if (document.querySelector('g[id^="xlab"] tspan')) {
+                legendX = document.querySelector('g[id^="xlab"] tspan').innerHTML;
+            }
+            if (document.querySelector('g[id^="ylab"] tspan')) {
+                legendY = document.querySelector('g[id^="ylab"] tspan').innerHTML;
+            }
+
+            // tick labels
             this.columnLabels = this.ParseInnerHTML(document.querySelectorAll('g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'));
         }
 
-        // row labels, used for the y axis, either pulled from data or from the SVG
-        let legendX = "";
-        let legendY = "";
-        if ( 'legend_x' in maidr ) {
-            legendX = maidr.legend_x;
-        } else if (document.querySelector('g[id^="xlab"] tspan')) {
-            legendX = document.querySelector('g[id^="xlab"] tspan').innerHTML;
-        }
-        if ( 'legend_y' in maidr ) {
-            legendY = maidr.legend_y;
-        } else if (document.querySelector('g[id^="ylab"] tspan')) {
-            legendY = document.querySelector('g[id^="ylab"] tspan').innerHTML;
-        }
         this.plotLegend = {
             "x": legendX,
             "y": legendY
@@ -421,14 +440,12 @@ class BarChart {
         if ( typeof(maidr) == "array" ) {
             this.plotData = maidr;
         } else if ( typeof(maidr) == "object" ) {
-            this.plotData = [];
-            for ( let i = 0; i < maidr.data.length; i++ ) {
-                this.plotData.push(maidr.data[i].value);
+            if ( 'data' in maidr ) {
+                this.plotData = maidr.data;
             }
         } else {
             // TODO: throw error
         } 
-
 
         // set the max and min values for the plot
         this.SetMaxMin();

@@ -589,66 +589,23 @@
     </div>
   </div>
   <script>
-    //var data = [[124, 0, 0], [0, 68, 0], [44, 56, 52]];
       var maidr = {
         type: "heatmap",
         legend_x: 'Island',
         legend_y: 'Species',
         title: 'Penguin Species by Island',
         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
-        data: [
-          [
-            { 
-              label_x: 'Biscoe',
-              label_y: 'Gentoo', 
-              value: 124, 
-            }, 
-            {
-              label_x: 'Dream',
-              label_y: 'Gentoo',
-              value: 0, 
-            }, 
-            {
-              label_x: 'Torgersen',
-              label_y: 'Gentoo',
-              value: 0, 
-            }
-          ], 
-          [
-            {
-              label_x: 'Biscoe',
-              label_y: 'Chinstrap',
-              value: 0, 
-            },
-            {
-              label_x: 'Dream',
-              label_y: 'Chinstrap',
-              value: 68, 
-            },
-            {
-              label_x: 'Torgersen',
-              label_y: 'Chinstrap',
-              value: 0, 
-            }
-          ],
-          [
-            {
-              label_x: 'Biscoe',
-              label_y: 'Adelie',
-              value: 44, 
-            },
-            {
-              label_x: 'Dream',
-              label_y: 'Adelie',
-              value: 0, 
-            },
-            {
-              label_x: 'Torgersen',
-              label_y: 'Adelie',
-              value: 52, 
-            }
-          ]
-        ]
+        axes: {
+          x: {
+            label: 'Island',
+            format: ['Biscoe', 'Dream', 'Torgersen']
+          },
+          y: {
+            label: 'Species',
+            format: ['Gentoo', 'Chinstrap', 'Adelie']
+          }
+        },
+        data: [[124, 0, 0], [0, 68, 0], [44, 56, 52]],
       };
 
   </script>
