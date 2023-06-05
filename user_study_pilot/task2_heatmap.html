@@ -640,150 +640,23 @@
     </div>
   </div>
   <script>
-        //var data = [[20448.04, 20894.05, 24024.18, 26938.78, 29810.19], [17214.31, 17061.57, 19076.78, 21711.73, 25054.48], [7608.23, 8639.69, 9834.09, 10174.09, 12473.03], [7793.4, 8044.93, 8889.3, 9287.68, 11003.03], [2282.67, 2281.81, 2378.76, 2599.39, 3089.03]];
         var maidr = {
           type: 'heatmap',
           legend_x: 'Year',
           legend_y: 'Continent',
           title: 'Average GDP per Continent by Year.',
           elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
-          data: [
-            [
-              {
-                label_x: '1987', 
-                label_y: 'Oceania',
-                value: 20448.04,
-              }, 
-              {
-                label_x: '1992', 
-                label_y: 'Oceania',
-                value: 20894.05, 
-              }, 
-              {
-                label_x: '1997', 
-                label_y: 'Oceania',
-                value: 24024.18, 
-              }, 
-              {
-                label_x: '2002', 
-                label_y: 'Oceania',
-                value: 26938.78, 
-              }, 
-              {
-                label_x: '2007', 
-                label_y: 'Oceania',
-                value: 29810.19, 
-              }
-            ], 
-            [
-              {
-                label_x: '1987', 
-                label_y: 'Europe', 
-                value: 17214.31, 
-              }, 
-              {
-                label_x: '1992', 
-                label_y: 'Europe', 
-                value: 17061.57, 
-              }, 
-              {
-                label_x: '1997', 
-                label_y: 'Europe', 
-                value: 19076.78, 
-              }, 
-              {
-                label_x: '2002', 
-                label_y: 'Europe', 
-                value: 21711.73, 
-              }, 
-              {
-                label_x: '2007', 
-                label_y: 'Europe', 
-                value: 25054.48, 
-              }
-            ], 
-            [
-              {
-                label_x: '1987', 
-                label_y: 'Asia', 
-                value: 7608.23, 
-              }, 
-              {
-                label_x: '1992', 
-                label_y: 'Asia', 
-                value: 8639.69, 
-              }, 
-              {
-                label_x: '1997', 
-                label_y: 'Asia', 
-                value: 9834.09, 
-              }, 
-              {
-                label_x: '2002', 
-                label_y: 'Asia', 
-                value: 10174.09, 
-              }, 
-              {
-                label_x: '2007', 
-                label_y: 'Asia', 
-                value: 12473.03, 
-              }
-            ], 
-            [
-              {
-                label_x: '1987', 
-                label_y: 'Americas', 
-                value: 7793.4, 
-              }, 
-              {
-                label_x: '1992', 
-                label_y: 'Americas', 
-                value: 8044.93, 
-              }, 
-              {
-                label_x: '1997', 
-                label_y: 'Americas', 
-                value: 8889.3, 
-              }, 
-              {
-                label_x: '2002', 
-                label_y: 'Americas', 
-                value: 9287.68, 
-              }, 
-              {
-                label_x: '2007', 
-                label_y: 'Americas', 
-                value: 11003.03, 
-              }
-            ], 
-            [
-              {
-                label_x: '1987', 
-                label_y: 'Africa', 
-                value: 2282.67, 
-              }, 
-              {
-                label_x: '1992', 
-                label_y: 'Africa', 
-                value: 2281.81, 
-              }, 
-              {
-                label_x: '1997', 
-                label_y: 'Africa', 
-                value: 2378.76, 
-              }, 
-              {
-                label_x: '2002', 
-                label_y: 'Africa', 
-                value: 2599.39, 
-              }, 
-              {
-                label_x: '2007', 
-                label_y: 'Africa', 
-                value: 3089.03, 
-              }
-            ]
-          ]
+          axes: {
+            x: {
+              label: 'Year',
+              format: ['1987', '1992', '1997', '2002', '2007']
+            },
+            y: {
+              label: 'Continent',
+              format: ['Oceania', 'Americas', 'Europe', 'Asia', 'Africa']
+            }
+          },
+          data: [[20448.04, 20894.05, 24024.18, 26938.78, 29810.19], [17214.31, 17061.57, 19076.78, 21711.73, 25054.48], [7608.23, 8639.69, 9834.09, 10174.09, 12473.03], [7793.4, 8044.93, 8889.3, 9287.68, 11003.03], [2282.67, 2281.81, 2378.76, 2599.39, 3089.03]],
         };
 
   </script>

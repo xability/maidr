@@ -561,20 +561,18 @@ class HeatMap {
         this.y_labels = this.getYLabels();
         this.title = this.getTitle();
 
-        if ( constants.hasRect ) {
-            this.plotData = this.getHeatMapData();
-            this.updateConstants();
+        this.plotData = this.getHeatMapData();
+        this.updateConstants();
 
-            this.x_coord = this.plotData[0];
-            this.y_coord = this.plotData[1];
-            this.values = this.plotData[2];
-            this.num_rows = this.plotData[3];
-            this.num_cols = this.plotData[4];
+        this.x_coord = this.plotData[0];
+        this.y_coord = this.plotData[1];
+        this.values = this.plotData[2];
+        this.num_rows = this.plotData[3];
+        this.num_cols = this.plotData[4];
 
-            this.x_group_label = this.group_labels[0].trim();
-            this.y_group_label = this.group_labels[1].trim();
-            this.box_label = this.group_labels[2].trim();
-        }
+        this.x_group_label = this.group_labels[0].trim();
+        this.y_group_label = this.group_labels[1].trim();
+        this.box_label = this.group_labels[2].trim();
 
     }
 
@@ -584,37 +582,41 @@ class HeatMap {
         let x_coord_check = [];
         let y_coord_check = [];
 
-        for (let i = 0; i < this.plots.length; i++) {
-            if (this.plots[i]) {
-                x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
-                y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
-            }
-        }
-
-        // sort the squares to access from left to right, up to down
-        x_coord_check.sort(function (a, b) { return a - b }); // ascending
-        y_coord_check.sort(function (a, b) { return a - b }).reverse(); // descending
-
-        // get unique elements from x_coord and y_coord
-        let unique_x_coord = [...new Set(x_coord_check)];
-        let unique_y_coord = [...new Set(y_coord_check)];
-
-        // get num of rows, num of cols, and total numbers of squares
-        let num_rows = unique_y_coord.length;
-        let num_cols = unique_x_coord.length;
-
-        let norms = [];
-        if (constants.manualData) {
-            if (typeof (maidr) == "array") {
-                norms = [...maidr];
-            } else {
-                for (let i = 0; i < maidr.data.length; i++) {
-                    norms[i] = [];
-                    for (let j = 0; j < maidr.data[i].length; j++) {
-                        norms[i][j] = maidr.data[i][j].value;
-                    }
+        let unique_x_coord = [];
+        let unique_y_coord = [];
+        if (constants.hasRect) {
+            for (let i = 0; i < this.plots.length; i++) {
+                if (this.plots[i]) {
+                    x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
+                    y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
                 }
             }
+
+            // sort the squares to access from left to right, up to down
+            x_coord_check.sort(function (a, b) { return a - b }); // ascending
+            y_coord_check.sort(function (a, b) { return a - b }).reverse(); // descending
+
+            // get unique elements from x_coord and y_coord
+            unique_x_coord = [...new Set(x_coord_check)];
+            unique_y_coord = [...new Set(y_coord_check)];
+        }
+
+        // get num of rows, num of cols, and total numbers of squares
+        let num_rows = 0;
+        let num_cols = 0;
+        let num_squares = 0;
+        if ( 'data' in maidr ) {
+            num_rows = maidr.data.length;
+            num_cols = maidr.data[0].length;
+        } else {
+            num_rows = unique_y_coord.length;
+            num_cols = unique_x_coord.length;
+        }
+        num_squares = num_rows * num_cols;
+
+        let norms = [];
+        if ( 'data' in maidr ) {
+            norms = [...maidr.data];
         } else {
             norms = Array(num_rows).fill().map(() => Array(num_cols).fill(0));
             let min_norm = 3 * (Math.pow(255, 2));
@@ -630,8 +632,6 @@ class HeatMap {
                 if (norm > max_norm) max_norm = norm;
             }
         }
-
-
 
         let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
 
@@ -664,62 +664,50 @@ class HeatMap {
     }
 
     getGroupLabels() {
+
         let labels_nodelist;
-        if (constants.manualData) {
+        let title = "";
+        let legendX = "";
+        let legendY = "";
 
-            let legendX = "";
-            if ( 'legend_x' in maidr ) {
-                legendX = maidr.legend_x;
-            } else {
-                legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
+        if ('title' in maidr) {
+            title = maidr.title;
+        } else {
+            title = document.querySelector('g[id^="guide.title"] text > tspan').innerHTML;
+        }
+
+        if ('axes' in maidr) {
+            if ('x' in maidr.axes) {
+                if ('label' in maidr.axes.x) {
+                    legendX = maidr.axes.x.label;
+                }
             }
-
-            let legendY = "";
-            if ( 'legend_y' in maidr ) {
-                legendY = maidr.legend_y;
-            } else {
-                legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
-            }
-
-            let title = "";
-            if ( 'title' in maidr ) {
-                title = maidr.title;
-            } else {
-                title = document.querySelector('g[id^="guide.title"] text > tspan').innerHTML;
-            }
-
-            labels_nodelist = [
-                legendX,
-                legendY,
-                title
-            ];
-            if (typeof (labels_nodelist[0]) == "string") {
-                return labels_nodelist;
+            if ('y' in maidr.axes) {
+                if ('label' in maidr.axes.y) {
+                    legendY = maidr.axes.y.label;
+                }
             }
         } else {
-            labels_nodelist = document.querySelectorAll('tspan[dy="12"]');
-            let labels = [];
-            labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML, labels_nodelist[2]);
-            return labels;
+            legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
+            legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
         }
+
+        labels_nodelist = [
+            legendX,
+            legendY,
+            title
+        ];
+
+        return labels_nodelist;
     }
 
     getXLabels() {
-        if (constants.manualData) {
 
-            if (typeof (maidr) == "array") {
-                let x_labels_nodelist;
-                x_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="middle"] > tspan');
-                if (typeof (x_labels_nodelist[0]) == "string") {
-                    return x_labels_nodelist;
+        if ('axes' in maidr) {
+            if ('x' in maidr.axes) {
+                if ('format' in maidr.axes.x) {
+                    return maidr.axes.x.format;
                 }
-            } else {
-                // this should be the main case
-                let labels = [];
-                for (let i = 0; i < maidr.data[0].length; i++) {
-                    labels.push(maidr.data[0][i].label_x);
-                }
-                return labels;
             }
         } else {
             let x_labels_nodelist;
@@ -734,20 +722,12 @@ class HeatMap {
     }
 
     getYLabels() {
-        if (constants.manualData) {
-            if (typeof (maidr) == "array") {
-                let y_labels_nodelist;
-                y_labels_nodelist = document.querySelectorAll('g[id^="layout::axis"] text[text-anchor="end"] > tspan');
-                if (typeof (y_labels_nodelist[0]) == "string") {
-                    return y_labels_nodelist;
+
+        if ('axes' in maidr) {
+            if ('y' in maidr.axes) {
+                if ('format' in maidr.axes.y) {
+                    return maidr.axes.y.format;
                 }
-            } else {
-                // this should be the main case
-                let labels = [];
-                for (let i = 0; i < maidr.data.length; i++) {
-                    labels.push(maidr.data[i][0].label_y);
-                }
-                return labels;
             }
         } else {
             let y_labels_nodelist;
@@ -759,19 +739,18 @@ class HeatMap {
 
             return labels.reverse();
         }
-
     }
 
     getTitle() {
-        if (typeof (maidr) == "array") {
+        if ('title' in maidr) {
+            return maidr.title;
+        } else {
             let heatmapTitle = document.querySelector('g[id^="layout::title"] text > tspan').innerHTML;
             if (constants.manualData && typeof heatmapTitle !== 'undefined' && typeof heatmapTitle != null) {
                 return heatmapTitle;
             } else {
                 return "";
             }
-        } else {
-            return maidr.title;
         }
     }
 }
