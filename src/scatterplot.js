@@ -540,8 +540,8 @@ class ScatterPlot {
     constructor() {
 
         // layer = 1
-        if ( 'elements' in maidr ) {
-            this.plotPoints = maidr.elements;
+        if ( 'point_elements' in maidr ) {
+            this.plotPoints = maidr.point_elements;
         } else {
             this.plotPoints = document.querySelectorAll('#' + constants.plotId.replaceAll('\.', '\\.') + ' > use');
         }
@@ -557,7 +557,7 @@ class ScatterPlot {
 
         // layer = 2
         if (constants.manualData) {
-            this.plotLine = document.querySelector('g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]');
+            this.plotLine = maidr.smooth_elements;
         } else {
             this.plotLine = document.querySelectorAll('#' + 'GRID.polyline.13.1'.replaceAll('\.', '\\.') + ' > polyline')[0];
         }
@@ -571,35 +571,22 @@ class ScatterPlot {
         this.curveMaxY = Math.max(...this.curvePoints);
         this.gradient = this.GetGradient();
 
-        this.x_group_label = this.GetGroupLabels()[0];
-        this.y_group_label = this.GetGroupLabels()[1];
-        let scatterPlotTitle = "";
-        if ( typeof(data) !== 'undefined') {
-            scatterPlotTitle = maidr.title;
-        } else if ( document.querySelector('tspan[dy="9.45"]') ) {
-            scatterPlotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
-            scatterPlotTitle = scatterPlotTitle.replace("\n", "").replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
-        }
-        this.title = (typeof scatterPlotTitle !== 'undefined' && typeof scatterPlotTitle != null) ? scatterPlotTitle : "";
-    }
-
-    GetGroupLabels() {
-        let labels = [];
-        if (constants.manualData) {
-            if ( typeof(data) !== 'undefined') {
-                labels.push(maidr.x_group_label, maidr.y_group_label);
-            } else {
-                labels.push(
-                    document.querySelector('g[id^="xlab"] text > tspan').innerHTML,
-                    document.querySelector('g[id^="ylab"] text > tspan').innerHTML
-                );
+        this.x_group_label = "";
+        this.y_group_label = "";
+        this.title = "";
+        if ( typeof(maidr) !== 'undefined') {
+            if ( 'axes' in maidr ) {
+                if ( 'x' in maidr.axes ) {
+                    this.x_group_label = maidr.axes.x.label;
+                }   
+                if ( 'y' in maidr.axes ) {
+                    this.y_group_label = maidr.axes.y.label;
+                }
             }
-        } else {
-            let labels_nodelist = document.querySelectorAll('tspan[dy="7.88"]');
-            labels.push(labels_nodelist[0].innerHTML, labels_nodelist[1].innerHTML);
+            if ( 'title' in maidr ) {
+                this.title = maidr.title;
+            }
         }
-
-        return labels;
     }
 
     GetSvgPointCoords() {
@@ -638,9 +625,9 @@ class ScatterPlot {
         let xValues = [];
         let yValues = [];
 
-        for (let i = 0; i < maidr.data_point_layer.length; i++) {
-            let x = maidr.data_point_layer[i]["x"];
-            let y = maidr.data_point_layer[i]["y"];
+        for (let i = 0; i < maidr.data.data_point_layer.length; i++) {
+            let x = maidr.data.data_point_layer[i]["x"];
+            let y = maidr.data.data_point_layer[i]["y"];
             xValues.push(x);
             yValues.push(y);
             if (!points.has(x)) {
@@ -734,9 +721,9 @@ class ScatterPlot {
         let x_points = [];
         let y_points = [];
 
-        for (let i = 0; i < maidr.data_smooth_layer.length; i++) {
-            x_points.push(maidr.data_smooth_layer[i]['x']);
-            y_points.push(maidr.data_smooth_layer[i]['y']);
+        for (let i = 0; i < maidr.data.data_smooth_layer.length; i++) {
+            x_points.push(maidr.data.data_smooth_layer[i]['x']);
+            y_points.push(maidr.data.data_smooth_layer[i]['y']);
         }
 
         return [x_points, y_points];
