@@ -4,7 +4,7 @@
   "description": "MAIDR is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html).",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "webpack"
   },
   "repository": {
     "type": "git",
@@ -22,6 +22,7 @@
     "@babel/preset-env": "^7.22.5",
     "babel-loader": "^9.1.2",
     "css-loader": "^6.8.1",
+    "css-minimizer-webpack-plugin": "^5.0.1",
     "mini-css-extract-plugin": "^2.7.6",
     "style-loader": "^3.3.3",
     "webpack": "^5.87.0",
