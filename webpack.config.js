@@ -30,7 +30,7 @@ module.exports = {
     },
     plugins: [
         new MiniCssExtractPlugin({
-            filename: 'styles.css',
+            filename: 'styles.css', // the output bundle file name
         }),
     ],
     optimization: {
