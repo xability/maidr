@@ -11,7 +11,8 @@
         "ionutvmi.path-autocomplete",
         "esbenp.prettier-vscode",
         "ban.spellright",
-        "redhat.vscode-xml"
+        "redhat.vscode-xml",
+        "editorconfig.editorconfig"
     ],
     "unwantedRecommendations": [
         "ms-vscode.js-debug"
