@@ -1,29 +1,29 @@
-document.addEventListener("DOMContentLoaded", function (e) {
+document.addEventListener('DOMContentLoaded', function (e) {
   // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 
   // variable initialization
 
-  if (typeof maidr !== "undefined") {
-    if ("type" in maidr) {
+  if (typeof maidr !== 'undefined') {
+    if ('type' in maidr) {
       constants.chartType = maidr.type;
     }
   }
 
-  if (typeof constants.chartType !== "undefined") {
-    if (constants.chartType == "barplot") {
+  if (typeof constants.chartType !== 'undefined') {
+    if (constants.chartType == 'barplot') {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
 
       let audio = new Audio();
 
       // global variables
-      let lastPlayed = "";
+      let lastPlayed = '';
       let lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener("keydown", function (e) {
+      constants.svg_container.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
         let isAtEnd = false;
 
@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x -= 1;
-              Autoplay("right", position.x, plot.bars.length);
+              Autoplay('right', position.x, plot.bars.length);
             } else {
               position.x = plot.bars.length - 1; // go all the way
               updateInfoThisRound = true;
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             position.x != plot.bars.length - 1
           ) {
             lastx = position.x;
-            Autoplay("reverse-right", plot.bars.length, position.x);
+            Autoplay('reverse-right', plot.bars.length, position.x);
           } else {
             position.x += 1;
             updateInfoThisRound = true;
@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x += 1;
-              Autoplay("left", position.x, -1);
+              Autoplay('left', position.x, -1);
             } else {
               position.x = 0; // go all the way
               updateInfoThisRound = true;
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }
           } else if (e.altKey && e.shiftKey && position.x != 0) {
             lastx = position.x;
-            Autoplay("reverse-left", -1, position.x);
+            Autoplay('reverse-left', -1, position.x);
           } else {
             position.x += -1;
             updateInfoThisRound = true;
@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
       });
 
-      constants.brailleInput.addEventListener("keydown", function (e) {
+      constants.brailleInput.addEventListener('keydown', function (e) {
         // We block all input, except if it's B or Tab so we move focus
 
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x -= 1;
-              Autoplay("right", position.x, plot.bars.length);
+              Autoplay('right', position.x, plot.bars.length);
             } else {
               position.x = plot.bars.length - 1; // go all the way
               updateInfoThisRound = true;
@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             position.x != plot.bars.length - 1
           ) {
             lastx = position.x;
-            Autoplay("reverse-right", plot.bars.length, position.x);
+            Autoplay('reverse-right', plot.bars.length, position.x);
           } else {
             position.x += 1;
             updateInfoThisRound = true;
@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x += 1;
-              Autoplay("left", position.x, -1);
+              Autoplay('left', position.x, -1);
             } else {
               position.x = 0; // go all the way
               updateInfoThisRound = true;
@@ -133,7 +133,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }
           } else if (e.altKey && e.shiftKey && position.x != 0) {
             lastx = position.x;
-            Autoplay("reverse-left", -1, position.x);
+            Autoplay('reverse-left', -1, position.x);
           } else {
             position.x += -1;
             updateInfoThisRound = true;
@@ -144,8 +144,8 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener("focusout", function (e) {
-          display.toggleBrailleMode("off");
+        constants.brailleInput.addEventListener('focusout', function (e) {
+          display.toggleBrailleMode('off');
         });
 
         // update display / text / audio
@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       // var keys;
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener("keydown", function (e) {
+        controlElements[i].addEventListener('keydown', function (e) {
           // B: braille mode
           if (e.which == 66) {
             display.toggleBrailleMode();
@@ -192,7 +192,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         });
       }
 
-      document.addEventListener("keydown", function (e) {
+      document.addEventListener('keydown', function (e) {
         // ctrl/cmd: stop autoplay
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
           // (ctrl/cmd)+(home/fn+left arrow): first element
@@ -266,10 +266,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedUp();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              Autoplay("right", position.x, lastx);
-            } else if (lastPlayed == "reverse-right") {
-              Autoplay("left", position.x, lastx);
+            if (lastPlayed == 'reverse-left') {
+              Autoplay('right', position.x, lastx);
+            } else if (lastPlayed == 'reverse-right') {
+              Autoplay('left', position.x, lastx);
             } else {
               Autoplay(lastPlayed, position.x, lastx);
             }
@@ -281,10 +281,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedDown();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              Autoplay("right", position.x, lastx);
-            } else if (lastPlayed == "reverse-right") {
-              Autoplay("left", position.x, lastx);
+            if (lastPlayed == 'reverse-left') {
+              Autoplay('right', position.x, lastx);
+            } else if (lastPlayed == 'reverse-right') {
+              Autoplay('left', position.x, lastx);
             } else {
               Autoplay(lastPlayed, position.x, lastx);
             }
@@ -322,7 +322,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           plot.Select();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
       }
@@ -333,11 +333,11 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           plot.Select();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
 
-        if (constants.brailleMode != "off") {
+        if (constants.brailleMode != 'off') {
           display.UpdateBraillePos(plot);
         }
       }
@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           plot.Select();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
         display.UpdateBraillePos(plot);
@@ -356,7 +356,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
         let step = 1; // default right and reverse-left
-        if (dir == "left" || dir == "reverse-right") {
+        if (dir == 'left' || dir == 'reverse-right') {
           step = -1;
         }
 
@@ -365,7 +365,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.KillAutoplay();
         }
 
-        if (dir == "reverse-right" || dir == "reverse-left") {
+        if (dir == 'reverse-right' || dir == 'reverse-left') {
           position.x = start;
         }
 
@@ -382,26 +382,26 @@ document.addEventListener("DOMContentLoaded", function (e) {
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == "boxplot") {
+    } else if (constants.chartType == 'boxplot') {
       // variable initialization
-      constants.plotId = "geom_boxplot.gTree.78.1";
+      constants.plotId = 'geom_boxplot.gTree.78.1';
       window.plot = new BoxPlot();
-      constants.chartType = "boxplot";
-      if (constants.plotOrientation == "vert") {
+      constants.chartType = 'boxplot';
+      if (constants.plotOrientation == 'vert') {
         window.position = new Position(0, plot.plotData[0].length - 1);
       } else {
         window.position = new Position(-1, plot.plotData.length);
       }
       let rect = new BoxplotRect();
       let audio = new Audio();
-      let lastPlayed = "";
+      let lastPlayed = '';
       let lastY = 0;
       let lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener("keydown", function (e) {
+      constants.svg_container.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
         let isAtEnd = false;
 
@@ -409,14 +409,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (e.which === 39) {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("right", position.x, plot.plotData.length - 1);
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('right', position.x, plot.plotData.length - 1);
               } else {
-                Autoplay("right", position.x, plot.plotData[position.y].length);
+                Autoplay('right', position.x, plot.plotData[position.y].length);
               }
             } else {
               isAtEnd = lockPosition();
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 position.x = plot.plotData.length - 1;
               } else {
                 position.x = plot.plotData[position.y].length - 1;
@@ -424,14 +424,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (constants.plotOrientation == "vert") {
+          } else if (constants.plotOrientation == 'vert') {
             if (
               e.altKey &&
               e.shiftKey &&
               plot.plotData.length - 1 != position.x
             ) {
               lastY = position.y;
-              Autoplay("reverse-right", plot.plotData.length - 1, position.x);
+              Autoplay('reverse-right', plot.plotData.length - 1, position.x);
             } else {
               if (
                 position.x == -1 &&
@@ -451,7 +451,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             ) {
               lastx = position.x;
               Autoplay(
-                "reverse-right",
+                'reverse-right',
                 plot.plotData[position.y].length - 1,
                 position.x
               );
@@ -470,19 +470,19 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (e.which === 37) {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              Autoplay("left", position.x, -1);
+              Autoplay('left', position.x, -1);
             } else {
               position.x = 0;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
           } else if (e.altKey && e.shiftKey && position.x > 0) {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               lastY = position.y;
             } else {
               lastx = position.x;
             }
-            Autoplay("reverse-left", 0, position.x);
+            Autoplay('reverse-left', 0, position.x);
           } else {
             position.x += -1;
             updateInfoThisRound = true;
@@ -495,13 +495,13 @@ document.addEventListener("DOMContentLoaded", function (e) {
           let oldY = position.y;
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("up", position.y, plot.plotData[position.x].length);
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('up', position.y, plot.plotData[position.x].length);
               } else {
-                Autoplay("up", position.y, plot.plotData.length);
+                Autoplay('up', position.y, plot.plotData.length);
               }
             } else {
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 position.y = plot.plotData[position.x].length - 1;
               } else {
                 position.y = plot.plotData.length - 1;
@@ -509,7 +509,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (constants.plotOrientation == "vert") {
+          } else if (constants.plotOrientation == 'vert') {
             if (
               e.altKey &&
               e.shiftKey &&
@@ -517,7 +517,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             ) {
               lastY = position.y;
               Autoplay(
-                "reverse-up",
+                'reverse-up',
                 plot.plotData[position.x].length - 1,
                 position.y
               );
@@ -533,7 +533,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               position.y != plot.plotData.length - 1
             ) {
               lastx = position.x;
-              Autoplay("reverse-up", plot.plotData.length - 1, position.y);
+              Autoplay('reverse-up', plot.plotData.length - 1, position.y);
             } else {
               position.y += 1;
               updateInfoThisRound = true;
@@ -547,21 +547,21 @@ document.addEventListener("DOMContentLoaded", function (e) {
           let oldY = position.y;
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              Autoplay("down", position.y, -1);
+              Autoplay('down', position.y, -1);
             } else {
               position.y = 0;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
           } else if (e.altKey && e.shiftKey && position.y != 0) {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               lastY = position.y;
             } else {
               lastx = position.x;
             }
-            Autoplay("reverse-down", 0, position.y);
+            Autoplay('reverse-down', 0, position.y);
           } else {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               if (
                 position.x == -1 &&
                 position.y == plot.plotData[position.x].length
@@ -590,7 +590,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
       });
 
-      constants.brailleInput.addEventListener("keydown", function (e) {
+      constants.brailleInput.addEventListener('keydown', function (e) {
         // We block all input, except if it's B or Tab so we move focus
 
         let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -605,13 +605,13 @@ document.addEventListener("DOMContentLoaded", function (e) {
           e.preventDefault();
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("right", position.x, plot.plotData.length - 1);
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('right', position.x, plot.plotData.length - 1);
               } else {
-                Autoplay("right", position.x, plot.plotData[position.y].length);
+                Autoplay('right', position.x, plot.plotData[position.y].length);
               }
             } else {
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 position.x = plot.plotData.length - 1;
               } else {
                 position.x = plot.plotData[position.y].length - 1;
@@ -619,14 +619,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (constants.plotOrientation == "vert") {
+          } else if (constants.plotOrientation == 'vert') {
             if (
               e.altKey &&
               e.shiftKey &&
               plot.plotData.length - 1 != position.x
             ) {
               lastY = position.y;
-              Autoplay("reverse-right", plot.plotData.length - 1, position.x);
+              Autoplay('reverse-right', plot.plotData.length - 1, position.x);
             } else {
               if (
                 position.x == -1 &&
@@ -646,7 +646,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             ) {
               lastx = position.x;
               Autoplay(
-                "reverse-right",
+                'reverse-right',
                 plot.plotData[position.y].length - 1,
                 position.x
               );
@@ -666,19 +666,19 @@ document.addEventListener("DOMContentLoaded", function (e) {
           e.preventDefault();
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              Autoplay("left", position.x, -1);
+              Autoplay('left', position.x, -1);
             } else {
               position.x = 0;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
           } else if (e.altKey && e.shiftKey && position.x > 0) {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               lastY = position.y;
             } else {
               lastx = position.x;
             }
-            Autoplay("reverse-left", 0, position.x);
+            Autoplay('reverse-left', 0, position.x);
           } else {
             position.x += -1;
             updateInfoThisRound = true;
@@ -691,20 +691,20 @@ document.addEventListener("DOMContentLoaded", function (e) {
           let oldY = position.y;
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 if (position.x < 0) position.x = 0;
-                Autoplay("up", position.y, plot.plotData[position.x].length);
+                Autoplay('up', position.y, plot.plotData[position.x].length);
               } else {
-                Autoplay("up", position.y, plot.plotData.length);
+                Autoplay('up', position.y, plot.plotData.length);
               }
-            } else if (constants.plotOrientation == "vert") {
+            } else if (constants.plotOrientation == 'vert') {
               position.y = plot.plotData[position.x].length - 1;
               updateInfoThisRound = true;
             } else {
               position.y = plot.plotData.length - 1;
               updateInfoThisRound = true;
             }
-          } else if (constants.plotOrientation == "vert") {
+          } else if (constants.plotOrientation == 'vert') {
             if (
               e.altKey &&
               e.shiftKey &&
@@ -712,7 +712,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             ) {
               lasY = position.y;
               Autoplay(
-                "reverse-up",
+                'reverse-up',
                 plot.plotData[position.x].length - 1,
                 position.y
               );
@@ -728,14 +728,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               position.y != plot.plotData.length - 1
             ) {
               lastx = position.x;
-              Autoplay("reverse-up", plot.plotData.length - 1, position.y);
+              Autoplay('reverse-up', plot.plotData.length - 1, position.y);
             } else {
               position.y += 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
           }
-          if (constants.plotOrientation == "vert") {
+          if (constants.plotOrientation == 'vert') {
           } else {
             setBrailleThisRound = true;
           }
@@ -745,21 +745,21 @@ document.addEventListener("DOMContentLoaded", function (e) {
           let oldY = position.y;
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             if (e.shiftKey) {
-              Autoplay("down", position.y, -1);
+              Autoplay('down', position.y, -1);
             } else {
               position.y = 0;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
           } else if (e.altKey && e.shiftKey && position.y != 0) {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               lastY = position.y;
             } else {
               lastx = position.x;
             }
-            Autoplay("reverse-down", 0, position.y);
+            Autoplay('reverse-down', 0, position.y);
           } else {
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               if (
                 position.x == -1 &&
                 position.y == plot.plotData[position.x].length
@@ -776,7 +776,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             isAtEnd = lockPosition();
           }
           constants.navigation = 0;
-          if (constants.plotOrientation == "vert") {
+          if (constants.plotOrientation == 'vert') {
           } else {
             setBrailleThisRound = true;
           }
@@ -796,15 +796,15 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener("focusout", function (e) {
-          display.toggleBrailleMode("off");
+        constants.brailleInput.addEventListener('focusout', function (e) {
+          display.toggleBrailleMode('off');
         });
       });
 
       // var keys;
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener("keydown", function (e) {
+        controlElements[i].addEventListener('keydown', function (e) {
           // B: braille mode
           if (e.which == 66) {
             display.toggleBrailleMode();
@@ -836,7 +836,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         });
       }
 
-      document.addEventListener("keydown", function (e) {
+      document.addEventListener('keydown', function (e) {
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
           // (ctrl/cmd)+(home/fn+left arrow): top left element
           if (e.which == 36) {
@@ -910,32 +910,32 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedUp();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("right", position.y, lastY);
+            if (lastPlayed == 'reverse-left') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('right', position.y, lastY);
               } else {
-                Autoplay("right", position.x, lastx);
+                Autoplay('right', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-right") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("left", position.y, lastY);
+            } else if (lastPlayed == 'reverse-right') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('left', position.y, lastY);
               } else {
-                Autoplay("left", position.x, lastx);
+                Autoplay('left', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-up") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("down", position.y, lastY);
+            } else if (lastPlayed == 'reverse-up') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('down', position.y, lastY);
               } else {
-                Autoplay("down", position.x, lastx);
+                Autoplay('down', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-down") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("up", position.y, lastY);
+            } else if (lastPlayed == 'reverse-down') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('up', position.y, lastY);
               } else {
-                Autoplay("up", position.x, lastx);
+                Autoplay('up', position.x, lastx);
               }
             } else {
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 Autoplay(lastPlayed, position.y, lastY);
               } else {
                 Autoplay(lastPlayed, position.x, lastx);
@@ -949,32 +949,32 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedDown();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("right", position.y, lastY);
+            if (lastPlayed == 'reverse-left') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('right', position.y, lastY);
               } else {
-                Autoplay("right", position.x, lastx);
+                Autoplay('right', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-right") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("left", position.y, lastY);
+            } else if (lastPlayed == 'reverse-right') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('left', position.y, lastY);
               } else {
-                Autoplay("left", position.x, lastx);
+                Autoplay('left', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-up") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("down", position.y, lastY);
+            } else if (lastPlayed == 'reverse-up') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('down', position.y, lastY);
               } else {
-                Autoplay("down", position.x, lastx);
+                Autoplay('down', position.x, lastx);
               }
-            } else if (lastPlayed == "reverse-down") {
-              if (constants.plotOrientation == "vert") {
-                Autoplay("up", position.y, lastY);
+            } else if (lastPlayed == 'reverse-down') {
+              if (constants.plotOrientation == 'vert') {
+                Autoplay('up', position.y, lastY);
               } else {
-                Autoplay("up", position.x, lastx);
+                Autoplay('up', position.x, lastx);
               }
             } else {
-              if (constants.plotOrientation == "vert") {
+              if (constants.plotOrientation == 'vert') {
                 Autoplay(lastPlayed, position.y, lastY);
               } else {
                 Autoplay(lastPlayed, position.x, lastx);
@@ -996,7 +996,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
       }
@@ -1007,10 +1007,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
-        if (constants.brailleMode != "off") {
+        if (constants.brailleMode != 'off') {
           display.UpdateBraillePos(plot);
         }
       }
@@ -1021,7 +1021,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
         display.UpdateBraillePos(plot);
@@ -1029,7 +1029,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       function lockPosition() {
         // lock to min / max postions
         let isLockNeeded = false;
-        if (constants.plotOrientation == "vert") {
+        if (constants.plotOrientation == 'vert') {
           if (position.y < 0) {
             position.y = 0;
             isLockNeeded = true;
@@ -1086,8 +1086,8 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (yOld < 0) {
           // not on any chart yet, just start at 0
         } else {
-          let oldLabel = "";
-          if ("label" in plot.plotData[yOld][position.x]) {
+          let oldLabel = '';
+          if ('label' in plot.plotData[yOld][position.x]) {
             oldLabel = plot.plotData[yOld][position.x].label;
           }
           // does it exist on the new plot? we'll just get that val
@@ -1105,10 +1105,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
         lastPlayed = dir;
         let step = 1; // default right / up / reverse-left / reverse-down
         if (
-          dir == "left" ||
-          dir == "down" ||
-          dir == "reverse-right" ||
-          dir == "reverse-up"
+          dir == 'left' ||
+          dir == 'down' ||
+          dir == 'reverse-right' ||
+          dir == 'reverse-up'
         ) {
           step = -1;
         }
@@ -1118,49 +1118,49 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.KillAutoplay();
         }
 
-        if (dir == "reverse-left" || dir == "reverse-right") {
+        if (dir == 'reverse-left' || dir == 'reverse-right') {
           position.x = start;
-        } else if (dir == "reverse-up" || dir == "reverse-down") {
+        } else if (dir == 'reverse-up' || dir == 'reverse-down') {
           position.y = start;
         }
 
         if (constants.debugLevel > 0) {
-          console.log("starting autoplay", dir);
+          console.log('starting autoplay', dir);
         }
 
         UpdateAllAutoplay(); // play current tone before we move
         constants.autoplayId = setInterval(function () {
           let doneNext = false;
-          if (dir == "left" || dir == "right" || dir == "up" || dir == "down") {
+          if (dir == 'left' || dir == 'right' || dir == 'up' || dir == 'down') {
             if (
-              (position.x < 1 && dir == "left") ||
-              (constants.plotOrientation == "vert" &&
-                dir == "up" &&
+              (position.x < 1 && dir == 'left') ||
+              (constants.plotOrientation == 'vert' &&
+                dir == 'up' &&
                 position.y > plot.plotData[position.x].length - 2) ||
-              (constants.plotOrientation == "horz" &&
-                dir == "up" &&
+              (constants.plotOrientation == 'horz' &&
+                dir == 'up' &&
                 position.y > plot.plotData.length - 2) ||
-              (constants.plotOrientation == "horz" &&
-                dir == "right" &&
+              (constants.plotOrientation == 'horz' &&
+                dir == 'right' &&
                 position.x > plot.plotData[position.y].length - 2) ||
-              (constants.plotOrientation == "vert" &&
-                dir == "right" &&
+              (constants.plotOrientation == 'vert' &&
+                dir == 'right' &&
                 position.x > plot.plotData.length - 2) ||
-              (constants.plotOrientation == "horz" &&
-                dir == "down" &&
+              (constants.plotOrientation == 'horz' &&
+                dir == 'down' &&
                 position.y < 1) ||
-              (constants.plotOrientation == "vert" &&
-                dir == "down" &&
+              (constants.plotOrientation == 'vert' &&
+                dir == 'down' &&
                 position.y < 1)
             ) {
               doneNext = true;
             }
           } else {
             if (
-              (dir == "reverse-left" && position.x >= end) ||
-              (dir == "reverse-right" && position.x <= end) ||
-              (dir == "reverse-up" && position.y <= end) ||
-              (dir == "reverse-down" && position.y >= end)
+              (dir == 'reverse-left' && position.x >= end) ||
+              (dir == 'reverse-right' && position.x <= end) ||
+              (dir == 'reverse-up' && position.y <= end) ||
+              (dir == 'reverse-down' && position.y >= end)
             ) {
               doneNext = true;
             }
@@ -1170,10 +1170,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
             constants.KillAutoplay();
           } else {
             if (
-              dir == "left" ||
-              dir == "right" ||
-              dir == "reverse-left" ||
-              dir == "reverse-right"
+              dir == 'left' ||
+              dir == 'right' ||
+              dir == 'reverse-left' ||
+              dir == 'reverse-right'
             ) {
               position.x += step;
             } else {
@@ -1182,25 +1182,25 @@ document.addEventListener("DOMContentLoaded", function (e) {
             UpdateAllAutoplay();
           }
           if (constants.debugLevel > 5) {
-            console.log("autoplay pos", position);
+            console.log('autoplay pos', position);
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == "heatmap") {
+    } else if (constants.chartType == 'heatmap') {
       // variable initialization
-      constants.plotId = "geom_rect.rect.2.1";
+      constants.plotId = 'geom_rect.rect.2.1';
       window.position = new Position(-1, -1);
       window.plot = new HeatMap();
-      constants.chartType = "heatmap";
+      constants.chartType = 'heatmap';
       let rect = new HeatMapRect();
       let audio = new Audio();
-      let lastPlayed = "";
+      let lastPlayed = '';
       let lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener("keydown", function (e) {
+      constants.svg_container.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
 
@@ -1210,7 +1210,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x -= 1;
-              Autoplay("right", position.x, plot.num_cols);
+              Autoplay('right', position.x, plot.num_cols);
             } else {
               position.x = plot.num_cols - 1;
               updateInfoThisRound = true;
@@ -1221,7 +1221,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             position.x != plot.num_cols - 1
           ) {
             lastx = position.x;
-            Autoplay("reverse-right", plot.num_cols, position.x);
+            Autoplay('reverse-right', plot.num_cols, position.x);
           } else {
             if (position.x == -1 && position.y == -1) {
               position.y += 1;
@@ -1239,14 +1239,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.x;
               position.x += 1;
-              Autoplay("left", position.x, -1);
+              Autoplay('left', position.x, -1);
             } else {
               position.x = 0;
               updateInfoThisRound = true;
             }
           } else if (e.altKey && e.shiftKey && position.x != 0) {
             lastx = position.x;
-            Autoplay("reverse-left", -1, position.x);
+            Autoplay('reverse-left', -1, position.x);
           } else {
             position.x -= 1;
             updateInfoThisRound = true;
@@ -1261,14 +1261,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.y;
               position.y += 1;
-              Autoplay("up", position.y, -1);
+              Autoplay('up', position.y, -1);
             } else {
               position.y = 0;
               updateInfoThisRound = true;
             }
           } else if (e.altKey && e.shiftKey && position.y != 0) {
             lastx = position.x;
-            Autoplay("reverse-up", -1, position.y);
+            Autoplay('reverse-up', -1, position.y);
           } else {
             position.y -= 1;
             updateInfoThisRound = true;
@@ -1283,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             if (e.shiftKey) {
               // lastx = position.y;
               position.y -= 1;
-              Autoplay("down", position.y, plot.num_rows);
+              Autoplay('down', position.y, plot.num_rows);
             } else {
               position.y = plot.num_rows - 1;
               updateInfoThisRound = true;
@@ -1294,7 +1294,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             position.y != plot.num_rows - 1
           ) {
             lastx = position.x;
-            Autoplay("reverse-down", plot.num_rows, position.y);
+            Autoplay('reverse-down', plot.num_rows, position.y);
           } else {
             if (position.x == -1 && position.y == -1) {
               position.x += 1;
@@ -1315,7 +1315,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
       });
 
-      constants.brailleInput.addEventListener("keydown", function (e) {
+      constants.brailleInput.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
 
@@ -1328,7 +1328,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             e.target.value.substring(
               e.target.selectionStart + 1,
               e.target.selectionStart + 2
-            ) == "⠳"
+            ) == '⠳'
           ) {
             // already at the end, do nothing
             e.preventDefault();
@@ -1340,7 +1340,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               }
               if (e.shiftKey) {
                 position.x -= 1;
-                Autoplay("right", position.x, plot.num_cols);
+                Autoplay('right', position.x, plot.num_cols);
               } else {
                 position.x = plot.num_cols - 1;
                 updateInfoThisRound = true;
@@ -1351,7 +1351,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               position.x != plot.num_cols - 1
             ) {
               lastx = position.x;
-              Autoplay("reverse-right", plot.num_cols, position.x);
+              Autoplay('reverse-right', plot.num_cols, position.x);
             } else {
               if (position.x == -1 && position.y == -1) {
                 position.y += 1;
@@ -1375,7 +1375,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             e.target.value.substring(
               e.target.selectionStart - 1,
               e.target.selectionStart
-            ) == "⠳"
+            ) == '⠳'
           ) {
             e.preventDefault();
           } else {
@@ -1383,14 +1383,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 // lastx = position.x;
                 position.x += 1;
-                Autoplay("left", position.x, -1);
+                Autoplay('left', position.x, -1);
               } else {
                 position.x = 0;
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
               lastx = position.x;
-              Autoplay("reverse-left", -1, position.x);
+              Autoplay('reverse-left', -1, position.x);
             } else {
               position.x += -1;
               updateInfoThisRound = true;
@@ -1415,7 +1415,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               }
               if (e.shiftKey) {
                 position.y -= 1;
-                Autoplay("down", position.y, plot.num_rows);
+                Autoplay('down', position.y, plot.num_rows);
               } else {
                 position.y = plot.num_rows - 1;
                 updateInfoThisRound = true;
@@ -1426,7 +1426,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               position.y != plot.num_rows - 1
             ) {
               lastx = position.x;
-              Autoplay("reverse-down", plot.num_rows, position.y);
+              Autoplay('reverse-down', plot.num_rows, position.y);
             } else {
               if (position.x == -1 && position.y == -1) {
                 position.x += 1;
@@ -1451,14 +1451,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 // lastx = position.y;
                 position.y += 1;
-                Autoplay("up", position.y, -1);
+                Autoplay('up', position.y, -1);
               } else {
                 position.y = 0;
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
               lastx = position.x;
-              Autoplay("reverse-up", -1, position.y);
+              Autoplay('reverse-up', -1, position.y);
             } else {
               position.y += -1;
               updateInfoThisRound = true;
@@ -1476,8 +1476,8 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener("focusout", function (e) {
-          display.toggleBrailleMode("off");
+        constants.brailleInput.addEventListener('focusout', function (e) {
+          display.toggleBrailleMode('off');
         });
 
         if (updateInfoThisRound && !isAtEnd) {
@@ -1492,7 +1492,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
 
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener("keydown", function (e) {
+        controlElements[i].addEventListener('keydown', function (e) {
           // B: braille mode
           if (e.which == 66) {
             display.toggleBrailleMode();
@@ -1524,7 +1524,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         });
       }
 
-      document.addEventListener("keydown", function (e) {
+      document.addEventListener('keydown', function (e) {
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
           // (ctrl/cmd)+(home/fn+left arrow): first element
           if (e.which == 36) {
@@ -1609,14 +1609,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedUp();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              Autoplay("right", position.x, lastx);
-            } else if (lastPlayed == "reverse-right") {
-              Autoplay("left", position.x, lastx);
-            } else if (lastPlayed == "reverse-up") {
-              Autoplay("down", position.x, lastx);
-            } else if (lastPlayed == "reverse-down") {
-              Autoplay("up", position.x, lastx);
+            if (lastPlayed == 'reverse-left') {
+              Autoplay('right', position.x, lastx);
+            } else if (lastPlayed == 'reverse-right') {
+              Autoplay('left', position.x, lastx);
+            } else if (lastPlayed == 'reverse-up') {
+              Autoplay('down', position.x, lastx);
+            } else if (lastPlayed == 'reverse-down') {
+              Autoplay('up', position.x, lastx);
             } else {
               Autoplay(lastPlayed, position.x, lastx);
             }
@@ -1628,14 +1628,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.SpeedDown();
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
-            if (lastPlayed == "reverse-left") {
-              Autoplay("right", position.x, lastx);
-            } else if (lastPlayed == "reverse-right") {
-              Autoplay("left", position.x, lastx);
-            } else if (lastPlayed == "reverse-up") {
-              Autoplay("down", position.x, lastx);
-            } else if (lastPlayed == "reverse-down") {
-              Autoplay("up", position.x, lastx);
+            if (lastPlayed == 'reverse-left') {
+              Autoplay('right', position.x, lastx);
+            } else if (lastPlayed == 'reverse-right') {
+              Autoplay('left', position.x, lastx);
+            } else if (lastPlayed == 'reverse-up') {
+              Autoplay('down', position.x, lastx);
+            } else if (lastPlayed == 'reverse-down') {
+              Autoplay('up', position.x, lastx);
             } else {
               Autoplay(lastPlayed, position.x, lastx);
             }
@@ -1684,7 +1684,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
       }
@@ -1695,10 +1695,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
-        if (constants.brailleMode != "off") {
+        if (constants.brailleMode != 'off') {
           display.UpdateBraillePos(plot);
         }
       }
@@ -1709,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           audio.playTone();
         }
         display.UpdateBraillePos(plot);
@@ -1719,10 +1719,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
         lastPlayed = dir;
         let step = 1; // default right, down, reverse-left, and reverse-up
         if (
-          dir == "left" ||
-          dir == "up" ||
-          dir == "reverse-right" ||
-          dir == "reverse-down"
+          dir == 'left' ||
+          dir == 'up' ||
+          dir == 'reverse-right' ||
+          dir == 'reverse-down'
         ) {
           step = -1;
         }
@@ -1732,18 +1732,18 @@ document.addEventListener("DOMContentLoaded", function (e) {
           constants.KillAutoplay();
         }
 
-        if (dir == "reverse-left" || dir == "reverse-right") {
+        if (dir == 'reverse-left' || dir == 'reverse-right') {
           position.x = start;
-        } else if (dir == "reverse-up" || dir == "reverse-down") {
+        } else if (dir == 'reverse-up' || dir == 'reverse-down') {
           position.y = start;
         }
 
         constants.autoplayId = setInterval(function () {
           if (
-            dir == "left" ||
-            dir == "right" ||
-            dir == "reverse-left" ||
-            dir == "reverse-right"
+            dir == 'left' ||
+            dir == 'right' ||
+            dir == 'reverse-left' ||
+            dir == 'reverse-right'
           ) {
             position.x += step;
             if (position.x < 0 || plot.num_cols - 1 < position.x) {
@@ -1771,19 +1771,19 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }, constants.autoPlayRate);
       }
     } else if (
-      constants.chartType == "scatterplot" ||
-      constants.chartType.includes("scatterplot")
+      constants.chartType == 'scatterplot' ||
+      constants.chartType.includes('scatterplot')
     ) {
       // variable initialization
-      constants.plotId = "geom_point.points.12.1";
+      constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
       window.plot = new ScatterPlot();
-      constants.chartType = "scatterplot";
+      constants.chartType = 'scatterplot';
       let audio = new Audio();
       let layer0Point = new Layer0Point();
       let layer1Point = new Layer1Point();
 
-      let lastPlayed = ""; // for autoplay use
+      let lastPlayed = ''; // for autoplay use
       let lastx = 0; // for layer 1 autoplay use
       let lastx1 = 0; // for layer 2 autoplay use
       let lastKeyTime = 0;
@@ -1792,7 +1792,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       window.positionL1 = new Position(lastx1, lastx1);
 
       // control eventlisteners
-      constants.svg_container.addEventListener("keydown", function (e) {
+      constants.svg_container.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
 
@@ -1804,7 +1804,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 // lastx = position.x;
                 position.x -= 1;
-                Autoplay("outward_right", position.x, plot.x.length);
+                Autoplay('outward_right', position.x, plot.x.length);
               } else {
                 position.x = plot.x.length - 1;
                 updateInfoThisRound = true;
@@ -1816,7 +1816,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               position.x != plot.x.length - 1
             ) {
               lastx = position.x;
-              Autoplay("inward_right", plot.x.length, position.x);
+              Autoplay('inward_right', plot.x.length, position.x);
             } else {
               position.x += 1;
               updateInfoThisRound = true;
@@ -1830,7 +1830,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 // lastx = position.x;
                 position.x += 1;
-                Autoplay("outward_left", position.x, -1);
+                Autoplay('outward_left', position.x, -1);
               } else {
                 position.x = 0;
                 updateInfoThisRound = true;
@@ -1838,7 +1838,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
               lastx = position.x;
-              Autoplay("inward_left", -1, position.x);
+              Autoplay('inward_left', -1, position.x);
             } else {
               position.x -= 1;
               updateInfoThisRound = true;
@@ -1851,22 +1851,22 @@ document.addEventListener("DOMContentLoaded", function (e) {
           if (e.which == 39 && e.shiftKey) {
             if (
               (constants.isMac ? e.metaKey : e.ctrlKey) &&
-              constants.sonifMode != "off"
+              constants.sonifMode != 'off'
             ) {
-              PlayLine("outward_right");
-            } else if (e.altKey && constants.sonifMode != "off") {
-              PlayLine("inward_right");
+              PlayLine('outward_right');
+            } else if (e.altKey && constants.sonifMode != 'off') {
+              PlayLine('inward_right');
             }
           }
 
           if (e.which == 37 && e.shiftKey) {
             if (
               (constants.isMac ? e.metaKey : e.ctrlKey) &&
-              constants.sonifMode != "off"
+              constants.sonifMode != 'off'
             ) {
-              PlayLine("outward_left");
-            } else if (e.altKey && constants.sonifMode != "off") {
-              PlayLine("inward_left");
+              PlayLine('outward_left');
+            } else if (e.altKey && constants.sonifMode != 'off') {
+              PlayLine('inward_left');
             }
           }
         }
@@ -1880,7 +1880,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
       });
 
-      constants.brailleInput.addEventListener("keydown", function (e) {
+      constants.brailleInput.addEventListener('keydown', function (e) {
         let updateInfoThisRound = false;
         let isAtEnd = false;
 
@@ -1904,7 +1904,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 positionL1.x -= 1;
                 Autoplay(
-                  "outward_right",
+                  'outward_right',
                   positionL1.x,
                   plot.curvePoints.length
                 );
@@ -1919,7 +1919,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
               positionL1.x != plot.curvePoints.length - 1
             ) {
               lastx1 = positionL1.x;
-              Autoplay("inward_right", plot.curvePoints.length, positionL1.x);
+              Autoplay('inward_right', plot.curvePoints.length, positionL1.x);
             } else {
               positionL1.x += 1;
               updateInfoThisRound = true;
@@ -1932,14 +1932,14 @@ document.addEventListener("DOMContentLoaded", function (e) {
               if (e.shiftKey) {
                 // lastx = position.x;
                 positionL1.x += 1;
-                Autoplay("outward_left", positionL1.x, -1);
+                Autoplay('outward_left', positionL1.x, -1);
               } else {
                 positionL1.x = 0; // go all the way
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
             } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
-              Autoplay("inward_left", -1, positionL1.x);
+              Autoplay('inward_left', -1, positionL1.x);
             } else {
               positionL1.x -= 1;
               updateInfoThisRound = true;
@@ -1953,8 +1953,8 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
 
         // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener("focusout", function (e) {
-          display.toggleBrailleMode("off");
+        constants.brailleInput.addEventListener('focusout', function (e) {
+          display.toggleBrailleMode('off');
         });
 
         lastx1 = positionL1.x;
@@ -1970,7 +1970,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       // var keys;
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener("keydown", function (e) {
+        controlElements[i].addEventListener('keydown', function (e) {
           // B: braille mode
           if (e.which == 66) {
             display.toggleBrailleMode();
@@ -1999,7 +1999,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           if (
             e.which == 34 &&
             constants.layer == 2 &&
-            constants.brailleMode == "off"
+            constants.brailleMode == 'off'
           ) {
             lastx1 = positionL1.x;
             display.toggleLayerMode();
@@ -2009,7 +2009,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           if (
             e.which == 33 &&
             constants.layer == 1 &&
-            constants.brailleMode == "off"
+            constants.brailleMode == 'off'
           ) {
             display.toggleLayerMode();
           }
@@ -2021,7 +2021,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         });
       }
 
-      document.addEventListener("keydown", function (e) {
+      document.addEventListener('keydown', function (e) {
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
           // (ctrl/cmd)+(home/fn+left arrow): first element
           if (e.which == 36) {
@@ -2115,17 +2115,17 @@ document.addEventListener("DOMContentLoaded", function (e) {
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
             audio.KillSmooth();
-            if (lastPlayed == "inward_left") {
+            if (lastPlayed == 'inward_left') {
               if (constants.layer == 1) {
-                Autoplay("outward_right", position.x, lastx);
+                Autoplay('outward_right', position.x, lastx);
               } else if (constants.layer == 2) {
-                Autoplay("outward_right", positionL1.x, lastx1);
+                Autoplay('outward_right', positionL1.x, lastx1);
               }
-            } else if (lastPlayed == "inward_right") {
+            } else if (lastPlayed == 'inward_right') {
               if (constants.layer == 1) {
-                Autoplay("outward_left", position.x, lastx);
+                Autoplay('outward_left', position.x, lastx);
               } else if (constants.layer == 2) {
-                Autoplay("outward_left", positionL1.x, lastx1);
+                Autoplay('outward_left', positionL1.x, lastx1);
               }
             } else {
               if (constants.layer == 1) {
@@ -2143,17 +2143,17 @@ document.addEventListener("DOMContentLoaded", function (e) {
           if (constants.autoplayId != null) {
             constants.KillAutoplay();
             audio.KillSmooth();
-            if (lastPlayed == "inward_left") {
+            if (lastPlayed == 'inward_left') {
               if (constants.layer == 1) {
-                Autoplay("outward_right", position.x, lastx);
+                Autoplay('outward_right', position.x, lastx);
               } else if (constants.layer == 2) {
-                Autoplay("outward_right", positionL1.x, lastx1);
+                Autoplay('outward_right', positionL1.x, lastx1);
               }
-            } else if (lastPlayed == "inward_right") {
+            } else if (lastPlayed == 'inward_right') {
               if (constants.layer == 1) {
-                Autoplay("outward_left", position.x, lastx);
+                Autoplay('outward_left', position.x, lastx);
               } else if (constants.layer == 2) {
-                Autoplay("outward_left", positionL1.x, lastx1);
+                Autoplay('outward_left', positionL1.x, lastx1);
               }
             } else {
               if (constants.layer == 1) {
@@ -2205,7 +2205,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect) {
           layer0Point.UpdatePointDisplay();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
       }
@@ -2221,10 +2221,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
             layer1Point.UpdatePointDisplay();
           }
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
-        if (constants.brailleMode != "off") {
+        if (constants.brailleMode != 'off') {
           display.UpdateBraillePos(plot);
         }
       }
@@ -2235,7 +2235,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         if (constants.showRect) {
           layer1Point.UpdatePointDisplay();
         }
-        if (constants.sonifMode != "off") {
+        if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
         display.UpdateBraillePos(plot);
@@ -2244,7 +2244,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
         let step = 1; // default right and reverse left
-        if (dir == "outward_left" || dir == "inward_right") {
+        if (dir == 'outward_left' || dir == 'inward_right') {
           step = -1;
         }
 
@@ -2256,7 +2256,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           audio.KillSmooth();
         }
 
-        if (dir == "inward_left" || dir == "inward_right") {
+        if (dir == 'inward_left' || dir == 'inward_right') {
           position.x = start;
           position.L1x = start;
         }
@@ -2311,7 +2311,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         );
         let x = positionL1.x < 0 ? 0 : positionL1.x;
         let duration = 0;
-        if (dir == "outward_right") {
+        if (dir == 'outward_right') {
           for (let i = x; i < plot.curvePoints.length; i++) {
             freqArr.push(
               audio.SlideBetween(
@@ -2327,7 +2327,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           duration =
             (Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length) *
             3;
-        } else if (dir == "outward_left") {
+        } else if (dir == 'outward_left') {
           for (let i = x; i >= 0; i--) {
             freqArr.push(
               audio.SlideBetween(
@@ -2341,7 +2341,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           }
           panningArr = [panPoint, -1];
           duration = (Math.abs(x) / plot.curvePoints.length) * 3;
-        } else if (dir == "inward_right") {
+        } else if (dir == 'inward_right') {
           for (let i = plot.curvePoints.length - 1; i >= x; i--) {
             freqArr.push(
               audio.SlideBetween(
@@ -2357,7 +2357,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
           duration =
             (Math.abs(plot.curvePoints.length - x) / plot.curvePoints.length) *
             3;
-        } else if (dir == "inward_left") {
+        } else if (dir == 'inward_left') {
           for (let i = 0; i <= x; i++) {
             freqArr.push(
               audio.SlideBetween(
@@ -2378,7 +2378,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }
 
         // audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
-        audio.playSmooth(freqArr, duration, panningArr, constants.vol, "sine");
+        audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
       }
     }
   }

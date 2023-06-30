@@ -6,8 +6,8 @@ class BoxPlot {
   constructor() {
     constants.plotId = 0;
 
-    constants.plotOrientation = "horz"; // default
-    if (typeof maidr !== "undefined") {
+    constants.plotOrientation = 'horz'; // default
+    if (typeof maidr !== 'undefined') {
       constants.plotOrientation = maidr.orientation;
     }
 
@@ -16,32 +16,32 @@ class BoxPlot {
     ) {
       constants.plotId = document
         .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
-        .getAttribute("id");
+        .getAttribute('id');
     }
 
     if (constants.manualData) {
       // title
-      let boxplotTitle = "";
-      if (typeof maidr !== "undefined" && typeof maidr.title !== "undefined") {
+      let boxplotTitle = '';
+      if (typeof maidr !== 'undefined' && typeof maidr.title !== 'undefined') {
         boxplotTitle = maidr.title;
       } else if (document.querySelector('tspan[dy="9.45"]')) {
         boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
-        boxplotTitle = boxplotTitle.replace("\n", "").replace(/ +(?= )/g, ""); // there are multiple spaces and newlines, sometimes
+        boxplotTitle = boxplotTitle.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
       }
       this.title =
-        typeof boxplotTitle !== "undefined" && typeof boxplotTitle != null
+        typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null
           ? boxplotTitle
-          : "";
+          : '';
 
       // axis labels
-      if (typeof maidr !== "undefined") {
+      if (typeof maidr !== 'undefined') {
         this.x_group_label = maidr.x_group_label;
       } else {
         this.x_group_label = document.querySelector(
           'text:not([transform^="rotate"]) > tspan[dy="7.88"]'
         ).innerHTML;
       }
-      if (typeof maidr !== "undefined") {
+      if (typeof maidr !== 'undefined') {
         this.y_group_label = maidr.y_group_label;
       } else {
         this.y_group_label = document.querySelector(
@@ -51,19 +51,19 @@ class BoxPlot {
 
       // x y tick labels
       let labels = [];
-      if (typeof maidr !== "undefined") {
+      if (typeof maidr !== 'undefined') {
         this.x_labels = maidr.x_labels;
         this.y_labels = maidr.y_labels;
       } else {
-        let elDy = "3.15";
-        if (constants.plotOrientation == "vert") {
-          elDy = "6.3";
+        let elDy = '3.15';
+        if (constants.plotOrientation == 'vert') {
+          elDy = '6.3';
         }
         let els = document.querySelectorAll('tspan[dy="' + elDy + '"]');
         for (let i = 0; i < els.length; i++) {
           labels.push(els[i].innerHTML.trim());
         }
-        if (constants.plotOrientation == "vert") {
+        if (constants.plotOrientation == 'vert') {
           this.x_labels = labels;
           this.y_labels = [];
         } else {
@@ -73,19 +73,19 @@ class BoxPlot {
       }
 
       // main data
-      if (typeof maidr !== "undefined") {
+      if (typeof maidr !== 'undefined') {
         this.plotData = maidr.data;
       } else {
         this.plotData = maidr;
       }
     } else {
       this.x_group_label = document.getElementById(
-        "GRID.text.199.1.1.tspan.1"
+        'GRID.text.199.1.1.tspan.1'
       ).innerHTML;
       this.y_group_label = document.getElementById(
-        "GRID.text.202.1.1.tspan.1"
+        'GRID.text.202.1.1.tspan.1'
       ).innerHTML;
-      if (constants.plotOrientation == "vert") {
+      if (constants.plotOrientation == 'vert') {
         this.x_labels = this.GetLabels();
         this.y_labels = [];
       } else {
@@ -118,7 +118,7 @@ class BoxPlot {
   CleanData() {
     // we manually input data, so now we need to clean it up and set other vars
 
-    if (constants.plotOrientation == "vert") {
+    if (constants.plotOrientation == 'vert') {
       constants.minY = 0;
       constants.maxY = 0;
       for (let i = 0; i < this.plotData.length; i++) {
@@ -126,11 +126,11 @@ class BoxPlot {
         for (let j = 0; j < this.plotData[i].length; j++) {
           // each section in plot
           let point = this.plotData[i][j];
-          if (point.hasOwnProperty("y")) {
+          if (point.hasOwnProperty('y')) {
             if (point.y < constants.minY) {
               constants.yMin = point.y;
             }
-            if (point.hasOwnProperty("yMax")) {
+            if (point.hasOwnProperty('yMax')) {
               if (point.yMax > constants.maxY) {
                 constants.maxY = point.yMax;
               }
@@ -140,7 +140,7 @@ class BoxPlot {
               }
             }
           }
-          if (point.hasOwnProperty("x")) {
+          if (point.hasOwnProperty('x')) {
             if (point.x < constants.minX) {
               constants.minX = point.x;
             }
@@ -158,11 +158,11 @@ class BoxPlot {
         for (let j = 0; j < this.plotData[i].length; j++) {
           // each section in plot
           let point = this.plotData[i][j];
-          if (point.hasOwnProperty("x")) {
+          if (point.hasOwnProperty('x')) {
             if (point.x < constants.minX) {
               constants.xMin = point.x;
             }
-            if (point.hasOwnProperty("xMax")) {
+            if (point.hasOwnProperty('xMax')) {
               if (point.xMax > constants.maxX) {
                 constants.maxX = point.xMax;
               }
@@ -172,7 +172,7 @@ class BoxPlot {
               }
             }
           }
-          if (point.hasOwnProperty("y")) {
+          if (point.hasOwnProperty('y')) {
             if (point.y < constants.minY) {
               constants.minY = point.y;
             }
@@ -206,7 +206,7 @@ class BoxPlot {
           let segment = segments[k];
 
           let segmentType = this.GetBoxplotSegmentType(
-            sections[j].getAttribute("id")
+            sections[j].getAttribute('id')
           );
           let segmentPoints = this.GetBoxplotSegmentPoints(
             segment,
@@ -215,9 +215,9 @@ class BoxPlot {
 
           for (let l = 0; l < segmentPoints.length; l += 2) {
             if (
-              segmentType == "whisker" &&
+              segmentType == 'whisker' &&
               l == 0 &&
-              constants.plotOrientation == "vert"
+              constants.plotOrientation == 'vert'
             ) {
             } else {
               let thisPoint = {
@@ -235,20 +235,20 @@ class BoxPlot {
       // post processing
       // Sort this plot
       points.sort(function (a, b) {
-        if (constants.plotOrientation == "vert") {
+        if (constants.plotOrientation == 'vert') {
           return a.y - b.y;
         } else {
           return a.x - b.x;
         }
       });
 
-      if (constants.plotOrientation == "horz") {
+      if (constants.plotOrientation == 'horz') {
         // and remove whisker from range dups
         let noDupPoints = [];
         for (let d = 0; d < points.length; d++) {
           if (d > 0) {
             if (points[d - 1].x == points[d].x) {
-              if (points[d - 1].type == "whisker") {
+              if (points[d - 1].type == 'whisker') {
                 noDupPoints.splice(-1, 1);
                 noDupPoints.push(points[d]);
               } else {
@@ -268,7 +268,7 @@ class BoxPlot {
 
     // put plots in order
     plotData.sort(function (a, b) {
-      if (constants.plotOrientation == "vert") {
+      if (constants.plotOrientation == 'vert') {
         return a[0].x - b[0].x;
       } else {
         return a[0].y - b[0].y;
@@ -285,7 +285,7 @@ class BoxPlot {
         let runProcessOutliers = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
         if (j == section.length) {
           runProcessOutliers = true;
-        } else if (section[j].type != "outlier") {
+        } else if (section[j].type != 'outlier') {
           runProcessOutliers = true;
         }
         if (!runProcessOutliers) {
@@ -296,7 +296,7 @@ class BoxPlot {
           let vals = [];
           for (let k = 0; k < outlierGroup.length; k++) {
             // save array of values
-            if (constants.plotOrientation == "vert") {
+            if (constants.plotOrientation == 'vert') {
               vals.push(outlierGroup[k].y);
             } else {
               vals.push(outlierGroup[k].x);
@@ -304,12 +304,12 @@ class BoxPlot {
 
             // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
             if (k > 0) {
-              plotData[i][j + k - outlierGroup.length].type = "delete";
+              plotData[i][j + k - outlierGroup.length].type = 'delete';
             }
           }
 
           // save data
-          if (constants.plotOrientation == "vert") {
+          if (constants.plotOrientation == 'vert') {
             plotData[i][j - outlierGroup.length].y = outlierGroup[0].y;
             plotData[i][j - outlierGroup.length].yMax =
               outlierGroup[outlierGroup.length - 1].y;
@@ -330,7 +330,7 @@ class BoxPlot {
     for (let i = 0; i < plotData.length; i++) {
       cleanData[i] = [];
       for (let j = 0; j < plotData[i].length; j++) {
-        if (plotData[i][j].type != "delete") {
+        if (plotData[i][j].type != 'delete') {
           cleanData[i][j] = plotData[i][j];
         }
       }
@@ -347,25 +347,25 @@ class BoxPlot {
       for (let j = 0; j < plotData[i].length; j++) {
         let point = plotData[i][j];
         // each point, decide based on position with respect to range
-        if (point.type == "outlier") {
+        if (point.type == 'outlier') {
           if (rangeCounter > 0) {
-            plotData[i][j].label = resources.GetString("upper_outlier");
+            plotData[i][j].label = resources.GetString('upper_outlier');
           } else {
-            plotData[i][j].label = resources.GetString("lower_outlier");
+            plotData[i][j].label = resources.GetString('lower_outlier');
           }
-        } else if (point.type == "whisker") {
+        } else if (point.type == 'whisker') {
           if (rangeCounter > 0) {
-            plotData[i][j].label = resources.GetString("max");
+            plotData[i][j].label = resources.GetString('max');
           } else {
-            plotData[i][j].label = resources.GetString("min");
+            plotData[i][j].label = resources.GetString('min');
           }
-        } else if (point.type == "range") {
+        } else if (point.type == 'range') {
           if (rangeCounter == 0) {
-            plotData[i][j].label = resources.GetString("25");
+            plotData[i][j].label = resources.GetString('25');
           } else if (rangeCounter == 1) {
-            plotData[i][j].label = resources.GetString("50");
+            plotData[i][j].label = resources.GetString('50');
           } else if (rangeCounter == 2) {
-            plotData[i][j].label = resources.GetString("75");
+            plotData[i][j].label = resources.GetString('75');
           }
           rangeCounter++;
         }
@@ -389,7 +389,7 @@ class BoxPlot {
         for (let j = 0; j < allWeNeed.length; j++) {
           if (!whatWeGot.includes(allWeNeed[j])) {
             // add a blank where it belongs
-            let blank = { type: "blank", label: allWeNeed[j] };
+            let blank = { type: 'blank', label: allWeNeed[j] };
             plotData[i].splice(j, 0, blank);
             whatWeGot.splice(j, 0, allWeNeed[j]);
           }
@@ -403,7 +403,7 @@ class BoxPlot {
     }
 
     if (constants.debugLevel > 1) {
-      console.log("plotData:", plotData);
+      console.log('plotData:', plotData);
     }
 
     return plotData;
@@ -425,7 +425,7 @@ class BoxPlot {
       let sections = plots[i].children;
       for (let j = 0; j < sections.length; j++) {
         let elemType = this.GetBoxplotSegmentType(
-          sections[j].getAttribute("id")
+          sections[j].getAttribute('id')
         );
         plotSet[elemType] = sections[j];
       }
@@ -444,17 +444,17 @@ class BoxPlot {
       // we get the midpoint from actual point values in the svg GRID.segments
       let midPoints = initialElemSet[i].range
         .querySelector('polyline[id^="GRID"]')
-        .getAttribute("points")
+        .getAttribute('points')
         .match(re);
       let rangePoints = initialElemSet[i].range
         .querySelector('polygon[id^="geom_polygon"]')
-        .getAttribute("points")
+        .getAttribute('points')
         .match(re);
       // get midpoint as percentage from bottom to mid to apply to bounding boxes
       // vert: top(rangePoints[1]) | mid(midPoints[1]) | bottom(rangePoints[3])
       // horz: top(rangePoints[0]) | mid(midPoints[0]) | bottom(rangePoints[2])
       let midPercent = 0;
-      if (constants.plotOrientation == "vert") {
+      if (constants.plotOrientation == 'vert') {
         midPercent =
           (midPoints[1] - rangePoints[3]) / (rangePoints[1] - rangePoints[3]);
       } else {
@@ -462,7 +462,7 @@ class BoxPlot {
           (midPoints[0] - rangePoints[2]) / (rangePoints[0] - rangePoints[2]);
       }
       let midSize = 0;
-      if (constants.plotOrientation == "vert") {
+      if (constants.plotOrientation == 'vert') {
         midSize = rangeBounds.height * midPercent;
       } else {
         midSize = rangeBounds.width * midPercent;
@@ -474,8 +474,8 @@ class BoxPlot {
       // 25%
       plotBound[2] = this.convertBoundingClientRectToObj(rangeBounds);
       plotBound[2].label = allWeNeed[2];
-      plotBound[2].type = "range";
-      if (constants.plotOrientation == "vert") {
+      plotBound[2].type = 'range';
+      if (constants.plotOrientation == 'vert') {
         plotBound[2].height = midSize;
         plotBound[2].top = plotBound[2].bottom - midSize;
         plotBound[2].y = plotBound[2].top;
@@ -485,8 +485,8 @@ class BoxPlot {
       // 50%
       plotBound[3] = this.convertBoundingClientRectToObj(rangeBounds);
       plotBound[3].label = allWeNeed[3];
-      plotBound[3].type = "range";
-      if (constants.plotOrientation == "vert") {
+      plotBound[3].type = 'range';
+      if (constants.plotOrientation == 'vert') {
         plotBound[3].height = 0;
         plotBound[3].top = rangeBounds.bottom - midSize;
         plotBound[3].y = plotBound[3].top;
@@ -498,8 +498,8 @@ class BoxPlot {
       // 75%
       plotBound[4] = this.convertBoundingClientRectToObj(rangeBounds);
       plotBound[4].label = allWeNeed[4];
-      plotBound[4].type = "range";
-      if (constants.plotOrientation == "vert") {
+      plotBound[4].type = 'range';
+      if (constants.plotOrientation == 'vert') {
         plotBound[4].height = rangeBounds.height - midSize;
         plotBound[4].bottom = plotBound[3].top;
       } else {
@@ -508,12 +508,12 @@ class BoxPlot {
       }
 
       // now the tricky ones, outliers and whiskers, if we have them
-      if (Object.hasOwn(initialElemSet[i], "whisker")) {
+      if (Object.hasOwn(initialElemSet[i], 'whisker')) {
         // ok great we have a whisker. It could be just above or below or span across the range (in which case we need to split it up). Let's check
         let whiskerBounds = initialElemSet[i].whisker.getBoundingClientRect();
         let hasBelow = false;
         let hasAbove = false;
-        if (constants.plotOrientation == "vert") {
+        if (constants.plotOrientation == 'vert') {
           if (whiskerBounds.bottom > rangeBounds.bottom) hasBelow = true;
           if (whiskerBounds.top < rangeBounds.top) hasAbove = true;
         } else {
@@ -525,8 +525,8 @@ class BoxPlot {
         if (hasBelow) {
           plotBound[1] = this.convertBoundingClientRectToObj(whiskerBounds);
           plotBound[1].label = allWeNeed[1];
-          plotBound[1].type = "whisker";
-          if (constants.plotOrientation == "vert") {
+          plotBound[1].type = 'whisker';
+          if (constants.plotOrientation == 'vert') {
             plotBound[1].top = plotBound[2].bottom;
             plotBound[1].y = plotBound[1].top;
             plotBound[1].height = plotBound[1].bottom - plotBound[1].top;
@@ -536,14 +536,14 @@ class BoxPlot {
         } else {
           plotBound[1] = {};
           plotBound[1].label = allWeNeed[1];
-          plotBound[1].type = "blank";
+          plotBound[1].type = 'blank';
         }
         // upper whisker
         if (hasAbove) {
           plotBound[5] = this.convertBoundingClientRectToObj(whiskerBounds);
           plotBound[5].label = allWeNeed[5];
-          plotBound[5].type = "whisker";
-          if (constants.plotOrientation == "vert") {
+          plotBound[5].type = 'whisker';
+          if (constants.plotOrientation == 'vert') {
             plotBound[5].bottom = plotBound[4].top;
             plotBound[5].height = plotBound[5].bottom - plotBound[5].top;
           } else {
@@ -554,10 +554,10 @@ class BoxPlot {
         } else {
           plotBound[5] = {};
           plotBound[5].label = allWeNeed[5];
-          plotBound[5].type = "blank";
+          plotBound[5].type = 'blank';
         }
       }
-      if (Object.hasOwn(initialElemSet[i], "outlier")) {
+      if (Object.hasOwn(initialElemSet[i], 'outlier')) {
         // we have one or more outliers.
         // Where do they appear? above or below the range? both?
         // we want to split them up and put 1 bounding box around each above and below
@@ -569,7 +569,7 @@ class BoxPlot {
           // add this outlier's bounds, or expand if more than one
           let newOutlierBounds = outlierElems[j].getBoundingClientRect();
 
-          if (constants.plotOrientation == "vert") {
+          if (constants.plotOrientation == 'vert') {
             if (newOutlierBounds.y < rangeBounds.y) {
               // higher, remember y=0 is at the bottom of the page
               if (!outlierUpperBounds) {
@@ -636,11 +636,11 @@ class BoxPlot {
           plotBound[0] =
             this.convertBoundingClientRectToObj(outlierLowerBounds);
           plotBound[0].label = allWeNeed[0];
-          plotBound[0].type = "outlier";
+          plotBound[0].type = 'outlier';
         } else {
           plotBound[0] = {};
           plotBound[0].label = allWeNeed[0];
-          plotBound[0].type = "blank";
+          plotBound[0].type = 'blank';
         }
         if (outlierUpperBounds) {
           outlierUpperBounds.height =
@@ -651,27 +651,27 @@ class BoxPlot {
           plotBound[6] =
             this.convertBoundingClientRectToObj(outlierUpperBounds);
           plotBound[6].label = allWeNeed[6];
-          plotBound[6].type = "outlier";
+          plotBound[6].type = 'outlier';
         } else {
           plotBound[6] = {};
           plotBound[6].label = allWeNeed[6];
-          plotBound[6].type = "blank";
+          plotBound[6].type = 'blank';
         }
       } else {
         // add all blanks
         plotBound[0] = {};
         plotBound[0].label = allWeNeed[0];
-        plotBound[0].type = "blank";
+        plotBound[0].type = 'blank';
         plotBound[6] = {};
         plotBound[6].label = allWeNeed[6];
-        plotBound[6].type = "blank";
+        plotBound[6].type = 'blank';
       }
 
       plotBounds.push(plotBound);
     }
 
     if (constants.debugLevel > 5) {
-      console.log("plotBounds", plotBounds);
+      console.log('plotBounds', plotBounds);
     }
 
     return plotBounds;
@@ -679,13 +679,13 @@ class BoxPlot {
 
   GetAllSegmentTypes() {
     let allWeNeed = [
-      resources.GetString("lower_outlier"),
-      resources.GetString("min"),
-      resources.GetString("25"),
-      resources.GetString("50"),
-      resources.GetString("75"),
-      resources.GetString("max"),
-      resources.GetString("upper_outlier"),
+      resources.GetString('lower_outlier'),
+      resources.GetString('min'),
+      resources.GetString('25'),
+      resources.GetString('50'),
+      resources.GetString('75'),
+      resources.GetString('max'),
+      resources.GetString('upper_outlier'),
     ];
 
     return allWeNeed;
@@ -698,13 +698,13 @@ class BoxPlot {
     // GRID = whisker
     // points = outlier
 
-    let segmentType = "outlier"; // default? todo: should probably default null, and then throw error instead of return if not set after ifs
-    if (sectionId.includes("geom_crossbar")) {
-      segmentType = "range";
-    } else if (sectionId.includes("GRID")) {
-      segmentType = "whisker";
-    } else if (sectionId.includes("points")) {
-      segmentType = "outlier";
+    let segmentType = 'outlier'; // default? todo: should probably default null, and then throw error instead of return if not set after ifs
+    if (sectionId.includes('geom_crossbar')) {
+      segmentType = 'range';
+    } else if (sectionId.includes('GRID')) {
+      segmentType = 'whisker';
+    } else if (sectionId.includes('points')) {
+      segmentType = 'outlier';
     }
 
     return segmentType;
@@ -714,24 +714,24 @@ class BoxPlot {
     // Fetch x and y point data from svg
 
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
-    let pointString = "";
+    let pointString = '';
     let points = [];
-    if (segmentType == "range") {
+    if (segmentType == 'range') {
       // ranges go a level deeper
-      let matches = segment.children[0].getAttribute("points").match(re);
+      let matches = segment.children[0].getAttribute('points').match(re);
       points.push(matches[0], matches[1]);
       // the middle bar has 2 points but we just need one, check if they're the same
       if (matches[0] != matches[2]) {
         points.push(matches[2], matches[3]);
       }
-    } else if (segmentType == "outlier") {
+    } else if (segmentType == 'outlier') {
       // outliers use x attr directly, but have multiple children
-      points.push(segment.getAttribute("x"), segment.getAttribute("y"));
+      points.push(segment.getAttribute('x'), segment.getAttribute('y'));
     } else {
       // whisker. Get first and third number from points attr
       // but sometimes it's null, giving the same for both, and don't add if that's true
-      let matches = segment.getAttribute("points").match(re);
-      if (constants.plotOrientation == "vert") {
+      let matches = segment.getAttribute('points').match(re);
+      if (constants.plotOrientation == 'vert') {
         if (matches[1] != matches[3]) {
           points.push(matches[0], matches[1], matches[2], matches[3]);
         }
@@ -762,16 +762,16 @@ class BoxPlot {
     let plotPos = null;
     let sectionPos = null;
     if (constants.outlierInterval) clearInterval(constants.outlierInterval);
-    if (constants.plotOrientation == "vert") {
+    if (constants.plotOrientation == 'vert') {
       plotPos = position.x;
       sectionPos = position.y;
     } else {
       plotPos = position.y;
       sectionPos = position.x;
     }
-    if (plot.plotData[plotPos][sectionPos].type == "blank") {
+    if (plot.plotData[plotPos][sectionPos].type == 'blank') {
       audio.PlayNull();
-    } else if (plot.plotData[plotPos][sectionPos].type != "outlier") {
+    } else if (plot.plotData[plotPos][sectionPos].type != 'outlier') {
       audio.playTone();
     } else {
       // outlier(s): we play a run of tones
@@ -784,7 +784,7 @@ class BoxPlot {
         position.z += 1;
 
         // and kill if we're done
-        if (!Object.hasOwn(plot.plotData[plotPos][sectionPos], "values")) {
+        if (!Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')) {
           clearInterval(constants.outlierInterval);
           position.z = -1;
         } else if (
@@ -818,26 +818,26 @@ class BoxplotRect {
   UpdateRect() {
     // UpdateRect takes bounding box values from the object and gets bounds of visual outline to be drawn
 
-    if (document.getElementById("highlight_rect"))
-      document.getElementById("highlight_rect").remove(); // destroy to be recreated
+    if (document.getElementById('highlight_rect'))
+      document.getElementById('highlight_rect').remove(); // destroy to be recreated
 
     let plotPos = position.x;
     let sectionPos = position.y;
-    if (constants.plotOrientation == "vert") {
+    if (constants.plotOrientation == 'vert') {
     } else {
       plotPos = position.y;
       sectionPos = position.x;
     }
 
     if (
-      (constants.plotOrientation == "vert" && position.y > -1) ||
-      (constants.plotOrientation == "horz" && position.x > -1)
+      (constants.plotOrientation == 'vert' && position.y > -1) ||
+      (constants.plotOrientation == 'horz' && position.x > -1)
     ) {
       // initial value could be -1, which throws errors, so ignore that
 
       let bounds = plot.plotBounds[plotPos][sectionPos];
 
-      if (bounds.type != "blank") {
+      if (bounds.type != 'blank') {
         //let svgBounds = constants.svg.getBoundingClientRect();
 
         this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
@@ -847,21 +847,21 @@ class BoxplotRect {
 
         if (constants.debugLevel > 5) {
           console.log(
-            "Point",
+            'Point',
             plot.plotData[plotPos][sectionPos].label,
-            "bottom:",
+            'bottom:',
             bounds.bottom,
-            "top:",
+            'top:',
             bounds.top
           );
           console.log(
-            "x1:",
+            'x1:',
             this.x1,
-            "y1:",
+            'y1:',
             this.y1,
-            "width:",
+            'width:',
             this.width,
-            "height:",
+            'height:',
             this.height
           );
         }
@@ -874,16 +874,16 @@ class BoxplotRect {
   CreateRectDisplay() {
     // CreateRectDisplay takes bounding points and creates the visual outline
 
-    const svgns = "http://www.w3.org/2000/svg";
-    let rect = document.createElementNS(svgns, "rect");
-    rect.setAttribute("id", "highlight_rect");
-    rect.setAttribute("x", this.x1);
-    rect.setAttribute("y", this.y1); // y coord is inverse from plot data
-    rect.setAttribute("width", this.width);
-    rect.setAttribute("height", this.height);
-    rect.setAttribute("stroke", constants.colorSelected);
-    rect.setAttribute("stroke-width", this.rectStrokeWidth);
-    rect.setAttribute("fill", "none");
+    const svgns = 'http://www.w3.org/2000/svg';
+    let rect = document.createElementNS(svgns, 'rect');
+    rect.setAttribute('id', 'highlight_rect');
+    rect.setAttribute('x', this.x1);
+    rect.setAttribute('y', this.y1); // y coord is inverse from plot data
+    rect.setAttribute('width', this.width);
+    rect.setAttribute('height', this.height);
+    rect.setAttribute('stroke', constants.colorSelected);
+    rect.setAttribute('stroke-width', this.rectStrokeWidth);
+    rect.setAttribute('fill', 'none');
     constants.svg.appendChild(rect);
   }
 }

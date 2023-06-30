@@ -5,7 +5,7 @@
   "main": "webpack.config.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint --fix .",
+    "lint": "eslint .",
     "format": "prettier --write ."
   },
   "repository": {
