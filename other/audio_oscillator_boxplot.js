@@ -6,7 +6,7 @@ var duration = 0.3;
 var vol = 0.5;
 
 // audio setup
-const AudioContext = window['AudioContext'] || window['webkitAudioContext'];
+const AudioContext = window["AudioContext"] || window["webkitAudioContext"];
 const audioContext = new AudioContext();
 const compressor = audioContext.createDynamicsCompressor(); // create compressor for better audio quality
 compressor.threshold.value = -50;
@@ -19,7 +19,7 @@ gainMaster.gain.value = vol;
 compressor.connect(gainMaster);
 gainMaster.connect(audioContext.destination);
 
-svg.addEventListener('keydown', function (e) {
+svg.addEventListener("keydown", function (e) {
   if (e.which == 32) {
     if (audioPlay) {
       playOscillator(currAudio);
@@ -55,7 +55,7 @@ function playOscillator(curr_audio) {
 
   // create oscillator
   const oscillator = audioContext.createOscillator();
-  oscillator.type = 'sine';
+  oscillator.type = "sine";
 
   let frequency = MIN_FREQUENCY;
   if (ymax != ymin && curr_audio > 0) {
