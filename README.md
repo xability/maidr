@@ -123,8 +123,8 @@ This tactile encoding enables users to discern the various components of the box
 
 To generate the braille, we use an algorithm that generates a distribution of characters based on a given proportional distribution and a specified total number of characters. This can be described mathematically as follows:
 
-c_i = round(n _ p_i), for i = 1, 2, 3, ..., k
-c_i = round((n - C) _ p_i), for i = 1, 2, 3, ..., k
+c*i = round(n * p*i), for i = 1, 2, 3, ..., k
+c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., k
 
 Where
 
