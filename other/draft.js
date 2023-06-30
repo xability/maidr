@@ -22,7 +22,7 @@ var input = document.getElementById("demo");
 input.addEventListener("keydown", function(e) {
     if (e.which === 39) input.style.backgroundColor = "red";
 });
-*/        
+*/
 
 /*$(document).ready(function() {
     $("#barplotsvg").contents().find("#geom_rect.rect.56.1.1").attr({"fill":"red"});

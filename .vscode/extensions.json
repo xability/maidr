@@ -1,20 +1,18 @@
 {
-    "recommendations": [
-        "dbaeumer.vscode-eslint",
-        "github.vscode-github-actions",
-        "github.vscode-pull-request-github",
-        "visualstudioexptteam.vscodeintellicode",
-        "visualstudioexptteam.intellicode-api-usage-examples",
-        "ms-vscode.js-debug-nightly",
-        "ms-vsliveshare.vsliveshare",
-        "ms-vsliveshare.vsliveshare-pack",
-        "ionutvmi.path-autocomplete",
-        "esbenp.prettier-vscode",
-        "ban.spellright",
-        "redhat.vscode-xml",
-        "editorconfig.editorconfig"
-    ],
-    "unwantedRecommendations": [
-        "ms-vscode.js-debug"
-    ]
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "github.vscode-github-actions",
+    "github.vscode-pull-request-github",
+    "visualstudioexptteam.vscodeintellicode",
+    "visualstudioexptteam.intellicode-api-usage-examples",
+    "ms-vscode.js-debug-nightly",
+    "ms-vsliveshare.vsliveshare",
+    "ms-vsliveshare.vsliveshare-pack",
+    "ionutvmi.path-autocomplete",
+    "esbenp.prettier-vscode",
+    "ban.spellright",
+    "redhat.vscode-xml",
+    "editorconfig.editorconfig"
+  ],
+  "unwantedRecommendations": ["ms-vscode.js-debug"]
 }

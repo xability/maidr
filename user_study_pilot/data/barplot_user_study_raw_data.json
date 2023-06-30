@@ -1,22 +1,22 @@
 [
-    {
-        "continent": "Africa",
-        "total_pop": 929539693
-    },
-    {
-        "continent": "Americas",
-        "total_pop": 898871185
-    },
-    {
-        "continent": "Asia",
-        "total_pop": 3811953828
-    },
-    {
-        "continent": "Europe",
-        "total_pop": 586098530
-    },
-    {
-        "continent": "Oceania",
-        "total_pop": 24549948
-    }
+  {
+    "continent": "Africa",
+    "total_pop": 929539693
+  },
+  {
+    "continent": "Americas",
+    "total_pop": 898871185
+  },
+  {
+    "continent": "Asia",
+    "total_pop": 3811953828
+  },
+  {
+    "continent": "Europe",
+    "total_pop": 586098530
+  },
+  {
+    "continent": "Oceania",
+    "total_pop": 24549948
+  }
 ]
