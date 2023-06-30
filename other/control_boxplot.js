@@ -6,7 +6,7 @@
 var currBar = -1;
 
 // manipulate bars using left and right arrows
-svg.addEventListener("keydown", function (e) {
+svg.addEventListener('keydown', function (e) {
   if (e.which === 39) {
     if (currBar == -1) {
       currBar += 1;
@@ -42,14 +42,14 @@ svg.addEventListener("keydown", function (e) {
 });
 
 function select(num) {
-  this.document.getElementById(bars[num]).style.fill = "rgb(3,200,9)";
+  this.document.getElementById(bars[num]).style.fill = 'rgb(3,200,9)';
 }
 
 function deselect(num) {
-  this.document.getElementById(bars[num]).style.fill = "rgb(89,89,89)";
+  this.document.getElementById(bars[num]).style.fill = 'rgb(89,89,89)';
 }
 
 function displayValues(num) {
-  this.document.getElementById("x").innerHTML = "x-value: " + x_values[num];
-  this.document.getElementById("y").innerHTML = "y-value: " + y_values[num];
+  this.document.getElementById('x').innerHTML = 'x-value: ' + x_values[num];
+  this.document.getElementById('y').innerHTML = 'y-value: ' + y_values[num];
 }

@@ -1,72 +1,72 @@
 [
-    {
-        "class": "2seater",
-        "lower_outlier": "",
-        "minimum": 23,
-        "first_qu": 24,
-        "median": 25,
-        "third_qu": 26,
-        "maximum": 26,
-        "upper_outlier": ""
-    },
-    {
-        "class": "compact",
-        "lower_outlier": "",
-        "minimum": 23,
-        "first_qu": 26,
-        "median": 27,
-        "third_qu": 29,
-        "maximum": 33,
-        "upper_outlier": "35, 35, 37, 44"
-    },
-    {
-        "class": "midsize",
-        "lower_outlier": "",
-        "minimum": 23,
-        "first_qu": 26,
-        "median": 27,
-        "third_qu": 29,
-        "maximum": 32,
-        "upper_outlier": ""
-    },
-    {
-        "class": "minivan",
-        "lower_outlier": "17",
-        "minimum": 21,
-        "first_qu": 22,
-        "median": 23,
-        "third_qu": 24,
-        "maximum": 24,
-        "upper_outlier": ""
-    },
-    {
-        "class": "pickup",
-        "lower_outlier": "12, 12, 12",
-        "minimum": 15,
-        "first_qu": 16,
-        "median": 17,
-        "third_qu": 18,
-        "maximum": 20,
-        "upper_outlier": "22"
-    },
-    {
-        "class": "subcompact",
-        "lower_outlier": "",
-        "minimum": 20,
-        "first_qu": 24.5,
-        "median": 26,
-        "third_qu": 30.5,
-        "maximum": 36,
-        "upper_outlier": "41, 44"
-    },
-    {
-        "class": "suv",
-        "lower_outlier": "12, 12",
-        "minimum": 14,
-        "first_qu": 17,
-        "median": 17.5,
-        "third_qu": 19,
-        "maximum": 22,
-        "upper_outlier": "23, 24, 25, 25, 26, 27"
-    }
+  {
+    "class": "2seater",
+    "lower_outlier": "",
+    "minimum": 23,
+    "first_qu": 24,
+    "median": 25,
+    "third_qu": 26,
+    "maximum": 26,
+    "upper_outlier": ""
+  },
+  {
+    "class": "compact",
+    "lower_outlier": "",
+    "minimum": 23,
+    "first_qu": 26,
+    "median": 27,
+    "third_qu": 29,
+    "maximum": 33,
+    "upper_outlier": "35, 35, 37, 44"
+  },
+  {
+    "class": "midsize",
+    "lower_outlier": "",
+    "minimum": 23,
+    "first_qu": 26,
+    "median": 27,
+    "third_qu": 29,
+    "maximum": 32,
+    "upper_outlier": ""
+  },
+  {
+    "class": "minivan",
+    "lower_outlier": "17",
+    "minimum": 21,
+    "first_qu": 22,
+    "median": 23,
+    "third_qu": 24,
+    "maximum": 24,
+    "upper_outlier": ""
+  },
+  {
+    "class": "pickup",
+    "lower_outlier": "12, 12, 12",
+    "minimum": 15,
+    "first_qu": 16,
+    "median": 17,
+    "third_qu": 18,
+    "maximum": 20,
+    "upper_outlier": "22"
+  },
+  {
+    "class": "subcompact",
+    "lower_outlier": "",
+    "minimum": 20,
+    "first_qu": 24.5,
+    "median": 26,
+    "third_qu": 30.5,
+    "maximum": 36,
+    "upper_outlier": "41, 44"
+  },
+  {
+    "class": "suv",
+    "lower_outlier": "12, 12",
+    "minimum": 14,
+    "first_qu": 17,
+    "median": 17.5,
+    "third_qu": 19,
+    "maximum": 22,
+    "upper_outlier": "23, 24, 25, 25, 26, 27"
+  }
 ]

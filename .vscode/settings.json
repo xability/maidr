@@ -1,5 +1,5 @@
 {
- "editor.stickyScroll.enabled": true,
+  "editor.stickyScroll.enabled": true,
   "editor.stickyScroll.defaultModel": "foldingProviderModel",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,

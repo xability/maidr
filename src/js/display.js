@@ -3,31 +3,31 @@ class Display {
     this.infoDiv = constants.infoDiv;
 
     this.x = {};
-    this.x.id = "x";
-    this.x.textBase = "x-value: ";
+    this.x.id = 'x';
+    this.x.textBase = 'x-value: ';
 
     this.y = {};
-    this.y.id = "y";
-    this.y.textBase = "y-value: ";
+    this.y.id = 'y';
+    this.y.textBase = 'y-value: ';
 
     this.boxplotGridPlaceholders = [
-      resources.GetString("lower_outlier"),
-      resources.GetString("min"),
-      resources.GetString("25"),
-      resources.GetString("50"),
-      resources.GetString("75"),
-      resources.GetString("max"),
-      resources.GetString("upper_outlier"),
+      resources.GetString('lower_outlier'),
+      resources.GetString('min'),
+      resources.GetString('25'),
+      resources.GetString('50'),
+      resources.GetString('75'),
+      resources.GetString('max'),
+      resources.GetString('upper_outlier'),
     ];
   }
 
   toggleTextMode() {
-    if (constants.textMode == "off") {
-      constants.textMode = "terse";
-    } else if (constants.textMode == "terse") {
-      constants.textMode = "verbose";
-    } else if (constants.textMode == "verbose") {
-      constants.textMode = "off";
+    if (constants.textMode == 'off') {
+      constants.textMode = 'terse';
+    } else if (constants.textMode == 'terse') {
+      constants.textMode = 'verbose';
+    } else if (constants.textMode == 'verbose') {
+      constants.textMode = 'off';
     }
 
     this.announceText(
@@ -36,25 +36,25 @@ class Display {
   }
 
   toggleBrailleMode(onoff) {
-    if (constants.chartType == "scatterplot" && constants.layer == 1) {
-      this.announceText("Braille is not supported in point layer.");
+    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+      this.announceText('Braille is not supported in point layer.');
       return;
     }
-    if (typeof onoff === "undefined") {
-      onoff = constants.brailleMode == "on" ? "off" : "on";
+    if (typeof onoff === 'undefined') {
+      onoff = constants.brailleMode == 'on' ? 'off' : 'on';
     }
-    if (onoff == "on") {
-      if (constants.chartType == "boxplot") {
+    if (onoff == 'on') {
+      if (constants.chartType == 'boxplot') {
         // braille mode is on before any plot is selected
         if (
-          constants.plotOrientation != "vert" &&
+          constants.plotOrientation != 'vert' &&
           position.x == -1 &&
           position.y == plot.plotData.length
         ) {
           position.x += 1;
           position.y -= 1;
         } else if (
-          constants.plotOrientation == "vert" &&
+          constants.plotOrientation == 'vert' &&
           position.x == 0 &&
           position.y == plot.plotData[0].length - 1
         ) {
@@ -62,14 +62,14 @@ class Display {
         }
       }
 
-      constants.brailleMode = "on";
-      constants.brailleInput.classList.remove("hidden");
+      constants.brailleMode = 'on';
+      constants.brailleInput.classList.remove('hidden');
       constants.brailleInput.focus();
       constants.brailleInput.setSelectionRange(position.x, position.x);
 
       this.SetBraille(plot);
 
-      if (constants.chartType == "heatmap") {
+      if (constants.chartType == 'heatmap') {
         let pos = position.y * (plot.num_cols + 1) + position.x;
         constants.brailleInput.setSelectionRange(pos, pos);
       }
@@ -80,11 +80,11 @@ class Display {
         constants.brailleInput.setSelectionRange(0, 0);
       }
     } else {
-      constants.brailleMode = "off";
-      constants.brailleInput.classList.add("hidden");
+      constants.brailleMode = 'off';
+      constants.brailleInput.classList.add('hidden');
 
       if (constants.review_container) {
-        if (!constants.review_container.classList.contains("hidden")) {
+        if (!constants.review_container.classList.contains('hidden')) {
           constants.review.focus();
         } else {
           constants.svg.focus();
@@ -94,28 +94,28 @@ class Display {
       }
     }
 
-    this.announceText("Braille " + constants.brailleMode);
+    this.announceText('Braille ' + constants.brailleMode);
   }
 
   toggleSonificationMode() {
-    if (constants.chartType == "scatterplot" && constants.layer == 1) {
-      if (constants.sonifMode == "off") {
-        constants.sonifMode = "sep";
-        this.announceText(resources.GetString("son_sep"));
-      } else if (constants.sonifMode == "sep") {
-        constants.sonifMode = "same";
-        this.announceText(resources.GetString("son_same"));
-      } else if (constants.sonifMode == "same") {
-        constants.sonifMode = "off";
-        this.announceText(resources.GetString("son_off"));
+    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+      if (constants.sonifMode == 'off') {
+        constants.sonifMode = 'sep';
+        this.announceText(resources.GetString('son_sep'));
+      } else if (constants.sonifMode == 'sep') {
+        constants.sonifMode = 'same';
+        this.announceText(resources.GetString('son_same'));
+      } else if (constants.sonifMode == 'same') {
+        constants.sonifMode = 'off';
+        this.announceText(resources.GetString('son_off'));
       }
     } else {
-      if (constants.sonifMode == "off") {
-        constants.sonifMode = "on";
-        this.announceText(resources.GetString("son_on"));
+      if (constants.sonifMode == 'off') {
+        constants.sonifMode = 'on';
+        this.announceText(resources.GetString('son_on'));
       } else {
-        constants.sonifMode = "off";
-        this.announceText(resources.GetString("son_off"));
+        constants.sonifMode = 'off';
+        this.announceText(resources.GetString('son_off'));
       }
     }
   }
@@ -123,10 +123,10 @@ class Display {
   toggleLayerMode() {
     if (constants.layer == 1) {
       constants.layer = 2;
-      this.announceText("Layer 2: Smoothed line");
+      this.announceText('Layer 2: Smoothed line');
     } else if (constants.layer == 2) {
       constants.layer = 1;
-      this.announceText("Layer 1: Point");
+      this.announceText('Layer 1: Point');
     }
   }
 
@@ -135,21 +135,21 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == "barplot") {
+    if (constants.chartType == 'barplot') {
       constants.brailleInput.setSelectionRange(position.x, position.x);
-    } else if (constants.chartType == "heatmap") {
+    } else if (constants.chartType == 'heatmap') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
-    } else if (constants.chartType == "boxplot") {
+    } else if (constants.chartType == 'boxplot') {
       // on boxplot we extend characters a lot and have blanks, so we go to our label
       let sectionPos =
-        constants.plotOrientation == "vert" ? position.y : position.x;
+        constants.plotOrientation == 'vert' ? position.y : position.x;
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
       let haveTargetLabel = false;
       let adjustedPos = 0;
       if (constants.brailleData) {
         for (let i = 0; i < constants.brailleData.length; i++) {
-          if (constants.brailleData[i].type != "blank") {
+          if (constants.brailleData[i].type != 'blank') {
             if (
               resources.GetString(constants.brailleData[i].label) == targetLabel
             ) {
@@ -160,7 +160,7 @@ class Display {
           adjustedPos += constants.brailleData[i].numChars;
         }
       } else {
-        throw "Braille data not set up, cannot move cursor in braille, sorry.";
+        throw 'Braille data not set up, cannot move cursor in braille, sorry.';
       }
       // but sometimes we don't have our targetLabel, go to the start
       // future todo: look for nearby label and go to the nearby side of that
@@ -169,7 +169,7 @@ class Display {
       }
 
       constants.brailleInput.setSelectionRange(adjustedPos, adjustedPos);
-    } else if (constants.chartType == "scatterplot") {
+    } else if (constants.chartType == 'scatterplot') {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
   }
@@ -178,120 +178,120 @@ class Display {
     // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
     // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
-    let output = "";
-    let verboseText = "";
-    let reviewText = "";
-    if (constants.chartType == "barplot") {
+    let output = '';
+    let verboseText = '';
+    let reviewText = '';
+    if (constants.chartType == 'barplot') {
       // {legend x} is {colname x}, {legend y} is {value y}
       verboseText =
         plot.plotLegend.x +
-        " is " +
+        ' is ' +
         plot.columnLabels[position.x] +
-        ", " +
+        ', ' +
         plot.plotLegend.y +
-        " is " +
+        ' is ' +
         plot.plotData[position.x];
-      if (constants.textMode == "off") {
+      if (constants.textMode == 'off') {
         // do nothing :D
-      } else if (constants.textMode == "terse") {
+      } else if (constants.textMode == 'terse') {
         // {colname} {value}
         output +=
-          "<p>" +
+          '<p>' +
           plot.columnLabels[position.x] +
-          " " +
+          ' ' +
           plot.plotData[position.x] +
-          "</p>\n";
-      } else if (constants.textMode == "verbose") {
-        output += "<p>" + verboseText + "</p>\n";
+          '</p>\n';
+      } else if (constants.textMode == 'verbose') {
+        output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == "heatmap") {
+    } else if (constants.chartType == 'heatmap') {
       // col name and value
       if (constants.navigation == 1) {
         verboseText +=
           plot.x_group_label +
-          " " +
+          ' ' +
           plot.x_labels[position.x] +
-          ", " +
+          ', ' +
           plot.y_group_label +
-          " " +
+          ' ' +
           plot.y_labels[position.y] +
-          ", " +
+          ', ' +
           plot.box_label +
-          " is ";
+          ' is ';
         if (constants.hasRect) {
           verboseText += plot.plotData[2][position.y][position.x];
         }
       } else {
         verboseText +=
           plot.y_group_label +
-          " " +
+          ' ' +
           plot.y_labels[position.y] +
-          ", " +
+          ', ' +
           plot.x_group_label +
-          " " +
+          ' ' +
           plot.x_labels[position.x] +
-          ", " +
+          ', ' +
           plot.box_label +
-          " is ";
+          ' is ';
         if (constants.hasRect) {
           verboseText += plot.plotData[2][position.y][position.x];
         }
       }
       // terse and verbose alternate between columns and rows
-      if (constants.textMode == "off") {
+      if (constants.textMode == 'off') {
         // do nothing :D
-      } else if (constants.textMode == "terse") {
+      } else if (constants.textMode == 'terse') {
         // value only
         if (constants.navigation == 1) {
           // column navigation
           output +=
-            "<p>" +
+            '<p>' +
             plot.x_labels[position.x] +
-            ", " +
+            ', ' +
             plot.plotData[2][position.y][position.x] +
-            "</p>\n";
+            '</p>\n';
         } else {
           // row navigation
           output +=
-            "<p>" +
+            '<p>' +
             plot.y_labels[position.y] +
-            ", " +
+            ', ' +
             plot.plotData[2][position.y][position.x] +
-            "</p>\n";
+            '</p>\n';
         }
-      } else if (constants.textMode == "verbose") {
-        output += "<p>" + verboseText + "</p>\n";
+      } else if (constants.textMode == 'verbose') {
+        output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == "boxplot") {
+    } else if (constants.chartType == 'boxplot') {
       // setup
       let val = 0;
       let numPoints = 1;
       let isOutlier = false;
       let plotPos =
-        constants.plotOrientation == "vert" ? position.x : position.y;
+        constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
-        constants.plotOrientation == "vert" ? position.y : position.x;
-      let textTerse = "";
-      let textVerbose = "";
+        constants.plotOrientation == 'vert' ? position.y : position.x;
+      let textTerse = '';
+      let textVerbose = '';
 
       if (
-        plot.plotData[plotPos][sectionPos].label == "lower_outlier" ||
-        plot.plotData[plotPos][sectionPos].label == "upper_outlier"
+        plot.plotData[plotPos][sectionPos].label == 'lower_outlier' ||
+        plot.plotData[plotPos][sectionPos].label == 'upper_outlier'
       ) {
         isOutlier = true;
       }
-      if (plot.plotData[plotPos][sectionPos].type == "outlier") {
-        val = plot.plotData[plotPos][sectionPos].values.join(", ");
+      if (plot.plotData[plotPos][sectionPos].type == 'outlier') {
+        val = plot.plotData[plotPos][sectionPos].values.join(', ');
         if (plot.plotData[plotPos][sectionPos].values.length > 0) {
           numPoints = plot.plotData[plotPos][sectionPos].values.length;
         } else {
           numPoints = 0;
         }
-      } else if (plot.plotData[plotPos][sectionPos].type == "blank") {
-        val = "";
+      } else if (plot.plotData[plotPos][sectionPos].type == 'blank') {
+        val = '';
         if (isOutlier) numPoints = 0;
       } else {
-        if (constants.plotOrientation == "vert") {
+        if (constants.plotOrientation == 'vert') {
           val = plot.plotData[plotPos][sectionPos].y;
         } else {
           val = plot.plotData[plotPos][sectionPos].x;
@@ -309,39 +309,39 @@ class Display {
       // and axis label
       if (constants.navigation) {
         if (plot.x_labels[plotPos]) {
-          textVerbose += " is ";
-          textTerse += plot.x_labels[plotPos] + ", ";
-          textVerbose += plot.x_labels[plotPos] + ", ";
+          textVerbose += ' is ';
+          textTerse += plot.x_labels[plotPos] + ', ';
+          textVerbose += plot.x_labels[plotPos] + ', ';
         } else {
-          textVerbose += ", ";
+          textVerbose += ', ';
         }
       } else if (!constants.navigation) {
         if (plot.y_labels[plotPos]) {
-          textVerbose += " is ";
-          textTerse += plot.y_labels[plotPos] + ", ";
-          textVerbose += plot.y_labels[plotPos] + ", ";
+          textVerbose += ' is ';
+          textTerse += plot.y_labels[plotPos] + ', ';
+          textVerbose += plot.y_labels[plotPos] + ', ';
         } else {
-          textVerbose += ", ";
+          textVerbose += ', ';
         }
       }
       // outliers
       if (isOutlier) {
-        textTerse += numPoints + " ";
-        textVerbose += numPoints + " ";
+        textTerse += numPoints + ' ';
+        textVerbose += numPoints + ' ';
       }
       // label
       textVerbose += resources.GetString(
         plot.plotData[plotPos][sectionPos].label
       );
-      if (numPoints == 1) textVerbose += " is ";
+      if (numPoints == 1) textVerbose += ' is ';
       else {
-        textVerbose += "s ";
-        if (numPoints > 1) textVerbose += " are ";
+        textVerbose += 's ';
+        if (numPoints > 1) textVerbose += ' are ';
       }
       if (
         isOutlier ||
-        (constants.navigation && constants.plotOrientation == "horz") ||
-        (!constants.navigation && constants.plotOrientation == "vert")
+        (constants.navigation && constants.plotOrientation == 'horz') ||
+        (!constants.navigation && constants.plotOrientation == 'vert')
       ) {
         textTerse += resources.GetString(
           plot.plotData[plotPos][sectionPos].label
@@ -349,82 +349,82 @@ class Display {
 
         // grammar
         if (numPoints != 1) {
-          textTerse += "s";
+          textTerse += 's';
         }
-        textTerse += " ";
+        textTerse += ' ';
       }
       // val
-      if (plot.plotData[plotPos][sectionPos].type == "blank" && !isOutlier) {
-        textTerse += "empty";
-        textVerbose += "empty";
+      if (plot.plotData[plotPos][sectionPos].type == 'blank' && !isOutlier) {
+        textTerse += 'empty';
+        textVerbose += 'empty';
       } else {
         textTerse += val;
         textVerbose += val;
       }
 
       verboseText = textVerbose; // yeah it's an extra var, who cares
-      if (constants.textMode == "verbose")
-        output = "<p>" + textVerbose + "</p>\n";
-      else if (constants.textMode == "terse")
-        output = "<p>" + textTerse + "</p>\n";
-    } else if (constants.chartType == "scatterplot") {
+      if (constants.textMode == 'verbose')
+        output = '<p>' + textVerbose + '</p>\n';
+      else if (constants.textMode == 'terse')
+        output = '<p>' + textTerse + '</p>\n';
+    } else if (constants.chartType == 'scatterplot') {
       if (constants.layer == 1) {
         // point layer
         verboseText +=
           plot.x_group_label +
-          " " +
+          ' ' +
           plot.x[position.x] +
-          ", " +
+          ', ' +
           plot.y_group_label +
-          " [" +
-          plot.y[position.x].join(", ") +
-          "]";
+          ' [' +
+          plot.y[position.x].join(', ') +
+          ']';
 
-        if (constants.textMode == "off") {
+        if (constants.textMode == 'off') {
           // do nothing
-        } else if (constants.textMode == "terse") {
+        } else if (constants.textMode == 'terse') {
           output +=
-            "<p>" +
+            '<p>' +
             plot.x[position.x] +
-            ", " +
-            "[" +
-            plot.y[position.x].join(", ") +
-            "]" +
-            "</p>\n";
-        } else if (constants.textMode == "verbose") {
+            ', ' +
+            '[' +
+            plot.y[position.x].join(', ') +
+            ']' +
+            '</p>\n';
+        } else if (constants.textMode == 'verbose') {
           // set from verboseText
         }
       } else if (constants.layer == 2) {
         // best fit line layer
         verboseText +=
           plot.x_group_label +
-          " " +
+          ' ' +
           plot.curveX[positionL1.x] +
-          ", " +
+          ', ' +
           plot.y_group_label +
-          " " +
+          ' ' +
           plot.curvePoints[positionL1.x]; // verbose mode: x and y values
 
-        if (constants.textMode == "off") {
+        if (constants.textMode == 'off') {
           // do nothing
-        } else if (constants.textMode == "terse") {
+        } else if (constants.textMode == 'terse') {
           // terse mode: gradient trend
           // output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
 
           // display absolute gradient of the graph
-          output += "<p>" + plot.curvePoints[positionL1.x] + "<p>\n";
-        } else if (constants.textMode == "verbose") {
+          output += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
+        } else if (constants.textMode == 'verbose') {
           // set from verboseText
         }
       }
-      if (constants.textMode == "verbose")
-        output = "<p>" + verboseText + "</p>\n";
+      if (constants.textMode == 'verbose')
+        output = '<p>' + verboseText + '</p>\n';
     }
 
     if (constants.infoDiv) constants.infoDiv.innerHTML = output;
     if (constants.review) {
       if (output.length > 0) {
-        constants.review.value = output.replace(/<[^>]*>?/gm, "");
+        constants.review.value = output.replace(/<[^>]*>?/gm, '');
       } else {
         constants.review.value = verboseText;
       }
@@ -432,66 +432,66 @@ class Display {
   }
 
   displayXLabel(plot) {
-    let xlabel = "";
-    if (constants.chartType == "barplot") {
+    let xlabel = '';
+    if (constants.chartType == 'barplot') {
       xlabel = plot.plotLegend.x;
     } else if (
-      constants.chartType == "heatmap" ||
-      constants.chartType == "boxplot" ||
-      constants.chartType == "scatterplot"
+      constants.chartType == 'heatmap' ||
+      constants.chartType == 'boxplot' ||
+      constants.chartType == 'scatterplot'
     ) {
       xlabel = plot.x_group_label;
     }
-    if (constants.textMode == "terse") {
-      constants.infoDiv.innerHTML = "<p>" + xlabel + "<p>";
-    } else if (constants.textMode == "verbose") {
-      constants.infoDiv.innerHTML = "<p>x label is " + xlabel + "<p>";
+    if (constants.textMode == 'terse') {
+      constants.infoDiv.innerHTML = '<p>' + xlabel + '<p>';
+    } else if (constants.textMode == 'verbose') {
+      constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
     }
   }
 
   displayYLabel(plot) {
-    let ylabel = "";
-    if (constants.chartType == "barplot") {
+    let ylabel = '';
+    if (constants.chartType == 'barplot') {
       ylabel = plot.plotLegend.y;
     } else if (
-      constants.chartType == "heatmap" ||
-      constants.chartType == "boxplot" ||
-      constants.chartType == "scatterplot"
+      constants.chartType == 'heatmap' ||
+      constants.chartType == 'boxplot' ||
+      constants.chartType == 'scatterplot'
     ) {
       ylabel = plot.y_group_label;
     }
-    if (constants.textMode == "terse") {
-      constants.infoDiv.innerHTML = "<p>" + ylabel + "<p>";
-    } else if (constants.textMode == "verbose") {
-      constants.infoDiv.innerHTML = "<p>y label is " + ylabel + "<p>";
+    if (constants.textMode == 'terse') {
+      constants.infoDiv.innerHTML = '<p>' + ylabel + '<p>';
+    } else if (constants.textMode == 'verbose') {
+      constants.infoDiv.innerHTML = '<p>y label is ' + ylabel + '<p>';
     }
   }
 
   displayTitle(plot) {
-    if (constants.textMode == "terse") {
-      if (plot.title != "") {
-        constants.infoDiv.innerHTML = "<p>" + plot.title + "<p>";
+    if (constants.textMode == 'terse') {
+      if (plot.title != '') {
+        constants.infoDiv.innerHTML = '<p>' + plot.title + '<p>';
       } else {
-        constants.infoDiv.innerHTML = "<p>Plot does not have a title.<p>";
+        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
       }
-    } else if (constants.textMode == "verbose") {
-      if (plot.title != "") {
-        constants.infoDiv.innerHTML = "<p>Title is " + plot.title + "<p>";
+    } else if (constants.textMode == 'verbose') {
+      if (plot.title != '') {
+        constants.infoDiv.innerHTML = '<p>Title is ' + plot.title + '<p>';
       } else {
-        constants.infoDiv.innerHTML = "<p>Plot does not have a title.<p>";
+        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
       }
     }
   }
 
   displayFill(plot) {
-    if (constants.textMode == "terse") {
-      if (constants.chartType == "heatmap") {
-        constants.infoDiv.innerHTML = "<p>" + plot.box_label + "<p>";
+    if (constants.textMode == 'terse') {
+      if (constants.chartType == 'heatmap') {
+        constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
       }
-    } else if (constants.textMode == "verbose") {
-      if (constants.chartType == "heatmap") {
+    } else if (constants.textMode == 'verbose') {
+      if (constants.chartType == 'heatmap') {
         constants.infoDiv.innerHTML =
-          "<p>Fill label is " + plot.box_label + "<p>";
+          '<p>Fill label is ' + plot.box_label + '<p>';
       }
     }
   }
@@ -499,7 +499,7 @@ class Display {
   SetBraille(plot) {
     let brailleArray = [];
 
-    if (constants.chartType == "heatmap") {
+    if (constants.chartType == 'heatmap') {
       let range = (constants.maxY - constants.minY) / 3;
       let low = constants.minY + range;
       let medium = low + range;
@@ -507,34 +507,34 @@ class Display {
       for (let i = 0; i < plot.y_coord.length; i++) {
         for (let j = 0; j < plot.x_coord.length; j++) {
           if (plot.values[i][j] == 0) {
-            brailleArray.push("⠀");
+            brailleArray.push('⠀');
           } else if (plot.values[i][j] <= low) {
-            brailleArray.push("⠤");
+            brailleArray.push('⠤');
           } else if (plot.values[i][j] <= medium) {
-            brailleArray.push("⠒");
+            brailleArray.push('⠒');
           } else {
-            brailleArray.push("⠉");
+            brailleArray.push('⠉');
           }
         }
-        brailleArray.push("⠳");
+        brailleArray.push('⠳');
       }
-    } else if (constants.chartType == "barplot") {
+    } else if (constants.chartType == 'barplot') {
       let range = (constants.maxY - constants.minY) / 4;
       let low = constants.minY + range;
       let medium = low + range;
       let medium_high = medium + range;
       for (let i = 0; i < plot.plotData.length; i++) {
         if (plot.plotData[i] <= low) {
-          brailleArray.push("⣀");
+          brailleArray.push('⣀');
         } else if (plot.plotData[i] <= medium) {
-          brailleArray.push("⠤");
+          brailleArray.push('⠤');
         } else if (plot.plotData[i] <= medium_high) {
-          brailleArray.push("⠒");
+          brailleArray.push('⠒');
         } else {
-          brailleArray.push("⠉");
+          brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == "scatterplot") {
+    } else if (constants.chartType == 'scatterplot') {
       let range = (plot.curveMaxY - plot.curveMinY) / 4;
       let low = plot.curveMinY + range;
       let medium = low + range;
@@ -542,16 +542,16 @@ class Display {
       let high = medium_high + range;
       for (let i = 0; i < plot.curvePoints.length; i++) {
         if (plot.curvePoints[i] <= low) {
-          brailleArray.push("⣀");
+          brailleArray.push('⣀');
         } else if (plot.curvePoints[i] <= medium) {
-          brailleArray.push("⠤");
+          brailleArray.push('⠤');
         } else if (plot.curvePoints[i] <= medium_high) {
-          brailleArray.push("⠒");
+          brailleArray.push('⠒');
         } else if (plot.curvePoints[i] <= high) {
-          brailleArray.push("⠉");
+          brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == "boxplot" && position.y > -1) {
+    } else if (constants.chartType == 'boxplot' && position.y > -1) {
       // only run if we're on a plot
       // Idea here is to use different braille characters to physically represent the boxplot
       // if sections are longer or shorter we'll add more characters
@@ -567,8 +567,8 @@ class Display {
       let brailleData = [];
       let isBeforeMid = true;
       let plotPos =
-        constants.plotOrientation == "vert" ? position.x : position.y;
-      let valCoord = constants.plotOrientation == "vert" ? "y" : "x";
+        constants.plotOrientation == 'vert' ? position.x : position.y;
+      let valCoord = constants.plotOrientation == 'vert' ? 'y' : 'x';
       for (let i = 0; i < plot.plotData[plotPos].length; i++) {
         let point = plot.plotData[plotPos][i];
         // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
@@ -599,7 +599,7 @@ class Display {
           }
           charData = {};
           let minVal =
-            constants.plotOrientation == "vert"
+            constants.plotOrientation == 'vert'
               ? constants.minY
               : constants.minX;
           if (firstCoord - minVal > 0) {
@@ -608,14 +608,14 @@ class Display {
             charData.length = 0;
           }
           if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
-          charData.type = "blank";
-          charData.label = "blank";
+          charData.type = 'blank';
+          charData.label = 'blank';
           brailleData.push(charData);
         }
 
-        if (point.type == "blank") {
+        if (point.type == 'blank') {
           // this is a placeholder point, do nothing
-        } else if (point.type == "outlier") {
+        } else if (point.type == 'outlier') {
           // there might be lots of these or none
 
           // Spacing is messy:
@@ -630,8 +630,8 @@ class Display {
             // yes after space
             charData = {};
             charData.length = point.values[0] - prevPoint[valCoord];
-            charData.type = "blank";
-            charData.label = "blank";
+            charData.type = 'blank';
+            charData.label = 'blank';
             brailleData.push(charData);
           }
 
@@ -640,19 +640,19 @@ class Display {
             if (k == 0) {
               charData = {};
               charData.length = 0;
-              charData.type = "outlier";
+              charData.type = 'outlier';
               charData.label = point.label;
               brailleData.push(charData);
             } else {
               charData = {};
               charData.length = point.values[k] - point.values[k - 1];
-              charData.type = "blank";
-              charData.label = "blank";
+              charData.type = 'blank';
+              charData.label = 'blank';
               brailleData.push(charData);
 
               charData = {};
               charData.length = 0;
-              charData.type = "outlier";
+              charData.type = 'outlier';
               charData.label = point.label;
               brailleData.push(charData);
             }
@@ -664,14 +664,14 @@ class Display {
             charData = {};
             charData.length =
               nextPoint[valCoord] - point.values[point.values.length - 1];
-            charData.type = "blank";
-            charData.label = "blank";
+            charData.type = 'blank';
+            charData.label = 'blank';
             brailleData.push(charData);
           } else {
             // no after space
           }
         } else {
-          if (point.label == "50") {
+          if (point.label == '50') {
             // exception: another 0 width point here
             charData = {};
             charData.length = 0;
@@ -700,18 +700,18 @@ class Display {
           for (let j = 0; j < plot.plotData[plotPos].length; j++) {
             // find last actual point
 
-            if (point.type == "outlier") {
-              lastCoord = valCoord == "y" ? point.yMax : point.xMax;
+            if (point.type == 'outlier') {
+              lastCoord = valCoord == 'y' ? point.yMax : point.xMax;
             } else if (valCoord in plot.plotData[plotPos][j]) {
               lastCoord = plot.plotData[plotPos][j][valCoord];
             }
           }
           charData.length =
-            valCoord == "y"
+            valCoord == 'y'
               ? constants.maxY - lastCoord
               : constants.maxX - lastCoord;
-          charData.type = "blank";
-          charData.label = "blank";
+          charData.type = 'blank';
+          charData.label = 'blank';
           brailleData.push(charData);
         }
       }
@@ -742,8 +742,8 @@ class Display {
       let numDefaultChars = 0;
       for (let i = 0; i < brailleData.length; i++) {
         if (
-          brailleData[i].type != "blank" &&
-          (brailleData[i].length > 0 || brailleData[i].type == "outlier")
+          brailleData[i].type != 'blank' &&
+          (brailleData[i].length > 0 || brailleData[i].type == 'outlier')
         ) {
           brailleData[i].numChars = 1;
           numDefaultChars++;
@@ -752,24 +752,24 @@ class Display {
         }
 
         // store 25/75 min/max locations so we can check them later more easily
-        if (brailleData[i].label == "min" && brailleData[i].length > 0)
+        if (brailleData[i].label == 'min' && brailleData[i].length > 0)
           locMin = i;
-        if (brailleData[i].label == "max" && brailleData[i].length > 0)
+        if (brailleData[i].label == 'max' && brailleData[i].length > 0)
           locMax = i;
-        if (brailleData[i].label == "25") loc25 = i;
-        if (brailleData[i].label == "75") loc75 = i;
+        if (brailleData[i].label == '25') loc25 = i;
+        if (brailleData[i].label == '75') loc75 = i;
 
         // 50 gets 2 characters by default
-        if (brailleData[i].label == "50") {
+        if (brailleData[i].label == '50') {
           brailleData[i].numChars = 2;
           numDefaultChars++;
         }
       }
       // add extras to 25/75 min/max if needed
-      let currentPairs = ["25", "75"];
+      let currentPairs = ['25', '75'];
       if (locMin > -1 && locMax > -1) {
-        currentPairs.push("min"); // we add these seperately because we don't always have both min and max
-        currentPairs.push("max");
+        currentPairs.push('min'); // we add these seperately because we don't always have both min and max
+        currentPairs.push('max');
         if (brailleData[locMin].length != brailleData[locMax].length) {
           if (brailleData[locMin].length > brailleData[locMax].length) {
             // make sure if they're different, they appear different
@@ -805,40 +805,40 @@ class Display {
 
       constants.brailleData = brailleData;
       if (constants.debugLevel > 5) {
-        console.log("plotData[i]", plot.plotData[plotPos]);
-        console.log("brailleData", brailleData);
+        console.log('plotData[i]', plot.plotData[plotPos]);
+        console.log('brailleData', brailleData);
       }
 
       // convert to braille characters
       for (let i = 0; i < brailleData.length; i++) {
         for (let j = 0; j < brailleData[i].numChars; j++) {
-          let brailleChar = "⠀"; // blank
-          if (brailleData[i].label == "min" || brailleData[i].label == "max") {
-            brailleChar = "⠒";
+          let brailleChar = '⠀'; // blank
+          if (brailleData[i].label == 'min' || brailleData[i].label == 'max') {
+            brailleChar = '⠒';
           } else if (
-            brailleData[i].label == "25" ||
-            brailleData[i].label == "75"
+            brailleData[i].label == '25' ||
+            brailleData[i].label == '75'
           ) {
-            brailleChar = "⠿";
-          } else if (brailleData[i].label == "50") {
+            brailleChar = '⠿';
+          } else if (brailleData[i].label == '50') {
             if (j == 0) {
-              brailleChar = "⠸";
+              brailleChar = '⠸';
             } else {
-              brailleChar = "⠇";
+              brailleChar = '⠇';
             }
-          } else if (brailleData[i].type == "outlier") {
-            brailleChar = "⠂";
+          } else if (brailleData[i].type == 'outlier') {
+            brailleChar = '⠂';
           }
           brailleArray.push(brailleChar);
         }
       }
     }
 
-    constants.brailleInput.value = brailleArray.join("");
+    constants.brailleInput.value = brailleArray.join('');
 
-    constants.brailleInput.value = brailleArray.join("");
+    constants.brailleInput.value = brailleArray.join('');
     if (constants.debugLevel > 5) {
-      console.log("braille:", constants.brailleInput.value);
+      console.log('braille:', constants.brailleInput.value);
     }
 
     this.UpdateBraillePos();
@@ -886,7 +886,7 @@ class Display {
     for (let i = 0; i < arr.length; i++) {
       sumLen += arr[i].length;
     }
-    let notAllowed = ["lower_outlier", "upper_outlier", "50"];
+    let notAllowed = ['lower_outlier', 'upper_outlier', '50'];
 
     // main allocation
     for (let i = 0; i < arr.length; i++) {

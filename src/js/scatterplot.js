@@ -1,15 +1,15 @@
-document.addEventListener("DOMContentLoaded", function (e) {
+document.addEventListener('DOMContentLoaded', function (e) {
   // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 });
 
 class ScatterPlot {
   constructor() {
     // layer = 1
-    if ("point_elements" in maidr) {
+    if ('point_elements' in maidr) {
       this.plotPoints = maidr.point_elements;
     } else {
       this.plotPoints = document.querySelectorAll(
-        "#" + constants.plotId.replaceAll(".", "\\.") + " > use"
+        '#' + constants.plotId.replaceAll('.', '\\.') + ' > use'
       );
     }
     this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
@@ -27,7 +27,7 @@ class ScatterPlot {
       this.plotLine = maidr.smooth_elements;
     } else {
       this.plotLine = document.querySelectorAll(
-        "#" + "GRID.polyline.13.1".replaceAll(".", "\\.") + " > polyline"
+        '#' + 'GRID.polyline.13.1'.replaceAll('.', '\\.') + ' > polyline'
       )[0];
     }
     this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
@@ -40,19 +40,19 @@ class ScatterPlot {
     this.curveMaxY = Math.max(...this.curvePoints);
     this.gradient = this.GetGradient();
 
-    this.x_group_label = "";
-    this.y_group_label = "";
-    this.title = "";
-    if (typeof maidr !== "undefined") {
-      if ("axes" in maidr) {
-        if ("x" in maidr.axes) {
+    this.x_group_label = '';
+    this.y_group_label = '';
+    this.title = '';
+    if (typeof maidr !== 'undefined') {
+      if ('axes' in maidr) {
+        if ('x' in maidr.axes) {
           this.x_group_label = maidr.axes.x.label;
         }
-        if ("y" in maidr.axes) {
+        if ('y' in maidr.axes) {
           this.y_group_label = maidr.axes.y.label;
         }
       }
-      if ("title" in maidr) {
+      if ('title' in maidr) {
         this.title = maidr.title;
       }
     }
@@ -62,8 +62,8 @@ class ScatterPlot {
     let points = new Map();
 
     for (let i = 0; i < this.plotPoints.length; i++) {
-      let x = parseFloat(this.plotPoints[i].getAttribute("x")); // .toFixed(1);
-      let y = parseFloat(this.plotPoints[i].getAttribute("y"));
+      let x = parseFloat(this.plotPoints[i].getAttribute('x')); // .toFixed(1);
+      let y = parseFloat(this.plotPoints[i].getAttribute('y'));
       if (!points.has(x)) {
         points.set(x, new Set([y]));
       } else {
@@ -100,8 +100,8 @@ class ScatterPlot {
     let yValues = [];
 
     for (let i = 0; i < maidr.data.data_point_layer.length; i++) {
-      let x = maidr.data.data_point_layer[i]["x"];
-      let y = maidr.data.data_point_layer[i]["y"];
+      let x = maidr.data.data_point_layer[i]['x'];
+      let y = maidr.data.data_point_layer[i]['y'];
       xValues.push(x);
       yValues.push(y);
       if (!points.has(x)) {
@@ -176,7 +176,7 @@ class ScatterPlot {
             position.z = -1;
           }
         },
-        constants.sonifMode == "sep" ? constants.autoPlayPointsRate : 0
+        constants.sonifMode == 'sep' ? constants.autoPlayPointsRate : 0
       ); // play all tones at the same time
     } else if (constants.layer == 2) {
       // best fit line layer
@@ -186,14 +186,14 @@ class ScatterPlot {
 
   GetSvgLineCoords() {
     // extract all the y coordinates from the point attribute of polyline
-    let str = this.plotLine.getAttribute("points");
-    let coords = str.split(" ");
+    let str = this.plotLine.getAttribute('points');
+    let coords = str.split(' ');
 
     let X = [];
     let Y = [];
 
     for (let i = 0; i < coords.length; i++) {
-      let coord = coords[i].split(",");
+      let coord = coords[i].split(',');
       X.push(parseFloat(coord[0]));
       Y.push(parseFloat(coord[1]));
     }
@@ -206,8 +206,8 @@ class ScatterPlot {
     let y_points = [];
 
     for (let i = 0; i < maidr.data.data_smooth_layer.length; i++) {
-      x_points.push(maidr.data.data_smooth_layer[i]["x"]);
-      y_points.push(maidr.data.data_smooth_layer[i]["y"]);
+      x_points.push(maidr.data.data_smooth_layer[i]['x']);
+      y_points.push(maidr.data.data_smooth_layer[i]['y']);
     }
 
     return [x_points, y_points];
@@ -224,7 +224,7 @@ class ScatterPlot {
       gradients.push(abs_grad);
     }
 
-    gradients.push("end");
+    gradients.push('end');
 
     return gradients;
   }
@@ -247,28 +247,28 @@ class Layer0Point {
     await this.ClearPoints();
     await this.UpdatePoints();
     for (let i = 0; i < this.y.length; i++) {
-      const svgns = "http://www.w3.org/2000/svg";
-      var point = document.createElementNS(svgns, "circle");
-      point.setAttribute("class", "highlight_point");
-      point.setAttribute("cx", this.x);
+      const svgns = 'http://www.w3.org/2000/svg';
+      var point = document.createElementNS(svgns, 'circle');
+      point.setAttribute('class', 'highlight_point');
+      point.setAttribute('cx', this.x);
       point.setAttribute(
-        "cy",
+        'cy',
         constants.svg.getBoundingClientRect().height - this.y[i]
       );
-      point.setAttribute("r", 3.95);
-      point.setAttribute("stroke", constants.colorSelected);
-      point.setAttribute("stroke-width", this.strokeWidth);
-      point.setAttribute("fill", constants.colorSelected);
+      point.setAttribute('r', 3.95);
+      point.setAttribute('stroke', constants.colorSelected);
+      point.setAttribute('stroke-width', this.strokeWidth);
+      point.setAttribute('fill', constants.colorSelected);
       constants.svg.appendChild(point);
     }
   }
 
   async ClearPoints() {
-    if (document.getElementById("highlight_point"))
-      document.getElementById("highlight_point").remove();
-    let points = document.getElementsByClassName("highlight_point");
+    if (document.getElementById('highlight_point'))
+      document.getElementById('highlight_point').remove();
+    let points = document.getElementsByClassName('highlight_point');
     for (let i = 0; i < points.length; i++) {
-      document.getElementsByClassName("highlight_point")[i].remove();
+      document.getElementsByClassName('highlight_point')[i].remove();
     }
   }
 
@@ -295,28 +295,28 @@ class Layer1Point {
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
-    const svgns = "http://www.w3.org/2000/svg";
-    var point = document.createElementNS(svgns, "circle");
-    point.setAttribute("id", "highlight_point");
-    point.setAttribute("cx", this.x);
+    const svgns = 'http://www.w3.org/2000/svg';
+    var point = document.createElementNS(svgns, 'circle');
+    point.setAttribute('id', 'highlight_point');
+    point.setAttribute('cx', this.x);
     point.setAttribute(
-      "cy",
+      'cy',
       constants.svg.getBoundingClientRect().height - this.y
     );
-    point.setAttribute("r", 3.95);
-    point.setAttribute("stroke", constants.colorSelected);
-    point.setAttribute("stroke-width", this.strokeWidth);
-    point.setAttribute("fill", constants.colorSelected);
+    point.setAttribute('r', 3.95);
+    point.setAttribute('stroke', constants.colorSelected);
+    point.setAttribute('stroke-width', this.strokeWidth);
+    point.setAttribute('fill', constants.colorSelected);
     constants.svg.appendChild(point);
   }
 
   async ClearPoints() {
-    let points = document.getElementsByClassName("highlight_point");
+    let points = document.getElementsByClassName('highlight_point');
     for (let i = 0; i < points.length; i++) {
-      document.getElementsByClassName("highlight_point")[i].remove();
+      document.getElementsByClassName('highlight_point')[i].remove();
     }
-    if (document.getElementById("highlight_point"))
-      document.getElementById("highlight_point").remove();
+    if (document.getElementById('highlight_point'))
+      document.getElementById('highlight_point').remove();
   }
 
   UpdatePointDisplay() {

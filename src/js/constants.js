@@ -1,15 +1,15 @@
 class Constants {
   // element ids
-  svg_container_id = "svg-container";
-  braille_container_id = "braille-div";
-  braille_input_id = "braille-input";
-  info_id = "info";
-  announcement_container_id = "announcements";
-  end_chime_id = "end_chime";
-  container_id = "container";
-  project_id = "maidr";
-  review_id_container = "review_container";
-  review_id = "review";
+  svg_container_id = 'svg-container';
+  braille_container_id = 'braille-div';
+  braille_input_id = 'braille-input';
+  info_id = 'info';
+  announcement_container_id = 'announcements';
+  end_chime_id = 'end_chime';
+  container_id = 'container';
+  project_id = 'maidr';
+  review_id_container = 'review_container';
+  review_id = 'review';
   reviewSaveSpot;
   reviewSaveBrailleMode;
 
@@ -17,7 +17,7 @@ class Constants {
   constructor() {
     // page elements
     this.svg_container = document.getElementById(this.svg_container_id);
-    this.svg = document.querySelector("#" + this.svg_container_id + " > svg");
+    this.svg = document.querySelector('#' + this.svg_container_id + ' > svg');
     this.brailleContainer = document.getElementById(this.braille_container_id);
     this.brailleInput = document.getElementById(this.braille_input_id);
     this.infoDiv = document.getElementById(this.info_id);
@@ -33,8 +33,8 @@ class Constants {
   maxX = 0;
   minY = 0;
   maxY = 0;
-  plotId = ""; // update with id in chart specific js
-  chartType = ""; // set as 'boxplot' or whatever later in chart specific js file
+  plotId = ''; // update with id in chart specific js
+  chartType = ''; // set as 'boxplot' or whatever later in chart specific js file
   navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
   // basic audio properties
@@ -51,7 +51,7 @@ class Constants {
   vol = 0.5;
   MAX_VOL = 30;
   autoPlayRate = 250; // ms per tone
-  colorSelected = "#03C809";
+  colorSelected = '#03C809';
   brailleDisplayLength = 40; // num characters in user's braille display. Common length for desktop / mobile applications
 
   // advanced user settings
@@ -61,7 +61,7 @@ class Constants {
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50; // ms per tone
   autoPlayPointsRate = 30;
-  colorUnselected = "#595959"; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
+  colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
 
@@ -69,19 +69,19 @@ class Constants {
   showDisplay = 1; // true / false
   showDisplayInBraille = 1; // true / false
   showDisplayInAutoplay = 0; // true / false
-  textMode = "off"; // off / terse / verbose
-  brailleMode = "off"; // on / off
-  sonifMode = "off"; // sep / same / off
-  reviewMode = "off"; // on / off
+  textMode = 'off'; // off / terse / verbose
+  brailleMode = 'off'; // on / off
+  sonifMode = 'off'; // sep / same / off
+  reviewMode = 'off'; // on / off
   layer = 1; // 1 = points; 2 = best fit line => for scatterplot
   outlierInterval = null;
 
   // platform controls
-  isMac = navigator.userAgent.toLowerCase().includes("mac"); // true if macOS
-  control = this.isMac ? "Cmd" : "Ctrl";
-  alt = this.isMac ? "option" : "Alt";
-  home = this.isMac ? "fn + Left arrow" : "Home";
-  end = this.isMac ? "fn + Right arrow" : "End";
+  isMac = navigator.userAgent.toLowerCase().includes('mac'); // true if macOS
+  control = this.isMac ? 'Cmd' : 'Ctrl';
+  alt = this.isMac ? 'option' : 'Alt';
+  home = this.isMac ? 'fn + Left arrow' : 'Home';
+  end = this.isMac ? 'fn + Right arrow' : 'End';
   keypressInterval = 2000; // ms or 2s
 
   // debug stuff
@@ -98,7 +98,7 @@ class Constants {
         document
           .getElementById(this.svg_container_id)
           .insertAdjacentHTML(
-            "afterend",
+            'afterend',
             '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
           );
       }
@@ -110,7 +110,7 @@ class Constants {
         document
           .getElementById(this.info_id)
           .insertAdjacentHTML(
-            "afterend",
+            'afterend',
             '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n'
           );
       }
@@ -122,7 +122,7 @@ class Constants {
         document
           .getElementById(this.container_id)
           .insertAdjacentHTML(
-            "afterbegin",
+            'afterbegin',
             '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n'
           );
       }
@@ -131,11 +131,11 @@ class Constants {
     // role app on svg
     if (document.getElementById(this.svg_container_id)) {
       document
-        .querySelector("#" + this.svg_container_id + " > svg")
-        .setAttribute("role", "application");
+        .querySelector('#' + this.svg_container_id + ' > svg')
+        .setAttribute('role', 'application');
       document
-        .querySelector("#" + this.svg_container_id + " > svg")
-        .setAttribute("tabindex", "0");
+        .querySelector('#' + this.svg_container_id + ' > svg')
+        .setAttribute('tabindex', '0');
     }
 
     // end chime audio element
@@ -144,7 +144,7 @@ class Constants {
         document
           .getElementById(this.info_id)
           .insertAdjacentHTML(
-            "afterend",
+            'afterend',
             '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
           );
       }
@@ -181,28 +181,28 @@ class Constants {
 class Resources {
   constructor() {}
 
-  language = "en"; // 2 char lang code
-  knowledgeLevel = "basic"; // basic, intermediate, expert
+  language = 'en'; // 2 char lang code
+  knowledgeLevel = 'basic'; // basic, intermediate, expert
 
   // these strings run on getters, which pull in language, knowledgeLevel, chart, and actual requested string
   strings = {
     en: {
       basic: {
-        upper_outlier: "Upper Outlier",
-        lower_outlier: "Lower Outlier",
-        min: "Minimum",
-        max: "Maximum",
-        25: "25%",
-        50: "50%",
-        75: "75%",
-        son_on: "Sonification on",
-        son_off: "Sonification off",
-        son_des: "Sonification descrete",
-        son_comp: "Sonification compare",
-        son_ch: "Sonification chord",
-        son_sep: "Sonification separate",
-        son_same: "Sonification combined",
-        empty: "Empty",
+        upper_outlier: 'Upper Outlier',
+        lower_outlier: 'Lower Outlier',
+        min: 'Minimum',
+        max: 'Maximum',
+        25: '25%',
+        50: '50%',
+        75: '75%',
+        son_on: 'Sonification on',
+        son_off: 'Sonification off',
+        son_des: 'Sonification descrete',
+        son_comp: 'Sonification compare',
+        son_ch: 'Sonification chord',
+        son_sep: 'Sonification separate',
+        son_same: 'Sonification combined',
+        empty: 'Empty',
       },
     },
   };
@@ -320,13 +320,13 @@ class Menu {
 
   CreateMenu() {
     document
-      .querySelector("body")
-      .insertAdjacentHTML("beforeend", this.menuHtml);
+      .querySelector('body')
+      .insertAdjacentHTML('beforeend', this.menuHtml);
   }
 
   Toggle(onoff) {
-    if (typeof onoff == "undefined") {
-      if (document.getElementById("menu").classList.contains("hidden")) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('menu').classList.contains('hidden')) {
         onoff = true;
       } else {
         onoff = false;
@@ -335,42 +335,42 @@ class Menu {
     if (onoff) {
       // open
       this.PopulateData();
-      document.getElementById("menu").classList.remove("hidden");
-      document.getElementById("modal_backdrop").classList.remove("hidden");
-      document.querySelector("#menu .close").focus();
+      document.getElementById('menu').classList.remove('hidden');
+      document.getElementById('modal_backdrop').classList.remove('hidden');
+      document.querySelector('#menu .close').focus();
     } else {
       // close
-      document.getElementById("menu").classList.add("hidden");
-      document.getElementById("modal_backdrop").classList.add("hidden");
+      document.getElementById('menu').classList.add('hidden');
+      document.getElementById('modal_backdrop').classList.add('hidden');
       constants.nonMenuFocus.focus();
     }
   }
 
   PopulateData() {
-    document.getElementById("vol").value = constants.vol;
+    document.getElementById('vol').value = constants.vol;
     //document.getElementById('show_rect').checked = constants.showRect;
-    document.getElementById("autoplay_rate").value = constants.autoPlayRate;
-    document.getElementById("braille_display_length").value =
+    document.getElementById('autoplay_rate').value = constants.autoPlayRate;
+    document.getElementById('braille_display_length').value =
       constants.brailleDisplayLength;
-    document.getElementById("color_selected").value = constants.colorSelected;
-    document.getElementById("min_freq").value = constants.MIN_FREQUENCY;
-    document.getElementById("max_freq").value = constants.MAX_FREQUENCY;
-    document.getElementById("keypress_interval").value =
+    document.getElementById('color_selected').value = constants.colorSelected;
+    document.getElementById('min_freq').value = constants.MIN_FREQUENCY;
+    document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
+    document.getElementById('keypress_interval').value =
       constants.keypressInterval;
   }
 
   SaveData() {
-    constants.vol = document.getElementById("vol").value;
+    constants.vol = document.getElementById('vol').value;
     //constants.showRect = document.getElementById('show_rect').checked;
-    constants.autoPlayRate = document.getElementById("autoplay_rate").value;
+    constants.autoPlayRate = document.getElementById('autoplay_rate').value;
     constants.brailleDisplayLength = document.getElementById(
-      "braille_display_length"
+      'braille_display_length'
     ).value;
-    constants.colorSelected = document.getElementById("color_selected").value;
-    constants.MIN_FREQUENCY = document.getElementById("min_freq").value;
-    constants.MAX_FREQUENCY = document.getElementById("max_freq").value;
+    constants.colorSelected = document.getElementById('color_selected').value;
+    constants.MIN_FREQUENCY = document.getElementById('min_freq').value;
+    constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
-      document.getElementById("keypress_interval").value;
+      document.getElementById('keypress_interval').value;
   }
 
   SaveDataToLocalStorage() {
@@ -384,10 +384,10 @@ class Menu {
     data.MIN_FREQUENCY = constants.MIN_FREQUENCY;
     data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
     data.keypressInterval = constants.keypressInterval;
-    localStorage.setItem("settings_data", JSON.stringify(data));
+    localStorage.setItem('settings_data', JSON.stringify(data));
   }
   LoadDataFromLocalStorage() {
-    let data = JSON.parse(localStorage.getItem("settings_data"));
+    let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
       //constants.showRect = data.showRect;
@@ -441,11 +441,11 @@ class Tracker {
   }
 
   DownloadTrackerData() {
-    let link = document.createElement("a");
+    let link = document.createElement('a');
     let data = this.GetTrackerData();
-    let fileStr = new Blob([JSON.stringify(data)], { type: "text/plain" });
+    let fileStr = new Blob([JSON.stringify(data)], { type: 'text/plain' });
     link.href = URL.createObjectURL(fileStr);
-    link.download = "tracking.json";
+    link.download = 'tracking.json';
     link.click();
   }
 
@@ -463,7 +463,7 @@ class Tracker {
     this.data = null;
 
     if (constants.debugLevel > 0) {
-      console.log("tracking data cleared");
+      console.log('tracking data cleared');
     }
 
     this.DataSetup();
@@ -559,7 +559,7 @@ class Tracker {
     }
     if (!this.isUndefinedOrNull(constants.infoDiv.innerHTML)) {
       let textDisplay = Object.assign(constants.infoDiv.innerHTML);
-      textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, "");
+      textDisplay = textDisplay.replaceAll(/<[^>]*>?/gm, '');
       eventToLog.text_display = textDisplay;
     }
     if (!this.isUndefinedOrNull(location.href)) {
@@ -567,13 +567,13 @@ class Tracker {
     }
 
     // chart specific values
-    let x_tickmark = "";
-    let y_tickmark = "";
-    let x_label = "";
-    let y_label = "";
-    let value = "";
-    let fill_value = "";
-    if (constants.chartType == "barplot") {
+    let x_tickmark = '';
+    let y_tickmark = '';
+    let x_label = '';
+    let y_label = '';
+    let value = '';
+    let fill_value = '';
+    if (constants.chartType == 'barplot') {
       if (!this.isUndefinedOrNull(plot.columnLabels[position.x])) {
         x_tickmark = plot.columnLabels[position.x];
       }
@@ -586,7 +586,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.plotData[position.x])) {
         value = plot.plotData[position.x];
       }
-    } else if (constants.chartType == "heatmap") {
+    } else if (constants.chartType == 'heatmap') {
       if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
         x_tickmark = plot.x_labels[position.x].trim();
       }
@@ -607,11 +607,11 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.group_labels[2])) {
         fill_value = plot.group_labels[2];
       }
-    } else if (constants.chartType == "boxplot") {
+    } else if (constants.chartType == 'boxplot') {
       let plotPos =
-        constants.plotOrientation == "vert" ? position.x : position.y;
+        constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
-        constants.plotOrientation == "vert" ? position.y : position.x;
+        constants.plotOrientation == 'vert' ? position.y : position.x;
 
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
@@ -619,7 +619,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.y_group_label)) {
         y_label = plot.y_group_label;
       }
-      if (constants.plotOrientation == "vert") {
+      if (constants.plotOrientation == 'vert') {
         if (plotPos > -1 && sectionPos > -1) {
           if (
             !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)
@@ -660,7 +660,7 @@ class Tracker {
           }
         }
       }
-    } else if (constants.chartType == "scatterplot") {
+    } else if (constants.chartType == 'scatterplot') {
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
       }
@@ -709,7 +709,7 @@ class Review {
         document
           .getElementById(constants.info_id)
           .insertAdjacentHTML(
-            "beforebegin",
+            'beforebegin',
             '<div id="' +
               constants.review_id_container +
               '" class="hidden sr-only sr-only-focusable"><input id="' +
@@ -721,9 +721,9 @@ class Review {
 
     if (constants) {
       constants.review_container = document.querySelector(
-        "#" + constants.review_id_container
+        '#' + constants.review_id_container
       );
-      constants.review = document.querySelector("#" + constants.review_id);
+      constants.review = document.querySelector('#' + constants.review_id);
     }
   }
 
@@ -731,20 +731,20 @@ class Review {
     // true means on or show
     if (onoff) {
       constants.reviewSaveSpot = document.activeElement;
-      constants.review_container.classList.remove("hidden");
+      constants.review_container.classList.remove('hidden');
       constants.reviewSaveBrailleMode = constants.brailleMode;
       constants.review.focus();
 
-      display.announceText("Review on");
+      display.announceText('Review on');
     } else {
-      constants.review_container.classList.add("hidden");
-      if (constants.reviewSaveBrailleMode == "on") {
+      constants.review_container.classList.add('hidden');
+      if (constants.reviewSaveBrailleMode == 'on') {
         // we have to turn braille mode back on
-        display.toggleBrailleMode("on");
+        display.toggleBrailleMode('on');
       } else {
         constants.reviewSaveSpot.focus();
       }
-      display.announceText("Review off");
+      display.announceText('Review off');
     }
   }
 }

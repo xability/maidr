@@ -1,7 +1,7 @@
 class BarChart {
   constructor() {
     // bars. The actual bar elements in the SVG. Used to highlight visually
-    if ("elements" in maidr) {
+    if ('elements' in maidr) {
       this.bars = maidr.elements;
       constants.hasRect = 1;
     } else {
@@ -11,9 +11,9 @@ class BarChart {
 
     // column labels, both legend and tick
     this.columnLabels = [];
-    let legendX = "";
-    let legendY = "";
-    if ("axis" in maidr) {
+    let legendX = '';
+    let legendY = '';
+    if ('axis' in maidr) {
       // legend labels
       if (maidr.axis.x) {
         if (maidr.axis.x.label) {
@@ -60,20 +60,20 @@ class BarChart {
     };
 
     // title, either pulled from data or from the SVG
-    this.title = "";
-    if ("title" in maidr) {
+    this.title = '';
+    if ('title' in maidr) {
       this.title = maidr.title;
     } else if (document.querySelector('g[id^="plot.title..titleGrob"] tspan')) {
       this.title = document.querySelector(
         'g[id^="plot.title..titleGrob"] tspan'
       ).innerHTML;
-      this.title = this.title.replace("\n", "").replace(/ +(?= )/g, ""); // there are multiple spaces and newlines, sometimes
+      this.title = this.title.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
     }
 
-    if (typeof maidr == "array") {
+    if (typeof maidr == 'array') {
       this.plotData = maidr;
-    } else if (typeof maidr == "object") {
-      if ("data" in maidr) {
+    } else if (typeof maidr == 'object') {
+      if ('data' in maidr) {
         this.plotData = maidr.data;
       }
     } else {
@@ -119,7 +119,7 @@ class BarChart {
 
     if (this.bars) {
       for (let i = 0; i < this.bars.length; i++) {
-        plotData.push(this.bars[i].getAttribute("height"));
+        plotData.push(this.bars[i].getAttribute('height'));
       }
     }
 

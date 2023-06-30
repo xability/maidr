@@ -1,6 +1,6 @@
 class HeatMap {
   constructor() {
-    if ("elements" in maidr) {
+    if ('elements' in maidr) {
       this.plots = maidr.elements;
       constants.hasRect = 1;
     } else {
@@ -37,8 +37,8 @@ class HeatMap {
     if (constants.hasRect) {
       for (let i = 0; i < this.plots.length; i++) {
         if (this.plots[i]) {
-          x_coord_check.push(parseFloat(this.plots[i].getAttribute("x")));
-          y_coord_check.push(parseFloat(this.plots[i].getAttribute("y")));
+          x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
+          y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
         }
       }
 
@@ -61,7 +61,7 @@ class HeatMap {
     let num_rows = 0;
     let num_cols = 0;
     let num_squares = 0;
-    if ("data" in maidr) {
+    if ('data' in maidr) {
       num_rows = maidr.data.length;
       num_cols = maidr.data[0].length;
     } else {
@@ -71,7 +71,7 @@ class HeatMap {
     num_squares = num_rows * num_cols;
 
     let norms = [];
-    if ("data" in maidr) {
+    if ('data' in maidr) {
       norms = [...maidr.data];
     } else {
       norms = Array(num_rows)
@@ -112,8 +112,8 @@ class HeatMap {
   }
 
   getRGBNorm(i) {
-    let rgb_string = this.plots[i].getAttribute("fill");
-    let rgb_array = rgb_string.slice(4, -1).split(",");
+    let rgb_string = this.plots[i].getAttribute('fill');
+    let rgb_array = rgb_string.slice(4, -1).split(',');
     // just get the sum of squared value of rgb, similar without sqrt, save computation
     return rgb_array
       .map(function (x) {
@@ -126,11 +126,11 @@ class HeatMap {
 
   getGroupLabels() {
     let labels_nodelist;
-    let title = "";
-    let legendX = "";
-    let legendY = "";
+    let title = '';
+    let legendX = '';
+    let legendY = '';
 
-    if ("title" in maidr) {
+    if ('title' in maidr) {
       title = maidr.title;
     } else {
       title = document.querySelector(
@@ -138,14 +138,14 @@ class HeatMap {
       ).innerHTML;
     }
 
-    if ("axes" in maidr) {
-      if ("x" in maidr.axes) {
-        if ("label" in maidr.axes.x) {
+    if ('axes' in maidr) {
+      if ('x' in maidr.axes) {
+        if ('label' in maidr.axes.x) {
           legendX = maidr.axes.x.label;
         }
       }
-      if ("y" in maidr.axes) {
-        if ("label" in maidr.axes.y) {
+      if ('y' in maidr.axes) {
+        if ('label' in maidr.axes.y) {
           legendY = maidr.axes.y.label;
         }
       }
@@ -160,9 +160,9 @@ class HeatMap {
   }
 
   getXLabels() {
-    if ("axes" in maidr) {
-      if ("x" in maidr.axes) {
-        if ("format" in maidr.axes.x) {
+    if ('axes' in maidr) {
+      if ('x' in maidr.axes) {
+        if ('format' in maidr.axes.x) {
           return maidr.axes.x.format;
         }
       }
@@ -179,9 +179,9 @@ class HeatMap {
   }
 
   getYLabels() {
-    if ("axes" in maidr) {
-      if ("y" in maidr.axes) {
-        if ("format" in maidr.axes.y) {
+    if ('axes' in maidr) {
+      if ('y' in maidr.axes) {
+        if ('format' in maidr.axes.y) {
           return maidr.axes.y.format;
         }
       }
@@ -200,7 +200,7 @@ class HeatMap {
   }
 
   getTitle() {
-    if ("title" in maidr) {
+    if ('title' in maidr) {
       return maidr.title;
     } else {
       let heatmapTitle = document.querySelector(
@@ -208,12 +208,12 @@ class HeatMap {
       ).innerHTML;
       if (
         constants.manualData &&
-        typeof heatmapTitle !== "undefined" &&
+        typeof heatmapTitle !== 'undefined' &&
         typeof heatmapTitle != null
       ) {
         return heatmapTitle;
       } else {
-        return "";
+        return '';
       }
     }
   }
@@ -236,21 +236,21 @@ class HeatMapRect {
 
   UpdateRectDisplay() {
     this.UpdateRect();
-    if (document.getElementById("highlight_rect"))
-      document.getElementById("highlight_rect").remove(); // destroy and recreate
-    const svgns = "http://www.w3.org/2000/svg";
-    var rect = document.createElementNS(svgns, "rect");
-    rect.setAttribute("id", "highlight_rect");
-    rect.setAttribute("x", this.x);
+    if (document.getElementById('highlight_rect'))
+      document.getElementById('highlight_rect').remove(); // destroy and recreate
+    const svgns = 'http://www.w3.org/2000/svg';
+    var rect = document.createElementNS(svgns, 'rect');
+    rect.setAttribute('id', 'highlight_rect');
+    rect.setAttribute('x', this.x);
     rect.setAttribute(
-      "y",
+      'y',
       constants.svg.getBoundingClientRect().height - this.height - this.y
     ); // y coord is inverse from plot data
-    rect.setAttribute("width", this.height);
-    rect.setAttribute("height", this.height);
-    rect.setAttribute("stroke", constants.colorSelected);
-    rect.setAttribute("stroke-width", this.rectStrokeWidth);
-    rect.setAttribute("fill", "none");
+    rect.setAttribute('width', this.height);
+    rect.setAttribute('height', this.height);
+    rect.setAttribute('stroke', constants.colorSelected);
+    rect.setAttribute('stroke-width', this.rectStrokeWidth);
+    rect.setAttribute('fill', 'none');
     constants.svg.appendChild(rect);
   }
 }

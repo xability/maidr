@@ -1,127 +1,127 @@
 [
-    {
-        "year": "1987",
-        "continent": "Africa",
-        "mean_gdp": 2282.67
-    },
-    {
-        "year": "1987",
-        "continent": "Americas",
-        "mean_gdp": 7793.4
-    },
-    {
-        "year": "1987",
-        "continent": "Asia",
-        "mean_gdp": 7608.23
-    },
-    {
-        "year": "1987",
-        "continent": "Europe",
-        "mean_gdp": 17214.31
-    },
-    {
-        "year": "1987",
-        "continent": "Oceania",
-        "mean_gdp": 20448.04
-    },
-    {
-        "year": "1992",
-        "continent": "Africa",
-        "mean_gdp": 2281.81
-    },
-    {
-        "year": "1992",
-        "continent": "Americas",
-        "mean_gdp": 8044.93
-    },
-    {
-        "year": "1992",
-        "continent": "Asia",
-        "mean_gdp": 8639.69
-    },
-    {
-        "year": "1992",
-        "continent": "Europe",
-        "mean_gdp": 17061.57
-    },
-    {
-        "year": "1992",
-        "continent": "Oceania",
-        "mean_gdp": 20894.05
-    },
-    {
-        "year": "1997",
-        "continent": "Africa",
-        "mean_gdp": 2378.76
-    },
-    {
-        "year": "1997",
-        "continent": "Americas",
-        "mean_gdp": 8889.3
-    },
-    {
-        "year": "1997",
-        "continent": "Asia",
-        "mean_gdp": 9834.09
-    },
-    {
-        "year": "1997",
-        "continent": "Europe",
-        "mean_gdp": 19076.78
-    },
-    {
-        "year": "1997",
-        "continent": "Oceania",
-        "mean_gdp": 24024.18
-    },
-    {
-        "year": "2002",
-        "continent": "Africa",
-        "mean_gdp": 2599.39
-    },
-    {
-        "year": "2002",
-        "continent": "Americas",
-        "mean_gdp": 9287.68
-    },
-    {
-        "year": "2002",
-        "continent": "Asia",
-        "mean_gdp": 10174.09
-    },
-    {
-        "year": "2002",
-        "continent": "Europe",
-        "mean_gdp": 21711.73
-    },
-    {
-        "year": "2002",
-        "continent": "Oceania",
-        "mean_gdp": 26938.78
-    },
-    {
-        "year": "2007",
-        "continent": "Africa",
-        "mean_gdp": 3089.03
-    },
-    {
-        "year": "2007",
-        "continent": "Americas",
-        "mean_gdp": 11003.03
-    },
-    {
-        "year": "2007",
-        "continent": "Asia",
-        "mean_gdp": 12473.03
-    },
-    {
-        "year": "2007",
-        "continent": "Europe",
-        "mean_gdp": 25054.48
-    },
-    {
-        "year": "2007",
-        "continent": "Oceania",
-        "mean_gdp": 29810.19
-    }
+  {
+    "year": "1987",
+    "continent": "Africa",
+    "mean_gdp": 2282.67
+  },
+  {
+    "year": "1987",
+    "continent": "Americas",
+    "mean_gdp": 7793.4
+  },
+  {
+    "year": "1987",
+    "continent": "Asia",
+    "mean_gdp": 7608.23
+  },
+  {
+    "year": "1987",
+    "continent": "Europe",
+    "mean_gdp": 17214.31
+  },
+  {
+    "year": "1987",
+    "continent": "Oceania",
+    "mean_gdp": 20448.04
+  },
+  {
+    "year": "1992",
+    "continent": "Africa",
+    "mean_gdp": 2281.81
+  },
+  {
+    "year": "1992",
+    "continent": "Americas",
+    "mean_gdp": 8044.93
+  },
+  {
+    "year": "1992",
+    "continent": "Asia",
+    "mean_gdp": 8639.69
+  },
+  {
+    "year": "1992",
+    "continent": "Europe",
+    "mean_gdp": 17061.57
+  },
+  {
+    "year": "1992",
+    "continent": "Oceania",
+    "mean_gdp": 20894.05
+  },
+  {
+    "year": "1997",
+    "continent": "Africa",
+    "mean_gdp": 2378.76
+  },
+  {
+    "year": "1997",
+    "continent": "Americas",
+    "mean_gdp": 8889.3
+  },
+  {
+    "year": "1997",
+    "continent": "Asia",
+    "mean_gdp": 9834.09
+  },
+  {
+    "year": "1997",
+    "continent": "Europe",
+    "mean_gdp": 19076.78
+  },
+  {
+    "year": "1997",
+    "continent": "Oceania",
+    "mean_gdp": 24024.18
+  },
+  {
+    "year": "2002",
+    "continent": "Africa",
+    "mean_gdp": 2599.39
+  },
+  {
+    "year": "2002",
+    "continent": "Americas",
+    "mean_gdp": 9287.68
+  },
+  {
+    "year": "2002",
+    "continent": "Asia",
+    "mean_gdp": 10174.09
+  },
+  {
+    "year": "2002",
+    "continent": "Europe",
+    "mean_gdp": 21711.73
+  },
+  {
+    "year": "2002",
+    "continent": "Oceania",
+    "mean_gdp": 26938.78
+  },
+  {
+    "year": "2007",
+    "continent": "Africa",
+    "mean_gdp": 3089.03
+  },
+  {
+    "year": "2007",
+    "continent": "Americas",
+    "mean_gdp": 11003.03
+  },
+  {
+    "year": "2007",
+    "continent": "Asia",
+    "mean_gdp": 12473.03
+  },
+  {
+    "year": "2007",
+    "continent": "Europe",
+    "mean_gdp": 25054.48
+  },
+  {
+    "year": "2007",
+    "continent": "Oceania",
+    "mean_gdp": 29810.19
+  }
 ]
