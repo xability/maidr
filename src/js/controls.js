@@ -2382,4 +2382,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       }
     }
   }
+
+  // initialize braille mode on page load
+  display.toggleBrailleMode('on');
 });

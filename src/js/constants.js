@@ -69,11 +69,11 @@ class Constants {
   showDisplay = 1; // true / false
   showDisplayInBraille = 1; // true / false
   showDisplayInAutoplay = 0; // true / false
-  textMode = 'off'; // off / terse / verbose
+  textMode = 'verbose'; // off / terse / verbose
   brailleMode = 'off'; // on / off
-  sonifMode = 'off'; // sep / same / off
+  sonifMode = 'on'; // sep / same / off
   reviewMode = 'off'; // on / off
-  layer = 1; // 1 = points; 2 = best fit line => for scatterplot
+  layer = 2; // 1 = points; 2 = best fit line => for scatterplot
   outlierInterval = null;
 
   // platform controls

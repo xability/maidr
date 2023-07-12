@@ -23,7 +23,7 @@ gulp.task('scripts', function () {
       './src/js/scatterplot.js',
       './src/js/init.js',
       './src/js/controls.js',
-    ])
+    ]) // order matters here
     .pipe(concat('maidr.js'))
     .pipe(gulp.dest('dist'))
     .pipe(uglify())
