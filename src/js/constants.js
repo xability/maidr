@@ -1,6 +1,6 @@
 class Constants {
   // element ids
-  svg_container_id = 'svg-container';
+  svg_container_class = 'svg-container';
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
   info_id = 'info';
@@ -13,11 +13,38 @@ class Constants {
   reviewSaveSpot;
   reviewSaveBrailleMode;
 
-  // default constructor for boxplot
+  // restructuring notes
+  /*
+
+  Goal: Need to be able to have multiple charts on the same page.
+  Further, to be able to have a page with zero to lots of charts, and it all 'just works'
+  
+  So what does 'just works' mean?
+   - First, it does nothing if I'm not interacting with a chart. It doesn't affect the rest of the page
+   - To interact, focus is the obvious choice, and obviously braille cannot be activated initially
+
+  Issues: 
+   - we have IDs for various elements like container, braille-div, etc. 
+   - We need to be able to specify which chart we're talking about
+   - Need the IDs unique, obvs
+   - How to work with braille mode since it gets the focus?
+    - 'focus' would have to be defined as focus on either the chart or the braille div, for each chart
+
+
+   - create braille / info divs on initialization, destroy on blur
+   - on init, maybe some intro text? like welcome to maidr here are the controls
+
+  */
+
+  // default constructor for all charts
   constructor() {
     // page elements
-    this.svg_container = document.getElementById(this.svg_container_id);
-    this.svg = document.querySelector('#' + this.svg_container_id + ' > svg');
+    this.svg_containers = document.querySelectorAll(
+      '.' + this.svg_container_class
+    );
+    this.svgs = document.querySelectorAll(
+      '.' + this.svg_container_class + ' > svg'
+    );
     this.brailleContainer = document.getElementById(this.braille_container_id);
     this.brailleInput = document.getElementById(this.braille_input_id);
     this.infoDiv = document.getElementById(this.info_id);
@@ -94,9 +121,9 @@ class Constants {
 
     // info aria live
     if (!document.getElementById(this.info_id)) {
-      if (document.getElementById(this.svg_container_id)) {
+      if (document.getElementById(this.svg_container_class)) {
         document
-          .getElementById(this.svg_container_id)
+          .getElementById(this.svg_container_class)
           .insertAdjacentHTML(
             'afterend',
             '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
@@ -129,12 +156,12 @@ class Constants {
     }
 
     // role app on svg
-    if (document.getElementById(this.svg_container_id)) {
+    if (document.getElementById(this.svg_container_class)) {
       document
-        .querySelector('#' + this.svg_container_id + ' > svg')
+        .querySelector('#' + this.svg_container_class + ' > svg')
         .setAttribute('role', 'application');
       document
-        .querySelector('#' + this.svg_container_id + ' > svg')
+        .querySelector('#' + this.svg_container_class + ' > svg')
         .setAttribute('tabindex', '0');
     }
 
