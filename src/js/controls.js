@@ -158,6 +158,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -802,6 +803,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -1489,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
-
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -1968,6 +1970,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -2384,5 +2387,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   }
 
   // initialize braille mode on page load
-  display.toggleBrailleMode('on');
+  if (constants.brailleMode == 'on') {
+    display.toggleBrailleMode('on');
+  }
 });

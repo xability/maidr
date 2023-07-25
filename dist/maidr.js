@@ -28,6 +28,13 @@ class Constants {
     this.endChime = document.getElementById(this.end_chime_id);
   }
 
+  // BTS modes
+  textMode = 'verbose'; // off / terse / verbose
+  brailleMode = 'on'; // on / off
+  sonifMode = 'on'; // sep / same / off
+  reviewMode = 'off'; // on / off
+  layer = 2; // 1 = points; 2 = best fit line => for scatterplot
+
   // basic chart properties
   minX = 0;
   maxX = 0;
@@ -69,11 +76,6 @@ class Constants {
   showDisplay = 1; // true / false
   showDisplayInBraille = 1; // true / false
   showDisplayInAutoplay = 0; // true / false
-  textMode = 'off'; // off / terse / verbose
-  brailleMode = 'off'; // on / off
-  sonifMode = 'off'; // sep / same / off
-  reviewMode = 'off'; // on / off
-  layer = 1; // 1 = points; 2 = best fit line => for scatterplot
   outlierInterval = null;
 
   // platform controls
@@ -1204,6 +1206,9 @@ class Audio {
   SlideBetween(val, a, b, min, max) {
     // helper function that goes between min and max proportional to how val goes between a and b
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
+    if (a == 0 && b == 0) {
+      newVal = 0;
+    }
     return newVal;
   }
 }
@@ -3818,7 +3823,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   window.menu = new Menu();
   window.tracker = new Tracker();
 
-  // run events and functions only on user study page
+  // run tracker stuff only on user study page
   if (document.getElementById('download_data_trigger')) {
     document
       .getElementById('download_data_trigger')
@@ -3835,7 +3840,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
     // default page load focus on svg
     // this is mostly for debugging, as first time load users must click or hit a key to focus
-    // todo for publish: probably start users at a help / menu section, and they can tab to svg
+    // todo for publish: probably remove outright
     if (constants.debugLevel > 5) {
       setTimeout(function () {
         constants.svg.focus();
@@ -4093,6 +4098,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -4737,6 +4743,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -5424,7 +5431,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
-
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -5903,6 +5910,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
       });
 
       // var keys;
+      // main BTS controls
       let controlElements = [constants.svg_container, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         controlElements[i].addEventListener('keydown', function (e) {
@@ -6316,5 +6324,10 @@ document.addEventListener('DOMContentLoaded', function (e) {
         audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
       }
     }
+  }
+
+  // initialize braille mode on page load
+  if (constants.brailleMode == 'on') {
+    display.toggleBrailleMode('on');
   }
 });

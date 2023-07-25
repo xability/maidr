@@ -453,6 +453,9 @@ class Audio {
   SlideBetween(val, a, b, min, max) {
     // helper function that goes between min and max proportional to how val goes between a and b
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
+    if (a == 0 && b == 0) {
+      newVal = 0;
+    }
     return newVal;
   }
 }

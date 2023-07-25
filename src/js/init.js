@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   window.menu = new Menu();
   window.tracker = new Tracker();
 
-  // run events and functions only on user study page
+  // run tracker stuff only on user study page
   if (document.getElementById('download_data_trigger')) {
     document
       .getElementById('download_data_trigger')
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
     // default page load focus on svg
     // this is mostly for debugging, as first time load users must click or hit a key to focus
-    // todo for publish: probably start users at a help / menu section, and they can tab to svg
+    // todo for publish: probably remove outright
     if (constants.debugLevel > 5) {
       setTimeout(function () {
         constants.svg.focus();

@@ -5,7 +5,7 @@
 
 var gulp = require('gulp');
 var concat = require('gulp-concat');
-var uglify = require('gulp-uglify');
+var terser = require('gulp-terser');
 var rename = require('gulp-rename');
 var concatCss = require('gulp-concat-css');
 var cleanCss = require('gulp-clean-css');
@@ -26,7 +26,7 @@ gulp.task('scripts', function () {
     ]) // order matters here
     .pipe(concat('maidr.js'))
     .pipe(gulp.dest('dist'))
-    .pipe(uglify())
+    .pipe(terser())
     .pipe(rename({ extname: '.min.js' }))
     .pipe(gulp.dest('dist'));
 });
