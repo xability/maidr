@@ -198,7 +198,7 @@ This project is licensed under the GPL 3 License.
 
 ## Contact
 
-For any inquiries or suggestions, please contact the lead researcher:
+For any inquiries or suggestions, please contact the principal investigator:
 
 JooYoung Seo - jseo1005@illinois.edu
 
