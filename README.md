@@ -208,6 +208,8 @@ This project is conducted through the Accessible Computing Lab at the University
 
 * The Institute of Museum and Library Services (IMLS) \#RE-254891-OLS-23
 
+* Teach Access Faculty Grant
+
 * The Wallace Foundation Grant and the International Society of the Learning Sciences.
 
 * The PI's faculty startup grant
