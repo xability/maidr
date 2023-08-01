@@ -210,6 +210,6 @@ This project is conducted through the Accessible Computing Lab at the University
 
 * Teach Access Faculty Grant
 
-* The Wallace Foundation Grant and the International Society of the Learning Sciences.
+* The Wallace Foundation Grant and the International Society of the Learning Sciences
 
 * The PI's faculty startup grant
