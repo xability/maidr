@@ -21,8 +21,8 @@ gulp.task('scripts', function () {
       './src/js/boxplot.js',
       './src/js/heatmap.js',
       './src/js/scatterplot.js',
-      './src/js/init.js',
       './src/js/controls.js',
+      './src/js/init.js',
     ]) // order matters here
     .pipe(concat('maidr.js'))
     .pipe(gulp.dest('dist'))
