@@ -19,16 +19,19 @@ document.addEventListener('DOMContentLoaded', function (e) {
     }
   }
   // set focus events for all maidr ids
+  DestroyMaidr(); // just in case
   for (let i = 0; i < maidrObjects.length; i++) {
     let maidrId = maidrObjects[i].id;
     let maidrElemn = document.getElementById(maidrId);
     if (maidrElemn) {
       maidrElemn.addEventListener('focus', function (e) {
-        InitMaidr(maidrObjects[i]);
+        // only run if we don't have a running setup
+        if (plot == null) {
+          window.singleMaidr = maidrObjects[i]; // this is a weird hack, in which constants vars don't get set right away, so we avoid them and pull directly from the maidr object
+          InitMaidr();
+        }
       });
-      maidrElemn.addEventListener('blur', function (e) {
-        DestroyMaidr();
-      });
+      // blur done elsewhere
     }
   }
 
@@ -90,21 +93,21 @@ document.addEventListener('DOMContentLoaded', function (e) {
   }
 });
 
-function InitMaidr(maidrObj) {
+function InitMaidr() {
   // just in case
   if (typeof constants != 'undefined') {
     // init vars and html
-    constants.chartId = maidrObj.id;
-    constants.chartType = maidrObj.type;
-    CreateChartComponents();
+    constants.chartId = singleMaidr.id;
+    constants.chartType = singleMaidr.type;
+    CreateChartComponents(singleMaidr);
+    window.control = new Control();
     window.review = new Review();
     window.display = new Display();
-    window.controls = new Controls();
-    controls.SetControls();
 
     // initialize braille mode on page load
     display.toggleBrailleMode('on');
 
+    // help menu events
     constants.events.push([
       constants.svg_container,
       'keydown',
@@ -117,6 +120,13 @@ function InitMaidr(maidrObj) {
       },
     ]);
 
+    // blur destruction events
+    constants.events.push([
+      document.getElementById(singleMaidr.id),
+      'blur',
+      ShouldWeDestroyMaidr,
+    ]);
+
     // add all events
     for (let i = 0; i < constants.events.length; i++) {
       constants.events[i][0].addEventListener(
@@ -125,6 +135,19 @@ function InitMaidr(maidrObj) {
       );
     }
   }
+}
+
+function ShouldWeDestroyMaidr(e) {
+  // timeout to delay blur event
+  setTimeout(() => {
+    let focusedElement = document.activeElement;
+    if (
+      focusedElement !== document.getElementById(singleMaidr.id) &&
+      focusedElement !== document.getElementById(constants.braille_input_id)
+    ) {
+      DestroyMaidr();
+    }
+  }, 0);
 }
 
 function DestroyMaidr() {
@@ -143,7 +166,7 @@ function DestroyMaidr() {
 
   window.review = null;
   window.display = null;
-  window.controls = null;
+  window.control = null;
   window.plot = null;
 }
 
@@ -151,14 +174,17 @@ function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
 
   // core svg
-  constants.svg = document.getElementById(constants.chartId);
+  let svg = document.getElementById(singleMaidr.id);
 
   // svg container, we create a parent of svg
-  constants.svg_container = document.createElement('div');
-  constants.svg_container.id = constants.svg_container_id;
+  let svg_container = document.createElement('div');
+  svg_container.id = constants.svg_container_id;
   // replace svg with svg container, and append svg to svg container
-  constants.svg.parentNode.replaceChild(constants.svg_container, constants.svg);
-  constants.svg_container.appendChild(constants.svg);
+  svg.parentNode.replaceChild(svg_container, svg);
+  svg_container.appendChild(svg);
+
+  constants.svg = svg;
+  constants.svg_container = svg_container;
 
   // braille input, pre sibling of svg container
   constants.svg_container.insertAdjacentHTML(
@@ -172,6 +198,13 @@ function CreateChartComponents() {
       '" />\n</div>\n'
   );
 
+  // set destruction possibility on braille
+  constants.events.push([
+    document.getElementById(constants.braille_input_id),
+    'blur',
+    ShouldWeDestroyMaidr,
+  ]);
+
   // info aria live, next sibling of svg container
   constants.svg_container.insertAdjacentHTML(
     'afterend',
@@ -183,12 +216,12 @@ function CreateChartComponents() {
     .getElementById('info')
     .insertAdjacentHTML(
       'afterend',
-      '<div id="announcements" aria-live="assertive" aria-atomic="true"></div>\n'
+      '<div id="announcements" aria-live="assertive" aria-atomic="true" class="mb-3"></div>\n'
     );
 
   // end chime audio element
   document
-    .getElementById(this.info_id)
+    .getElementById(constants.info_id)
     .insertAdjacentHTML(
       'afterend',
       '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
@@ -212,15 +245,29 @@ function CreateChartComponents() {
 
 function DestroyChartComponents() {
   // remove html stuff
-  constants.svg_container.parentNode.replaceChild(
-    constants.svg,
-    constants.svg_container
-  );
-  constants.svg_container.remove();
-  constants.brailleContainer.remove();
-  constants.infoDiv.remove();
-  constants.announceContainer.remove();
-  constants.endChime.remove();
+  if (constants.svg_container != null) {
+    if (constants.svg != null) {
+      if (constants.svg_container.parentNode != null) {
+        constants.svg_container.parentNode.replaceChild(
+          constants.svg,
+          constants.svg_container
+        );
+      }
+    }
+    constants.svg_container.remove();
+  }
+  if (constants.brailleContainer != null) {
+    constants.brailleContainer.remove();
+  }
+  if (constants.infoDiv != null) {
+    constants.infoDiv.remove();
+  }
+  if (constants.announceContainer != null) {
+    constants.announceContainer.remove();
+  }
+  if (constants.endChime != null) {
+    constants.endChime.remove();
+  }
 
   constants.svg = null;
   constants.svg_container = null;

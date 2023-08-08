@@ -1,7 +1,11 @@
 class Control {
+  constructor() {
+    this.SetControls();
+  }
+
   SetControls() {
     // variable initialization
-    if (constants.chartType == 'barplot') {
+    if ([].concat(singleMaidr.type).includes('barplot')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
 
@@ -15,7 +19,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg_container,
+        constants.svg,
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -157,7 +161,7 @@ class Control {
       ]);
 
       // var keys;
-      let controlElements = [constants.svg_container, constants.brailleInput];
+      let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -384,11 +388,10 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if ([].concat(singleMaidr.type).includes('boxplot')) {
       // variable initialization
       constants.plotId = 'geom_boxplot.gTree.78.1';
       window.plot = new BoxPlot();
-      constants.chartType = 'boxplot';
       if (constants.plotOrientation == 'vert') {
         window.position = new Position(0, plot.plotData[0].length - 1);
       } else {
@@ -404,7 +407,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg_container,
+        constants.svg,
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -820,7 +823,7 @@ class Control {
       ]);
 
       // var keys;
-      let controlElements = [constants.svg_container, constants.brailleInput];
+      let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -1159,12 +1162,11 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if ([].concat(singleMaidr.type).includes('heatmap')) {
       // variable initialization
       constants.plotId = 'geom_rect.rect.2.1';
       window.position = new Position(-1, -1);
       window.plot = new HeatMap();
-      constants.chartType = 'heatmap';
       let rect = new HeatMapRect();
       let audio = new Audio();
       let lastPlayed = '';
@@ -1174,7 +1176,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg_container,
+        constants.svg,
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1471,7 +1473,7 @@ class Control {
 
       // var keys;
 
-      let controlElements = [constants.svg_container, constants.brailleInput];
+      let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -1754,15 +1756,11 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if (
-      constants.chartType == 'scatterplot' ||
-      constants.chartType.includes('scatterplot')
-    ) {
+    } else if ([].concat(singleMaidr.type).includes('scatterplot')) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
       window.plot = new ScatterPlot();
-      constants.chartType = 'scatterplot';
       let audio = new Audio();
       let layer0Point = new Layer0Point();
       let layer1Point = new Layer1Point();
@@ -1777,7 +1775,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg_container,
+        constants.svg,
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1960,7 +1958,7 @@ class Control {
       ]);
 
       // var keys;
-      let controlElements = [constants.svg_container, constants.brailleInput];
+      let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],

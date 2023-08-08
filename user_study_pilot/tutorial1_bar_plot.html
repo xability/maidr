@@ -11,12 +11,7 @@
   <body>
     <div class="container mt-3">
       <div id="container" data-plottype="bar">
-        <div id="braille-div">
-          <input id="braille-input" class="braille-input hidden" type="text" />
-        </div>
-
-        <!-- barplot_diamonds_gridSVG.svg -->
-        <div id="svg-container">
+        <div>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -24,6 +19,8 @@
             height="456px"
             viewBox="0 0 628 456"
             version="1.1"
+            id="barplot1"
+            tabindex="0"
           >
             <metadata
               xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/"
@@ -1129,21 +1126,12 @@
           </svg>
         </div>
         <br />
-        <div id="info" aria-live="assertive" aria-atomic="true">
-          <p id="x"></p>
-          <p id="y"></p>
-        </div>
-        <div
-          id="announcements"
-          aria-live="assertive"
-          aria-atomic="true"
-          class="mb-3"
-        ></div>
       </div>
     </div>
     <script>
       var maidr = {
         type: 'barplot',
+        id: 'barplot1',
         title: 'The Number of Diamonds by Cut.',
         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
         axes: {
@@ -1165,7 +1153,7 @@
     <script src="../src/js/boxplot.js"></script>
     <script src="../src/js/heatmap.js"></script>
     <script src="../src/js/scatterplot.js"></script>
-    <script src="../src/js/init.js"></script>
     <script src="../src/js/controls.js"></script>
+    <script src="../src/js/init.js"></script>
   </body>
 </html>
