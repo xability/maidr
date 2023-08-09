@@ -8,7 +8,7 @@ class ScatterPlot {
     if ('point_elements' in maidr) {
       this.plotPoints = maidr.point_elements;
     } else {
-      this.plotPoints = document.querySelectorAll(
+      this.plotPoints = constants.svg.querySelectorAll(
         '#' + constants.plotId.replaceAll('.', '\\.') + ' > use'
       );
     }
@@ -24,9 +24,9 @@ class ScatterPlot {
 
     // layer = 2
     if (constants.manualData) {
-      this.plotLine = maidr.smooth_elements;
+      this.plotLine = maidr.elements;
     } else {
-      this.plotLine = document.querySelectorAll(
+      this.plotLine = constants.svg.querySelectorAll(
         '#' + 'GRID.polyline.13.1'.replaceAll('.', '\\.') + ' > polyline'
       )[0];
     }
@@ -99,9 +99,9 @@ class ScatterPlot {
     let xValues = [];
     let yValues = [];
 
-    for (let i = 0; i < maidr.data.data_point_layer.length; i++) {
-      let x = maidr.data.data_point_layer[i]['x'];
-      let y = maidr.data.data_point_layer[i]['y'];
+    for (let i = 0; i < maidr.data_point_layer.length; i++) {
+      let x = maidr.data_point_layer[i]['x'];
+      let y = maidr.data_point_layer[i]['y'];
       xValues.push(x);
       yValues.push(y);
       if (!points.has(x)) {
@@ -205,9 +205,9 @@ class ScatterPlot {
     let x_points = [];
     let y_points = [];
 
-    for (let i = 0; i < maidr.data.data_smooth_layer.length; i++) {
-      x_points.push(maidr.data.data_smooth_layer[i]['x']);
-      y_points.push(maidr.data.data_smooth_layer[i]['y']);
+    for (let i = 0; i < maidr.data_smooth_layer.length; i++) {
+      x_points.push(maidr.data_smooth_layer[i]['x']);
+      y_points.push(maidr.data_smooth_layer[i]['y']);
     }
 
     return [x_points, y_points];

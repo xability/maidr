@@ -41,7 +41,18 @@ class Display {
       return;
     }
     if (typeof onoff === 'undefined') {
-      onoff = constants.brailleMode == 'on' ? 'off' : 'on';
+      if (typeof constants.brailleMode === 'undefined') {
+        constants.brailleMode = 'off';
+        onoff = constants.brailleMode == 'on';
+      } else {
+        // switch on/off
+        if (constants.brailleMode == 'on') {
+          onoff = 'off';
+        } else {
+          onoff = 'on';
+        }
+        constants.brailleMode = onoff;
+      }
     }
     if (onoff == 'on') {
       if (constants.chartType == 'boxplot') {

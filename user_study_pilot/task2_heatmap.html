@@ -10,12 +10,8 @@
 
   <body>
     <div class="container mt-3">
-      <div id="container" data-plottype="heatmap">
-        <div id="braille-div">
-          <input id="braille-input" class="braille-input hidden" type="text" />
-        </div>
-
-        <div id="svg-container">
+      <div id="container">
+        <div>
           <?xml version="1.0" encoding="UTF-8"?>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -24,6 +20,8 @@
             height="504px"
             viewBox="0 0 504 504"
             version="1.1"
+            id="heatmap1"
+            tabindex="0"
           >
             <metadata
               xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/"
@@ -1618,21 +1616,12 @@
           </svg>
         </div>
         <br />
-        <div id="info" aria-live="assertive" aria-atomic="true">
-          <p id="x"></p>
-          <p id="y"></p>
-        </div>
-        <div
-          id="announcements"
-          aria-live="assertive"
-          aria-atomic="true"
-          class="mb-3"
-        ></div>
       </div>
     </div>
     <script>
       var maidr = {
         type: 'heatmap',
+        id: 'heatmap1',
         legend_x: 'Year',
         legend_y: 'Continent',
         title: 'Average GDP per Continent by Year.',
@@ -1663,7 +1652,7 @@
     <script src="../src/js/boxplot.js"></script>
     <script src="../src/js/heatmap.js"></script>
     <script src="../src/js/scatterplot.js"></script>
-    <script src="../src/js/init.js"></script>
     <script src="../src/js/controls.js"></script>
+    <script src="../src/js/init.js"></script>
   </body>
 </html>

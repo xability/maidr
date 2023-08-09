@@ -1,6 +1,7 @@
 class Constants {
   // element ids
   svg_container_id = 'svg-container';
+  //svg_container_class = 'svg-container'; // remove later
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
   info_id = 'info';
@@ -12,21 +13,11 @@ class Constants {
   review_id = 'review';
   reviewSaveSpot;
   reviewSaveBrailleMode;
+  chartId = '';
+  events = [];
 
-  // default constructor for boxplot
-  constructor() {
-    // page elements
-    this.svg_container = document.getElementById(this.svg_container_id);
-    this.svg = document.querySelector('#' + this.svg_container_id + ' > svg');
-    this.brailleContainer = document.getElementById(this.braille_container_id);
-    this.brailleInput = document.getElementById(this.braille_input_id);
-    this.infoDiv = document.getElementById(this.info_id);
-    this.announceContainer = document.getElementById(
-      this.announcement_container_id
-    );
-    this.nonMenuFocus = this.svg;
-    this.endChime = document.getElementById(this.end_chime_id);
-  }
+  // default constructor for all charts
+  constructor() {}
 
   // BTS modes
   textMode = 'verbose'; // off / terse / verbose
@@ -59,7 +50,7 @@ class Constants {
   MAX_VOL = 30;
   autoPlayRate = 250; // ms per tone
   colorSelected = '#03C809';
-  brailleDisplayLength = 40; // num characters in user's braille display. Common length for desktop / mobile applications
+  brailleDisplayLength = 32; // num characters in user's braille display.  40 is common length for desktop / mobile applications
 
   // advanced user settings
   showRect = 1; // true / false
@@ -90,68 +81,6 @@ class Constants {
   debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
   canPlayEndChime = false; //
   manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the svg (false)
-
-  PrepChartHelperComponents() {
-    // init html stuff. aria live regions, braille input, etc
-
-    // info aria live
-    if (!document.getElementById(this.info_id)) {
-      if (document.getElementById(this.svg_container_id)) {
-        document
-          .getElementById(this.svg_container_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
-          );
-      }
-    }
-
-    // announcements aria live
-    if (!document.getElementById(this.announcement_container_id)) {
-      if (document.getElementById(this.info_id)) {
-        document
-          .getElementById(this.info_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n'
-          );
-      }
-    }
-
-    // braille
-    if (!document.getElementById(this.braille_container_id)) {
-      if (document.getElementById(this.container_id)) {
-        document
-          .getElementById(this.container_id)
-          .insertAdjacentHTML(
-            'afterbegin',
-            '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n'
-          );
-      }
-    }
-
-    // role app on svg
-    if (document.getElementById(this.svg_container_id)) {
-      document
-        .querySelector('#' + this.svg_container_id + ' > svg')
-        .setAttribute('role', 'application');
-      document
-        .querySelector('#' + this.svg_container_id + ' > svg')
-        .setAttribute('tabindex', '0');
-    }
-
-    // end chime audio element
-    if (!document.getElementById(this.end_chime_id)) {
-      if (document.getElementById(this.info_id)) {
-        document
-          .getElementById(this.info_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
-          );
-      }
-    }
-  }
 
   KillAutoplay() {
     if (this.autoplayId) {
@@ -215,6 +144,8 @@ class Resources {
 }
 
 class Menu {
+  whereWasMyFocus = null;
+
   constructor() {
     this.CreateMenu();
     this.LoadDataFromLocalStorage();
@@ -321,9 +252,30 @@ class Menu {
         `;
 
   CreateMenu() {
+    // menu element creation
     document
       .querySelector('body')
       .insertAdjacentHTML('beforeend', this.menuHtml);
+
+    // menu events
+    let allClose = document.querySelectorAll('#close_menu, #menu .close');
+    for (let i = 0; i < allClose.length; i++) {
+      allClose[i].addEventListener('click', function (e) {
+        this.Toggle(false);
+      });
+    }
+    document
+      .getElementById('save_and_close_menu')
+      .addEventListener('click', function (e) {
+        this.SaveData();
+        this.Toggle(false);
+      });
+    document.getElementById('menu').addEventListener('keydown', function (e) {
+      if (e.which == 27) {
+        // esc
+        this.Toggle(false);
+      }
+    });
   }
 
   Toggle(onoff) {
@@ -336,6 +288,7 @@ class Menu {
     }
     if (onoff) {
       // open
+      this.whereWasMyFocus = document.activeElement;
       this.PopulateData();
       document.getElementById('menu').classList.remove('hidden');
       document.getElementById('modal_backdrop').classList.remove('hidden');
@@ -344,7 +297,8 @@ class Menu {
       // close
       document.getElementById('menu').classList.add('hidden');
       document.getElementById('modal_backdrop').classList.add('hidden');
-      constants.nonMenuFocus.focus();
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
     }
   }
 

@@ -4,7 +4,7 @@ class HeatMap {
       this.plots = maidr.elements;
       constants.hasRect = 1;
     } else {
-      this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
+      this.plots = constants.svg.querySelectorAll('g[id^="geom_rect"] > rect');
       constants.hasRect = 0;
     }
 
@@ -133,7 +133,7 @@ class HeatMap {
     if ('title' in maidr) {
       title = maidr.title;
     } else {
-      title = document.querySelector(
+      title = constants.svg.querySelector(
         'g[id^="guide.title"] text > tspan'
       ).innerHTML;
     }
@@ -150,8 +150,12 @@ class HeatMap {
         }
       }
     } else {
-      legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
-      legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
+      legendX = constants.svg.querySelector(
+        'g[id^="xlab"] text > tspan'
+      ).innerHTML;
+      legendY = constants.svg.querySelector(
+        'g[id^="ylab"] text > tspan'
+      ).innerHTML;
     }
 
     labels_nodelist = [legendX, legendY, title];
@@ -168,7 +172,7 @@ class HeatMap {
       }
     } else {
       let x_labels_nodelist;
-      x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
+      x_labels_nodelist = constants.svg.querySelectorAll('tspan[dy="10"]');
       let labels = [];
       for (let i = 0; i < x_labels_nodelist.length; i++) {
         labels.push(x_labels_nodelist[i].innerHTML.trim());
@@ -188,7 +192,7 @@ class HeatMap {
     } else {
       let y_labels_nodelist;
       let labels = [];
-      y_labels_nodelist = document.querySelectorAll(
+      y_labels_nodelist = constants.svg.querySelectorAll(
         'tspan[id^="GRID.text.19.1"]'
       );
       for (let i = 0; i < y_labels_nodelist.length; i++) {
@@ -203,7 +207,7 @@ class HeatMap {
     if ('title' in maidr) {
       return maidr.title;
     } else {
-      let heatmapTitle = document.querySelector(
+      let heatmapTitle = constants.svg.querySelector(
         'g[id^="layout::title"] text > tspan'
       ).innerHTML;
       if (
