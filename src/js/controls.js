@@ -218,22 +218,6 @@ class Control {
             }
           }
 
-          // for concurrent key press
-          // keys = (keys || []);
-          // keys[e.keyCode] = true;
-          // // lx: x label, ly: y label, lt: title
-          // if (keys[76] && keys[88]) { // lx
-          //     display.displayXLabel(plot);
-          // }
-
-          // if (keys[76] && keys[89]) { // ly
-          //     display.displayYLabel(plot);
-          // }
-
-          // if (keys[76] && keys[84]) { // lt
-          //     display.displayTitle(plot);
-          // }
-
           // must come before prefix L
           if (pressedL) {
             if (e.which == 88) {

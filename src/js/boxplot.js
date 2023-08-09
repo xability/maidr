@@ -12,9 +12,11 @@ class BoxPlot {
     }
 
     if (
-      document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
+      constants.svg.querySelector(
+        'g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
+      )
     ) {
-      constants.plotId = document
+      constants.plotId = constants.svg
         .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
         .getAttribute('id');
     }
@@ -24,8 +26,9 @@ class BoxPlot {
       let boxplotTitle = '';
       if (typeof maidr !== 'undefined' && typeof maidr.title !== 'undefined') {
         boxplotTitle = maidr.title;
-      } else if (document.querySelector('tspan[dy="9.45"]')) {
-        boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+      } else if (constants.svg.querySelector('tspan[dy="9.45"]')) {
+        boxplotTitle =
+          constants.svg.querySelector('tspan[dy="9.45"]').innerHTML;
         boxplotTitle = boxplotTitle.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
       }
       this.title =
@@ -37,14 +40,14 @@ class BoxPlot {
       if (typeof maidr !== 'undefined') {
         this.x_group_label = maidr.x_group_label;
       } else {
-        this.x_group_label = document.querySelector(
+        this.x_group_label = constants.svg.querySelector(
           'text:not([transform^="rotate"]) > tspan[dy="7.88"]'
         ).innerHTML;
       }
       if (typeof maidr !== 'undefined') {
         this.y_group_label = maidr.y_group_label;
       } else {
-        this.y_group_label = document.querySelector(
+        this.y_group_label = constants.svg.querySelector(
           'text[transform^="rotate"] > tspan[dy="7.88"]'
         ).innerHTML;
       }
@@ -59,7 +62,7 @@ class BoxPlot {
         if (constants.plotOrientation == 'vert') {
           elDy = '6.3';
         }
-        let els = document.querySelectorAll('tspan[dy="' + elDy + '"]');
+        let els = constants.svg.querySelectorAll('tspan[dy="' + elDy + '"]');
         for (let i = 0; i < els.length; i++) {
           labels.push(els[i].innerHTML.trim());
         }
@@ -79,10 +82,10 @@ class BoxPlot {
         this.plotData = maidr;
       }
     } else {
-      this.x_group_label = document.getElementById(
+      this.x_group_label = constants.svg.getElementById(
         'GRID.text.199.1.1.tspan.1'
       ).innerHTML;
-      this.y_group_label = document.getElementById(
+      this.y_group_label = constants.svg.getElementById(
         'GRID.text.202.1.1.tspan.1'
       ).innerHTML;
       if (constants.plotOrientation == 'vert') {
@@ -108,7 +111,7 @@ class BoxPlot {
   GetLabels() {
     let labels = [];
     let query = 'tspan[dy="5"]';
-    let els = document.querySelectorAll(query);
+    let els = constants.svg.querySelectorAll(query);
     for (let i = 0; i < els.length; i++) {
       labels.push(els[i].innerHTML.trim());
     }

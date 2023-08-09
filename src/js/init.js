@@ -11,25 +11,21 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
   // set focus events for all svgs matching maidr ids
   let maidrObjects = [];
-  if (typeof maidr == 'object') {
+  if (!Array.isArray(maidr)) {
     maidrObjects.push(maidr);
-  } else if (typeof maidr == 'array') {
-    for (let i = 0; i < maidr.length; i++) {
-      maidrObjects.push(maidr[i]);
-    }
+  } else {
+    maidrObjects = maidr;
   }
   // set focus events for all maidr ids
   DestroyMaidr(); // just in case
+  window.maidrIds = [];
   for (let i = 0; i < maidrObjects.length; i++) {
     let maidrId = maidrObjects[i].id;
+    maidrIds.push(maidrId);
     let maidrElemn = document.getElementById(maidrId);
     if (maidrElemn) {
       maidrElemn.addEventListener('focus', function (e) {
-        // only run if we don't have a running setup
-        if (plot == null) {
-          window.singleMaidr = maidrObjects[i]; // this is a weird hack, in which constants vars don't get set right away, so we avoid them and pull directly from the maidr object
-          InitMaidr();
-        }
+        ShouldWeInitMaidr(maidrObjects[i]);
       });
       // blur done elsewhere
     }
@@ -93,10 +89,12 @@ document.addEventListener('DOMContentLoaded', function (e) {
   }
 });
 
-function InitMaidr() {
+function InitMaidr(thisMaidr) {
+  console.log('Initializing Maidr');
   // just in case
   if (typeof constants != 'undefined') {
     // init vars and html
+    window.singleMaidr = thisMaidr;
     constants.chartId = singleMaidr.id;
     constants.chartType = singleMaidr.type;
     CreateChartComponents(singleMaidr);
@@ -137,20 +135,55 @@ function InitMaidr() {
   }
 }
 
+function ShouldWeInitMaidr(thisMaidr) {
+  // conditions:
+  // - maidr isn't enabled (check if singleMaidr is undefined or false)
+  // - the chart we're moving to isn't the same as the one we're on
+  // note: if we move from one to another, destroy the current first
+
+  if (typeof singleMaidr == 'undefined') {
+    // not enabled
+    InitMaidr(thisMaidr);
+  } else if (!singleMaidr) {
+    // not enabled
+    InitMaidr(thisMaidr);
+  } else if (thisMaidr.id !== singleMaidr.id) {
+    // different chart, destroy first
+    DestroyMaidr();
+    InitMaidr(thisMaidr);
+  }
+}
+
 function ShouldWeDestroyMaidr(e) {
+  // conditions: we're not about to focus on any chart that is maidr enabled
+  // note: the case where we move from one maidr enabled chart to another is handled by ShouldWeInitMaidr
+
   // timeout to delay blur event
   setTimeout(() => {
     let focusedElement = document.activeElement;
-    if (
-      focusedElement !== document.getElementById(singleMaidr.id) &&
-      focusedElement !== document.getElementById(constants.braille_input_id)
-    ) {
+    if (focusedElement.id) {
+      if (maidrIds.includes(focusedElement.id)) {
+        return;
+      } else if (focusedElement.id == constants.braille_input_id) {
+        return;
+      } else {
+        DestroyMaidr();
+      }
+    } else {
+      // we're focused somewhere on the page that doesn't have an id, which means not maidr, so destroy
       DestroyMaidr();
     }
   }, 0);
 }
 
 function DestroyMaidr() {
+  console.log('Destroying Maidr');
+
+  // chart cleanup
+  if (constants.chartType == 'barplot') {
+    plot.DeselectAll();
+  }
+
   // remove events
   for (let i = 0; i < constants.events.length; i++) {
     constants.events[i][0].removeEventListener(
@@ -158,6 +191,7 @@ function DestroyMaidr() {
       constants.events[i][2]
     );
   }
+  constants.events = [];
 
   // remove global vars
   constants.chartId = null;
@@ -168,6 +202,7 @@ function DestroyMaidr() {
   window.display = null;
   window.control = null;
   window.plot = null;
+  window.singleMaidr = null;
 }
 
 function CreateChartComponents() {
