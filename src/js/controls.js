@@ -161,6 +161,7 @@ class Control {
       ]);
 
       // var keys;
+// main BTS controls
       let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
@@ -2360,3 +2361,4 @@ class Control {
     }
   }
 }
+

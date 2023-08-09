@@ -9,11 +9,12 @@ library(gapminder)
 
 
 # Bar plot sample
-# svglite("svglite_bar.svg")
+svglite("svglite_bar.svg")
 ggplot(diamonds, aes(cut)) +
   geom_bar() +
   labs(title = "The Number of Diamonds by Cut.", x = "Cut", y = "Count")
 
+dev.off()
 
 gridSVG::grid.export("barplot_labels.svg")
 dev.off()
@@ -43,9 +44,12 @@ gapminder %>%
   jsonlite::write_json("barplot_user_study_raw_data.json")
 
 # Box plot sample
+svglite("tutorial_boxplot.svg")
 ggplot(data = mpg, mapping = aes(y = class, x = hwy)) +
   geom_boxplot() +
   labs(title = "Highway Mileage by Car Class.", x = "Highway Mileage", y = "Car Class")
+
+dev.off()
 
 gridSVG::grid.export("boxplot_label.svg")
 dev.off()
@@ -131,11 +135,14 @@ gapminder %>%
   jsonlite::write_json("boxplot_user_study_raw_data.json")
 
 # Scatter plot sample
+svglite("tutorial_scatterplot.svg")
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
   # geom_point(position = "jitter") +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE) +
   labs(title = "Highway Mileage by Engine Displacement.", x = "Engine Displacement", y = "Highway Mileage")
+
+dev.off()
 
 # Save ggplot data to json
 library(tidyverse)
@@ -226,17 +233,22 @@ dev.off()
 
 
 # heat map for user study
-gapminder %>%
+df <- gapminder %>%
   filter(year >= 1987) %>%
   group_by(year, continent) %>%
   summarise(mean_gdp = round(mean(gdpPercap, rm.na = TRUE), digits = 2)) %>%
   ungroup() %>%
-  mutate(year = factor(year)) %>%
+  mutate(year = factor(year))
+
+svglite("task_heatmap.svg")
+df %>%
   ggplot(aes(x = year, y = continent, fill = mean_gdp)) +
   scale_fill_gradient(low = "#56B1F7", high = "#132B43") +
   geom_tile(color = "black") +
   coord_fixed() +
   labs(title = "Average GDP per Continent by Year.", x = "Year", y = "Continent", fill = "Average GDP")
+
+dev.off()
 
 gridSVG::grid.export("heatmap_user_study.svg")
 dev.off()

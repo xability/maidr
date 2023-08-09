@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   }
 
   // events etc for user study page
+  // run tracker stuff only on user study page
   if (document.getElementById('download_data_trigger')) {
     // download data button
     document
