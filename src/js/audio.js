@@ -35,7 +35,7 @@ class Audio {
     let frequency = 0;
     let panning = 0;
     // freq goes between min / max as rawFreq goes between min(0) / max
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       rawFreq = plot.plotData[position.x];
       rawPanning = position.x;
       frequency = this.SlideBetween(
@@ -52,7 +52,7 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -107,7 +107,7 @@ class Audio {
         frequency = constants.MIN_FREQUENCY;
         panning = 0;
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       rawFreq = plot.values[position.y][position.x];
       rawPanning = position.x;
       frequency = this.SlideBetween(
@@ -124,7 +124,7 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       if (constants.layer == 1) {
         // point layer
         // more than one point with same x-value
@@ -180,7 +180,7 @@ class Audio {
 
     if (constants.debugLevel > 5) {
       console.log('will play tone at freq', frequency);
-      if (constants.chartType == 'boxplot') {
+      if (constants.chartType == 'box') {
         console.log(
           'based on',
           constants.minY,
@@ -209,7 +209,7 @@ class Audio {
       }
     }
 
-    if (constants.chartType == 'boxplot') {
+    if (constants.chartType == 'box') {
       // different types of sounds for different regions.
       // outlier = short tone
       // whisker = normal tone
@@ -230,7 +230,7 @@ class Audio {
 
     // create tones
     this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
-    if (constants.chartType == 'boxplot') {
+    if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -247,7 +247,7 @@ class Audio {
           'triangle'
         );
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       // Added heatmap tone feature
       if (rawFreq == 0) {
         this.PlayNull();
@@ -415,13 +415,13 @@ class Audio {
              * the following (panning) only works if we're on a server
         let panning = 0;
         try {
-            if ( constants.chartType == 'barplot' ) {
+            if ( constants.chartType == 'bar' ) {
                 panning = this.SlideBetween(position.x, 0, plot.bars.length-1, -1, 1);
-            } else if ( constants.chartType == 'boxplot' ) {
+            } else if ( constants.chartType == 'box' ) {
                 panning = this.SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
-            } else if ( constants.chartType == 'heatmap' ) {
+            } else if ( constants.chartType == 'heat' ) {
                 panning = this.SlideBetween(position.x, 0, plot.num_cols-1, -1, 1);
-            } else if ( constants.chartType == 'scatterplot' ) {
+            } else if ( constants.chartType == 'scatter' ) {
                 panning = this.SlideBetween(position.x, 0, plot.x.length-1, -1, 1);
             }
         } catch {

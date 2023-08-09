@@ -24,7 +24,7 @@ class Constants {
   brailleMode = 'on'; // on / off
   sonifMode = 'on'; // sep / same / off
   reviewMode = 'off'; // on / off
-  layer = 2; // 1 = points; 2 = best fit line => for scatterplot
+  layer = 2; // 1 = points; 2 = best fit line => for scatter
 
   // basic chart properties
   minX = 0;
@@ -32,7 +32,7 @@ class Constants {
   minY = 0;
   maxY = 0;
   plotId = ''; // update with id in chart specific js
-  chartType = ''; // set as 'boxplot' or whatever later in chart specific js file
+  chartType = ''; // set as 'box' or whatever later in chart specific js file
   navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
   // basic audio properties
@@ -529,7 +529,7 @@ class Tracker {
     let y_label = '';
     let value = '';
     let fill_value = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       if (!this.isUndefinedOrNull(plot.columnLabels[position.x])) {
         x_tickmark = plot.columnLabels[position.x];
       }
@@ -542,7 +542,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.plotData[position.x])) {
         value = plot.plotData[position.x];
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
         x_tickmark = plot.x_labels[position.x].trim();
       }
@@ -563,7 +563,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.group_labels[2])) {
         fill_value = plot.group_labels[2];
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -616,7 +616,7 @@ class Tracker {
           }
         }
       }
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
       }

@@ -181,7 +181,7 @@ function DestroyMaidr() {
   console.log('Destroying Maidr');
 
   // chart cleanup
-  if (constants.chartType == 'barplot') {
+  if (constants.chartType == 'bar') {
     plot.DeselectAll();
   }
 

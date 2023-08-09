@@ -345,7 +345,7 @@ class BoxPlot {
 
     // add labeling for display
     for (let i = 0; i < plotData.length; i++) {
-      // each boxplot section
+      // each box section
       let rangeCounter = 0;
       for (let j = 0; j < plotData[i].length; j++) {
         let point = plotData[i][j];

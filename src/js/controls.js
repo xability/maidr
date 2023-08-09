@@ -5,7 +5,7 @@ class Control {
 
   SetControls() {
     // variable initialization
-    if ([].concat(singleMaidr.type).includes('barplot')) {
+    if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
 
@@ -160,8 +160,7 @@ class Control {
         },
       ]);
 
-      // var keys;
-// main BTS controls
+      // main BTS controls
       let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
@@ -373,7 +372,7 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('boxplot')) {
+    } else if ([].concat(singleMaidr.type).includes('box')) {
       // variable initialization
       constants.plotId = 'geom_boxplot.gTree.78.1';
       window.plot = new BoxPlot();
@@ -807,7 +806,7 @@ class Control {
         },
       ]);
 
-      // var keys;
+      // main BTS controls
       let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
@@ -1147,7 +1146,7 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('heatmap')) {
+    } else if ([].concat(singleMaidr.type).includes('heat')) {
       // variable initialization
       constants.plotId = 'geom_rect.rect.2.1';
       window.position = new Position(-1, -1);
@@ -1456,8 +1455,7 @@ class Control {
         },
       ]);
 
-      // var keys;
-
+      // main BTS controls
       let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
@@ -1741,7 +1739,7 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('scatterplot')) {
+    } else if ([].concat(singleMaidr.type).includes('scatter')) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
@@ -1942,7 +1940,7 @@ class Control {
         },
       ]);
 
-      // var keys;
+      // main BTS controls
       let controlElements = [constants.svg, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
@@ -2361,4 +2359,3 @@ class Control {
     }
   }
 }
-

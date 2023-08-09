@@ -36,7 +36,7 @@ class Display {
   }
 
   toggleBrailleMode(onoff) {
-    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+    if (constants.chartType == 'scatter' && constants.layer == 1) {
       this.announceText('Braille is not supported in point layer.');
       return;
     }
@@ -55,7 +55,7 @@ class Display {
       }
     }
     if (onoff == 'on') {
-      if (constants.chartType == 'boxplot') {
+      if (constants.chartType == 'box') {
         // braille mode is on before any plot is selected
         if (
           constants.plotOrientation != 'vert' &&
@@ -80,7 +80,7 @@ class Display {
 
       this.SetBraille(plot);
 
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         let pos = position.y * (plot.num_cols + 1) + position.x;
         constants.brailleInput.setSelectionRange(pos, pos);
       }
@@ -109,7 +109,7 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+    if (constants.chartType == 'scatter' && constants.layer == 1) {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'sep';
         this.announceText(resources.GetString('son_sep'));
@@ -146,13 +146,13 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       constants.brailleInput.setSelectionRange(position.x, position.x);
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
-    } else if (constants.chartType == 'boxplot') {
-      // on boxplot we extend characters a lot and have blanks, so we go to our label
+    } else if (constants.chartType == 'box') {
+      // on box we extend characters a lot and have blanks, so we go to our label
       let sectionPos =
         constants.plotOrientation == 'vert' ? position.y : position.x;
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
@@ -180,7 +180,7 @@ class Display {
       }
 
       constants.brailleInput.setSelectionRange(adjustedPos, adjustedPos);
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
   }
@@ -192,7 +192,7 @@ class Display {
     let output = '';
     let verboseText = '';
     let reviewText = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       // {legend x} is {colname x}, {legend y} is {value y}
       verboseText =
         plot.plotLegend.x +
@@ -215,7 +215,7 @@ class Display {
       } else if (constants.textMode == 'verbose') {
         output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       // col name and value
       if (constants.navigation == 1) {
         verboseText +=
@@ -273,7 +273,7 @@ class Display {
       } else if (constants.textMode == 'verbose') {
         output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       // setup
       let val = 0;
       let numPoints = 1;
@@ -378,7 +378,7 @@ class Display {
         output = '<p>' + textVerbose + '</p>\n';
       else if (constants.textMode == 'terse')
         output = '<p>' + textTerse + '</p>\n';
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       if (constants.layer == 1) {
         // point layer
         verboseText +=
@@ -444,12 +444,12 @@ class Display {
 
   displayXLabel(plot) {
     let xlabel = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       xlabel = plot.plotLegend.x;
     } else if (
-      constants.chartType == 'heatmap' ||
-      constants.chartType == 'boxplot' ||
-      constants.chartType == 'scatterplot'
+      constants.chartType == 'heat' ||
+      constants.chartType == 'box' ||
+      constants.chartType == 'scatter'
     ) {
       xlabel = plot.x_group_label;
     }
@@ -462,12 +462,12 @@ class Display {
 
   displayYLabel(plot) {
     let ylabel = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       ylabel = plot.plotLegend.y;
     } else if (
-      constants.chartType == 'heatmap' ||
-      constants.chartType == 'boxplot' ||
-      constants.chartType == 'scatterplot'
+      constants.chartType == 'heat' ||
+      constants.chartType == 'box' ||
+      constants.chartType == 'scatter'
     ) {
       ylabel = plot.y_group_label;
     }
@@ -496,11 +496,11 @@ class Display {
 
   displayFill(plot) {
     if (constants.textMode == 'terse') {
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
       }
     } else if (constants.textMode == 'verbose') {
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML =
           '<p>Fill label is ' + plot.box_label + '<p>';
       }
@@ -510,7 +510,7 @@ class Display {
   SetBraille(plot) {
     let brailleArray = [];
 
-    if (constants.chartType == 'heatmap') {
+    if (constants.chartType == 'heat') {
       let range = (constants.maxY - constants.minY) / 3;
       let low = constants.minY + range;
       let medium = low + range;
@@ -529,7 +529,7 @@ class Display {
         }
         brailleArray.push('⠳');
       }
-    } else if (constants.chartType == 'barplot') {
+    } else if (constants.chartType == 'bar') {
       let range = (constants.maxY - constants.minY) / 4;
       let low = constants.minY + range;
       let medium = low + range;
@@ -545,7 +545,7 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       let range = (plot.curveMaxY - plot.curveMinY) / 4;
       let low = plot.curveMinY + range;
       let medium = low + range;
@@ -562,9 +562,9 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'boxplot' && position.y > -1) {
+    } else if (constants.chartType == 'box' && position.y > -1) {
       // only run if we're on a plot
-      // Idea here is to use different braille characters to physically represent the boxplot
+      // Idea here is to use different braille characters to physically represent the box
       // if sections are longer or shorter we'll add more characters
       // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
       //
