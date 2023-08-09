@@ -5,7 +5,7 @@ class BarChart {
       this.bars = singleMaidr.elements;
       constants.hasRect = 1;
     } else {
-      this.bars = constants.svg.querySelectorAll('g[id^="geom_rect"] > rect');
+      this.bars = constants.chart.querySelectorAll('g[id^="geom_rect"] > rect');
       constants.hasRect = 0;
     }
 
@@ -39,16 +39,20 @@ class BarChart {
       }
     } else {
       // legend labels
-      if (constants.svg.querySelector('g[id^="xlab"] tspan')) {
-        legendX = constants.svg.querySelector('g[id^="xlab"] tspan').innerHTML;
+      if (constants.chart.querySelector('g[id^="xlab"] tspan')) {
+        legendX = constants.chart.querySelector(
+          'g[id^="xlab"] tspan'
+        ).innerHTML;
       }
-      if (constants.svg.querySelector('g[id^="ylab"] tspan')) {
-        legendY = constants.svg.querySelector('g[id^="ylab"] tspan').innerHTML;
+      if (constants.chart.querySelector('g[id^="ylab"] tspan')) {
+        legendY = constants.chart.querySelector(
+          'g[id^="ylab"] tspan'
+        ).innerHTML;
       }
 
       // tick labels
       this.columnLabels = this.ParseInnerHTML(
-        constants.svg.querySelectorAll(
+        constants.chart.querySelectorAll(
           'g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'
         )
       );
@@ -64,9 +68,9 @@ class BarChart {
     if ('title' in singleMaidr) {
       this.title = singleMaidr.title;
     } else if (
-      constants.svg.querySelector('g[id^="plot.title..titleGrob"] tspan')
+      constants.chart.querySelector('g[id^="plot.title..titleGrob"] tspan')
     ) {
-      this.title = constants.svg.querySelector(
+      this.title = constants.chart.querySelector(
         'g[id^="plot.title..titleGrob"] tspan'
       ).innerHTML;
       this.title = this.title.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
@@ -131,7 +135,7 @@ class BarChart {
     // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
 
     let columnLabels = [];
-    let els = constants.svg.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
+    let els = constants.chart.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
     for (var i = 0; i < els.length; i++) {
       columnLabels.push(els[i].innerHTML);
     }
@@ -141,7 +145,7 @@ class BarChart {
 
   GetLegend() {
     let legend = {};
-    let els = constants.svg.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
+    let els = constants.chart.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
     legend.x = els[1].innerHTML;
     legend.y = els[0].innerHTML;
 

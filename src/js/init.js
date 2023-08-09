@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   window.menu = new Menu();
   window.tracker = new Tracker();
 
-  // set focus events for all svgs matching maidr ids
+  // set focus events for all charts matching maidr ids
   let maidrObjects = [];
   if (!Array.isArray(maidr)) {
     maidrObjects.push(maidr);
@@ -108,7 +108,7 @@ function InitMaidr(thisMaidr) {
 
     // help menu events
     constants.events.push([
-      constants.svg_container,
+      constants.chart_container,
       'keydown',
       function (e) {
         // Menu open
@@ -209,21 +209,21 @@ function DestroyMaidr() {
 function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
 
-  // core svg
-  let svg = document.getElementById(singleMaidr.id);
+  // core chart
+  let chart = document.getElementById(singleMaidr.id);
 
-  // svg container, we create a parent of svg
-  let svg_container = document.createElement('div');
-  svg_container.id = constants.svg_container_id;
-  // replace svg with svg container, and append svg to svg container
-  svg.parentNode.replaceChild(svg_container, svg);
-  svg_container.appendChild(svg);
+  // chart container, we create a parent of chart
+  let chart_container = document.createElement('div');
+  chart_container.id = constants.chart_container_id;
+  // replace chart with chart container, and append chart to chart container
+  chart.parentNode.replaceChild(chart_container, chart);
+  chart_container.appendChild(chart);
 
-  constants.svg = svg;
-  constants.svg_container = svg_container;
+  constants.chart = chart;
+  constants.chart_container = chart_container;
 
-  // braille input, pre sibling of svg container
-  constants.svg_container.insertAdjacentHTML(
+  // braille input, pre sibling of chart container
+  constants.chart_container.insertAdjacentHTML(
     'beforebegin',
     '<div id="' +
       constants.braille_container_id +
@@ -241,8 +241,8 @@ function CreateChartComponents() {
     ShouldWeDestroyMaidr,
   ]);
 
-  // info aria live, next sibling of svg container
-  constants.svg_container.insertAdjacentHTML(
+  // info aria live, next sibling of chart container
+  constants.chart_container.insertAdjacentHTML(
     'afterend',
     '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
   );
@@ -264,7 +264,7 @@ function CreateChartComponents() {
     );
 
   // some tweaks
-  constants.svg_container.setAttribute('role', 'application');
+  constants.chart_container.setAttribute('role', 'application');
 
   // set page elements
   constants.brailleContainer = document.getElementById(
@@ -275,22 +275,22 @@ function CreateChartComponents() {
   constants.announceContainer = document.getElementById(
     constants.announcement_container_id
   );
-  constants.nonMenuFocus = constants.svg;
+  constants.nonMenuFocus = constants.chart;
   constants.endChime = document.getElementById(constants.end_chime_id);
 }
 
 function DestroyChartComponents() {
   // remove html stuff
-  if (constants.svg_container != null) {
-    if (constants.svg != null) {
-      if (constants.svg_container.parentNode != null) {
-        constants.svg_container.parentNode.replaceChild(
-          constants.svg,
-          constants.svg_container
+  if (constants.chart_container != null) {
+    if (constants.chart != null) {
+      if (constants.chart_container.parentNode != null) {
+        constants.chart_container.parentNode.replaceChild(
+          constants.chart,
+          constants.chart_container
         );
       }
     }
-    constants.svg_container.remove();
+    constants.chart_container.remove();
   }
   if (constants.brailleContainer != null) {
     constants.brailleContainer.remove();
@@ -305,8 +305,8 @@ function DestroyChartComponents() {
     constants.endChime.remove();
   }
 
-  constants.svg = null;
-  constants.svg_container = null;
+  constants.chart = null;
+  constants.chart_container = null;
   constants.brailleContainer = null;
   constants.brailleInput = null;
   constants.infoDiv = null;

@@ -1,7 +1,7 @@
 class Constants {
   // element ids
-  svg_container_id = 'svg-container';
-  //svg_container_class = 'svg-container'; // remove later
+  chart_container_id = 'chart-container';
+  //chart_container_class = 'chart-container'; // remove later
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
   info_id = 'info';
@@ -80,7 +80,7 @@ class Constants {
   // debug stuff
   debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
   canPlayEndChime = false; //
-  manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the svg (false)
+  manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the chart (false)
 
   KillAutoplay() {
     if (this.autoplayId) {

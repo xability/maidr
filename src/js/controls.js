@@ -19,7 +19,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg,
+        constants.chart,
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -161,7 +161,7 @@ class Control {
       ]);
 
       // main BTS controls
-      let controlElements = [constants.svg, constants.brailleInput];
+      let controlElements = [constants.chart, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -391,7 +391,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg,
+        constants.chart,
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
@@ -807,7 +807,7 @@ class Control {
       ]);
 
       // main BTS controls
-      let controlElements = [constants.svg, constants.brailleInput];
+      let controlElements = [constants.chart, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -1160,7 +1160,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg,
+        constants.chart,
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1456,7 +1456,7 @@ class Control {
       ]);
 
       // main BTS controls
-      let controlElements = [constants.svg, constants.brailleInput];
+      let controlElements = [constants.chart, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],
@@ -1758,7 +1758,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.svg,
+        constants.chart,
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1941,7 +1941,7 @@ class Control {
       ]);
 
       // main BTS controls
-      let controlElements = [constants.svg, constants.brailleInput];
+      let controlElements = [constants.chart, constants.brailleInput];
       for (let i = 0; i < controlElements.length; i++) {
         constants.events.push([
           controlElements[i],

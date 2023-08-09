@@ -8,12 +8,12 @@ class ScatterPlot {
     if ('point_elements' in maidr) {
       this.plotPoints = maidr.point_elements;
     } else {
-      this.plotPoints = constants.svg.querySelectorAll(
+      this.plotPoints = constants.chart.querySelectorAll(
         '#' + constants.plotId.replaceAll('.', '\\.') + ' > use'
       );
     }
-    this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
-    this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+    this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
+    this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
 
     this.x = this.GetPointValues()[0]; // actual values of x
     this.y = this.GetPointValues()[1]; // actual values of y
@@ -26,12 +26,12 @@ class ScatterPlot {
     if (constants.manualData) {
       this.plotLine = maidr.elements;
     } else {
-      this.plotLine = constants.svg.querySelectorAll(
+      this.plotLine = constants.chart.querySelectorAll(
         '#' + 'GRID.polyline.13.1'.replaceAll('.', '\\.') + ' > polyline'
       )[0];
     }
-    this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
-    this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
+    this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
+    this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
 
     this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
     this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
@@ -232,15 +232,15 @@ class ScatterPlot {
 
 class Layer0Point {
   constructor() {
-    this.x = plot.svgPointsX[0];
-    this.y = plot.svgPointsY[0];
+    this.x = plot.chartPointsX[0];
+    this.y = plot.chartPointsY[0];
     this.strokeWidth = 1.35;
   }
 
   async UpdatePoints() {
     await this.ClearPoints();
-    this.x = plot.svgPointsX[position.x];
-    this.y = plot.svgPointsY[position.x];
+    this.x = plot.chartPointsX[position.x];
+    this.y = plot.chartPointsY[position.x];
   }
 
   async PrintPoints() {
@@ -253,13 +253,13 @@ class Layer0Point {
       point.setAttribute('cx', this.x);
       point.setAttribute(
         'cy',
-        constants.svg.getBoundingClientRect().height - this.y[i]
+        constants.chart.getBoundingClientRect().height - this.y[i]
       );
       point.setAttribute('r', 3.95);
       point.setAttribute('stroke', constants.colorSelected);
       point.setAttribute('stroke-width', this.strokeWidth);
       point.setAttribute('fill', constants.colorSelected);
-      constants.svg.appendChild(point);
+      constants.chart.appendChild(point);
     }
   }
 
@@ -281,15 +281,15 @@ class Layer0Point {
 
 class Layer1Point {
   constructor() {
-    this.x = plot.svgLineX[0];
-    this.y = plot.svgLineY[0];
+    this.x = plot.chartLineX[0];
+    this.y = plot.chartLineY[0];
     this.strokeWidth = 1.35;
   }
 
   async UpdatePoints() {
     await this.ClearPoints();
-    this.x = plot.svgLineX[positionL1.x];
-    this.y = plot.svgLineY[positionL1.x];
+    this.x = plot.chartLineX[positionL1.x];
+    this.y = plot.chartLineY[positionL1.x];
   }
 
   async PrintPoints() {
@@ -301,13 +301,13 @@ class Layer1Point {
     point.setAttribute('cx', this.x);
     point.setAttribute(
       'cy',
-      constants.svg.getBoundingClientRect().height - this.y
+      constants.chart.getBoundingClientRect().height - this.y
     );
     point.setAttribute('r', 3.95);
     point.setAttribute('stroke', constants.colorSelected);
     point.setAttribute('stroke-width', this.strokeWidth);
     point.setAttribute('fill', constants.colorSelected);
-    constants.svg.appendChild(point);
+    constants.chart.appendChild(point);
   }
 
   async ClearPoints() {

@@ -4,7 +4,9 @@ class HeatMap {
       this.plots = maidr.elements;
       constants.hasRect = 1;
     } else {
-      this.plots = constants.svg.querySelectorAll('g[id^="geom_rect"] > rect');
+      this.plots = constants.chart.querySelectorAll(
+        'g[id^="geom_rect"] > rect'
+      );
       constants.hasRect = 0;
     }
 
@@ -133,7 +135,7 @@ class HeatMap {
     if ('title' in maidr) {
       title = maidr.title;
     } else {
-      title = constants.svg.querySelector(
+      title = constants.chart.querySelector(
         'g[id^="guide.title"] text > tspan'
       ).innerHTML;
     }
@@ -150,10 +152,10 @@ class HeatMap {
         }
       }
     } else {
-      legendX = constants.svg.querySelector(
+      legendX = constants.chart.querySelector(
         'g[id^="xlab"] text > tspan'
       ).innerHTML;
-      legendY = constants.svg.querySelector(
+      legendY = constants.chart.querySelector(
         'g[id^="ylab"] text > tspan'
       ).innerHTML;
     }
@@ -172,7 +174,7 @@ class HeatMap {
       }
     } else {
       let x_labels_nodelist;
-      x_labels_nodelist = constants.svg.querySelectorAll('tspan[dy="10"]');
+      x_labels_nodelist = constants.chart.querySelectorAll('tspan[dy="10"]');
       let labels = [];
       for (let i = 0; i < x_labels_nodelist.length; i++) {
         labels.push(x_labels_nodelist[i].innerHTML.trim());
@@ -192,7 +194,7 @@ class HeatMap {
     } else {
       let y_labels_nodelist;
       let labels = [];
-      y_labels_nodelist = constants.svg.querySelectorAll(
+      y_labels_nodelist = constants.chart.querySelectorAll(
         'tspan[id^="GRID.text.19.1"]'
       );
       for (let i = 0; i < y_labels_nodelist.length; i++) {
@@ -207,7 +209,7 @@ class HeatMap {
     if ('title' in maidr) {
       return maidr.title;
     } else {
-      let heatmapTitle = constants.svg.querySelector(
+      let heatmapTitle = constants.chart.querySelector(
         'g[id^="layout::title"] text > tspan'
       ).innerHTML;
       if (
@@ -248,13 +250,13 @@ class HeatMapRect {
     rect.setAttribute('x', this.x);
     rect.setAttribute(
       'y',
-      constants.svg.getBoundingClientRect().height - this.height - this.y
+      constants.chart.getBoundingClientRect().height - this.height - this.y
     ); // y coord is inverse from plot data
     rect.setAttribute('width', this.height);
     rect.setAttribute('height', this.height);
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    constants.svg.appendChild(rect);
+    constants.chart.appendChild(rect);
   }
 }

@@ -12,11 +12,11 @@ class BoxPlot {
     }
 
     if (
-      constants.svg.querySelector(
+      constants.chart.querySelector(
         'g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
       )
     ) {
-      constants.plotId = constants.svg
+      constants.plotId = constants.chart
         .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
         .getAttribute('id');
     }
@@ -26,9 +26,9 @@ class BoxPlot {
       let boxplotTitle = '';
       if (typeof maidr !== 'undefined' && typeof maidr.title !== 'undefined') {
         boxplotTitle = maidr.title;
-      } else if (constants.svg.querySelector('tspan[dy="9.45"]')) {
+      } else if (constants.chart.querySelector('tspan[dy="9.45"]')) {
         boxplotTitle =
-          constants.svg.querySelector('tspan[dy="9.45"]').innerHTML;
+          constants.chart.querySelector('tspan[dy="9.45"]').innerHTML;
         boxplotTitle = boxplotTitle.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
       }
       this.title =
@@ -40,14 +40,14 @@ class BoxPlot {
       if (typeof maidr !== 'undefined') {
         this.x_group_label = maidr.x_group_label;
       } else {
-        this.x_group_label = constants.svg.querySelector(
+        this.x_group_label = constants.chart.querySelector(
           'text:not([transform^="rotate"]) > tspan[dy="7.88"]'
         ).innerHTML;
       }
       if (typeof maidr !== 'undefined') {
         this.y_group_label = maidr.y_group_label;
       } else {
-        this.y_group_label = constants.svg.querySelector(
+        this.y_group_label = constants.chart.querySelector(
           'text[transform^="rotate"] > tspan[dy="7.88"]'
         ).innerHTML;
       }
@@ -62,7 +62,7 @@ class BoxPlot {
         if (constants.plotOrientation == 'vert') {
           elDy = '6.3';
         }
-        let els = constants.svg.querySelectorAll('tspan[dy="' + elDy + '"]');
+        let els = constants.chart.querySelectorAll('tspan[dy="' + elDy + '"]');
         for (let i = 0; i < els.length; i++) {
           labels.push(els[i].innerHTML.trim());
         }
@@ -82,10 +82,10 @@ class BoxPlot {
         this.plotData = maidr;
       }
     } else {
-      this.x_group_label = constants.svg.getElementById(
+      this.x_group_label = constants.chart.getElementById(
         'GRID.text.199.1.1.tspan.1'
       ).innerHTML;
-      this.y_group_label = constants.svg.getElementById(
+      this.y_group_label = constants.chart.getElementById(
         'GRID.text.202.1.1.tspan.1'
       ).innerHTML;
       if (constants.plotOrientation == 'vert') {
@@ -111,7 +111,7 @@ class BoxPlot {
   GetLabels() {
     let labels = [];
     let query = 'tspan[dy="5"]';
-    let els = constants.svg.querySelectorAll(query);
+    let els = constants.chart.querySelectorAll(query);
     for (let i = 0; i < els.length; i++) {
       labels.push(els[i].innerHTML.trim());
     }
@@ -189,7 +189,7 @@ class BoxPlot {
   }
 
   GetData() {
-    // data in svg is formed as nested <g> elements. Loop through and get all point data
+    // data in chart is formed as nested <g> elements. Loop through and get all point data
     // goal is to get bounding x values and type (outlier, whisker, range, placeholder)
 
     let plotData = [];
@@ -444,7 +444,7 @@ class BoxPlot {
       // we always have a range, and need those bounds to set others, so we'll do this first
       let rangeBounds = initialElemSet[i].range.getBoundingClientRect();
 
-      // we get the midpoint from actual point values in the svg GRID.segments
+      // we get the midpoint from actual point values in the chart GRID.segments
       let midPoints = initialElemSet[i].range
         .querySelector('polyline[id^="GRID"]')
         .getAttribute('points')
@@ -714,7 +714,7 @@ class BoxPlot {
   }
   GetBoxplotSegmentPoints(segment, segmentType) {
     // Helper function for main GetData:
-    // Fetch x and y point data from svg
+    // Fetch x and y point data from chart
 
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
     let pointString = '';
@@ -814,8 +814,8 @@ class BoxplotRect {
     this.width = 0;
     this.y1 = 0;
     this.height = 0;
-    this.svgOffsetLeft = constants.svg.getBoundingClientRect().left;
-    this.svgOffsetTop = constants.svg.getBoundingClientRect().top;
+    this.chartOffsetLeft = constants.chart.getBoundingClientRect().left;
+    this.chartOffsetTop = constants.chart.getBoundingClientRect().top;
   }
 
   UpdateRect() {
@@ -841,11 +841,11 @@ class BoxplotRect {
       let bounds = plot.plotBounds[plotPos][sectionPos];
 
       if (bounds.type != 'blank') {
-        //let svgBounds = constants.svg.getBoundingClientRect();
+        //let chartBounds = constants.chart.getBoundingClientRect();
 
-        this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
+        this.x1 = bounds.left - this.rectPadding - this.chartOffsetLeft;
         this.width = bounds.width + this.rectPadding * 2;
-        this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
+        this.y1 = bounds.top - this.rectPadding - this.chartOffsetTop;
         this.height = bounds.height + this.rectPadding * 2;
 
         if (constants.debugLevel > 5) {
@@ -887,6 +887,6 @@ class BoxplotRect {
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    constants.svg.appendChild(rect);
+    constants.chart.appendChild(rect);
   }
 }

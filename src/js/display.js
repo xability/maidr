@@ -85,7 +85,7 @@ class Display {
         constants.brailleInput.setSelectionRange(pos, pos);
       }
 
-      // braille mode is on before navigation of svg
+      // braille mode is on before navigation of chart
       // very important to make sure braille works properly
       if (position.x == -1 && position.y == -1) {
         constants.brailleInput.setSelectionRange(0, 0);
@@ -98,10 +98,10 @@ class Display {
         if (!constants.review_container.classList.contains('hidden')) {
           constants.review.focus();
         } else {
-          constants.svg.focus();
+          constants.chart.focus();
         }
       } else {
-        constants.svg.focus();
+        constants.chart.focus();
       }
     }
 
