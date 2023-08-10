@@ -124,8 +124,11 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'scatter') {
-      if (constants.layer == 1) {
+    } else if (
+      constants.chartType == 'scatter' ||
+      constants.chartType == 'line'
+    ) {
+      if (constants.chartType == 'scatter') {
         // point layer
         // more than one point with same x-value
         rawFreq = plot.y[position.x][position.z];
@@ -156,7 +159,7 @@ class Audio {
           -1,
           1
         );
-      } else if (constants.layer == 2) {
+      } else if (constants.chartType == 'line') {
         // best fit line layer
 
         rawFreq = plot.curvePoints[positionL1.x];

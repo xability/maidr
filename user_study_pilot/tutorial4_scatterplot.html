@@ -10,12 +10,8 @@
 
   <body>
     <div class="container mt-3">
-      <div id="container" data-plottype="scatterplot">
-        <div id="braille-div">
-          <input id="braille-input" class="braille-input hidden" type="text" />
-        </div>
-
-        <div id="svg-container">
+      <div id="container">
+        <div>
           <!------------- SCATTERPLOT STARTS ------------->
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -24,6 +20,8 @@
             height="344px"
             viewBox="0 0 478 344"
             version="1.1"
+            id="scatter1"
+            tabindex="0"
           >
             <metadata
               xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/"
@@ -4604,11 +4602,14 @@
     <script>
       var maidr = {
         type: ['scatter', 'line'],
+        id: 'scatter1',
         title: 'Highway Mileage by Engine Displacement.',
-        point_elements: document.querySelectorAll('g[id^="geom_point"] > use'),
-        smooth_elements: document.querySelector(
-          'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]'
-        ),
+        elements: [
+          document.querySelectorAll('g[id^="geom_point"] > use'),
+          document.querySelector(
+            'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]'
+          ),
+        ],
         axes: {
           x: {
             label: 'Engine Displacement',
@@ -4617,8 +4618,9 @@
             label: 'Highway Mileage',
           },
         },
-        data: {
-          data_point_layer: [
+        data: [
+          [
+            // scatter point layer
             {
               x: 1.8,
               y: 29,
@@ -5556,7 +5558,8 @@
               y: 26,
             },
           ],
-          data_smooth_layer: [
+          [
+            // line layer
             {
               x: 1.6,
               y: 33.0929,
@@ -5878,7 +5881,7 @@
               y: 24.4677,
             },
           ],
-        },
+        ],
       };
     </script>
     <script src="../src/js/constants.js"></script>
@@ -5888,7 +5891,7 @@
     <script src="../src/js/boxplot.js"></script>
     <script src="../src/js/heatmap.js"></script>
     <script src="../src/js/scatterplot.js"></script>
-    <script src="../src/js/init.js"></script>
     <script src="../src/js/controls.js"></script>
+    <script src="../src/js/init.js"></script>
   </body>
 </html>

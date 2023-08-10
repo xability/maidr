@@ -97,7 +97,16 @@ function InitMaidr(thisMaidr) {
     // init vars and html
     window.singleMaidr = thisMaidr;
     constants.chartId = singleMaidr.id;
-    constants.chartType = singleMaidr.type;
+    if (Array.isArray(singleMaidr.type)) {
+      constants.chartType = singleMaidr.type[0];
+      // exception: if we have a line chart, we want to use line chart controls so that braille works properly
+      // todo: put exceptoins somewhere central to be more easily modified
+      if (singleMaidr.type.includes('line')) {
+        constants.chartType = 'line';
+      }
+    } else {
+      constants.chartType = singleMaidr.type;
+    }
     CreateChartComponents(singleMaidr);
     window.control = new Control();
     window.review = new Review();

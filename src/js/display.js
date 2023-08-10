@@ -36,7 +36,7 @@ class Display {
   }
 
   toggleBrailleMode(onoff) {
-    if (constants.chartType == 'scatter' && constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       this.announceText('Braille is not supported in point layer.');
       return;
     }
@@ -109,7 +109,7 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (constants.chartType == 'scatter' && constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'sep';
         this.announceText(resources.GetString('son_sep'));
@@ -131,13 +131,25 @@ class Display {
     }
   }
 
-  toggleLayerMode() {
-    if (constants.layer == 1) {
-      constants.layer = 2;
-      this.announceText('Layer 2: Smoothed line');
-    } else if (constants.layer == 2) {
-      constants.layer = 1;
-      this.announceText('Layer 1: Point');
+  changeChartLayer(updown = 'down') {
+    // get possible chart types, where we are, and move between them
+    let chartTypes = maidr.type;
+    if (Array.isArray(chartTypes)) {
+      let currentIndex = chartTypes.indexOf(constants.chartType);
+      if (updown == 'down') {
+        if (currentIndex == 0) {
+          constants.chartType = chartTypes[chartTypes.length - 1];
+        } else {
+          constants.chartType = chartTypes[currentIndex - 1];
+        }
+      } else {
+        if (currentIndex == chartTypes.length - 1) {
+          constants.chartType = chartTypes[0];
+        } else {
+          constants.chartType = chartTypes[currentIndex + 1];
+        }
+      }
+      this.announceText('Switched to ' + constants.chartType); // todo: connect this to a resource file so it can be localized
     }
   }
 
@@ -379,7 +391,7 @@ class Display {
       else if (constants.textMode == 'terse')
         output = '<p>' + textTerse + '</p>\n';
     } else if (constants.chartType == 'scatter') {
-      if (constants.layer == 1) {
+      if (constants.chartType == 'scatter') {
         // point layer
         verboseText +=
           plot.x_group_label +
@@ -405,7 +417,7 @@ class Display {
         } else if (constants.textMode == 'verbose') {
           // set from verboseText
         }
-      } else if (constants.layer == 2) {
+      } else if (constants.chartType == 'line') {
         // best fit line layer
         verboseText +=
           plot.x_group_label +
@@ -545,7 +557,7 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'scatter') {
+    } else if (constants.chartType == 'line') {
       let range = (plot.curveMaxY - plot.curveMinY) / 4;
       let low = plot.curveMinY + range;
       let medium = low + range;

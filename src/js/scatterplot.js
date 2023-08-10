@@ -4,42 +4,12 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
 class ScatterPlot {
   constructor() {
-    // layer = 1
-    if ('point_elements' in maidr) {
-      this.plotPoints = maidr.point_elements;
-    } else {
-      this.plotPoints = constants.chart.querySelectorAll(
-        '#' + constants.plotId.replaceAll('.', '\\.') + ' > use'
-      );
-    }
-    this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
-    this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+    this.SetScatterLayer();
+    this.SetLineLayer();
+    this.SetAxes();
+  }
 
-    this.x = this.GetPointValues()[0]; // actual values of x
-    this.y = this.GetPointValues()[1]; // actual values of y
-
-    // for sound weight use
-    this.points_count = this.GetPointValues()[2]; // number of each points
-    this.max_count = this.GetPointValues()[3];
-
-    // layer = 2
-    if (constants.manualData) {
-      this.plotLine = maidr.elements;
-    } else {
-      this.plotLine = constants.chart.querySelectorAll(
-        '#' + 'GRID.polyline.13.1'.replaceAll('.', '\\.') + ' > polyline'
-      )[0];
-    }
-    this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
-    this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
-
-    this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
-    this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
-
-    this.curveMinY = Math.min(...this.curvePoints);
-    this.curveMaxY = Math.max(...this.curvePoints);
-    this.gradient = this.GetGradient();
-
+  SetAxes() {
     this.x_group_label = '';
     this.y_group_label = '';
     this.title = '';
@@ -55,6 +25,40 @@ class ScatterPlot {
       if ('title' in maidr) {
         this.title = maidr.title;
       }
+    }
+  }
+
+  SetScatterLayer() {
+    // initially set as line layer (layer 2), if possible
+    let elIndex = this.GetElementIndex('scatter');
+    if (elIndex != -1) {
+      this.plotPoints = maidr.elements[elIndex];
+      this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
+      this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+
+      this.x = this.GetPointValues()[0]; // actual values of x
+      this.y = this.GetPointValues()[1]; // actual values of y
+
+      // for sound weight use
+      this.points_count = this.GetPointValues()[2]; // number of each points
+      this.max_count = this.GetPointValues()[3];
+    }
+  }
+
+  SetLineLayer() {
+    // layer = 2, line layer (from maidr types)
+    let elIndex = this.GetElementIndex('line');
+    if (elIndex != -1) {
+      this.plotLine = maidr.elements[elIndex];
+      this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
+      this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
+
+      this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
+      this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
+
+      this.curveMinY = Math.min(...this.curvePoints);
+      this.curveMaxY = Math.max(...this.curvePoints);
+      this.gradient = this.GetGradient();
     }
   }
 
@@ -93,64 +97,78 @@ class ScatterPlot {
     return [X, Y];
   }
 
+  GetElementIndex(elementName = 'scatter') {
+    let elIndex = -1;
+    if ('type' in maidr) {
+      elIndex = maidr.type.indexOf(elementName);
+    }
+    return elIndex;
+  }
+
   GetPointValues() {
     let points = new Map(); // keep track of x and y values
 
     let xValues = [];
     let yValues = [];
 
-    for (let i = 0; i < maidr.data_point_layer.length; i++) {
-      let x = maidr.data_point_layer[i]['x'];
-      let y = maidr.data_point_layer[i]['y'];
-      xValues.push(x);
-      yValues.push(y);
-      if (!points.has(x)) {
-        points.set(x, new Map([[y, 1]]));
-      } else {
-        if (points.get(x).has(y)) {
-          let mapy = points.get(x);
-          mapy.set(y, mapy.get(y) + 1);
+    let elIndex = this.GetElementIndex('scatter');
+
+    if (elIndex > -1) {
+      for (let i = 0; i < maidr.data[elIndex].length; i++) {
+        let x = maidr.data[elIndex][i]['x'];
+        let y = maidr.data[elIndex][i]['y'];
+        xValues.push(x);
+        yValues.push(y);
+        if (!points.has(x)) {
+          points.set(x, new Map([[y, 1]]));
         } else {
-          points.get(x).set(y, 1);
+          if (points.get(x).has(y)) {
+            let mapy = points.get(x);
+            mapy.set(y, mapy.get(y) + 1);
+          } else {
+            points.get(x).set(y, 1);
+          }
         }
       }
-    }
 
-    constants.minX = 0;
-    constants.maxX = [...new Set(xValues)].length;
+      constants.minX = 0;
+      constants.maxX = [...new Set(xValues)].length;
 
-    constants.minY = Math.min(...yValues);
-    constants.maxY = Math.max(...yValues);
+      constants.minY = Math.min(...yValues);
+      constants.maxY = Math.max(...yValues);
 
-    points = new Map(
-      [...points].sort(function (a, b) {
-        return a[0] - b[0];
-      })
-    );
+      points = new Map(
+        [...points].sort(function (a, b) {
+          return a[0] - b[0];
+        })
+      );
 
-    points.forEach(function (value, key) {
-      points[key] = Array.from(value).sort(function (a, b) {
-        return a[0] - b[0];
+      points.forEach(function (value, key) {
+        points[key] = Array.from(value).sort(function (a, b) {
+          return a[0] - b[0];
+        });
       });
-    });
 
-    let X = [];
-    let Y = [];
-    let points_count = [];
-    for (const [x_val, y_val] of points) {
-      X.push(x_val);
-      let y_arr = [];
-      let y_count = [];
-      for (const [y, count] of y_val) {
-        y_arr.push(y);
-        y_count.push(count);
+      let X = [];
+      let Y = [];
+      let points_count = [];
+      for (const [x_val, y_val] of points) {
+        X.push(x_val);
+        let y_arr = [];
+        let y_count = [];
+        for (const [y, count] of y_val) {
+          y_arr.push(y);
+          y_count.push(count);
+        }
+        Y.push(y_arr.sort());
+        points_count.push(y_count);
       }
-      Y.push(y_arr.sort());
-      points_count.push(y_count);
-    }
-    let max_points = Math.max(...points_count.map((a) => Math.max(...a)));
+      let max_points = Math.max(...points_count.map((a) => Math.max(...a)));
 
-    return [X, Y, points_count, max_points];
+      return [X, Y, points_count, max_points];
+    } else {
+      return;
+    }
   }
 
   PlayTones(audio) {
@@ -158,7 +176,7 @@ class ScatterPlot {
     if (constants.sepPlayId) {
       constants.KillSepPlay();
     }
-    if (constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       // point layer
       // we play a run of tones
       position.z = 0;
@@ -178,7 +196,7 @@ class ScatterPlot {
         },
         constants.sonifMode == 'sep' ? constants.autoPlayPointsRate : 0
       ); // play all tones at the same time
-    } else if (constants.layer == 2) {
+    } else if (constants.chartType == 'line') {
       // best fit line layer
       audio.playTone();
     }
@@ -205,12 +223,18 @@ class ScatterPlot {
     let x_points = [];
     let y_points = [];
 
-    for (let i = 0; i < maidr.data_smooth_layer.length; i++) {
-      x_points.push(maidr.data_smooth_layer[i]['x']);
-      y_points.push(maidr.data_smooth_layer[i]['y']);
-    }
+    let elIndex = this.GetElementIndex('line');
 
-    return [x_points, y_points];
+    if (elIndex > -1) {
+      for (let i = 0; i < maidr.data[elIndex].length; i++) {
+        x_points.push(maidr.data[elIndex][i]['x']);
+        y_points.push(maidr.data[elIndex][i]['y']);
+      }
+
+      return [x_points, y_points];
+    } else {
+      return;
+    }
   }
 
   GetGradient() {

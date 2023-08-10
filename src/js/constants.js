@@ -24,7 +24,6 @@ class Constants {
   brailleMode = 'on'; // on / off
   sonifMode = 'on'; // sep / same / off
   reviewMode = 'off'; // on / off
-  layer = 2; // 1 = points; 2 = best fit line => for scatter
 
   // basic chart properties
   minX = 0;
@@ -506,9 +505,6 @@ class Tracker {
     }
     if (!this.isUndefinedOrNull(constants.brailleMode)) {
       eventToLog.braille_mode = Object.assign(constants.brailleMode);
-    }
-    if (!this.isUndefinedOrNull(constants.layer)) {
-      eventToLog.layer = Object.assign(constants.layer);
     }
     if (!this.isUndefinedOrNull(constants.chartType)) {
       eventToLog.chart_type = Object.assign(constants.chartType);

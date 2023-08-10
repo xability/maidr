@@ -1739,7 +1739,10 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('scatter')) {
+    } else if (
+      [].concat(singleMaidr.type).includes('scatter') ||
+      singleMaidr.type == 'scatter'
+    ) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
@@ -1749,8 +1752,8 @@ class Control {
       let layer1Point = new Layer1Point();
 
       let lastPlayed = ''; // for autoplay use
-      let lastx = 0; // for layer 1 autoplay use
-      let lastx1 = 0; // for layer 2 autoplay use
+      let lastx = 0; // for scatter point layer autoplay use
+      let lastx1 = 0; // for line layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -1765,7 +1768,7 @@ class Control {
           let isAtEnd = false;
 
           // left and right arrows are enabled only at point layer
-          if (constants.layer == 1) {
+          if (constants.chartType == 'scatter') {
             // right arrow 39
             if (e.which === 39) {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -1813,7 +1816,7 @@ class Control {
                 isAtEnd = lockPosition();
               }
             }
-          } else if (constants.layer == 2) {
+          } else if (constants.chartType == 'line') {
             positionL1.x = lastx1;
 
             if (e.which == 39 && e.shiftKey) {
@@ -1840,7 +1843,11 @@ class Control {
           }
 
           // update text, display, and audio
-          if (updateInfoThisRound && constants.layer == 1 && !isAtEnd) {
+          if (
+            updateInfoThisRound &&
+            constants.chartType == 'scatter' &&
+            !isAtEnd
+          ) {
             UpdateAll();
           }
           if (isAtEnd) {
@@ -1860,7 +1867,7 @@ class Control {
           // only line layer can access to braille display
           if (e.which == 9) {
             // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-          } else if (constants.layer == 2) {
+          } else if (constants.chartType == 'line') {
             lockPosition();
             if (e.which == 9) {
             } else if (e.which == 39) {
@@ -1971,23 +1978,15 @@ class Control {
               display.toggleSonificationMode();
             }
 
-            // page down /(fn+down arrow): point layer(1)
-            if (
-              e.which == 34 &&
-              constants.layer == 2 &&
-              constants.brailleMode == 'off'
-            ) {
+            // page down /(fn+down arrow): change chart type (layer)
+            if (e.which == 34 && constants.brailleMode == 'off') {
               lastx1 = positionL1.x;
-              display.toggleLayerMode();
+              display.changeChartLayer('down');
             }
 
-            // page up / (fn+up arrow): line layer(2)
-            if (
-              e.which == 33 &&
-              constants.layer == 1 &&
-              constants.brailleMode == 'off'
-            ) {
-              display.toggleLayerMode();
+            // page up / (fn+up arrow): change chart type (layer)
+            if (e.which == 33 && constants.brailleMode == 'off') {
+              display.changeChartLayer('up');
             }
 
             // space: replay info but no other changes
@@ -2005,12 +2004,12 @@ class Control {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
-              if (constants.layer == 1) {
+              if (constants.chartType == 'scatter') {
                 position.x = 0;
                 UpdateAll();
                 // move cursor for braille
                 constants.brailleInput.setSelectionRange(0, 0);
-              } else if (constants.layer == 2) {
+              } else if (constants.chartType == 'line') {
                 positionL1.x = 0;
                 UpdateAllBraille();
               }
@@ -2018,7 +2017,7 @@ class Control {
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
-              if (constants.layer == 1) {
+              if (constants.chartType == 'scatter') {
                 position.x = plot.y.length - 1;
                 UpdateAll();
                 // move cursor for braille
@@ -2026,7 +2025,7 @@ class Control {
                   plot.curvePoints.length - 1,
                   plot.curvePoints.length - 1
                 );
-              } else if (constants.layer == 2) {
+              } else if (constants.chartType == 'line') {
                 positionL1.x = plot.curvePoints.length - 1;
                 UpdateAllBraille();
               }
@@ -2096,21 +2095,21 @@ class Control {
               constants.KillAutoplay();
               audio.KillSmooth();
               if (lastPlayed == 'inward_left') {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay('outward_right', position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay('outward_right', positionL1.x, lastx1);
                 }
               } else if (lastPlayed == 'inward_right') {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay('outward_left', position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay('outward_left', positionL1.x, lastx1);
                 }
               } else {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay(lastPlayed, positionL1.x, lastx1);
                 }
               }
@@ -2124,21 +2123,21 @@ class Control {
               constants.KillAutoplay();
               audio.KillSmooth();
               if (lastPlayed == 'inward_left') {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay('outward_right', position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay('outward_right', positionL1.x, lastx1);
                 }
               } else if (lastPlayed == 'inward_right') {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay('outward_left', position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay('outward_left', positionL1.x, lastx1);
                 }
               } else {
-                if (constants.layer == 1) {
+                if (constants.chartType == 'scatter') {
                   Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.layer == 2) {
+                } else if (constants.chartType == 'line') {
                   Autoplay(lastPlayed, positionL1.x, lastx1);
                 }
               }
@@ -2151,7 +2150,7 @@ class Control {
       function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (constants.layer == 1) {
+        if (constants.chartType == 'scatter') {
           if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
@@ -2160,7 +2159,7 @@ class Control {
             position.x = plot.x.length - 1;
             isLockNeeded = true;
           }
-        } else if (constants.layer == 2) {
+        } else if (constants.chartType == 'line') {
           if (positionL1.x < 0) {
             positionL1.x = 0;
             isLockNeeded = true;
@@ -2191,7 +2190,7 @@ class Control {
           display.displayValues(plot);
         }
         if (constants.showRect) {
-          if (constants.layer == 1) {
+          if (constants.chartType == 'scatter') {
             layer0Point.UpdatePointDisplay();
           } else {
             layer1Point.UpdatePointDisplay();
@@ -2237,7 +2236,7 @@ class Control {
           position.L1x = start;
         }
 
-        if (constants.layer == 1) {
+        if (constants.chartType == 'scatter') {
           constants.autoplayId = setInterval(function () {
             position.x += step;
             // autoplay for two layers: point layer & line layer in braille
@@ -2252,7 +2251,7 @@ class Control {
               UpdateAllAutoplay();
             }
           }, constants.autoPlayRate);
-        } else if (constants.layer == 2) {
+        } else if (constants.chartType == 'line') {
           constants.autoplayId = setInterval(function () {
             positionL1.x += step;
             // autoplay for two layers: point layer & line layer in braille
