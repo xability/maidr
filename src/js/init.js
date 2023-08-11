@@ -134,6 +134,13 @@ function InitMaidr(thisMaidr) {
         constants.events[i][2]
       );
     }
+
+    // once everything is set up, announce the chart name (or title as a backup) to the user
+    if ('name' in singleMaidr) {
+      display.announceText(singleMaidr.name);
+    } else if ('title' in singleMaidr) {
+      display.announceText(singleMaidr.title);
+    }
   }
 }
 
