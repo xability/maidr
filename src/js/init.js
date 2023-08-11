@@ -107,9 +107,6 @@ function InitMaidr(thisMaidr) {
     window.review = new Review();
     window.display = new Display();
 
-    // initialize braille mode on page load
-    display.toggleBrailleMode('on');
-
     // help menu events
     constants.events.push([
       constants.chart_container,
@@ -222,6 +219,7 @@ function CreateChartComponents() {
   // replace chart with chart container, and append chart to chart container
   chart.parentNode.replaceChild(chart_container, chart);
   chart_container.appendChild(chart);
+  chart.focus(); // focus used to be on chart and just got lost as we rearranged, so redo focus
 
   constants.chart = chart;
   constants.chart_container = chart_container;
@@ -229,11 +227,11 @@ function CreateChartComponents() {
   // braille input, pre sibling of chart container
   constants.chart_container.insertAdjacentHTML(
     'beforebegin',
-    '<div id="' +
+    '<div class="hidden" id="' +
       constants.braille_container_id +
       '">\n<input id="' +
       constants.braille_input_id +
-      '" class="braille-input hidden" type="text" size="' +
+      '" class="braille-input" type="text" size="' +
       constants.brailleDisplayLength +
       '" />\n</div>\n'
   );

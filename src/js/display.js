@@ -74,7 +74,9 @@ class Display {
       }
 
       constants.brailleMode = 'on';
-      constants.brailleInput.classList.remove('hidden');
+      document
+        .getElementById(constants.braille_container_id)
+        .classList.remove('hidden');
       constants.brailleInput.focus();
       constants.brailleInput.setSelectionRange(position.x, position.x);
 
@@ -92,7 +94,9 @@ class Display {
       }
     } else {
       constants.brailleMode = 'off';
-      constants.brailleInput.classList.add('hidden');
+      document
+        .getElementById(constants.braille_container_id)
+        .classList.add('hidden');
 
       if (constants.review_container) {
         if (!constants.review_container.classList.contains('hidden')) {
