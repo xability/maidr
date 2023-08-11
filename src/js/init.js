@@ -99,11 +99,6 @@ function InitMaidr(thisMaidr) {
     constants.chartId = singleMaidr.id;
     if (Array.isArray(singleMaidr.type)) {
       constants.chartType = singleMaidr.type[0];
-      // exception: if we have a line chart, we want to use line chart controls so that braille works properly
-      // todo: put exceptoins somewhere central to be more easily modified
-      if (singleMaidr.type.includes('line')) {
-        constants.chartType = 'line';
-      }
     } else {
       constants.chartType = singleMaidr.type;
     }
