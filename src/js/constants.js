@@ -19,9 +19,9 @@ class Constants {
   // default constructor for all charts
   constructor() {}
 
-  // BTS modes
+  // BTS modes initial values
   textMode = 'verbose'; // off / terse / verbose
-  brailleMode = 'on'; // on / off
+  brailleMode = 'off'; // on / off
   sonifMode = 'on'; // sep / same / off
   reviewMode = 'off'; // on / off
 
