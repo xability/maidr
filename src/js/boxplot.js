@@ -194,7 +194,7 @@ class BoxPlot {
 
     let plotData = [];
 
-    let plots = document.getElementById(constants.plotId).children;
+    let plots = document.querySelector(singleMaidr.element).children;
     for (let i = 0; i < plots.length; i++) {
       // each plot
 
