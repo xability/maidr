@@ -4,9 +4,11 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
 class ScatterPlot {
   constructor() {
+    this.prefix = this.GetPrefix();
     this.SetScatterLayer();
     this.SetLineLayer();
     this.SetAxes();
+    this.svgScales = this.GetSVGScales();
   }
 
   SetAxes() {
@@ -33,6 +35,10 @@ class ScatterPlot {
     let elIndex = this.GetElementIndex('scatter');
     if (elIndex != -1) {
       this.plotPoints = maidr.elements[elIndex];
+    } else if (maidr.type == 'scatter') {
+      this.plotPoints = maidr.elements;
+    }
+    if (typeof this.plotPoints !== 'undefined') {
       this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
       this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
 
@@ -50,6 +56,10 @@ class ScatterPlot {
     let elIndex = this.GetElementIndex('line');
     if (elIndex != -1) {
       this.plotLine = maidr.elements[elIndex];
+    } else if (maidr.type == 'line') {
+      this.plotLine = maidr.elements;
+    }
+    if (typeof this.plotLine !== 'undefined') {
       this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
       this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
 
@@ -66,8 +76,8 @@ class ScatterPlot {
     let points = new Map();
 
     for (let i = 0; i < this.plotPoints.length; i++) {
-      let x = parseFloat(this.plotPoints[i].getAttribute('x')); // .toFixed(1);
-      let y = parseFloat(this.plotPoints[i].getAttribute('y'));
+      let x = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'x')); // .toFixed(1);
+      let y = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'y'));
       if (!points.has(x)) {
         points.set(x, new Set([y]));
       } else {
@@ -105,6 +115,66 @@ class ScatterPlot {
     return elIndex;
   }
 
+  GetSVGScales() {
+    let scaleX = 1;
+    let scaleY = 1;
+    // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
+
+    // but first, are we even in an svg that can be scaled?
+    let isSvg = false;
+    let element = this.plotPoints[0]; // a random start, may as well be the first
+    while (element) {
+      if (element.tagName.toLowerCase() == 'body') {
+        break;
+      }
+      if (element.tagName && element.tagName.toLowerCase() === 'svg') {
+        isSvg = true;
+      }
+      element = element.parentNode;
+    }
+
+    if (isSvg) {
+      let element = this.plotPoints[0]; // a random start, may as well be the first
+      while (element) {
+        if (element.tagName.toLowerCase() == 'body') {
+          break;
+        }
+        if (element.getAttribute('transform')) {
+          let transform = element.getAttribute('transform');
+          let match = transform.match(
+            /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
+          );
+          if (match) {
+            if (!isNaN(match[1])) {
+              scaleX *= parseFloat(match[1]);
+            }
+            if (!isNaN(match[3])) {
+              scaleY *= parseFloat(match[3]);
+            }
+          }
+        }
+        element = element.parentNode;
+      }
+    }
+
+    return [scaleX, scaleY];
+  }
+
+  GetPrefix() {
+    let elIndex = this.GetElementIndex('scatter');
+    let element;
+    if (elIndex != -1) {
+      element = maidr.elements[elIndex][0];
+    } else if (maidr.type == 'scatter') {
+      element = maidr.elements[0];
+    }
+    let prefix = '';
+    if (element.tagName.toLowerCase() == 'circle') {
+      prefix = 'c';
+    }
+    return prefix;
+  }
+
   GetPointValues() {
     let points = new Map(); // keep track of x and y values
 
@@ -113,7 +183,13 @@ class ScatterPlot {
 
     let elIndex = this.GetElementIndex('scatter');
 
+    let data;
     if (elIndex > -1) {
+      data = maidr.data[elIndex];
+    } else if (maidr.type == 'scatter') {
+      data = maidr.data;
+    }
+    if (typeof data !== 'undefined') {
       for (let i = 0; i < maidr.data[elIndex].length; i++) {
         let x = maidr.data[elIndex][i]['x'];
         let y = maidr.data[elIndex][i]['y'];
@@ -225,7 +301,13 @@ class ScatterPlot {
 
     let elIndex = this.GetElementIndex('line');
 
+    let data;
     if (elIndex > -1) {
+      data = maidr.data[elIndex];
+    } else if (maidr.type == 'line') {
+      data = maidr.data;
+    }
+    if (typeof data !== 'undefined') {
       for (let i = 0; i < maidr.data[elIndex].length; i++) {
         x_points.push(maidr.data[elIndex][i]['x']);
         y_points.push(maidr.data[elIndex][i]['y']);
@@ -255,35 +337,62 @@ class ScatterPlot {
 }
 
 class Layer0Point {
+  // circles
+
   constructor() {
     this.x = plot.chartPointsX[0];
     this.y = plot.chartPointsY[0];
     this.strokeWidth = 1.35;
+    this.circleIndex = [];
   }
 
   async UpdatePoints() {
     await this.ClearPoints();
     this.x = plot.chartPointsX[position.x];
     this.y = plot.chartPointsY[position.x];
+    // find which circles we're on by searching for the x value
+    this.circleIndex = [];
+    for (let j = 0; j < this.y.length; j++) {
+      for (let i = 0; i < plot.plotPoints.length; i++) {
+        if (
+          plot.plotPoints[i].getAttribute(plot.prefix + 'x') == this.x &&
+          plot.plotPoints[i].getAttribute(plot.prefix + 'y') == this.y[j]
+        ) {
+          this.circleIndex.push(i);
+          break;
+        }
+      }
+    }
   }
 
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
-    for (let i = 0; i < this.y.length; i++) {
+    for (let i = 0; i < this.circleIndex.length; i++) {
       const svgns = 'http://www.w3.org/2000/svg';
       var point = document.createElementNS(svgns, 'circle');
       point.setAttribute('class', 'highlight_point');
       point.setAttribute('cx', this.x);
-      point.setAttribute(
-        'cy',
-        constants.chart.getBoundingClientRect().height - this.y[i]
-      );
+      if (plot.svgScales[1] == -1) {
+        point.setAttribute(
+          'cy',
+          constants.chart.getBoundingClientRect().height - this.y[i]
+        );
+      } else {
+        point.setAttribute(
+          'cy',
+          plot.plotPoints[this.circleIndex[i]].getAttribute('cy')
+        );
+      }
       point.setAttribute('r', 3.95);
       point.setAttribute('stroke', constants.colorSelected);
       point.setAttribute('stroke-width', this.strokeWidth);
       point.setAttribute('fill', constants.colorSelected);
-      constants.chart.appendChild(point);
+      if (plot.svgScales[1] == -1) {
+        constants.chart.appendChild(point);
+      } else {
+        plot.plotPoints[this.circleIndex[i]].parentNode.appendChild(point);
+      }
     }
   }
 
@@ -304,6 +413,8 @@ class Layer0Point {
 }
 
 class Layer1Point {
+  // line segments
+
   constructor() {
     this.x = plot.chartLineX[0];
     this.y = plot.chartLineY[0];
@@ -322,11 +433,15 @@ class Layer1Point {
     const svgns = 'http://www.w3.org/2000/svg';
     var point = document.createElementNS(svgns, 'circle');
     point.setAttribute('id', 'highlight_point');
-    point.setAttribute('cx', this.x);
-    point.setAttribute(
-      'cy',
-      constants.chart.getBoundingClientRect().height - this.y
-    );
+    point.setAttribute(plot.prefix + 'x', this.x);
+    if (plot.svgScales[1] == -1) {
+      point.setAttribute(
+        plot.prefix + 'y',
+        constants.chart.getBoundingClientRect().height - this.y
+      );
+    } else {
+      point.setAttribute(plot.prefix + 'y', this.y);
+    }
     point.setAttribute('r', 3.95);
     point.setAttribute('stroke', constants.colorSelected);
     point.setAttribute('stroke-width', this.strokeWidth);
