@@ -48,11 +48,19 @@ class HeatMap {
       x_coord_check.sort(function (a, b) {
         return a - b;
       }); // ascending
-      y_coord_check
-        .sort(function (a, b) {
-          return a - b;
-        })
-        .reverse(); // descending
+      y_coord_check.sort(function (a, b) {
+        return a - b;
+      });
+
+      let svgScales = this.GetSVGScales();
+      console.log(svgScales);
+      // inverse scale if svg is scaled
+      if (svgScales[0] == -1) {
+        x_coord_check = x_coord_check.reverse();
+      }
+      if (svgScales[1] == -1) {
+        y_coord_check = y_coord_check.reverse();
+      }
 
       // get unique elements from x_coord and y_coord
       unique_x_coord = [...new Set(x_coord_check)];
@@ -111,6 +119,51 @@ class HeatMap {
           constants.maxY = this.plotData[2][i][j];
       }
     }
+  }
+
+  GetSVGScales() {
+    let scaleX = 1;
+    let scaleY = 1;
+    // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
+
+    // but first, are we even in an svg that can be scaled?
+    let isSvg = false;
+    let element = this.plots[0]; // a random start, may as well be the first
+    while (element) {
+      if (element.tagName.toLowerCase() == 'body') {
+        break;
+      }
+      if (element.tagName && element.tagName.toLowerCase() === 'svg') {
+        isSvg = true;
+      }
+      element = element.parentNode;
+    }
+
+    if (isSvg) {
+      let element = this.plots[0]; // a random start, may as well be the first
+      while (element) {
+        if (element.tagName.toLowerCase() == 'body') {
+          break;
+        }
+        if (element.getAttribute('transform')) {
+          let transform = element.getAttribute('transform');
+          let match = transform.match(
+            /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
+          );
+          if (match) {
+            if (!isNaN(match[1])) {
+              scaleX *= parseFloat(match[1]);
+            }
+            if (!isNaN(match[3])) {
+              scaleY *= parseFloat(match[3]);
+            }
+          }
+        }
+        element = element.parentNode;
+      }
+    }
+
+    return [scaleX, scaleY];
   }
 
   getRGBNorm(i) {
@@ -209,18 +262,7 @@ class HeatMap {
     if ('title' in maidr) {
       return maidr.title;
     } else {
-      let heatmapTitle = constants.chart.querySelector(
-        'g[id^="layout::title"] text > tspan'
-      ).innerHTML;
-      if (
-        constants.manualData &&
-        typeof heatmapTitle !== 'undefined' &&
-        typeof heatmapTitle != null
-      ) {
-        return heatmapTitle;
-      } else {
-        return '';
-      }
+      return '';
     }
   }
 }
@@ -230,6 +272,7 @@ class HeatMapRect {
     if (constants.hasRect) {
       this.x = plot.x_coord[0];
       this.y = plot.y_coord[0];
+      this.squareIndex = 0;
       this.rectStrokeWidth = 4; // px
       this.height = Math.abs(plot.y_coord[1] - plot.y_coord[0]);
     }
@@ -238,6 +281,16 @@ class HeatMapRect {
   UpdateRect() {
     this.x = plot.x_coord[position.x];
     this.y = plot.y_coord[position.y];
+    // find which square we're on by searching for the x and y coordinates
+    for (let i = 0; i < plot.plots.length; i++) {
+      if (
+        plot.plots[i].getAttribute('x') == this.x &&
+        plot.plots[i].getAttribute('y') == this.y
+      ) {
+        this.squareIndex = i;
+        break;
+      }
+    }
   }
 
   UpdateRectDisplay() {
@@ -248,15 +301,13 @@ class HeatMapRect {
     var rect = document.createElementNS(svgns, 'rect');
     rect.setAttribute('id', 'highlight_rect');
     rect.setAttribute('x', this.x);
-    rect.setAttribute(
-      'y',
-      constants.chart.getBoundingClientRect().height - this.height - this.y
-    ); // y coord is inverse from plot data
+    rect.setAttribute('y', this.y);
     rect.setAttribute('width', this.height);
     rect.setAttribute('height', this.height);
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    constants.chart.appendChild(rect);
+    plot.plots[this.squareIndex].parentNode.appendChild(rect);
+    //constants.chart.appendChild(rect);
   }
 }
