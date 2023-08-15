@@ -13,28 +13,28 @@ class BarChart {
     this.columnLabels = [];
     let legendX = '';
     let legendY = '';
-    if ('axis' in singleMaidr) {
+    if ('axes' in singleMaidr) {
       // legend labels
-      if (singleMaidr.axis.x) {
-        if (singleMaidr.axis.x.label) {
-          legendX = singleMaidr.axis.x.label;
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.label) {
+          legendX = singleMaidr.axes.x.label;
         }
       }
-      if (singleMaidr.axis.y) {
-        if (singleMaidr.axis.y.label) {
-          legendY = singleMaidr.axis.y.label;
+      if (singleMaidr.axes.y) {
+        if (singleMaidr.axes.y.label) {
+          legendY = singleMaidr.axes.y.label;
         }
       }
 
       // tick labels
-      if (singleMaidr.axis.x) {
-        if (singleMaidr.axis.x.format) {
-          this.columnLabels = singleMaidr.axis.x.format;
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.format) {
+          this.columnLabels = singleMaidr.axes.x.format;
         }
       }
-      if (singleMaidr.axis.y) {
-        if (singleMaidr.axis.y.format) {
-          this.columnLabels = singleMaidr.axis.y.format;
+      if (singleMaidr.axes.y) {
+        if (singleMaidr.axes.y.format) {
+          this.columnLabels = singleMaidr.axes.y.format;
         }
       }
     } else {

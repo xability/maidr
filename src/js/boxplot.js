@@ -36,7 +36,7 @@ class BoxPlot {
           ? boxplotTitle
           : '';
 
-      // axis labels
+      // axes labels
       if (typeof maidr !== 'undefined') {
         this.x_group_label = maidr.x_group_label;
       } else {

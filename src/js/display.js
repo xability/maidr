@@ -333,7 +333,7 @@ class Display {
       } else if (!constants.navigation) {
         if (plot.y_group_label) textVerbose += plot.y_group_label;
       }
-      // and axis label
+      // and axes label
       if (constants.navigation) {
         if (plot.x_labels[plotPos]) {
           textVerbose += ' is ';
