@@ -1,6 +1,7 @@
 class Constants {
   // element ids
-  svg_container_id = 'svg-container';
+  chart_container_id = 'chart-container';
+  //chart_container_class = 'chart-container'; // remove later
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
   info_id = 'info';
@@ -12,28 +13,17 @@ class Constants {
   review_id = 'review';
   reviewSaveSpot;
   reviewSaveBrailleMode;
+  chartId = '';
+  events = [];
 
-  // default constructor for boxplot
-  constructor() {
-    // page elements
-    this.svg_container = document.getElementById(this.svg_container_id);
-    this.svg = document.querySelector('#' + this.svg_container_id + ' > svg');
-    this.brailleContainer = document.getElementById(this.braille_container_id);
-    this.brailleInput = document.getElementById(this.braille_input_id);
-    this.infoDiv = document.getElementById(this.info_id);
-    this.announceContainer = document.getElementById(
-      this.announcement_container_id
-    );
-    this.nonMenuFocus = this.svg;
-    this.endChime = document.getElementById(this.end_chime_id);
-  }
+  // default constructor for all charts
+  constructor() {}
 
-  // BTS modes
+  // BTS modes initial values
   textMode = 'verbose'; // off / terse / verbose
-  brailleMode = 'on'; // on / off
+  brailleMode = 'off'; // on / off
   sonifMode = 'on'; // sep / same / off
   reviewMode = 'off'; // on / off
-  layer = 2; // 1 = points; 2 = best fit line => for scatterplot
 
   // basic chart properties
   minX = 0;
@@ -41,7 +31,7 @@ class Constants {
   minY = 0;
   maxY = 0;
   plotId = ''; // update with id in chart specific js
-  chartType = ''; // set as 'boxplot' or whatever later in chart specific js file
+  chartType = ''; // set as 'box' or whatever later in chart specific js file
   navigation = 1; // 0 = row navigation (up/down), 1 = col navigation (left/right)
 
   // basic audio properties
@@ -59,7 +49,7 @@ class Constants {
   MAX_VOL = 30;
   autoPlayRate = 250; // ms per tone
   colorSelected = '#03C809';
-  brailleDisplayLength = 40; // num characters in user's braille display. Common length for desktop / mobile applications
+  brailleDisplayLength = 32; // num characters in user's braille display.  40 is common length for desktop / mobile applications
 
   // advanced user settings
   showRect = 1; // true / false
@@ -89,69 +79,7 @@ class Constants {
   // debug stuff
   debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
   canPlayEndChime = false; //
-  manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the svg (false)
-
-  PrepChartHelperComponents() {
-    // init html stuff. aria live regions, braille input, etc
-
-    // info aria live
-    if (!document.getElementById(this.info_id)) {
-      if (document.getElementById(this.svg_container_id)) {
-        document
-          .getElementById(this.svg_container_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
-          );
-      }
-    }
-
-    // announcements aria live
-    if (!document.getElementById(this.announcement_container_id)) {
-      if (document.getElementById(this.info_id)) {
-        document
-          .getElementById(this.info_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<div id="announcements" aria-live="assertive" aria-atomic="true">\n</div>\n'
-          );
-      }
-    }
-
-    // braille
-    if (!document.getElementById(this.braille_container_id)) {
-      if (document.getElementById(this.container_id)) {
-        document
-          .getElementById(this.container_id)
-          .insertAdjacentHTML(
-            'afterbegin',
-            '<div id="braille-div">\n<input id="braille-input" class="braille-input hidden" type="text" />\n</div>\n'
-          );
-      }
-    }
-
-    // role app on svg
-    if (document.getElementById(this.svg_container_id)) {
-      document
-        .querySelector('#' + this.svg_container_id + ' > svg')
-        .setAttribute('role', 'application');
-      document
-        .querySelector('#' + this.svg_container_id + ' > svg')
-        .setAttribute('tabindex', '0');
-    }
-
-    // end chime audio element
-    if (!document.getElementById(this.end_chime_id)) {
-      if (document.getElementById(this.info_id)) {
-        document
-          .getElementById(this.info_id)
-          .insertAdjacentHTML(
-            'afterend',
-            '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
-          );
-      }
-    }
-  }
+  manualData = true; // pull from manual data like chart2music (true), or do the old method where we pull from the chart (false)
 
   KillAutoplay() {
     if (this.autoplayId) {
@@ -215,6 +143,8 @@ class Resources {
 }
 
 class Menu {
+  whereWasMyFocus = null;
+
   constructor() {
     this.CreateMenu();
     this.LoadDataFromLocalStorage();
@@ -321,9 +251,30 @@ class Menu {
         `;
 
   CreateMenu() {
+    // menu element creation
     document
       .querySelector('body')
       .insertAdjacentHTML('beforeend', this.menuHtml);
+
+    // menu events
+    let allClose = document.querySelectorAll('#close_menu, #menu .close');
+    for (let i = 0; i < allClose.length; i++) {
+      allClose[i].addEventListener('click', function (e) {
+        this.Toggle(false);
+      });
+    }
+    document
+      .getElementById('save_and_close_menu')
+      .addEventListener('click', function (e) {
+        this.SaveData();
+        this.Toggle(false);
+      });
+    document.getElementById('menu').addEventListener('keydown', function (e) {
+      if (e.which == 27) {
+        // esc
+        this.Toggle(false);
+      }
+    });
   }
 
   Toggle(onoff) {
@@ -336,6 +287,7 @@ class Menu {
     }
     if (onoff) {
       // open
+      this.whereWasMyFocus = document.activeElement;
       this.PopulateData();
       document.getElementById('menu').classList.remove('hidden');
       document.getElementById('modal_backdrop').classList.remove('hidden');
@@ -344,7 +296,8 @@ class Menu {
       // close
       document.getElementById('menu').classList.add('hidden');
       document.getElementById('modal_backdrop').classList.add('hidden');
-      constants.nonMenuFocus.focus();
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
     }
   }
 
@@ -553,9 +506,6 @@ class Tracker {
     if (!this.isUndefinedOrNull(constants.brailleMode)) {
       eventToLog.braille_mode = Object.assign(constants.brailleMode);
     }
-    if (!this.isUndefinedOrNull(constants.layer)) {
-      eventToLog.layer = Object.assign(constants.layer);
-    }
     if (!this.isUndefinedOrNull(constants.chartType)) {
       eventToLog.chart_type = Object.assign(constants.chartType);
     }
@@ -575,7 +525,7 @@ class Tracker {
     let y_label = '';
     let value = '';
     let fill_value = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       if (!this.isUndefinedOrNull(plot.columnLabels[position.x])) {
         x_tickmark = plot.columnLabels[position.x];
       }
@@ -588,7 +538,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.plotData[position.x])) {
         value = plot.plotData[position.x];
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
         x_tickmark = plot.x_labels[position.x].trim();
       }
@@ -609,7 +559,7 @@ class Tracker {
       if (!this.isUndefinedOrNull(plot.group_labels[2])) {
         fill_value = plot.group_labels[2];
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -662,7 +612,7 @@ class Tracker {
           }
         }
       }
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
       }
@@ -788,7 +738,7 @@ class Audio {
     let frequency = 0;
     let panning = 0;
     // freq goes between min / max as rawFreq goes between min(0) / max
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       rawFreq = plot.plotData[position.x];
       rawPanning = position.x;
       frequency = this.SlideBetween(
@@ -805,7 +755,7 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -860,7 +810,7 @@ class Audio {
         frequency = constants.MIN_FREQUENCY;
         panning = 0;
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       rawFreq = plot.values[position.y][position.x];
       rawPanning = position.x;
       frequency = this.SlideBetween(
@@ -877,8 +827,11 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'scatterplot') {
-      if (constants.layer == 1) {
+    } else if (
+      constants.chartType == 'scatter' ||
+      constants.chartType == 'line'
+    ) {
+      if (constants.chartType == 'scatter') {
         // point layer
         // more than one point with same x-value
         rawFreq = plot.y[position.x][position.z];
@@ -909,7 +862,7 @@ class Audio {
           -1,
           1
         );
-      } else if (constants.layer == 2) {
+      } else if (constants.chartType == 'line') {
         // best fit line layer
 
         rawFreq = plot.curvePoints[positionL1.x];
@@ -933,7 +886,7 @@ class Audio {
 
     if (constants.debugLevel > 5) {
       console.log('will play tone at freq', frequency);
-      if (constants.chartType == 'boxplot') {
+      if (constants.chartType == 'box') {
         console.log(
           'based on',
           constants.minY,
@@ -962,7 +915,7 @@ class Audio {
       }
     }
 
-    if (constants.chartType == 'boxplot') {
+    if (constants.chartType == 'box') {
       // different types of sounds for different regions.
       // outlier = short tone
       // whisker = normal tone
@@ -983,7 +936,7 @@ class Audio {
 
     // create tones
     this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
-    if (constants.chartType == 'boxplot') {
+    if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
@@ -1000,7 +953,7 @@ class Audio {
           'triangle'
         );
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       // Added heatmap tone feature
       if (rawFreq == 0) {
         this.PlayNull();
@@ -1168,13 +1121,13 @@ class Audio {
              * the following (panning) only works if we're on a server
         let panning = 0;
         try {
-            if ( constants.chartType == 'barplot' ) {
+            if ( constants.chartType == 'bar' ) {
                 panning = this.SlideBetween(position.x, 0, plot.bars.length-1, -1, 1);
-            } else if ( constants.chartType == 'boxplot' ) {
+            } else if ( constants.chartType == 'box' ) {
                 panning = this.SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
-            } else if ( constants.chartType == 'heatmap' ) {
+            } else if ( constants.chartType == 'heat' ) {
                 panning = this.SlideBetween(position.x, 0, plot.num_cols-1, -1, 1);
-            } else if ( constants.chartType == 'scatterplot' ) {
+            } else if ( constants.chartType == 'scatter' ) {
                 panning = this.SlideBetween(position.x, 0, plot.x.length-1, -1, 1);
             }
         } catch {
@@ -1251,15 +1204,26 @@ class Display {
   }
 
   toggleBrailleMode(onoff) {
-    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       this.announceText('Braille is not supported in point layer.');
       return;
     }
     if (typeof onoff === 'undefined') {
-      onoff = constants.brailleMode == 'on' ? 'off' : 'on';
+      if (typeof constants.brailleMode === 'undefined') {
+        constants.brailleMode = 'off';
+        onoff = constants.brailleMode == 'on';
+      } else {
+        // switch on/off
+        if (constants.brailleMode == 'on') {
+          onoff = 'off';
+        } else {
+          onoff = 'on';
+        }
+        constants.brailleMode = onoff;
+      }
     }
     if (onoff == 'on') {
-      if (constants.chartType == 'boxplot') {
+      if (constants.chartType == 'box') {
         // braille mode is on before any plot is selected
         if (
           constants.plotOrientation != 'vert' &&
@@ -1278,34 +1242,38 @@ class Display {
       }
 
       constants.brailleMode = 'on';
-      constants.brailleInput.classList.remove('hidden');
+      document
+        .getElementById(constants.braille_container_id)
+        .classList.remove('hidden');
       constants.brailleInput.focus();
       constants.brailleInput.setSelectionRange(position.x, position.x);
 
       this.SetBraille(plot);
 
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         let pos = position.y * (plot.num_cols + 1) + position.x;
         constants.brailleInput.setSelectionRange(pos, pos);
       }
 
-      // braille mode is on before navigation of svg
+      // braille mode is on before navigation of chart
       // very important to make sure braille works properly
       if (position.x == -1 && position.y == -1) {
         constants.brailleInput.setSelectionRange(0, 0);
       }
     } else {
       constants.brailleMode = 'off';
-      constants.brailleInput.classList.add('hidden');
+      document
+        .getElementById(constants.braille_container_id)
+        .classList.add('hidden');
 
       if (constants.review_container) {
         if (!constants.review_container.classList.contains('hidden')) {
           constants.review.focus();
         } else {
-          constants.svg.focus();
+          constants.chart.focus();
         }
       } else {
-        constants.svg.focus();
+        constants.chart.focus();
       }
     }
 
@@ -1313,7 +1281,7 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (constants.chartType == 'scatterplot' && constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'sep';
         this.announceText(resources.GetString('son_sep'));
@@ -1335,13 +1303,25 @@ class Display {
     }
   }
 
-  toggleLayerMode() {
-    if (constants.layer == 1) {
-      constants.layer = 2;
-      this.announceText('Layer 2: Smoothed line');
-    } else if (constants.layer == 2) {
-      constants.layer = 1;
-      this.announceText('Layer 1: Point');
+  changeChartLayer(updown = 'down') {
+    // get possible chart types, where we are, and move between them
+    let chartTypes = maidr.type;
+    if (Array.isArray(chartTypes)) {
+      let currentIndex = chartTypes.indexOf(constants.chartType);
+      if (updown == 'down') {
+        if (currentIndex == 0) {
+          //constants.chartType = chartTypes[chartTypes.length - 1];
+        } else {
+          constants.chartType = chartTypes[currentIndex - 1];
+        }
+      } else {
+        if (currentIndex == chartTypes.length - 1) {
+          //constants.chartType = chartTypes[0];
+        } else {
+          constants.chartType = chartTypes[currentIndex + 1];
+        }
+      }
+      this.announceText('Switched to ' + constants.chartType); // todo: connect this to a resource file so it can be localized
     }
   }
 
@@ -1350,13 +1330,13 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       constants.brailleInput.setSelectionRange(position.x, position.x);
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
-    } else if (constants.chartType == 'boxplot') {
-      // on boxplot we extend characters a lot and have blanks, so we go to our label
+    } else if (constants.chartType == 'box') {
+      // on box we extend characters a lot and have blanks, so we go to our label
       let sectionPos =
         constants.plotOrientation == 'vert' ? position.y : position.x;
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
@@ -1384,7 +1364,7 @@ class Display {
       }
 
       constants.brailleInput.setSelectionRange(adjustedPos, adjustedPos);
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'scatter') {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
   }
@@ -1396,16 +1376,16 @@ class Display {
     let output = '';
     let verboseText = '';
     let reviewText = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       // {legend x} is {colname x}, {legend y} is {value y}
-      verboseText =
-        plot.plotLegend.x +
-        ' is ' +
-        plot.columnLabels[position.x] +
-        ', ' +
-        plot.plotLegend.y +
-        ' is ' +
-        plot.plotData[position.x];
+      if (plot.plotLegend.length > 0 && plot.columnLabels[positionx]) {
+        verboseText =
+          plot.plotLegend.x + ' is ' + plot.columnLabels[position.x];
+      }
+      if (plot.plotData[position.x]) {
+        verboseText +=
+          ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
+      }
       if (constants.textMode == 'off') {
         // do nothing :D
       } else if (constants.textMode == 'terse') {
@@ -1419,7 +1399,7 @@ class Display {
       } else if (constants.textMode == 'verbose') {
         output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if (constants.chartType == 'heat') {
       // col name and value
       if (constants.navigation == 1) {
         verboseText +=
@@ -1477,7 +1457,7 @@ class Display {
       } else if (constants.textMode == 'verbose') {
         output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if (constants.chartType == 'box') {
       // setup
       let val = 0;
       let numPoints = 1;
@@ -1582,8 +1562,8 @@ class Display {
         output = '<p>' + textVerbose + '</p>\n';
       else if (constants.textMode == 'terse')
         output = '<p>' + textTerse + '</p>\n';
-    } else if (constants.chartType == 'scatterplot') {
-      if (constants.layer == 1) {
+    } else if (constants.chartType == 'scatter') {
+      if (constants.chartType == 'scatter') {
         // point layer
         verboseText +=
           plot.x_group_label +
@@ -1609,7 +1589,7 @@ class Display {
         } else if (constants.textMode == 'verbose') {
           // set from verboseText
         }
-      } else if (constants.layer == 2) {
+      } else if (constants.chartType == 'line') {
         // best fit line layer
         verboseText +=
           plot.x_group_label +
@@ -1648,12 +1628,12 @@ class Display {
 
   displayXLabel(plot) {
     let xlabel = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       xlabel = plot.plotLegend.x;
     } else if (
-      constants.chartType == 'heatmap' ||
-      constants.chartType == 'boxplot' ||
-      constants.chartType == 'scatterplot'
+      constants.chartType == 'heat' ||
+      constants.chartType == 'box' ||
+      constants.chartType == 'scatter'
     ) {
       xlabel = plot.x_group_label;
     }
@@ -1666,12 +1646,12 @@ class Display {
 
   displayYLabel(plot) {
     let ylabel = '';
-    if (constants.chartType == 'barplot') {
+    if (constants.chartType == 'bar') {
       ylabel = plot.plotLegend.y;
     } else if (
-      constants.chartType == 'heatmap' ||
-      constants.chartType == 'boxplot' ||
-      constants.chartType == 'scatterplot'
+      constants.chartType == 'heat' ||
+      constants.chartType == 'box' ||
+      constants.chartType == 'scatter'
     ) {
       ylabel = plot.y_group_label;
     }
@@ -1700,11 +1680,11 @@ class Display {
 
   displayFill(plot) {
     if (constants.textMode == 'terse') {
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
       }
     } else if (constants.textMode == 'verbose') {
-      if (constants.chartType == 'heatmap') {
+      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML =
           '<p>Fill label is ' + plot.box_label + '<p>';
       }
@@ -1714,7 +1694,7 @@ class Display {
   SetBraille(plot) {
     let brailleArray = [];
 
-    if (constants.chartType == 'heatmap') {
+    if (constants.chartType == 'heat') {
       let range = (constants.maxY - constants.minY) / 3;
       let low = constants.minY + range;
       let medium = low + range;
@@ -1733,7 +1713,7 @@ class Display {
         }
         brailleArray.push('⠳');
       }
-    } else if (constants.chartType == 'barplot') {
+    } else if (constants.chartType == 'bar') {
       let range = (constants.maxY - constants.minY) / 4;
       let low = constants.minY + range;
       let medium = low + range;
@@ -1749,7 +1729,7 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'scatterplot') {
+    } else if (constants.chartType == 'line') {
       let range = (plot.curveMaxY - plot.curveMinY) / 4;
       let low = plot.curveMinY + range;
       let medium = low + range;
@@ -1766,9 +1746,9 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'boxplot' && position.y > -1) {
+    } else if (constants.chartType == 'box' && position.y > -1) {
       // only run if we're on a plot
-      // Idea here is to use different braille characters to physically represent the boxplot
+      // Idea here is to use different braille characters to physically represent the box
       // if sections are longer or shorter we'll add more characters
       // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
       //
@@ -2166,11 +2146,11 @@ class Display {
 class BarChart {
   constructor() {
     // bars. The actual bar elements in the SVG. Used to highlight visually
-    if ('elements' in maidr) {
-      this.bars = maidr.elements;
+    if ('elements' in singleMaidr) {
+      this.bars = singleMaidr.elements;
       constants.hasRect = 1;
     } else {
-      this.bars = document.querySelectorAll('g[id^="geom_rect"] > rect');
+      this.bars = constants.chart.querySelectorAll('g[id^="geom_rect"] > rect');
       constants.hasRect = 0;
     }
 
@@ -2178,42 +2158,46 @@ class BarChart {
     this.columnLabels = [];
     let legendX = '';
     let legendY = '';
-    if ('axes' in maidr) {
+    if ('axis' in singleMaidr) {
       // legend labels
-      if (maidr.axes.x) {
-        if (maidr.axes.x.label) {
-          legendX = maidr.axes.x.label;
+      if (singleMaidr.axis.x) {
+        if (singleMaidr.axis.x.label) {
+          legendX = singleMaidr.axis.x.label;
         }
       }
-      if (maidr.axes.y) {
-        if (maidr.axes.y.label) {
-          legendY = maidr.axes.y.label;
+      if (singleMaidr.axis.y) {
+        if (singleMaidr.axis.y.label) {
+          legendY = singleMaidr.axis.y.label;
         }
       }
 
       // tick labels
-      if (maidr.axes.x) {
-        if (maidr.axes.x.format) {
-          this.columnLabels = maidr.axes.x.format;
+      if (singleMaidr.axis.x) {
+        if (singleMaidr.axis.x.format) {
+          this.columnLabels = singleMaidr.axis.x.format;
         }
       }
-      if (maidr.axes.y) {
-        if (maidr.axes.y.format) {
-          this.columnLabels = maidr.axes.y.format;
+      if (singleMaidr.axis.y) {
+        if (singleMaidr.axis.y.format) {
+          this.columnLabels = singleMaidr.axis.y.format;
         }
       }
     } else {
       // legend labels
-      if (document.querySelector('g[id^="xlab"] tspan')) {
-        legendX = document.querySelector('g[id^="xlab"] tspan').innerHTML;
+      if (constants.chart.querySelector('g[id^="xlab"] tspan')) {
+        legendX = constants.chart.querySelector(
+          'g[id^="xlab"] tspan'
+        ).innerHTML;
       }
-      if (document.querySelector('g[id^="ylab"] tspan')) {
-        legendY = document.querySelector('g[id^="ylab"] tspan').innerHTML;
+      if (constants.chart.querySelector('g[id^="ylab"] tspan')) {
+        legendY = constants.chart.querySelector(
+          'g[id^="ylab"] tspan'
+        ).innerHTML;
       }
 
       // tick labels
       this.columnLabels = this.ParseInnerHTML(
-        document.querySelectorAll(
+        constants.chart.querySelectorAll(
           'g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'
         )
       );
@@ -2226,23 +2210,23 @@ class BarChart {
 
     // title, either pulled from data or from the SVG
     this.title = '';
-    if ('title' in maidr) {
-      this.title = maidr.title;
-    } else if (document.querySelector('g[id^="plot.title..titleGrob"] tspan')) {
-      this.title = document.querySelector(
+    if ('title' in singleMaidr) {
+      this.title = singleMaidr.title;
+    } else if (
+      constants.chart.querySelector('g[id^="plot.title..titleGrob"] tspan')
+    ) {
+      this.title = constants.chart.querySelector(
         'g[id^="plot.title..titleGrob"] tspan'
       ).innerHTML;
       this.title = this.title.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
     }
 
-    if (typeof maidr == 'array') {
-      this.plotData = maidr;
-    } else if (typeof maidr == 'object') {
-      if ('data' in maidr) {
-        this.plotData = maidr.data;
-      }
+    if (Array.isArray(singleMaidr)) {
+      this.plotData = singleMaidr;
     } else {
-      // TODO: throw error
+      if ('data' in singleMaidr) {
+        this.plotData = singleMaidr.data;
+      }
     }
 
     // set the max and min values for the plot
@@ -2296,7 +2280,7 @@ class BarChart {
     // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
 
     let columnLabels = [];
-    let els = document.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
+    let els = constants.chart.querySelectorAll('tspan[dy="10"]'); // todo, generalize this selector
     for (var i = 0; i < els.length; i++) {
       columnLabels.push(els[i].innerHTML);
     }
@@ -2306,7 +2290,7 @@ class BarChart {
 
   GetLegend() {
     let legend = {};
-    let els = document.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
+    let els = constants.chart.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
     legend.x = els[1].innerHTML;
     legend.y = els[0].innerHTML;
 
@@ -2352,9 +2336,11 @@ class BoxPlot {
     }
 
     if (
-      document.querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
+      constants.chart.querySelector(
+        'g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
+      )
     ) {
-      constants.plotId = document
+      constants.plotId = constants.chart
         .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
         .getAttribute('id');
     }
@@ -2364,8 +2350,9 @@ class BoxPlot {
       let boxplotTitle = '';
       if (typeof maidr !== 'undefined' && typeof maidr.title !== 'undefined') {
         boxplotTitle = maidr.title;
-      } else if (document.querySelector('tspan[dy="9.45"]')) {
-        boxplotTitle = document.querySelector('tspan[dy="9.45"]').innerHTML;
+      } else if (constants.chart.querySelector('tspan[dy="9.45"]')) {
+        boxplotTitle =
+          constants.chart.querySelector('tspan[dy="9.45"]').innerHTML;
         boxplotTitle = boxplotTitle.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
       }
       this.title =
@@ -2377,14 +2364,14 @@ class BoxPlot {
       if (typeof maidr !== 'undefined') {
         this.x_group_label = maidr.x_group_label;
       } else {
-        this.x_group_label = document.querySelector(
+        this.x_group_label = constants.chart.querySelector(
           'text:not([transform^="rotate"]) > tspan[dy="7.88"]'
         ).innerHTML;
       }
       if (typeof maidr !== 'undefined') {
         this.y_group_label = maidr.y_group_label;
       } else {
-        this.y_group_label = document.querySelector(
+        this.y_group_label = constants.chart.querySelector(
           'text[transform^="rotate"] > tspan[dy="7.88"]'
         ).innerHTML;
       }
@@ -2399,7 +2386,7 @@ class BoxPlot {
         if (constants.plotOrientation == 'vert') {
           elDy = '6.3';
         }
-        let els = document.querySelectorAll('tspan[dy="' + elDy + '"]');
+        let els = constants.chart.querySelectorAll('tspan[dy="' + elDy + '"]');
         for (let i = 0; i < els.length; i++) {
           labels.push(els[i].innerHTML.trim());
         }
@@ -2419,10 +2406,10 @@ class BoxPlot {
         this.plotData = maidr;
       }
     } else {
-      this.x_group_label = document.getElementById(
+      this.x_group_label = constants.chart.getElementById(
         'GRID.text.199.1.1.tspan.1'
       ).innerHTML;
-      this.y_group_label = document.getElementById(
+      this.y_group_label = constants.chart.getElementById(
         'GRID.text.202.1.1.tspan.1'
       ).innerHTML;
       if (constants.plotOrientation == 'vert') {
@@ -2448,7 +2435,7 @@ class BoxPlot {
   GetLabels() {
     let labels = [];
     let query = 'tspan[dy="5"]';
-    let els = document.querySelectorAll(query);
+    let els = constants.chart.querySelectorAll(query);
     for (let i = 0; i < els.length; i++) {
       labels.push(els[i].innerHTML.trim());
     }
@@ -2526,12 +2513,12 @@ class BoxPlot {
   }
 
   GetData() {
-    // data in svg is formed as nested <g> elements. Loop through and get all point data
+    // data in chart is formed as nested <g> elements. Loop through and get all point data
     // goal is to get bounding x values and type (outlier, whisker, range, placeholder)
 
     let plotData = [];
 
-    let plots = document.getElementById(constants.plotId).children;
+    let plots = document.querySelector(singleMaidr.element).children;
     for (let i = 0; i < plots.length; i++) {
       // each plot
 
@@ -2682,7 +2669,7 @@ class BoxPlot {
 
     // add labeling for display
     for (let i = 0; i < plotData.length; i++) {
-      // each boxplot section
+      // each box section
       let rangeCounter = 0;
       for (let j = 0; j < plotData[i].length; j++) {
         let point = plotData[i][j];
@@ -2781,7 +2768,7 @@ class BoxPlot {
       // we always have a range, and need those bounds to set others, so we'll do this first
       let rangeBounds = initialElemSet[i].range.getBoundingClientRect();
 
-      // we get the midpoint from actual point values in the svg GRID.segments
+      // we get the midpoint from actual point values in the chart GRID.segments
       let midPoints = initialElemSet[i].range
         .querySelector('polyline[id^="GRID"]')
         .getAttribute('points')
@@ -3051,7 +3038,7 @@ class BoxPlot {
   }
   GetBoxplotSegmentPoints(segment, segmentType) {
     // Helper function for main GetData:
-    // Fetch x and y point data from svg
+    // Fetch x and y point data from chart
 
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
     let pointString = '';
@@ -3151,8 +3138,8 @@ class BoxplotRect {
     this.width = 0;
     this.y1 = 0;
     this.height = 0;
-    this.svgOffsetLeft = constants.svg.getBoundingClientRect().left;
-    this.svgOffsetTop = constants.svg.getBoundingClientRect().top;
+    this.chartOffsetLeft = constants.chart.getBoundingClientRect().left;
+    this.chartOffsetTop = constants.chart.getBoundingClientRect().top;
   }
 
   UpdateRect() {
@@ -3178,11 +3165,11 @@ class BoxplotRect {
       let bounds = plot.plotBounds[plotPos][sectionPos];
 
       if (bounds.type != 'blank') {
-        //let svgBounds = constants.svg.getBoundingClientRect();
+        //let chartBounds = constants.chart.getBoundingClientRect();
 
-        this.x1 = bounds.left - this.rectPadding - this.svgOffsetLeft;
+        this.x1 = bounds.left - this.rectPadding - this.chartOffsetLeft;
         this.width = bounds.width + this.rectPadding * 2;
-        this.y1 = bounds.top - this.rectPadding - this.svgOffsetTop;
+        this.y1 = bounds.top - this.rectPadding - this.chartOffsetTop;
         this.height = bounds.height + this.rectPadding * 2;
 
         if (constants.debugLevel > 5) {
@@ -3224,7 +3211,7 @@ class BoxplotRect {
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    constants.svg.appendChild(rect);
+    constants.chart.appendChild(rect);
   }
 }
 
@@ -3234,7 +3221,9 @@ class HeatMap {
       this.plots = maidr.elements;
       constants.hasRect = 1;
     } else {
-      this.plots = document.querySelectorAll('g[id^="geom_rect"] > rect');
+      this.plots = constants.chart.querySelectorAll(
+        'g[id^="geom_rect"] > rect'
+      );
       constants.hasRect = 0;
     }
 
@@ -3276,11 +3265,19 @@ class HeatMap {
       x_coord_check.sort(function (a, b) {
         return a - b;
       }); // ascending
-      y_coord_check
-        .sort(function (a, b) {
-          return a - b;
-        })
-        .reverse(); // descending
+      y_coord_check.sort(function (a, b) {
+        return a - b;
+      });
+
+      let svgScales = this.GetSVGScales();
+      console.log(svgScales);
+      // inverse scale if svg is scaled
+      if (svgScales[0] == -1) {
+        x_coord_check = x_coord_check.reverse();
+      }
+      if (svgScales[1] == -1) {
+        y_coord_check = y_coord_check.reverse();
+      }
 
       // get unique elements from x_coord and y_coord
       unique_x_coord = [...new Set(x_coord_check)];
@@ -3341,6 +3338,51 @@ class HeatMap {
     }
   }
 
+  GetSVGScales() {
+    let scaleX = 1;
+    let scaleY = 1;
+    // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
+
+    // but first, are we even in an svg that can be scaled?
+    let isSvg = false;
+    let element = this.plots[0]; // a random start, may as well be the first
+    while (element) {
+      if (element.tagName.toLowerCase() == 'body') {
+        break;
+      }
+      if (element.tagName && element.tagName.toLowerCase() === 'svg') {
+        isSvg = true;
+      }
+      element = element.parentNode;
+    }
+
+    if (isSvg) {
+      let element = this.plots[0]; // a random start, may as well be the first
+      while (element) {
+        if (element.tagName.toLowerCase() == 'body') {
+          break;
+        }
+        if (element.getAttribute('transform')) {
+          let transform = element.getAttribute('transform');
+          let match = transform.match(
+            /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
+          );
+          if (match) {
+            if (!isNaN(match[1])) {
+              scaleX *= parseFloat(match[1]);
+            }
+            if (!isNaN(match[3])) {
+              scaleY *= parseFloat(match[3]);
+            }
+          }
+        }
+        element = element.parentNode;
+      }
+    }
+
+    return [scaleX, scaleY];
+  }
+
   getRGBNorm(i) {
     let rgb_string = this.plots[i].getAttribute('fill');
     let rgb_array = rgb_string.slice(4, -1).split(',');
@@ -3363,25 +3405,29 @@ class HeatMap {
     if ('title' in maidr) {
       title = maidr.title;
     } else {
-      title = document.querySelector(
+      title = constants.chart.querySelector(
         'g[id^="guide.title"] text > tspan'
       ).innerHTML;
     }
 
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('label' in maidr.axes.x) {
-          legendX = maidr.axes.x.label;
+    if ('axis' in maidr) {
+      if ('x' in maidr.axis) {
+        if ('label' in maidr.axis.x) {
+          legendX = maidr.axis.x.label;
         }
       }
-      if ('y' in maidr.axes) {
-        if ('label' in maidr.axes.y) {
-          legendY = maidr.axes.y.label;
+      if ('y' in maidr.axis) {
+        if ('label' in maidr.axis.y) {
+          legendY = maidr.axis.y.label;
         }
       }
     } else {
-      legendX = document.querySelector('g[id^="xlab"] text > tspan').innerHTML;
-      legendY = document.querySelector('g[id^="ylab"] text > tspan').innerHTML;
+      legendX = constants.chart.querySelector(
+        'g[id^="xlab"] text > tspan'
+      ).innerHTML;
+      legendY = constants.chart.querySelector(
+        'g[id^="ylab"] text > tspan'
+      ).innerHTML;
     }
 
     labels_nodelist = [legendX, legendY, title];
@@ -3390,15 +3436,15 @@ class HeatMap {
   }
 
   getXLabels() {
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('format' in maidr.axes.x) {
-          return maidr.axes.x.format;
+    if ('axis' in maidr) {
+      if ('x' in maidr.axis) {
+        if ('format' in maidr.axis.x) {
+          return maidr.axis.x.format;
         }
       }
     } else {
       let x_labels_nodelist;
-      x_labels_nodelist = document.querySelectorAll('tspan[dy="10"]');
+      x_labels_nodelist = constants.chart.querySelectorAll('tspan[dy="10"]');
       let labels = [];
       for (let i = 0; i < x_labels_nodelist.length; i++) {
         labels.push(x_labels_nodelist[i].innerHTML.trim());
@@ -3409,16 +3455,16 @@ class HeatMap {
   }
 
   getYLabels() {
-    if ('axes' in maidr) {
-      if ('y' in maidr.axes) {
-        if ('format' in maidr.axes.y) {
-          return maidr.axes.y.format;
+    if ('axis' in maidr) {
+      if ('y' in maidr.axis) {
+        if ('format' in maidr.axis.y) {
+          return maidr.axis.y.format;
         }
       }
     } else {
       let y_labels_nodelist;
       let labels = [];
-      y_labels_nodelist = document.querySelectorAll(
+      y_labels_nodelist = constants.chart.querySelectorAll(
         'tspan[id^="GRID.text.19.1"]'
       );
       for (let i = 0; i < y_labels_nodelist.length; i++) {
@@ -3433,18 +3479,7 @@ class HeatMap {
     if ('title' in maidr) {
       return maidr.title;
     } else {
-      let heatmapTitle = document.querySelector(
-        'g[id^="layout::title"] text > tspan'
-      ).innerHTML;
-      if (
-        constants.manualData &&
-        typeof heatmapTitle !== 'undefined' &&
-        typeof heatmapTitle != null
-      ) {
-        return heatmapTitle;
-      } else {
-        return '';
-      }
+      return '';
     }
   }
 }
@@ -3454,6 +3489,7 @@ class HeatMapRect {
     if (constants.hasRect) {
       this.x = plot.x_coord[0];
       this.y = plot.y_coord[0];
+      this.squareIndex = 0;
       this.rectStrokeWidth = 4; // px
       this.height = Math.abs(plot.y_coord[1] - plot.y_coord[0]);
     }
@@ -3462,6 +3498,16 @@ class HeatMapRect {
   UpdateRect() {
     this.x = plot.x_coord[position.x];
     this.y = plot.y_coord[position.y];
+    // find which square we're on by searching for the x and y coordinates
+    for (let i = 0; i < plot.plots.length; i++) {
+      if (
+        plot.plots[i].getAttribute('x') == this.x &&
+        plot.plots[i].getAttribute('y') == this.y
+      ) {
+        this.squareIndex = i;
+        break;
+      }
+    }
   }
 
   UpdateRectDisplay() {
@@ -3472,16 +3518,14 @@ class HeatMapRect {
     var rect = document.createElementNS(svgns, 'rect');
     rect.setAttribute('id', 'highlight_rect');
     rect.setAttribute('x', this.x);
-    rect.setAttribute(
-      'y',
-      constants.svg.getBoundingClientRect().height - this.height - this.y
-    ); // y coord is inverse from plot data
+    rect.setAttribute('y', this.y);
     rect.setAttribute('width', this.height);
     rect.setAttribute('height', this.height);
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    constants.svg.appendChild(rect);
+    plot.plots[this.squareIndex].parentNode.appendChild(rect);
+    //constants.chart.appendChild(rect);
   }
 }
 
@@ -3491,52 +3535,24 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
 class ScatterPlot {
   constructor() {
-    // layer = 1
-    if ('point_elements' in maidr) {
-      this.plotPoints = maidr.point_elements;
-    } else {
-      this.plotPoints = document.querySelectorAll(
-        '#' + constants.plotId.replaceAll('.', '\\.') + ' > use'
-      );
-    }
-    this.svgPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
-    this.svgPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+    this.prefix = this.GetPrefix();
+    this.SetScatterLayer();
+    this.SetLineLayer();
+    this.SetAxes();
+    this.svgScales = this.GetSVGScales();
+  }
 
-    this.x = this.GetPointValues()[0]; // actual values of x
-    this.y = this.GetPointValues()[1]; // actual values of y
-
-    // for sound weight use
-    this.points_count = this.GetPointValues()[2]; // number of each points
-    this.max_count = this.GetPointValues()[3];
-
-    // layer = 2
-    if (constants.manualData) {
-      this.plotLine = maidr.smooth_elements;
-    } else {
-      this.plotLine = document.querySelectorAll(
-        '#' + 'GRID.polyline.13.1'.replaceAll('.', '\\.') + ' > polyline'
-      )[0];
-    }
-    this.svgLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
-    this.svgLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
-
-    this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
-    this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
-
-    this.curveMinY = Math.min(...this.curvePoints);
-    this.curveMaxY = Math.max(...this.curvePoints);
-    this.gradient = this.GetGradient();
-
+  SetAxes() {
     this.x_group_label = '';
     this.y_group_label = '';
     this.title = '';
     if (typeof maidr !== 'undefined') {
-      if ('axes' in maidr) {
-        if ('x' in maidr.axes) {
-          this.x_group_label = maidr.axes.x.label;
+      if ('axis' in maidr) {
+        if ('x' in maidr.axis) {
+          this.x_group_label = maidr.axis.x.label;
         }
-        if ('y' in maidr.axes) {
-          this.y_group_label = maidr.axes.y.label;
+        if ('y' in maidr.axis) {
+          this.y_group_label = maidr.axis.y.label;
         }
       }
       if ('title' in maidr) {
@@ -3545,12 +3561,54 @@ class ScatterPlot {
     }
   }
 
+  SetScatterLayer() {
+    // initially set as line layer (layer 2), if possible
+    let elIndex = this.GetElementIndex('scatter');
+    if (elIndex != -1) {
+      this.plotPoints = maidr.elements[elIndex];
+    } else if (maidr.type == 'scatter') {
+      this.plotPoints = maidr.elements;
+    }
+    if (typeof this.plotPoints !== 'undefined') {
+      this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
+      this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+
+      this.x = this.GetPointValues()[0]; // actual values of x
+      this.y = this.GetPointValues()[1]; // actual values of y
+
+      // for sound weight use
+      this.points_count = this.GetPointValues()[2]; // number of each points
+      this.max_count = this.GetPointValues()[3];
+    }
+  }
+
+  SetLineLayer() {
+    // layer = 2, line layer (from maidr types)
+    let elIndex = this.GetElementIndex('line');
+    if (elIndex != -1) {
+      this.plotLine = maidr.elements[elIndex];
+    } else if (maidr.type == 'line') {
+      this.plotLine = maidr.elements;
+    }
+    if (typeof this.plotLine !== 'undefined') {
+      this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
+      this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
+
+      this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
+      this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
+
+      this.curveMinY = Math.min(...this.curvePoints);
+      this.curveMaxY = Math.max(...this.curvePoints);
+      this.gradient = this.GetGradient();
+    }
+  }
+
   GetSvgPointCoords() {
     let points = new Map();
 
     for (let i = 0; i < this.plotPoints.length; i++) {
-      let x = parseFloat(this.plotPoints[i].getAttribute('x')); // .toFixed(1);
-      let y = parseFloat(this.plotPoints[i].getAttribute('y'));
+      let x = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'x')); // .toFixed(1);
+      let y = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'y'));
       if (!points.has(x)) {
         points.set(x, new Set([y]));
       } else {
@@ -3580,64 +3638,144 @@ class ScatterPlot {
     return [X, Y];
   }
 
+  GetElementIndex(elementName = 'scatter') {
+    let elIndex = -1;
+    if ('type' in maidr) {
+      elIndex = maidr.type.indexOf(elementName);
+    }
+    return elIndex;
+  }
+
+  GetSVGScales() {
+    let scaleX = 1;
+    let scaleY = 1;
+    // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
+
+    // but first, are we even in an svg that can be scaled?
+    let isSvg = false;
+    let element = this.plotPoints[0]; // a random start, may as well be the first
+    while (element) {
+      if (element.tagName.toLowerCase() == 'body') {
+        break;
+      }
+      if (element.tagName && element.tagName.toLowerCase() === 'svg') {
+        isSvg = true;
+      }
+      element = element.parentNode;
+    }
+
+    if (isSvg) {
+      let element = this.plotPoints[0]; // a random start, may as well be the first
+      while (element) {
+        if (element.tagName.toLowerCase() == 'body') {
+          break;
+        }
+        if (element.getAttribute('transform')) {
+          let transform = element.getAttribute('transform');
+          let match = transform.match(
+            /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
+          );
+          if (match) {
+            if (!isNaN(match[1])) {
+              scaleX *= parseFloat(match[1]);
+            }
+            if (!isNaN(match[3])) {
+              scaleY *= parseFloat(match[3]);
+            }
+          }
+        }
+        element = element.parentNode;
+      }
+    }
+
+    return [scaleX, scaleY];
+  }
+
+  GetPrefix() {
+    let elIndex = this.GetElementIndex('scatter');
+    let element;
+    if (elIndex != -1) {
+      element = maidr.elements[elIndex][0];
+    } else if (maidr.type == 'scatter') {
+      element = maidr.elements[0];
+    }
+    let prefix = '';
+    if (element.tagName.toLowerCase() == 'circle') {
+      prefix = 'c';
+    }
+    return prefix;
+  }
+
   GetPointValues() {
     let points = new Map(); // keep track of x and y values
 
     let xValues = [];
     let yValues = [];
 
-    for (let i = 0; i < maidr.data.data_point_layer.length; i++) {
-      let x = maidr.data.data_point_layer[i]['x'];
-      let y = maidr.data.data_point_layer[i]['y'];
-      xValues.push(x);
-      yValues.push(y);
-      if (!points.has(x)) {
-        points.set(x, new Map([[y, 1]]));
-      } else {
-        if (points.get(x).has(y)) {
-          let mapy = points.get(x);
-          mapy.set(y, mapy.get(y) + 1);
+    let elIndex = this.GetElementIndex('scatter');
+
+    let data;
+    if (elIndex > -1) {
+      data = maidr.data[elIndex];
+    } else if (maidr.type == 'scatter') {
+      data = maidr.data;
+    }
+    if (typeof data !== 'undefined') {
+      for (let i = 0; i < maidr.data[elIndex].length; i++) {
+        let x = maidr.data[elIndex][i]['x'];
+        let y = maidr.data[elIndex][i]['y'];
+        xValues.push(x);
+        yValues.push(y);
+        if (!points.has(x)) {
+          points.set(x, new Map([[y, 1]]));
         } else {
-          points.get(x).set(y, 1);
+          if (points.get(x).has(y)) {
+            let mapy = points.get(x);
+            mapy.set(y, mapy.get(y) + 1);
+          } else {
+            points.get(x).set(y, 1);
+          }
         }
       }
-    }
 
-    constants.minX = 0;
-    constants.maxX = [...new Set(xValues)].length;
+      constants.minX = 0;
+      constants.maxX = [...new Set(xValues)].length;
 
-    constants.minY = Math.min(...yValues);
-    constants.maxY = Math.max(...yValues);
+      constants.minY = Math.min(...yValues);
+      constants.maxY = Math.max(...yValues);
 
-    points = new Map(
-      [...points].sort(function (a, b) {
-        return a[0] - b[0];
-      })
-    );
+      points = new Map(
+        [...points].sort(function (a, b) {
+          return a[0] - b[0];
+        })
+      );
 
-    points.forEach(function (value, key) {
-      points[key] = Array.from(value).sort(function (a, b) {
-        return a[0] - b[0];
+      points.forEach(function (value, key) {
+        points[key] = Array.from(value).sort(function (a, b) {
+          return a[0] - b[0];
+        });
       });
-    });
 
-    let X = [];
-    let Y = [];
-    let points_count = [];
-    for (const [x_val, y_val] of points) {
-      X.push(x_val);
-      let y_arr = [];
-      let y_count = [];
-      for (const [y, count] of y_val) {
-        y_arr.push(y);
-        y_count.push(count);
+      let X = [];
+      let Y = [];
+      let points_count = [];
+      for (const [x_val, y_val] of points) {
+        X.push(x_val);
+        let y_arr = [];
+        let y_count = [];
+        for (const [y, count] of y_val) {
+          y_arr.push(y);
+          y_count.push(count);
+        }
+        Y.push(y_arr.sort());
+        points_count.push(y_count);
       }
-      Y.push(y_arr.sort());
-      points_count.push(y_count);
-    }
-    let max_points = Math.max(...points_count.map((a) => Math.max(...a)));
+      let max_points = Math.max(...points_count.map((a) => Math.max(...a)));
 
-    return [X, Y, points_count, max_points];
+      return [X, Y, points_count, max_points];
+    } else {
+      return;
+    }
   }
 
   PlayTones(audio) {
@@ -3645,7 +3783,7 @@ class ScatterPlot {
     if (constants.sepPlayId) {
       constants.KillSepPlay();
     }
-    if (constants.layer == 1) {
+    if (constants.chartType == 'scatter') {
       // point layer
       // we play a run of tones
       position.z = 0;
@@ -3665,7 +3803,7 @@ class ScatterPlot {
         },
         constants.sonifMode == 'sep' ? constants.autoPlayPointsRate : 0
       ); // play all tones at the same time
-    } else if (constants.layer == 2) {
+    } else if (constants.chartType == 'line') {
       // best fit line layer
       audio.playTone();
     }
@@ -3692,12 +3830,24 @@ class ScatterPlot {
     let x_points = [];
     let y_points = [];
 
-    for (let i = 0; i < maidr.data.data_smooth_layer.length; i++) {
-      x_points.push(maidr.data.data_smooth_layer[i]['x']);
-      y_points.push(maidr.data.data_smooth_layer[i]['y']);
-    }
+    let elIndex = this.GetElementIndex('line');
 
-    return [x_points, y_points];
+    let data;
+    if (elIndex > -1) {
+      data = maidr.data[elIndex];
+    } else if (maidr.type == 'line') {
+      data = maidr.data;
+    }
+    if (typeof data !== 'undefined') {
+      for (let i = 0; i < maidr.data[elIndex].length; i++) {
+        x_points.push(maidr.data[elIndex][i]['x']);
+        y_points.push(maidr.data[elIndex][i]['y']);
+      }
+
+      return [x_points, y_points];
+    } else {
+      return;
+    }
   }
 
   GetGradient() {
@@ -3718,35 +3868,62 @@ class ScatterPlot {
 }
 
 class Layer0Point {
+  // circles
+
   constructor() {
-    this.x = plot.svgPointsX[0];
-    this.y = plot.svgPointsY[0];
+    this.x = plot.chartPointsX[0];
+    this.y = plot.chartPointsY[0];
     this.strokeWidth = 1.35;
+    this.circleIndex = [];
   }
 
   async UpdatePoints() {
     await this.ClearPoints();
-    this.x = plot.svgPointsX[position.x];
-    this.y = plot.svgPointsY[position.x];
+    this.x = plot.chartPointsX[position.x];
+    this.y = plot.chartPointsY[position.x];
+    // find which circles we're on by searching for the x value
+    this.circleIndex = [];
+    for (let j = 0; j < this.y.length; j++) {
+      for (let i = 0; i < plot.plotPoints.length; i++) {
+        if (
+          plot.plotPoints[i].getAttribute(plot.prefix + 'x') == this.x &&
+          plot.plotPoints[i].getAttribute(plot.prefix + 'y') == this.y[j]
+        ) {
+          this.circleIndex.push(i);
+          break;
+        }
+      }
+    }
   }
 
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
-    for (let i = 0; i < this.y.length; i++) {
+    for (let i = 0; i < this.circleIndex.length; i++) {
       const svgns = 'http://www.w3.org/2000/svg';
       var point = document.createElementNS(svgns, 'circle');
       point.setAttribute('class', 'highlight_point');
       point.setAttribute('cx', this.x);
-      point.setAttribute(
-        'cy',
-        constants.svg.getBoundingClientRect().height - this.y[i]
-      );
+      if (plot.svgScales[1] == -1) {
+        point.setAttribute(
+          'cy',
+          constants.chart.getBoundingClientRect().height - this.y[i]
+        );
+      } else {
+        point.setAttribute(
+          'cy',
+          plot.plotPoints[this.circleIndex[i]].getAttribute('cy')
+        );
+      }
       point.setAttribute('r', 3.95);
       point.setAttribute('stroke', constants.colorSelected);
       point.setAttribute('stroke-width', this.strokeWidth);
       point.setAttribute('fill', constants.colorSelected);
-      constants.svg.appendChild(point);
+      if (plot.svgScales[1] == -1) {
+        constants.chart.appendChild(point);
+      } else {
+        plot.plotPoints[this.circleIndex[i]].parentNode.appendChild(point);
+      }
     }
   }
 
@@ -3767,16 +3944,18 @@ class Layer0Point {
 }
 
 class Layer1Point {
+  // line segments
+
   constructor() {
-    this.x = plot.svgLineX[0];
-    this.y = plot.svgLineY[0];
+    this.x = plot.chartLineX[0];
+    this.y = plot.chartLineY[0];
     this.strokeWidth = 1.35;
   }
 
   async UpdatePoints() {
     await this.ClearPoints();
-    this.x = plot.svgLineX[positionL1.x];
-    this.y = plot.svgLineY[positionL1.x];
+    this.x = plot.chartLineX[positionL1.x];
+    this.y = plot.chartLineY[positionL1.x];
   }
 
   async PrintPoints() {
@@ -3785,16 +3964,20 @@ class Layer1Point {
     const svgns = 'http://www.w3.org/2000/svg';
     var point = document.createElementNS(svgns, 'circle');
     point.setAttribute('id', 'highlight_point');
-    point.setAttribute('cx', this.x);
-    point.setAttribute(
-      'cy',
-      constants.svg.getBoundingClientRect().height - this.y
-    );
+    point.setAttribute(plot.prefix + 'x', this.x);
+    if (plot.svgScales[1] == -1) {
+      point.setAttribute(
+        plot.prefix + 'y',
+        constants.chart.getBoundingClientRect().height - this.y
+      );
+    } else {
+      point.setAttribute(plot.prefix + 'y', this.y);
+    }
     point.setAttribute('r', 3.95);
     point.setAttribute('stroke', constants.colorSelected);
     point.setAttribute('stroke-width', this.strokeWidth);
     point.setAttribute('fill', constants.colorSelected);
-    constants.svg.appendChild(point);
+    constants.chart.appendChild(point);
   }
 
   async ClearPoints() {
@@ -3813,144 +3996,14 @@ class Layer1Point {
   }
 }
 
-// events and init functions
-document.addEventListener('DOMContentLoaded', function (e) {
-  // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
-
-  // create global vars
-  window.constants = new Constants();
-  window.resources = new Resources();
-  window.menu = new Menu();
-  window.tracker = new Tracker();
-
-  // run tracker stuff only on user study page
-  if (document.getElementById('download_data_trigger')) {
-    document
-      .getElementById('download_data_trigger')
-      .addEventListener('click', function (e) {
-        tracker.DownloadTrackerData();
-      });
+class Control {
+  constructor() {
+    this.SetControls();
   }
 
-  // run events only on pages with a chart (svg)
-  if (document.getElementById(constants.svg_container_id)) {
-    constants.PrepChartHelperComponents(); // init html
-    window.review = new Review();
-    window.display = new Display();
-
-    // default page load focus on svg
-    // this is mostly for debugging, as first time load users must click or hit a key to focus
-    // todo for publish: probably remove outright
-    if (constants.debugLevel > 5) {
-      setTimeout(function () {
-        constants.svg.focus();
-      }, 100); // it needs just a tick after DOMContentLoaded
-    }
-
-    if (constants.svg_container) {
-      constants.svg_container.addEventListener('keydown', function (e) {
-        // Menu open
-        if (e.which == 72) {
-          // M(77) for menu, or H(72) for help? I don't like it
-          menu.Toggle(true);
-        }
-      });
-    }
-
-    // menu close
-    let allClose = document.querySelectorAll('#close_menu, #menu .close');
-    for (let i = 0; i < allClose.length; i++) {
-      allClose[i].addEventListener('click', function (e) {
-        menu.Toggle(false);
-      });
-    }
-    document
-      .getElementById('save_and_close_menu')
-      .addEventListener('click', function (e) {
-        menu.SaveData();
-        menu.Toggle(false);
-      });
-    document.getElementById('menu').addEventListener('keydown', function (e) {
-      if (e.which == 27) {
-        // esc
-        menu.Toggle(false);
-        svg.focus();
-      }
-    });
-
-    // save user focus so we can return after menu close
-    let allFocus = document.querySelectorAll(
-      '#' +
-        constants.svg_container_id +
-        ' > svg, #' +
-        constants.braille_input_id
-    );
-    for (let i = 0; i < allFocus.length; i++) {
-      allFocus[i].addEventListener('focus', function (e) {
-        constants.nonMenuFocus = allFocus[i];
-      });
-    }
-
-    // Global events for pages with svg
-    document.addEventListener('keydown', function (e) {
-      // Tracker
-      if (constants.isTracking) {
-        if (e.which == 121) {
-          //tracker.DownloadTrackerData();
-        } else {
-          if (plot) {
-            tracker.LogEvent(e);
-          }
-        }
-      }
-
-      // Kill autoplay
-      if (constants.isMac ? e.which == 91 || e.which == 93 : e.which == 17) {
-        // ctrl (either one)
-        constants.KillAutoplay();
-      }
-
-      // Review mode
-      if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-        // R, but let Ctrl etc R go through cause I use that to refresh
-        e.preventDefault();
-        if (constants.review_container.classList.contains('hidden')) {
-          review.ToggleReviewMode(true);
-        } else {
-          review.ToggleReviewMode(false);
-        }
-      }
-    });
-  }
-
-  // global events for all files
-  document.addEventListener('keydown', function (e) {
-    // reset tracking with Ctrl + F5 / command + F5, and Ctrl + Shift + R / command + Shift + R
-    // future todo: this should probably be a button with a confirmation. This is dangerous
-    if (
-      (e.which == 116 && (constants.isMac ? e.metaKey : e.ctrlKey)) ||
-      (e.which == 82 && e.shiftKey && (constants.isMac ? e.metaKey : e.ctrlKey))
-    ) {
-      e.preventDefault();
-      tracker.Delete();
-      location.reload(true);
-    }
-  });
-});
-
-document.addEventListener('DOMContentLoaded', function (e) {
-  // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
-
-  // variable initialization
-
-  if (typeof maidr !== 'undefined') {
-    if ('type' in maidr) {
-      constants.chartType = maidr.type;
-    }
-  }
-
-  if (typeof constants.chartType !== 'undefined') {
-    if (constants.chartType == 'barplot') {
+  SetControls() {
+    // variable initialization
+    if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
 
@@ -3963,280 +4016,274 @@ document.addEventListener('DOMContentLoaded', function (e) {
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false; // we only update info and play tones on certain keys
-        let isAtEnd = false;
+      constants.events.push([
+        constants.chart,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
 
-        if (e.which === 39) {
-          // right arrow 39
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
-              position.x -= 1;
-              Autoplay('right', position.x, plot.bars.length);
+          if (e.which === 39) {
+            // right arrow 39
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.x;
+                position.x -= 1;
+                Autoplay('right', position.x, plot.bars.length);
+              } else {
+                position.x = plot.bars.length - 1; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.bars.length - 1
+            ) {
+              lastx = position.x;
+              Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
-              position.x = plot.bars.length - 1; // go all the way
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (
-            e.altKey &&
-            e.shiftKey &&
-            position.x != plot.bars.length - 1
-          ) {
-            lastx = position.x;
-            Autoplay('reverse-right', plot.bars.length, position.x);
-          } else {
-            position.x += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-        }
-        if (e.which === 37) {
-          // left arrow 37
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
               position.x += 1;
-              Autoplay('left', position.x, -1);
-            } else {
-              position.x = 0; // go all the way
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (e.altKey && e.shiftKey && position.x != 0) {
-            lastx = position.x;
-            Autoplay('reverse-left', -1, position.x);
-          } else {
-            position.x += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
           }
-        }
-
-        // update display / text / audio
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAll();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      constants.brailleInput.addEventListener('keydown', function (e) {
-        // We block all input, except if it's B or Tab so we move focus
-
-        let updateInfoThisRound = false; // we only update info and play tones on certain keys
-        let isAtEnd = false;
-
-        if (e.which == 9) {
-          // tab
-          // do nothing, let the user Tab away
-        } else if (e.which == 39) {
-          // right arrow
-          e.preventDefault();
-          if (e.target.selectionStart > e.target.value.length - 2) {
-          } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
-              position.x -= 1;
-              Autoplay('right', position.x, plot.bars.length);
+          if (e.which === 37) {
+            // left arrow 37
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.x;
+                position.x += 1;
+                Autoplay('left', position.x, -1);
+              } else {
+                position.x = 0; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              lastx = position.x;
+              Autoplay('reverse-left', -1, position.x);
             } else {
-              position.x = plot.bars.length - 1; // go all the way
+              position.x += -1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (
-            e.altKey &&
-            e.shiftKey &&
-            position.x != plot.bars.length - 1
-          ) {
-            lastx = position.x;
-            Autoplay('reverse-right', plot.bars.length, position.x);
-          } else {
-            position.x += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-        } else if (e.which == 37) {
-          // left arrow
-          e.preventDefault();
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
-              position.x += 1;
-              Autoplay('left', position.x, -1);
-            } else {
-              position.x = 0; // go all the way
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.altKey && e.shiftKey && position.x != 0) {
-            lastx = position.x;
-            Autoplay('reverse-left', -1, position.x);
-          } else {
-            position.x += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-        } else {
-          e.preventDefault();
-        }
-
-        // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function (e) {
-          display.toggleBrailleMode('off');
-        });
-
-        // update display / text / audio
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAllBraille();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      // var keys;
-      // main BTS controls
-      let controlElements = [constants.svg_container, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener('keydown', function (e) {
-          // B: braille mode
-          if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-          }
-          // keys = (keys || []);
-          // keys[e.keyCode] = true;
-          // if (keys[84] && !keys[76]) {
-          //     display.toggleTextMode();
-          // }
-
-          // T: aria live text output mode
-          if (e.which == 84) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (!pressedL || timediff > constants.keypressInterval) {
-              display.toggleTextMode();
-            }
           }
 
-          // S: sonification mode
-          if (e.which == 83) {
-            display.toggleSonificationMode();
-          }
-
-          if (e.which === 32) {
-            // space 32, replay info but no other changes
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
           }
-        });
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      constants.events.push([
+        constants.brailleInput,
+        'keydown',
+        function (e) {
+          // We block all input, except if it's B or Tab so we move focus
+
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
+
+          if (e.which == 9) {
+            // tab
+            // do nothing, let the user Tab away
+          } else if (e.which == 39) {
+            // right arrow
+            e.preventDefault();
+            if (e.target.selectionStart > e.target.value.length - 2) {
+            } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.x;
+                position.x -= 1;
+                Autoplay('right', position.x, plot.bars.length);
+              } else {
+                position.x = plot.bars.length - 1; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.bars.length - 1
+            ) {
+              lastx = position.x;
+              Autoplay('reverse-right', plot.bars.length, position.x);
+            } else {
+              position.x += 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else if (e.which == 37) {
+            // left arrow
+            e.preventDefault();
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.x;
+                position.x += 1;
+                Autoplay('left', position.x, -1);
+              } else {
+                position.x = 0; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              lastx = position.x;
+              Autoplay('reverse-left', -1, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else {
+            e.preventDefault();
+          }
+
+          // auto turn off braille mode if we leave the braille box
+          constants.brailleInput.addEventListener('focusout', function (e) {
+            display.toggleBrailleMode('off');
+          });
+
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAllBraille();
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      // main BTS controls
+      let controlElements = [constants.chart, constants.brailleInput];
+      for (let i = 0; i < controlElements.length; i++) {
+        constants.events.push([
+          controlElements[i],
+          'keyup',
+          function (e) {
+            // B: braille mode
+            if (e.which == 66) {
+              display.toggleBrailleMode();
+              e.preventDefault();
+            }
+            // keys = (keys || []);
+            // keys[e.keyCode] = true;
+            // if (keys[84] && !keys[76]) {
+            //     display.toggleTextMode();
+            // }
+
+            // T: aria live text output mode
+            if (e.which == 84) {
+              let timediff = window.performance.now() - lastKeyTime;
+              if (!pressedL || timediff > constants.keypressInterval) {
+                display.toggleTextMode();
+              }
+            }
+
+            // S: sonification mode
+            if (e.which == 83) {
+              display.toggleSonificationMode();
+            }
+
+            if (e.which === 32) {
+              // space 32, replay info but no other changes
+              UpdateAll();
+            }
+          },
+        ]);
       }
 
-      document.addEventListener('keydown', function (e) {
-        // ctrl/cmd: stop autoplay
-        if (constants.isMac ? e.metaKey : e.ctrlKey) {
-          // (ctrl/cmd)+(home/fn+left arrow): first element
-          if (e.which == 36) {
-            position.x = 0;
-            UpdateAllBraille();
+      constants.events.push([
+        document,
+        'keydown',
+        function (e) {
+          // ctrl/cmd: stop autoplay
+          if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+              position.x = 0;
+              UpdateAllBraille();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+              position.x = plot.bars.length - 1;
+              UpdateAllBraille();
+            }
           }
 
-          // (ctrl/cmd)+(end/fn+right arrow): last element
-          else if (e.which == 35) {
-            position.x = plot.bars.length - 1;
-            UpdateAllBraille();
+          // must come before prefix L
+          if (pressedL) {
+            if (e.which == 88) {
+              // X: x label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayXLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 89) {
+              // Y: y label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayYLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 84) {
+              // T: title
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayTitle(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 76) {
+              lastKeyTime = window.performance.now();
+              pressedL = true;
+            } else {
+              pressedL = false;
+            }
           }
-        }
 
-        // for concurrent key press
-        // keys = (keys || []);
-        // keys[e.keyCode] = true;
-        // // lx: x label, ly: y label, lt: title
-        // if (keys[76] && keys[88]) { // lx
-        //     display.displayXLabel(plot);
-        // }
-
-        // if (keys[76] && keys[89]) { // ly
-        //     display.displayYLabel(plot);
-        // }
-
-        // if (keys[76] && keys[84]) { // lt
-        //     display.displayTitle(plot);
-        // }
-
-        // must come before prefix L
-        if (pressedL) {
-          if (e.which == 88) {
-            // X: x label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayXLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 89) {
-            // Y: y label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayYLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 84) {
-            // T: title
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayTitle(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 76) {
+          // L: prefix for label; must come after the suffix
+          if (e.which == 76) {
             lastKeyTime = window.performance.now();
             pressedL = true;
-          } else {
-            pressedL = false;
           }
-        }
 
-        // L: prefix for label; must come after the suffix
-        if (e.which == 76) {
-          lastKeyTime = window.performance.now();
-          pressedL = true;
-        }
-
-        // period: speed up
-        if (e.which == 190) {
-          constants.SpeedUp();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              Autoplay('right', position.x, lastx);
-            } else if (lastPlayed == 'reverse-right') {
-              Autoplay('left', position.x, lastx);
-            } else {
-              Autoplay(lastPlayed, position.x, lastx);
+          // period: speed up
+          if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                Autoplay('right', position.x, lastx);
+              } else if (lastPlayed == 'reverse-right') {
+                Autoplay('left', position.x, lastx);
+              } else {
+                Autoplay(lastPlayed, position.x, lastx);
+              }
             }
           }
-        }
 
-        // comma: speed down
-        if (e.which == 188) {
-          constants.SpeedDown();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              Autoplay('right', position.x, lastx);
-            } else if (lastPlayed == 'reverse-right') {
-              Autoplay('left', position.x, lastx);
-            } else {
-              Autoplay(lastPlayed, position.x, lastx);
+          // comma: speed down
+          if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                Autoplay('right', position.x, lastx);
+              } else if (lastPlayed == 'reverse-right') {
+                Autoplay('left', position.x, lastx);
+              } else {
+                Autoplay(lastPlayed, position.x, lastx);
+              }
             }
           }
-        }
-      });
-
-      // document.addEventListener("keyup", function (e) {
-      //     keys[e.keyCode] = false;
-      //     stop();
-      // }, false);
+        },
+      ]);
 
       function lockPosition() {
         // lock to min / max postions
@@ -4323,11 +4370,10 @@ document.addEventListener('DOMContentLoaded', function (e) {
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == 'boxplot') {
+    } else if ([].concat(singleMaidr.type).includes('box')) {
       // variable initialization
       constants.plotId = 'geom_boxplot.gTree.78.1';
       window.plot = new BoxPlot();
-      constants.chartType = 'boxplot';
       if (constants.plotOrientation == 'vert') {
         window.position = new Position(0, plot.plotData[0].length - 1);
       } else {
@@ -4342,594 +4388,597 @@ document.addEventListener('DOMContentLoaded', function (e) {
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false; // we only update info and play tones on certain keys
-        let isAtEnd = false;
+      constants.events.push([
+        constants.chart,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
 
-        // right arrow
-        if (e.which === 39) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('right', position.x, plot.plotData.length - 1);
-              } else {
-                Autoplay('right', position.x, plot.plotData[position.y].length);
-              }
-            } else {
-              isAtEnd = lockPosition();
-              if (constants.plotOrientation == 'vert') {
-                position.x = plot.plotData.length - 1;
-              } else {
-                position.x = plot.plotData[position.y].length - 1;
-              }
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (constants.plotOrientation == 'vert') {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              plot.plotData.length - 1 != position.x
-            ) {
-              lastY = position.y;
-              Autoplay('reverse-right', plot.plotData.length - 1, position.x);
-            } else {
-              if (
-                position.x == -1 &&
-                position.y == plot.plotData[position.x].length
-              ) {
-                position.y -= 1;
-              }
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              plot.plotData[position.y].length - 1 != position.x
-            ) {
-              lastx = position.x;
-              Autoplay(
-                'reverse-right',
-                plot.plotData[position.y].length - 1,
-                position.x
-              );
-            } else {
-              if (position.x == -1 && position.y == plot.plotData.length) {
-                position.y -= 1;
-              }
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          }
-          constants.navigation = 1;
-        }
-        // left arrow
-        if (e.which === 37) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              Autoplay('left', position.x, -1);
-            } else {
-              position.x = 0;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.altKey && e.shiftKey && position.x > 0) {
-            if (constants.plotOrientation == 'vert') {
-              lastY = position.y;
-            } else {
-              lastx = position.x;
-            }
-            Autoplay('reverse-left', 0, position.x);
-          } else {
-            position.x += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          constants.navigation = 1;
-        }
-        // up arrow
-        if (e.which === 38) {
-          let oldY = position.y;
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('up', position.y, plot.plotData[position.x].length);
-              } else {
-                Autoplay('up', position.y, plot.plotData.length);
-              }
-            } else {
-              if (constants.plotOrientation == 'vert') {
-                position.y = plot.plotData[position.x].length - 1;
-              } else {
-                position.y = plot.plotData.length - 1;
-              }
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (constants.plotOrientation == 'vert') {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              position.y != plot.plotData[position.x].length - 1
-            ) {
-              lastY = position.y;
-              Autoplay(
-                'reverse-up',
-                plot.plotData[position.x].length - 1,
-                position.y
-              );
-            } else {
-              position.y += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              position.y != plot.plotData.length - 1
-            ) {
-              lastx = position.x;
-              Autoplay('reverse-up', plot.plotData.length - 1, position.y);
-            } else {
-              position.y += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          }
-          constants.navigation = 0;
-        }
-        // down arrow
-        if (e.which === 40) {
-          let oldY = position.y;
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              Autoplay('down', position.y, -1);
-            } else {
-              position.y = 0;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.altKey && e.shiftKey && position.y != 0) {
-            if (constants.plotOrientation == 'vert') {
-              lastY = position.y;
-            } else {
-              lastx = position.x;
-            }
-            Autoplay('reverse-down', 0, position.y);
-          } else {
-            if (constants.plotOrientation == 'vert') {
-              if (
-                position.x == -1 &&
-                position.y == plot.plotData[position.x].length
-              ) {
-                position.x += 1;
-              }
-            } else {
-              if (position.x == -1 && position.y == plot.plotData.length) {
-                position.x += 1;
-              }
-            }
-            position.y += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          //position.x = GetRelativeBoxPosition(oldY, position.y);
-          constants.navigation = 0;
-        }
-
-        // update display / text / audio
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAll();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      constants.brailleInput.addEventListener('keydown', function (e) {
-        // We block all input, except if it's B or Tab so we move focus
-
-        let updateInfoThisRound = false; // we only update info and play tones on certain keys
-        let setBrailleThisRound = false;
-        let isAtEnd = false;
-
-        if (e.which == 9) {
-          // tab
-          // do nothing, let the user Tab away
-        } else if (e.which == 39) {
           // right arrow
-          e.preventDefault();
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('right', position.x, plot.plotData.length - 1);
+          if (e.which === 39) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('right', position.x, plot.plotData.length - 1);
+                } else {
+                  Autoplay(
+                    'right',
+                    position.x,
+                    plot.plotData[position.y].length
+                  );
+                }
               } else {
-                Autoplay('right', position.x, plot.plotData[position.y].length);
-              }
-            } else {
-              if (constants.plotOrientation == 'vert') {
-                position.x = plot.plotData.length - 1;
-              } else {
-                position.x = plot.plotData[position.y].length - 1;
-              }
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (constants.plotOrientation == 'vert') {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              plot.plotData.length - 1 != position.x
-            ) {
-              lastY = position.y;
-              Autoplay('reverse-right', plot.plotData.length - 1, position.x);
-            } else {
-              if (
-                position.x == -1 &&
-                position.y == plot.plotData[position.x].length
-              ) {
-                position.y -= 1;
-              }
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              plot.plotData[position.y].length - 1 != position.x
-            ) {
-              lastx = position.x;
-              Autoplay(
-                'reverse-right',
-                plot.plotData[position.y].length - 1,
-                position.x
-              );
-            } else {
-              if (position.x == -1 && position.y == plot.plotData.length) {
-                position.y -= 1;
-              }
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          }
-          setBrailleThisRound = true;
-          constants.navigation = 1;
-        } else if (e.which == 37) {
-          // left arrow
-          e.preventDefault();
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              Autoplay('left', position.x, -1);
-            } else {
-              position.x = 0;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.altKey && e.shiftKey && position.x > 0) {
-            if (constants.plotOrientation == 'vert') {
-              lastY = position.y;
-            } else {
-              lastx = position.x;
-            }
-            Autoplay('reverse-left', 0, position.x);
-          } else {
-            position.x += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          setBrailleThisRound = true;
-          constants.navigation = 1;
-        } else if (e.which === 38) {
-          // up arrow
-          let oldY = position.y;
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              if (constants.plotOrientation == 'vert') {
-                if (position.x < 0) position.x = 0;
-                Autoplay('up', position.y, plot.plotData[position.x].length);
-              } else {
-                Autoplay('up', position.y, plot.plotData.length);
+                isAtEnd = lockPosition();
+                if (constants.plotOrientation == 'vert') {
+                  position.x = plot.plotData.length - 1;
+                } else {
+                  position.x = plot.plotData[position.y].length - 1;
+                }
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
               }
             } else if (constants.plotOrientation == 'vert') {
-              position.y = plot.plotData[position.x].length - 1;
-              updateInfoThisRound = true;
-            } else {
-              position.y = plot.plotData.length - 1;
-              updateInfoThisRound = true;
-            }
-          } else if (constants.plotOrientation == 'vert') {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              position.y != plot.plotData[position.x].length - 1
-            ) {
-              lasY = position.y;
-              Autoplay(
-                'reverse-up',
-                plot.plotData[position.x].length - 1,
-                position.y
-              );
-            } else {
-              position.y += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else {
-            if (
-              e.altKey &&
-              e.shiftKey &&
-              position.y != plot.plotData.length - 1
-            ) {
-              lastx = position.x;
-              Autoplay('reverse-up', plot.plotData.length - 1, position.y);
-            } else {
-              position.y += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          }
-          if (constants.plotOrientation == 'vert') {
-          } else {
-            setBrailleThisRound = true;
-          }
-          constants.navigation = 0;
-        } else if (e.which === 40) {
-          // down arrow
-          let oldY = position.y;
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              Autoplay('down', position.y, -1);
-            } else {
-              position.y = 0;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.altKey && e.shiftKey && position.y != 0) {
-            if (constants.plotOrientation == 'vert') {
-              lastY = position.y;
-            } else {
-              lastx = position.x;
-            }
-            Autoplay('reverse-down', 0, position.y);
-          } else {
-            if (constants.plotOrientation == 'vert') {
               if (
-                position.x == -1 &&
-                position.y == plot.plotData[position.x].length
+                e.altKey &&
+                e.shiftKey &&
+                plot.plotData.length - 1 != position.x
               ) {
+                lastY = position.y;
+                Autoplay('reverse-right', plot.plotData.length - 1, position.x);
+              } else {
+                if (
+                  position.x == -1 &&
+                  position.y == plot.plotData[position.x].length
+                ) {
+                  position.y -= 1;
+                }
                 position.x += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
               }
             } else {
-              if (position.x == -1 && position.y == plot.plotData.length) {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                plot.plotData[position.y].length - 1 != position.x
+              ) {
+                lastx = position.x;
+                Autoplay(
+                  'reverse-right',
+                  plot.plotData[position.y].length - 1,
+                  position.x
+                );
+              } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                  position.y -= 1;
+                }
                 position.x += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
               }
             }
-            position.y += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
+            constants.navigation = 1;
           }
-          constants.navigation = 0;
-          if (constants.plotOrientation == 'vert') {
-          } else {
-            setBrailleThisRound = true;
-          }
-          constants.navigation = 0;
-        } else {
-          e.preventDefault();
-          // todo: allow some controls through like page refresh
-        }
-
-        // update audio. todo: add a setting for this later
-        if (updateInfoThisRound && !isAtEnd) {
-          if (setBrailleThisRound) display.SetBraille(plot);
-          setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-
-        // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function (e) {
-          display.toggleBrailleMode('off');
-        });
-      });
-
-      // var keys;
-      // main BTS controls
-      let controlElements = [constants.svg_container, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener('keydown', function (e) {
-          // B: braille mode
-          if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-          }
-          // T: aria live text output mode
-          if (e.which == 84) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (!pressedL || timediff > constants.keypressInterval) {
-              display.toggleTextMode();
+          // left arrow
+          if (e.which === 37) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                Autoplay('left', position.x, -1);
+              } else {
+                position.x = 0;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x > 0) {
+              if (constants.plotOrientation == 'vert') {
+                lastY = position.y;
+              } else {
+                lastx = position.x;
+              }
+              Autoplay('reverse-left', 0, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
             }
+            constants.navigation = 1;
+          }
+          // up arrow
+          if (e.which === 38) {
+            let oldY = position.y;
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('up', position.y, plot.plotData[position.x].length);
+                } else {
+                  Autoplay('up', position.y, plot.plotData.length);
+                }
+              } else {
+                if (constants.plotOrientation == 'vert') {
+                  position.y = plot.plotData[position.x].length - 1;
+                } else {
+                  position.y = plot.plotData.length - 1;
+                }
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (constants.plotOrientation == 'vert') {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                position.y != plot.plotData[position.x].length - 1
+              ) {
+                lastY = position.y;
+                Autoplay(
+                  'reverse-up',
+                  plot.plotData[position.x].length - 1,
+                  position.y
+                );
+              } else {
+                position.y += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                position.y != plot.plotData.length - 1
+              ) {
+                lastx = position.x;
+                Autoplay('reverse-up', plot.plotData.length - 1, position.y);
+              } else {
+                position.y += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            }
+            constants.navigation = 0;
+          }
+          // down arrow
+          if (e.which === 40) {
+            let oldY = position.y;
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                Autoplay('down', position.y, -1);
+              } else {
+                position.y = 0;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.y != 0) {
+              if (constants.plotOrientation == 'vert') {
+                lastY = position.y;
+              } else {
+                lastx = position.x;
+              }
+              Autoplay('reverse-down', 0, position.y);
+            } else {
+              if (constants.plotOrientation == 'vert') {
+                if (
+                  position.x == -1 &&
+                  position.y == plot.plotData[position.x].length
+                ) {
+                  position.x += 1;
+                }
+              } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                  position.x += 1;
+                }
+              }
+              position.y += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            //position.x = GetRelativeBoxPosition(oldY, position.y);
+            constants.navigation = 0;
           }
 
-          // keys = (keys || []);
-          // keys[e.keyCode] = true;
-          // if (keys[84] && !keys[76]) {
-          //     display.toggleTextMode();
-          // }
-
-          // S: sonification mode
-          if (e.which == 83) {
-            display.toggleSonificationMode();
-          }
-
-          if (e.which === 32) {
-            // space 32, replay info but no other changes
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
           }
-        });
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      constants.events.push([
+        constants.brailleInput,
+        'keydown',
+        function (e) {
+          // We block all input, except if it's B or Tab so we move focus
+
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let setBrailleThisRound = false;
+          let isAtEnd = false;
+
+          if (e.which == 9) {
+            // tab
+            // do nothing, let the user Tab away
+          } else if (e.which == 39) {
+            // right arrow
+            e.preventDefault();
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('right', position.x, plot.plotData.length - 1);
+                } else {
+                  Autoplay(
+                    'right',
+                    position.x,
+                    plot.plotData[position.y].length
+                  );
+                }
+              } else {
+                if (constants.plotOrientation == 'vert') {
+                  position.x = plot.plotData.length - 1;
+                } else {
+                  position.x = plot.plotData[position.y].length - 1;
+                }
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (constants.plotOrientation == 'vert') {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                plot.plotData.length - 1 != position.x
+              ) {
+                lastY = position.y;
+                Autoplay('reverse-right', plot.plotData.length - 1, position.x);
+              } else {
+                if (
+                  position.x == -1 &&
+                  position.y == plot.plotData[position.x].length
+                ) {
+                  position.y -= 1;
+                }
+                position.x += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                plot.plotData[position.y].length - 1 != position.x
+              ) {
+                lastx = position.x;
+                Autoplay(
+                  'reverse-right',
+                  plot.plotData[position.y].length - 1,
+                  position.x
+                );
+              } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                  position.y -= 1;
+                }
+                position.x += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            }
+            setBrailleThisRound = true;
+            constants.navigation = 1;
+          } else if (e.which == 37) {
+            // left arrow
+            e.preventDefault();
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                Autoplay('left', position.x, -1);
+              } else {
+                position.x = 0;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x > 0) {
+              if (constants.plotOrientation == 'vert') {
+                lastY = position.y;
+              } else {
+                lastx = position.x;
+              }
+              Autoplay('reverse-left', 0, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            setBrailleThisRound = true;
+            constants.navigation = 1;
+          } else if (e.which === 38) {
+            // up arrow
+            let oldY = position.y;
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                if (constants.plotOrientation == 'vert') {
+                  if (position.x < 0) position.x = 0;
+                  Autoplay('up', position.y, plot.plotData[position.x].length);
+                } else {
+                  Autoplay('up', position.y, plot.plotData.length);
+                }
+              } else if (constants.plotOrientation == 'vert') {
+                position.y = plot.plotData[position.x].length - 1;
+                updateInfoThisRound = true;
+              } else {
+                position.y = plot.plotData.length - 1;
+                updateInfoThisRound = true;
+              }
+            } else if (constants.plotOrientation == 'vert') {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                position.y != plot.plotData[position.x].length - 1
+              ) {
+                lasY = position.y;
+                Autoplay(
+                  'reverse-up',
+                  plot.plotData[position.x].length - 1,
+                  position.y
+                );
+              } else {
+                position.y += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else {
+              if (
+                e.altKey &&
+                e.shiftKey &&
+                position.y != plot.plotData.length - 1
+              ) {
+                lastx = position.x;
+                Autoplay('reverse-up', plot.plotData.length - 1, position.y);
+              } else {
+                position.y += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            }
+            if (constants.plotOrientation == 'vert') {
+            } else {
+              setBrailleThisRound = true;
+            }
+            constants.navigation = 0;
+          } else if (e.which === 40) {
+            // down arrow
+            let oldY = position.y;
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                Autoplay('down', position.y, -1);
+              } else {
+                position.y = 0;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.y != 0) {
+              if (constants.plotOrientation == 'vert') {
+                lastY = position.y;
+              } else {
+                lastx = position.x;
+              }
+              Autoplay('reverse-down', 0, position.y);
+            } else {
+              if (constants.plotOrientation == 'vert') {
+                if (
+                  position.x == -1 &&
+                  position.y == plot.plotData[position.x].length
+                ) {
+                  position.x += 1;
+                }
+              } else {
+                if (position.x == -1 && position.y == plot.plotData.length) {
+                  position.x += 1;
+                }
+              }
+              position.y += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            constants.navigation = 0;
+            if (constants.plotOrientation == 'vert') {
+            } else {
+              setBrailleThisRound = true;
+            }
+            constants.navigation = 0;
+          } else {
+            e.preventDefault();
+            // todo: allow some controls through like page refresh
+          }
+
+          // update audio. todo: add a setting for this later
+          if (updateInfoThisRound && !isAtEnd) {
+            if (setBrailleThisRound) display.SetBraille(plot);
+            setTimeout(UpdateAllBraille, 50); // we delay this by just a moment as otherwise the cursor position doesn't get set
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+
+          // auto turn off braille mode if we leave the braille box
+          constants.brailleInput.addEventListener('focusout', function (e) {
+            display.toggleBrailleMode('off');
+          });
+        },
+      ]);
+
+      // main BTS controls
+      let controlElements = [constants.chart, constants.brailleInput];
+      for (let i = 0; i < controlElements.length; i++) {
+        constants.events.push([
+          controlElements[i],
+          'keydown',
+          function (e) {
+            // B: braille mode
+            if (e.which == 66) {
+              display.toggleBrailleMode();
+              e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+              let timediff = window.performance.now() - lastKeyTime;
+              if (!pressedL || timediff > constants.keypressInterval) {
+                display.toggleTextMode();
+              }
+            }
+
+            // keys = (keys || []);
+            // keys[e.keyCode] = true;
+            // if (keys[84] && !keys[76]) {
+            //     display.toggleTextMode();
+            // }
+
+            // S: sonification mode
+            if (e.which == 83) {
+              display.toggleSonificationMode();
+            }
+
+            if (e.which === 32) {
+              // space 32, replay info but no other changes
+              UpdateAll();
+            }
+          },
+        ]);
       }
 
-      document.addEventListener('keydown', function (e) {
-        if (constants.isMac ? e.metaKey : e.ctrlKey) {
-          // (ctrl/cmd)+(home/fn+left arrow): top left element
-          if (e.which == 36) {
-            position.x = 0;
-            position.y = plot.plotData.length - 1;
-            UpdateAllBraille();
+      constants.events.push([
+        document,
+        'keydown',
+        function (e) {
+          if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            // (ctrl/cmd)+(home/fn+left arrow): top left element
+            if (e.which == 36) {
+              position.x = 0;
+              position.y = plot.plotData.length - 1;
+              UpdateAllBraille();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): right bottom element
+            else if (e.which == 35) {
+              position.x = plot.plotData[0].length - 1;
+              position.y = 0;
+              UpdateAllBraille();
+            }
           }
 
-          // (ctrl/cmd)+(end/fn+right arrow): right bottom element
-          else if (e.which == 35) {
-            position.x = plot.plotData[0].length - 1;
-            position.y = 0;
-            UpdateAllBraille();
+          // must come before the prefix L
+          if (pressedL) {
+            if (e.which == 88) {
+              // X: x label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayXLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 89) {
+              // Y: y label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayYLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 84) {
+              // T: title
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayTitle(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 76) {
+              lastKeyTime = window.performance.now();
+              pressedL = true;
+            } else {
+              pressedL = false;
+            }
           }
-        }
 
-        // keys = (keys || []);
-        // keys[e.keyCode] = true;
-        // // lx: x label, ly: y label, lt: title, lf: fill
-        // if (keys[76] && keys[88]) { // lx
-        //     display.displayXLabel(plot);
-        // }
-
-        // if (keys[76] && keys[89]) { // ly
-        //     display.displayYLabel(plot);
-        // }
-
-        // if (keys[76] && keys[84]) { // lt
-        //     display.displayTitle(plot);
-        // }
-
-        // must come before the prefix L
-        if (pressedL) {
-          if (e.which == 88) {
-            // X: x label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayXLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 89) {
-            // Y: y label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayYLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 84) {
-            // T: title
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayTitle(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 76) {
+          // L: prefix for label; must come after suffix
+          if (e.which == 76) {
             lastKeyTime = window.performance.now();
             pressedL = true;
-          } else {
-            pressedL = false;
           }
-        }
 
-        // L: prefix for label; must come after suffix
-        if (e.which == 76) {
-          lastKeyTime = window.performance.now();
-          pressedL = true;
-        }
-
-        // period: speed up
-        if (e.which == 190) {
-          constants.SpeedUp();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('right', position.y, lastY);
+          // period: speed up
+          if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('right', position.y, lastY);
+                } else {
+                  Autoplay('right', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-right') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('left', position.y, lastY);
+                } else {
+                  Autoplay('left', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-up') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('down', position.y, lastY);
+                } else {
+                  Autoplay('down', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-down') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('up', position.y, lastY);
+                } else {
+                  Autoplay('up', position.x, lastx);
+                }
               } else {
-                Autoplay('right', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-right') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('left', position.y, lastY);
-              } else {
-                Autoplay('left', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-up') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('down', position.y, lastY);
-              } else {
-                Autoplay('down', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-down') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('up', position.y, lastY);
-              } else {
-                Autoplay('up', position.x, lastx);
-              }
-            } else {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay(lastPlayed, position.y, lastY);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay(lastPlayed, position.y, lastY);
+                } else {
+                  Autoplay(lastPlayed, position.x, lastx);
+                }
               }
             }
           }
-        }
 
-        // comma: speed down
-        if (e.which == 188) {
-          constants.SpeedDown();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('right', position.y, lastY);
+          // comma: speed down
+          if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('right', position.y, lastY);
+                } else {
+                  Autoplay('right', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-right') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('left', position.y, lastY);
+                } else {
+                  Autoplay('left', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-up') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('down', position.y, lastY);
+                } else {
+                  Autoplay('down', position.x, lastx);
+                }
+              } else if (lastPlayed == 'reverse-down') {
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay('up', position.y, lastY);
+                } else {
+                  Autoplay('up', position.x, lastx);
+                }
               } else {
-                Autoplay('right', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-right') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('left', position.y, lastY);
-              } else {
-                Autoplay('left', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-up') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('down', position.y, lastY);
-              } else {
-                Autoplay('down', position.x, lastx);
-              }
-            } else if (lastPlayed == 'reverse-down') {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay('up', position.y, lastY);
-              } else {
-                Autoplay('up', position.x, lastx);
-              }
-            } else {
-              if (constants.plotOrientation == 'vert') {
-                Autoplay(lastPlayed, position.y, lastY);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
+                if (constants.plotOrientation == 'vert') {
+                  Autoplay(lastPlayed, position.y, lastY);
+                } else {
+                  Autoplay(lastPlayed, position.x, lastx);
+                }
               }
             }
           }
-        }
-      });
-
-      // document.addEventListener("keyup", function (e) {
-      //     keys[e.keyCode] = false;
-      //     stop();
-      // }, false);
+        },
+      ]);
 
       function UpdateAll() {
         if (constants.showDisplay) {
@@ -5008,39 +5057,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
         }
 
         return isLockNeeded;
-      }
-
-      // deprecated. We now use grid system and x values are always available
-      function GetRelativeBoxPosition(yOld, yNew) {
-        // Used when we move up / down to another plot
-        // We want to go to the relative position in the new plot
-        // ie, if we were on the 50%, return the position.x of the new 50%
-
-        // init
-        let xNew = 0;
-        // lock yNew
-        if (yNew < 1) {
-          ynew = 0;
-        } else if (yNew > plot.plotData.length - 1) {
-          yNew = plot.plotData.length - 1;
-        }
-
-        if (yOld < 0) {
-          // not on any chart yet, just start at 0
-        } else {
-          let oldLabel = '';
-          if ('label' in plot.plotData[yOld][position.x]) {
-            oldLabel = plot.plotData[yOld][position.x].label;
-          }
-          // does it exist on the new plot? we'll just get that val
-          for (let i = 0; i < plot.plotData[yNew].length; i++) {
-            if (plot.plotData[yNew][i].label == oldLabel) {
-              xNew = i;
-            }
-          }
-        }
-
-        return xNew;
       }
 
       function Autoplay(dir, start, end) {
@@ -5128,12 +5144,11 @@ document.addEventListener('DOMContentLoaded', function (e) {
           }
         }, constants.autoPlayRate);
       }
-    } else if (constants.chartType == 'heatmap') {
+    } else if ([].concat(singleMaidr.type).includes('heat')) {
       // variable initialization
       constants.plotId = 'geom_rect.rect.2.1';
       window.position = new Position(-1, -1);
       window.plot = new HeatMap();
-      constants.chartType = 'heatmap';
       let rect = new HeatMapRect();
       let audio = new Audio();
       let lastPlayed = '';
@@ -5142,145 +5157,18 @@ document.addEventListener('DOMContentLoaded', function (e) {
       let pressedL = false;
 
       // control eventlisteners
-      constants.svg_container.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false;
-        let isAtEnd = false;
+      constants.events.push([
+        constants.chart,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false;
+          let isAtEnd = false;
 
-        // right arrow 39
-        if (e.which === 39) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
-              position.x -= 1;
-              Autoplay('right', position.x, plot.num_cols);
-            } else {
-              position.x = plot.num_cols - 1;
-              updateInfoThisRound = true;
-            }
-          } else if (
-            e.altKey &&
-            e.shiftKey &&
-            position.x != plot.num_cols - 1
-          ) {
-            lastx = position.x;
-            Autoplay('reverse-right', plot.num_cols, position.x);
-          } else {
-            if (position.x == -1 && position.y == -1) {
-              position.y += 1;
-            }
-            position.x += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          constants.navigation = 1;
-        }
-
-        // left arrow 37
-        if (e.which === 37) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.x;
-              position.x += 1;
-              Autoplay('left', position.x, -1);
-            } else {
-              position.x = 0;
-              updateInfoThisRound = true;
-            }
-          } else if (e.altKey && e.shiftKey && position.x != 0) {
-            lastx = position.x;
-            Autoplay('reverse-left', -1, position.x);
-          } else {
-            position.x -= 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          constants.navigation = 1;
-        }
-
-        // up arrow 38
-        if (e.which === 38) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.y;
-              position.y += 1;
-              Autoplay('up', position.y, -1);
-            } else {
-              position.y = 0;
-              updateInfoThisRound = true;
-            }
-          } else if (e.altKey && e.shiftKey && position.y != 0) {
-            lastx = position.x;
-            Autoplay('reverse-up', -1, position.y);
-          } else {
-            position.y -= 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          constants.navigation = 0;
-        }
-
-        // down arrow 40
-        if (e.which === 40) {
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            if (e.shiftKey) {
-              // lastx = position.y;
-              position.y -= 1;
-              Autoplay('down', position.y, plot.num_rows);
-            } else {
-              position.y = plot.num_rows - 1;
-              updateInfoThisRound = true;
-            }
-          } else if (
-            e.altKey &&
-            e.shiftKey &&
-            position.y != plot.num_rows - 1
-          ) {
-            lastx = position.x;
-            Autoplay('reverse-down', plot.num_rows, position.y);
-          } else {
-            if (position.x == -1 && position.y == -1) {
-              position.x += 1;
-            }
-            position.y += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-          constants.navigation = 0;
-        }
-
-        // update text, display, and audio
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAll();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      constants.brailleInput.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false;
-        let isAtEnd = false;
-
-        if (e.which == 9) {
-          // let user tab
-        } else if (e.which == 39) {
-          // right arrow
-          if (
-            e.target.selectionStart > e.target.value.length - 3 ||
-            e.target.value.substring(
-              e.target.selectionStart + 1,
-              e.target.selectionStart + 2
-            ) == '⠳'
-          ) {
-            // already at the end, do nothing
-            e.preventDefault();
-          } else {
+          // right arrow 39
+          if (e.which === 39) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (position.x == -1 && position.y == -1) {
-                position.x += 1;
-                position.y += 1;
-              }
               if (e.shiftKey) {
+                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.num_cols);
               } else {
@@ -5302,25 +5190,11 @@ document.addEventListener('DOMContentLoaded', function (e) {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-
-            // we need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
-            let pos = position.y * (plot.num_cols + 1) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
-
             constants.navigation = 1;
           }
-        } else if (e.which == 37) {
-          // left
-          if (
-            e.target.selectionStart == 0 ||
-            e.target.value.substring(
-              e.target.selectionStart - 1,
-              e.target.selectionStart
-            ) == '⠳'
-          ) {
-            e.preventDefault();
-          } else {
+
+          // left arrow 37
+          if (e.which === 37) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.x;
@@ -5334,28 +5208,40 @@ document.addEventListener('DOMContentLoaded', function (e) {
               lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
-              position.x += -1;
+              position.x -= 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-
-            let pos = position.y * (plot.num_cols + 1) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
-
             constants.navigation = 1;
           }
-        } else if (e.which == 40) {
-          // down
-          if (position.y + 1 == plot.num_rows) {
-            e.preventDefault();
-          } else {
+
+          // up arrow 38
+          if (e.which === 38) {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (position.x == -1 && position.y == -1) {
-                position.x += 1;
-                position.y += 1;
-              }
               if (e.shiftKey) {
+                // lastx = position.y;
+                position.y += 1;
+                Autoplay('up', position.y, -1);
+              } else {
+                position.y = 0;
+                updateInfoThisRound = true;
+              }
+            } else if (e.altKey && e.shiftKey && position.y != 0) {
+              lastx = position.x;
+              Autoplay('reverse-up', -1, position.y);
+            } else {
+              position.y -= 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            constants.navigation = 0;
+          }
+
+          // down arrow 40
+          if (e.which === 40) {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.y;
                 position.y -= 1;
                 Autoplay('down', position.y, plot.num_rows);
               } else {
@@ -5377,218 +5263,357 @@ document.addEventListener('DOMContentLoaded', function (e) {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-
-            let pos = position.y * (plot.num_cols + 1) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
-
             constants.navigation = 0;
           }
-        } else if (e.which == 38) {
-          // up
-          if (e.target.selectionStart - plot.num_cols - 1 < 0) {
-            e.preventDefault();
-          } else {
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                // lastx = position.y;
-                position.y += 1;
-                Autoplay('up', position.y, -1);
-              } else {
-                position.y = 0;
-                updateInfoThisRound = true;
-              }
-            } else if (e.altKey && e.shiftKey && position.y != 0) {
-              lastx = position.x;
-              Autoplay('reverse-up', -1, position.y);
-            } else {
-              position.y += -1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
 
-            let pos = position.y * (plot.num_cols + 1) + position.x;
-            e.target.setSelectionRange(pos, pos);
-            e.preventDefault();
-
-            constants.navigation = 0;
-          }
-        } else {
-          e.preventDefault();
-        }
-
-        // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function (e) {
-          display.toggleBrailleMode('off');
-        });
-
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAllBraille();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      // var keys;
-      // main BTS controls
-      let controlElements = [constants.svg_container, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener('keydown', function (e) {
-          // B: braille mode
-          if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
-          }
-          // keys = (keys || []);
-          // keys[e.keyCode] = true;
-          // if (keys[84] && !keys[76]) {
-          //     display.toggleTextMode();
-          // }
-
-          // T: aria live text output mode
-          if (e.which == 84) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (!pressedL || timediff > constants.keypressInterval) {
-              display.toggleTextMode();
-            }
-          }
-
-          // S: sonification mode
-          if (e.which == 83) {
-            display.toggleSonificationMode();
-          }
-
-          // space: replay info but no other changes
-          if (e.which === 32) {
+          // update text, display, and audio
+          if (updateInfoThisRound && !isAtEnd) {
             UpdateAll();
           }
-        });
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      constants.events.push([
+        constants.brailleInput,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false;
+          let isAtEnd = false;
+
+          if (e.which == 9) {
+            // let user tab
+          } else if (e.which == 39) {
+            // right arrow
+            if (
+              e.target.selectionStart > e.target.value.length - 3 ||
+              e.target.value.substring(
+                e.target.selectionStart + 1,
+                e.target.selectionStart + 2
+              ) == '⠳'
+            ) {
+              // already at the end, do nothing
+              e.preventDefault();
+            } else {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (position.x == -1 && position.y == -1) {
+                  position.x += 1;
+                  position.y += 1;
+                }
+                if (e.shiftKey) {
+                  position.x -= 1;
+                  Autoplay('right', position.x, plot.num_cols);
+                } else {
+                  position.x = plot.num_cols - 1;
+                  updateInfoThisRound = true;
+                }
+              } else if (
+                e.altKey &&
+                e.shiftKey &&
+                position.x != plot.num_cols - 1
+              ) {
+                lastx = position.x;
+                Autoplay('reverse-right', plot.num_cols, position.x);
+              } else {
+                if (position.x == -1 && position.y == -1) {
+                  position.y += 1;
+                }
+                position.x += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+
+              // we need pos to be y*(num_cols+1), (and num_cols+1 because there's a spacer character)
+              let pos = position.y * (plot.num_cols + 1) + position.x;
+              e.target.setSelectionRange(pos, pos);
+              e.preventDefault();
+
+              constants.navigation = 1;
+            }
+          } else if (e.which == 37) {
+            // left
+            if (
+              e.target.selectionStart == 0 ||
+              e.target.value.substring(
+                e.target.selectionStart - 1,
+                e.target.selectionStart
+              ) == '⠳'
+            ) {
+              e.preventDefault();
+            } else {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.x;
+                  position.x += 1;
+                  Autoplay('left', position.x, -1);
+                } else {
+                  position.x = 0;
+                  updateInfoThisRound = true;
+                }
+              } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
+              } else {
+                position.x += -1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+
+              let pos = position.y * (plot.num_cols + 1) + position.x;
+              e.target.setSelectionRange(pos, pos);
+              e.preventDefault();
+
+              constants.navigation = 1;
+            }
+          } else if (e.which == 40) {
+            // down
+            if (position.y + 1 == plot.num_rows) {
+              e.preventDefault();
+            } else {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (position.x == -1 && position.y == -1) {
+                  position.x += 1;
+                  position.y += 1;
+                }
+                if (e.shiftKey) {
+                  position.y -= 1;
+                  Autoplay('down', position.y, plot.num_rows);
+                } else {
+                  position.y = plot.num_rows - 1;
+                  updateInfoThisRound = true;
+                }
+              } else if (
+                e.altKey &&
+                e.shiftKey &&
+                position.y != plot.num_rows - 1
+              ) {
+                lastx = position.x;
+                Autoplay('reverse-down', plot.num_rows, position.y);
+              } else {
+                if (position.x == -1 && position.y == -1) {
+                  position.x += 1;
+                }
+                position.y += 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+
+              let pos = position.y * (plot.num_cols + 1) + position.x;
+              e.target.setSelectionRange(pos, pos);
+              e.preventDefault();
+
+              constants.navigation = 0;
+            }
+          } else if (e.which == 38) {
+            // up
+            if (e.target.selectionStart - plot.num_cols - 1 < 0) {
+              e.preventDefault();
+            } else {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.y;
+                  position.y += 1;
+                  Autoplay('up', position.y, -1);
+                } else {
+                  position.y = 0;
+                  updateInfoThisRound = true;
+                }
+              } else if (e.altKey && e.shiftKey && position.y != 0) {
+                lastx = position.x;
+                Autoplay('reverse-up', -1, position.y);
+              } else {
+                position.y += -1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+
+              let pos = position.y * (plot.num_cols + 1) + position.x;
+              e.target.setSelectionRange(pos, pos);
+              e.preventDefault();
+
+              constants.navigation = 0;
+            }
+          } else {
+            e.preventDefault();
+          }
+
+          // auto turn off braille mode if we leave the braille box
+          constants.brailleInput.addEventListener('focusout', function (e) {
+            display.toggleBrailleMode('off');
+          });
+
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAllBraille();
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      // main BTS controls
+      let controlElements = [constants.chart, constants.brailleInput];
+      for (let i = 0; i < controlElements.length; i++) {
+        constants.events.push([
+          controlElements[i],
+          'keydown',
+          function (e) {
+            // B: braille mode
+            if (e.which == 66) {
+              display.toggleBrailleMode();
+              e.preventDefault();
+            }
+            // keys = (keys || []);
+            // keys[e.keyCode] = true;
+            // if (keys[84] && !keys[76]) {
+            //     display.toggleTextMode();
+            // }
+
+            // T: aria live text output mode
+            if (e.which == 84) {
+              let timediff = window.performance.now() - lastKeyTime;
+              if (!pressedL || timediff > constants.keypressInterval) {
+                display.toggleTextMode();
+              }
+            }
+
+            // S: sonification mode
+            if (e.which == 83) {
+              display.toggleSonificationMode();
+            }
+
+            // space: replay info but no other changes
+            if (e.which === 32) {
+              UpdateAll();
+            }
+          },
+        ]);
       }
 
-      document.addEventListener('keydown', function (e) {
-        if (constants.isMac ? e.metaKey : e.ctrlKey) {
-          // (ctrl/cmd)+(home/fn+left arrow): first element
-          if (e.which == 36) {
-            position.x = 0;
-            position.y = 0;
-            UpdateAllBraille();
+      constants.events.push([
+        document,
+        'keydown',
+        function (e) {
+          if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+              position.x = 0;
+              position.y = 0;
+              UpdateAllBraille();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+              position.x = plot.num_cols - 1;
+              position.y = plot.num_rows - 1;
+              UpdateAllBraille();
+            }
           }
 
-          // (ctrl/cmd)+(end/fn+right arrow): last element
-          else if (e.which == 35) {
-            position.x = plot.num_cols - 1;
-            position.y = plot.num_rows - 1;
-            UpdateAllBraille();
+          // keys = (keys || []);
+          // keys[e.keyCode] = true;
+          // // lx: x label, ly: y label, lt: title, lf: fill
+          // if (keys[76] && keys[88]) { // lx
+          //     display.displayXLabel(plot);
+          // }
+
+          // if (keys[76] && keys[89]) { // ly
+          //     display.displayYLabel(plot);
+          // }
+
+          // if (keys[76] && keys[84]) { // lt
+          //     display.displayTitle(plot);
+          // }
+
+          // if (keys[76] && keys[70]) { // lf
+          //     display.displayFill(plot);
+          // }
+
+          // must come before the prefix L
+          if (pressedL) {
+            if (e.which == 88) {
+              // X: x label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayXLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 89) {
+              // Y: y label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayYLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 84) {
+              // T: title
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayTitle(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 70) {
+              // F: fill label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayFill(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 76) {
+              lastKeyTime = window.performance.now();
+              pressedL = true;
+            } else {
+              pressedL = false;
+            }
           }
-        }
 
-        // keys = (keys || []);
-        // keys[e.keyCode] = true;
-        // // lx: x label, ly: y label, lt: title, lf: fill
-        // if (keys[76] && keys[88]) { // lx
-        //     display.displayXLabel(plot);
-        // }
-
-        // if (keys[76] && keys[89]) { // ly
-        //     display.displayYLabel(plot);
-        // }
-
-        // if (keys[76] && keys[84]) { // lt
-        //     display.displayTitle(plot);
-        // }
-
-        // if (keys[76] && keys[70]) { // lf
-        //     display.displayFill(plot);
-        // }
-
-        // must come before the prefix L
-        if (pressedL) {
-          if (e.which == 88) {
-            // X: x label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayXLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 89) {
-            // Y: y label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayYLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 84) {
-            // T: title
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayTitle(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 70) {
-            // F: fill label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayFill(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 76) {
+          // L: prefix for label; must come after suffix
+          if (e.which == 76) {
             lastKeyTime = window.performance.now();
             pressedL = true;
-          } else {
-            pressedL = false;
           }
-        }
 
-        // L: prefix for label; must come after suffix
-        if (e.which == 76) {
-          lastKeyTime = window.performance.now();
-          pressedL = true;
-        }
-
-        // period: speed up
-        if (e.which == 190) {
-          constants.SpeedUp();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              Autoplay('right', position.x, lastx);
-            } else if (lastPlayed == 'reverse-right') {
-              Autoplay('left', position.x, lastx);
-            } else if (lastPlayed == 'reverse-up') {
-              Autoplay('down', position.x, lastx);
-            } else if (lastPlayed == 'reverse-down') {
-              Autoplay('up', position.x, lastx);
-            } else {
-              Autoplay(lastPlayed, position.x, lastx);
+          // period: speed up
+          if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                Autoplay('right', position.x, lastx);
+              } else if (lastPlayed == 'reverse-right') {
+                Autoplay('left', position.x, lastx);
+              } else if (lastPlayed == 'reverse-up') {
+                Autoplay('down', position.x, lastx);
+              } else if (lastPlayed == 'reverse-down') {
+                Autoplay('up', position.x, lastx);
+              } else {
+                Autoplay(lastPlayed, position.x, lastx);
+              }
             }
           }
-        }
 
-        // comma: speed down
-        if (e.which == 188) {
-          constants.SpeedDown();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            if (lastPlayed == 'reverse-left') {
-              Autoplay('right', position.x, lastx);
-            } else if (lastPlayed == 'reverse-right') {
-              Autoplay('left', position.x, lastx);
-            } else if (lastPlayed == 'reverse-up') {
-              Autoplay('down', position.x, lastx);
-            } else if (lastPlayed == 'reverse-down') {
-              Autoplay('up', position.x, lastx);
-            } else {
-              Autoplay(lastPlayed, position.x, lastx);
+          // comma: speed down
+          if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              if (lastPlayed == 'reverse-left') {
+                Autoplay('right', position.x, lastx);
+              } else if (lastPlayed == 'reverse-right') {
+                Autoplay('left', position.x, lastx);
+              } else if (lastPlayed == 'reverse-up') {
+                Autoplay('down', position.x, lastx);
+              } else if (lastPlayed == 'reverse-down') {
+                Autoplay('up', position.x, lastx);
+              } else {
+                Autoplay(lastPlayed, position.x, lastx);
+              }
             }
           }
-        }
-      });
-
-      // document.addEventListener("keyup", function (e) {
-      //     keys[e.keyCode] = false;
-      //     stop();
-      // }, false);
+        },
+      ]);
 
       function sleep(time) {
         return new Promise((resolve) => setTimeout(resolve, time));
@@ -5713,412 +5738,417 @@ document.addEventListener('DOMContentLoaded', function (e) {
         }, constants.autoPlayRate);
       }
     } else if (
-      constants.chartType == 'scatterplot' ||
-      constants.chartType.includes('scatterplot')
+      [].concat(singleMaidr.type).includes('scatter') ||
+      singleMaidr.type == 'scatter'
     ) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
       window.plot = new ScatterPlot();
-      constants.chartType = 'scatterplot';
       let audio = new Audio();
       let layer0Point = new Layer0Point();
       let layer1Point = new Layer1Point();
 
       let lastPlayed = ''; // for autoplay use
-      let lastx = 0; // for layer 1 autoplay use
-      let lastx1 = 0; // for layer 2 autoplay use
+      let lastx = 0; // for scatter point layer autoplay use
+      let lastx1 = 0; // for line layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
 
       window.positionL1 = new Position(lastx1, lastx1);
 
       // control eventlisteners
-      constants.svg_container.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false;
-        let isAtEnd = false;
+      constants.events.push([
+        constants.chart,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false;
+          let isAtEnd = false;
 
-        // left and right arrows are enabled only at point layer
-        if (constants.layer == 1) {
-          // right arrow 39
-          if (e.which === 39) {
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                // lastx = position.x;
-                position.x -= 1;
-                Autoplay('outward_right', position.x, plot.x.length);
+          // left and right arrows are enabled only at point layer
+          if (constants.chartType == 'scatter') {
+            // right arrow 39
+            if (e.which === 39) {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.x;
+                  position.x -= 1;
+                  Autoplay('outward_right', position.x, plot.x.length);
+                } else {
+                  position.x = plot.x.length - 1;
+                  updateInfoThisRound = true;
+                  isAtEnd = lockPosition();
+                }
+              } else if (
+                e.altKey &&
+                e.shiftKey &&
+                position.x != plot.x.length - 1
+              ) {
+                lastx = position.x;
+                Autoplay('inward_right', plot.x.length, position.x);
               } else {
-                position.x = plot.x.length - 1;
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (
-              e.altKey &&
-              e.shiftKey &&
-              position.x != plot.x.length - 1
-            ) {
-              lastx = position.x;
-              Autoplay('inward_right', plot.x.length, position.x);
-            } else {
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          }
-
-          // left arrow 37
-          if (e.which === 37) {
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
-                Autoplay('outward_left', position.x, -1);
-              } else {
-                position.x = 0;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
-            } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
-              Autoplay('inward_left', -1, position.x);
-            } else {
-              position.x -= 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
+            }
+
+            // left arrow 37
+            if (e.which === 37) {
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.x;
+                  position.x += 1;
+                  Autoplay('outward_left', position.x, -1);
+                } else {
+                  position.x = 0;
+                  updateInfoThisRound = true;
+                  isAtEnd = lockPosition();
+                }
+              } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('inward_left', -1, position.x);
+              } else {
+                position.x -= 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            }
+          } else if (constants.chartType == 'line') {
+            positionL1.x = lastx1;
+
+            if (e.which == 39 && e.shiftKey) {
+              if (
+                (constants.isMac ? e.metaKey : e.ctrlKey) &&
+                constants.sonifMode != 'off'
+              ) {
+                PlayLine('outward_right');
+              } else if (e.altKey && constants.sonifMode != 'off') {
+                PlayLine('inward_right');
+              }
+            }
+
+            if (e.which == 37 && e.shiftKey) {
+              if (
+                (constants.isMac ? e.metaKey : e.ctrlKey) &&
+                constants.sonifMode != 'off'
+              ) {
+                PlayLine('outward_left');
+              } else if (e.altKey && constants.sonifMode != 'off') {
+                PlayLine('inward_left');
+              }
             }
           }
-        } else if (constants.layer == 2) {
-          positionL1.x = lastx1;
 
-          if (e.which == 39 && e.shiftKey) {
-            if (
-              (constants.isMac ? e.metaKey : e.ctrlKey) &&
-              constants.sonifMode != 'off'
-            ) {
-              PlayLine('outward_right');
-            } else if (e.altKey && constants.sonifMode != 'off') {
-              PlayLine('inward_right');
-            }
+          // update text, display, and audio
+          if (
+            updateInfoThisRound &&
+            constants.chartType == 'scatter' &&
+            !isAtEnd
+          ) {
+            UpdateAll();
           }
-
-          if (e.which == 37 && e.shiftKey) {
-            if (
-              (constants.isMac ? e.metaKey : e.ctrlKey) &&
-              constants.sonifMode != 'off'
-            ) {
-              PlayLine('outward_left');
-            } else if (e.altKey && constants.sonifMode != 'off') {
-              PlayLine('inward_left');
-            }
+          if (isAtEnd) {
+            audio.playEnd();
           }
-        }
+        },
+      ]);
 
-        // update text, display, and audio
-        if (updateInfoThisRound && constants.layer == 1 && !isAtEnd) {
-          UpdateAll();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
+      constants.events.push([
+        constants.brailleInput,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false;
+          let isAtEnd = false;
 
-      constants.brailleInput.addEventListener('keydown', function (e) {
-        let updateInfoThisRound = false;
-        let isAtEnd = false;
-
-        // @TODO
-        // only line layer can access to braille display
-        if (e.which == 9) {
-          // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-        } else if (constants.layer == 2) {
-          lockPosition();
+          // @TODO
+          // only line layer can access to braille display
           if (e.which == 9) {
-          } else if (e.which == 39) {
-            // right arrow
-            e.preventDefault();
-            constants.brailleInput.setSelectionRange(
-              positionL1.x,
-              positionL1.x
-            );
-            if (e.target.selectionStart > e.target.value.length - 2) {
+            // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
+          } else if (constants.chartType == 'line') {
+            lockPosition();
+            if (e.which == 9) {
+            } else if (e.which == 39) {
+              // right arrow
               e.preventDefault();
-            } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                positionL1.x -= 1;
-                Autoplay(
-                  'outward_right',
-                  positionL1.x,
-                  plot.curvePoints.length
-                );
+              constants.brailleInput.setSelectionRange(
+                positionL1.x,
+                positionL1.x
+              );
+              if (e.target.selectionStart > e.target.value.length - 2) {
+                e.preventDefault();
+              } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  positionL1.x -= 1;
+                  Autoplay(
+                    'outward_right',
+                    positionL1.x,
+                    plot.curvePoints.length
+                  );
+                } else {
+                  positionL1.x = plot.curvePoints.length - 1;
+                  updateInfoThisRound = true;
+                  isAtEnd = lockPosition();
+                }
+              } else if (
+                e.altKey &&
+                e.shiftKey &&
+                positionL1.x != plot.curvePoints.length - 1
+              ) {
+                lastx1 = positionL1.x;
+                Autoplay('inward_right', plot.curvePoints.length, positionL1.x);
               } else {
-                positionL1.x = plot.curvePoints.length - 1;
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (
-              e.altKey &&
-              e.shiftKey &&
-              positionL1.x != plot.curvePoints.length - 1
-            ) {
-              lastx1 = positionL1.x;
-              Autoplay('inward_right', plot.curvePoints.length, positionL1.x);
-            } else {
-              positionL1.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.which == 37) {
-            // left
-            e.preventDefault();
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                // lastx = position.x;
                 positionL1.x += 1;
-                Autoplay('outward_left', positionL1.x, -1);
-              } else {
-                positionL1.x = 0; // go all the way
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
-            } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
-              Autoplay('inward_left', -1, positionL1.x);
+            } else if (e.which == 37) {
+              // left
+              e.preventDefault();
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.x;
+                  positionL1.x += 1;
+                  Autoplay('outward_left', positionL1.x, -1);
+                } else {
+                  positionL1.x = 0; // go all the way
+                  updateInfoThisRound = true;
+                  isAtEnd = lockPosition();
+                }
+              } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
+                Autoplay('inward_left', -1, positionL1.x);
+              } else {
+                positionL1.x -= 1;
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
             } else {
-              positionL1.x -= 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
+              e.preventDefault();
             }
           } else {
             e.preventDefault();
           }
-        } else {
-          e.preventDefault();
-        }
 
-        // auto turn off braille mode if we leave the braille box
-        constants.brailleInput.addEventListener('focusout', function (e) {
-          display.toggleBrailleMode('off');
-        });
+          // auto turn off braille mode if we leave the braille box
+          constants.brailleInput.addEventListener('focusout', function (e) {
+            display.toggleBrailleMode('off');
+          });
 
-        lastx1 = positionL1.x;
+          lastx1 = positionL1.x;
 
-        if (updateInfoThisRound && !isAtEnd) {
-          UpdateAllBraille();
-        }
-        if (isAtEnd) {
-          audio.playEnd();
-        }
-      });
-
-      // var keys;
-      // main BTS controls
-      let controlElements = [constants.svg_container, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        controlElements[i].addEventListener('keydown', function (e) {
-          // B: braille mode
-          if (e.which == 66) {
-            display.toggleBrailleMode();
-            e.preventDefault();
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAllBraille();
           }
-          // T: aria live text output mode
-          if (e.which == 84) {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (!pressedL || timediff > constants.keypressInterval) {
-              display.toggleTextMode();
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      // main BTS controls
+      let controlElements = [constants.chart, constants.brailleInput];
+      for (let i = 0; i < controlElements.length; i++) {
+        constants.events.push([
+          controlElements[i],
+          'keydown',
+          function (e) {
+            // B: braille mode
+            if (e.which == 66) {
+              display.toggleBrailleMode();
+              e.preventDefault();
+            }
+            // T: aria live text output mode
+            if (e.which == 84) {
+              let timediff = window.performance.now() - lastKeyTime;
+              if (!pressedL || timediff > constants.keypressInterval) {
+                display.toggleTextMode();
+              }
+            }
+
+            // keys = (keys || []);
+            // keys[e.keyCode] = true;
+            // if (keys[84] && !keys[76]) {
+            //     display.toggleTextMode();
+            // }
+
+            // S: sonification mode
+            if (e.which == 83) {
+              display.toggleSonificationMode();
+            }
+
+            // page down /(fn+down arrow): change chart type (layer)
+            if (e.which == 34 && constants.brailleMode == 'off') {
+              lastx1 = positionL1.x;
+              display.changeChartLayer('down');
+            }
+
+            // page up / (fn+up arrow): change chart type (layer)
+            if (e.which == 33 && constants.brailleMode == 'off') {
+              display.changeChartLayer('up');
+            }
+
+            // space: replay info but no other changes
+            if (e.which === 32) {
+              UpdateAll();
+            }
+          },
+        ]);
+      }
+
+      constants.events.push([
+        document,
+        'keydown',
+        function (e) {
+          if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.which == 36) {
+              if (constants.chartType == 'scatter') {
+                position.x = 0;
+                UpdateAll();
+                // move cursor for braille
+                constants.brailleInput.setSelectionRange(0, 0);
+              } else if (constants.chartType == 'line') {
+                positionL1.x = 0;
+                UpdateAllBraille();
+              }
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.which == 35) {
+              if (constants.chartType == 'scatter') {
+                position.x = plot.y.length - 1;
+                UpdateAll();
+                // move cursor for braille
+                constants.brailleInput.setSelectionRange(
+                  plot.curvePoints.length - 1,
+                  plot.curvePoints.length - 1
+                );
+              } else if (constants.chartType == 'line') {
+                positionL1.x = plot.curvePoints.length - 1;
+                UpdateAllBraille();
+              }
+            }
+
+            // if you're only hitting control
+            if (!e.shiftKey) {
+              audio.KillSmooth();
             }
           }
 
           // keys = (keys || []);
           // keys[e.keyCode] = true;
-          // if (keys[84] && !keys[76]) {
-          //     display.toggleTextMode();
+          // // lx: x label, ly: y label, lt: title, lf: fill
+          // if (keys[76] && keys[88]) { // lx
+          //     display.displayXLabel(plot);
           // }
 
-          // S: sonification mode
-          if (e.which == 83) {
-            display.toggleSonificationMode();
-          }
+          // if (keys[76] && keys[89]) { // ly
+          //     display.displayYLabel(plot);
+          // }
 
-          // page down /(fn+down arrow): point layer(1)
-          if (
-            e.which == 34 &&
-            constants.layer == 2 &&
-            constants.brailleMode == 'off'
-          ) {
-            lastx1 = positionL1.x;
-            display.toggleLayerMode();
-          }
+          // if (keys[76] && keys[84]) { // lt
+          //     display.displayTitle(plot);
+          // }
 
-          // page up / (fn+up arrow): line layer(2)
-          if (
-            e.which == 33 &&
-            constants.layer == 1 &&
-            constants.brailleMode == 'off'
-          ) {
-            display.toggleLayerMode();
-          }
-
-          // space: replay info but no other changes
-          if (e.which === 32) {
-            UpdateAll();
-          }
-        });
-      }
-
-      document.addEventListener('keydown', function (e) {
-        if (constants.isMac ? e.metaKey : e.ctrlKey) {
-          // (ctrl/cmd)+(home/fn+left arrow): first element
-          if (e.which == 36) {
-            if (constants.layer == 1) {
-              position.x = 0;
-              UpdateAll();
-              // move cursor for braille
-              constants.brailleInput.setSelectionRange(0, 0);
-            } else if (constants.layer == 2) {
-              positionL1.x = 0;
-              UpdateAllBraille();
+          if (pressedL) {
+            if (e.which == 88) {
+              // X: x label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayXLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 89) {
+              // Y: y label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayYLabel(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 84) {
+              // T: title
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayTitle(plot);
+              }
+              pressedL = false;
+            } else if (e.which == 76) {
+              lastKeyTime = window.performance.now();
+              pressedL = true;
+            } else {
+              pressedL = false;
             }
           }
 
-          // (ctrl/cmd)+(end/fn+right arrow): last element
-          else if (e.which == 35) {
-            if (constants.layer == 1) {
-              position.x = plot.y.length - 1;
-              UpdateAll();
-              // move cursor for braille
-              constants.brailleInput.setSelectionRange(
-                plot.curvePoints.length - 1,
-                plot.curvePoints.length - 1
-              );
-            } else if (constants.layer == 2) {
-              positionL1.x = plot.curvePoints.length - 1;
-              UpdateAllBraille();
-            }
-          }
-
-          // if you're only hitting control
-          if (!e.shiftKey) {
-            audio.KillSmooth();
-          }
-        }
-
-        // keys = (keys || []);
-        // keys[e.keyCode] = true;
-        // // lx: x label, ly: y label, lt: title, lf: fill
-        // if (keys[76] && keys[88]) { // lx
-        //     display.displayXLabel(plot);
-        // }
-
-        // if (keys[76] && keys[89]) { // ly
-        //     display.displayYLabel(plot);
-        // }
-
-        // if (keys[76] && keys[84]) { // lt
-        //     display.displayTitle(plot);
-        // }
-
-        if (pressedL) {
-          if (e.which == 88) {
-            // X: x label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayXLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 89) {
-            // Y: y label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayYLabel(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 84) {
-            // T: title
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayTitle(plot);
-            }
-            pressedL = false;
-          } else if (e.which == 76) {
+          // L: prefix for label
+          if (e.which == 76) {
             lastKeyTime = window.performance.now();
             pressedL = true;
-          } else {
-            pressedL = false;
           }
-        }
 
-        // L: prefix for label
-        if (e.which == 76) {
-          lastKeyTime = window.performance.now();
-          pressedL = true;
-        }
-
-        // period: speed up
-        if (e.which == 190) {
-          constants.SpeedUp();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            audio.KillSmooth();
-            if (lastPlayed == 'inward_left') {
-              if (constants.layer == 1) {
-                Autoplay('outward_right', position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay('outward_right', positionL1.x, lastx1);
-              }
-            } else if (lastPlayed == 'inward_right') {
-              if (constants.layer == 1) {
-                Autoplay('outward_left', position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay('outward_left', positionL1.x, lastx1);
-              }
-            } else {
-              if (constants.layer == 1) {
-                Autoplay(lastPlayed, position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay(lastPlayed, positionL1.x, lastx1);
+          // period: speed up
+          if (e.which == 190) {
+            constants.SpeedUp();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              audio.KillSmooth();
+              if (lastPlayed == 'inward_left') {
+                if (constants.chartType == 'scatter') {
+                  Autoplay('outward_right', position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay('outward_right', positionL1.x, lastx1);
+                }
+              } else if (lastPlayed == 'inward_right') {
+                if (constants.chartType == 'scatter') {
+                  Autoplay('outward_left', position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay('outward_left', positionL1.x, lastx1);
+                }
+              } else {
+                if (constants.chartType == 'scatter') {
+                  Autoplay(lastPlayed, position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay(lastPlayed, positionL1.x, lastx1);
+                }
               }
             }
           }
-        }
 
-        // comma: speed down
-        if (e.which == 188) {
-          constants.SpeedDown();
-          if (constants.autoplayId != null) {
-            constants.KillAutoplay();
-            audio.KillSmooth();
-            if (lastPlayed == 'inward_left') {
-              if (constants.layer == 1) {
-                Autoplay('outward_right', position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay('outward_right', positionL1.x, lastx1);
-              }
-            } else if (lastPlayed == 'inward_right') {
-              if (constants.layer == 1) {
-                Autoplay('outward_left', position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay('outward_left', positionL1.x, lastx1);
-              }
-            } else {
-              if (constants.layer == 1) {
-                Autoplay(lastPlayed, position.x, lastx);
-              } else if (constants.layer == 2) {
-                Autoplay(lastPlayed, positionL1.x, lastx1);
+          // comma: speed down
+          if (e.which == 188) {
+            constants.SpeedDown();
+            if (constants.autoplayId != null) {
+              constants.KillAutoplay();
+              audio.KillSmooth();
+              if (lastPlayed == 'inward_left') {
+                if (constants.chartType == 'scatter') {
+                  Autoplay('outward_right', position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay('outward_right', positionL1.x, lastx1);
+                }
+              } else if (lastPlayed == 'inward_right') {
+                if (constants.chartType == 'scatter') {
+                  Autoplay('outward_left', position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay('outward_left', positionL1.x, lastx1);
+                }
+              } else {
+                if (constants.chartType == 'scatter') {
+                  Autoplay(lastPlayed, position.x, lastx);
+                } else if (constants.chartType == 'line') {
+                  Autoplay(lastPlayed, positionL1.x, lastx1);
+                }
               }
             }
           }
-        }
-      });
-
-      // document.addEventListener("keyup", function (e) {
-      //     keys[e.keyCode] = false;
-      //     stop();
-      // }, false);
+        },
+      ]);
 
       // helper functions
       function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (constants.layer == 1) {
+        if (constants.chartType == 'scatter') {
           if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
@@ -6127,7 +6157,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
             position.x = plot.x.length - 1;
             isLockNeeded = true;
           }
-        } else if (constants.layer == 2) {
+        } else if (constants.chartType == 'line') {
           if (positionL1.x < 0) {
             positionL1.x = 0;
             isLockNeeded = true;
@@ -6158,7 +6188,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
           display.displayValues(plot);
         }
         if (constants.showRect) {
-          if (constants.layer == 1) {
+          if (constants.chartType == 'scatter') {
             layer0Point.UpdatePointDisplay();
           } else {
             layer1Point.UpdatePointDisplay();
@@ -6204,7 +6234,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
           position.L1x = start;
         }
 
-        if (constants.layer == 1) {
+        if (constants.chartType == 'scatter') {
           constants.autoplayId = setInterval(function () {
             position.x += step;
             // autoplay for two layers: point layer & line layer in braille
@@ -6219,7 +6249,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
               UpdateAllAutoplay();
             }
           }, constants.autoPlayRate);
-        } else if (constants.layer == 2) {
+        } else if (constants.chartType == 'line') {
           constants.autoplayId = setInterval(function () {
             positionL1.x += step;
             // autoplay for two layers: point layer & line layer in braille
@@ -6325,9 +6355,329 @@ document.addEventListener('DOMContentLoaded', function (e) {
       }
     }
   }
+}
 
-  // initialize braille mode on page load
-  if (constants.brailleMode == 'on') {
-    display.toggleBrailleMode('on');
+// events and init functions
+// we do some setup, but most of the work is done when user focuses on an element matching an id from maidr user data
+document.addEventListener('DOMContentLoaded', function (e) {
+  // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
+
+  // create global vars
+  window.constants = new Constants();
+  window.resources = new Resources();
+  window.menu = new Menu();
+  window.tracker = new Tracker();
+
+  // set focus events for all charts matching maidr ids
+  let maidrObjects = [];
+  if (!Array.isArray(maidr)) {
+    maidrObjects.push(maidr);
+  } else {
+    maidrObjects = maidr;
+  }
+  // set focus events for all maidr ids
+  DestroyMaidr(); // just in case
+  window.maidrIds = [];
+  for (let i = 0; i < maidrObjects.length; i++) {
+    let maidrId = maidrObjects[i].id;
+    maidrIds.push(maidrId);
+    let maidrElemn = document.getElementById(maidrId);
+    if (maidrElemn) {
+      maidrElemn.addEventListener('focus', function (e) {
+        ShouldWeInitMaidr(maidrObjects[i]);
+      });
+      // blur done elsewhere
+    }
+  }
+
+  // events etc for user study page
+  // run tracker stuff only on user study page
+  if (document.getElementById('download_data_trigger')) {
+    // download data button
+    document
+      .getElementById('download_data_trigger')
+      .addEventListener('click', function (e) {
+        tracker.DownloadTrackerData();
+      });
+
+    // general events
+    document.addEventListener('keydown', function (e) {
+      // reset tracking with Ctrl + F5 / command + F5, and Ctrl + Shift + R / command + Shift + R
+      // future todo: this should probably be a button with a confirmation. This is dangerous
+      if (
+        (e.which == 116 && (constants.isMac ? e.metaKey : e.ctrlKey)) ||
+        (e.which == 82 &&
+          e.shiftKey &&
+          (constants.isMac ? e.metaKey : e.ctrlKey))
+      ) {
+        e.preventDefault();
+        tracker.Delete();
+        location.reload(true);
+      }
+
+      // Tracker
+      if (constants.isTracking) {
+        if (e.which == 121) {
+          //tracker.DownloadTrackerData();
+        } else {
+          if (plot) {
+            tracker.LogEvent(e);
+          }
+        }
+      }
+
+      // Stuff to only run if we're on a chart (so check if the info div exists?)
+      if (document.getElementById('info')) {
+        // Kill autoplay
+        if (constants.isMac ? e.which == 91 || e.which == 93 : e.which == 17) {
+          // ctrl (either one)
+          constants.KillAutoplay();
+        }
+
+        // Review mode
+        if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+          // R, but let Ctrl etc R go through cause I use that to refresh
+          e.preventDefault();
+          if (constants.review_container.classList.contains('hidden')) {
+            review.ToggleReviewMode(true);
+          } else {
+            review.ToggleReviewMode(false);
+          }
+        }
+      }
+    });
   }
 });
+
+function InitMaidr(thisMaidr) {
+  console.log('Initializing Maidr');
+  // just in case
+  if (typeof constants != 'undefined') {
+    // init vars and html
+    window.singleMaidr = thisMaidr;
+    constants.chartId = singleMaidr.id;
+    if (Array.isArray(singleMaidr.type)) {
+      constants.chartType = singleMaidr.type[0];
+    } else {
+      constants.chartType = singleMaidr.type;
+    }
+    CreateChartComponents(singleMaidr);
+    window.control = new Control();
+    window.review = new Review();
+    window.display = new Display();
+
+    // help menu events
+    constants.events.push([
+      constants.chart_container,
+      'keydown',
+      function (e) {
+        // Menu open
+        if (e.which == 72) {
+          // M(77) for menu, or H(72) for help? I don't like it
+          menu.Toggle(true);
+        }
+      },
+    ]);
+
+    // blur destruction events
+    constants.events.push([
+      document.getElementById(singleMaidr.id),
+      'blur',
+      ShouldWeDestroyMaidr,
+    ]);
+
+    // add all events
+    for (let i = 0; i < constants.events.length; i++) {
+      constants.events[i][0].addEventListener(
+        constants.events[i][1],
+        constants.events[i][2]
+      );
+    }
+
+    // once everything is set up, announce the chart name (or title as a backup) to the user
+    if ('name' in singleMaidr) {
+      display.announceText(singleMaidr.name);
+    } else if ('title' in singleMaidr) {
+      display.announceText(singleMaidr.title);
+    }
+  }
+}
+
+function ShouldWeInitMaidr(thisMaidr) {
+  // conditions:
+  // - maidr isn't enabled (check if singleMaidr is undefined or false)
+  // - the chart we're moving to isn't the same as the one we're on
+  // note: if we move from one to another, destroy the current first
+
+  if (typeof singleMaidr == 'undefined') {
+    // not enabled
+    InitMaidr(thisMaidr);
+  } else if (!singleMaidr) {
+    // not enabled
+    InitMaidr(thisMaidr);
+  } else if (thisMaidr.id !== singleMaidr.id) {
+    // different chart, destroy first
+    DestroyMaidr();
+    InitMaidr(thisMaidr);
+  }
+}
+
+function ShouldWeDestroyMaidr(e) {
+  // conditions: we're not about to focus on any chart that is maidr enabled
+  // note: the case where we move from one maidr enabled chart to another is handled by ShouldWeInitMaidr
+
+  // timeout to delay blur event
+  setTimeout(() => {
+    let focusedElement = document.activeElement;
+    if (focusedElement.id) {
+      if (maidrIds.includes(focusedElement.id)) {
+        return;
+      } else if (focusedElement.id == constants.braille_input_id) {
+        return;
+      } else {
+        DestroyMaidr();
+      }
+    } else {
+      // we're focused somewhere on the page that doesn't have an id, which means not maidr, so destroy
+      DestroyMaidr();
+    }
+  }, 0);
+}
+
+function DestroyMaidr() {
+  console.log('Destroying Maidr');
+
+  // chart cleanup
+  if (constants.chartType == 'bar') {
+    plot.DeselectAll();
+  }
+
+  // remove events
+  for (let i = 0; i < constants.events.length; i++) {
+    constants.events[i][0].removeEventListener(
+      constants.events[i][1],
+      constants.events[i][2]
+    );
+  }
+  constants.events = [];
+
+  // remove global vars
+  constants.chartId = null;
+  constants.chartType = null;
+  DestroyChartComponents();
+
+  window.review = null;
+  window.display = null;
+  window.control = null;
+  window.plot = null;
+  window.singleMaidr = null;
+}
+
+function CreateChartComponents() {
+  // init html stuff. aria live regions, braille input, etc
+
+  // core chart
+  let chart = document.getElementById(singleMaidr.id);
+
+  // chart container, we create a parent of chart
+  let chart_container = document.createElement('div');
+  chart_container.id = constants.chart_container_id;
+  // replace chart with chart container, and append chart to chart container
+  chart.parentNode.replaceChild(chart_container, chart);
+  chart_container.appendChild(chart);
+  chart.focus(); // focus used to be on chart and just got lost as we rearranged, so redo focus
+
+  constants.chart = chart;
+  constants.chart_container = chart_container;
+
+  // braille input, pre sibling of chart container
+  constants.chart_container.insertAdjacentHTML(
+    'beforebegin',
+    '<div class="hidden" id="' +
+      constants.braille_container_id +
+      '">\n<input id="' +
+      constants.braille_input_id +
+      '" class="braille-input" type="text" size="' +
+      constants.brailleDisplayLength +
+      '" />\n</div>\n'
+  );
+
+  // set destruction possibility on braille
+  constants.events.push([
+    document.getElementById(constants.braille_input_id),
+    'blur',
+    ShouldWeDestroyMaidr,
+  ]);
+
+  // info aria live, next sibling of chart container
+  constants.chart_container.insertAdjacentHTML(
+    'afterend',
+    '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
+  );
+
+  // announcements, next sibling of info
+  document
+    .getElementById('info')
+    .insertAdjacentHTML(
+      'afterend',
+      '<div id="announcements" aria-live="assertive" aria-atomic="true" class="mb-3"></div>\n'
+    );
+
+  // end chime audio element
+  document
+    .getElementById(constants.info_id)
+    .insertAdjacentHTML(
+      'afterend',
+      '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
+    );
+
+  // some tweaks
+  constants.chart_container.setAttribute('role', 'application');
+
+  // set page elements
+  constants.brailleContainer = document.getElementById(
+    constants.braille_container_id
+  );
+  constants.brailleInput = document.getElementById(constants.braille_input_id);
+  constants.infoDiv = document.getElementById(constants.info_id);
+  constants.announceContainer = document.getElementById(
+    constants.announcement_container_id
+  );
+  constants.nonMenuFocus = constants.chart;
+  constants.endChime = document.getElementById(constants.end_chime_id);
+}
+
+function DestroyChartComponents() {
+  // remove html stuff
+  if (constants.chart_container != null) {
+    if (constants.chart != null) {
+      if (constants.chart_container.parentNode != null) {
+        constants.chart_container.parentNode.replaceChild(
+          constants.chart,
+          constants.chart_container
+        );
+      }
+    }
+    constants.chart_container.remove();
+  }
+  if (constants.brailleContainer != null) {
+    constants.brailleContainer.remove();
+  }
+  if (constants.infoDiv != null) {
+    constants.infoDiv.remove();
+  }
+  if (constants.announceContainer != null) {
+    constants.announceContainer.remove();
+  }
+  if (constants.endChime != null) {
+    constants.endChime.remove();
+  }
+
+  constants.chart = null;
+  constants.chart_container = null;
+  constants.brailleContainer = null;
+  constants.brailleInput = null;
+  constants.infoDiv = null;
+  constants.announceContainer = null;
+  constants.endChime = null;
+}
