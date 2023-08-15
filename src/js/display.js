@@ -210,13 +210,12 @@ class Display {
     let reviewText = '';
     if (constants.chartType == 'bar') {
       // {legend x} is {colname x}, {legend y} is {value y}
-      if (plot.plotLegend.length > 0 && plot.columnLabels[positionx]) {
+      if (plot.plotLegend.x.length > 0 && plot.columnLabels[position.x]) {
         verboseText =
-          plot.plotLegend.x + ' is ' + plot.columnLabels[position.x];
+          plot.plotLegend.x + ' is ' + plot.columnLabels[position.x] + ', ';
       }
       if (plot.plotData[position.x]) {
-        verboseText +=
-          ', ' + plot.plotLegend.y + ' is ' + plot.plotData[position.x];
+        verboseText += plot.plotLegend.y + ' is ' + plot.plotData[position.x];
       }
       if (constants.textMode == 'off') {
         // do nothing :D
