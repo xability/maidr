@@ -193,15 +193,15 @@ class HeatMap {
       ).innerHTML;
     }
 
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('label' in maidr.axes.x) {
-          legendX = maidr.axes.x.label;
+    if ('axis' in maidr) {
+      if ('x' in maidr.axis) {
+        if ('label' in maidr.axis.x) {
+          legendX = maidr.axis.x.label;
         }
       }
-      if ('y' in maidr.axes) {
-        if ('label' in maidr.axes.y) {
-          legendY = maidr.axes.y.label;
+      if ('y' in maidr.axis) {
+        if ('label' in maidr.axis.y) {
+          legendY = maidr.axis.y.label;
         }
       }
     } else {
@@ -219,10 +219,10 @@ class HeatMap {
   }
 
   getXLabels() {
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('format' in maidr.axes.x) {
-          return maidr.axes.x.format;
+    if ('axis' in maidr) {
+      if ('x' in maidr.axis) {
+        if ('format' in maidr.axis.x) {
+          return maidr.axis.x.format;
         }
       }
     } else {
@@ -238,10 +238,10 @@ class HeatMap {
   }
 
   getYLabels() {
-    if ('axes' in maidr) {
-      if ('y' in maidr.axes) {
-        if ('format' in maidr.axes.y) {
-          return maidr.axes.y.format;
+    if ('axis' in maidr) {
+      if ('y' in maidr.axis) {
+        if ('format' in maidr.axis.y) {
+          return maidr.axis.y.format;
         }
       }
     } else {

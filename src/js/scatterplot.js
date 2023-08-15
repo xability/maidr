@@ -16,12 +16,12 @@ class ScatterPlot {
     this.y_group_label = '';
     this.title = '';
     if (typeof maidr !== 'undefined') {
-      if ('axes' in maidr) {
-        if ('x' in maidr.axes) {
-          this.x_group_label = maidr.axes.x.label;
+      if ('axis' in maidr) {
+        if ('x' in maidr.axis) {
+          this.x_group_label = maidr.axis.x.label;
         }
-        if ('y' in maidr.axes) {
-          this.y_group_label = maidr.axes.y.label;
+        if ('y' in maidr.axis) {
+          this.y_group_label = maidr.axis.y.label;
         }
       }
       if ('title' in maidr) {
