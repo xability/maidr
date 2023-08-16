@@ -256,28 +256,37 @@ class Menu {
       .querySelector('body')
       .insertAdjacentHTML('beforeend', this.menuHtml);
 
-    // menu events
+    // menu close events
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
     for (let i = 0; i < allClose.length; i++) {
       allClose[i].addEventListener('click', function (e) {
-        this.Toggle(false);
+        menu.Toggle(false);
       });
     }
     document
       .getElementById('save_and_close_menu')
       .addEventListener('click', function (e) {
-        this.SaveData();
-        this.Toggle(false);
+        menu.SaveData();
+        menu.Toggle(false);
       });
     document.getElementById('menu').addEventListener('keydown', function (e) {
       if (e.which == 27) {
         // esc
-        this.Toggle(false);
+        menu.Toggle(false);
+      }
+    });
+
+    // menu open events
+    // note: this triggers a maidr destroy
+    document.addEventListener('keyup', function (e) {
+      if (e.which == 72) {
+        // M(77) for menu, or H(72) for help? I don't like it
+        menu.Toggle(true);
       }
     });
   }
 
-  Toggle(onoff) {
+  Toggle(onoff = false) {
     if (typeof onoff == 'undefined') {
       if (document.getElementById('menu').classList.contains('hidden')) {
         onoff = true;
@@ -655,6 +664,11 @@ class Tracker {
 
 class Review {
   constructor() {
+    this.CreateReviewHtml();
+    this.QueueReviewEvents();
+  }
+
+  CreateReviewHtml() {
     // review mode form field
     if (!document.getElementById(constants.review_id)) {
       if (document.getElementById(constants.info_id)) {
@@ -671,11 +685,36 @@ class Review {
       }
     }
 
-    if (constants) {
-      constants.review_container = document.querySelector(
-        '#' + constants.review_id_container
-      );
-      constants.review = document.querySelector('#' + constants.review_id);
+    constants.review_container = document.querySelector(
+      '#' + constants.review_id_container
+    );
+    constants.review = document.querySelector('#' + constants.review_id);
+  }
+
+  QueueReviewEvents() {
+    constants.events.push([
+      document.getElementById(singleMaidr.id),
+      'keydown',
+      this.ReviewModeEvent,
+    ]);
+    constants.events.push([constants.review, 'keydown', this.ReviewModeEvent]);
+    constants.events.push([
+      document.getElementById(constants.braille_input_id),
+      'keydown',
+      this.ReviewModeEvent,
+    ]);
+  }
+
+  ReviewModeEvent(e) {
+    // Review mode
+    if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      // r, but let Ctrl and Shift R go through cause I use that to refresh
+      e.preventDefault();
+      if (constants.review_container.classList.contains('hidden')) {
+        review.ToggleReviewMode(true);
+      } else {
+        review.ToggleReviewMode(false);
+      }
     }
   }
 

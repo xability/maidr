@@ -69,22 +69,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
       // Stuff to only run if we're on a chart (so check if the info div exists?)
       if (document.getElementById('info')) {
-        // Kill autoplay
-        if (constants.isMac ? e.which == 91 || e.which == 93 : e.which == 17) {
-          // ctrl (either one)
-          constants.KillAutoplay();
-        }
-
-        // Review mode
-        if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-          // R, but let Ctrl etc R go through cause I use that to refresh
-          e.preventDefault();
-          if (constants.review_container.classList.contains('hidden')) {
-            review.ToggleReviewMode(true);
-          } else {
-            review.ToggleReviewMode(false);
-          }
-        }
       }
     });
   }
@@ -103,22 +87,9 @@ function InitMaidr(thisMaidr) {
       constants.chartType = singleMaidr.type;
     }
     CreateChartComponents(singleMaidr);
-    window.control = new Control();
+    window.control = new Control(); // this inits the plot
     window.review = new Review();
     window.display = new Display();
-
-    // help menu events
-    constants.events.push([
-      constants.chart_container,
-      'keydown',
-      function (e) {
-        // Menu open
-        if (e.which == 72) {
-          // M(77) for menu, or H(72) for help? I don't like it
-          menu.Toggle(true);
-        }
-      },
-    ]);
 
     // blur destruction events
     constants.events.push([
@@ -126,6 +97,9 @@ function InitMaidr(thisMaidr) {
       'blur',
       ShouldWeDestroyMaidr,
     ]);
+
+    // kill autoplay event
+    constants.events.push([document, 'keydown', KillAutoplayEvent]);
 
     // add all events
     for (let i = 0; i < constants.events.length; i++) {
@@ -164,7 +138,7 @@ function ShouldWeInitMaidr(thisMaidr) {
 }
 
 function ShouldWeDestroyMaidr(e) {
-  // conditions: we're not about to focus on any chart that is maidr enabled
+  // conditions: we're not about to focus on any chart that is maidr enabled, or braille, or review input
   // note: the case where we move from one maidr enabled chart to another is handled by ShouldWeInitMaidr
 
   // timeout to delay blur event
@@ -172,9 +146,11 @@ function ShouldWeDestroyMaidr(e) {
     let focusedElement = document.activeElement;
     if (focusedElement.id) {
       if (maidrIds.includes(focusedElement.id)) {
-        return;
+        return; // about to focus on self, don't destroy
       } else if (focusedElement.id == constants.braille_input_id) {
-        return;
+        return; // about to focus on braille, don't destroy
+      } else if (focusedElement.id == constants.review.id) {
+        return; // about to focus on review, don't destroy
       } else {
         DestroyMaidr();
       }
@@ -212,6 +188,13 @@ function DestroyMaidr() {
   window.control = null;
   window.plot = null;
   window.singleMaidr = null;
+}
+function KillAutoplayEvent(e) {
+  // Kill autoplay
+  if (constants.isMac ? e.which == 91 || e.which == 93 : e.which == 17) {
+    // ctrl (either one)
+    constants.KillAutoplay();
+  }
 }
 
 function CreateChartComponents() {
@@ -253,12 +236,14 @@ function CreateChartComponents() {
   // info aria live, next sibling of chart container
   constants.chart_container.insertAdjacentHTML(
     'afterend',
-    '<br>\n<div id="info" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
+    '<br>\n<div id="' +
+      constants.info_id +
+      '" aria-live="assertive" aria-atomic="true">\n<p id="x"></p>\n<p id="y"></p>\n</div>\n'
   );
 
   // announcements, next sibling of info
   document
-    .getElementById('info')
+    .getElementById(constants.info_id)
     .insertAdjacentHTML(
       'afterend',
       '<div id="announcements" aria-live="assertive" aria-atomic="true" class="mb-3"></div>\n'
