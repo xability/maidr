@@ -113,11 +113,11 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (constants.chartType == 'scatter') {
+    if (singleMaidr.type == 'scatter' || singleMaidr.type.includes('scatter')) {
       if (constants.sonifMode == 'off') {
-        constants.sonifMode = 'sep';
+        constants.sonifMode = 'on';
         this.announceText(resources.GetString('son_sep'));
-      } else if (constants.sonifMode == 'sep') {
+      } else if (constants.sonifMode == 'on') {
         constants.sonifMode = 'same';
         this.announceText(resources.GetString('son_same'));
       } else if (constants.sonifMode == 'same') {
@@ -196,7 +196,10 @@ class Display {
       }
 
       constants.brailleInput.setSelectionRange(adjustedPos, adjustedPos);
-    } else if (constants.chartType == 'scatter') {
+    } else if (
+      singleMaidr.type == 'scatter' ||
+      singleMaidr.type.includes('scatter')
+    ) {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
   }
@@ -393,7 +396,10 @@ class Display {
         output = '<p>' + textVerbose + '</p>\n';
       else if (constants.textMode == 'terse')
         output = '<p>' + textTerse + '</p>\n';
-    } else if (constants.chartType == 'scatter') {
+    } else if (
+      singleMaidr.type == 'scatter' ||
+      singleMaidr.type.includes('scatter')
+    ) {
       if (constants.chartType == 'scatter') {
         // point layer
         verboseText +=
@@ -464,7 +470,8 @@ class Display {
     } else if (
       constants.chartType == 'heat' ||
       constants.chartType == 'box' ||
-      constants.chartType == 'scatter'
+      singleMaidr.type == 'scatter' ||
+      singleMaidr.type.includes('scatter')
     ) {
       xlabel = plot.x_group_label;
     }
@@ -482,7 +489,8 @@ class Display {
     } else if (
       constants.chartType == 'heat' ||
       constants.chartType == 'box' ||
-      constants.chartType == 'scatter'
+      singleMaidr.type == 'scatter' ||
+      singleMaidr.type.includes('scatter')
     ) {
       ylabel = plot.y_group_label;
     }

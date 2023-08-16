@@ -3,6 +3,40 @@
 // This initializes and contains the JSON data model for this chart
 //
 class BoxPlot {
+  // todo: new structure:
+  // use index of format and data to match plots
+  /*
+  newMaidr = {
+    axes: {
+      y: {
+        label: 'Car Class',
+        format: [
+          '2seater',
+          'compact',
+          'midsize',
+          'minivan',
+          'pickup',
+          'subcompact',
+          'suv',
+        ],
+      },
+      x: {
+        label: 'Highway Milage',
+      },
+    },
+    data: [
+      "2seater": {
+        lower_outlier: null,
+        min: 57.2,
+        q1: 59.3,
+        median: 60.3,
+        q3: 61.3,
+        max: 62.3,
+        upper_outlier: [63.2, 64.2, 65.2],
+      }
+    ],
+  };
+  */
   constructor() {
     constants.plotId = 0;
 

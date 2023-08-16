@@ -270,7 +270,7 @@ class ScatterPlot {
             position.z = -1;
           }
         },
-        constants.sonifMode == 'sep' ? constants.autoPlayPointsRate : 0
+        constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
       ); // play all tones at the same time
     } else if (constants.chartType == 'line') {
       // best fit line layer
