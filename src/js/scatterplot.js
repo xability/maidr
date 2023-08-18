@@ -8,7 +8,7 @@ class ScatterPlot {
     this.SetScatterLayer();
     this.SetLineLayer();
     this.SetAxes();
-    this.svgScales = this.GetSVGScales();
+    this.svgScaler = this.GetSVGScaler();
   }
 
   SetAxes() {
@@ -115,7 +115,7 @@ class ScatterPlot {
     return elIndex;
   }
 
-  GetSVGScales() {
+  GetSVGScaler() {
     let scaleX = 1;
     let scaleY = 1;
     // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
@@ -373,7 +373,7 @@ class Layer0Point {
       var point = document.createElementNS(svgns, 'circle');
       point.setAttribute('class', 'highlight_point');
       point.setAttribute('cx', this.x);
-      if (plot.svgScales[1] == -1) {
+      if (plot.svgScaler[1] == -1) {
         point.setAttribute(
           'cy',
           constants.chart.getBoundingClientRect().height - this.y[i]
@@ -388,7 +388,7 @@ class Layer0Point {
       point.setAttribute('stroke', constants.colorSelected);
       point.setAttribute('stroke-width', this.strokeWidth);
       point.setAttribute('fill', constants.colorSelected);
-      if (plot.svgScales[1] == -1) {
+      if (plot.svgScaler[1] == -1) {
         constants.chart.appendChild(point);
       } else {
         plot.plotPoints[this.circleIndex[i]].parentNode.appendChild(point);
@@ -433,20 +433,24 @@ class Layer1Point {
     const svgns = 'http://www.w3.org/2000/svg';
     var point = document.createElementNS(svgns, 'circle');
     point.setAttribute('id', 'highlight_point');
-    point.setAttribute(plot.prefix + 'x', this.x);
-    if (plot.svgScales[1] == -1) {
+    point.setAttribute('cx', this.x);
+    if (plot.svgScaler[1] == -1) {
       point.setAttribute(
-        plot.prefix + 'y',
+        'cy',
         constants.chart.getBoundingClientRect().height - this.y
       );
     } else {
-      point.setAttribute(plot.prefix + 'y', this.y);
+      point.setAttribute('cy', this.y);
     }
     point.setAttribute('r', 3.95);
     point.setAttribute('stroke', constants.colorSelected);
     point.setAttribute('stroke-width', this.strokeWidth);
     point.setAttribute('fill', constants.colorSelected);
-    constants.chart.appendChild(point);
+    if (plot.svgScaler[1] == -1) {
+      constants.chart.appendChild(point);
+    } else {
+      plot.plotLine.parentNode.appendChild(point);
+    }
   }
 
   async ClearPoints() {
