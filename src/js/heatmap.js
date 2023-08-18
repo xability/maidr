@@ -1,14 +1,7 @@
 class HeatMap {
   constructor() {
-    if ('elements' in maidr) {
-      this.plots = maidr.elements;
-      constants.hasRect = 1;
-    } else {
-      this.plots = constants.chart.querySelectorAll(
-        'g[id^="geom_rect"] > rect'
-      );
-      constants.hasRect = 0;
-    }
+    this.plots = maidr.elements;
+    constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
     this.x_labels = this.getXLabels();
@@ -53,7 +46,6 @@ class HeatMap {
       });
 
       let svgScales = this.GetSVGScales();
-      console.log(svgScales);
       // inverse scale if svg is scaled
       if (svgScales[0] == -1) {
         x_coord_check = x_coord_check.reverse();

@@ -42,12 +42,13 @@ class Constants {
   // autoplay speed
   MAX_SPEED = 2000;
   MIN_SPEED = 50;
+  DEFAULT_SPEED = 250;
   INTERVAL = 50;
 
   // user settings
   vol = 0.5;
   MAX_VOL = 30;
-  autoPlayRate = 250; // ms per tone
+  autoPlayRate = this.DEFAULT_SPEED; // ms per tone
   colorSelected = '#03C809';
   brailleDisplayLength = 32; // num characters in user's braille display.  40 is common length for desktop / mobile applications
 
@@ -270,7 +271,7 @@ class Menu {
         menu.Toggle(false);
       });
     document.getElementById('menu').addEventListener('keydown', function (e) {
-      if (e.which == 27) {
+      if (e.key == 'Esc') {
         // esc
         menu.Toggle(false);
       }
@@ -279,7 +280,7 @@ class Menu {
     // menu open events
     // note: this triggers a maidr destroy
     document.addEventListener('keyup', function (e) {
-      if (e.which == 72) {
+      if (e.key == 'h') {
         // M(77) for menu, or H(72) for help? I don't like it
         menu.Toggle(true);
       }
@@ -440,7 +441,6 @@ class Tracker {
     eventToLog.timestamp = Object.assign(e.timeStamp);
     eventToLog.time = Date().toString();
     eventToLog.key = Object.assign(e.key);
-    eventToLog.which = Object.assign(e.which);
     eventToLog.altKey = Object.assign(e.altKey);
     eventToLog.ctrlKey = Object.assign(e.ctrlKey);
     eventToLog.shiftKey = Object.assign(e.shiftKey);
@@ -707,7 +707,7 @@ class Review {
 
   ReviewModeEvent(e) {
     // Review mode
-    if (e.which == 82 && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    if (e.key == 'r' && !e.ctrlKey && !e.altKey) {
       // r, but let Ctrl and Shift R go through cause I use that to refresh
       e.preventDefault();
       if (constants.review_container.classList.contains('hidden')) {
