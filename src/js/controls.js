@@ -1740,8 +1740,8 @@ class Control {
         }, constants.autoPlayRate);
       }
     } else if (
-      [].concat(singleMaidr.type).includes('scatter') ||
-      singleMaidr.type == 'scatter'
+      [].concat(singleMaidr.type).includes('point') ||
+      singleMaidr.type == 'point'
     ) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
@@ -1753,7 +1753,7 @@ class Control {
 
       let lastPlayed = ''; // for autoplay use
       let lastx = 0; // for scatter point layer autoplay use
-      let lastx1 = 0; // for line layer autoplay use
+      let lastx1 = 0; // for smooth layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -1768,7 +1768,7 @@ class Control {
           let isAtEnd = false;
 
           // left and right arrows are enabled only at point layer
-          if (constants.chartType == 'scatter') {
+          if (constants.chartType == 'point') {
             // right arrow 39
             if (e.which === 39) {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -1816,7 +1816,7 @@ class Control {
                 isAtEnd = lockPosition();
               }
             }
-          } else if (constants.chartType == 'line') {
+          } else if (constants.chartType == 'smooth') {
             positionL1.x = lastx1;
 
             if (e.which == 39 && e.shiftKey) {
@@ -1845,7 +1845,7 @@ class Control {
           // update text, display, and audio
           if (
             updateInfoThisRound &&
-            constants.chartType == 'scatter' &&
+            constants.chartType == 'point' &&
             !isAtEnd
           ) {
             UpdateAll();
@@ -1864,10 +1864,10 @@ class Control {
           let isAtEnd = false;
 
           // @TODO
-          // only line layer can access to braille display
+          // only smooth layer can access to braille display
           if (e.which == 9) {
             // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-          } else if (constants.chartType == 'line') {
+          } else if (constants.chartType == 'smooth') {
             lockPosition();
             if (e.which == 9) {
             } else if (e.which == 39) {
@@ -2004,12 +2004,12 @@ class Control {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
             if (e.which == 36) {
-              if (constants.chartType == 'scatter') {
+              if (constants.chartType == 'point') {
                 position.x = 0;
                 UpdateAll();
                 // move cursor for braille
                 constants.brailleInput.setSelectionRange(0, 0);
-              } else if (constants.chartType == 'line') {
+              } else if (constants.chartType == 'smooth') {
                 positionL1.x = 0;
                 UpdateAllBraille();
               }
@@ -2017,7 +2017,7 @@ class Control {
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
             else if (e.which == 35) {
-              if (constants.chartType == 'scatter') {
+              if (constants.chartType == 'point') {
                 position.x = plot.y.length - 1;
                 UpdateAll();
                 // move cursor for braille
@@ -2025,7 +2025,7 @@ class Control {
                   plot.curvePoints.length - 1,
                   plot.curvePoints.length - 1
                 );
-              } else if (constants.chartType == 'line') {
+              } else if (constants.chartType == 'smooth') {
                 positionL1.x = plot.curvePoints.length - 1;
                 UpdateAllBraille();
               }
@@ -2095,21 +2095,21 @@ class Control {
               constants.KillAutoplay();
               audio.KillSmooth();
               if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay('outward_right', positionL1.x, lastx1);
                 }
               } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay('outward_left', positionL1.x, lastx1);
                 }
               } else {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay(lastPlayed, positionL1.x, lastx1);
                 }
               }
@@ -2123,21 +2123,21 @@ class Control {
               constants.KillAutoplay();
               audio.KillSmooth();
               if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay('outward_right', positionL1.x, lastx1);
                 }
               } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay('outward_left', positionL1.x, lastx1);
                 }
               } else {
-                if (constants.chartType == 'scatter') {
+                if (constants.chartType == 'point') {
                   Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'line') {
+                } else if (constants.chartType == 'smooth') {
                   Autoplay(lastPlayed, positionL1.x, lastx1);
                 }
               }
@@ -2150,7 +2150,7 @@ class Control {
       function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (constants.chartType == 'scatter') {
+        if (constants.chartType == 'point') {
           if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
@@ -2159,7 +2159,7 @@ class Control {
             position.x = plot.x.length - 1;
             isLockNeeded = true;
           }
-        } else if (constants.chartType == 'line') {
+        } else if (constants.chartType == 'smooth') {
           if (positionL1.x < 0) {
             positionL1.x = 0;
             isLockNeeded = true;
@@ -2190,7 +2190,7 @@ class Control {
           display.displayValues(plot);
         }
         if (constants.showRect) {
-          if (constants.chartType == 'scatter') {
+          if (constants.chartType == 'point') {
             layer0Point.UpdatePointDisplay();
           } else {
             layer1Point.UpdatePointDisplay();
@@ -2236,10 +2236,10 @@ class Control {
           position.L1x = start;
         }
 
-        if (constants.chartType == 'scatter') {
+        if (constants.chartType == 'point') {
           constants.autoplayId = setInterval(function () {
             position.x += step;
-            // autoplay for two layers: point layer & line layer in braille
+            // autoplay for two layers: point layer & smooth layer in braille
             // plot.numPoints is not available anymore
             if (position.x < 0 || position.x > plot.y.length - 1) {
               constants.KillAutoplay();
@@ -2251,10 +2251,10 @@ class Control {
               UpdateAllAutoplay();
             }
           }, constants.autoPlayRate);
-        } else if (constants.chartType == 'line') {
+        } else if (constants.chartType == 'smooth') {
           constants.autoplayId = setInterval(function () {
             positionL1.x += step;
-            // autoplay for two layers: point layer & line layer in braille
+            // autoplay for two layers: point layer & smooth layer in braille
             // plot.numPoints is not available anymore
             if (
               positionL1.x < 0 ||

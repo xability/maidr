@@ -621,7 +621,7 @@ class Tracker {
           }
         }
       }
-    } else if (constants.chartType == 'scatter') {
+    } else if (constants.chartType == 'point') {
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
       }

@@ -36,7 +36,7 @@ class Display {
   }
 
   toggleBrailleMode(onoff) {
-    if (constants.chartType == 'scatter') {
+    if (constants.chartType == 'point') {
       this.announceText('Braille is not supported in point layer.');
       return;
     }
@@ -113,7 +113,7 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (singleMaidr.type == 'scatter' || singleMaidr.type.includes('scatter')) {
+    if (singleMaidr.type == 'point' || singleMaidr.type.includes('point')) {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'on';
         this.announceText(resources.GetString('son_sep'));
@@ -145,15 +145,16 @@ class Display {
           //constants.chartType = chartTypes[chartTypes.length - 1];
         } else {
           constants.chartType = chartTypes[currentIndex - 1];
+          this.announceText('Switched to ' + constants.chartType); // todo: connect this to a resource file so it can be localized
         }
       } else {
         if (currentIndex == chartTypes.length - 1) {
           //constants.chartType = chartTypes[0];
         } else {
           constants.chartType = chartTypes[currentIndex + 1];
+          this.announceText('Switched to ' + constants.chartType); // todo: connect this to a resource file so it can be localized
         }
       }
-      this.announceText('Switched to ' + constants.chartType); // todo: connect this to a resource file so it can be localized
     }
   }
 
@@ -197,8 +198,8 @@ class Display {
 
       constants.brailleInput.setSelectionRange(adjustedPos, adjustedPos);
     } else if (
-      singleMaidr.type == 'scatter' ||
-      singleMaidr.type.includes('scatter')
+      singleMaidr.type == 'point' ||
+      singleMaidr.type.includes('point')
     ) {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
@@ -397,10 +398,10 @@ class Display {
       else if (constants.textMode == 'terse')
         output = '<p>' + textTerse + '</p>\n';
     } else if (
-      singleMaidr.type == 'scatter' ||
-      singleMaidr.type.includes('scatter')
+      singleMaidr.type == 'point' ||
+      singleMaidr.type.includes('point')
     ) {
-      if (constants.chartType == 'scatter') {
+      if (constants.chartType == 'point') {
         // point layer
         verboseText +=
           plot.x_group_label +
@@ -426,8 +427,8 @@ class Display {
         } else if (constants.textMode == 'verbose') {
           // set from verboseText
         }
-      } else if (constants.chartType == 'line') {
-        // best fit line layer
+      } else if (constants.chartType == 'smooth') {
+        // best fit smooth layer
         verboseText +=
           plot.x_group_label +
           ' ' +
@@ -470,8 +471,8 @@ class Display {
     } else if (
       constants.chartType == 'heat' ||
       constants.chartType == 'box' ||
-      singleMaidr.type == 'scatter' ||
-      singleMaidr.type.includes('scatter')
+      singleMaidr.type == 'point' ||
+      singleMaidr.type.includes('point')
     ) {
       xlabel = plot.x_group_label;
     }
@@ -489,8 +490,8 @@ class Display {
     } else if (
       constants.chartType == 'heat' ||
       constants.chartType == 'box' ||
-      singleMaidr.type == 'scatter' ||
-      singleMaidr.type.includes('scatter')
+      singleMaidr.type == 'point' ||
+      singleMaidr.type.includes('point')
     ) {
       ylabel = plot.y_group_label;
     }
@@ -568,7 +569,7 @@ class Display {
           brailleArray.push('⠉');
         }
       }
-    } else if (constants.chartType == 'line') {
+    } else if (constants.chartType == 'smooth') {
       let range = (plot.curveMaxY - plot.curveMinY) / 4;
       let low = plot.curveMinY + range;
       let medium = low + range;

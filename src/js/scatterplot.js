@@ -31,11 +31,11 @@ class ScatterPlot {
   }
 
   SetScatterLayer() {
-    // initially set as line layer (layer 2), if possible
-    let elIndex = this.GetElementIndex('scatter');
+    // initially set as smooth layer (layer 2), if possible
+    let elIndex = this.GetElementIndex('point');
     if (elIndex != -1) {
       this.plotPoints = maidr.elements[elIndex];
-    } else if (maidr.type == 'scatter') {
+    } else if (maidr.type == 'point') {
       this.plotPoints = maidr.elements;
     }
     if (typeof this.plotPoints !== 'undefined') {
@@ -52,11 +52,11 @@ class ScatterPlot {
   }
 
   SetLineLayer() {
-    // layer = 2, line layer (from maidr types)
-    let elIndex = this.GetElementIndex('line');
+    // layer = 2, smooth layer (from maidr types)
+    let elIndex = this.GetElementIndex('smooth');
     if (elIndex != -1) {
       this.plotLine = maidr.elements[elIndex];
-    } else if (maidr.type == 'line') {
+    } else if (maidr.type == 'smooth') {
       this.plotLine = maidr.elements;
     }
     if (typeof this.plotLine !== 'undefined') {
@@ -107,7 +107,7 @@ class ScatterPlot {
     return [X, Y];
   }
 
-  GetElementIndex(elementName = 'scatter') {
+  GetElementIndex(elementName = 'point') {
     let elIndex = -1;
     if ('type' in maidr) {
       elIndex = maidr.type.indexOf(elementName);
@@ -161,11 +161,11 @@ class ScatterPlot {
   }
 
   GetPrefix() {
-    let elIndex = this.GetElementIndex('scatter');
+    let elIndex = this.GetElementIndex('point');
     let element;
     if (elIndex != -1) {
       element = maidr.elements[elIndex][0];
-    } else if (maidr.type == 'scatter') {
+    } else if (maidr.type == 'point') {
       element = maidr.elements[0];
     }
     let prefix = '';
@@ -181,12 +181,12 @@ class ScatterPlot {
     let xValues = [];
     let yValues = [];
 
-    let elIndex = this.GetElementIndex('scatter');
+    let elIndex = this.GetElementIndex('point');
 
     let data;
     if (elIndex > -1) {
       data = maidr.data[elIndex];
-    } else if (maidr.type == 'scatter') {
+    } else if (maidr.type == 'point') {
       data = maidr.data;
     }
     if (typeof data !== 'undefined') {
@@ -252,7 +252,7 @@ class ScatterPlot {
     if (constants.sepPlayId) {
       constants.KillSepPlay();
     }
-    if (constants.chartType == 'scatter') {
+    if (constants.chartType == 'point') {
       // point layer
       // we play a run of tones
       position.z = 0;
@@ -272,8 +272,8 @@ class ScatterPlot {
         },
         constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
       ); // play all tones at the same time
-    } else if (constants.chartType == 'line') {
-      // best fit line layer
+    } else if (constants.chartType == 'smooth') {
+      // best fit smooth layer
       audio.playTone();
     }
   }
@@ -299,12 +299,12 @@ class ScatterPlot {
     let x_points = [];
     let y_points = [];
 
-    let elIndex = this.GetElementIndex('line');
+    let elIndex = this.GetElementIndex('smooth');
 
     let data;
     if (elIndex > -1) {
       data = maidr.data[elIndex];
-    } else if (maidr.type == 'line') {
+    } else if (maidr.type == 'smooth') {
       data = maidr.data;
     }
     if (typeof data !== 'undefined') {
@@ -413,7 +413,7 @@ class Layer0Point {
 }
 
 class Layer1Point {
-  // line segments
+  // smooth segments
 
   constructor() {
     this.x = plot.chartLineX[0];

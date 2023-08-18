@@ -75,7 +75,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
 });
 
 function InitMaidr(thisMaidr) {
-  console.log('Initializing Maidr');
   // just in case
   if (typeof constants != 'undefined') {
     // init vars and html
@@ -162,8 +161,6 @@ function ShouldWeDestroyMaidr(e) {
 }
 
 function DestroyMaidr() {
-  console.log('Destroying Maidr');
-
   // chart cleanup
   if (constants.chartType == 'bar') {
     plot.DeselectAll();
