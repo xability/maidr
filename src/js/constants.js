@@ -107,6 +107,10 @@ class Constants {
       constants.autoPlayRate += this.INTERVAL;
     }
   }
+
+  SpeedReset() {
+    constants.autoPlayRate = constants.DEFAULT_SPEED;
+  }
 }
 
 class Resources {

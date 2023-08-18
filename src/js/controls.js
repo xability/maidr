@@ -260,31 +260,18 @@ class Control {
           // period: speed up
           if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
           if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -907,79 +894,18 @@ class Control {
           // period: speed up
           if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('right', position.y, lastY);
-                } else {
-                  Autoplay('right', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-right') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('left', position.y, lastY);
-                } else {
-                  Autoplay('left', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-up') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('down', position.y, lastY);
-                } else {
-                  Autoplay('down', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-down') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('up', position.y, lastY);
-                } else {
-                  Autoplay('up', position.x, lastx);
-                }
-              } else {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay(lastPlayed, position.y, lastY);
-                } else {
-                  Autoplay(lastPlayed, position.x, lastx);
-                }
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
           if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('right', position.y, lastY);
-                } else {
-                  Autoplay('right', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-right') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('left', position.y, lastY);
-                } else {
-                  Autoplay('left', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-up') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('down', position.y, lastY);
-                } else {
-                  Autoplay('down', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-down') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('up', position.y, lastY);
-                } else {
-                  Autoplay('up', position.x, lastx);
-                }
-              } else {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay(lastPlayed, position.y, lastY);
-                } else {
-                  Autoplay(lastPlayed, position.x, lastx);
-                }
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -1582,39 +1508,18 @@ class Control {
           // period: speed up
           if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else if (lastPlayed == 'reverse-up') {
-                Autoplay('down', position.x, lastx);
-              } else if (lastPlayed == 'reverse-down') {
-                Autoplay('up', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
           if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else if (lastPlayed == 'reverse-up') {
-                Autoplay('down', position.x, lastx);
-              } else if (lastPlayed == 'reverse-down') {
-                Autoplay('up', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -2093,57 +1998,18 @@ class Control {
           // period: speed up
           if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              audio.KillSmooth();
-              if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'point') {
-                  Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay('outward_right', positionL1.x, lastx1);
-                }
-              } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'point') {
-                  Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay('outward_left', positionL1.x, lastx1);
-                }
-              } else {
-                if (constants.chartType == 'point') {
-                  Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay(lastPlayed, positionL1.x, lastx1);
-                }
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
           if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              audio.KillSmooth();
-              if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'point') {
-                  Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay('outward_right', positionL1.x, lastx1);
-                }
-              } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'point') {
-                  Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay('outward_left', positionL1.x, lastx1);
-                }
-              } else {
-                if (constants.chartType == 'point') {
-                  Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'smooth') {
-                  Autoplay(lastPlayed, positionL1.x, lastx1);
-                }
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
