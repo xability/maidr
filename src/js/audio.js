@@ -125,10 +125,10 @@ class Audio {
         1
       );
     } else if (
-      constants.chartType == 'scatter' ||
-      constants.chartType == 'line'
+      constants.chartType == 'point' ||
+      constants.chartType == 'smooth'
     ) {
-      if (constants.chartType == 'scatter') {
+      if (constants.chartType == 'point') {
         // point layer
         // more than one point with same x-value
         rawFreq = plot.y[position.x][position.z];
@@ -159,8 +159,8 @@ class Audio {
           -1,
           1
         );
-      } else if (constants.chartType == 'line') {
-        // best fit line layer
+      } else if (constants.chartType == 'smooth') {
+        // best fit smooth layer
 
         rawFreq = plot.curvePoints[positionL1.x];
         rawPanning = positionL1.x;
@@ -424,7 +424,7 @@ class Audio {
                 panning = this.SlideBetween(position.x, 0, plot.plotData[position.y].length-1, -1, 1);
             } else if ( constants.chartType == 'heat' ) {
                 panning = this.SlideBetween(position.x, 0, plot.num_cols-1, -1, 1);
-            } else if ( constants.chartType == 'scatter' ) {
+            } else if ( constants.chartType == 'point' ) {
                 panning = this.SlideBetween(position.x, 0, plot.x.length-1, -1, 1);
             }
         } catch {

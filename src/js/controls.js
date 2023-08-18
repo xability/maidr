@@ -25,8 +25,7 @@ class Control {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.which === 39) {
-            // right arrow 39
+          if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.x;
@@ -50,34 +49,37 @@ class Control {
               isAtEnd = lockPosition();
             }
           }
-          if (e.which === 37) {
-            // left arrow 37
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                // lastx = position.x;
-                position.x += 1;
-                Autoplay('left', position.x, -1);
+          if (e.key == 'ArrowLeft') {
+            var prevLink = document.getElementById('prev');
+            if (prevLink) {
+              // left arrow 37
+              if (constants.isMac ? e.metaKey : e.ctrlKey) {
+                if (e.shiftKey) {
+                  // lastx = position.x;
+                  position.x += 1;
+                  Autoplay('left', position.x, -1);
+                } else {
+                  position.x = 0; // go all the way
+                  updateInfoThisRound = true;
+                  isAtEnd = lockPosition();
+                }
+              } else if (e.altKey && e.shiftKey && position.x != 0) {
+                lastx = position.x;
+                Autoplay('reverse-left', -1, position.x);
               } else {
-                position.x = 0; // go all the way
+                position.x += -1;
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
-            } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
-              Autoplay('reverse-left', -1, position.x);
-            } else {
-              position.x += -1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
             }
-          }
 
-          // update display / text / audio
-          if (updateInfoThisRound && !isAtEnd) {
-            UpdateAll();
-          }
-          if (isAtEnd) {
-            audio.playEnd();
+            // update display / text / audio
+            if (updateInfoThisRound && !isAtEnd) {
+              UpdateAll();
+            }
+            if (isAtEnd) {
+              audio.playEnd();
+            }
           }
         },
       ]);
@@ -91,10 +93,10 @@ class Control {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.which == 9) {
+          if (e.key == 'Tab') {
             // tab
             // do nothing, let the user Tab away
-          } else if (e.which == 39) {
+          } else if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (e.target.selectionStart > e.target.value.length - 2) {
@@ -120,7 +122,7 @@ class Control {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          } else if (e.which == 37) {
+          } else if (e.key == 'ArrowLeft') {
             // left arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -168,7 +170,7 @@ class Control {
           'keyup',
           function (e) {
             // B: braille mode
-            if (e.which == 66) {
+            if (e.key == 'b') {
               display.toggleBrailleMode();
               e.preventDefault();
             }
@@ -179,7 +181,7 @@ class Control {
             // }
 
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (e.key == 't') {
               let timediff = window.performance.now() - lastKeyTime;
               if (!pressedL || timediff > constants.keypressInterval) {
                 display.toggleTextMode();
@@ -187,11 +189,11 @@ class Control {
             }
 
             // S: sonification mode
-            if (e.which == 83) {
+            if (e.key == 's') {
               display.toggleSonificationMode();
             }
 
-            if (e.which === 32) {
+            if (e.key == ' ') {
               // space 32, replay info but no other changes
               UpdateAll();
             }
@@ -206,13 +208,13 @@ class Control {
           // ctrl/cmd: stop autoplay
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
-            if (e.which == 36) {
+            if (e.key == 'Home') {
               position.x = 0;
               UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
-            else if (e.which == 35) {
+            else if (e.key == 'End') {
               position.x = plot.bars.length - 1;
               UpdateAllBraille();
             }
@@ -220,28 +222,28 @@ class Control {
 
           // must come before prefix L
           if (pressedL) {
-            if (e.which == 88) {
+            if (e.key == 'x') {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayXLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 89) {
+            } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayYLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 84) {
+            } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayTitle(plot);
               }
               pressedL = false;
-            } else if (e.which == 76) {
+            } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
               pressedL = true;
             } else {
@@ -250,39 +252,26 @@ class Control {
           }
 
           // L: prefix for label; must come after the suffix
-          if (e.which == 76) {
+          if (e.key == 'l') {
             lastKeyTime = window.performance.now();
             pressedL = true;
           }
 
           // period: speed up
-          if (e.which == 190) {
+          if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
-          if (e.which == 188) {
+          if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -398,7 +387,7 @@ class Control {
           let isAtEnd = false;
 
           // right arrow
-          if (e.which === 39) {
+          if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 if (constants.plotOrientation == 'vert') {
@@ -463,7 +452,7 @@ class Control {
             constants.navigation = 1;
           }
           // left arrow
-          if (e.which === 37) {
+          if (e.key == 'ArrowLeft') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 Autoplay('left', position.x, -1);
@@ -487,7 +476,7 @@ class Control {
             constants.navigation = 1;
           }
           // up arrow
-          if (e.which === 38) {
+          if (e.key == 'ArrowUp') {
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
@@ -539,7 +528,7 @@ class Control {
             constants.navigation = 0;
           }
           // down arrow
-          if (e.which === 40) {
+          if (e.key == 'ArrowDown') {
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
@@ -597,10 +586,10 @@ class Control {
           let setBrailleThisRound = false;
           let isAtEnd = false;
 
-          if (e.which == 9) {
+          if (e.key == 'Tab') {
             // tab
             // do nothing, let the user Tab away
-          } else if (e.which == 39) {
+          } else if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -665,7 +654,7 @@ class Control {
             }
             setBrailleThisRound = true;
             constants.navigation = 1;
-          } else if (e.which == 37) {
+          } else if (e.key == 'ArrowLeft') {
             // left arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -690,7 +679,7 @@ class Control {
             }
             setBrailleThisRound = true;
             constants.navigation = 1;
-          } else if (e.which === 38) {
+          } else if (e.key == 'ArrowUp') {
             // up arrow
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -744,7 +733,7 @@ class Control {
               setBrailleThisRound = true;
             }
             constants.navigation = 0;
-          } else if (e.which === 40) {
+          } else if (e.key == 'ArrowDown') {
             // down arrow
             let oldY = position.y;
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -814,12 +803,12 @@ class Control {
           'keydown',
           function (e) {
             // B: braille mode
-            if (e.which == 66) {
+            if (e.key == 'b') {
               display.toggleBrailleMode();
               e.preventDefault();
             }
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (e.key == 't') {
               let timediff = window.performance.now() - lastKeyTime;
               if (!pressedL || timediff > constants.keypressInterval) {
                 display.toggleTextMode();
@@ -833,11 +822,11 @@ class Control {
             // }
 
             // S: sonification mode
-            if (e.which == 83) {
+            if (e.key == 's') {
               display.toggleSonificationMode();
             }
 
-            if (e.which === 32) {
+            if (e.key == ' ') {
               // space 32, replay info but no other changes
               UpdateAll();
             }
@@ -851,14 +840,14 @@ class Control {
         function (e) {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): top left element
-            if (e.which == 36) {
+            if (e.key == 'Home') {
               position.x = 0;
               position.y = plot.plotData.length - 1;
               UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): right bottom element
-            else if (e.which == 35) {
+            else if (e.key == 'End') {
               position.x = plot.plotData[0].length - 1;
               position.y = 0;
               UpdateAllBraille();
@@ -867,28 +856,28 @@ class Control {
 
           // must come before the prefix L
           if (pressedL) {
-            if (e.which == 88) {
+            if (e.key == 'x') {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayXLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 89) {
+            } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayYLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 84) {
+            } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayTitle(plot);
               }
               pressedL = false;
-            } else if (e.which == 76) {
+            } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
               pressedL = true;
             } else {
@@ -897,87 +886,26 @@ class Control {
           }
 
           // L: prefix for label; must come after suffix
-          if (e.which == 76) {
+          if (e.key == 'l') {
             lastKeyTime = window.performance.now();
             pressedL = true;
           }
 
           // period: speed up
-          if (e.which == 190) {
+          if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('right', position.y, lastY);
-                } else {
-                  Autoplay('right', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-right') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('left', position.y, lastY);
-                } else {
-                  Autoplay('left', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-up') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('down', position.y, lastY);
-                } else {
-                  Autoplay('down', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-down') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('up', position.y, lastY);
-                } else {
-                  Autoplay('up', position.x, lastx);
-                }
-              } else {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay(lastPlayed, position.y, lastY);
-                } else {
-                  Autoplay(lastPlayed, position.x, lastx);
-                }
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
-          if (e.which == 188) {
+          if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('right', position.y, lastY);
-                } else {
-                  Autoplay('right', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-right') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('left', position.y, lastY);
-                } else {
-                  Autoplay('left', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-up') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('down', position.y, lastY);
-                } else {
-                  Autoplay('down', position.x, lastx);
-                }
-              } else if (lastPlayed == 'reverse-down') {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay('up', position.y, lastY);
-                } else {
-                  Autoplay('up', position.x, lastx);
-                }
-              } else {
-                if (constants.plotOrientation == 'vert') {
-                  Autoplay(lastPlayed, position.y, lastY);
-                } else {
-                  Autoplay(lastPlayed, position.x, lastx);
-                }
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -1167,7 +1095,7 @@ class Control {
           let isAtEnd = false;
 
           // right arrow 39
-          if (e.which === 39) {
+          if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.x;
@@ -1196,7 +1124,7 @@ class Control {
           }
 
           // left arrow 37
-          if (e.which === 37) {
+          if (e.key == 'ArrowLeft') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.x;
@@ -1218,7 +1146,7 @@ class Control {
           }
 
           // up arrow 38
-          if (e.which === 38) {
+          if (e.key == 'ArrowUp') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.y;
@@ -1240,7 +1168,7 @@ class Control {
           }
 
           // down arrow 40
-          if (e.which === 40) {
+          if (e.key == 'ArrowDown') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 // lastx = position.y;
@@ -1285,9 +1213,9 @@ class Control {
           let updateInfoThisRound = false;
           let isAtEnd = false;
 
-          if (e.which == 9) {
+          if (e.key == 'Tab') {
             // let user tab
-          } else if (e.which == 39) {
+          } else if (e.key == 'ArrowRight') {
             // right arrow
             if (
               e.target.selectionStart > e.target.value.length - 3 ||
@@ -1334,7 +1262,7 @@ class Control {
 
               constants.navigation = 1;
             }
-          } else if (e.which == 37) {
+          } else if (e.key == 'ArrowLeft') {
             // left
             if (
               e.target.selectionStart == 0 ||
@@ -1369,7 +1297,7 @@ class Control {
 
               constants.navigation = 1;
             }
-          } else if (e.which == 40) {
+          } else if (e.key == 'ArrowDown') {
             // down
             if (position.y + 1 == plot.num_rows) {
               e.preventDefault();
@@ -1408,7 +1336,7 @@ class Control {
 
               constants.navigation = 0;
             }
-          } else if (e.which == 38) {
+          } else if (e.key == 'ArrowUp') {
             // up
             if (e.target.selectionStart - plot.num_cols - 1 < 0) {
               e.preventDefault();
@@ -1463,7 +1391,7 @@ class Control {
           'keydown',
           function (e) {
             // B: braille mode
-            if (e.which == 66) {
+            if (e.key == 'b') {
               display.toggleBrailleMode();
               e.preventDefault();
             }
@@ -1474,7 +1402,7 @@ class Control {
             // }
 
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (e.key == 't') {
               let timediff = window.performance.now() - lastKeyTime;
               if (!pressedL || timediff > constants.keypressInterval) {
                 display.toggleTextMode();
@@ -1482,12 +1410,12 @@ class Control {
             }
 
             // S: sonification mode
-            if (e.which == 83) {
+            if (e.key == 's') {
               display.toggleSonificationMode();
             }
 
             // space: replay info but no other changes
-            if (e.which === 32) {
+            if (e.key == ' ') {
               UpdateAll();
             }
           },
@@ -1500,14 +1428,14 @@ class Control {
         function (e) {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
-            if (e.which == 36) {
+            if (e.key == 'Home') {
               position.x = 0;
               position.y = 0;
               UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
-            else if (e.which == 35) {
+            else if (e.key == 'End') {
               position.x = plot.num_cols - 1;
               position.y = plot.num_rows - 1;
               UpdateAllBraille();
@@ -1535,35 +1463,35 @@ class Control {
 
           // must come before the prefix L
           if (pressedL) {
-            if (e.which == 88) {
+            if (e.key == 'x') {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayXLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 89) {
+            } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayYLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 84) {
+            } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayTitle(plot);
               }
               pressedL = false;
-            } else if (e.which == 70) {
+            } else if (e.key == 'f') {
               // F: fill label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayFill(plot);
               }
               pressedL = false;
-            } else if (e.which == 76) {
+            } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
               pressedL = true;
             } else {
@@ -1572,47 +1500,26 @@ class Control {
           }
 
           // L: prefix for label; must come after suffix
-          if (e.which == 76) {
+          if (e.key == 'l') {
             lastKeyTime = window.performance.now();
             pressedL = true;
           }
 
           // period: speed up
-          if (e.which == 190) {
+          if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else if (lastPlayed == 'reverse-up') {
-                Autoplay('down', position.x, lastx);
-              } else if (lastPlayed == 'reverse-down') {
-                Autoplay('up', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
-          if (e.which == 188) {
+          if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              if (lastPlayed == 'reverse-left') {
-                Autoplay('right', position.x, lastx);
-              } else if (lastPlayed == 'reverse-right') {
-                Autoplay('left', position.x, lastx);
-              } else if (lastPlayed == 'reverse-up') {
-                Autoplay('down', position.x, lastx);
-              } else if (lastPlayed == 'reverse-down') {
-                Autoplay('up', position.x, lastx);
-              } else {
-                Autoplay(lastPlayed, position.x, lastx);
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -1740,8 +1647,8 @@ class Control {
         }, constants.autoPlayRate);
       }
     } else if (
-      [].concat(singleMaidr.type).includes('scatter') ||
-      singleMaidr.type == 'scatter'
+      [].concat(singleMaidr.type).includes('point') ||
+      singleMaidr.type == 'point'
     ) {
       // variable initialization
       constants.plotId = 'geom_point.points.12.1';
@@ -1753,7 +1660,7 @@ class Control {
 
       let lastPlayed = ''; // for autoplay use
       let lastx = 0; // for scatter point layer autoplay use
-      let lastx1 = 0; // for line layer autoplay use
+      let lastx1 = 0; // for smooth layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -1768,9 +1675,9 @@ class Control {
           let isAtEnd = false;
 
           // left and right arrows are enabled only at point layer
-          if (constants.chartType == 'scatter') {
+          if (constants.chartType == 'point') {
             // right arrow 39
-            if (e.which === 39) {
+            if (e.key == 'ArrowRight') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                   // lastx = position.x;
@@ -1796,7 +1703,7 @@ class Control {
             }
 
             // left arrow 37
-            if (e.which === 37) {
+            if (e.key == 'ArrowLeft') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
                   // lastx = position.x;
@@ -1816,10 +1723,10 @@ class Control {
                 isAtEnd = lockPosition();
               }
             }
-          } else if (constants.chartType == 'line') {
+          } else if (constants.chartType == 'smooth') {
             positionL1.x = lastx1;
 
-            if (e.which == 39 && e.shiftKey) {
+            if (e.key == 'ArrowRight' && e.shiftKey) {
               if (
                 (constants.isMac ? e.metaKey : e.ctrlKey) &&
                 constants.sonifMode != 'off'
@@ -1830,7 +1737,7 @@ class Control {
               }
             }
 
-            if (e.which == 37 && e.shiftKey) {
+            if (e.key == 'ArrowLeft' && e.shiftKey) {
               if (
                 (constants.isMac ? e.metaKey : e.ctrlKey) &&
                 constants.sonifMode != 'off'
@@ -1845,7 +1752,7 @@ class Control {
           // update text, display, and audio
           if (
             updateInfoThisRound &&
-            constants.chartType == 'scatter' &&
+            constants.chartType == 'point' &&
             !isAtEnd
           ) {
             UpdateAll();
@@ -1864,13 +1771,13 @@ class Control {
           let isAtEnd = false;
 
           // @TODO
-          // only line layer can access to braille display
-          if (e.which == 9) {
+          // only smooth layer can access to braille display
+          if (e.key == 'Tab') {
             // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-          } else if (constants.chartType == 'line') {
+          } else if (constants.chartType == 'smooth') {
             lockPosition();
-            if (e.which == 9) {
-            } else if (e.which == 39) {
+            if (e.key == 'Tab') {
+            } else if (e.key == 'ArrowRight') {
               // right arrow
               e.preventDefault();
               constants.brailleInput.setSelectionRange(
@@ -1904,7 +1811,7 @@ class Control {
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
-            } else if (e.which == 37) {
+            } else if (e.key == 'ArrowLeft') {
               // left
               e.preventDefault();
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -1955,12 +1862,12 @@ class Control {
           'keydown',
           function (e) {
             // B: braille mode
-            if (e.which == 66) {
+            if (e.key == 'b') {
               display.toggleBrailleMode();
               e.preventDefault();
             }
             // T: aria live text output mode
-            if (e.which == 84) {
+            if (e.key == 't') {
               let timediff = window.performance.now() - lastKeyTime;
               if (!pressedL || timediff > constants.keypressInterval) {
                 display.toggleTextMode();
@@ -1974,23 +1881,23 @@ class Control {
             // }
 
             // S: sonification mode
-            if (e.which == 83) {
+            if (e.key == 's') {
               display.toggleSonificationMode();
             }
 
             // page down /(fn+down arrow): change chart type (layer)
-            if (e.which == 34 && constants.brailleMode == 'off') {
+            if (e.key == 'PageDown' && constants.brailleMode == 'off') {
               lastx1 = positionL1.x;
               display.changeChartLayer('down');
             }
 
             // page up / (fn+up arrow): change chart type (layer)
-            if (e.which == 33 && constants.brailleMode == 'off') {
+            if (e.key == 'PageUp' && constants.brailleMode == 'off') {
               display.changeChartLayer('up');
             }
 
             // space: replay info but no other changes
-            if (e.which === 32) {
+            if (e.key == ' ') {
               UpdateAll();
             }
           },
@@ -2003,21 +1910,21 @@ class Control {
         function (e) {
           if (constants.isMac ? e.metaKey : e.ctrlKey) {
             // (ctrl/cmd)+(home/fn+left arrow): first element
-            if (e.which == 36) {
-              if (constants.chartType == 'scatter') {
+            if (e.key == 'Home') {
+              if (constants.chartType == 'point') {
                 position.x = 0;
                 UpdateAll();
                 // move cursor for braille
                 constants.brailleInput.setSelectionRange(0, 0);
-              } else if (constants.chartType == 'line') {
+              } else if (constants.chartType == 'smooth') {
                 positionL1.x = 0;
                 UpdateAllBraille();
               }
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): last element
-            else if (e.which == 35) {
-              if (constants.chartType == 'scatter') {
+            else if (e.key == 'End') {
+              if (constants.chartType == 'point') {
                 position.x = plot.y.length - 1;
                 UpdateAll();
                 // move cursor for braille
@@ -2025,7 +1932,7 @@ class Control {
                   plot.curvePoints.length - 1,
                   plot.curvePoints.length - 1
                 );
-              } else if (constants.chartType == 'line') {
+              } else if (constants.chartType == 'smooth') {
                 positionL1.x = plot.curvePoints.length - 1;
                 UpdateAllBraille();
               }
@@ -2053,28 +1960,28 @@ class Control {
           // }
 
           if (pressedL) {
-            if (e.which == 88) {
+            if (e.key == 'x') {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayXLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 89) {
+            } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayYLabel(plot);
               }
               pressedL = false;
-            } else if (e.which == 84) {
+            } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
                 display.displayTitle(plot);
               }
               pressedL = false;
-            } else if (e.which == 76) {
+            } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
               pressedL = true;
             } else {
@@ -2083,65 +1990,26 @@ class Control {
           }
 
           // L: prefix for label
-          if (e.which == 76) {
+          if (e.key == 'l') {
             lastKeyTime = window.performance.now();
             pressedL = true;
           }
 
           // period: speed up
-          if (e.which == 190) {
+          if (e.key == '.') {
             constants.SpeedUp();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              audio.KillSmooth();
-              if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'scatter') {
-                  Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay('outward_right', positionL1.x, lastx1);
-                }
-              } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'scatter') {
-                  Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay('outward_left', positionL1.x, lastx1);
-                }
-              } else {
-                if (constants.chartType == 'scatter') {
-                  Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay(lastPlayed, positionL1.x, lastx1);
-                }
-              }
-            }
+            display.announceText('Speed up');
           }
 
           // comma: speed down
-          if (e.which == 188) {
+          if (e.key == ',') {
             constants.SpeedDown();
-            if (constants.autoplayId != null) {
-              constants.KillAutoplay();
-              audio.KillSmooth();
-              if (lastPlayed == 'inward_left') {
-                if (constants.chartType == 'scatter') {
-                  Autoplay('outward_right', position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay('outward_right', positionL1.x, lastx1);
-                }
-              } else if (lastPlayed == 'inward_right') {
-                if (constants.chartType == 'scatter') {
-                  Autoplay('outward_left', position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay('outward_left', positionL1.x, lastx1);
-                }
-              } else {
-                if (constants.chartType == 'scatter') {
-                  Autoplay(lastPlayed, position.x, lastx);
-                } else if (constants.chartType == 'line') {
-                  Autoplay(lastPlayed, positionL1.x, lastx1);
-                }
-              }
-            }
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
           }
         },
       ]);
@@ -2150,7 +2018,7 @@ class Control {
       function lockPosition() {
         // lock to min / max positions
         let isLockNeeded = false;
-        if (constants.chartType == 'scatter') {
+        if (constants.chartType == 'point') {
           if (position.x < 0) {
             position.x = 0;
             isLockNeeded = true;
@@ -2159,7 +2027,7 @@ class Control {
             position.x = plot.x.length - 1;
             isLockNeeded = true;
           }
-        } else if (constants.chartType == 'line') {
+        } else if (constants.chartType == 'smooth') {
           if (positionL1.x < 0) {
             positionL1.x = 0;
             isLockNeeded = true;
@@ -2190,7 +2058,7 @@ class Control {
           display.displayValues(plot);
         }
         if (constants.showRect) {
-          if (constants.chartType == 'scatter') {
+          if (constants.chartType == 'point') {
             layer0Point.UpdatePointDisplay();
           } else {
             layer1Point.UpdatePointDisplay();
@@ -2236,10 +2104,10 @@ class Control {
           position.L1x = start;
         }
 
-        if (constants.chartType == 'scatter') {
+        if (constants.chartType == 'point') {
           constants.autoplayId = setInterval(function () {
             position.x += step;
-            // autoplay for two layers: point layer & line layer in braille
+            // autoplay for two layers: point layer & smooth layer in braille
             // plot.numPoints is not available anymore
             if (position.x < 0 || position.x > plot.y.length - 1) {
               constants.KillAutoplay();
@@ -2251,10 +2119,10 @@ class Control {
               UpdateAllAutoplay();
             }
           }, constants.autoPlayRate);
-        } else if (constants.chartType == 'line') {
+        } else if (constants.chartType == 'smooth') {
           constants.autoplayId = setInterval(function () {
             positionL1.x += step;
-            // autoplay for two layers: point layer & line layer in braille
+            // autoplay for two layers: point layer & smooth layer in braille
             // plot.numPoints is not available anymore
             if (
               positionL1.x < 0 ||

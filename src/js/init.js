@@ -46,10 +46,8 @@ document.addEventListener('DOMContentLoaded', function (e) {
       // reset tracking with Ctrl + F5 / command + F5, and Ctrl + Shift + R / command + Shift + R
       // future todo: this should probably be a button with a confirmation. This is dangerous
       if (
-        (e.which == 116 && (constants.isMac ? e.metaKey : e.ctrlKey)) ||
-        (e.which == 82 &&
-          e.shiftKey &&
-          (constants.isMac ? e.metaKey : e.ctrlKey))
+        (e.key == 'F5' && (constants.isMac ? e.metaKey : e.ctrlKey)) ||
+        (e.key == 'R' && (constants.isMac ? e.metaKey : e.ctrlKey))
       ) {
         e.preventDefault();
         tracker.Delete();
@@ -58,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
       // Tracker
       if (constants.isTracking) {
-        if (e.which == 121) {
+        if (e.key == 'F10') {
           //tracker.DownloadTrackerData();
         } else {
           if (plot) {
@@ -75,7 +73,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
 });
 
 function InitMaidr(thisMaidr) {
-  console.log('Initializing Maidr');
   // just in case
   if (typeof constants != 'undefined') {
     // init vars and html
@@ -162,8 +159,6 @@ function ShouldWeDestroyMaidr(e) {
 }
 
 function DestroyMaidr() {
-  console.log('Destroying Maidr');
-
   // chart cleanup
   if (constants.chartType == 'bar') {
     plot.DeselectAll();
@@ -191,7 +186,11 @@ function DestroyMaidr() {
 }
 function KillAutoplayEvent(e) {
   // Kill autoplay
-  if (constants.isMac ? e.which == 91 || e.which == 93 : e.which == 17) {
+  if (
+    constants.isMac
+      ? e.key == 'Meta' || e.key == 'ContextMenu'
+      : e.key == 'Control'
+  ) {
     // ctrl (either one)
     constants.KillAutoplay();
   }

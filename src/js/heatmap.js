@@ -1,14 +1,7 @@
 class HeatMap {
   constructor() {
-    if ('elements' in maidr) {
-      this.plots = maidr.elements;
-      constants.hasRect = 1;
-    } else {
-      this.plots = constants.chart.querySelectorAll(
-        'g[id^="geom_rect"] > rect'
-      );
-      constants.hasRect = 0;
-    }
+    this.plots = maidr.elements;
+    constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
     this.x_labels = this.getXLabels();
@@ -52,13 +45,12 @@ class HeatMap {
         return a - b;
       });
 
-      let svgScales = this.GetSVGScales();
-      console.log(svgScales);
+      let svgScaler = this.GetSVGScaler();
       // inverse scale if svg is scaled
-      if (svgScales[0] == -1) {
+      if (svgScaler[0] == -1) {
         x_coord_check = x_coord_check.reverse();
       }
-      if (svgScales[1] == -1) {
+      if (svgScaler[1] == -1) {
         y_coord_check = y_coord_check.reverse();
       }
 
@@ -121,7 +113,7 @@ class HeatMap {
     }
   }
 
-  GetSVGScales() {
+  GetSVGScaler() {
     let scaleX = 1;
     let scaleY = 1;
     // start with some square (first), look all the way up the parents to the svg, and record any scales along the way
