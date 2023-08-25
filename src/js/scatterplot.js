@@ -39,15 +39,18 @@ class ScatterPlot {
       this.plotPoints = maidr.elements;
     }
     if (typeof this.plotPoints !== 'undefined') {
-      this.chartPointsX = this.GetSvgPointCoords()[0]; // x coordinates of points
-      this.chartPointsY = this.GetSvgPointCoords()[1]; // y coordinates of points
+      let svgPointCoords = this.GetSvgPointCoords();
+      let pointValues = this.GetPointValues();
 
-      this.x = this.GetPointValues()[0]; // actual values of x
-      this.y = this.GetPointValues()[1]; // actual values of y
+      this.chartPointsX = svgPointCoords[0]; // x coordinates of points
+      this.chartPointsY = svgPointCoords[1]; // y coordinates of points
+
+      this.x = pointValues[0]; // actual values of x
+      this.y = pointValues[1]; // actual values of y
 
       // for sound weight use
-      this.points_count = this.GetPointValues()[2]; // number of each points
-      this.max_count = this.GetPointValues()[3];
+      this.points_count = pointValues[2]; // number of each points
+      this.max_count = pointValues[3];
     }
   }
 
@@ -60,11 +63,14 @@ class ScatterPlot {
       this.plotLine = maidr.elements;
     }
     if (typeof this.plotLine !== 'undefined') {
-      this.chartLineX = this.GetSvgLineCoords()[0]; // x coordinates of curve
-      this.chartLineY = this.GetSvgLineCoords()[1]; // y coordinates of curve
+      let svgLineCoords = this.GetSvgLineCoords();
+      let smoothCurvePoints = this.GetSmoothCurvePoints();
 
-      this.curveX = this.GetSmoothCurvePoints()[0]; // actual values of x
-      this.curvePoints = this.GetSmoothCurvePoints()[1]; // actual values of y
+      this.chartLineX = svgLineCoords[0]; // x coordinates of curve
+      this.chartLineY = svgLineCoords[1]; // y coordinates of curve
+
+      this.curveX = smoothCurvePoints[0]; // actual values of x
+      this.curvePoints = smoothCurvePoints[1]; // actual values of y
 
       this.curveMinY = Math.min(...this.curvePoints);
       this.curveMaxY = Math.max(...this.curvePoints);
@@ -113,6 +119,17 @@ class ScatterPlot {
       elIndex = maidr.type.indexOf(elementName);
     }
     return elIndex;
+  }
+
+  GetDataXYFormat(dataIndex) {
+    // detect if data is in form [{x: 1, y: 2}, {x: 2, y: 3}] (object) or {x: [1, 2], y: [2, 3]]} (array)
+    let xyFormat = 'array';
+    if (maidr.data[dataIndex]) {
+      if (Array.isArray(maidr.data[dataIndex])) {
+        xyFormat = 'object';
+      }
+    }
+    return xyFormat;
   }
 
   GetSVGScaler() {
@@ -181,20 +198,40 @@ class ScatterPlot {
     let xValues = [];
     let yValues = [];
 
+    // prepare to fetch data from the correct index in the correct format
     let elIndex = this.GetElementIndex('point');
+    let xyFormat = this.GetDataXYFormat(elIndex);
 
     let data;
     if (elIndex > -1) {
+      // data comes directly as an array, in a 'point' layer, so fetch directly as an array from that index
       data = maidr.data[elIndex];
     } else if (maidr.type == 'point') {
+      // data comes directly as an array, no 'point' layer, so fetch directly as an array
       data = maidr.data;
     }
     if (typeof data !== 'undefined') {
-      for (let i = 0; i < maidr.data[elIndex].length; i++) {
-        let x = maidr.data[elIndex][i]['x'];
-        let y = maidr.data[elIndex][i]['y'];
-        xValues.push(x);
-        yValues.push(y);
+      // assuming we got something, loop through the data and extract the x and y values
+
+      if (xyFormat == 'array') {
+        if ('x' in maidr.data[elIndex]) {
+          xValues = maidr.data[elIndex]['x'];
+        }
+        if ('y' in maidr.data[elIndex]) {
+          yValues = maidr.data[elIndex]['y'];
+        }
+      } else if (xyFormat == 'object') {
+        for (let i = 0; i < maidr.data[elIndex].length; i++) {
+          let x = maidr.data[elIndex][i]['x'];
+          let y = maidr.data[elIndex][i]['y'];
+          xValues.push(x);
+          yValues.push(y);
+        }
+      }
+
+      for (let i = 0; i < xValues.length; i++) {
+        let x = xValues[i];
+        let y = yValues[i];
         if (!points.has(x)) {
           points.set(x, new Map([[y, 1]]));
         } else {
@@ -300,17 +337,29 @@ class ScatterPlot {
     let y_points = [];
 
     let elIndex = this.GetElementIndex('smooth');
+    let xyFormat = this.GetDataXYFormat(elIndex);
 
     let data;
     if (elIndex > -1) {
+      // data comes directly as an array, in a 'smooth' layer, so fetch directly as an array from that index
       data = maidr.data[elIndex];
     } else if (maidr.type == 'smooth') {
+      // data comes directly as an array, no 'smooth' layer, so fetch directly as an array
       data = maidr.data;
     }
     if (typeof data !== 'undefined') {
-      for (let i = 0; i < maidr.data[elIndex].length; i++) {
-        x_points.push(maidr.data[elIndex][i]['x']);
-        y_points.push(maidr.data[elIndex][i]['y']);
+      if (xyFormat == 'object') {
+        for (let i = 0; i < maidr.data[elIndex].length; i++) {
+          x_points.push(maidr.data[elIndex][i]['x']);
+          y_points.push(maidr.data[elIndex][i]['y']);
+        }
+      } else if (xyFormat == 'array') {
+        if ('x' in maidr.data[elIndex]) {
+          x_points = maidr.data[elIndex]['x'];
+        }
+        if ('y' in maidr.data[elIndex]) {
+          y_points = maidr.data[elIndex]['y'];
+        }
       }
 
       return [x_points, y_points];
