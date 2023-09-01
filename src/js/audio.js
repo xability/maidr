@@ -34,6 +34,7 @@ class Audio {
     let rawFreq = 0;
     let frequency = 0;
     let panning = 0;
+
     // freq goes between min / max as rawFreq goes between min(0) / max
     if (constants.chartType == 'bar') {
       rawFreq = plot.plotData[position.x];
@@ -55,23 +56,17 @@ class Audio {
     } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      if (
-        position.z > -1 &&
-        Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')
-      ) {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (position.z > -1 && plot.plotData[plotPos][sectionKey] != null) {
         // outliers are stored in values with a seperate itterator
-        rawFreq = plot.plotData[plotPos][sectionPos].values[position.z];
+        rawFreq = plot.plotData[plotPos][sectionKey][position.z];
       } else {
         // normal points
-        if (constants.plotOrientation == 'vert') {
-          rawFreq = plot.plotData[plotPos][sectionPos].y;
-        } else {
-          rawFreq = plot.plotData[plotPos][sectionPos].x;
-        }
+        rawFreq = plot.plotData[plotPos][sectionKey];
       }
-      if (plot.plotData[plotPos][sectionPos].type != 'blank') {
+      if (plot.plotData[plotPos][sectionKey] != null) {
         if (constants.plotOrientation == 'vert') {
           frequency = this.SlideBetween(
             rawFreq,
@@ -217,14 +212,16 @@ class Audio {
       // outlier = short tone
       // whisker = normal tone
       // range = chord
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      let sectionType = plot.plotData[plotPos][sectionPos].type;
-      if (sectionType == 'outlier') {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         currentDuration = constants.outlierDuration;
-      } else if (sectionType == 'whisker') {
+      } else if (
+        sectionKey == 'q1' ||
+        sectionKey == 'q2' ||
+        sectionKey == 'q3'
+      ) {
         //currentDuration = constants.duration * 2;
       } else {
         //currentDuration = constants.duration * 2;
@@ -234,12 +231,10 @@ class Audio {
     // create tones
     this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
     if (constants.chartType == 'box') {
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      let sectionType = plot.plotData[plotPos][sectionPos].type;
-      if (sectionType == 'range') {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (sectionKey == 'q1' || sectionKey == 'q2' || sectionKey == 'q3') {
         // also play an octive below at lower vol
         let freq2 = frequency / 2;
         this.playOscillator(

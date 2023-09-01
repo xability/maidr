@@ -278,21 +278,21 @@ class Control {
 
       function lockPosition() {
         // lock to min / max postions
-        let isLockNeeded = false;
+        let didLockHappen = false;
         if (!constants.hasRect) {
-          return isLockNeeded;
+          return didLockHappen;
         }
 
         if (position.x < 0) {
           position.x = 0;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
         if (position.x > plot.bars.length - 1) {
           position.x = plot.bars.length - 1;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
 
-        return isLockNeeded;
+        return didLockHappen;
       }
       function UpdateAll() {
         if (constants.showDisplay) {
@@ -366,7 +366,7 @@ class Control {
       constants.plotId = 'geom_boxplot.gTree.78.1';
       window.plot = new BoxPlot();
       if (constants.plotOrientation == 'vert') {
-        window.position = new Position(0, plot.plotData[0].length - 1);
+        window.position = new Position(0, 6); // always 6
       } else {
         window.position = new Position(-1, plot.plotData.length);
       }
@@ -387,6 +387,10 @@ class Control {
           let isAtEnd = false;
 
           // right arrow
+          // bookmark: need to totally redo the position system for boxplot.
+          // We no longer use sectionPos, we use sectionKey.
+          // It works by chance, and could probably be made to work,
+          // but it's going to get very spaghetti unless we redo it.
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
@@ -949,44 +953,36 @@ class Control {
       }
       function lockPosition() {
         // lock to min / max postions
-        let isLockNeeded = false;
+        let didLockHappen = false;
+        if (position.y < 0) {
+          position.y = 0;
+          didLockHappen = true;
+        }
+        if (position.x < 0) {
+          position.x = 0;
+          didLockHappen = true;
+        }
         if (constants.plotOrientation == 'vert') {
-          if (position.y < 0) {
-            position.y = 0;
-            isLockNeeded = true;
-          }
-          if (position.x < 0) {
-            position.x = 0;
-            isLockNeeded = true;
-          }
           if (position.x > plot.plotData.length - 1) {
             position.x = plot.plotData.length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
           if (position.y > plot.plotData[position.x].length - 1) {
             position.y = plot.plotData[position.x].length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
         } else {
-          if (position.x < 0) {
-            position.x = 0;
-            isLockNeeded = true;
-          }
-          if (position.y < 0) {
-            position.y = 0;
-            isLockNeeded = true;
-          }
           if (position.y > plot.plotData.length - 1) {
             position.y = plot.plotData.length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
           if (position.x > plot.plotData[position.y].length - 1) {
             position.x = plot.plotData[position.y].length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
         }
 
-        return isLockNeeded;
+        return didLockHappen;
       }
 
       function Autoplay(dir, start, end) {
@@ -1531,26 +1527,26 @@ class Control {
       // helper functions
       function lockPosition() {
         // lock to min / max postions
-        let isLockNeeded = false;
+        let didLockHappen = false;
 
         if (position.x < 0) {
           position.x = 0;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
         if (position.x > plot.num_cols - 1) {
           position.x = plot.num_cols - 1;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
         if (position.y < 0) {
           position.y = 0;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
         if (position.y > plot.num_rows - 1) {
           position.y = plot.num_rows - 1;
-          isLockNeeded = true;
+          didLockHappen = true;
         }
 
-        return isLockNeeded;
+        return didLockHappen;
       }
 
       function UpdateAll() {
@@ -2017,28 +2013,28 @@ class Control {
       // helper functions
       function lockPosition() {
         // lock to min / max positions
-        let isLockNeeded = false;
+        let didLockHappen = false;
         if (constants.chartType == 'point') {
           if (position.x < 0) {
             position.x = 0;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
           if (position.x > plot.x.length - 1) {
             position.x = plot.x.length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
         } else if (constants.chartType == 'smooth') {
           if (positionL1.x < 0) {
             positionL1.x = 0;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
           if (positionL1.x > plot.curvePoints.length - 1) {
             positionL1.x = plot.curvePoints.length - 1;
-            isLockNeeded = true;
+            didLockHappen = true;
           }
         }
 
-        return isLockNeeded;
+        return didLockHappen;
       }
 
       function UpdateAll() {

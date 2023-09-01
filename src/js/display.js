@@ -80,7 +80,7 @@ class Display {
       constants.brailleInput.focus();
       constants.brailleInput.setSelectionRange(position.x, position.x);
 
-      this.SetBraille(plot);
+      this.SetBraille();
 
       if (constants.chartType == 'heat') {
         let pos = position.y * (plot.num_cols + 1) + position.x;
@@ -299,33 +299,27 @@ class Display {
       let isOutlier = false;
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
       let textTerse = '';
       let textVerbose = '';
 
-      if (
-        plot.plotData[plotPos][sectionPos].label == 'lower_outlier' ||
-        plot.plotData[plotPos][sectionPos].label == 'upper_outlier'
-      ) {
+      if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         isOutlier = true;
       }
-      if (plot.plotData[plotPos][sectionPos].type == 'outlier') {
-        val = plot.plotData[plotPos][sectionPos].values.join(', ');
-        if (plot.plotData[plotPos][sectionPos].values.length > 0) {
-          numPoints = plot.plotData[plotPos][sectionPos].values.length;
+      if (isOutlier) {
+        val = plot.plotData[plotPos][sectionKey].join(', ');
+        if (plot.plotData[plotPos][sectionKey].length > 0) {
+          numPoints = plot.plotData[plotPos][sectionKey].length;
         } else {
           numPoints = 0;
         }
-      } else if (plot.plotData[plotPos][sectionPos].type == 'blank') {
+      } else if (plot.plotData[plotPos][sectionKey] == null) {
         val = '';
         if (isOutlier) numPoints = 0;
       } else {
-        if (constants.plotOrientation == 'vert') {
-          val = plot.plotData[plotPos][sectionPos].y;
-        } else {
-          val = plot.plotData[plotPos][sectionPos].x;
-        }
+        val = plot.plotData[plotPos][sectionKey];
       }
 
       // set output
@@ -360,9 +354,7 @@ class Display {
         textVerbose += numPoints + ' ';
       }
       // label
-      textVerbose += resources.GetString(
-        plot.plotData[plotPos][sectionPos].label
-      );
+      textVerbose += resources.GetString(sectionKey);
       if (numPoints == 1) textVerbose += ' is ';
       else {
         textVerbose += 's ';
@@ -373,9 +365,7 @@ class Display {
         (constants.navigation && constants.plotOrientation == 'horz') ||
         (!constants.navigation && constants.plotOrientation == 'vert')
       ) {
-        textTerse += resources.GetString(
-          plot.plotData[plotPos][sectionPos].label
-        );
+        textTerse += resources.GetString(sectionKey);
 
         // grammar
         if (numPoints != 1) {
@@ -384,7 +374,7 @@ class Display {
         textTerse += ' ';
       }
       // val
-      if (plot.plotData[plotPos][sectionPos].type == 'blank' && !isOutlier) {
+      if (plot.plotData[plotPos][sectionKey] != null && !isOutlier) {
         textTerse += 'empty';
         textVerbose += 'empty';
       } else {
@@ -531,7 +521,7 @@ class Display {
     }
   }
 
-  SetBraille(plot) {
+  SetBraille() {
     let brailleArray = [];
 
     if (constants.chartType == 'heat') {
@@ -587,7 +577,6 @@ class Display {
         }
       }
     } else if (constants.chartType == 'box' && position.y > -1) {
-      // only run if we're on a plot
       // Idea here is to use different braille characters to physically represent the box
       // if sections are longer or shorter we'll add more characters
       // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
@@ -596,7 +585,7 @@ class Display {
       // and then create the appropriate number of characters
       // Full explanation on readme
       //
-      // This is messy and long (250 lines). If anyone wants to improve. Be my guest
+      // This is messy and long (250 lines). If anyone wants to improve, be my guest
 
       // First some prep work, we make an array of lengths and types that represent our plot
       let brailleData = [];
