@@ -48,10 +48,9 @@ class Control {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
-          }
-          if (e.key == 'ArrowLeft') {
-            var prevLink = document.getElementById('prev');
-            if (prevLink) {
+          } else if (e.key == 'ArrowLeft') {
+            // var prevLink = document.getElementById('prev');   // what is prev in the html?
+            // if (prevLink) {
               // left arrow 37
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
@@ -71,15 +70,15 @@ class Control {
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
-            }
+            // }
+          }
 
-            // update display / text / audio
-            if (updateInfoThisRound && !isAtEnd) {
-              UpdateAll();
-            }
-            if (isAtEnd) {
-              audio.playEnd();
-            }
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAll();
+          }
+          if (isAtEnd) {
+            audio.playEnd();
           }
         },
       ]);
