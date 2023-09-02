@@ -967,8 +967,8 @@ class Control {
             position.x = plot.plotData.length - 1;
             didLockHappen = true;
           }
-          if (position.y > plot.plotData[position.x].length - 1) {
-            position.y = plot.plotData[position.x].length - 1;
+          if (position.y > plot.sections.length - 1) {
+            position.y = plot.sections.length - 1;
             didLockHappen = true;
           }
         } else {
@@ -976,8 +976,8 @@ class Control {
             position.y = plot.plotData.length - 1;
             didLockHappen = true;
           }
-          if (position.x > plot.plotData[position.y].length - 1) {
-            position.x = plot.plotData[position.y].length - 1;
+          if (position.x > plot.sections.length - 1) {
+            position.x = plot.sections.length - 1;
             didLockHappen = true;
           }
         }

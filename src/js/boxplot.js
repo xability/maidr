@@ -7,6 +7,16 @@
 class BoxPlot {
   constructor() {
     constants.plotOrientation = 'horz'; // default
+    this.sections = [
+      'lower_outlier',
+      'min',
+      'q1',
+      'q2',
+      'q3',
+      'max',
+      'upper_outlier',
+    ];
+
     if ('axes' in singleMaidr) {
       if ('x' in singleMaidr.axes) {
         if ('format' in singleMaidr.axes.x) {
@@ -541,17 +551,7 @@ class BoxPlot {
   }
 
   GetSectionKey(sectionPos) {
-    let boxplotSections = [
-      'lower_outlier',
-      'min',
-      'q1',
-      'q2',
-      'q3',
-      'max',
-      'upper_outlier',
-    ];
-
-    return boxplotSections[sectionPos];
+    return this.sections[sectionPos];
   }
 }
 
@@ -579,10 +579,12 @@ class BoxplotRect {
 
     let plotPos = position.x;
     let sectionPos = position.y;
+    let sectionKey = plot.GetSectionKey(position.y);
     if (constants.plotOrientation == 'vert') {
     } else {
       plotPos = position.y;
       sectionPos = position.x;
+      sectionKey = plot.GetSectionKey(position.x);
     }
 
     if (
@@ -604,7 +606,7 @@ class BoxplotRect {
         if (constants.debugLevel > 5) {
           console.log(
             'Point',
-            plot.plotData[plotPos][sectionPos].label,
+            sectionKey,
             'bottom:',
             bounds.bottom,
             'top:',

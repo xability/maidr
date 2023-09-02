@@ -308,16 +308,12 @@ class Display {
       if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         isOutlier = true;
       }
-      if (isOutlier) {
-        val = plot.plotData[plotPos][sectionKey].join(', ');
-        if (plot.plotData[plotPos][sectionKey].length > 0) {
-          numPoints = plot.plotData[plotPos][sectionKey].length;
-        } else {
-          numPoints = 0;
-        }
-      } else if (plot.plotData[plotPos][sectionKey] == null) {
+      if (plot.plotData[plotPos][sectionKey] == null) {
         val = '';
         if (isOutlier) numPoints = 0;
+      } else if (isOutlier) {
+        val = plot.plotData[plotPos][sectionKey].join(', ');
+        numPoints = plot.plotData[plotPos][sectionKey].length;
       } else {
         val = plot.plotData[plotPos][sectionKey];
       }
