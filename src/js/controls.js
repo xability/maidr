@@ -30,9 +30,9 @@ class Control {
               if (e.shiftKey) {
                 // lastx = position.x;
                 position.x -= 1;
-                Autoplay('right', position.x, plot.bars.length);
+                Autoplay('right', position.x, plot.plotData.length);
               } else {
-                position.x = plot.bars.length - 1; // go all the way
+                position.x = plot.plotData.length - 1; // go all the way
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
@@ -103,7 +103,7 @@ class Control {
               if (e.shiftKey) {
                 // lastx = position.x;
                 position.x -= 1;
-                Autoplay('right', position.x, plot.bars.length);
+                Autoplay('right', position.x, plot.plotData.length);
               } else {
                 position.x = plot.bars.length - 1; // go all the way
                 updateInfoThisRound = true;
@@ -278,16 +278,17 @@ class Control {
       function lockPosition() {
         // lock to min / max postions
         let didLockHappen = false;
-        if (!constants.hasRect) {
-          return didLockHappen;
-        }
+        // if (!constants.hasRect) {
+        //   return didLockHappen;
+        // }
 
         if (position.x < 0) {
           position.x = 0;
           didLockHappen = true;
         }
-        if (position.x > plot.bars.length - 1) {
-          position.x = plot.bars.length - 1;
+        if (position.x > plot.plotData.length - 1) {
+          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
+          position.x = plot.plotData.length - 1;
           didLockHappen = true;
         }
 
@@ -349,7 +350,7 @@ class Control {
 
         constants.autoplayId = setInterval(function () {
           position.x += step;
-          if (position.x < 0 || plot.bars.length - 1 < position.x) {
+          if (position.x < 0 || plot.plotData.length - 1 < position.x) {
             constants.KillAutoplay();
             lockPosition();
           } else if (position.x == end) {
