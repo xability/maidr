@@ -169,7 +169,7 @@ class Display {
       let pos = position.y * (plot.num_cols + 1) + position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
     } else if (constants.chartType == 'box') {
-      // on box we extend characters a lot and have blanks, so we go to our label
+      // on box we extend characters a lot and have blanks, so we go to our type
       let sectionPos =
         constants.plotOrientation == 'vert' ? position.y : position.x;
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
@@ -179,7 +179,7 @@ class Display {
         for (let i = 0; i < constants.brailleData.length; i++) {
           if (constants.brailleData[i].type != 'blank') {
             if (
-              resources.GetString(constants.brailleData[i].label) == targetLabel
+              resources.GetString(constants.brailleData[i].type) == targetLabel
             ) {
               haveTargetLabel = true;
               break;
@@ -583,162 +583,84 @@ class Display {
       //
       // This is messy and long (250 lines). If anyone wants to improve, be my guest
 
-      // First some prep work, we make an array of lengths and types that represent our plot
-      let brailleData = [];
-      let isBeforeMid = true;
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let valCoord = constants.plotOrientation == 'vert' ? 'y' : 'x';
-      for (let i = 0; i < plot.plotData[plotPos].length; i++) {
-        let point = plot.plotData[plotPos][i];
-        // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
-        if (point.values && constants.visualBraille) {
-          point.values = [...new Set(point.values)];
-        }
+      // Some init stuff
+      let plotPos;
+      let globalMin;
+      let globalMax;
+      let numSections = plot.sections.length;
+      if (constants.plotOrientation == 'vert') {
+        plotPos = position.x;
+        globalMin = constants.minY;
+        globalMax = constants.maxY;
+      } else {
+        plotPos = position.y;
+        globalMin = constants.minX;
+        globalMax = constants.maxX;
+      }
 
-        let nextPoint = null;
-        let prevPoint = null;
-        if (i < plot.plotData[plotPos].length - 1) {
-          nextPoint = plot.plotData[plotPos][i + 1];
-        }
-        if (i > 0) {
-          prevPoint = plot.plotData[plotPos][i - 1];
-        }
-
+      // We convert main plot data to array of values and types, including min and max, and seperating outliers and removing nulls
+      let valData = [];
+      valData.push({ type: 'global_min', value: globalMin });
+      for (let i = 0; i < numSections; i++) {
+        let sectionKey = plot.sections[i];
+        let point = plot.plotData[plotPos][sectionKey];
         let charData = {};
 
-        if (i == 0) {
-          // first point, add space to next actual point
-          let firstCoord = 0;
-          for (let j = 0; j < plot.plotData[plotPos].length; j++) {
-            // find next actual point
-            if (valCoord in plot.plotData[plotPos][j]) {
-              firstCoord = plot.plotData[plotPos][j][valCoord];
-              break;
+        if (point != null) {
+          if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
+            for (let j = 0; j < point.length; j++) {
+              charData = {
+                type: sectionKey,
+                value: point[j],
+              };
+              valData.push(charData);
             }
-          }
-          charData = {};
-          let minVal =
-            constants.plotOrientation == 'vert'
-              ? constants.minY
-              : constants.minX;
-          if (firstCoord - minVal > 0) {
-            charData.length = firstCoord;
           } else {
-            charData.length = 0;
+            charData = {
+              type: sectionKey,
+              value: point,
+            };
+            valData.push(charData);
           }
-          if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
-          charData.type = 'blank';
-          charData.label = 'blank';
-          brailleData.push(charData);
-        }
-
-        if (point.type == 'blank') {
-          // this is a placeholder point, do nothing
-        } else if (point.type == 'outlier') {
-          // there might be lots of these or none
-
-          // Spacing is messy:
-          // isBeforeMid: no pre space, yes after space
-          // ! isBeforeMid: yes pre space, no after space
-          // either way add spaces in between outlier points
-
-          // pre point space
-          if (isBeforeMid) {
-            // no pre space
-          } else {
-            // yes after space
-            charData = {};
-            charData.length = point.values[0] - prevPoint[valCoord];
-            charData.type = 'blank';
-            charData.label = 'blank';
-            brailleData.push(charData);
-          }
-
-          // now add points with spaces in between
-          for (var k = 0; k < point.values.length; k++) {
-            if (k == 0) {
-              charData = {};
-              charData.length = 0;
-              charData.type = 'outlier';
-              charData.label = point.label;
-              brailleData.push(charData);
-            } else {
-              charData = {};
-              charData.length = point.values[k] - point.values[k - 1];
-              charData.type = 'blank';
-              charData.label = 'blank';
-              brailleData.push(charData);
-
-              charData = {};
-              charData.length = 0;
-              charData.type = 'outlier';
-              charData.label = point.label;
-              brailleData.push(charData);
-            }
-          }
-
-          // after point space
-          if (isBeforeMid) {
-            // yes pre space
-            charData = {};
-            charData.length =
-              nextPoint[valCoord] - point.values[point.values.length - 1];
-            charData.type = 'blank';
-            charData.label = 'blank';
-            brailleData.push(charData);
-          } else {
-            // no after space
-          }
-        } else {
-          if (point.label == '50') {
-            // exception: another 0 width point here
-            charData = {};
-            charData.length = 0;
-            charData.type = point.type;
-            charData.label = point.label;
-            brailleData.push(charData);
-
-            isBeforeMid = false; // mark this as we pass
-          } else {
-            // normal points: we calc dist between this point and point closest to middle
-            charData = {};
-            if (isBeforeMid) {
-              charData.length = nextPoint[valCoord] - point[valCoord];
-            } else {
-              charData.length = point[valCoord] - prevPoint[valCoord];
-            }
-            charData.type = point.type;
-            charData.label = point.label;
-            brailleData.push(charData);
-          }
-        }
-        if (i == plot.plotData[plotPos].length - 1) {
-          // last point gotta add ending space manually
-          charData = {};
-          let lastCoord = 0;
-          for (let j = 0; j < plot.plotData[plotPos].length; j++) {
-            // find last actual point
-
-            if (point.type == 'outlier') {
-              lastCoord = valCoord == 'y' ? point.yMax : point.xMax;
-            } else if (valCoord in plot.plotData[plotPos][j]) {
-              lastCoord = plot.plotData[plotPos][j][valCoord];
-            }
-          }
-          charData.length =
-            valCoord == 'y'
-              ? constants.maxY - lastCoord
-              : constants.maxX - lastCoord;
-          charData.type = 'blank';
-          charData.label = 'blank';
-          brailleData.push(charData);
         }
       }
-      // cleanup
-      for (let i = 0; i < brailleData.length; i++) {
-        // A bit of rounding to account for floating point errors
-        brailleData[i].length = Math.round(brailleData[i].length); // we currently just use rounding to whole number (pixel), but if other rounding is needed add it here
+      valData.push({ type: 'global_max', value: globalMax });
+
+      // Then we convert to lengths and types
+      // We assign lengths based on the difference between each point, and assign blanks if this comes before or after an outlier
+      let lenData = [];
+      let isBeforeMid = true;
+      for (let i = 0; i < valData.length; i++) {
+        let diff;
+        // we compare inwardly, and midpoint is len 0
+        if (isBeforeMid) {
+          diff = Math.abs(valData[i + 1].value - valData[i].value);
+        } else {
+          diff = Math.abs(valData[i].value - valData[i - 1].value);
+        }
+
+        if (
+          valData[i].type == 'global_min' ||
+          valData[i].type == 'global_max'
+        ) {
+          lenData.push({ type: 'blank', length: diff });
+        } else if (valData[i].type == 'lower_outlier') {
+          // add diff as space, as well as a 0 len outlier point
+          // add blank last, as the earlier point is covered by global_min
+          lenData.push({ type: valData[i].type, length: 0 });
+          lenData.push({ type: 'blank', length: diff });
+        } else if (valData[i].type == 'upper_outlier') {
+          // add diff as space, as well as a 0 len outlier point, but reverse order from lower_outlier obvs
+          lenData.push({ type: 'blank', length: diff });
+          lenData.push({ type: valData[i].type, length: 0 });
+        } else if (valData[i].type == 'q2') {
+          // change calc method after midpoint, as we want spacing to go outward from center (and so center has no length)
+          isBeforeMid = false;
+          lenData.push({ type: valData[i].type, length: 0 });
+        } else {
+          // normal points
+          lenData.push({ type: valData[i].type, length: diff });
+        }
       }
 
       // We create a set of braille characters based on the lengths
@@ -754,69 +676,71 @@ class Display {
       // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
       // exception: center is always 456 123
 
-      // Step 1, prepopulate each section with a single character, and log for character offset
+      // Step 1, sorta init.
+      // We prepopulate each non null section with a single character, and log for character offset
       let locMin = -1;
+      let locQ1 = -1;
+      let locQ3 = -1;
       let locMax = -1;
-      let loc25 = -1;
-      let loc75 = -1;
-      let numDefaultChars = 0;
-      for (let i = 0; i < brailleData.length; i++) {
+      let numAllocatedChars = 0; // counter for number of characters we've already assigned
+      for (let i = 0; i < lenData.length; i++) {
         if (
-          brailleData[i].type != 'blank' &&
-          (brailleData[i].length > 0 || brailleData[i].type == 'outlier')
+          lenData[i].type != 'blank' &&
+          (lenData[i].length > 0 ||
+            lenData[i].type == 'lower_outlier' ||
+            lenData[i].type == 'upper_outlier')
         ) {
-          brailleData[i].numChars = 1;
-          numDefaultChars++;
+          lenData[i].numChars = 1;
+          numAllocatedChars++;
         } else {
-          brailleData[i].numChars = 0;
+          lenData[i].numChars = 0;
         }
 
         // store 25/75 min/max locations so we can check them later more easily
-        if (brailleData[i].label == 'min' && brailleData[i].length > 0)
-          locMin = i;
-        if (brailleData[i].label == 'max' && brailleData[i].length > 0)
-          locMax = i;
-        if (brailleData[i].label == '25') loc25 = i;
-        if (brailleData[i].label == '75') loc75 = i;
+        if (lenData[i].type == 'min' && lenData[i].length > 0) locMin = i;
+        if (lenData[i].type == 'max' && lenData[i].length > 0) locMax = i;
+        if (lenData[i].type == 'q1') locQ1 = i;
+        if (lenData[i].type == 'q3') locQ3 = i;
 
         // 50 gets 2 characters by default
-        if (brailleData[i].label == '50') {
-          brailleData[i].numChars = 2;
-          numDefaultChars++;
+        if (lenData[i].type == 'q2') {
+          lenData[i].numChars = 2;
+          numAllocatedChars++; // we just ++ here as we already ++'d above
         }
       }
-      // add extras to 25/75 min/max if needed
-      let currentPairs = ['25', '75'];
+
+      // make sure rules are set for pairs (q1 / q3, min / max)
+      // if they're equal length, we don't need to do anything as they already each have 1 character
+      // if they're not equal length, we need to add 1 character to the longer one
       if (locMin > -1 && locMax > -1) {
-        currentPairs.push('min'); // we add these seperately because we don't always have both min and max
-        currentPairs.push('max');
-        if (brailleData[locMin].length != brailleData[locMax].length) {
-          if (brailleData[locMin].length > brailleData[locMax].length) {
-            // make sure if they're different, they appear different
-            brailleData[locMin].numChars++;
-            numDefaultChars++;
+        // we do it this way as we don't always have both min and max
+
+        if (lenData[locMin].length != lenData[locMax].length) {
+          if (lenData[locMin].length > lenData[locMax].length) {
+            lenData[locMin].numChars++;
+            numAllocatedChars++;
           } else {
-            brailleData[locMax].numChars++;
-            numDefaultChars++;
+            lenData[locMax].numChars++;
+            numAllocatedChars++;
           }
         }
       }
-      if (brailleData[loc25].length != brailleData[loc75].length) {
-        if (brailleData[loc25].length > brailleData[loc75].length) {
-          brailleData[loc25].numChars++;
-          numDefaultChars++;
+      // same for q1/q3
+      if (lenData[locQ1].length != lenData[locQ3].length) {
+        if (lenData[locQ1].length > lenData[locQ3].length) {
+          lenData[locQ1].numChars++;
+          numAllocatedChars++;
         } else {
-          brailleData[loc75].numChars++;
-          numDefaultChars++;
+          lenData[locQ3].numChars++;
+          numAllocatedChars++;
         }
       }
 
       // Step 2: normalize and allocate remaining characters and add to our main braille array
-      let charsAvailable = constants.brailleDisplayLength - numDefaultChars;
-      let allocateCharacters = this.AllocateCharacters(
-        brailleData,
-        charsAvailable
-      );
+      let charsAvailable = constants.brailleDisplayLength - numAllocatedChars;
+      let allocateCharacters = this.AllocateCharacters(lenData, charsAvailable);
+      // apply allocation
+      let brailleData = lenData;
       for (let i = 0; i < allocateCharacters.length; i++) {
         if (allocateCharacters[i]) {
           brailleData[i].numChars += allocateCharacters[i];
@@ -826,6 +750,8 @@ class Display {
       constants.brailleData = brailleData;
       if (constants.debugLevel > 5) {
         console.log('plotData[i]', plot.plotData[plotPos]);
+        console.log('valData', valData);
+        console.log('lenData', lenData);
         console.log('brailleData', brailleData);
       }
 
@@ -833,20 +759,23 @@ class Display {
       for (let i = 0; i < brailleData.length; i++) {
         for (let j = 0; j < brailleData[i].numChars; j++) {
           let brailleChar = '⠀'; // blank
-          if (brailleData[i].label == 'min' || brailleData[i].label == 'max') {
+          if (brailleData[i].type == 'min' || brailleData[i].type == 'max') {
             brailleChar = '⠒';
           } else if (
-            brailleData[i].label == '25' ||
-            brailleData[i].label == '75'
+            brailleData[i].type == 'q1' ||
+            brailleData[i].type == 'q3'
           ) {
             brailleChar = '⠿';
-          } else if (brailleData[i].label == '50') {
+          } else if (brailleData[i].type == 'q2') {
             if (j == 0) {
               brailleChar = '⠸';
             } else {
               brailleChar = '⠇';
             }
-          } else if (brailleData[i].type == 'outlier') {
+          } else if (
+            brailleData[i].type == 'lower_outlier' ||
+            brailleData[i].type == 'upper_outlier'
+          ) {
             brailleChar = '⠂';
           }
           brailleArray.push(brailleChar);
@@ -857,7 +786,7 @@ class Display {
     constants.brailleInput.value = brailleArray.join('');
 
     constants.brailleInput.value = brailleArray.join('');
-    if (constants.debugLevel > 5) {
+    if (constants.debugLevel > 1) {
       console.log('braille:', constants.brailleInput.value);
     }
 
@@ -872,8 +801,8 @@ class Display {
    * This function allocates a total number of characters among an array of lengths,
    * proportionally to each length.
    *
-   * @param {Array} arr - The array of lengths. Each length should be a positive number.
-   * @param {number} totalCharacters - The total number of characters to be allocated.
+   * @param {Array} arr - The array of objects containing lengths, type, and current numChars. Each length should be a positive number.
+   * @param {number} charsToAllocate - The total number of characters to be allocated.
    *
    * The function first calculates the sum of all lengths in the array. Then, it
    * iterates over the array and calculates an initial allocation for each length,
@@ -899,37 +828,37 @@ class Display {
    *
    * @returns {Array} The array of allocations.
    */
-  AllocateCharacters(arr, totalCharacters) {
+  AllocateCharacters(arr, charsToAllocate) {
     // init
     let allocation = [];
     let sumLen = 0;
     for (let i = 0; i < arr.length; i++) {
       sumLen += arr[i].length;
     }
-    let notAllowed = ['lower_outlier', 'upper_outlier', '50'];
+    let notAllowed = ['lower_outlier', 'upper_outlier', '50']; // these types only have the 1 char they were assigned above
 
     // main allocation
     for (let i = 0; i < arr.length; i++) {
-      if (!notAllowed.includes(arr[i].label)) {
-        allocation[i] = Math.round((arr[i].length / sumLen) * totalCharacters);
+      if (!notAllowed.includes(arr[i].type)) {
+        allocation[i] = Math.round((arr[i].length / sumLen) * charsToAllocate);
       }
     }
 
-    // did it work? check for differences
+    // main allocation is not perfect, so we need to adjust
     let allocatedSum = allocation.reduce((a, b) => a + b, 0);
-    let difference = totalCharacters - allocatedSum;
+    let difference = charsToAllocate - allocatedSum;
 
     // If there's a rounding error, add/subtract characters proportionally
     let maxIterations = arr.length; // inf loop handler :D
     while (difference !== 0 && maxIterations > 0) {
       // (same method as above)
       for (let i = 0; i < arr.length; i++) {
-        if (!notAllowed.includes(arr[i].label)) {
+        if (!notAllowed.includes(arr[i].type)) {
           allocation[i] += Math.round((arr[i].length / sumLen) * difference);
         }
       }
       allocatedSum = allocation.reduce((a, b) => a + b, 0);
-      difference = totalCharacters - allocatedSum;
+      difference = charsToAllocate - allocatedSum;
 
       maxIterations--;
     }

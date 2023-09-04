@@ -59,7 +59,7 @@ class Audio {
       let sectionKey = plot.GetSectionKey(
         constants.plotOrientation == 'vert' ? position.y : position.x
       );
-      if (position.z > -1 && plot.plotData[plotPos][sectionKey] != null) {
+      if (Array.isArray(plot.plotData[plotPos][sectionKey])) {
         // outliers are stored in values with a seperate itterator
         rawFreq = plot.plotData[plotPos][sectionKey][position.z];
       } else {

@@ -51,25 +51,25 @@ class Control {
           } else if (e.key == 'ArrowLeft') {
             // var prevLink = document.getElementById('prev');   // what is prev in the html?
             // if (prevLink) {
-              // left arrow 37
-              if (constants.isMac ? e.metaKey : e.ctrlKey) {
-                if (e.shiftKey) {
-                  // lastx = position.x;
-                  position.x += 1;
-                  Autoplay('left', position.x, -1);
-                } else {
-                  position.x = 0; // go all the way
-                  updateInfoThisRound = true;
-                  isAtEnd = lockPosition();
-                }
-              } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
-                Autoplay('reverse-left', -1, position.x);
+            // left arrow 37
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                // lastx = position.x;
+                position.x += 1;
+                Autoplay('left', position.x, -1);
               } else {
-                position.x += -1;
+                position.x = 0; // go all the way
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
               }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              lastx = position.x;
+              Autoplay('reverse-left', -1, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
             // }
           }
 
@@ -369,11 +369,14 @@ class Control {
       } else {
         window.position = new Position(-1, plot.plotData.length);
       }
-      let rect = new BoxplotRect();
+      let rect;
+      constants.hasRect = false;
+      if ('elements' in singleMaidr) {
+        rect = new BoxplotRect();
+        constants.hasRect = true;
+      }
       let audio = new Audio();
       let lastPlayed = '';
-      let lastY = 0;
-      let lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -396,18 +399,14 @@ class Control {
                 if (constants.plotOrientation == 'vert') {
                   Autoplay('right', position.x, plot.plotData.length - 1);
                 } else {
-                  Autoplay(
-                    'right',
-                    position.x,
-                    plot.plotData[position.y].length
-                  );
+                  Autoplay('right', position.x, plot.sections.length - 1);
                 }
               } else {
                 isAtEnd = lockPosition();
                 if (constants.plotOrientation == 'vert') {
                   position.x = plot.plotData.length - 1;
                 } else {
-                  position.x = plot.plotData[position.y].length - 1;
+                  position.x = plot.sections.length - 1;
                 }
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -416,15 +415,12 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                plot.plotData.length - 1 != position.x
+                plot.sections.length - 1 != position.x
               ) {
                 lastY = position.y;
                 Autoplay('reverse-right', plot.plotData.length - 1, position.x);
               } else {
-                if (
-                  position.x == -1 &&
-                  position.y == plot.plotData[position.x].length
-                ) {
+                if (position.x == -1 && position.y == plot.sections.length) {
                   position.y -= 1;
                 }
                 position.x += 1;
@@ -435,14 +431,10 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                plot.plotData[position.y].length - 1 != position.x
+                plot.sections.length - 1 != position.x
               ) {
                 lastx = position.x;
-                Autoplay(
-                  'reverse-right',
-                  plot.plotData[position.y].length - 1,
-                  position.x
-                );
+                Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
                   position.y -= 1;
@@ -484,13 +476,13 @@ class Control {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
                 if (constants.plotOrientation == 'vert') {
-                  Autoplay('up', position.y, plot.plotData[position.x].length);
+                  Autoplay('up', position.y, plot.sections.length);
                 } else {
                   Autoplay('up', position.y, plot.plotData.length);
                 }
               } else {
                 if (constants.plotOrientation == 'vert') {
-                  position.y = plot.plotData[position.x].length - 1;
+                  position.y = plot.sections.length - 1;
                 } else {
                   position.y = plot.plotData.length - 1;
                 }
@@ -501,14 +493,10 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                position.y != plot.plotData[position.x].length - 1
+                position.y != plot.sections.length - 1
               ) {
                 lastY = position.y;
-                Autoplay(
-                  'reverse-up',
-                  plot.plotData[position.x].length - 1,
-                  position.y
-                );
+                Autoplay('reverse-up', plot.sections.length - 1, position.y);
               } else {
                 position.y += 1;
                 updateInfoThisRound = true;
@@ -518,7 +506,7 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                position.y != plot.plotData.length - 1
+                position.y != plot.sections.length - 1
               ) {
                 lastx = position.x;
                 Autoplay('reverse-up', plot.plotData.length - 1, position.y);
@@ -550,10 +538,7 @@ class Control {
               Autoplay('reverse-down', 0, position.y);
             } else {
               if (constants.plotOrientation == 'vert') {
-                if (
-                  position.x == -1 &&
-                  position.y == plot.plotData[position.x].length
-                ) {
+                if (position.x == -1 && position.y == plot.sections.length) {
                   position.x += 1;
                 }
               } else {
@@ -600,17 +585,13 @@ class Control {
                 if (constants.plotOrientation == 'vert') {
                   Autoplay('right', position.x, plot.plotData.length - 1);
                 } else {
-                  Autoplay(
-                    'right',
-                    position.x,
-                    plot.plotData[position.y].length
-                  );
+                  Autoplay('right', position.x, plot.sections.length);
                 }
               } else {
                 if (constants.plotOrientation == 'vert') {
                   position.x = plot.plotData.length - 1;
                 } else {
-                  position.x = plot.plotData[position.y].length - 1;
+                  position.x = plot.sections.length - 1;
                 }
                 updateInfoThisRound = true;
                 isAtEnd = lockPosition();
@@ -638,14 +619,10 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                plot.plotData[position.y].length - 1 != position.x
+                plot.sections.length - 1 != position.x
               ) {
                 lastx = position.x;
-                Autoplay(
-                  'reverse-right',
-                  plot.plotData[position.y].length - 1,
-                  position.x
-                );
+                Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
                   position.y -= 1;
@@ -689,12 +666,12 @@ class Control {
               if (e.shiftKey) {
                 if (constants.plotOrientation == 'vert') {
                   if (position.x < 0) position.x = 0;
-                  Autoplay('up', position.y, plot.plotData[position.x].length);
+                  Autoplay('up', position.y, plot.sections.length);
                 } else {
                   Autoplay('up', position.y, plot.plotData.length);
                 }
               } else if (constants.plotOrientation == 'vert') {
-                position.y = plot.plotData[position.x].length - 1;
+                position.y = plot.sections.length - 1;
                 updateInfoThisRound = true;
               } else {
                 position.y = plot.plotData.length - 1;
@@ -704,14 +681,10 @@ class Control {
               if (
                 e.altKey &&
                 e.shiftKey &&
-                position.y != plot.plotData[position.x].length - 1
+                position.y != plot.sections.length - 1
               ) {
                 lasY = position.y;
-                Autoplay(
-                  'reverse-up',
-                  plot.plotData[position.x].length - 1,
-                  position.y
-                );
+                Autoplay('reverse-up', plot.sections.length - 1, position.y);
               } else {
                 position.y += 1;
                 updateInfoThisRound = true;
@@ -756,10 +729,7 @@ class Control {
               Autoplay('reverse-down', 0, position.y);
             } else {
               if (constants.plotOrientation == 'vert') {
-                if (
-                  position.x == -1 &&
-                  position.y == plot.plotData[position.x].length
-                ) {
+                if (position.x == -1 && position.y == plot.sections.length) {
                   position.x += 1;
                 }
               } else {
@@ -845,13 +815,13 @@ class Control {
             // (ctrl/cmd)+(home/fn+left arrow): top left element
             if (e.key == 'Home') {
               position.x = 0;
-              position.y = plot.plotData.length - 1;
+              position.y = plot.sections.length - 1;
               UpdateAllBraille();
             }
 
             // (ctrl/cmd)+(end/fn+right arrow): right bottom element
             else if (e.key == 'End') {
-              position.x = plot.plotData[0].length - 1;
+              position.x = plot.sections.length - 1;
               position.y = 0;
               UpdateAllBraille();
             }
@@ -1008,7 +978,7 @@ class Control {
         }
 
         if (constants.debugLevel > 0) {
-          console.log('starting autoplay', dir);
+          console.log('starting autoplay', dir, start, end);
         }
 
         UpdateAllAutoplay(); // play current tone before we move
@@ -1019,13 +989,13 @@ class Control {
               (position.x < 1 && dir == 'left') ||
               (constants.plotOrientation == 'vert' &&
                 dir == 'up' &&
-                position.y > plot.plotData[position.x].length - 2) ||
+                position.y > plot.sections.length - 2) ||
               (constants.plotOrientation == 'horz' &&
                 dir == 'up' &&
                 position.y > plot.plotData.length - 2) ||
               (constants.plotOrientation == 'horz' &&
                 dir == 'right' &&
-                position.x > plot.plotData[position.y].length - 2) ||
+                position.x > plot.sections.length - 2) ||
               (constants.plotOrientation == 'vert' &&
                 dir == 'right' &&
                 position.x > plot.plotData.length - 2) ||
