@@ -1,13 +1,71 @@
 class BarChart {
   constructor() {
-    // bars. The actual bar elements in the SVG. Used to highlight visually
-    if ('elements' in singleMaidr) {
-      this.bars = singleMaidr.elements;
-      constants.hasRect = 1;
-    } else {
-      this.bars = constants.chart.querySelectorAll('g[id^="geom_rect"] > rect');
-      constants.hasRect = 0;
+    // initialize variables xlevel, data, and elements
+    let xlevel = null;
+    if ('axes' in singleMaidr) {
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.level) {
+          xlevel = singleMaidr.axes.x.level;
+        }
+      }
     }
+    let data = null;
+    if ('data' in singleMaidr) {
+      data = singleMaidr.data;
+    }
+    let elements = null;
+    if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
+    }
+
+    if (xlevel && data && elements) {
+      if (xlevel.length != data.length) {
+        // I didn't throw an error but give a warning
+        constants.hasRect = 0;
+        console.log(
+          'Warning: x level and data do not have the same length. This may cause errors.Visual highlighting is turned off.'
+        );
+      } else if (xlevel.length != elements.length) {
+        constants.hasRect = 0;
+        console.log(
+          'Warning: x level and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
+        );
+      } else if (data.length != elements.length) {
+        constants.hasRect = 0;
+        console.log(
+          'Warning: data and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
+        );
+      } else {
+        this.bars = elements;
+        constants.hasRect = 1;
+      }
+    } else if (data && elements) {
+      if (data.length != elements.length) {
+        constants.hasRect = 0;
+        console.log(
+          'Warning: data and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
+        );
+      } else {
+        this.bars = elements;
+        constants.hasRect = 1;
+      }
+    } else if (xlevel && data) {
+      if (xlevel.length != data.length) {
+        constants.hasRect = 0;
+        console.log(
+          'Warning: x level and data do not have the same length. This may cause errors.Visual highlighting is turned off.'
+        );
+      }
+    }
+
+    // bars. The actual bar elements in the SVG. Used to highlight visually
+    // if ('elements' in singleMaidr) {
+    //   this.bars = singleMaidr.elements;
+    //   constants.hasRect = 1;
+    // } else {
+    //   // this.bars = constants.chart.querySelectorAll('g[id^="geom_rect"] > rect'); // if we use plot.plotData.length instead of plot.bars.length, we don't have to include this
+    //   constants.hasRect = 0;
+    // }
 
     // column labels, both legend and tick
     this.columnLabels = [];
@@ -28,13 +86,13 @@ class BarChart {
 
       // tick labels
       if (singleMaidr.axes.x) {
-        if (singleMaidr.axes.x.format) {
-          this.columnLabels = singleMaidr.axes.x.format;
+        if (singleMaidr.axes.x.level) {
+          this.columnLabels = singleMaidr.axes.x.level;
         }
       }
       if (singleMaidr.axes.y) {
-        if (singleMaidr.axes.y.format) {
-          this.columnLabels = singleMaidr.axes.y.format;
+        if (singleMaidr.axes.y.level) {
+          this.columnLabels = singleMaidr.axes.y.level;
         }
       }
     } else {
