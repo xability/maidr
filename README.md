@@ -1,6 +1,6 @@
 # MAIDR: Multimodal Access and Interactive Data Representation
 
-MAIDR is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html).
+MAIDR is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html). You may also clone or download the github repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ To use MAIDR, follow these steps:
 
 1. **Import your chart or plot**: MAIDR is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported chart types include barplot, boxplot, heatmap, and scatterplot.
 
-2. **Create an HTML file**: Place the SVG of your chart inside a `div` element with the ID `svg_container`. Include the following script files: `constants.js`, `audio.js`, `display.js`, and the script file corresponding to your chart type (e.g., `barplot.js`). Also, include the `styles.css` file for proper styling. Your HTML file should have the following structure:
+2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your chart to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
 ```html
 <!DOCTYPE html>
@@ -25,24 +25,184 @@ To use MAIDR, follow these steps:
   <head>
     <meta charset="UTF-8" />
     <title>MAIDR Example</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.min.css" />
   </head>
   <body>
-    <div id="svg_container">
-      <!-- Your SVG chart goes here -->
+    <div>
+      <!-- Your SVG chart is here -->
     </div>
     <script>
-      <!-- data goes here -->
+      <!-- json data is here -->
     </script>
-    <script src="constants.js"></script>
-    <script src="audio.js"></script>
-    <script src="display.js"></script>
-    <script src="barplot.js"></script>
+    <script src="maidr.min.js"></script>
   </body>
 </html>
 ```
 
-3. Add your data: Include your data as JavaScript variables directly in the HTML file. Refer to the example HTML files provided in the repository for the appropriate data structure.
+3. Add your data: Include your data as a json schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple charts exist on the page. Your json schema may look like so: (values for demonstration purposes)
+
+```javascript
+// a single chart
+var maidr = {
+  type: 'box',
+  id: 'myboxplot',
+  title: 'Highway Mileage by Car Class.',
+  axes: {
+    y: {
+      label: 'Car Class',
+      level: [
+        '2seater',
+        'compact',
+        'midsize',
+        'minivan',
+        'pickup',
+        'subcompact',
+        'suv',
+      ],
+    },
+    x: { label: 'Highway Milage' },
+  },
+  elements: document.querySelector(
+    '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
+  ),
+  data: ...
+}
+
+// or, multiple charts
+var maidr = [
+  {
+    type: 'box',
+    id: 'myboxplot',
+    title: 'Highway Mileage by Car Class.',
+    axes: {
+      y: {
+        label: 'Car Class',
+        level: [
+          '2seater',
+          'compact',
+          'midsize',
+          'minivan',
+          'pickup',
+          'subcompact',
+          'suv',
+        ],
+      },
+      x: { label: 'Highway Milage' },
+    },
+    elements: document.querySelector(
+      '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
+    ),
+    data: ...
+  },
+  {
+    type: 'bar',
+    id: 'mybarplot',
+    ... // etc
+  }
+```
+
+4. Use the following to define the object properties:
+
+   - `type`: the type of plot. Currently supported are 'bar', 'heat', 'box', 'scatter', and 'line'.
+   - `id`: the id that you added as an attribute of your main SVG.
+   - `title`: the title of the chart. (optional)
+   - `axes`: axes info for your chart. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
+   - `data`: the main data for your chart. See below.
+
+5. Define your data set using the `maidr.data` property. This comes in different formats depending on chart type:
+
+```javascript
+// barplot maidr.data structure: a simple array of values
+var maidr = {
+  data: [929539693, 898871185, 3811953828, 586098530, 24549948],
+};
+
+// heatmap maidr.data structure: a 2D array of values
+var maidr = {
+  data: [
+    [124, 0, 0],
+    [0, 68, 0],
+    [44, 56, 52],
+  ],
+};
+
+// boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
+var maidr = {
+  data: [
+    {
+      lower_outlier: null,
+      min: 23,
+      q1: 24,
+      q2: 25,
+      q3: 26,
+      max: 26,
+      upper_outlier: null,
+    },
+    {
+      // etc
+    },
+  ],
+};
+
+// scatterplot maidr.data: an object containing x and y properties, each with an array of float values
+// note that data is an array here as scatterplots are often combine with line plots
+var maidr = {
+  data: [
+    {
+      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
+      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+    },
+    // line data could go here
+  ],
+};
+
+// smooth line maidr.data: an object containing x and y properties, each with an array of float values
+// note that data is an array here as scatterplots are often combine with line plots
+var maidr = {
+  data: [
+    // scatterplot data could go here
+    {
+      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
+      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+    },
+  ],
+};
+```
+
+6. If multiple plots are overlaid on the same SVG, the `type` and `data` properties can be an array instead of a single value. Be sure the order is matched between them. Final json schema could look like so:
+
+```javascript
+var maidr = {
+  type: ['point', 'smooth'],
+  id: 'scatter1',
+  title: 'Highway Mileage by Engine Displacement.',
+  name: 'Tutorial 4: Scatterplot',
+  elements: [
+    document.querySelectorAll('g[id^="geom_point"] > use'),
+    document.querySelector(
+      'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]'
+    ),
+  ],
+  axes: {
+    x: {
+      label: 'Engine Displacement',
+    },
+    y: {
+      label: 'Highway Mileage',
+    },
+  },
+  data: [
+    {
+      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1, 2.8],
+      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+    },
+    {
+      x: [1.6, 1.6684, 1.7367, 1.8051, 1.8734, 1.9418, 2.0101, 2.0785, 2.1468, 2.2152, 2.2835, 2.3519, 2.4203, 2.4886, 2.557, 2.6253],
+      y: [33.0929, 32.5108, 31.9422, 31.3885, 30.8509, 30.33, 29.8239, 29.3334, 28.8584, 28.3981, 27.9519, 27.5189, 27.0988, 26.6958, 26.3091, 25.9356]
+    },
+```
+
+For more information and examples, refer to the example HTML files provided in the repository.
 
 ## Controls
 
@@ -53,6 +213,7 @@ To interact with the charts using MAIDR, follow these steps:
 3. Press **B** to toggle Braille mode.
 4. Press **S** to toggle Sonification (tones) mode.
 5. Press **T** to toggle Text mode.
+6. Press **R** to toggle Review mode.
 
 Below is a detailed list of keyboard shortcuts for various functions:
 
@@ -65,6 +226,7 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Toggle Braille Mode                     | B                           | B                           |
 | Toggle Sonification Mode                | S                           | S                           |
 | Toggle Text Mode                        | T                           | T                           |
+| Toggle Text Mode                        | R                           | R                           |
 | Repeat current sound                    | Space                       | Space                       |
 | Auto-play outward in direction of arrow | Control + Shift + Arrow key | Command + Shift + Arrow key |
 | Auto-play inward in direction of arrow  | Alt + Shift + Arrow key     | Option + Shift + Arrow key  |
@@ -206,10 +368,10 @@ JooYoung Seo - jseo1005@illinois.edu
 
 This project is conducted through the Accessible Computing Lab at the University of Illinois at Urbana-Champaign, and funded by multiple grants, including:
 
-* The Institute of Museum and Library Services (IMLS) \#RE-254891-OLS-23
+- The Institute of Museum and Library Services (IMLS) \#RE-254891-OLS-23
 
-* Teach Access Faculty Grant
+- Teach Access Faculty Grant
 
-* The Wallace Foundation Grant and the International Society of the Learning Sciences
+- The Wallace Foundation Grant and the International Society of the Learning Sciences
 
-* The PI's faculty startup grant
+- The PI's faculty startup grant
