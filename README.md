@@ -241,6 +241,8 @@ In the Scatterplot chart, there are two layers: point mode (layer 1) and line mo
 - Press Page Up to move from point mode to line mode
 - Press Page Down to move from line mode to point mode
 
+Note that this control scheme can be used by any chart with multiple types.
+
 ## Braille Generation
 
 MAIDR incorporates a Braille mode that represents the chart using Braille symbols. This allows users with visual impairments to explore and interact with the chart using a refreshable Braille display. To achieve this, our system translates the chart's visual elements and data points into a corresponding tactile representation using Braille patterns. For different chart types, such as barplot, boxplot, heatmap, and scatterplot, MAIDR employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends. These tactile encodings range from using distinct Braille characters to represent value ranges, to employing characters that visually resemble the corresponding sections of a chart. By providing a comprehensive Braille representation for various chart types, MAIDR enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
@@ -268,22 +270,23 @@ In the Braille representation of a heatmap, values are depicted based on their r
 
 ### Boxplot
 
-The Braille representation of a boxplot employs Braille characters that visually resemble the corresponding sections of the boxplot. The size of each section is denoted by the number of Braille characters used. The sections are encoded as follows:
+The Braille representation of a boxplot employs Braille characters that visually resemble the corresponding sections of the boxplot. An example of such braille may look like ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒ . The size of each section is denoted by the number of Braille characters used. The sections are encoded as follows:
 
 - ⠂ represents lower outlier and upper outlier(s)
 - ⠒ represents the left or right whiskers
 - ⠿ represents the second or third quartiles
-- ⠇ represents the 50% midpoint (median)
+- ⠸⠇ represents the 50% midpoint (median)
 - blank spaces represent empty spaces
 
 We also impose some overarching rules:
 
-- Each section must be represented with at least 1 braille character, assuming they have some positive length.
-- Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
+1. Each section must be represented with at least 1 braille character, assuming they have some positive length.
+2. Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
+3. Zero length sections, such as outliers and the median, are always represented by a set character. ⠂ in the case of outliers, ⠸⠇ in the case of the median.
 
 This tactile encoding enables users to discern the various components of the boxplot, allowing them to comprehend the data distribution, detect outliers, and identify central tendencies and dispersion within the dataset.
 
-To generate the braille, we use an algorithm that generates a distribution of characters based on a given proportional distribution and a specified total number of characters. This can be described mathematically as follows:
+To generate the braille, we use an algorithm that generates a distribution of characters based on a given proportional distribution and a specified total number of characters in the user's braille display. This can be described mathematically as follows:
 
 c*i = round(n * p*i), for i = 1, 2, 3, ..., k
 c_i = round((n - C) * p_i), for i = 1, 2, 3, ..., k
@@ -295,53 +298,14 @@ Where
 - p_i: Proportional distribution of each category i, where i ∈ {1, 2, 3, ..., k} (real numbers, 0 ≤ p_i ≤ 1, and the sum of all p_i equals 1)
 - c_i: Number of characters for each category i (integer)
 
-As an example, consider a boxplot with the following:
+The process is as follows in the code:
 
-- Visual sections from left to right: blank space, outlier, larger blank space, large min whisker, moderate sized lower quartile, the median, moderate sized upper quartile, another larger max whisker, a large blank space, an outlier, a small blank space, then another outlier
-- Distribution for these sections: [10, 0, 20, 40, 30, 0, 30, 60, 50, 30, 0, 10, 0]
-- An offset of 5 to account for 0 length characters
-- A braille display length of 33
+1. We first convert our data set for a particular boxplot to an array of lengths.
+2. We then assign the single required character to each section.
+3. We also note connected sections, such as min and max.
+4. We then normalize and allocate all remaining characters according to their proportional distribution, making sure to add extra characters where needed to keep differences or equalities.
 
-We normalize these distributions, taking into account the values that will need default characters (meaning n changes to 28 with the offset of C = 5): (p_i): [10/280, 0/280, 20/280, 40/280, 30/280, 0/280, 30/280, 60/280, 50/280, 30/280, 0/280, 10/280, 0/280]
-Then we apply our equation:
-n = 33
-C = 5
-
-c_i = round((n - C) \* p_i), for i = 1, 2, 3, ..., 11
-
-- c_1 = round(28 \* 0.0357) = round(1) = 1
-- c_2 = round(28 \* 0) = round(0) = 0
-- c_3 = round(28 \* 0.0724) = round(2) = 2
-- c_4 = round(28 \* 0.1429) = round(4) = 4
-- c_5 = round(28 \* 0.1071) = round(3) = 3
-- c_6 = round(28 \* 0) = round(0) = 0
-- c_7 = round(28 \* 0.1071) = round(3) = 3
-- c_8 = round(28 \* 0.2143) = round(6) = 6
-- c_9 = round(28 \* 0.1786) = round(5) = 5
-- c_10 = round(28 \* 0.1071) = round(3) = 3
-- c_11 = round(28 \* 0) = round(0) = 0
-- c_12 = round(28 \* 0.0357) = round(1) = 1
-- c_13 = round(28 \* 0) = round(0) = 0
-
-To account for rounding errors, we run this process a few times, allocating a positive or negative number of additional characters to the set, and as a fallback, finally add or remove them from the sections with the most characters.
-
-Last, we enforce our overarching rules:
-
-- c_1 = 1
-- c_2 = 1
-- c_3 = 2
-- c_4 = 4
-- c_5 = 3
-- c_6 = 2
-- c_7 = 3
-- c_8 = 6
-- c_9 = 5
-- c_10 = 3
-- c_11 = 1
-- c_12 = 1
-- c_13 = 1
-
-And we get the braille output:
+As an example, consider a boxplot with the following distribution: [10, 0, 20, 40, 30, 0, 30, 60, 50, 30, 0, 10, 0], with types [blank space, outlier, larger blank space, large min whisker, moderate sized lower quartile, the median, moderate sized upper quartile, another larger max whisker, a large blank space, an outlier, a small blank space, then another outlier], and a braille display length of 33. We would produce braille that looks like so:
 
 ⠂ ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒ ⠂ ⠂
 
