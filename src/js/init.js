@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
   window.resources = new Resources();
   window.menu = new Menu();
   window.tracker = new Tracker();
+  window.logError = new LogError();
 
   // set focus events for all charts matching maidr ids
   let maidrObjects = [];

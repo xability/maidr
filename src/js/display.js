@@ -248,9 +248,9 @@ class Display {
           ', ' +
           plot.box_label +
           ' is ';
-        if (constants.hasRect) {
-          verboseText += plot.plotData[2][position.y][position.x];
-        }
+        // if (constants.hasRect) {
+        verboseText += plot.plotData[2][position.y][position.x];
+        // }
       } else {
         verboseText +=
           plot.y_group_label +
@@ -263,9 +263,9 @@ class Display {
           ', ' +
           plot.box_label +
           ' is ';
-        if (constants.hasRect) {
-          verboseText += plot.plotData[2][position.y][position.x];
-        }
+        // if (constants.hasRect) {
+        verboseText += plot.plotData[2][position.y][position.x];
+        // }
       }
       // terse and verbose alternate between columns and rows
       if (constants.textMode == 'off') {

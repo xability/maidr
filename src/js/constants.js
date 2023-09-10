@@ -746,3 +746,20 @@ class Review {
     }
   }
 }
+
+class LogError {
+  constructor() {}
+
+  LogAbsentElement(a) {
+    console.log(a, 'not found. Visual highlighting is turned off.');
+  }
+
+  LogDifferentLengths(a, b) {
+    console.log(
+      a,
+      'and',
+      b,
+      'do not have the same length. Visual highlighting is turned off.'
+    );
+  }
+}

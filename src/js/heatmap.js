@@ -1,11 +1,103 @@
 class HeatMap {
   constructor() {
-    this.plots = maidr.elements;
-    constants.hasRect = 1;
+    // initialize variables xlevel, data, and elements
+    let xlevel = null;
+    let ylevel = null;
+    if ('axes' in singleMaidr) {
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.level) {
+          xlevel = singleMaidr.axes.x.level;
+        }
+      }
+      if (singleMaidr.axes.y) {
+        if (singleMaidr.axes.y.level) {
+          ylevel = singleMaidr.axes.y.level;
+        }
+      }
+    }
+    let data = null;
+    let dataLength = 0;
+    if ('data' in singleMaidr) {
+      data = singleMaidr.data;
+      for (let i = 0; i < data.length; i++) {
+        dataLength += data[i].length;
+      }
+    }
+    let elements = null;
+    if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
+    }
+
+    if (xlevel && ylevel && data && elements) {
+      if (elements.length != dataLength) {
+        // I didn't throw an error but give a warning
+        constants.hasRect = 0;
+        logError.LogDifferentLengths('data', 'elements');
+      } else if (ylevel.length != data.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('y level', 'rows');
+      } else if (data[0].length != xlevel.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('x level', 'columns');
+      } else {
+        this.plots = elements;
+        constants.hasRect = 1;
+      }
+    } else if (ylevel && data && elements) {
+      if (dataLength != elements.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('data', 'elements');
+      } else if (ylevel.length != data.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('y level', 'rows');
+      } else {
+        this.plots = elements;
+        constants.hasRect = 1;
+      }
+    } else if (xlevel && data && elements) {
+      if (dataLength != elements.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('data', 'elements');
+      } else if (xlevel.length != data[0].length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('x level', 'columns');
+      } else {
+        this.plots = elements;
+        constants.hasRect = 1;
+      }
+    }
+    // else if (xlevel && ylevel && data) {
+    //   constants.hasRect = 0;
+    //   if (ylevel.length != data.length) {
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else if (data[0].length != xlevel.length) {
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   }
+    //   logError.LogAbsentElement('elements');
+    // }
+    else if (data && elements) {
+      if (dataLength != elements.length) {
+        constants.hasRect = 0;
+        logError.logDifferentLengths('data', 'elements');
+      } else {
+        this.plots = elements;
+        constants.hasRect = 1;
+      }
+    } else if (data) {
+      constants.hasRect = 0;
+      if (!xlevel) logError.LogAbsentElement('x level');
+      if (!ylevel) logError.LogAbsentElement('y level');
+      if (!elements) logError.LogAbsentElement('elements');
+    }
+
+    // this.plots = maidr.elements;
+    // constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
-    this.x_labels = this.getXLabels();
-    this.y_labels = this.getYLabels();
+    // this.x_labels = this.getXLabels();
+    // this.y_labels = this.getYLabels();
+    this.x_labels = xlevel;
+    this.y_labels = ylevel;
     this.title = this.getTitle();
 
     this.plotData = this.getHeatMapData();
