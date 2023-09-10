@@ -213,8 +213,8 @@ class HeatMap {
   getXLabels() {
     if ('axes' in maidr) {
       if ('x' in maidr.axes) {
-        if ('format' in maidr.axes.x) {
-          return maidr.axes.x.format;
+        if ('level' in maidr.axes.x) {
+          return maidr.axes.x.level;
         }
       }
     } else {
@@ -232,8 +232,8 @@ class HeatMap {
   getYLabels() {
     if ('axes' in maidr) {
       if ('y' in maidr.axes) {
-        if ('format' in maidr.axes.y) {
-          return maidr.axes.y.format;
+        if ('level' in maidr.axes.y) {
+          return maidr.axes.y.level;
         }
       }
     } else {

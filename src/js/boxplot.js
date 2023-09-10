@@ -19,7 +19,7 @@ class BoxPlot {
 
     if ('axes' in singleMaidr) {
       if ('x' in singleMaidr.axes) {
-        if ('format' in singleMaidr.axes.x) {
+        if ('level' in singleMaidr.axes.x) {
           constants.plotOrientation = 'vert';
         }
       }
@@ -48,8 +48,8 @@ class BoxPlot {
         if ('label' in singleMaidr.axes.x) {
           this.x_group_label = singleMaidr.axes.x.label;
         }
-        if ('format' in singleMaidr.axes.x) {
-          this.x_labels = singleMaidr.axes.x.format;
+        if ('level' in singleMaidr.axes.x) {
+          this.x_labels = singleMaidr.axes.x.level;
         } else {
           this.x_labels = [];
         }
@@ -58,8 +58,8 @@ class BoxPlot {
         if ('label' in singleMaidr.axes.y) {
           this.y_group_label = singleMaidr.axes.y.label;
         }
-        if ('format' in singleMaidr.axes.y) {
-          this.y_labels = singleMaidr.axes.y.format;
+        if ('level' in singleMaidr.axes.y) {
+          this.y_labels = singleMaidr.axes.y.level;
         } else {
           this.y_labels = [];
         }
