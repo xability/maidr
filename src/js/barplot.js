@@ -20,7 +20,7 @@ class BarChart {
     }
 
     if (xlevel && data && elements) {
-      if (xlevel.length != data.length) {
+      if (elements.length != data.length) {
         // I didn't throw an error but give a warning
         constants.hasRect = 0;
         console.log(
@@ -28,14 +28,10 @@ class BarChart {
         );
       } else if (xlevel.length != elements.length) {
         constants.hasRect = 0;
-        console.log(
-          'Warning: x level and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
-        );
-      } else if (data.length != elements.length) {
+        logError.logDifferentLengths('x level', 'elements');
+      } else if (data.length != xlevel.length) {
         constants.hasRect = 0;
-        console.log(
-          'Warning: data and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
-        );
+        logError.logDifferentLengths('x level', 'data');
       } else {
         this.bars = elements;
         constants.hasRect = 1;
@@ -43,9 +39,7 @@ class BarChart {
     } else if (data && elements) {
       if (data.length != elements.length) {
         constants.hasRect = 0;
-        console.log(
-          'Warning: data and elements do not have the same length. This may cause errors. Visual highlighting is turned off.'
-        );
+        logError.logDifferentLengths('data', 'elements');
       } else {
         this.bars = elements;
         constants.hasRect = 1;
@@ -53,10 +47,12 @@ class BarChart {
     } else if (xlevel && data) {
       if (xlevel.length != data.length) {
         constants.hasRect = 0;
-        console.log(
-          'Warning: x level and data do not have the same length. This may cause errors.Visual highlighting is turned off.'
-        );
+        logError.logDifferentLengths('x level', 'data');
       }
+      logError.LogAbsentElement('elements');
+    } else if (data) {
+      logError.LogAbsentElement('x level');
+      logError.LogAbsentElement('elements');
     }
 
     // bars. The actual bar elements in the SVG. Used to highlight visually
