@@ -3,7 +3,6 @@
 // This initializes and contains the JSON data model for this chart
 //
 // todo:
-// relying on plotId seems risky, do we need it? can we just use the svg or main chart element?
 class BoxPlot {
   constructor() {
     constants.plotOrientation = 'horz'; // default
@@ -25,28 +24,52 @@ class BoxPlot {
       }
     }
 
-    constants.plotId = 0;
-    if (
-      constants.chart.querySelector(
-        'g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
-      )
-    ) {
-      constants.plotId = constants.chart
-        .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
-        .getAttribute('id');
-    }
-
     // title
     this.title = '';
-    if ('title' in singleMaidr) {
-      this.title = singleMaidr.title;
+    if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        this.title = singleMaidr.labels.title;
+      }
+    }
+    if (this.title == '') {
+      if ('title' in singleMaidr) {
+        this.title = singleMaidr.title;
+      }
+    }
+    // subtitle
+    this.subtitle = '';
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        this.subtitle = singleMaidr.labels.subtitle;
+      }
+    }
+    // caption
+    this.caption = '';
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        this.caption = singleMaidr.labels.caption;
+      }
     }
 
     // axes labels
+    if ('labels' in singleMaidr) {
+      if (!this.x_group_label) {
+        if ('x' in singleMaidr.labels) {
+          this.x_group_label = singleMaidr.labels.x;
+        }
+      }
+      if (!this.y_group_label) {
+        if ('y' in singleMaidr.labels) {
+          this.y_group_label = singleMaidr.labels.y;
+        }
+      }
+    }
     if ('axes' in singleMaidr) {
       if ('x' in singleMaidr.axes) {
         if ('label' in singleMaidr.axes.x) {
-          this.x_group_label = singleMaidr.axes.x.label;
+          if (!this.x_group_label) {
+            this.x_group_label = singleMaidr.axes.x.label;
+          }
         }
         if ('level' in singleMaidr.axes.x) {
           this.x_labels = singleMaidr.axes.x.level;
@@ -56,7 +79,9 @@ class BoxPlot {
       }
       if ('y' in singleMaidr.axes) {
         if ('label' in singleMaidr.axes.y) {
-          this.y_group_label = singleMaidr.axes.y.label;
+          if (!this.y_group_label) {
+            this.y_group_label = singleMaidr.axes.y.label;
+          }
         }
         if ('level' in singleMaidr.axes.y) {
           this.y_labels = singleMaidr.axes.y.level;
@@ -528,6 +553,8 @@ class BoxPlot {
     } else if (sectionKey != 'lower_outlier' && sectionKey != 'upper_outlier') {
       // normal tone
       audio.playTone();
+    } else if (plot.plotData[plotPos][sectionKey].length == 0) {
+      audio.PlayNull();
     } else {
       // outlier(s): we play a run of tones
       position.z = 0;

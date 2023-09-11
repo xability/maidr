@@ -225,22 +225,52 @@ class Control {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayXLabel(plot);
+                let xlabel = '';
+                if (constants.chartType == 'bar') {
+                  xlabel = plot.plotLegend.x;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  xlabel = plot.x_group_label;
+                }
+                display.displayInfo('x label', xlabel);
               }
               pressedL = false;
             } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayYLabel(plot);
+                let ylabel = '';
+                if (constants.chartType == 'bar') {
+                  ylabel = plot.plotLegend.y;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  ylabel = plot.y_group_label;
+                }
+                display.displayInfo('y label', ylabel);
               }
               pressedL = false;
             } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayTitle(plot);
+                display.displayInfo('title', plot.title);
               }
+              pressedL = false;
+            } else if (e.key == 's') {
+              // subtitle
+              display.displayInfo('subtitle', plot.subtitle);
+              pressedL = false;
+            } else if (e.key == 'c') {
+              // caption
+              display.displayInfo('caption', plot.caption);
               pressedL = false;
             } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
@@ -834,22 +864,52 @@ class Control {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayXLabel(plot);
+                let xlabel = '';
+                if (constants.chartType == 'bar') {
+                  xlabel = plot.plotLegend.x;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  xlabel = plot.x_group_label;
+                }
+                display.displayInfo('x label', xlabel);
               }
               pressedL = false;
             } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayYLabel(plot);
+                let ylabel = '';
+                if (constants.chartType == 'bar') {
+                  ylabel = plot.plotLegend.y;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  ylabel = plot.y_group_label;
+                }
+                display.displayInfo('y label', ylabel);
               }
               pressedL = false;
             } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayTitle(plot);
+                display.displayInfo('title', plot.title);
               }
+              pressedL = false;
+            } else if (e.key == 's') {
+              // subtitle
+              display.displayInfo('subtitle', plot.subtitle);
+              pressedL = false;
+            } else if (e.key == 'c') {
+              // caption
+              display.displayInfo('caption', plot.caption);
               pressedL = false;
             } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();
@@ -1420,7 +1480,7 @@ class Control {
           // }
 
           // if (keys[76] && keys[84]) { // lt
-          //     display.displayTitle(plot);
+          //display.displayInfo(plot.title);
           // }
 
           // if (keys[76] && keys[70]) { // lf
@@ -1433,28 +1493,58 @@ class Control {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayXLabel(plot);
+                let xlabel = '';
+                if (constants.chartType == 'bar') {
+                  xlabel = plot.plotLegend.x;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  xlabel = plot.x_group_label;
+                }
+                display.displayInfo('x label', xlabel);
               }
               pressedL = false;
             } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayYLabel(plot);
+                let ylabel = '';
+                if (constants.chartType == 'bar') {
+                  ylabel = plot.plotLegend.y;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  ylabel = plot.y_group_label;
+                }
+                display.displayInfo('y label', ylabel);
               }
               pressedL = false;
             } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayTitle(plot);
+                display.displayInfo('title', plot.title);
               }
+              pressedL = false;
+            } else if (e.key == 's') {
+              // subtitle
+              display.displayInfo('subtitle', plot.subtitle);
+              pressedL = false;
+            } else if (e.key == 'c') {
+              // caption
+              display.displayInfo('caption', plot.caption);
               pressedL = false;
             } else if (e.key == 'f') {
               // F: fill label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayFill(plot);
+                display.displayInfo('fill', plot.fill);
               }
               pressedL = false;
             } else if (e.key == 'l') {
@@ -1930,22 +2020,52 @@ class Control {
               // X: x label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayXLabel(plot);
+                let xlabel = '';
+                if (constants.chartType == 'bar') {
+                  xlabel = plot.plotLegend.x;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  xlabel = plot.x_group_label;
+                }
+                display.displayInfo('x label', xlabel);
               }
               pressedL = false;
             } else if (e.key == 'y') {
               // Y: y label
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayYLabel(plot);
+                let ylabel = '';
+                if (constants.chartType == 'bar') {
+                  ylabel = plot.plotLegend.y;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point')
+                ) {
+                  ylabel = plot.y_group_label;
+                }
+                display.displayInfo('y label', ylabel);
               }
               pressedL = false;
             } else if (e.key == 't') {
               // T: title
               let timediff = window.performance.now() - lastKeyTime;
               if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayTitle(plot);
+                display.displayInfo('title', plot.title);
               }
+              pressedL = false;
+            } else if (e.key == 's') {
+              // subtitle
+              display.displayInfo('subtitle', plot.subtitle);
+              pressedL = false;
+            } else if (e.key == 'c') {
+              // caption
+              display.displayInfo('caption', plot.caption);
               pressedL = false;
             } else if (e.key == 'l') {
               lastKeyTime = window.performance.now();

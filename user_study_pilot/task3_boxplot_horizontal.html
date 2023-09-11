@@ -1605,13 +1605,22 @@
       var maidr = {
         type: 'box',
         id: 'boxplot1',
-        x_group_label: 'Life Expectancy',
-        y_group_label: 'Continent',
-        title: 'Life Expectancy by Continent.',
-        x_labels: [],
-        y_labels: ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania'],
         orientation: 'horz',
-        element: '#grill.gTree.188.1',
+        elements: document.querySelector('#geom_boxplot\\.gTree\\.177\\.1'),
+        labels: {
+          title: 'Life Expectancy by Continent.',
+          x: 'Life Expectancy',
+          y: 'Continent',
+        },
+        axes: {
+          x: {
+            label: 'Life Expectancy',
+          },
+          y: {
+            label: 'Continent',
+            level: ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania'],
+          },
+        },
         data: [
           {
             lower_outlier: [23.599],

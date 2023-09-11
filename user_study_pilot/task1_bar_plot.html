@@ -1077,8 +1077,12 @@
       var maidr = {
         type: 'bar',
         id: 'barplot1',
-        title: 'The Total Population of Each Continent in 2007.',
         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
+        labels: {
+          x: 'Continent',
+          y: 'Total Population',
+          title: 'The Total Population of Each Continent in 2007.',
+        },
         axes: {
           x: {
             label: 'Continent',

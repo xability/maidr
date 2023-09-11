@@ -8,6 +8,7 @@ class BarChart {
           xlevel = singleMaidr.axes.x.level;
         }
       }
+      // todo: handle y for vertical bar charts
     }
     let data = null;
     if ('data' in singleMaidr) {
@@ -23,7 +24,7 @@ class BarChart {
         // I didn't throw an error but give a warning
         constants.hasRect = 0;
         console.log(
-          'Warning: x level and data do not have the same length. This may cause errors.Visual highlighting is turned off.'
+          'Warning: x level and data do not have the same length. This may cause errors. Visual highlighting is turned off.'
         );
       } else if (xlevel.length != elements.length) {
         constants.hasRect = 0;
@@ -71,16 +72,28 @@ class BarChart {
     this.columnLabels = [];
     let legendX = '';
     let legendY = '';
+    if ('labels' in singleMaidr) {
+      if ('x' in singleMaidr.labels) {
+        legendX = singleMaidr.labels.x;
+      }
+      if ('y' in singleMaidr.labels) {
+        legendY = singleMaidr.labels.y;
+      }
+    }
     if ('axes' in singleMaidr) {
       // legend labels
       if (singleMaidr.axes.x) {
         if (singleMaidr.axes.x.label) {
-          legendX = singleMaidr.axes.x.label;
+          if (legendX == '') {
+            legendX = singleMaidr.axes.x.label;
+          }
         }
       }
       if (singleMaidr.axes.y) {
         if (singleMaidr.axes.y.label) {
-          legendY = singleMaidr.axes.y.label;
+          if (legendY == '') {
+            legendY = singleMaidr.axes.y.label;
+          }
         }
       }
 
@@ -95,25 +108,6 @@ class BarChart {
           this.columnLabels = singleMaidr.axes.y.level;
         }
       }
-    } else {
-      // legend labels
-      if (constants.chart.querySelector('g[id^="xlab"] tspan')) {
-        legendX = constants.chart.querySelector(
-          'g[id^="xlab"] tspan'
-        ).innerHTML;
-      }
-      if (constants.chart.querySelector('g[id^="ylab"] tspan')) {
-        legendY = constants.chart.querySelector(
-          'g[id^="ylab"] tspan'
-        ).innerHTML;
-      }
-
-      // tick labels
-      this.columnLabels = this.ParseInnerHTML(
-        constants.chart.querySelectorAll(
-          'g:not([id^="xlab"]):not([id^="ylab"]) > g > g > g > text[text-anchor="middle"]'
-        )
-      );
     }
 
     this.plotLegend = {
@@ -121,17 +115,30 @@ class BarChart {
       y: legendY,
     };
 
-    // title, either pulled from data or from the SVG
+    // title
     this.title = '';
-    if ('title' in singleMaidr) {
-      this.title = singleMaidr.title;
-    } else if (
-      constants.chart.querySelector('g[id^="plot.title..titleGrob"] tspan')
-    ) {
-      this.title = constants.chart.querySelector(
-        'g[id^="plot.title..titleGrob"] tspan'
-      ).innerHTML;
-      this.title = this.title.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
+    if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        this.title = singleMaidr.labels.title;
+      }
+    }
+    if (this.title == '') {
+      if ('title' in singleMaidr) {
+        this.title = singleMaidr.title;
+      }
+    }
+
+    // subtitle
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        this.subtitle = singleMaidr.labels.subtitle;
+      }
+    }
+    // caption
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        this.caption = singleMaidr.labels.caption;
+      }
     }
 
     if (Array.isArray(singleMaidr)) {

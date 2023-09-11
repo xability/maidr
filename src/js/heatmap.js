@@ -1,12 +1,13 @@
 class HeatMap {
   constructor() {
-    this.plots = maidr.elements;
+    this.plots = singleMaidr.elements;
     constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
     this.x_labels = this.getXLabels();
     this.y_labels = this.getYLabels();
     this.title = this.getTitle();
+    this.fill = this.getFill();
 
     this.plotData = this.getHeatMapData();
     this.updateConstants();
@@ -19,7 +20,6 @@ class HeatMap {
 
     this.x_group_label = this.group_labels[0].trim();
     this.y_group_label = this.group_labels[1].trim();
-    this.box_label = this.group_labels[2].trim();
   }
 
   getHeatMapData() {
@@ -63,9 +63,9 @@ class HeatMap {
     let num_rows = 0;
     let num_cols = 0;
     let num_squares = 0;
-    if ('data' in maidr) {
-      num_rows = maidr.data.length;
-      num_cols = maidr.data[0].length;
+    if ('data' in singleMaidr) {
+      num_rows = singleMaidr.data.length;
+      num_cols = singleMaidr.data[0].length;
     } else {
       num_rows = unique_y_coord.length;
       num_cols = unique_x_coord.length;
@@ -73,8 +73,8 @@ class HeatMap {
     num_squares = num_rows * num_cols;
 
     let norms = [];
-    if ('data' in maidr) {
-      norms = [...maidr.data];
+    if ('data' in singleMaidr) {
+      norms = [...singleMaidr.data];
     } else {
       norms = Array(num_rows)
         .fill()
@@ -173,88 +173,90 @@ class HeatMap {
 
   getGroupLabels() {
     let labels_nodelist;
-    let title = '';
     let legendX = '';
     let legendY = '';
 
-    if ('title' in maidr) {
-      title = maidr.title;
-    } else {
-      title = constants.chart.querySelector(
-        'g[id^="guide.title"] text > tspan'
-      ).innerHTML;
+    if ('labels' in singleMaidr) {
+      if ('x' in singleMaidr.labels) {
+        legendX = singleMaidr.labels.x;
+      }
+      if ('y' in singleMaidr.labels) {
+        legendY = singleMaidr.labels.y;
+      }
     }
-
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('label' in maidr.axes.x) {
-          legendX = maidr.axes.x.label;
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.x) {
+          if (legendX == '') {
+            legendX = singleMaidr.axes.x.label;
+          }
         }
       }
-      if ('y' in maidr.axes) {
-        if ('label' in maidr.axes.y) {
-          legendY = maidr.axes.y.label;
+      if ('y' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.y) {
+          if (legendY == '') {
+            legendY = singleMaidr.axes.y.label;
+          }
         }
       }
-    } else {
-      legendX = constants.chart.querySelector(
-        'g[id^="xlab"] text > tspan'
-      ).innerHTML;
-      legendY = constants.chart.querySelector(
-        'g[id^="ylab"] text > tspan'
-      ).innerHTML;
     }
 
-    labels_nodelist = [legendX, legendY, title];
+    labels_nodelist = [legendX, legendY];
 
     return labels_nodelist;
   }
 
   getXLabels() {
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('level' in maidr.axes.x) {
-          return maidr.axes.x.level;
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.x) {
+          return singleMaidr.axes.x.level;
         }
       }
-    } else {
-      let x_labels_nodelist;
-      x_labels_nodelist = constants.chart.querySelectorAll('tspan[dy="10"]');
-      let labels = [];
-      for (let i = 0; i < x_labels_nodelist.length; i++) {
-        labels.push(x_labels_nodelist[i].innerHTML.trim());
-      }
-
-      return labels;
     }
   }
 
   getYLabels() {
-    if ('axes' in maidr) {
-      if ('y' in maidr.axes) {
-        if ('level' in maidr.axes.y) {
-          return maidr.axes.y.level;
+    if ('axes' in singleMaidr) {
+      if ('y' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.y) {
+          return singleMaidr.axes.y.level;
         }
       }
-    } else {
-      let y_labels_nodelist;
-      let labels = [];
-      y_labels_nodelist = constants.chart.querySelectorAll(
-        'tspan[id^="GRID.text.19.1"]'
-      );
-      for (let i = 0; i < y_labels_nodelist.length; i++) {
-        labels.push(y_labels_nodelist[i].innerHTML.trim());
-      }
-
-      return labels.reverse();
     }
   }
 
   getTitle() {
-    if ('title' in maidr) {
-      return maidr.title;
-    } else {
-      return '';
+    if ('title' in singleMaidr) {
+      return singleMaidr.title;
+    } else if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        return singleMaidr.labels.title;
+      }
+    }
+  }
+
+  getSubtitle() {
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        return singleMaidr.labels.subtitle;
+      }
+    }
+  }
+
+  getCaption() {
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        return singleMaidr.labels.caption;
+      }
+    }
+  }
+
+  getFill() {
+    if ('labels' in singleMaidr) {
+      if ('fill' in singleMaidr.labels) {
+        return singleMaidr.labels.fill;
+      }
     }
   }
 }

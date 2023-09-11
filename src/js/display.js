@@ -246,7 +246,7 @@ class Display {
           ' ' +
           plot.y_labels[position.y] +
           ', ' +
-          plot.box_label +
+          plot.fill +
           ' is ';
         if (constants.hasRect) {
           verboseText += plot.plotData[2][position.y][position.x];
@@ -261,7 +261,7 @@ class Display {
           ' ' +
           plot.x_labels[position.x] +
           ', ' +
-          plot.box_label +
+          plot.fill +
           ' is ';
         if (constants.hasRect) {
           verboseText += plot.plotData[2][position.y][position.x];
@@ -450,69 +450,24 @@ class Display {
     }
   }
 
-  displayXLabel(plot) {
-    let xlabel = '';
-    if (constants.chartType == 'bar') {
-      xlabel = plot.plotLegend.x;
-    } else if (
-      constants.chartType == 'heat' ||
-      constants.chartType == 'box' ||
-      singleMaidr.type == 'point' ||
-      singleMaidr.type.includes('point')
-    ) {
-      xlabel = plot.x_group_label;
-    }
-    if (constants.textMode == 'terse') {
-      constants.infoDiv.innerHTML = '<p>' + xlabel + '<p>';
-    } else if (constants.textMode == 'verbose') {
-      constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
-    }
-  }
-
-  displayYLabel(plot) {
-    let ylabel = '';
-    if (constants.chartType == 'bar') {
-      ylabel = plot.plotLegend.y;
-    } else if (
-      constants.chartType == 'heat' ||
-      constants.chartType == 'box' ||
-      singleMaidr.type == 'point' ||
-      singleMaidr.type.includes('point')
-    ) {
-      ylabel = plot.y_group_label;
-    }
-    if (constants.textMode == 'terse') {
-      constants.infoDiv.innerHTML = '<p>' + ylabel + '<p>';
-    } else if (constants.textMode == 'verbose') {
-      constants.infoDiv.innerHTML = '<p>y label is ' + ylabel + '<p>';
-    }
-  }
-
-  displayTitle(plot) {
-    if (constants.textMode == 'terse') {
-      if (plot.title != '') {
-        constants.infoDiv.innerHTML = '<p>' + plot.title + '<p>';
+  displayInfo(textType, textValue) {
+    if (textType) {
+      if (textValue) {
+        if (constants.textMode == 'terse') {
+          constants.infoDiv.innerHTML = '<p>' + textValue + '<p>';
+        } else if (constants.textMode == 'verbose') {
+          let capsTextType =
+            textType.charAt(0).toUpperCase() + textType.slice(1);
+          constants.infoDiv.innerHTML =
+            '<p>' + capsTextType + ' is ' + textValue + '<p>';
+        }
       } else {
-        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
-      }
-    } else if (constants.textMode == 'verbose') {
-      if (plot.title != '') {
-        constants.infoDiv.innerHTML = '<p>Title is ' + plot.title + '<p>';
-      } else {
-        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
-      }
-    }
-  }
+        let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
+          ? 'an'
+          : 'a';
 
-  displayFill(plot) {
-    if (constants.textMode == 'terse') {
-      if (constants.chartType == 'heat') {
-        constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
-      }
-    } else if (constants.textMode == 'verbose') {
-      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML =
-          '<p>Fill label is ' + plot.box_label + '<p>';
+          '<p>Plot does not have ' + aOrAn + ' ' + textType + '<p>';
       }
     }
   }

@@ -1622,10 +1622,13 @@
       var maidr = {
         type: 'heat',
         id: 'heatmap1',
-        legend_x: 'Year',
-        legend_y: 'Continent',
-        title: 'Average GDP per Continent by Year.',
         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
+        labels: {
+          x: 'Year',
+          y: 'Continent',
+          title: 'Average GDP per Continent by Year.',
+          fill: 'Average GDP',
+        },
         axes: {
           x: {
             label: 'Year',
