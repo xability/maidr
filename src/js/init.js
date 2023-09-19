@@ -223,7 +223,9 @@ function CreateChartComponents() {
       constants.braille_input_id +
       '" class="braille-input" type="text" size="' +
       constants.brailleDisplayLength +
-      '" />\n</div>\n'
+      '" ' +
+      'aria-brailleroledescription="" ' + // this kills the 2 char 'edit' that screen readers add
+      '/>\n</div>\n'
   );
 
   // set destruction possibility on braille
