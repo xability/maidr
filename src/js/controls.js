@@ -5,6 +5,60 @@ class Control {
 
   SetControls() {
     // variable initialization
+
+    // global controls
+
+    // main BTS controls
+    let controlElements = [constants.chart, constants.brailleInput];
+    for (let i = 0; i < controlElements.length; i++) {
+      constants.events.push([
+        controlElements[i],
+        'keyup',
+        function (e) {
+          // B: braille mode
+          if (e.key == 'b') {
+            display.toggleBrailleMode();
+            e.preventDefault();
+          }
+          // keys = (keys || []);
+          // keys[e.keyCode] = true;
+          // if (keys[84] && !keys[76]) {
+          //     display.toggleTextMode();
+          // }
+
+          // T: aria live text output mode
+          if (e.key == 't') {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (!pressedL || timediff > constants.keypressInterval) {
+              display.toggleTextMode();
+            }
+          }
+
+          // S: sonification mode
+          if (e.key == 's') {
+            display.toggleSonificationMode();
+          }
+
+          if (e.key == ' ') {
+            // space 32, replay info but no other changes
+            UpdateAll();
+          }
+
+          if (e.key == 'Tab') {
+            // move before / after chart
+          }
+        },
+      ]);
+    }
+
+    // Braille enable / disable
+    // We block all input, except if it's B or Tab so we move focus
+
+    // auto turn off braille mode if we leave the braille box
+    constants.brailleInput.addEventListener('focusout', function (e) {
+      display.toggleBrailleMode('off');
+    });
+
     if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
@@ -87,15 +141,10 @@ class Control {
         constants.brailleInput,
         'keydown',
         function (e) {
-          // We block all input, except if it's B or Tab so we move focus
-
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // tab
-            // do nothing, let the user Tab away
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (e.target.selectionStart > e.target.value.length - 2) {
@@ -146,11 +195,6 @@ class Control {
             e.preventDefault();
           }
 
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
-
           // update display / text / audio
           if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
@@ -160,45 +204,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keyup',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            if (e.key == ' ') {
-              // space 32, replay info but no other changes
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -599,16 +604,11 @@ class Control {
         constants.brailleInput,
         'keydown',
         function (e) {
-          // We block all input, except if it's B or Tab so we move focus
-
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let setBrailleThisRound = false;
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // tab
-            // do nothing, let the user Tab away
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -791,11 +791,6 @@ class Control {
           if (isAtEnd) {
             audio.playEnd();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
         },
       ]);
 
@@ -1239,9 +1234,7 @@ class Control {
           let updateInfoThisRound = false;
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // let user tab
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             if (
               e.target.selectionStart > e.target.value.length - 3 ||
@@ -1394,11 +1387,6 @@ class Control {
           } else {
             e.preventDefault();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
 
           if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
@@ -1828,12 +1816,9 @@ class Control {
 
           // @TODO
           // only smooth layer can access to braille display
-          if (e.key == 'Tab') {
-            // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-          } else if (constants.chartType == 'smooth') {
+          if (constants.chartType == 'smooth') {
             lockPosition();
-            if (e.key == 'Tab') {
-            } else if (e.key == 'ArrowRight') {
+            if (e.key == 'ArrowRight') {
               // right arrow
               e.preventDefault();
               constants.brailleInput.setSelectionRange(
@@ -1893,11 +1878,6 @@ class Control {
           } else {
             e.preventDefault();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
 
           lastx1 = positionL1.x;
 
