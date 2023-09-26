@@ -54,6 +54,19 @@ class Control {
             // space 32, replay info but no other changes
             UpdateAll();
           }
+
+          // switch layer controls
+          if (Array.isArray(singleMaidr.type)) {
+            // page down /(fn+down arrow): change chart type (layer)
+            if (e.key == 'PageDown' && constants.brailleMode == 'off') {
+              display.changeChartLayer('down');
+            }
+
+            // page up / (fn+up arrow): change chart type (layer)
+            if (e.key == 'PageUp' && constants.brailleMode == 'off') {
+              display.changeChartLayer('up');
+            }
+          }
         },
       ]);
     }
@@ -85,7 +98,7 @@ class Control {
 
       // global variables
       let lastPlayed = '';
-      let lastx = 0;
+      constants.lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -100,7 +113,6 @@ class Control {
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.plotData.length);
               } else {
@@ -113,7 +125,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.bars.length - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
               position.x += 1;
@@ -126,7 +138,6 @@ class Control {
             // left arrow 37
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -135,7 +146,7 @@ class Control {
                 isAtEnd = lockPosition();
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x += -1;
@@ -168,7 +179,6 @@ class Control {
             if (e.target.selectionStart > e.target.value.length - 2) {
             } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.plotData.length);
               } else {
@@ -181,7 +191,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.bars.length - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
               position.x += 1;
@@ -193,7 +203,6 @@ class Control {
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -202,7 +211,7 @@ class Control {
                 isAtEnd = lockPosition();
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x += -1;
@@ -485,7 +494,7 @@ class Control {
                 e.shiftKey &&
                 plot.sections.length - 1 != position.x
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
@@ -512,7 +521,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-left', 0, position.x);
             } else {
@@ -560,7 +569,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.sections.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', plot.plotData.length - 1, position.y);
               } else {
                 position.y += 1;
@@ -585,7 +594,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-down', 0, position.y);
             } else {
@@ -668,7 +677,7 @@ class Control {
                 e.shiftKey &&
                 plot.sections.length - 1 != position.x
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
@@ -696,7 +705,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-left', 0, position.x);
             } else {
@@ -743,7 +752,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.plotData.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', plot.plotData.length - 1, position.y);
               } else {
                 position.y += 1;
@@ -771,7 +780,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-down', 0, position.y);
             } else {
@@ -1082,7 +1091,7 @@ class Control {
       let rect = new HeatMapRect();
       let audio = new Audio();
       let lastPlayed = '';
-      let lastx = 0;
+      constants.lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -1098,7 +1107,6 @@ class Control {
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.num_cols);
               } else {
@@ -1110,7 +1118,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.num_cols - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.num_cols, position.x);
             } else {
               if (position.x == -1 && position.y == -1) {
@@ -1127,7 +1135,6 @@ class Control {
           if (e.key == 'ArrowLeft') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -1135,7 +1142,7 @@ class Control {
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x -= 1;
@@ -1149,7 +1156,6 @@ class Control {
           if (e.key == 'ArrowUp') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.y;
                 position.y += 1;
                 Autoplay('up', position.y, -1);
               } else {
@@ -1157,7 +1163,7 @@ class Control {
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-up', -1, position.y);
             } else {
               position.y -= 1;
@@ -1171,7 +1177,6 @@ class Control {
           if (e.key == 'ArrowDown') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.y;
                 position.y -= 1;
                 Autoplay('down', position.y, plot.num_rows);
               } else {
@@ -1183,7 +1188,7 @@ class Control {
               e.shiftKey &&
               position.y != plot.num_rows - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-down', plot.num_rows, position.y);
             } else {
               if (position.x == -1 && position.y == -1) {
@@ -1242,7 +1247,7 @@ class Control {
                 e.shiftKey &&
                 position.x != plot.num_cols - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.num_cols, position.x);
               } else {
                 if (position.x == -1 && position.y == -1) {
@@ -1273,7 +1278,6 @@ class Control {
             } else {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x += 1;
                   Autoplay('left', position.x, -1);
                 } else {
@@ -1281,7 +1285,7 @@ class Control {
                   updateInfoThisRound = true;
                 }
               } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-left', -1, position.x);
               } else {
                 position.x += -1;
@@ -1317,7 +1321,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.num_rows - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-down', plot.num_rows, position.y);
               } else {
                 if (position.x == -1 && position.y == -1) {
@@ -1341,7 +1345,6 @@ class Control {
             } else {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.y;
                   position.y += 1;
                   Autoplay('up', position.y, -1);
                 } else {
@@ -1349,7 +1352,7 @@ class Control {
                   updateInfoThisRound = true;
                 }
               } else if (e.altKey && e.shiftKey && position.y != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', -1, position.y);
               } else {
                 position.y += -1;
@@ -1645,7 +1648,7 @@ class Control {
       let layer1Point = new Layer1Point();
 
       let lastPlayed = ''; // for autoplay use
-      let lastx = 0; // for scatter point layer autoplay use
+      constants.lastx = 0; // for scatter point layer autoplay use
       let lastx1 = 0; // for smooth layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
@@ -1666,7 +1669,6 @@ class Control {
             if (e.key == 'ArrowRight') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x -= 1;
                   Autoplay('outward_right', position.x, plot.x.length);
                 } else {
@@ -1679,7 +1681,7 @@ class Control {
                 e.shiftKey &&
                 position.x != plot.x.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('inward_right', plot.x.length, position.x);
               } else {
                 position.x += 1;
@@ -1692,7 +1694,6 @@ class Control {
             if (e.key == 'ArrowLeft') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x += 1;
                   Autoplay('outward_left', position.x, -1);
                 } else {
@@ -1701,7 +1702,7 @@ class Control {
                   isAtEnd = lockPosition();
                 }
               } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('inward_left', -1, position.x);
               } else {
                 position.x -= 1;
@@ -1710,7 +1711,9 @@ class Control {
               }
             }
           } else if (constants.chartType == 'smooth') {
-            positionL1.x = lastx1;
+            if (!positionL1.x) {
+              positionL1.x = lastx1;
+            }
 
             if (e.key == 'ArrowRight' && e.shiftKey) {
               if (
@@ -1799,7 +1802,6 @@ class Control {
               e.preventDefault();
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   positionL1.x += 1;
                   Autoplay('outward_left', positionL1.x, -1);
                 } else {
