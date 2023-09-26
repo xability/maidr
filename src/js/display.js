@@ -156,6 +156,19 @@ class Display {
         }
       }
     }
+
+    // update position relative to where we were on the previous layer
+    // newX = oldX * newLen / oldLen
+    if (constants.chartType == 'point') {
+      position.x = Math.round(
+        ((plot.x.length - 1) * positionL1.x) / (plot.curvePoints.length - 1)
+      );
+    } else if (constants.chartType == 'smooth') {
+      // reverse math of the above
+      positionL1.x = Math.round(
+        ((plot.curvePoints.length - 1) * position.x) / (plot.x.length - 1)
+      );
+    }
   }
 
   announceText(txt) {
@@ -741,7 +754,7 @@ class Display {
     constants.brailleInput.value = brailleArray.join('');
 
     constants.brailleInput.value = brailleArray.join('');
-    if (constants.debugLevel > 1) {
+    if (constants.debugLevel > 5) {
       console.log('braille:', constants.brailleInput.value);
     }
 

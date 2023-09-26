@@ -123,6 +123,18 @@ class Audio {
       constants.chartType == 'point' ||
       constants.chartType == 'smooth'
     ) {
+      // are we using global min / max, or just this layer?
+      constants.globalMinMax = true;
+      let chartMin = constants.minY;
+      let chartMax = constants.maxY;
+      if (constants.chartType == 'smooth') {
+        chartMin = plot.curveMinY;
+        chartMax = plot.curveMaxY;
+      }
+      if (constants.globalMinMax) {
+        chartMin = Math.min(constants.minY, plot.curveMinY);
+        chartMax = Math.max(constants.maxY, plot.curveMaxY);
+      }
       if (constants.chartType == 'point') {
         // point layer
         // more than one point with same x-value
@@ -142,18 +154,12 @@ class Audio {
         rawPanning = position.x;
         frequency = this.SlideBetween(
           rawFreq,
-          constants.minY,
-          constants.maxY,
+          chartMin,
+          chartMax,
           constants.MIN_FREQUENCY,
           constants.MAX_FREQUENCY
         );
-        panning = this.SlideBetween(
-          rawPanning,
-          constants.minX,
-          constants.maxX,
-          -1,
-          1
-        );
+        panning = this.SlideBetween(rawPanning, chartMin, chartMax, -1, 1);
       } else if (constants.chartType == 'smooth') {
         // best fit smooth layer
 
@@ -161,18 +167,12 @@ class Audio {
         rawPanning = positionL1.x;
         frequency = this.SlideBetween(
           rawFreq,
-          plot.curveMinY,
-          plot.curveMaxY,
+          chartMin,
+          chartMax,
           constants.MIN_FREQUENCY,
           constants.MAX_FREQUENCY
         );
-        panning = this.SlideBetween(
-          rawPanning,
-          constants.minX,
-          constants.maxX,
-          -1,
-          1
-        );
+        panning = this.SlideBetween(rawPanning, chartMin, chartMax, -1, 1);
       }
     }
 

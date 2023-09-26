@@ -5,6 +5,91 @@ class Control {
 
   SetControls() {
     // variable initialization
+    // global controls
+
+    // main BTS controls
+    let controlElements = [
+      constants.chart,
+      constants.brailleInput,
+      constants.review_container,
+    ];
+    for (let i = 0; i < controlElements.length; i++) {
+      constants.events.push([
+        controlElements[i],
+        'keydown',
+        function (e) {
+          // B: braille mode
+          if (e.key == 'b') {
+            constants.tabMovement = 0;
+            e.preventDefault();
+            display.toggleBrailleMode();
+          }
+
+          // T: aria live text output mode
+          if (e.key == 't') {
+            let timediff = window.performance.now() - lastKeyTime;
+            if (!pressedL || timediff > constants.keypressInterval) {
+              display.toggleTextMode();
+            }
+          }
+
+          // S: sonification mode
+          if (e.key == 's') {
+            display.toggleSonificationMode();
+          }
+
+          // R: review mode
+          if (e.key == 'r' && !e.ctrlKey && !e.altKey) {
+            // r, but let Ctrl and Shift R go through cause I use that to refresh
+            constants.tabMovement = 0;
+            e.preventDefault();
+            if (constants.review_container.classList.contains('hidden')) {
+              review.ToggleReviewMode(true);
+            } else {
+              review.ToggleReviewMode(false);
+            }
+          }
+
+          if (e.key == ' ') {
+            // space 32, replay info but no other changes
+            UpdateAll();
+          }
+
+          // switch layer controls
+          if (Array.isArray(singleMaidr.type)) {
+            // page down /(fn+down arrow): change chart type (layer)
+            if (e.key == 'PageDown' && constants.brailleMode == 'off') {
+              display.changeChartLayer('down');
+            }
+
+            // page up / (fn+up arrow): change chart type (layer)
+            if (e.key == 'PageUp' && constants.brailleMode == 'off') {
+              display.changeChartLayer('up');
+            }
+          }
+        },
+      ]);
+    }
+
+    // We want to tab or shift tab past the chart,
+    // but we delay adding this eventlistener for a moment so the chart loads first
+    for (let i = 0; i < controlElements.length; i++) {
+      constants.events.push([
+        controlElements[i],
+        'keydown',
+        function (e) {
+          if (e.key == 'Tab') {
+            // save key to be used on blur event later
+            if (e.shiftKey) {
+              constants.tabDirection = -1;
+            } else {
+              constants.tabDirection = 1;
+            }
+          }
+        },
+      ]);
+    }
+
     if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
@@ -13,7 +98,7 @@ class Control {
 
       // global variables
       let lastPlayed = '';
-      let lastx = 0;
+      constants.lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -28,7 +113,6 @@ class Control {
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.plotData.length);
               } else {
@@ -41,7 +125,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.bars.length - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
               position.x += 1;
@@ -54,7 +138,6 @@ class Control {
             // left arrow 37
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -63,7 +146,7 @@ class Control {
                 isAtEnd = lockPosition();
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x += -1;
@@ -87,21 +170,15 @@ class Control {
         constants.brailleInput,
         'keydown',
         function (e) {
-          // We block all input, except if it's B or Tab so we move focus
-
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // tab
-            // do nothing, let the user Tab away
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (e.target.selectionStart > e.target.value.length - 2) {
             } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.plotData.length);
               } else {
@@ -114,7 +191,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.bars.length - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.bars.length, position.x);
             } else {
               position.x += 1;
@@ -126,7 +203,6 @@ class Control {
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -135,21 +211,18 @@ class Control {
                 isAtEnd = lockPosition();
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x += -1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
 
           // update display / text / audio
           if (updateInfoThisRound && !isAtEnd) {
@@ -160,45 +233,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keyup',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            if (e.key == ' ') {
-              // space 32, replay info but no other changes
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -420,10 +454,6 @@ class Control {
           let isAtEnd = false;
 
           // right arrow
-          // bookmark: need to totally redo the position system for boxplot.
-          // We no longer use sectionPos, we use sectionKey.
-          // It works by chance, and could probably be made to work,
-          // but it's going to get very spaghetti unless we redo it.
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
@@ -464,7 +494,7 @@ class Control {
                 e.shiftKey &&
                 plot.sections.length - 1 != position.x
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
@@ -491,7 +521,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-left', 0, position.x);
             } else {
@@ -539,7 +569,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.sections.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', plot.plotData.length - 1, position.y);
               } else {
                 position.y += 1;
@@ -564,7 +594,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-down', 0, position.y);
             } else {
@@ -599,16 +629,11 @@ class Control {
         constants.brailleInput,
         'keydown',
         function (e) {
-          // We block all input, except if it's B or Tab so we move focus
-
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let setBrailleThisRound = false;
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // tab
-            // do nothing, let the user Tab away
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -652,7 +677,7 @@ class Control {
                 e.shiftKey &&
                 plot.sections.length - 1 != position.x
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.sections.length - 1, position.x);
               } else {
                 if (position.x == -1 && position.y == plot.plotData.length) {
@@ -680,7 +705,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-left', 0, position.x);
             } else {
@@ -727,7 +752,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.plotData.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', plot.plotData.length - 1, position.y);
               } else {
                 position.y += 1;
@@ -755,7 +780,7 @@ class Control {
               if (constants.plotOrientation == 'vert') {
                 lastY = position.y;
               } else {
-                lastx = position.x;
+                constants.lastx = position.x;
               }
               Autoplay('reverse-down', 0, position.y);
             } else {
@@ -778,6 +803,8 @@ class Control {
               setBrailleThisRound = true;
             }
             constants.navigation = 0;
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
             // todo: allow some controls through like page refresh
@@ -791,52 +818,8 @@ class Control {
           if (isAtEnd) {
             audio.playEnd();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            if (e.key == ' ') {
-              // space 32, replay info but no other changes
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -1108,7 +1091,7 @@ class Control {
       let rect = new HeatMapRect();
       let audio = new Audio();
       let lastPlayed = '';
-      let lastx = 0;
+      constants.lastx = 0;
       let lastKeyTime = 0;
       let pressedL = false;
 
@@ -1124,7 +1107,6 @@ class Control {
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x -= 1;
                 Autoplay('right', position.x, plot.num_cols);
               } else {
@@ -1136,7 +1118,7 @@ class Control {
               e.shiftKey &&
               position.x != plot.num_cols - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-right', plot.num_cols, position.x);
             } else {
               if (position.x == -1 && position.y == -1) {
@@ -1153,7 +1135,6 @@ class Control {
           if (e.key == 'ArrowLeft') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.x;
                 position.x += 1;
                 Autoplay('left', position.x, -1);
               } else {
@@ -1161,7 +1142,7 @@ class Control {
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.x != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-left', -1, position.x);
             } else {
               position.x -= 1;
@@ -1175,7 +1156,6 @@ class Control {
           if (e.key == 'ArrowUp') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.y;
                 position.y += 1;
                 Autoplay('up', position.y, -1);
               } else {
@@ -1183,7 +1163,7 @@ class Control {
                 updateInfoThisRound = true;
               }
             } else if (e.altKey && e.shiftKey && position.y != 0) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-up', -1, position.y);
             } else {
               position.y -= 1;
@@ -1197,7 +1177,6 @@ class Control {
           if (e.key == 'ArrowDown') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
-                // lastx = position.y;
                 position.y -= 1;
                 Autoplay('down', position.y, plot.num_rows);
               } else {
@@ -1209,7 +1188,7 @@ class Control {
               e.shiftKey &&
               position.y != plot.num_rows - 1
             ) {
-              lastx = position.x;
+              constants.lastx = position.x;
               Autoplay('reverse-down', plot.num_rows, position.y);
             } else {
               if (position.x == -1 && position.y == -1) {
@@ -1239,9 +1218,7 @@ class Control {
           let updateInfoThisRound = false;
           let isAtEnd = false;
 
-          if (e.key == 'Tab') {
-            // let user tab
-          } else if (e.key == 'ArrowRight') {
+          if (e.key == 'ArrowRight') {
             // right arrow
             if (
               e.target.selectionStart > e.target.value.length - 3 ||
@@ -1270,7 +1247,7 @@ class Control {
                 e.shiftKey &&
                 position.x != plot.num_cols - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-right', plot.num_cols, position.x);
               } else {
                 if (position.x == -1 && position.y == -1) {
@@ -1301,7 +1278,6 @@ class Control {
             } else {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x += 1;
                   Autoplay('left', position.x, -1);
                 } else {
@@ -1309,7 +1285,7 @@ class Control {
                   updateInfoThisRound = true;
                 }
               } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-left', -1, position.x);
               } else {
                 position.x += -1;
@@ -1345,7 +1321,7 @@ class Control {
                 e.shiftKey &&
                 position.y != plot.num_rows - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-down', plot.num_rows, position.y);
               } else {
                 if (position.x == -1 && position.y == -1) {
@@ -1369,7 +1345,6 @@ class Control {
             } else {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.y;
                   position.y += 1;
                   Autoplay('up', position.y, -1);
                 } else {
@@ -1377,7 +1352,7 @@ class Control {
                   updateInfoThisRound = true;
                 }
               } else if (e.altKey && e.shiftKey && position.y != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('reverse-up', -1, position.y);
               } else {
                 position.y += -1;
@@ -1391,14 +1366,11 @@ class Control {
 
               constants.navigation = 0;
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
 
           if (updateInfoThisRound && !isAtEnd) {
             UpdateAllBraille();
@@ -1408,45 +1380,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            // space: replay info but no other changes
-            if (e.key == ' ') {
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -1715,7 +1648,7 @@ class Control {
       let layer1Point = new Layer1Point();
 
       let lastPlayed = ''; // for autoplay use
-      let lastx = 0; // for scatter point layer autoplay use
+      constants.lastx = 0; // for scatter point layer autoplay use
       let lastx1 = 0; // for smooth layer autoplay use
       let lastKeyTime = 0;
       let pressedL = false;
@@ -1736,7 +1669,6 @@ class Control {
             if (e.key == 'ArrowRight') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x -= 1;
                   Autoplay('outward_right', position.x, plot.x.length);
                 } else {
@@ -1749,7 +1681,7 @@ class Control {
                 e.shiftKey &&
                 position.x != plot.x.length - 1
               ) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('inward_right', plot.x.length, position.x);
               } else {
                 position.x += 1;
@@ -1762,7 +1694,6 @@ class Control {
             if (e.key == 'ArrowLeft') {
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   position.x += 1;
                   Autoplay('outward_left', position.x, -1);
                 } else {
@@ -1771,7 +1702,7 @@ class Control {
                   isAtEnd = lockPosition();
                 }
               } else if (e.altKey && e.shiftKey && position.x != 0) {
-                lastx = position.x;
+                constants.lastx = position.x;
                 Autoplay('inward_left', -1, position.x);
               } else {
                 position.x -= 1;
@@ -1780,7 +1711,9 @@ class Control {
               }
             }
           } else if (constants.chartType == 'smooth') {
-            positionL1.x = lastx1;
+            if (!positionL1.x) {
+              positionL1.x = lastx1;
+            }
 
             if (e.key == 'ArrowRight' && e.shiftKey) {
               if (
@@ -1828,12 +1761,9 @@ class Control {
 
           // @TODO
           // only smooth layer can access to braille display
-          if (e.key == 'Tab') {
-            // constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
-          } else if (constants.chartType == 'smooth') {
+          if (constants.chartType == 'smooth') {
             lockPosition();
-            if (e.key == 'Tab') {
-            } else if (e.key == 'ArrowRight') {
+            if (e.key == 'ArrowRight') {
               // right arrow
               e.preventDefault();
               constants.brailleInput.setSelectionRange(
@@ -1872,7 +1802,6 @@ class Control {
               e.preventDefault();
               if (constants.isMac ? e.metaKey : e.ctrlKey) {
                 if (e.shiftKey) {
-                  // lastx = position.x;
                   positionL1.x += 1;
                   Autoplay('outward_left', positionL1.x, -1);
                 } else {
@@ -1890,14 +1819,11 @@ class Control {
             } else {
               e.preventDefault();
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
-
-          // auto turn off braille mode if we leave the braille box
-          constants.brailleInput.addEventListener('focusout', function (e) {
-            display.toggleBrailleMode('off');
-          });
 
           lastx1 = positionL1.x;
 
@@ -1909,56 +1835,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            // page down /(fn+down arrow): change chart type (layer)
-            if (e.key == 'PageDown' && constants.brailleMode == 'off') {
-              lastx1 = positionL1.x;
-              display.changeChartLayer('down');
-            }
-
-            // page up / (fn+up arrow): change chart type (layer)
-            if (e.key == 'PageUp' && constants.brailleMode == 'off') {
-              display.changeChartLayer('up');
-            }
-
-            // space: replay info but no other changes
-            if (e.key == ' ') {
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -2310,5 +2186,33 @@ class Control {
         audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
       }
     }
+  }
+
+  GetNextPrevFocusable(nextprev = 'next') {
+    // store all focusable elements for future tabbing away from chart
+    let focusableSelectors =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input[type="text"]:not([disabled]), input[type="radio"]:not([disabled]), input[type="checkbox"]:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    constants.focusables = Array.from(
+      document.querySelectorAll(focusableSelectors)
+    );
+
+    // get index of chart in focusables
+    let chartIndex = constants.focusables.indexOf(constants.chart);
+
+    // remove all the stuff we add manually from focusables
+    let maidrFocusables =
+      constants.main_container.querySelectorAll(focusableSelectors);
+    for (let i = 0; i < maidrFocusables.length; i++) {
+      let index = constants.focusables.indexOf(maidrFocusables[i]);
+      if (index > -1) {
+        constants.focusables.splice(index, 1);
+      }
+      // and adjust chartIndex
+      if (chartIndex > index) {
+        chartIndex--;
+      }
+    }
+
+    // now we get next / prev based on chartIndex. If DNE, return null
   }
 }

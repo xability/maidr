@@ -1,6 +1,7 @@
 class Constants {
   // element ids
   chart_container_id = 'chart-container';
+  main_container_id = 'maidr-container';
   //chart_container_class = 'chart-container'; // remove later
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
@@ -15,6 +16,7 @@ class Constants {
   reviewSaveBrailleMode;
   chartId = '';
   events = [];
+  postLoadEvents = [];
 
   // default constructor for all charts
   constructor() {}
@@ -63,12 +65,14 @@ class Constants {
   colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
+  globalMinMax = true;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
   showDisplayInBraille = 1; // true / false
   showDisplayInAutoplay = 0; // true / false
   outlierInterval = null;
+  tabMovement = null;
 
   // platform controls
   isMac = navigator.userAgent.toLowerCase().includes('mac'); // true if macOS
@@ -671,60 +675,7 @@ class Tracker {
 }
 
 class Review {
-  constructor() {
-    this.CreateReviewHtml();
-    this.QueueReviewEvents();
-  }
-
-  CreateReviewHtml() {
-    // review mode form field
-    if (!document.getElementById(constants.review_id)) {
-      if (document.getElementById(constants.info_id)) {
-        document
-          .getElementById(constants.info_id)
-          .insertAdjacentHTML(
-            'beforebegin',
-            '<div id="' +
-              constants.review_id_container +
-              '" class="hidden sr-only sr-only-focusable"><input id="' +
-              constants.review_id +
-              '" type="text" readonly size="50" /></div>'
-          );
-      }
-    }
-
-    constants.review_container = document.querySelector(
-      '#' + constants.review_id_container
-    );
-    constants.review = document.querySelector('#' + constants.review_id);
-  }
-
-  QueueReviewEvents() {
-    constants.events.push([
-      document.getElementById(singleMaidr.id),
-      'keydown',
-      this.ReviewModeEvent,
-    ]);
-    constants.events.push([constants.review, 'keydown', this.ReviewModeEvent]);
-    constants.events.push([
-      document.getElementById(constants.braille_input_id),
-      'keydown',
-      this.ReviewModeEvent,
-    ]);
-  }
-
-  ReviewModeEvent(e) {
-    // Review mode
-    if (e.key == 'r' && !e.ctrlKey && !e.altKey) {
-      // r, but let Ctrl and Shift R go through cause I use that to refresh
-      e.preventDefault();
-      if (constants.review_container.classList.contains('hidden')) {
-        review.ToggleReviewMode(true);
-      } else {
-        review.ToggleReviewMode(false);
-      }
-    }
-  }
+  constructor() {}
 
   ToggleReviewMode(onoff = true) {
     // true means on or show
