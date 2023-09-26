@@ -64,6 +64,7 @@ class Constants {
   colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
+  globalMinMax = true;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
