@@ -5,20 +5,30 @@ class Control {
 
   SetControls() {
     // variable initialization
-
     // global controls
 
+    // bookmark:
+    // This isn't working. Code looks generally ok, but events aren't firing in the right order or something
+    // There seems to be some interference with the global eventlisteners and the chart specific ones
+    // So like, it all works, but then suddenly it doesn't
+    // I tried setting everything to keyup or keydown, no luck but I didn't really do much besides try it
+
     // main BTS controls
-    let controlElements = [constants.chart, constants.brailleInput];
+    let controlElements = [
+      constants.chart,
+      constants.brailleInput,
+      constants.review_container,
+    ];
     for (let i = 0; i < controlElements.length; i++) {
       constants.events.push([
         controlElements[i],
-        'keyup',
+        'keydown',
         function (e) {
           // B: braille mode
           if (e.key == 'b') {
-            display.toggleBrailleMode();
+            constants.tabMovement = 0;
             e.preventDefault();
+            display.toggleBrailleMode();
           }
           // keys = (keys || []);
           // keys[e.keyCode] = true;
@@ -39,25 +49,44 @@ class Control {
             display.toggleSonificationMode();
           }
 
+          // R: review mode
+          if (e.key == 'r' && !e.ctrlKey && !e.altKey) {
+            // r, but let Ctrl and Shift R go through cause I use that to refresh
+            constants.tabMovement = 0;
+            e.preventDefault();
+            if (constants.review_container.classList.contains('hidden')) {
+              review.ToggleReviewMode(true);
+            } else {
+              review.ToggleReviewMode(false);
+            }
+          }
+
           if (e.key == ' ') {
             // space 32, replay info but no other changes
             UpdateAll();
-          }
-
-          if (e.key == 'Tab') {
-            // move before / after chart
           }
         },
       ]);
     }
 
-    // Braille enable / disable
-    // We block all input, except if it's B or Tab so we move focus
-
-    // auto turn off braille mode if we leave the braille box
-    constants.brailleInput.addEventListener('focusout', function (e) {
-      display.toggleBrailleMode('off');
-    });
+    // We want to tab or shift tab past the chart,
+    // but we delay adding this eventlistener for a moment so the chart loads first
+    for (let i = 0; i < controlElements.length; i++) {
+      constants.events.push([
+        controlElements[i],
+        'keydown',
+        function (e) {
+          if (e.key == 'Tab') {
+            // save key to be used on blur event later
+            if (e.shiftKey) {
+              constants.tabDirection = -1;
+            } else {
+              constants.tabDirection = 1;
+            }
+          }
+        },
+      ]);
+    }
 
     if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
@@ -191,6 +220,8 @@ class Control {
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
@@ -778,6 +809,8 @@ class Control {
               setBrailleThisRound = true;
             }
             constants.navigation = 0;
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
             // todo: allow some controls through like page refresh
@@ -793,45 +826,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            if (e.key == ' ') {
-              // space 32, replay info but no other changes
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -1384,6 +1378,8 @@ class Control {
 
               constants.navigation = 0;
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
@@ -1396,45 +1392,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            // space: replay info but no other changes
-            if (e.key == ' ') {
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -1875,6 +1832,8 @@ class Control {
             } else {
               e.preventDefault();
             }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
           } else {
             e.preventDefault();
           }
@@ -1889,56 +1848,6 @@ class Control {
           }
         },
       ]);
-
-      // main BTS controls
-      let controlElements = [constants.chart, constants.brailleInput];
-      for (let i = 0; i < controlElements.length; i++) {
-        constants.events.push([
-          controlElements[i],
-          'keydown',
-          function (e) {
-            // B: braille mode
-            if (e.key == 'b') {
-              display.toggleBrailleMode();
-              e.preventDefault();
-            }
-            // T: aria live text output mode
-            if (e.key == 't') {
-              let timediff = window.performance.now() - lastKeyTime;
-              if (!pressedL || timediff > constants.keypressInterval) {
-                display.toggleTextMode();
-              }
-            }
-
-            // keys = (keys || []);
-            // keys[e.keyCode] = true;
-            // if (keys[84] && !keys[76]) {
-            //     display.toggleTextMode();
-            // }
-
-            // S: sonification mode
-            if (e.key == 's') {
-              display.toggleSonificationMode();
-            }
-
-            // page down /(fn+down arrow): change chart type (layer)
-            if (e.key == 'PageDown' && constants.brailleMode == 'off') {
-              lastx1 = positionL1.x;
-              display.changeChartLayer('down');
-            }
-
-            // page up / (fn+up arrow): change chart type (layer)
-            if (e.key == 'PageUp' && constants.brailleMode == 'off') {
-              display.changeChartLayer('up');
-            }
-
-            // space: replay info but no other changes
-            if (e.key == ' ') {
-              UpdateAll();
-            }
-          },
-        ]);
-      }
 
       constants.events.push([
         document,
@@ -2290,5 +2199,33 @@ class Control {
         audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
       }
     }
+  }
+
+  GetNextPrevFocusable(nextprev = 'next') {
+    // store all focusable elements for future tabbing away from chart
+    let focusableSelectors =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input[type="text"]:not([disabled]), input[type="radio"]:not([disabled]), input[type="checkbox"]:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    constants.focusables = Array.from(
+      document.querySelectorAll(focusableSelectors)
+    );
+
+    // get index of chart in focusables
+    let chartIndex = constants.focusables.indexOf(constants.chart);
+
+    // remove all the stuff we add manually from focusables
+    let maidrFocusables =
+      constants.main_container.querySelectorAll(focusableSelectors);
+    for (let i = 0; i < maidrFocusables.length; i++) {
+      let index = constants.focusables.indexOf(maidrFocusables[i]);
+      if (index > -1) {
+        constants.focusables.splice(index, 1);
+      }
+      // and adjust chartIndex
+      if (chartIndex > index) {
+        chartIndex--;
+      }
+    }
+
+    // now we get next / prev based on chartIndex. If DNE, return null
   }
 }
