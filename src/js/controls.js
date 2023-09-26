@@ -7,12 +7,6 @@ class Control {
     // variable initialization
     // global controls
 
-    // bookmark:
-    // This isn't working. Code looks generally ok, but events aren't firing in the right order or something
-    // There seems to be some interference with the global eventlisteners and the chart specific ones
-    // So like, it all works, but then suddenly it doesn't
-    // I tried setting everything to keyup or keydown, no luck but I didn't really do much besides try it
-
     // main BTS controls
     let controlElements = [
       constants.chart,
@@ -30,11 +24,6 @@ class Control {
             e.preventDefault();
             display.toggleBrailleMode();
           }
-          // keys = (keys || []);
-          // keys[e.keyCode] = true;
-          // if (keys[84] && !keys[76]) {
-          //     display.toggleTextMode();
-          // }
 
           // T: aria live text output mode
           if (e.key == 't') {
@@ -456,10 +445,6 @@ class Control {
           let isAtEnd = false;
 
           // right arrow
-          // bookmark: need to totally redo the position system for boxplot.
-          // We no longer use sectionPos, we use sectionKey.
-          // It works by chance, and could probably be made to work,
-          // but it's going to get very spaghetti unless we redo it.
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {

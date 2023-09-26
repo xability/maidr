@@ -697,8 +697,6 @@ class Review {
   }
 }
 
-// bookmark: review toggles on, but when it does constants is not defined? trace that
-
 class LogError {
   constructor() {}
 
