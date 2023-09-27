@@ -23,9 +23,7 @@ class BarChart {
       if (elements.length != data.length) {
         // I didn't throw an error but give a warning
         constants.hasRect = 0;
-        console.log(
-          'Warning: x level and data do not have the same length. This may cause errors. Visual highlighting is turned off.'
-        );
+        logError.logDifferentLengths('elements', 'data');
       } else if (xlevel.length != elements.length) {
         constants.hasRect = 0;
         logError.logDifferentLengths('x level', 'elements');
