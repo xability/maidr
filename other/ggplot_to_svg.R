@@ -338,3 +338,29 @@ dev.off()
 
 layer_data(g, 1) %>%
   jsonlite::write_json("lineplot_user_study_raw_data.json")
+
+
+# Create a line plot sample
+library(tidyverse)
+
+# Save g ss svg using svglite
+svglite::svglite("lineplot_sample.svg")
+g <- ggplot(economics, aes(date, unemploy)) +
+  # geom_point() +
+  geom_line() +
+  labs(
+    title = "Unemployment Rate Over Time",
+    subtitle = "From 1950 to 2015",
+    caption = "Source: economics data from ggplot2 package",
+    x = "Year",
+    y = "Unemployment Rate"
+  )
+
+g
+
+dev.off()
+
+# Extract x and y from ggplot
+data <- layer_data(g, 1) %>%
+  select(x, y) %>%
+  jsonlite::write_json("lineplot_sample_raw_data.json")
