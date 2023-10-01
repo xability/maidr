@@ -174,6 +174,23 @@ class Audio {
         );
         panning = this.SlideBetween(rawPanning, chartMin, chartMax, -1, 1);
       }
+    } else if (constants.chartType == 'line') {
+      rawFreq = plot.pointValuesY[position.x];
+      rawPanning = position.x;
+      frequency = this.SlideBetween(
+        rawFreq,
+        constants.minY,
+        constants.maxY,
+        constants.MIN_FREQUENCY,
+        constants.MAX_FREQUENCY
+      );
+      panning = this.SlideBetween(
+        rawPanning,
+        constants.minX,
+        constants.maxX,
+        -1,
+        1
+      );
     }
 
     if (constants.debugLevel > 5) {

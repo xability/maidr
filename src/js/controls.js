@@ -2185,6 +2185,342 @@ class Control {
         // audio.playSmooth(freqArr, 2, panningArr, constants.vol, 'sine');
         audio.playSmooth(freqArr, duration, panningArr, constants.vol, 'sine');
       }
+    } else if (singleMaidr.type == 'line') {
+      window.position = new Position(-1, -1);
+      window.plot = new LinePlot();
+      let point = new Point();
+
+      let audio = new Audio();
+
+      // global variables
+      let lastPlayed = '';
+      constants.lastx = 0;
+      let lastKeyTime = 0;
+      let pressedL = false;
+
+      // control eventlisteners
+      constants.events.push([
+        constants.chart,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
+
+          if (e.key == 'ArrowRight') {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x -= 1;
+                Autoplay('outward_right', position.x, plot.pointValuesY.length);
+              } else {
+                position.x = plot.pointValuesY.length - 1; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.pointValuesY.length - 1
+            ) {
+              constants.lastx = position.x;
+              Autoplay('inward_right', plot.pointValues.length, position.x);
+            } else {
+              position.x += 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else if (e.key == 'ArrowLeft') {
+            // left arrow 37
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x += 1;
+                Autoplay('outward_left', position.x, -1);
+              } else {
+                position.x = 0; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              constants.lastx = position.x;
+              Autoplay('inward_left', -1, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            // }
+          }
+
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAll();
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      constants.events.push([
+        constants.brailleInput,
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
+
+          if (e.key == 'ArrowRight') {
+            // right arrow
+            e.preventDefault();
+            if (e.target.selectionStart > e.target.value.length - 2) {
+            } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x -= 1;
+                Autoplay('outward_right', position.x, plot.pointValuesY.length);
+              } else {
+                position.x = plot.pointValuesY.length - 1; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.pointValuesY.length - 1
+            ) {
+              constants.lastx = position.x;
+              Autoplay('inward_right', plot.pointValuesY.length, position.x);
+            } else {
+              position.x += 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else if (e.key == 'ArrowLeft') {
+            // left arrow
+            e.preventDefault();
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x += 1;
+                Autoplay('outward_left', position.x, -1);
+              } else {
+                position.x = 0; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              constants.lastx = position.x;
+              Autoplay('inward_left', -1, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else if (e.key == 'Tab') {
+            // do nothing, we handle this in global events
+          } else {
+            e.preventDefault();
+          }
+
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            UpdateAllBraille();
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      constants.events.push([
+        document,
+        'keydown',
+        function (e) {
+          // ctrl/cmd: stop autoplay
+          if (constants.isMac ? e.metaKey : e.ctrlKey) {
+            // (ctrl/cmd)+(home/fn+left arrow): first element
+            if (e.key == 'Home') {
+              position.x = 0;
+              UpdateAllBraille();
+            }
+
+            // (ctrl/cmd)+(end/fn+right arrow): last element
+            else if (e.key == 'End') {
+              position.x = plot.pointValuesY.length - 1;
+              UpdateAllBraille();
+            }
+          }
+
+          // must come before prefix L
+          if (pressedL) {
+            if (e.key == 'x') {
+              // X: x label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                let xlabel = '';
+                if (constants.chartType == 'bar') {
+                  xlabel = plot.plotLegend.x;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point') ||
+                  singleMaidr.type == 'line'
+                ) {
+                  xlabel = plot.x_group_label;
+                }
+                display.displayInfo('x label', xlabel);
+              }
+              pressedL = false;
+            } else if (e.key == 'y') {
+              // Y: y label
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                let ylabel = '';
+                if (constants.chartType == 'bar') {
+                  ylabel = plot.plotLegend.y;
+                } else if (
+                  constants.chartType == 'heat' ||
+                  constants.chartType == 'box' ||
+                  singleMaidr.type == 'point' ||
+                  singleMaidr.type.includes('point') ||
+                  singleMaidr.type == 'line'
+                ) {
+                  ylabel = plot.y_group_label;
+                }
+                display.displayInfo('y label', ylabel);
+              }
+              pressedL = false;
+            } else if (e.key == 't') {
+              // T: title
+              let timediff = window.performance.now() - lastKeyTime;
+              if (pressedL && timediff <= constants.keypressInterval) {
+                display.displayInfo('title', plot.title);
+              }
+              pressedL = false;
+            } else if (e.key == 's') {
+              // subtitle
+              display.displayInfo('subtitle', plot.subtitle);
+              pressedL = false;
+            } else if (e.key == 'c') {
+              // caption
+              display.displayInfo('caption', plot.caption);
+              pressedL = false;
+            } else if (e.key == 'l') {
+              lastKeyTime = window.performance.now();
+              pressedL = true;
+            } else {
+              pressedL = false;
+            }
+          }
+
+          // L: prefix for label; must come after the suffix
+          if (e.key == 'l') {
+            lastKeyTime = window.performance.now();
+            pressedL = true;
+          }
+
+          // period: speed up
+          if (e.key == '.') {
+            constants.SpeedUp();
+            display.announceText('Speed up');
+          }
+
+          // comma: speed down
+          if (e.key == ',') {
+            constants.SpeedDown();
+            display.announceText('Speed down');
+          }
+          // /: reset speed
+          if (e.key == '/') {
+            constants.SpeedReset();
+            display.announceText('Speed reset');
+          }
+        },
+      ]);
+
+      function lockPosition() {
+        // lock to min / max postions
+        let didLockHappen = false;
+        // if (!constants.hasRect) {
+        //   return didLockHappen;
+        // }
+
+        if (position.x < 0) {
+          position.x = 0;
+          didLockHappen = true;
+        }
+        if (position.x > plot.pointValuesY.length - 1) {
+          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
+          position.x = plot.pointValuesY.length - 1;
+          didLockHappen = true;
+        }
+
+        return didLockHappen;
+      }
+      function UpdateAll() {
+        if (constants.showDisplay) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect) {
+          point.UpdatePointDisplay();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone(); // TODO
+        }
+      }
+      function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect) {
+          point.UpdatePointDisplay();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone(); // TODO
+        }
+
+        if (constants.brailleMode != 'off') {
+          display.UpdateBraillePos(plot);
+        }
+      }
+      function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect) {
+          point.UpdatePointDisplay();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone(); // TODO
+        }
+        display.UpdateBraillePos(plot);
+      }
+      function Autoplay(dir, start, end) {
+        lastPlayed = dir;
+        let step = 1; // default right and reverse-left
+        if (dir == 'outward_left' || dir == 'inward_right') {
+          step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+          constants.KillAutoplay();
+        }
+
+        if (dir == 'inward_right' || dir == 'inward_left') {
+          position.x = start;
+        }
+
+        constants.autoplayId = setInterval(function () {
+          position.x += step;
+          if (position.x < 0 || plot.pointValuesY.length - 1 < position.x) {
+            constants.KillAutoplay();
+            lockPosition();
+          } else if (position.x == end) {
+            constants.KillAutoplay();
+            UpdateAllAutoplay();
+          } else {
+            UpdateAllAutoplay();
+          }
+        }, constants.autoPlayRate);
+      }
     }
   }
 

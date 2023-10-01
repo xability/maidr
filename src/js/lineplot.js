@@ -1,53 +1,8 @@
-// const constants = new Constants();
-// document.addEventListener('DOMContentLoaded', function () {
-//   console.log(maidr.elements);
-//   let line = maidr.elements[0]; // todo, ask if line plot is always going to be the first element
-//   //   line.setAttribute('stroke', 'rgb(127,12,30)');
-//   let points = line.getAttribute('points');
-//   points = points.split(' ');
-//   let newPoints = [];
-//   for (let i = 0; i < points.length; i++) {
-//     let point = points[i].split(',');
-//     newPoints.push([point[0], point[1]]);
-//   }
-//   for (let i = 0; i < newPoints.length; i++) {
-//     let point = newPoints[i];
-//     let circle = document.createElementNS(
-//       'http://www.w3.org/2000/svg',
-//       'circle'
-//     );
-//     circle.setAttribute('cx', point[0]);
-//     circle.setAttribute(
-//       'cy',
-//       document.getElementById('lineplot1').getBoundingClientRect().height -
-//         point[1]
-//     );
-//     circle.setAttribute('r', 1);
-//     circle.setAttribute('fill', 'rgb(127,12,30)');
-//     circle.setAttribute('stroke', 'rgb(127,12,30)');
-//     document.getElementById('lineplot1').appendChild(circle);
-//   }
-
-//   var data = maidr.data;
-//   var sum = 0;
-//   var count = 0;
-//   for (let i = 0; i < data.length; i++) {
-//     if (data[i].x == 1952) {
-//       sum += data[i].y;
-//       count++;
-//     }
-//   }
-//   var avg = sum / count;
-//   console.log(sum, count, data[count / 2], avg);
-// });
-
-// properties: type, id, title, elements, data
-document.addEventListener('DOMContentLoaded', function () {
-  var lineplot = new LinePlot();
-});
-
 class LinePlot {
   constructor() {
+    this.SetLineLayer();
+    this.SetAxes();
+
     let legendX = '';
     let legendY = '';
     if ('axes' in singleMaidr) {
@@ -98,77 +53,137 @@ class LinePlot {
         this.caption = singleMaidr.labels.caption;
       }
     }
+  }
 
+  SetLineLayer() {
+    this.plotLine = maidr.elements;
+    if (typeof this.plotLine !== 'undefined') {
+      let pointCoords = this.GetPointCoords();
+      let pointValues = this.GetPoints();
+
+      this.chartLineX = pointCoords[0]; // x coordinates of curve
+      this.chartLineY = pointCoords[1]; // y coordinates of curve
+
+      this.pointValuesX = pointValues[0]; // actual values of x
+      this.pointValuesY = pointValues[1]; // actual values of y
+
+      this.curveMinY = Math.min(...this.pointValuesY);
+      this.curveMaxY = Math.max(...this.pointValuesY);
+      constants.minY = this.curveMinY;
+      constants.maxY = this.curveMaxY;
+      this.gradient = this.GetGradient();
+    }
+  }
+
+  GetPointCoords() {
+    let svgLineCoords = [[], []];
+    for (let i = 0; i < this.plotLine.length; i++) {
+      let point = this.plotLine[i];
+      svgLineCoords[0].push(point.getAttribute('cx'));
+      svgLineCoords[1].push(point.getAttribute('cy'));
+    }
+    return svgLineCoords;
+  }
+
+  GetPoints() {
+    let x_points = [];
+    let y_points = [];
+
+    let data;
     if ('data' in singleMaidr) {
-      let points = new Map();
-      let data = singleMaidr.data;
+      data = singleMaidr.data;
+    }
+    if (typeof data !== 'undefined') {
       for (let i = 0; i < data.length; i++) {
-        if (!points.has(data[i].x)) {
-          points.set(data[i].x, [data[i].y]);
-        } else {
-          points.get(data[i].x).push(data[i].y);
-        }
+        x_points.push(data[i].x);
+        y_points.push(data[i].y);
       }
-      // this.plotData = singleMaidr.data;
-      this.plotData = points;
+      return [x_points, y_points];
+    } else {
+      return;
     }
-
-    // set the max and min values for the plot
-    this.SetMaxMin();
-
-    this.autoplay = null;
-    console.log(this.title);
-    console.log(this.plotData);
   }
 
-  SetMaxMin() {
-    for (let i = 0; i < this.plotData.length; i++) {
-      for (let j = 0; j < this.plotData[i].length; j++) {
-        if (i == 0 && j == 0) {
-          constants.maxY = this.plotData[i][j];
-          constants.minY = this.plotData[i][j];
-        } else {
-          if (this.plotData[i][j] > constants.maxY) {
-            constants.maxY = this.plotData[i];
-          }
-          if (this.plotData[i][j] < constants.minY) {
-            constants.minY = this.plotData[i];
-          }
+  GetGradient() {
+    let gradients = [];
+
+    for (let i = 0; i < this.pointValuesY.length - 1; i++) {
+      let abs_grad = Math.abs(
+        (this.pointValuesY[i + 1] - this.pointValuesY[i]) /
+          (this.pointValuesX[i + 1] - this.pointValuesX[i])
+      ).toFixed(3);
+      gradients.push(abs_grad);
+    }
+
+    gradients.push('end');
+
+    return gradients;
+  }
+
+  SetAxes() {
+    this.x_group_label = '';
+    this.y_group_label = '';
+    this.title = '';
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if (this.x_group_label == '') {
+          this.x_group_label = singleMaidr.axes.x.label;
+        }
+      }
+      if ('y' in singleMaidr.axes) {
+        if (this.y_group_label == '') {
+          this.y_group_label = singleMaidr.axes.y.label;
         }
       }
     }
-    constants.maxX = this.plotData.length;
+    if ('title' in singleMaidr) {
+      if (this.title == '') {
+        this.title = singleMaidr.title;
+      }
+    }
+  }
+}
+
+class Point {
+  constructor() {
+    this.x = plot.chartLineX[0];
+    this.y = plot.chartLineY[0];
   }
 
-  //   GetData() {
-  //     // set height for each bar
+  async UpdatePoints() {
+    await this.ClearPoints();
+    this.x = plot.chartLineX[position.x];
+    this.y = plot.chartLineY[position.x];
+  }
 
-  //     let plotData = [];
+  async PrintPoints() {
+    await this.ClearPoints();
+    await this.UpdatePoints();
+    const svgns = 'http://www.w3.org/2000/svg';
+    var point = document.createElementNS(svgns, 'circle');
+    point.setAttribute('id', 'highlight_point');
+    point.setAttribute('cx', this.x);
+    point.setAttribute('cy', this.y);
+    point.setAttribute('r', 1);
+    point.setAttribute(
+      'style',
+      'fill:' + constants.colorSelected + ';stroke:' + constants.colorSelected
+    );
+    constants.chart.appendChild(point);
+  }
 
-  //     if (this.bars) {
-  //       for (let i = 0; i < this.bars.length; i++) {
-  //         plotData.push(this.bars[i].getAttribute('height'));
-  //       }
-  //     }
+  async ClearPoints() {
+    let points = document.getElementsByClassName('highlight_point');
+    for (let i = 0; i < points.length; i++) {
+      document.getElementsByClassName('highlight_point')[i].remove();
+    }
+    if (document.getElementById('highlight_point'))
+      document.getElementById('highlight_point').remove();
+  }
 
-  //     return plotData;
-  //   }
-
-  //   GetLegend() {
-  //     let legend = {};
-  //     let els = constants.chart.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
-  //     legend.x = els[1].innerHTML;
-  //     legend.y = els[0].innerHTML;
-
-  //     return legend;
-  //   }
-
-  //   ParseInnerHTML(els) {
-  //     // parse innerHTML of elements
-  //     let parsed = [];
-  //     for (var i = 0; i < els.length; i++) {
-  //       parsed.push(els[i].innerHTML);
-  //     }
-  //     return parsed;
-  //   }
+  UpdatePointDisplay() {
+    this.ClearPoints();
+    this.UpdatePoints();
+    this.PrintPoints();
+  }
 }
