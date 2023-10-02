@@ -57,6 +57,7 @@ class Constants {
   // advanced user settings
   showRect = 1; // true / false
   hasRect = 1; // true / false
+  hasSmooth = 1; // true / false (for smooth line points)
   duration = 0.3;
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50; // ms per tone
@@ -712,5 +713,19 @@ class LogError {
       b,
       'do not have the same length. Visual highlighting is turned off.'
     );
+  }
+
+  LogTooManyElements(a, b) {
+    console.log(
+      'Too many',
+      a,
+      'elements. Only the first',
+      b,
+      'will be highlighted.'
+    );
+  }
+
+  LogNotArray(a) {
+    console.log(a, 'is not an array. Visual highlighting is turned off.');
   }
 }

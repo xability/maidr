@@ -176,7 +176,7 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == 'bar') {
+    if (constants.chartType == 'bar' || constants.chartType == 'line') {
       constants.brailleInput.setSelectionRange(position.x, position.x);
     } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
@@ -474,6 +474,30 @@ class Display {
           output += plot.legendY + ' is ';
         }
         output += plot.plotData[position.x].y;
+      }
+    } else if (constants.chartType == 'line') {
+      // line layer
+      verboseText +=
+        plot.x_group_label +
+        ' is ' +
+        plot.pointValuesX[position.x] +
+        ', ' +
+        plot.y_group_label +
+        ' is ' +
+        plot.pointValuesY[position.x];
+
+      if (constants.textMode == 'off') {
+        // do nothing
+      } else if (constants.textMode == 'terse') {
+        output +=
+          '<p>' +
+          plot.pointValuesX[position.x] +
+          ', ' +
+          plot.pointValuesY[position.x] +
+          '</p>\n';
+      } else if (constants.textMode == 'verbose') {
+        // set from verboseText
+        output += '<p>' + verboseText + '</p>\n';
       }
     }
 
@@ -787,6 +811,23 @@ class Display {
             brailleChar = '⠂';
           }
           brailleArray.push(brailleChar);
+        }
+      }
+    } else if (constants.chartType == 'line') {
+      // TODO
+      let range = (constants.maxY - constants.minY) / 4;
+      let low = constants.minY + range;
+      let medium = low + range;
+      let medium_high = medium + range;
+      for (let i = 0; i < plot.pointValuesY.length; i++) {
+        if (plot.pointValuesY[i] <= low) {
+          brailleArray.push('⣀');
+        } else if (plot.pointValuesY[i] <= medium) {
+          brailleArray.push('⠤');
+        } else if (plot.pointValuesY[i] <= medium_high) {
+          brailleArray.push('⠒');
+        } else {
+          brailleArray.push('⠉');
         }
       }
     }
