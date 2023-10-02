@@ -102,23 +102,7 @@ function InitMaidr(thisMaidr) {
     // kill autoplay event
     constants.events.push([document, 'keydown', KillAutoplayEvent]);
 
-    // add all events
-    for (let i = 0; i < constants.events.length; i++) {
-      constants.events[i][0].addEventListener(
-        constants.events[i][1],
-        constants.events[i][2]
-      );
-    }
-    // we delay adding post load events just a tick so the chart loads
-    setTimeout(function () {
-      // add all post load events
-      for (let i = 0; i < constants.postLoadEvents.length; i++) {
-        constants.postLoadEvents[i][0].addEventListener(
-          constants.postLoadEvents[i][1],
-          constants.postLoadEvents[i][2]
-        );
-      }
-    }, 100);
+    this.SetEvents();
 
     // once everything is set up, announce the chart name (or title as a backup) to the user
     if ('name' in singleMaidr) {
@@ -191,22 +175,40 @@ function FocusBeforeOrAfter() {
 
 function DestroyMaidr() {
   // chart cleanup
-  if (constants.chartType == 'bar') {
+  if (constants.chartType == 'bar' || constants.chartType == 'hist') {
     plot.DeselectAll();
   }
 
   // remove events
   for (let i = 0; i < constants.events.length; i++) {
-    constants.events[i][0].removeEventListener(
-      constants.events[i][1],
-      constants.events[i][2]
-    );
+    if (Array.isArray(constants.events[i][0])) {
+      for (let j = 0; j < constants.events[i][0].length; j++) {
+        constants.events[i][0][j].removeEventListener(
+          constants.events[i][1],
+          constants.events[i][2]
+        );
+      }
+    } else {
+      constants.events[i][0].removeEventListener(
+        constants.events[i][1],
+        constants.events[i][2]
+      );
+    }
   }
   for (let i = 0; i < constants.postLoadEvents.length; i++) {
-    constants.postLoadEvents[i][0].removeEventListener(
-      constants.postLoadEvents[i][1],
-      constants.postLoadEvents[i][2]
-    );
+    if (Array.isArray(constants.postLoadEvents[i][0])) {
+      for (let j = 0; j < constants.postLoadEvents[i][0].length; j++) {
+        constants.postLoadEvents[i][0][j].removeEventListener(
+          constants.postLoadEvents[i][1],
+          constants.postLoadEvents[i][2]
+        );
+      }
+    } else {
+      constants.postLoadEvents[i][0].removeEventListener(
+        constants.postLoadEvents[i][1],
+        constants.postLoadEvents[i][2]
+      );
+    }
   }
   constants.events = [];
   constants.postLoadEvents = [];
@@ -233,6 +235,44 @@ function KillAutoplayEvent(e) {
     // ctrl (either one)
     constants.KillAutoplay();
   }
+}
+
+function SetEvents() {
+  // add all events
+  for (let i = 0; i < constants.events.length; i++) {
+    if (Array.isArray(constants.events[i][0])) {
+      for (let j = 0; j < constants.events[i][0].length; j++) {
+        constants.events[i][0][j].addEventListener(
+          constants.events[i][1],
+          constants.events[i][2]
+        );
+      }
+    } else {
+      constants.events[i][0].addEventListener(
+        constants.events[i][1],
+        constants.events[i][2]
+      );
+    }
+  }
+  // add all post load events
+  // we delay adding post load events just a tick so the chart loads
+  setTimeout(function () {
+    for (let i = 0; i < constants.postLoadEvents.length; i++) {
+      if (Array.isArray(constants.postLoadEvents[i][0])) {
+        for (let j = 0; j < constants.postLoadEvents[i][0].length; j++) {
+          constants.postLoadEvents[i][0][j].addEventListener(
+            constants.postLoadEvents[i][1],
+            constants.postLoadEvents[i][2]
+          );
+        }
+      } else {
+        constants.postLoadEvents[i][0].addEventListener(
+          constants.postLoadEvents[i][1],
+          constants.postLoadEvents[i][2]
+        );
+      }
+    }
+  }, 100);
 }
 
 function CreateChartComponents() {

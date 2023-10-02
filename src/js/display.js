@@ -451,6 +451,30 @@ class Display {
       }
       if (constants.textMode == 'verbose')
         output = '<p>' + verboseText + '</p>\n';
+    } else if (constants.chartType == 'hist') {
+      if (constants.textMode == 'terse') {
+        // terse: xmin - xmax, y
+        output =
+          '<p>' +
+          plot.plotData[position.x].xmin +
+          ' - ' +
+          plot.plotData[position.x].xmax +
+          ', ' +
+          plot.plotData[position.x].y +
+          '</p>\n';
+      } else if (constants.textMode == 'verbose') {
+        // verbose: {xlabel} is xmin through xmax, {ylabel} is y
+        output = '<p>';
+        if (plot.legendX) {
+          output = plot.legendX + ' is ';
+        }
+        output += plot.plotData[position.x].xmin;
+        output += ' through ' + plot.plotData[position.x].xmax + ', ';
+        if (plot.legendY) {
+          output += plot.legendY + ' is ';
+        }
+        output += plot.plotData[position.x].y;
+      }
     }
 
     if (constants.infoDiv) constants.infoDiv.innerHTML = output;
@@ -537,6 +561,22 @@ class Display {
         } else if (plot.curvePoints[i] <= medium_high) {
           brailleArray.push('⠒');
         } else if (plot.curvePoints[i] <= high) {
+          brailleArray.push('⠉');
+        }
+      }
+    } else if (constants.chartType == 'hist') {
+      let range = (constants.maxY - constants.minY) / 4;
+      let low = constants.minY + range;
+      let medium = low + range;
+      let medium_high = medium + range;
+      for (let i = 0; i < plot.plotData.length; i++) {
+        if (plot.plotData[i].y <= low) {
+          brailleArray.push('⣀');
+        } else if (plot.plotData[i].y <= medium) {
+          brailleArray.push('⠤');
+        } else if (plot.plotData[i].y <= medium_high) {
+          brailleArray.push('⠒');
+        } else {
           brailleArray.push('⠉');
         }
       }
