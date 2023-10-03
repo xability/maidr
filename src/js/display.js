@@ -815,18 +815,81 @@ class Display {
       }
     } else if (constants.chartType == 'line') {
       // TODO
+      // ⠑
       let range = (constants.maxY - constants.minY) / 4;
       let low = constants.minY + range;
       let medium = low + range;
       let medium_high = medium + range;
+      let high = medium_high + range;
+
       for (let i = 0; i < plot.pointValuesY.length; i++) {
-        if (plot.pointValuesY[i] <= low) {
+        if (
+          plot.pointValuesY[i] <= low &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > low
+        ) {
+          // move from higher ranges to low
+          if (plot.pointValuesY[i - 1] <= medium) {
+            // move away from medium range
+            brailleArray.push('⢄');
+          } else if (plot.pointValuesY[i - 1] <= medium_high) {
+            // move away from medium high range
+            brailleArray.push('⢆');
+          } else if (plot.pointValuesY[i - 1] > medium_high) {
+            // move away from high range
+            brailleArray.push('⢇');
+          }
+        } else if (plot.pointValuesY[i] <= low) {
+          // in the low range
           brailleArray.push('⣀');
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= low) {
+          // move from low to higher ranges
+          if (plot.pointValuesY[i] <= medium) {
+            // move to medium range
+            brailleArray.push('⡠');
+          } else if (plot.pointValuesY[i] <= medium_high) {
+            // move to medium high range
+            brailleArray.push('⡰');
+          } else if (plot.pointValuesY[i] > medium_high) {
+            // move to high range
+            brailleArray.push('⡸');
+          }
+        } else if (
+          plot.pointValuesY[i] <= medium &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > medium
+        ) {
+          if (plot.pointValuesY[i - 1] <= medium_high) {
+            // move away from medium high range to medium
+            brailleArray.push('⠢');
+          } else if (plot.pointValuesY[i - 1] > medium_high) {
+            // move away from high range
+            brailleArray.push('⠣');
+          }
         } else if (plot.pointValuesY[i] <= medium) {
           brailleArray.push('⠤');
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= medium) {
+          // move from medium to higher ranges
+          if (plot.pointValuesY[i] <= medium_high) {
+            // move to medium high range
+            brailleArray.push('⠔');
+          } else if (plot.pointValuesY[i] > medium_high) {
+            // move to high range
+            brailleArray.push('⠜');
+          }
+        } else if (
+          plot.pointValuesY[i] <= medium_high &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > medium_high
+        ) {
+          // move away from high range to medium high
+          brailleArray.push('⠑');
         } else if (plot.pointValuesY[i] <= medium_high) {
           brailleArray.push('⠒');
-        } else {
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= medium_high) {
+          // move from medium high to high range
+          brailleArray.push('⠊');
+        } else if (plot.pointValuesY[i] <= high) {
           brailleArray.push('⠉');
         }
       }
