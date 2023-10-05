@@ -1850,6 +1850,7 @@ class Control {
 
       // global variables
       let lastKeyTime = 0;
+      let lastPlayed = '';
       constants.lastx = 0;
 
       // control eventlisteners
