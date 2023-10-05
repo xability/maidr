@@ -161,6 +161,7 @@ class Control {
                 constants.chartType == 'heat' ||
                 constants.chartType == 'box' ||
                 singleMaidr.type == 'point' ||
+                singleMaidr.type == 'line' ||
                 singleMaidr.type.includes('point')
               ) {
                 xlabel = plot.x_group_label;
@@ -179,6 +180,7 @@ class Control {
                 constants.chartType == 'heat' ||
                 constants.chartType == 'box' ||
                 singleMaidr.type == 'point' ||
+                singleMaidr.type == 'line' ||
                 singleMaidr.type.includes('point')
               ) {
                 ylabel = plot.y_group_label;
@@ -2178,113 +2180,6 @@ class Control {
           }
           if (isAtEnd) {
             audio.playEnd();
-          }
-        },
-      ]);
-
-      constants.events.push([
-        document,
-        'keydown',
-        function (e) {
-          // ctrl/cmd: stop autoplay
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            // (ctrl/cmd)+(home/fn+left arrow): first element
-            if (e.key == 'Home') {
-              position.x = 0;
-              UpdateAllBraille();
-            }
-
-            // (ctrl/cmd)+(end/fn+right arrow): last element
-            else if (e.key == 'End') {
-              position.x = plot.pointValuesY.length - 1;
-              UpdateAllBraille();
-            }
-          }
-
-          // must come before prefix L
-          if (pressedL) {
-            if (e.key == 'x') {
-              // X: x label
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                let xlabel = '';
-                if (constants.chartType == 'bar') {
-                  xlabel = plot.plotLegend.x;
-                } else if (
-                  constants.chartType == 'heat' ||
-                  constants.chartType == 'box' ||
-                  singleMaidr.type == 'point' ||
-                  singleMaidr.type.includes('point') ||
-                  singleMaidr.type == 'line'
-                ) {
-                  xlabel = plot.x_group_label;
-                }
-                display.displayInfo('x label', xlabel);
-              }
-              pressedL = false;
-            } else if (e.key == 'y') {
-              // Y: y label
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                let ylabel = '';
-                if (constants.chartType == 'bar') {
-                  ylabel = plot.plotLegend.y;
-                } else if (
-                  constants.chartType == 'heat' ||
-                  constants.chartType == 'box' ||
-                  singleMaidr.type == 'point' ||
-                  singleMaidr.type.includes('point') ||
-                  singleMaidr.type == 'line'
-                ) {
-                  ylabel = plot.y_group_label;
-                }
-                display.displayInfo('y label', ylabel);
-              }
-              pressedL = false;
-            } else if (e.key == 't') {
-              // T: title
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayInfo('title', plot.title);
-              }
-              pressedL = false;
-            } else if (e.key == 's') {
-              // subtitle
-              display.displayInfo('subtitle', plot.subtitle);
-              pressedL = false;
-            } else if (e.key == 'c') {
-              // caption
-              display.displayInfo('caption', plot.caption);
-              pressedL = false;
-            } else if (e.key == 'l') {
-              lastKeyTime = window.performance.now();
-              pressedL = true;
-            } else {
-              pressedL = false;
-            }
-          }
-
-          // L: prefix for label; must come after the suffix
-          if (e.key == 'l') {
-            lastKeyTime = window.performance.now();
-            pressedL = true;
-          }
-
-          // period: speed up
-          if (e.key == '.') {
-            constants.SpeedUp();
-            display.announceText('Speed up');
-          }
-
-          // comma: speed down
-          if (e.key == ',') {
-            constants.SpeedDown();
-            display.announceText('Speed down');
-          }
-          // /: reset speed
-          if (e.key == '/') {
-            constants.SpeedReset();
-            display.announceText('Speed reset');
           }
         },
       ]);
