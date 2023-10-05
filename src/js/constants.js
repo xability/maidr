@@ -72,7 +72,6 @@ class Constants {
   showDisplayInBraille = 1; // true / false
   showDisplayInAutoplay = 0; // true / false
   outlierInterval = null;
-  tabMovement = null;
 
   // platform controls
   isMac = navigator.userAgent.toLowerCase().includes('mac'); // true if macOS
@@ -80,7 +79,10 @@ class Constants {
   alt = this.isMac ? 'option' : 'Alt';
   home = this.isMac ? 'fn + Left arrow' : 'Home';
   end = this.isMac ? 'fn + Right arrow' : 'End';
+
+  // internal controls
   keypressInterval = 2000; // ms or 2s
+  tabMovement = null;
 
   // debug stuff
   debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
