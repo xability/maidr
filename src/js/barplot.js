@@ -164,6 +164,10 @@ class BarChart {
       }
     }
     constants.maxX = this.columnLabels.length;
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+      constants.MAX_SPEED
+    );
   }
 
   GetLegendFromManualData() {

@@ -341,6 +341,11 @@ class ScatterPlot {
       constants.minY = Math.min(...yValues);
       constants.maxY = Math.max(...yValues);
 
+      constants.autoPlayRate = Math.min(
+        Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+        constants.MAX_SPEED
+      );
+
       points = new Map(
         [...points].sort(function (a, b) {
           return a[0] - b[0];

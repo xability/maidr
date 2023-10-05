@@ -56,7 +56,8 @@ class LinePlot {
   }
 
   SetLineLayer() {
-    this.plotLine = maidr.elements;
+    let len = maidr.elements.length;
+    this.plotLine = maidr.elements[len - 1];
     if (typeof this.plotLine !== 'undefined') {
       let pointCoords = this.GetPointCoords();
       let pointValues = this.GetPoints();
@@ -69,18 +70,39 @@ class LinePlot {
 
       this.curveMinY = Math.min(...this.pointValuesY);
       this.curveMaxY = Math.max(...this.pointValuesY);
+      constants.minX = 0;
+      constants.maxX = this.pointValuesX.length - 1;
       constants.minY = this.curveMinY;
       constants.maxY = this.curveMaxY;
-      this.gradient = this.GetGradient();
+
+      constants.autoPlayRate = Math.min(
+        Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+        constants.MAX_SPEED
+      );
+
+      // this.gradient = this.GetGradient();
     }
+  }
+
+  SetMinMax() {
+    constants.minX = 0;
+    constants.maxX = this.pointValuesX.length - 1;
+    constants.minY = this.curveMinY;
+    constants.maxY = this.curveMaxY;
+    constants.autoPlayRate = Math.ceil(
+      constants.AUTOPLAY_DURATION / (constants.maxX + 1)
+    );
   }
 
   GetPointCoords() {
     let svgLineCoords = [[], []];
-    for (let i = 0; i < this.plotLine.length; i++) {
-      let point = this.plotLine[i];
-      svgLineCoords[0].push(point.getAttribute('cx'));
-      svgLineCoords[1].push(point.getAttribute('cy'));
+    let points = this.plotLine.getAttribute('points').split(' ');
+    for (let i = 0; i < points.length; i++) {
+      if (points[i] !== '') {
+        let point = points[i].split(',');
+        svgLineCoords[0].push(point[0]);
+        svgLineCoords[1].push(point[1]);
+      }
     }
     return svgLineCoords;
   }
@@ -104,21 +126,21 @@ class LinePlot {
     }
   }
 
-  GetGradient() {
-    let gradients = [];
+  // GetGradient() {
+  //   let gradients = [];
 
-    for (let i = 0; i < this.pointValuesY.length - 1; i++) {
-      let abs_grad = Math.abs(
-        (this.pointValuesY[i + 1] - this.pointValuesY[i]) /
-          (this.pointValuesX[i + 1] - this.pointValuesX[i])
-      ).toFixed(3);
-      gradients.push(abs_grad);
-    }
+  //   for (let i = 0; i < this.pointValuesY.length - 1; i++) {
+  //     let abs_grad = Math.abs(
+  //       (this.pointValuesY[i + 1] - this.pointValuesY[i]) /
+  //         (this.pointValuesX[i + 1] - this.pointValuesX[i])
+  //     ).toFixed(3);
+  //     gradients.push(abs_grad);
+  //   }
 
-    gradients.push('end');
+  //   gradients.push('end');
 
-    return gradients;
-  }
+  //   return gradients;
+  // }
 
   SetAxes() {
     this.x_group_label = '';
@@ -164,7 +186,7 @@ class Point {
     point.setAttribute('id', 'highlight_point');
     point.setAttribute('cx', this.x);
     point.setAttribute('cy', this.y);
-    point.setAttribute('r', 1);
+    point.setAttribute('r', 1.75);
     point.setAttribute(
       'style',
       'fill:' + constants.colorSelected + ';stroke:' + constants.colorSelected

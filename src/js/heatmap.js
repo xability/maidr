@@ -28,44 +28,44 @@ class HeatMap {
       elements = singleMaidr.elements;
     }
 
-    if (xlevel && ylevel && data && elements) {
-      if (elements.length != dataLength) {
-        // I didn't throw an error but give a warning
-        constants.hasRect = 0;
-        logError.LogDifferentLengths('data', 'elements');
-      } else if (ylevel.length != data.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('y level', 'rows');
-      } else if (data[0].length != xlevel.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'columns');
-      } else {
-        this.plots = elements;
-        constants.hasRect = 1;
-      }
-    } else if (ylevel && data && elements) {
-      if (dataLength != elements.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('data', 'elements');
-      } else if (ylevel.length != data.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('y level', 'rows');
-      } else {
-        this.plots = elements;
-        constants.hasRect = 1;
-      }
-    } else if (xlevel && data && elements) {
-      if (dataLength != elements.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('data', 'elements');
-      } else if (xlevel.length != data[0].length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'columns');
-      } else {
-        this.plots = elements;
-        constants.hasRect = 1;
-      }
-    }
+    // if (xlevel && ylevel && data && elements) {
+    //   if (elements.length != dataLength) {
+    //     // I didn't throw an error but give a warning
+    //     constants.hasRect = 0;
+    //     logError.LogDifferentLengths('data', 'elements');
+    //   } else if (ylevel.length != data.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else if (data[0].length != xlevel.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (ylevel && data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else if (ylevel.length != data.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (xlevel && data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else if (xlevel.length != data[0].length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // }
     // else if (xlevel && ylevel && data) {
     //   constants.hasRect = 0;
     //   if (ylevel.length != data.length) {
@@ -75,23 +75,23 @@ class HeatMap {
     //   }
     //   logError.LogAbsentElement('elements');
     // }
-    else if (data && elements) {
-      if (dataLength != elements.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('data', 'elements');
-      } else {
-        this.plots = elements;
-        constants.hasRect = 1;
-      }
-    } else if (data) {
-      constants.hasRect = 0;
-      if (!xlevel) logError.LogAbsentElement('x level');
-      if (!ylevel) logError.LogAbsentElement('y level');
-      if (!elements) logError.LogAbsentElement('elements');
-    }
+    // else if (data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (data) {
+    //   constants.hasRect = 0;
+    //   if (!xlevel) logError.LogAbsentElement('x level');
+    //   if (!ylevel) logError.LogAbsentElement('y level');
+    //   if (!elements) logError.LogAbsentElement('elements');
+    // }
 
-    // this.plots = maidr.elements;
-    // constants.hasRect = 1;
+    this.plots = maidr.elements;
+    constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
     // this.x_labels = this.getXLabels();
@@ -203,6 +203,10 @@ class HeatMap {
           constants.maxY = this.plotData[2][i][j];
       }
     }
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+      constants.MAX_SPEED
+    );
   }
 
   GetSVGScaler() {
