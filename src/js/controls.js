@@ -4,24 +4,30 @@ class Control {
   }
 
   SetControls() {
-    // variable initialization
     // global controls
 
-    // main BTS controls
+    // variable initialization
     let controlElements = [
       constants.chart,
       constants.brailleInput,
       constants.review_container,
     ];
+    let pressedL = false;
+    let pressedTimeout = null;
+
+    // main BTS controls
     for (let i = 0; i < controlElements.length; i++) {
       constants.events.push([
         controlElements[i],
         'keydown',
         function (e) {
           // init
-          let pressedL = false;
-          let lastKeyTime = 0;
           let lastPlayed = '';
+
+          // if we're awaiting an L + X prefix, we don't want to do anything else
+          if (pressedL) {
+            return;
+          }
 
           // B: braille mode
           if (e.key == 'b') {
@@ -32,10 +38,7 @@ class Control {
 
           // T: aria live text output mode
           if (e.key == 't') {
-            let timediff = window.performance.now() - lastKeyTime;
-            if (!pressedL || timediff > constants.keypressInterval) {
-              display.toggleTextMode();
-            }
+            display.toggleTextMode();
           }
 
           // S: sonification mode
@@ -101,9 +104,19 @@ class Control {
       'keydown',
       function (e) {
         // init
-        let pressedL = false;
-        let lastKeyTime = 0;
         let lastPlayed = '';
+
+        // enable / disable prefix mode
+        if (e.key == 'l') {
+          pressedL = true;
+          if (pressedTimeout != null) {
+            clearTimeout(pressedTimeout);
+            pressedTimeout = null;
+          }
+          pressedTimeout = setTimeout(function () {
+            pressedL = false;
+          }, constants.keypressInterval);
+        }
 
         // ctrl/cmd: stop autoplay
         if (constants.isMac ? e.metaKey : e.ctrlKey) {
@@ -148,50 +161,43 @@ class Control {
           }
         }
 
-        // must come before prefix L
+        // Prefix mode stuff: L is enabled, look for these keys
         if (pressedL) {
           if (e.key == 'x') {
             // X: x label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              let xlabel = '';
-              if (constants.chartType == 'bar') {
-                xlabel = plot.plotLegend.x;
-              } else if (
-                constants.chartType == 'heat' ||
-                constants.chartType == 'box' ||
-                singleMaidr.type == 'point' ||
-                singleMaidr.type.includes('point')
-              ) {
-                xlabel = plot.x_group_label;
-              }
-              display.displayInfo('x label', xlabel);
+            let xlabel = '';
+            if (constants.chartType == 'bar') {
+              xlabel = plot.plotLegend.x;
+            } else if (
+              constants.chartType == 'heat' ||
+              constants.chartType == 'box' ||
+              singleMaidr.type == 'point' ||
+              singleMaidr.type == 'line' ||
+              singleMaidr.type.includes('point')
+            ) {
+              xlabel = plot.x_group_label;
             }
+            display.displayInfo('x label', xlabel);
             pressedL = false;
           } else if (e.key == 'y') {
             // Y: y label
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              let ylabel = '';
-              if (constants.chartType == 'bar') {
-                ylabel = plot.plotLegend.y;
-              } else if (
-                constants.chartType == 'heat' ||
-                constants.chartType == 'box' ||
-                singleMaidr.type == 'point' ||
-                singleMaidr.type.includes('point')
-              ) {
-                ylabel = plot.y_group_label;
-              }
-              display.displayInfo('y label', ylabel);
+            let ylabel = '';
+            if (constants.chartType == 'bar') {
+              ylabel = plot.plotLegend.y;
+            } else if (
+              constants.chartType == 'heat' ||
+              constants.chartType == 'box' ||
+              singleMaidr.type == 'point' ||
+              singleMaidr.type == 'line' ||
+              singleMaidr.type.includes('point')
+            ) {
+              ylabel = plot.y_group_label;
             }
+            display.displayInfo('y label', ylabel);
             pressedL = false;
           } else if (e.key == 't') {
             // T: title
-            let timediff = window.performance.now() - lastKeyTime;
-            if (pressedL && timediff <= constants.keypressInterval) {
-              display.displayInfo('title', plot.title);
-            }
+            display.displayInfo('title', plot.title);
             pressedL = false;
           } else if (e.key == 's') {
             // subtitle
@@ -201,18 +207,9 @@ class Control {
             // caption
             display.displayInfo('caption', plot.caption);
             pressedL = false;
-          } else if (e.key == 'l') {
-            lastKeyTime = window.performance.now();
-            pressedL = true;
-          } else {
+          } else if (e.key != 'l') {
             pressedL = false;
           }
-        }
-
-        // L: prefix for label; must come after the suffix
-        if (e.key == 'l') {
-          lastKeyTime = window.performance.now();
-          pressedL = true;
         }
 
         // period: speed up
@@ -479,7 +476,6 @@ class Control {
       }
       let audio = new Audio();
       let lastPlayed = '';
-      let lastKeyTime = 0;
 
       // control eventlisteners
       constants.events.push([
@@ -1022,7 +1018,6 @@ class Control {
       let audio = new Audio();
       let lastPlayed = '';
       constants.lastx = 0;
-      let lastKeyTime = 0;
 
       // control eventlisteners
       constants.events.push([
@@ -1447,7 +1442,6 @@ class Control {
       let lastPlayed = ''; // for autoplay use
       constants.lastx = 0; // for scatter point layer autoplay use
       let lastx1 = 0; // for smooth layer autoplay use
-      let lastKeyTime = 0;
 
       window.positionL1 = new Position(lastx1, lastx1);
 
@@ -1848,7 +1842,7 @@ class Control {
       let audio = new Audio();
 
       // global variables
-      let lastKeyTime = 0;
+      let lastPlayed = '';
       constants.lastx = 0;
 
       // control eventlisteners
@@ -2050,8 +2044,6 @@ class Control {
       // global variables
       let lastPlayed = '';
       constants.lastx = 0;
-      let lastKeyTime = 0;
-      let pressedL = false;
 
       // control eventlisteners
       constants.events.push([
@@ -2179,113 +2171,6 @@ class Control {
           }
           if (isAtEnd) {
             audio.playEnd();
-          }
-        },
-      ]);
-
-      constants.events.push([
-        document,
-        'keydown',
-        function (e) {
-          // ctrl/cmd: stop autoplay
-          if (constants.isMac ? e.metaKey : e.ctrlKey) {
-            // (ctrl/cmd)+(home/fn+left arrow): first element
-            if (e.key == 'Home') {
-              position.x = 0;
-              UpdateAllBraille();
-            }
-
-            // (ctrl/cmd)+(end/fn+right arrow): last element
-            else if (e.key == 'End') {
-              position.x = plot.pointValuesY.length - 1;
-              UpdateAllBraille();
-            }
-          }
-
-          // must come before prefix L
-          if (pressedL) {
-            if (e.key == 'x') {
-              // X: x label
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                let xlabel = '';
-                if (constants.chartType == 'bar') {
-                  xlabel = plot.plotLegend.x;
-                } else if (
-                  constants.chartType == 'heat' ||
-                  constants.chartType == 'box' ||
-                  singleMaidr.type == 'point' ||
-                  singleMaidr.type.includes('point') ||
-                  singleMaidr.type == 'line'
-                ) {
-                  xlabel = plot.x_group_label;
-                }
-                display.displayInfo('x label', xlabel);
-              }
-              pressedL = false;
-            } else if (e.key == 'y') {
-              // Y: y label
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                let ylabel = '';
-                if (constants.chartType == 'bar') {
-                  ylabel = plot.plotLegend.y;
-                } else if (
-                  constants.chartType == 'heat' ||
-                  constants.chartType == 'box' ||
-                  singleMaidr.type == 'point' ||
-                  singleMaidr.type.includes('point') ||
-                  singleMaidr.type == 'line'
-                ) {
-                  ylabel = plot.y_group_label;
-                }
-                display.displayInfo('y label', ylabel);
-              }
-              pressedL = false;
-            } else if (e.key == 't') {
-              // T: title
-              let timediff = window.performance.now() - lastKeyTime;
-              if (pressedL && timediff <= constants.keypressInterval) {
-                display.displayInfo('title', plot.title);
-              }
-              pressedL = false;
-            } else if (e.key == 's') {
-              // subtitle
-              display.displayInfo('subtitle', plot.subtitle);
-              pressedL = false;
-            } else if (e.key == 'c') {
-              // caption
-              display.displayInfo('caption', plot.caption);
-              pressedL = false;
-            } else if (e.key == 'l') {
-              lastKeyTime = window.performance.now();
-              pressedL = true;
-            } else {
-              pressedL = false;
-            }
-          }
-
-          // L: prefix for label; must come after the suffix
-          if (e.key == 'l') {
-            lastKeyTime = window.performance.now();
-            pressedL = true;
-          }
-
-          // period: speed up
-          if (e.key == '.') {
-            constants.SpeedUp();
-            display.announceText('Speed up');
-          }
-
-          // comma: speed down
-          if (e.key == ',') {
-            constants.SpeedDown();
-            display.announceText('Speed down');
-          }
-          // /: reset speed
-          if (e.key == '/') {
-            constants.SpeedReset();
-            display.announceText('Speed reset');
           }
         },
       ]);

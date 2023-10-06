@@ -176,7 +176,11 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == 'bar' || constants.chartType == 'line') {
+    if (
+      constants.chartType == 'bar' ||
+      constants.chartType == 'hist' ||
+      constants.chartType == 'line'
+    ) {
       constants.brailleInput.setSelectionRange(position.x, position.x);
     } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
