@@ -98,6 +98,10 @@ class Histogram {
         }
       }
     }
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+      constants.MAX_SPEED
+    );
   }
 
   Select() {
