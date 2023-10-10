@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
   // create global vars
   window.constants = new Constants();
   window.resources = new Resources();
-  window.menu = new Menu();
   window.tracker = new Tracker();
   window.logError = new LogError();
 
@@ -133,9 +132,7 @@ function ShouldWeInitMaidr(thisMaidr) {
 }
 
 function ShouldWeDestroyMaidr(e) {
-  // conditions: this used to have conditions, I think now we destory on any blur
-  // it's more a matter of where we move to after this
-  // note: the case where we move from one maidr enabled chart to another is handled by ShouldWeInitMaidr
+  // conditions: we've tabbed away from the chart or any component
 
   // timeout to delay blur event. I forget why this is necessary, but it is
   setTimeout(() => {
@@ -365,6 +362,12 @@ function CreateChartComponents() {
     '#' + constants.review_id_container
   );
   constants.review = document.querySelector('#' + constants.review_id);
+
+  // help menu
+  window.menu = new Menu();
+
+  // Description modal
+  window.description = new Description();
 }
 
 function DestroyChartComponents() {
@@ -396,6 +399,13 @@ function DestroyChartComponents() {
     constants.review_container.remove();
   }
 
+  if (typeof menu != 'undefined') {
+    menu.Destroy();
+  }
+  if (typeof description != 'undefined') {
+    description.Destroy();
+  }
+
   constants.chart = null;
   constants.chart_container = null;
   constants.brailleContainer = null;
@@ -404,4 +414,6 @@ function DestroyChartComponents() {
   constants.announceContainer = null;
   constants.endChime = null;
   constants.review_container = null;
+  menu = null;
+  description = null;
 }

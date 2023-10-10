@@ -264,7 +264,7 @@ class Menu {
                 </div>
             </div>
         </div>
-        <div id="modal_backdrop" class="modal-backdrop hidden"></div>
+        <div id="menu_modal_backdrop" class="modal-backdrop hidden"></div>
         `;
 
   CreateMenu() {
@@ -276,31 +276,56 @@ class Menu {
     // menu close events
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
     for (let i = 0; i < allClose.length; i++) {
-      allClose[i].addEventListener('click', function (e) {
-        menu.Toggle(false);
-      });
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          menu.Toggle(false);
+        },
+      ]);
     }
-    document
-      .getElementById('save_and_close_menu')
-      .addEventListener('click', function (e) {
+    constants.events.push([
+      document.getElementById('save_and_close_menu'),
+      'click',
+      function (e) {
         menu.SaveData();
         menu.Toggle(false);
-      });
-    document.getElementById('menu').addEventListener('keydown', function (e) {
-      if (e.key == 'Esc') {
-        // esc
-        menu.Toggle(false);
-      }
-    });
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('menu'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          menu.Toggle(false);
+        }
+      },
+    ]);
 
-    // menu open events
+    // open events
     // note: this triggers a maidr destroy
-    document.addEventListener('keyup', function (e) {
-      if (e.key == 'h') {
-        // M(77) for menu, or H(72) for help? I don't like it
-        menu.Toggle(true);
-      }
-    });
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'h') {
+          menu.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // menu element destruction
+    let menu = document.getElementById('menu');
+    if (menu) {
+      menu.remove();
+    }
+    let backdrop = document.getElementById('menu_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
   }
 
   Toggle(onoff = false) {
@@ -315,13 +340,14 @@ class Menu {
       // open
       this.whereWasMyFocus = document.activeElement;
       this.PopulateData();
+      constants.tabMovement = 0;
       document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('modal_backdrop').classList.remove('hidden');
+      document.getElementById('menu_modal_backdrop').classList.remove('hidden');
       document.querySelector('#menu .close').focus();
     } else {
       // close
       document.getElementById('menu').classList.add('hidden');
-      document.getElementById('modal_backdrop').classList.add('hidden');
+      document.getElementById('menu_modal_backdrop').classList.add('hidden');
       this.whereWasMyFocus.focus();
       this.whereWasMyFocus = null;
     }
@@ -378,6 +404,122 @@ class Menu {
       constants.MIN_FREQUENCY = data.MIN_FREQUENCY;
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
+    }
+  }
+}
+
+class Description {
+  // This class creates an html modal containing summary info of the active chart
+  // Trigger popup with 'D' key
+  // Info is basically anything available, but stuff like:
+  // - chart type
+  // - chart labels, like title, subtitle, caption etc
+  // - chart data (an accessible html table)
+
+  constructor() {
+    this.CreateComponent();
+  }
+
+  CreateComponent() {
+    // modal containing description summary stuff
+    let html = `
+        <div id="description" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Description</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h5 class="modal-title">Subtitle here</h5>
+                        <div id="desc_content">
+                        content here
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="close_desc">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="desc_modal_backdrop" class="modal-backdrop hidden"></div>
+
+    `;
+
+    document.querySelector('body').insertAdjacentHTML('beforeend', html);
+
+    // close events
+    let allClose = document.querySelectorAll(
+      '#close_desc, #description .close'
+    );
+    for (let i = 0; i < allClose.length; i++) {
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          description.Toggle(false);
+        },
+      ]);
+    }
+    constants.events.push([
+      document.getElementById('description'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          description.Toggle(false);
+        }
+      },
+    ]);
+
+    // open events
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'd') {
+          description.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // description element destruction
+    let description = document.getElementById('menu');
+    if (description) {
+      description.remove();
+    }
+    let backdrop = document.getElementById('desc_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  Toggle(onoff = false) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('description').classList.contains('hidden')) {
+        onoff = true;
+      } else {
+        onoff = false;
+      }
+    }
+    if (onoff) {
+      // open
+      this.whereWasMyFocus = document.activeElement;
+      constants.tabMovement = 0;
+      document.getElementById('description').classList.remove('hidden');
+      document.getElementById('desc_modal_backdrop').classList.remove('hidden');
+      document.querySelector('#description .close').focus();
+    } else {
+      // close
+      document.getElementById('description').classList.add('hidden');
+      document.getElementById('desc_modal_backdrop').classList.add('hidden');
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
     }
   }
 }
