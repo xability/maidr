@@ -457,12 +457,10 @@ class Display {
         output = '<p>' + verboseText + '</p>\n';
     } else if (constants.chartType == 'hist') {
       if (constants.textMode == 'terse') {
-        // terse: xmin - xmax, y
+        // terse: {x}, {y}
         output =
           '<p>' +
-          plot.plotData[position.x].xmin +
-          ' - ' +
-          plot.plotData[position.x].xmax +
+          plot.plotData[position.x].y +
           ', ' +
           plot.plotData[position.x].y +
           '</p>\n';
