@@ -338,3 +338,27 @@ dev.off()
 
 layer_data(g, 1) %>%
   jsonlite::write_json("lineplot_user_study_raw_data.json")
+
+# Stacked bar plot
+library(tidyverse)
+
+
+# create segmented bar plot
+svglite::svglite("stacked_normalized_bar.svg")
+
+g <- ggplot(mpg, aes(x = class, fill = drv)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Bar Plot", x = "Class", y = "Count", fill = "Drive",
+    subtitle = "Segmented bar plot of the number of cars in each class by drive type", caption = "Source: mpg dataset from ggplot2 package"
+  )
+
+# Extract data
+layer_data(g, 1) %>%
+  gt::gt()
+
+dev.off()
+
+jsonlite::write_json("stacked_bar_raw_data.json")
+BrailleR::VI(g)
+g
