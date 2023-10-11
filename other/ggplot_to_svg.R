@@ -362,3 +362,10 @@ dev.off()
 jsonlite::write_json("stacked_bar_raw_data.json")
 BrailleR::VI(g)
 g
+
+mpg %>%
+  count(class, drv) %>%
+  rename(x = class, fill = drv, y = n) %>%
+  # gt::gt()
+  # Save it ss a json file
+  jsonlite::write_json("stacked_bar_raw_data.json")
