@@ -460,7 +460,7 @@ class Display {
         // terse: {x}, {y}
         output =
           '<p>' +
-          plot.plotData[position.x].y +
+          plot.plotData[position.x].x +
           ', ' +
           plot.plotData[position.x].y +
           '</p>\n';

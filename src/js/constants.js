@@ -427,17 +427,17 @@ class Description {
             <div class="modal-dialog" role="document" tabindex="0">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h4 class="modal-title">Description</h4>
+                        <h4 id="desc_title" class="modal-title">Description</h4>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
                     <div class="modal-body">
-                        <h5 class="modal-title">Subtitle here</h5>
                         <div id="desc_content">
                         content here
                         </div>
-
+                        <div id="desc_table">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" id="close_desc">Close</button>
@@ -511,6 +511,7 @@ class Description {
       // open
       this.whereWasMyFocus = document.activeElement;
       constants.tabMovement = 0;
+      this.PopulateData();
       document.getElementById('description').classList.remove('hidden');
       document.getElementById('desc_modal_backdrop').classList.remove('hidden');
       document.querySelector('#description .close').focus();
@@ -521,6 +522,133 @@ class Description {
       this.whereWasMyFocus.focus();
       this.whereWasMyFocus = null;
     }
+  }
+
+  PopulateData() {
+    let descHtml = '';
+
+    // chart labels and descriptions
+    let descType = '';
+    if (constants.chartType == 'bar') {
+      descType = 'Bar chart';
+    } else if (constants.chartType == 'heat') {
+      descType = 'Heatmap';
+    } else if (constants.chartType == 'box') {
+      descType = 'Box plot';
+    } else if (constants.chartType == 'scatter') {
+      descType = 'Scatter plot';
+    } else if (constants.chartType == 'line') {
+      descType = 'Line chart';
+    } else if (constants.chartType == 'hist') {
+      descType = 'Histogram';
+    }
+
+    if (descType) {
+      descHtml += `<p>Type: ${descType}</p>`;
+    }
+    if (plot.title != null) {
+      descHtml += `<p>Title: ${plot.title}</p>`;
+    }
+    if (plot.subtitle != null) {
+      descHtml += `<p>Subtitle: ${plot.subtitle}</p>`;
+    }
+    if (plot.caption != null) {
+      descHtml += `<p>Caption: ${plot.caption}</p>`;
+    }
+
+    // table of data, prep
+    let descTableHtml = '';
+    let descLabelX = null;
+    let descLabelY = null;
+    let descTickX = null;
+    let descTickY = null;
+    let descData = null;
+    let descNumCols = 0;
+    let descNumColsWithLabels = 0;
+    let descNumRows = 0;
+    let descNumRowsWithLabels = 0;
+    if (constants.chartType == 'bar') {
+      if (plot.plotLegend.x != null) {
+        descLabelX = plot.plotLegend.x;
+        descNumColsWithLabels += 1;
+      }
+      if (plot.plotLegend.y != null) {
+        descLabelY = plot.plotLegend.y;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.columnLabels != null) {
+        descTickX = plot.columnLabels;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.plotData != null) {
+        descData = [];
+        descData[0] = plot.plotData;
+        descNumCols = plot.plotData.length;
+        descNumRows = 1;
+        descNumColsWithLabels += descNumCols;
+        descNumRowsWithLabels += descNumRows;
+      }
+    }
+
+    // table of data, create
+    if (descData != null) {
+      descTableHtml += '<table>';
+
+      // header rows
+      if (descLabelX != null || descTickX != null) {
+        descTableHtml += '<thead>';
+        if (descLabelX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          descTableHtml += `<th scope="col" colspan="${descNumCols}">${descLabelX}</th>`;
+          descTableHtml += '</tr>';
+        }
+        if (descTickX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          for (let i = 0; i < descNumCols; i++) {
+            descTableHtml += `<th scope="col">${descTickX[i]}</th>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</thead>';
+      }
+
+      // body rows
+      if (descNumRows > 0) {
+        descTableHtml += '<tbody>';
+        for (let i = 0; i < descNumRows; i++) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null && i == 0) {
+            descTableHtml += `<th scope="row" rowspan="${descNumRows}">${descLabelY}</th>`;
+          }
+          if (descTickY != null) {
+            descTableHtml += `<th scope="row">${descTickY[i]}</th>`;
+          }
+          for (let j = 0; j < descNumCols; j++) {
+            descTableHtml += `<td>${descData[i][j]}</td>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</tbody>';
+      }
+
+      descTableHtml += '</table>';
+    }
+
+    document.getElementById('desc_title').innerHTML = descType + ' description';
+    document.getElementById('desc_content').innerHTML = descHtml;
+    document.getElementById('desc_table').innerHTML = descTableHtml;
   }
 }
 
