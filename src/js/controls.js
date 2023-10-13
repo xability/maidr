@@ -2034,6 +2034,206 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
+    } else if ([].concat(singleMaidr.type).includes('segmented_bar')) {
+      window.position = new Position(-1, -1);
+      window.plot = new Segmented();
+
+      let audio = new Audio();
+
+      // global variables
+      let lastPlayed = '';
+      constants.lastx = 0;
+
+      // control eventlisteners
+      constants.events.push([
+        [constants.chart, constants.brailleInput],
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
+
+          // Right
+          if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just right arrow, move right
+            e.preventDefault();
+            position.x += 1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift right arrow, autoplay right
+            e.preventDefault();
+            position.x -= 1;
+            Autoplay('right', position.x, plot.plotData.length);
+          } else if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift right, autoplay from right
+            e.preventDefault();
+            constants.lastx = position.x;
+            Autoplay('reverse-right', plot.bars.length, position.x);
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl right arrow, go to end
+            e.preventDefault();
+            position.x = plot.plotData.length - 1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Left
+          if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just left arrow, move left
+            e.preventDefault();
+            position.x += -1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift left arrow, autoplay left
+            e.preventDefault();
+            position.x += 1;
+            Autoplay('left', position.x, -1);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift left, autoplay from left
+            e.preventDefault();
+            constants.lastx = position.x;
+            Autoplay('reverse-left', -1, position.x);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl left arrow, go to beginning
+            e.preventDefault();
+            position.x = 0;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            if (constants.brailleMode == 'off') {
+              UpdateAll();
+            } else {
+              UpdateAllBraille();
+            }
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      // lock to min / max postions
+      function lockPosition() {
+        let didLockHappen = false;
+
+        if (position.x < 0) {
+          position.x = 0;
+          didLockHappen = true;
+        }
+        if (position.x > plot.plotData.length - 1) {
+          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
+          position.x = plot.plotData.length - 1;
+          didLockHappen = true;
+        }
+
+        return didLockHappen;
+      }
+      function UpdateAll() {
+        if (constants.showDisplay) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+      }
+      function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+
+        if (constants.brailleMode != 'off') {
+          display.UpdateBraillePos(plot);
+        }
+      }
+      function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+          display.displayValues(plot);
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+        display.UpdateBraillePos(plot);
+      }
+      function Autoplay(dir, start, end) {
+        lastPlayed = dir;
+        let step = 1; // default right and reverse-left
+        if (dir == 'left' || dir == 'reverse-right') {
+          step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+          constants.KillAutoplay();
+        }
+
+        if (dir == 'reverse-right' || dir == 'reverse-left') {
+          position.x = start;
+        }
+
+        constants.autoplayId = setInterval(function () {
+          position.x += step;
+          if (position.x < 0 || plot.plotData.length - 1 < position.x) {
+            constants.KillAutoplay();
+            lockPosition();
+          } else if (position.x == end) {
+            constants.KillAutoplay();
+            UpdateAllAutoplay();
+          } else {
+            UpdateAllAutoplay();
+          }
+        }, constants.autoPlayRate);
+      }
+    } else if (singleMaidr.type == 'line') {
     } else if (singleMaidr.type == 'line') {
       window.position = new Position(-1, -1);
       window.plot = new LinePlot();
