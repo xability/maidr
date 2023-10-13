@@ -1447,7 +1447,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.chart,
+        [constants.chart, constants.brailleInput],
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1535,90 +1535,6 @@ class Control {
             !isAtEnd
           ) {
             UpdateAll();
-          }
-          if (isAtEnd) {
-            audio.playEnd();
-          }
-        },
-      ]);
-
-      constants.events.push([
-        constants.brailleInput,
-        'keydown',
-        function (e) {
-          let updateInfoThisRound = false;
-          let isAtEnd = false;
-
-          // @TODO
-          // only smooth layer can access to braille display
-          if (constants.chartType == 'smooth') {
-            lockPosition();
-            if (e.key == 'ArrowRight') {
-              // right arrow
-              e.preventDefault();
-              constants.brailleInput.setSelectionRange(
-                positionL1.x,
-                positionL1.x
-              );
-              if (e.target.selectionStart > e.target.value.length - 2) {
-                e.preventDefault();
-              } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
-                if (e.shiftKey) {
-                  positionL1.x -= 1;
-                  Autoplay(
-                    'outward_right',
-                    positionL1.x,
-                    plot.curvePoints.length
-                  );
-                } else {
-                  positionL1.x = plot.curvePoints.length - 1;
-                  updateInfoThisRound = true;
-                  isAtEnd = lockPosition();
-                }
-              } else if (
-                e.altKey &&
-                e.shiftKey &&
-                positionL1.x != plot.curvePoints.length - 1
-              ) {
-                lastx1 = positionL1.x;
-                Autoplay('inward_right', plot.curvePoints.length, positionL1.x);
-              } else {
-                positionL1.x += 1;
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (e.key == 'ArrowLeft') {
-              // left
-              e.preventDefault();
-              if (constants.isMac ? e.metaKey : e.ctrlKey) {
-                if (e.shiftKey) {
-                  positionL1.x += 1;
-                  Autoplay('outward_left', positionL1.x, -1);
-                } else {
-                  positionL1.x = 0; // go all the way
-                  updateInfoThisRound = true;
-                  isAtEnd = lockPosition();
-                }
-              } else if (e.altKey && e.shiftKey && positionL1.x != 0) {
-                Autoplay('inward_left', -1, positionL1.x);
-              } else {
-                positionL1.x -= 1;
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else {
-              e.preventDefault();
-            }
-          } else if (e.key == 'Tab') {
-            // do nothing, we handle this in global events
-          } else {
-            e.preventDefault();
-          }
-
-          lastx1 = positionL1.x;
-
-          if (updateInfoThisRound && !isAtEnd) {
-            UpdateAllBraille();
           }
           if (isAtEnd) {
             audio.playEnd();
@@ -2234,7 +2150,6 @@ class Control {
         }, constants.autoPlayRate);
       }
     } else if (singleMaidr.type == 'line') {
-    } else if (singleMaidr.type == 'line') {
       window.position = new Position(-1, -1);
       window.plot = new LinePlot();
       let point = new Point();
@@ -2247,127 +2162,96 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.chart,
+        [constants.chart, constants.brailleInput],
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.key == 'ArrowRight') {
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x -= 1;
-                Autoplay('outward_right', position.x, plot.pointValuesY.length);
-              } else {
-                position.x = plot.pointValuesY.length - 1; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (
-              e.altKey &&
-              e.shiftKey &&
-              position.x != plot.pointValuesY.length - 1
-            ) {
-              constants.lastx = position.x;
-              Autoplay('inward_right', plot.pointValues.length, position.x);
-            } else {
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.key == 'ArrowLeft') {
-            // left arrow 37
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x += 1;
-                Autoplay('outward_left', position.x, -1);
-              } else {
-                position.x = 0; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (e.altKey && e.shiftKey && position.x != 0) {
-              constants.lastx = position.x;
-              Autoplay('inward_left', -1, position.x);
-            } else {
-              position.x += -1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-            // }
+          // Right
+          if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just right arrow, move right
+            position.x += 1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift right arrow, autoplay right
+            position.x += -1;
+            Autoplay('outward_right', position.x, plot.pointValuesY.length);
+          } else if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey &&
+            position.x != plot.pointValuesY.length - 1
+          ) {
+            // alt shift right, autoplay from right
+            constants.lastx = position.x;
+            Autoplay('inward_right', plot.pointValues.length, position.x);
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl right arrow, go to end
+            position.x = plot.pointValuesY.length - 1; // go all the way
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Left
+          if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just left arrow, move left
+            position.x += -1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift left arrow, autoplay left
+            position.x += 1;
+            Autoplay('outward_left', position.x, -1);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift left, autoplay from left
+            constants.lastx = position.x;
+            Autoplay('inward_left', -1, position.x);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl left arrow, go to beginning
+            position.x = 0; // go all the way
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
           }
 
           // update display / text / audio
           if (updateInfoThisRound && !isAtEnd) {
-            UpdateAll();
-          }
-          if (isAtEnd) {
-            audio.playEnd();
-          }
-        },
-      ]);
-
-      constants.events.push([
-        constants.brailleInput,
-        'keydown',
-        function (e) {
-          let updateInfoThisRound = false; // we only update info and play tones on certain keys
-          let isAtEnd = false;
-
-          if (e.key == 'ArrowRight') {
-            // right arrow
-            e.preventDefault();
-            if (e.target.selectionStart > e.target.value.length - 2) {
-            } else if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x -= 1;
-                Autoplay('outward_right', position.x, plot.pointValuesY.length);
-              } else {
-                position.x = plot.pointValuesY.length - 1; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (
-              e.altKey &&
-              e.shiftKey &&
-              position.x != plot.pointValuesY.length - 1
-            ) {
-              constants.lastx = position.x;
-              Autoplay('inward_right', plot.pointValuesY.length, position.x);
+            if (constants.brailleMode == 'off') {
+              UpdateAll();
             } else {
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
+              UpdateAllBraille();
             }
-          } else if (e.key == 'ArrowLeft') {
-            // left arrow
-            e.preventDefault();
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x += 1;
-                Autoplay('outward_left', position.x, -1);
-              } else {
-                position.x = 0; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (e.altKey && e.shiftKey && position.x != 0) {
-              constants.lastx = position.x;
-              Autoplay('inward_left', -1, position.x);
-            } else {
-              position.x += -1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.key == 'Tab') {
-            // do nothing, we handle this in global events
-          } else {
-            e.preventDefault();
-          }
-
-          // update display / text / audio
-          if (updateInfoThisRound && !isAtEnd) {
-            UpdateAllBraille();
           }
           if (isAtEnd) {
             audio.playEnd();

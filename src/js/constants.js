@@ -417,7 +417,7 @@ class Description {
   // - chart data (an accessible html table)
 
   constructor() {
-    this.CreateComponent();
+    //this.CreateComponent(); // disabled as we're in development and have switched priorities
   }
 
   CreateComponent() {
