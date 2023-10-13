@@ -646,6 +646,8 @@ class Description {
       descTableHtml += '</table>';
     }
 
+    // bar: don't need colspan or rowspan stuff, put legendX and Y as headers
+
     document.getElementById('desc_title').innerHTML = descType + ' description';
     document.getElementById('desc_content').innerHTML = descHtml;
     document.getElementById('desc_table').innerHTML = descTableHtml;

@@ -367,7 +367,7 @@ function CreateChartComponents() {
   window.menu = new Menu();
 
   // Description modal
-  window.description = new Description();
+  //window.description = new Description(); // developement on hold
 }
 
 function DestroyChartComponents() {
