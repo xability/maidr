@@ -385,7 +385,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.plotData.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.plotData.length - 1;
           didLockHappen = true;
         }
@@ -394,7 +393,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -405,7 +404,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -420,7 +419,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -855,7 +854,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -866,7 +865,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -880,7 +879,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -1336,7 +1335,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1347,7 +1346,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1361,7 +1360,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1571,7 +1570,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           layer0Point.UpdatePointDisplay();
@@ -1583,7 +1582,7 @@ class Control {
 
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           if (constants.chartType == 'point') {
@@ -1601,7 +1600,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           layer1Point.UpdatePointDisplay();
@@ -1876,7 +1875,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.plotData.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.plotData.length - 1;
           didLockHappen = true;
         }
@@ -1885,7 +1883,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -1896,7 +1894,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -1911,7 +1909,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -1950,7 +1948,7 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('segmented_bar')) {
+    } else if ([].concat(singleMaidr.type).includes('stacked_bar')) {
       window.position = new Position(-1, -1);
       window.plot = new Segmented();
 
@@ -1967,6 +1965,7 @@ class Control {
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
+          constants.navigation = 0; // 0 for up/down, 1 for left/right
 
           // Right
           if (
@@ -1975,9 +1974,9 @@ class Control {
             !e.shiftKey
           ) {
             // just right arrow, move right
-            e.preventDefault();
             position.x += 1;
             updateInfoThisRound = true;
+            constants.navigation = 1;
             isAtEnd = lockPosition();
           } else if (
             e.key == 'ArrowRight' &&
@@ -1985,7 +1984,6 @@ class Control {
             e.shiftKey
           ) {
             // ctrl shift right arrow, autoplay right
-            e.preventDefault();
             position.x -= 1;
             Autoplay('right', position.x, plot.plotData.length);
           } else if (
@@ -1995,7 +1993,6 @@ class Control {
             e.shiftKey
           ) {
             // alt shift right, autoplay from right
-            e.preventDefault();
             constants.lastx = position.x;
             Autoplay('reverse-right', plot.bars.length, position.x);
           } else if (
@@ -2004,7 +2001,6 @@ class Control {
             !e.shiftKey
           ) {
             // ctrl right arrow, go to end
-            e.preventDefault();
             position.x = plot.plotData.length - 1;
             updateInfoThisRound = true;
             isAtEnd = lockPosition();
@@ -2017,9 +2013,9 @@ class Control {
             !e.shiftKey
           ) {
             // just left arrow, move left
-            e.preventDefault();
             position.x += -1;
             updateInfoThisRound = true;
+            constants.navigation = 1;
             isAtEnd = lockPosition();
           } else if (
             e.key == 'ArrowLeft' &&
@@ -2027,7 +2023,6 @@ class Control {
             e.shiftKey
           ) {
             // ctrl shift left arrow, autoplay left
-            e.preventDefault();
             position.x += 1;
             Autoplay('left', position.x, -1);
           } else if (
@@ -2037,7 +2032,6 @@ class Control {
             e.shiftKey
           ) {
             // alt shift left, autoplay from left
-            e.preventDefault();
             constants.lastx = position.x;
             Autoplay('reverse-left', -1, position.x);
           } else if (
@@ -2046,9 +2040,34 @@ class Control {
             !e.shiftKey
           ) {
             // ctrl left arrow, go to beginning
-            e.preventDefault();
             position.x = 0;
             updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Up
+          if (
+            e.key == 'ArrowUp' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just up arrow, move up
+            position.y += 1;
+            updateInfoThisRound = true;
+            constants.navigation = 0;
+            isAtEnd = lockPosition();
+          }
+
+          // Down
+          if (
+            e.key == 'ArrowDown' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just down arrow, move down
+            position.y += -1;
+            updateInfoThisRound = true;
+            constants.navigation = 0;
             isAtEnd = lockPosition();
           }
 
@@ -2074,9 +2093,16 @@ class Control {
           position.x = 0;
           didLockHappen = true;
         }
-        if (position.x > plot.plotData.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
+        if (position.x > plot.level.length - 1) {
           position.x = plot.plotData.length - 1;
+          didLockHappen = true;
+        }
+        if (position.y < 0) {
+          position.y = 0;
+          didLockHappen = true;
+        }
+        if (position.y > plot.fill.length - 1) {
+          position.y = plot.fill.length - 1;
           didLockHappen = true;
         }
 
@@ -2084,7 +2110,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2095,7 +2121,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2110,7 +2136,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2271,7 +2297,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.pointValuesY.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.pointValuesY.length - 1;
           didLockHappen = true;
         }
@@ -2280,7 +2305,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();
@@ -2291,7 +2316,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();
@@ -2306,7 +2331,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();

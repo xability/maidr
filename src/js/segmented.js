@@ -1,60 +1,52 @@
 class Segmented {
   constructor() {
-    // initialize variables xlevel, data, and elements
-    let xlevel = null;
+    // initialize variables level, data, and elements
+    let level = null;
+    let fill = null;
+    let data = null;
+    let elements = null;
     if ('axes' in singleMaidr) {
-      if (singleMaidr.axes.x) {
-        if (singleMaidr.axes.x.level) {
-          xlevel = singleMaidr.axes.x.level;
+      //axes.x.level
+      if ('x' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.x) {
+          level = singleMaidr.axes.x.level;
+        }
+      } else if ('y' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.y) {
+          level = singleMaidr.axes.y.level;
+        }
+      }
+      // axes.fill
+      if ('fill' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.fill) {
+          fill = singleMaidr.axes.fill.level;
         }
       }
     }
-    let data = null;
     if ('data' in singleMaidr) {
       data = singleMaidr.data;
     }
-    let elements = null;
     if ('elements' in singleMaidr) {
       elements = singleMaidr.elements;
     }
 
-    // gracefull fail and error messages
-    if (xlevel && data && elements) {
-      if (elements.length != data.length) {
-        // I didn't throw an error but give a warning
-        constants.hasRect = 0;
-        logError.logDifferentLengths('elements', 'data');
-      } else if (xlevel.length != elements.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'elements');
-      } else if (data.length != xlevel.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'data');
-      } else {
-        this.bars = elements;
-        constants.hasRect = 1;
-      }
-    } else if (data && elements) {
-      if (data.length != elements.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('data', 'elements');
-      } else {
-        this.bars = elements;
-        constants.hasRect = 1;
-      }
-    } else if (xlevel && data) {
-      if (xlevel.length != data.length) {
-        constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'data');
-      }
-      logError.LogAbsentElement('elements');
-    } else if (data) {
-      logError.LogAbsentElement('x level');
-      logError.LogAbsentElement('elements');
+    // gracefull failure: must have level + fill + data, elements optional
+    if (level != null && fill != null && data != null) {
+      this.level = level;
+      this.fill = fill.reverse(); // typically fill is in reverse order
+      this.plotData = this.ParseData(data);
+    } else {
+      console.log(
+        'Segmented chart missing level, fill, or data. Unable to create chart.'
+      );
+      return;
+    }
+    if (elements == null) {
+      LogError.LogAbsentElement('elements');
+      constants.hasRect = 0;
     }
 
     // column labels, both legend and tick
-    this.columnLabels = [];
     let legendX = '';
     let legendY = '';
     if ('axes' in singleMaidr) {
@@ -69,20 +61,8 @@ class Segmented {
           legendY = singleMaidr.axes.y.label;
         }
       }
-
-      // tick labels
-      if (singleMaidr.axes.x) {
-        if (singleMaidr.axes.x.level) {
-          this.columnLabels = singleMaidr.axes.x.level;
-        }
-      }
-      if (singleMaidr.axes.y) {
-        if (singleMaidr.axes.y.level) {
-          this.columnLabels = singleMaidr.axes.y.level;
-        }
-      }
     }
-    // labels override axes, so they come last here
+    // labels override axes
     if ('labels' in singleMaidr) {
       if ('x' in singleMaidr.labels) {
         legendX = singleMaidr.labels.x;
@@ -123,18 +103,36 @@ class Segmented {
       }
     }
 
-    if (Array.isArray(singleMaidr)) {
-      this.plotData = singleMaidr;
-    } else {
-      if ('data' in singleMaidr) {
-        this.plotData = singleMaidr.data;
-      }
-    }
-
     // set the max and min values for the plot
     this.SetMaxMin();
 
     this.autoplay = null;
+  }
+
+  ParseData(data) {
+    let plotData = [];
+
+    // create a full 2d array of data using level and fill
+    for (let i = 0; i < this.level.length; i++) {
+      for (let j = 0; j < this.fill.length; j++) {
+        // loop through data, find matching level and fill, assign value
+        // if no match, assign null
+        for (let k = 0; k < data.length; k++) {
+          if (!plotData[i]) {
+            plotData[i] = [];
+          }
+          if (!plotData[i][j]) {
+            plotData[i][j] = 0;
+          }
+          if (data[k].x == this.level[i] && data[k].fill == this.fill[j]) {
+            plotData[i][j] = data[k].y;
+            break;
+          }
+        }
+      }
+    }
+
+    return plotData;
   }
 
   SetMaxMin() {
@@ -151,20 +149,11 @@ class Segmented {
         }
       }
     }
-    constants.maxX = this.columnLabels.length;
+    constants.maxX = this.level.length;
     constants.autoPlayRate = Math.min(
       Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
       constants.MAX_SPEED
     );
-  }
-
-  GetLegendFromManualData() {
-    let legend = {};
-
-    legend.x = barplotLegend.x;
-    legend.y = barplotLegend.y;
-
-    return legend;
   }
 
   Select() {

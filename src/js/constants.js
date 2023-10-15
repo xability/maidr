@@ -982,6 +982,10 @@ class LogError {
     console.log(a, 'not found. Visual highlighting is turned off.');
   }
 
+  LogCriticalElement(a) {
+    consolelog(a, 'is critical. MAIDR unable to run');
+  }
+
   LogDifferentLengths(a, b) {
     console.log(
       a,
