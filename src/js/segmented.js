@@ -136,16 +136,16 @@ class Segmented {
   }
 
   SetMaxMin() {
-    for (let i = 0; i < this.plotData.length; i++) {
+    for (let i = 0; i < singleMaidr.data.length; i++) {
       if (i == 0) {
-        constants.maxY = this.plotData[i];
-        constants.minY = this.plotData[i];
+        constants.maxY = singleMaidr.data[i].y;
+        constants.minY = singleMaidr.data[i].y;
       } else {
-        if (this.plotData[i] > constants.maxY) {
-          constants.maxY = this.plotData[i];
+        if (singleMaidr.data[i].y > constants.maxY) {
+          constants.maxY = singleMaidr.data[i].y;
         }
-        if (this.plotData[i] < constants.minY) {
-          constants.minY = this.plotData[i];
+        if (singleMaidr.data[i].y < constants.minY) {
+          constants.minY = singleMaidr.data[i].y;
         }
       }
     }

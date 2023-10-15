@@ -208,6 +208,23 @@ class Audio {
         -1,
         1
       );
+    } else if (constants.chartType == 'stacked_bar') {
+      rawFreq = plot.plotData[position.x][position.y];
+      rawPanning = position.x;
+      frequency = this.SlideBetween(
+        rawFreq,
+        constants.minY,
+        constants.maxY,
+        constants.MIN_FREQUENCY,
+        constants.MAX_FREQUENCY
+      );
+      panning = this.SlideBetween(
+        rawPanning,
+        constants.minX,
+        constants.maxX,
+        -1,
+        1
+      );
     }
 
     if (constants.debugLevel > 5) {
