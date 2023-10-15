@@ -168,6 +168,7 @@ class BarChart {
       Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
       constants.MAX_SPEED
     );
+    constants.DEFAULT_SPEED = constants.autoPlayRate;
   }
 
   GetLegendFromManualData() {
