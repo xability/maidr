@@ -225,17 +225,20 @@ class BarChart {
   }
 
   Select() {
-    this.DeselectAll();
+    this.UnSelectPrevious();
     if (this.bars) {
-      this.bars[position.x].style.fill = constants.colorSelected;
+      this.activeElement = this.bars[position.x];
+      if (this.activeElement) {
+        this.activeElementColor = this.activeElement.style.fill;
+        this.activeElement.style.fill = constants.colorSelected;
+      }
     }
   }
 
-  DeselectAll() {
-    if (this.bars) {
-      for (let i = 0; i < this.bars.length; i++) {
-        this.bars[i].style.fill = constants.colorUnselected;
-      }
+  UnSelectPrevious() {
+    if (this.activeElement) {
+      this.activeElement.style.fill = this.activeElementColor;
+      this.activeElement = null;
     }
   }
 }
