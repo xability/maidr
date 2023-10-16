@@ -31,20 +31,26 @@ class Segmented {
     }
 
     // gracefull failure: must have level + fill + data, elements optional
+    if (elements == null) {
+      LogError.LogAbsentElement('elements');
+      constants.hasRect = 0;
+    }
     if (level != null && fill != null && data != null) {
       this.level = level;
       this.fill = fill.reverse(); // typically fill is in reverse order
-      this.plotData = this.ParseData(data);
+      let dataAndELements = this.ParseData(data, elements);
+      this.plotData = dataAndELements[0];
+      this.elements = dataAndELements[1];
     } else {
       console.log(
         'Segmented chart missing level, fill, or data. Unable to create chart.'
       );
       return;
     }
-    if (elements == null) {
-      LogError.LogAbsentElement('elements');
-      constants.hasRect = 0;
-    }
+
+    // bookmark: just set an array of elements that matches the data elements.
+    // Now I need to do the actual visual highlighting thing,
+    // which involves picking the right one and then sending in through the highlight system
 
     // column labels, both legend and tick
     let legendX = '';
@@ -109,8 +115,13 @@ class Segmented {
     this.autoplay = null;
   }
 
-  ParseData(data) {
+  ParseData(data, elements = null) {
     let plotData = [];
+    let plotElements = [];
+
+    if (elements.length != data.length) {
+      plotElements = null;
+    }
 
     // create a full 2d array of data using level and fill
     for (let i = 0; i < this.level.length; i++) {
@@ -118,21 +129,34 @@ class Segmented {
         // loop through data, find matching level and fill, assign value
         // if no match, assign null
         for (let k = 0; k < data.length; k++) {
+          // init
           if (!plotData[i]) {
             plotData[i] = [];
+            if (plotElements != null) {
+              if (!plotElements[i]) {
+                plotElements[i] = [];
+              }
+            }
           }
           if (!plotData[i][j]) {
             plotData[i][j] = 0;
+            if (plotElements != null) {
+              if (!plotElements[i][j]) {
+                plotElements[i][j] = null;
+              }
+            }
           }
+          // set actual values
           if (data[k].x == this.level[i] && data[k].fill == this.fill[j]) {
             plotData[i][j] = data[k].y;
+            plotElements[i][j] = elements[k];
             break;
           }
         }
       }
     }
 
-    return plotData;
+    return [plotData, plotElements];
   }
 
   SetMaxMin() {
@@ -157,16 +181,29 @@ class Segmented {
   }
 
   Select() {
-    this.DeselectAll();
-    if (this.bars) {
-      this.bars[position.x].style.fill = constants.colorSelected;
+    this.UnSelectPrevious();
+    if (this.elements) {
+      this.activeElement = this.elements[position.x][position.y];
+      if (this.activeElement) {
+        this.activeElementColor = this.activeElement.style.fill;
+        this.activeElement.style.fill = constants.colorSelected;
+      }
+    }
+  }
+
+  UnSelectPrevious() {
+    if (this.activeElement) {
+      this.activeElement.style.fill = this.activeElementColor;
+      this.activeElement = null;
     }
   }
 
   DeselectAll() {
-    if (this.bars) {
-      for (let i = 0; i < this.bars.length; i++) {
-        this.bars[i].style.fill = constants.colorUnselected;
+    if (this.elements) {
+      for (let i = 0; i < this.elements.length; i++) {
+        for (let j = 0; j < this.elements[i].length; j++) {
+          this.elements[i][j].style.fill = constants.colorUnselected;
+        }
       }
     }
   }

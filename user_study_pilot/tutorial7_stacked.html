@@ -699,7 +699,9 @@
         type: 'stacked_bar',
         id: 'stacked_bar',
         orientation: 'horz',
-        elements: 'something',
+        elements: document.querySelectorAll(
+          'svg g:nth-of-type(2) rect[style*="butt"]'
+        ),
         labels: {
           title: 'Bar Plot',
           subtitle:

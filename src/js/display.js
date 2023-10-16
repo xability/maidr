@@ -226,12 +226,6 @@ class Display {
     // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
     // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
-    // bookmark
-    // Basically done with the initial Segmented creation,
-    // I've gotten to this step. Need to create the text for segmented_bar
-    // Oh, and note, elements still isn't set up at all, that's todo later
-    // also audio lol
-
     let output = '';
     let verboseText = '';
     let reviewText = '';
