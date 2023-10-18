@@ -2471,6 +2471,53 @@ class Control {
         },
       ]);
 
+      let controlElements = [constants.chart, constants.brailleInput];
+      let lastx = 0;
+      for (let i = 0; i < controlElements.length; i++) {
+        constants.events.push([
+          controlElements[i],
+          'keydown',
+          function (e) {
+            // period: speed up
+            if (e.key == '.') {
+              constants.SpeedUp();
+              PlayDuringSpeedChange();
+              display.announceText('Speed up');
+            }
+
+            // comma: speed down
+            if (e.key == ',') {
+              constants.SpeedDown();
+              PlayDuringSpeedChange();
+              display.announceText('Speed down');
+            }
+
+            // /: reset speed
+            if (e.key == '/') {
+              constants.SpeedReset();
+              PlayDuringSpeedChange();
+              display.announceText('Speed reset');
+            }
+          },
+        ]);
+      }
+      function PlayDuringSpeedChange() {
+        if (constants.autoplayId != null) {
+          constants.KillAutoplay();
+          if (lastPlayed == 'reverse-left') {
+            Autoplay('right', position.x, lastx);
+          } else if (lastPlayed == 'reverse-right') {
+            Autoplay('left', position.x, lastx);
+          } else if (lastPlayed == 'reverse-up') {
+            Autoplay('down', position.x, lastx);
+          } else if (lastPlayed == 'reverse-down') {
+            Autoplay('up', position.x, lastx);
+          } else {
+            Autoplay(lastPlayed, position.x, lastx);
+          }
+        }
+      }
+
       // lock to min / max postions
       function lockPosition() {
         let didLockHappen = false;
