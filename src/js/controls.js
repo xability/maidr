@@ -427,7 +427,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.plotData.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.plotData.length - 1;
           didLockHappen = true;
         }
@@ -436,7 +435,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -447,7 +446,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -462,7 +461,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -964,7 +963,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -975,7 +974,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -989,7 +988,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRect();
@@ -1492,7 +1491,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1503,7 +1502,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1517,7 +1516,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           rect.UpdateRectDisplay();
@@ -1603,7 +1602,7 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.chart,
+        [constants.chart, constants.brailleInput],
         'keydown',
         function (e) {
           let updateInfoThisRound = false;
@@ -1697,6 +1696,7 @@ class Control {
           }
         },
       ]);
+
 
       let controlElements = [constants.chart, constants.brailleInput];
       let lastx = 0;
@@ -1867,7 +1867,7 @@ class Control {
 
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           layer0Point.UpdatePointDisplay();
@@ -1879,7 +1879,7 @@ class Control {
 
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           if (constants.chartType == 'point') {
@@ -1897,7 +1897,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           layer1Point.UpdatePointDisplay();
@@ -2218,7 +2218,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.plotData.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.plotData.length - 1;
           didLockHappen = true;
         }
@@ -2227,7 +2226,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2238,7 +2237,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2253,7 +2252,279 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+        display.UpdateBraillePos(plot);
+      }
+      function Autoplay(dir, start, end) {
+        lastPlayed = dir;
+        let step = 1; // default right and reverse-left
+        if (dir == 'left' || dir == 'reverse-right') {
+          step = -1;
+        }
+
+        // clear old autoplay if exists
+        if (constants.autoplayId != null) {
+          constants.KillAutoplay();
+        }
+
+        if (dir == 'reverse-right' || dir == 'reverse-left') {
+          position.x = start;
+        }
+
+        constants.autoplayId = setInterval(function () {
+          position.x += step;
+          if (position.x < 0 || plot.plotData.length - 1 < position.x) {
+            constants.KillAutoplay();
+            lockPosition();
+          } else if (position.x == end) {
+            constants.KillAutoplay();
+            UpdateAllAutoplay();
+          } else {
+            UpdateAllAutoplay();
+          }
+        }, constants.autoPlayRate);
+      }
+    } else if ([].concat(singleMaidr.type).includes('stacked_bar')) {
+      window.position = new Position(-1, -1);
+      window.plot = new Segmented();
+
+      let audio = new Audio();
+
+      // global variables
+      let lastPlayed = '';
+      constants.lastx = 0;
+
+      // control eventlisteners
+      constants.events.push([
+        [constants.chart, constants.brailleInput],
+        'keydown',
+        function (e) {
+          let updateInfoThisRound = false; // we only update info and play tones on certain keys
+          let isAtEnd = false;
+          constants.navigation = 0; // 0 for up/down, 1 for left/right
+
+
+          if (e.key == 'ArrowRight') {
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x -= 1;
+                Autoplay('right', position.x, plot.pointValuesY.length);
+              } else {
+                position.x = plot.pointValuesY.length - 1; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.pointValuesY.length - 1
+            ) {
+              constants.lastx = position.x;
+              Autoplay('reverse-right', plot.pointValues.length, position.x);
+            } else {
+              position.x += 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+          } else if (e.key == 'ArrowLeft') {
+            // left arrow 37
+            if (constants.isMac ? e.metaKey : e.ctrlKey) {
+              if (e.shiftKey) {
+                position.x += 1;
+                Autoplay('left', position.x, -1);
+              } else {
+                position.x = 0; // go all the way
+                updateInfoThisRound = true;
+                isAtEnd = lockPosition();
+              }
+            } else if (e.altKey && e.shiftKey && position.x != 0) {
+              constants.lastx = position.x;
+              Autoplay('reverse-left', -1, position.x);
+            } else {
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+            // }
+
+          // Right
+          if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just right arrow, move right
+            position.x += 1;
+            updateInfoThisRound = true;
+            constants.navigation = 1;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift right arrow, autoplay right
+            position.x -= 1;
+            Autoplay('right', position.x, plot.plotData.length);
+          } else if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift right, autoplay from right
+            constants.lastx = position.x;
+            Autoplay('reverse-right', plot.bars.length, position.x);
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl right arrow, go to end
+            position.x = plot.plotData.length - 1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Left
+          if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just left arrow, move left
+            position.x += -1;
+            updateInfoThisRound = true;
+            constants.navigation = 1;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift left arrow, autoplay left
+            position.x += 1;
+            Autoplay('left', position.x, -1);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift left, autoplay from left
+            constants.lastx = position.x;
+            Autoplay('reverse-left', -1, position.x);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl left arrow, go to beginning
+            position.x = 0;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Up
+          if (
+            e.key == 'ArrowUp' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just up arrow, move up
+            position.y += 1;
+            updateInfoThisRound = true;
+            constants.navigation = 0;
+            isAtEnd = lockPosition();
+          }
+
+          // Down
+          if (
+            e.key == 'ArrowDown' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just down arrow, move down
+            position.y += -1;
+            updateInfoThisRound = true;
+            constants.navigation = 0;
+            isAtEnd = lockPosition();
+
+          }
+
+          // update display / text / audio
+          if (updateInfoThisRound && !isAtEnd) {
+            if (constants.brailleMode == 'off') {
+              UpdateAll();
+            } else {
+              UpdateAllBraille();
+            }
+          }
+          if (isAtEnd) {
+            audio.playEnd();
+          }
+        },
+      ]);
+
+      // lock to min / max postions
+      function lockPosition() {
+        let didLockHappen = false;
+
+        if (position.x < 0) {
+          position.x = 0;
+          didLockHappen = true;
+        }
+        if (position.x > plot.level.length - 1) {
+          position.x = plot.plotData.length - 1;
+          didLockHappen = true;
+        }
+        if (position.y < 0) {
+          position.y = 0;
+          didLockHappen = true;
+        }
+        if (position.y > plot.fill.length - 1) {
+          position.y = plot.fill.length - 1;
+          didLockHappen = true;
+        }
+
+        return didLockHappen;
+      }
+      function UpdateAll() {
+        if (constants.showDisplay) {
+          display.displayValues();
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+      }
+      function UpdateAllAutoplay() {
+        if (constants.showDisplayInAutoplay) {
+          display.displayValues();
+        }
+        if (constants.showRect && constants.hasRect) {
+          plot.Select();
+        }
+        if (constants.sonifMode != 'off') {
+          audio.playTone();
+        }
+
+        if (constants.brailleMode != 'off') {
+          display.UpdateBraillePos(plot);
+        }
+      }
+      function UpdateAllBraille() {
+        if (constants.showDisplayInBraille) {
+          display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
           plot.Select();
@@ -2305,72 +2576,12 @@ class Control {
 
       // control eventlisteners
       constants.events.push([
-        constants.chart,
+        [constants.chart, constants.brailleInput],
         'keydown',
         function (e) {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-          if (e.key == 'ArrowRight') {
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x -= 1;
-                Autoplay('right', position.x, plot.pointValuesY.length);
-              } else {
-                position.x = plot.pointValuesY.length - 1; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (
-              e.altKey &&
-              e.shiftKey &&
-              position.x != plot.pointValuesY.length - 1
-            ) {
-              constants.lastx = position.x;
-              Autoplay('reverse-right', plot.pointValues.length, position.x);
-            } else {
-              position.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-          } else if (e.key == 'ArrowLeft') {
-            // left arrow 37
-            if (constants.isMac ? e.metaKey : e.ctrlKey) {
-              if (e.shiftKey) {
-                position.x += 1;
-                Autoplay('left', position.x, -1);
-              } else {
-                position.x = 0; // go all the way
-                updateInfoThisRound = true;
-                isAtEnd = lockPosition();
-              }
-            } else if (e.altKey && e.shiftKey && position.x != 0) {
-              constants.lastx = position.x;
-              Autoplay('reverse-left', -1, position.x);
-            } else {
-              position.x += -1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            }
-            // }
-          }
-
-          // update display / text / audio
-          if (updateInfoThisRound && !isAtEnd) {
-            UpdateAll();
-          }
-          if (isAtEnd) {
-            audio.playEnd();
-          }
-        },
-      ]);
-
-      constants.events.push([
-        constants.brailleInput,
-        'keydown',
-        function (e) {
-          let updateInfoThisRound = false; // we only update info and play tones on certain keys
-          let isAtEnd = false;
 
           if (e.key == 'ArrowRight') {
             // right arrow
@@ -2421,11 +2632,91 @@ class Control {
             // do nothing, we handle this in global events
           } else {
             e.preventDefault();
+          // Right
+          if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just right arrow, move right
+            position.x += 1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift right arrow, autoplay right
+            position.x += -1;
+            Autoplay('outward_right', position.x, plot.pointValuesY.length);
+          } else if (
+            e.key == 'ArrowRight' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey &&
+            position.x != plot.pointValuesY.length - 1
+          ) {
+            // alt shift right, autoplay from right
+            constants.lastx = position.x;
+            Autoplay('inward_right', plot.pointValues.length, position.x);
+          } else if (
+            e.key == 'ArrowRight' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl right arrow, go to end
+            position.x = plot.pointValuesY.length - 1; // go all the way
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          }
+
+          // Left
+          if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // just left arrow, move left
+            position.x += -1;
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift left arrow, autoplay left
+            position.x += 1;
+            Autoplay('outward_left', position.x, -1);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift left, autoplay from left
+            constants.lastx = position.x;
+            Autoplay('inward_left', -1, position.x);
+          } else if (
+            e.key == 'ArrowLeft' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl left arrow, go to beginning
+            position.x = 0; // go all the way
+            updateInfoThisRound = true;
+            isAtEnd = lockPosition();
+
           }
 
           // update display / text / audio
           if (updateInfoThisRound && !isAtEnd) {
-            UpdateAllBraille();
+            if (constants.brailleMode == 'off') {
+              UpdateAll();
+            } else {
+              UpdateAllBraille();
+            }
           }
           if (isAtEnd) {
             audio.playEnd();
@@ -2488,7 +2779,6 @@ class Control {
           didLockHappen = true;
         }
         if (position.x > plot.pointValuesY.length - 1) {
-          // this is an issue, should we use plot.plotData.length instead of plot.bars.length?
           position.x = plot.pointValuesY.length - 1;
           didLockHappen = true;
         }
@@ -2497,7 +2787,7 @@ class Control {
       }
       function UpdateAll() {
         if (constants.showDisplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();
@@ -2508,7 +2798,7 @@ class Control {
       }
       function UpdateAllAutoplay() {
         if (constants.showDisplayInAutoplay) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();
@@ -2523,7 +2813,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
-          display.displayValues(plot);
+          display.displayValues();
         }
         if (constants.showRect) {
           point.UpdatePointDisplay();

@@ -222,7 +222,7 @@ class Display {
     }
   }
 
-  displayValues(plot) {
+  displayValues() {
     // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
     // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
@@ -457,12 +457,10 @@ class Display {
         output = '<p>' + verboseText + '</p>\n';
     } else if (constants.chartType == 'hist') {
       if (constants.textMode == 'terse') {
-        // terse: xmin - xmax, y
+        // terse: {x}, {y}
         output =
           '<p>' +
-          plot.plotData[position.x].xmin +
-          ' - ' +
-          plot.plotData[position.x].xmax +
+          plot.plotData[position.x].x +
           ', ' +
           plot.plotData[position.x].y +
           '</p>\n';
@@ -501,6 +499,34 @@ class Display {
           '</p>\n';
       } else if (constants.textMode == 'verbose') {
         // set from verboseText
+        output += '<p>' + verboseText + '</p>\n';
+      }
+    } else if (constants.chartType == 'stacked_bar') {
+      // {legend x} is {colname x}, {legend y} is {colname y}, value is {plotData[x][y]}
+      verboseText += plot.plotLegend.x + ' is ' + plot.level[position.x] + ', ';
+      verboseText += plot.plotLegend.y + ' is ' + plot.fill[position.y] + ', ';
+      verboseText += 'value is ' + plot.plotData[position.x][position.y];
+
+      if (constants.textMode == 'off') {
+        // do nothing
+      } else if (constants.textMode == 'terse') {
+        // navigation == 1 ? {colname x} : {colname y} is {plotData[x][y]}
+        if (constants.navigation == 1) {
+          output +=
+            '<p>' +
+            plot.level[position.x] +
+            ' is ' +
+            plot.plotData[position.x][position.y] +
+            '</p>\n';
+        } else {
+          output +=
+            '<p>' +
+            plot.fill[position.y] +
+            ' is ' +
+            plot.plotData[position.x][position.y] +
+            '</p>\n';
+        }
+      } else {
         output += '<p>' + verboseText + '</p>\n';
       }
     }

@@ -264,7 +264,7 @@ class Menu {
                 </div>
             </div>
         </div>
-        <div id="modal_backdrop" class="modal-backdrop hidden"></div>
+        <div id="menu_modal_backdrop" class="modal-backdrop hidden"></div>
         `;
 
   CreateMenu() {
@@ -276,31 +276,56 @@ class Menu {
     // menu close events
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
     for (let i = 0; i < allClose.length; i++) {
-      allClose[i].addEventListener('click', function (e) {
-        menu.Toggle(false);
-      });
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          menu.Toggle(false);
+        },
+      ]);
     }
-    document
-      .getElementById('save_and_close_menu')
-      .addEventListener('click', function (e) {
+    constants.events.push([
+      document.getElementById('save_and_close_menu'),
+      'click',
+      function (e) {
         menu.SaveData();
         menu.Toggle(false);
-      });
-    document.getElementById('menu').addEventListener('keydown', function (e) {
-      if (e.key == 'Esc') {
-        // esc
-        menu.Toggle(false);
-      }
-    });
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('menu'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          menu.Toggle(false);
+        }
+      },
+    ]);
 
-    // menu open events
+    // open events
     // note: this triggers a maidr destroy
-    document.addEventListener('keyup', function (e) {
-      if (e.key == 'h') {
-        // M(77) for menu, or H(72) for help? I don't like it
-        menu.Toggle(true);
-      }
-    });
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'h') {
+          menu.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // menu element destruction
+    let menu = document.getElementById('menu');
+    if (menu) {
+      menu.remove();
+    }
+    let backdrop = document.getElementById('menu_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
   }
 
   Toggle(onoff = false) {
@@ -315,13 +340,14 @@ class Menu {
       // open
       this.whereWasMyFocus = document.activeElement;
       this.PopulateData();
+      constants.tabMovement = 0;
       document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('modal_backdrop').classList.remove('hidden');
+      document.getElementById('menu_modal_backdrop').classList.remove('hidden');
       document.querySelector('#menu .close').focus();
     } else {
       // close
       document.getElementById('menu').classList.add('hidden');
-      document.getElementById('modal_backdrop').classList.add('hidden');
+      document.getElementById('menu_modal_backdrop').classList.add('hidden');
       this.whereWasMyFocus.focus();
       this.whereWasMyFocus = null;
     }
@@ -379,6 +405,252 @@ class Menu {
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
     }
+  }
+}
+
+class Description {
+  // This class creates an html modal containing summary info of the active chart
+  // Trigger popup with 'D' key
+  // Info is basically anything available, but stuff like:
+  // - chart type
+  // - chart labels, like title, subtitle, caption etc
+  // - chart data (an accessible html table)
+
+  constructor() {
+    //this.CreateComponent(); // disabled as we're in development and have switched priorities
+  }
+
+  CreateComponent() {
+    // modal containing description summary stuff
+    let html = `
+        <div id="description" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 id="desc_title" class="modal-title">Description</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="desc_content">
+                        content here
+                        </div>
+                        <div id="desc_table">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="close_desc">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="desc_modal_backdrop" class="modal-backdrop hidden"></div>
+
+    `;
+
+    document.querySelector('body').insertAdjacentHTML('beforeend', html);
+
+    // close events
+    let allClose = document.querySelectorAll(
+      '#close_desc, #description .close'
+    );
+    for (let i = 0; i < allClose.length; i++) {
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          description.Toggle(false);
+        },
+      ]);
+    }
+    constants.events.push([
+      document.getElementById('description'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          description.Toggle(false);
+        }
+      },
+    ]);
+
+    // open events
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'd') {
+          description.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // description element destruction
+    let description = document.getElementById('menu');
+    if (description) {
+      description.remove();
+    }
+    let backdrop = document.getElementById('desc_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  Toggle(onoff = false) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('description').classList.contains('hidden')) {
+        onoff = true;
+      } else {
+        onoff = false;
+      }
+    }
+    if (onoff) {
+      // open
+      this.whereWasMyFocus = document.activeElement;
+      constants.tabMovement = 0;
+      this.PopulateData();
+      document.getElementById('description').classList.remove('hidden');
+      document.getElementById('desc_modal_backdrop').classList.remove('hidden');
+      document.querySelector('#description .close').focus();
+    } else {
+      // close
+      document.getElementById('description').classList.add('hidden');
+      document.getElementById('desc_modal_backdrop').classList.add('hidden');
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
+    }
+  }
+
+  PopulateData() {
+    let descHtml = '';
+
+    // chart labels and descriptions
+    let descType = '';
+    if (constants.chartType == 'bar') {
+      descType = 'Bar chart';
+    } else if (constants.chartType == 'heat') {
+      descType = 'Heatmap';
+    } else if (constants.chartType == 'box') {
+      descType = 'Box plot';
+    } else if (constants.chartType == 'scatter') {
+      descType = 'Scatter plot';
+    } else if (constants.chartType == 'line') {
+      descType = 'Line chart';
+    } else if (constants.chartType == 'hist') {
+      descType = 'Histogram';
+    }
+
+    if (descType) {
+      descHtml += `<p>Type: ${descType}</p>`;
+    }
+    if (plot.title != null) {
+      descHtml += `<p>Title: ${plot.title}</p>`;
+    }
+    if (plot.subtitle != null) {
+      descHtml += `<p>Subtitle: ${plot.subtitle}</p>`;
+    }
+    if (plot.caption != null) {
+      descHtml += `<p>Caption: ${plot.caption}</p>`;
+    }
+
+    // table of data, prep
+    let descTableHtml = '';
+    let descLabelX = null;
+    let descLabelY = null;
+    let descTickX = null;
+    let descTickY = null;
+    let descData = null;
+    let descNumCols = 0;
+    let descNumColsWithLabels = 0;
+    let descNumRows = 0;
+    let descNumRowsWithLabels = 0;
+    if (constants.chartType == 'bar') {
+      if (plot.plotLegend.x != null) {
+        descLabelX = plot.plotLegend.x;
+        descNumColsWithLabels += 1;
+      }
+      if (plot.plotLegend.y != null) {
+        descLabelY = plot.plotLegend.y;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.columnLabels != null) {
+        descTickX = plot.columnLabels;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.plotData != null) {
+        descData = [];
+        descData[0] = plot.plotData;
+        descNumCols = plot.plotData.length;
+        descNumRows = 1;
+        descNumColsWithLabels += descNumCols;
+        descNumRowsWithLabels += descNumRows;
+      }
+    }
+
+    // table of data, create
+    if (descData != null) {
+      descTableHtml += '<table>';
+
+      // header rows
+      if (descLabelX != null || descTickX != null) {
+        descTableHtml += '<thead>';
+        if (descLabelX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          descTableHtml += `<th scope="col" colspan="${descNumCols}">${descLabelX}</th>`;
+          descTableHtml += '</tr>';
+        }
+        if (descTickX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          for (let i = 0; i < descNumCols; i++) {
+            descTableHtml += `<th scope="col">${descTickX[i]}</th>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</thead>';
+      }
+
+      // body rows
+      if (descNumRows > 0) {
+        descTableHtml += '<tbody>';
+        for (let i = 0; i < descNumRows; i++) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null && i == 0) {
+            descTableHtml += `<th scope="row" rowspan="${descNumRows}">${descLabelY}</th>`;
+          }
+          if (descTickY != null) {
+            descTableHtml += `<th scope="row">${descTickY[i]}</th>`;
+          }
+          for (let j = 0; j < descNumCols; j++) {
+            descTableHtml += `<td>${descData[i][j]}</td>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</tbody>';
+      }
+
+      descTableHtml += '</table>';
+    }
+
+    // bar: don't need colspan or rowspan stuff, put legendX and Y as headers
+
+    document.getElementById('desc_title').innerHTML = descType + ' description';
+    document.getElementById('desc_content').innerHTML = descHtml;
+    document.getElementById('desc_table').innerHTML = descTableHtml;
   }
 }
 
@@ -708,6 +980,10 @@ class LogError {
 
   LogAbsentElement(a) {
     console.log(a, 'not found. Visual highlighting is turned off.');
+  }
+
+  LogCriticalElement(a) {
+    consolelog(a, 'is critical. MAIDR unable to run');
   }
 
   LogDifferentLengths(a, b) {
