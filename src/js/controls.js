@@ -1697,7 +1697,6 @@ class Control {
         },
       ]);
 
-
       let controlElements = [constants.chart, constants.brailleInput];
       let lastx = 0;
       for (let i = 0; i < controlElements.length; i++) {
@@ -2310,7 +2309,6 @@ class Control {
           let isAtEnd = false;
           constants.navigation = 0; // 0 for up/down, 1 for left/right
 
-
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
@@ -2354,121 +2352,121 @@ class Control {
             }
             // }
 
-          // Right
-          if (
-            e.key == 'ArrowRight' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just right arrow, move right
-            position.x += 1;
-            updateInfoThisRound = true;
-            constants.navigation = 1;
-            isAtEnd = lockPosition();
-          } else if (
-            e.key == 'ArrowRight' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.shiftKey
-          ) {
-            // ctrl shift right arrow, autoplay right
-            position.x -= 1;
-            Autoplay('right', position.x, plot.plotData.length);
-          } else if (
-            e.key == 'ArrowRight' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.altKey &&
-            e.shiftKey
-          ) {
-            // alt shift right, autoplay from right
-            constants.lastx = position.x;
-            Autoplay('reverse-right', plot.bars.length, position.x);
-          } else if (
-            e.key == 'ArrowRight' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // ctrl right arrow, go to end
-            position.x = plot.plotData.length - 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-
-          // Left
-          if (
-            e.key == 'ArrowLeft' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just left arrow, move left
-            position.x += -1;
-            updateInfoThisRound = true;
-            constants.navigation = 1;
-            isAtEnd = lockPosition();
-          } else if (
-            e.key == 'ArrowLeft' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.shiftKey
-          ) {
-            // ctrl shift left arrow, autoplay left
-            position.x += 1;
-            Autoplay('left', position.x, -1);
-          } else if (
-            e.key == 'ArrowLeft' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.altKey &&
-            e.shiftKey
-          ) {
-            // alt shift left, autoplay from left
-            constants.lastx = position.x;
-            Autoplay('reverse-left', -1, position.x);
-          } else if (
-            e.key == 'ArrowLeft' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // ctrl left arrow, go to beginning
-            position.x = 0;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-
-          // Up
-          if (
-            e.key == 'ArrowUp' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just up arrow, move up
-            position.y += 1;
-            updateInfoThisRound = true;
-            constants.navigation = 0;
-            isAtEnd = lockPosition();
-          }
-
-          // Down
-          if (
-            e.key == 'ArrowDown' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just down arrow, move down
-            position.y += -1;
-            updateInfoThisRound = true;
-            constants.navigation = 0;
-            isAtEnd = lockPosition();
-
-          }
-
-          // update display / text / audio
-          if (updateInfoThisRound && !isAtEnd) {
-            if (constants.brailleMode == 'off') {
-              UpdateAll();
-            } else {
-              UpdateAllBraille();
+            // Right
+            if (
+              e.key == 'ArrowRight' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just right arrow, move right
+              position.x += 1;
+              updateInfoThisRound = true;
+              constants.navigation = 1;
+              isAtEnd = lockPosition();
+            } else if (
+              e.key == 'ArrowRight' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.shiftKey
+            ) {
+              // ctrl shift right arrow, autoplay right
+              position.x -= 1;
+              Autoplay('right', position.x, plot.plotData.length);
+            } else if (
+              e.key == 'ArrowRight' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.altKey &&
+              e.shiftKey
+            ) {
+              // alt shift right, autoplay from right
+              constants.lastx = position.x;
+              Autoplay('reverse-right', plot.bars.length, position.x);
+            } else if (
+              e.key == 'ArrowRight' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // ctrl right arrow, go to end
+              position.x = plot.plotData.length - 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
             }
-          }
-          if (isAtEnd) {
-            audio.playEnd();
+
+            // Left
+            if (
+              e.key == 'ArrowLeft' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just left arrow, move left
+              position.x += -1;
+              updateInfoThisRound = true;
+              constants.navigation = 1;
+              isAtEnd = lockPosition();
+            } else if (
+              e.key == 'ArrowLeft' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.shiftKey
+            ) {
+              // ctrl shift left arrow, autoplay left
+              position.x += 1;
+              Autoplay('left', position.x, -1);
+            } else if (
+              e.key == 'ArrowLeft' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.altKey &&
+              e.shiftKey
+            ) {
+              // alt shift left, autoplay from left
+              constants.lastx = position.x;
+              Autoplay('reverse-left', -1, position.x);
+            } else if (
+              e.key == 'ArrowLeft' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // ctrl left arrow, go to beginning
+              position.x = 0;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+
+            // Up
+            if (
+              e.key == 'ArrowUp' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just up arrow, move up
+              position.y += 1;
+              updateInfoThisRound = true;
+              constants.navigation = 0;
+              isAtEnd = lockPosition();
+            }
+
+            // Down
+            if (
+              e.key == 'ArrowDown' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just down arrow, move down
+              position.y += -1;
+              updateInfoThisRound = true;
+              constants.navigation = 0;
+              isAtEnd = lockPosition();
+            }
+
+            // update display / text / audio
+            if (updateInfoThisRound && !isAtEnd) {
+              if (constants.brailleMode == 'off') {
+                UpdateAll();
+              } else {
+                UpdateAllBraille();
+              }
+            }
+            if (isAtEnd) {
+              audio.playEnd();
+            }
           }
         },
       ]);
@@ -2582,7 +2580,6 @@ class Control {
           let updateInfoThisRound = false; // we only update info and play tones on certain keys
           let isAtEnd = false;
 
-
           if (e.key == 'ArrowRight') {
             // right arrow
             e.preventDefault();
@@ -2632,94 +2629,94 @@ class Control {
             // do nothing, we handle this in global events
           } else {
             e.preventDefault();
-          // Right
-          if (
-            e.key == 'ArrowRight' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just right arrow, move right
-            position.x += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          } else if (
-            e.key == 'ArrowRight' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.shiftKey
-          ) {
-            // ctrl shift right arrow, autoplay right
-            position.x += -1;
-            Autoplay('outward_right', position.x, plot.pointValuesY.length);
-          } else if (
-            e.key == 'ArrowRight' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.altKey &&
-            e.shiftKey &&
-            position.x != plot.pointValuesY.length - 1
-          ) {
-            // alt shift right, autoplay from right
-            constants.lastx = position.x;
-            Autoplay('inward_right', plot.pointValues.length, position.x);
-          } else if (
-            e.key == 'ArrowRight' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // ctrl right arrow, go to end
-            position.x = plot.pointValuesY.length - 1; // go all the way
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-
-          // Left
-          if (
-            e.key == 'ArrowLeft' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // just left arrow, move left
-            position.x += -1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          } else if (
-            e.key == 'ArrowLeft' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.shiftKey
-          ) {
-            // ctrl shift left arrow, autoplay left
-            position.x += 1;
-            Autoplay('outward_left', position.x, -1);
-          } else if (
-            e.key == 'ArrowLeft' &&
-            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
-            e.altKey &&
-            e.shiftKey
-          ) {
-            // alt shift left, autoplay from left
-            constants.lastx = position.x;
-            Autoplay('inward_left', -1, position.x);
-          } else if (
-            e.key == 'ArrowLeft' &&
-            (constants.isMac ? e.metaKey : e.ctrlKey) &&
-            !e.shiftKey
-          ) {
-            // ctrl left arrow, go to beginning
-            position.x = 0; // go all the way
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-
-          }
-
-          // update display / text / audio
-          if (updateInfoThisRound && !isAtEnd) {
-            if (constants.brailleMode == 'off') {
-              UpdateAll();
-            } else {
-              UpdateAllBraille();
+            // Right
+            if (
+              e.key == 'ArrowRight' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just right arrow, move right
+              position.x += 1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            } else if (
+              e.key == 'ArrowRight' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.shiftKey
+            ) {
+              // ctrl shift right arrow, autoplay right
+              position.x += -1;
+              Autoplay('outward_right', position.x, plot.pointValuesY.length);
+            } else if (
+              e.key == 'ArrowRight' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.altKey &&
+              e.shiftKey &&
+              position.x != plot.pointValuesY.length - 1
+            ) {
+              // alt shift right, autoplay from right
+              constants.lastx = position.x;
+              Autoplay('inward_right', plot.pointValues.length, position.x);
+            } else if (
+              e.key == 'ArrowRight' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // ctrl right arrow, go to end
+              position.x = plot.pointValuesY.length - 1; // go all the way
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
             }
-          }
-          if (isAtEnd) {
-            audio.playEnd();
+
+            // Left
+            if (
+              e.key == 'ArrowLeft' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // just left arrow, move left
+              position.x += -1;
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            } else if (
+              e.key == 'ArrowLeft' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.shiftKey
+            ) {
+              // ctrl shift left arrow, autoplay left
+              position.x += 1;
+              Autoplay('outward_left', position.x, -1);
+            } else if (
+              e.key == 'ArrowLeft' &&
+              !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+              e.altKey &&
+              e.shiftKey
+            ) {
+              // alt shift left, autoplay from left
+              constants.lastx = position.x;
+              Autoplay('inward_left', -1, position.x);
+            } else if (
+              e.key == 'ArrowLeft' &&
+              (constants.isMac ? e.metaKey : e.ctrlKey) &&
+              !e.shiftKey
+            ) {
+              // ctrl left arrow, go to beginning
+              position.x = 0; // go all the way
+              updateInfoThisRound = true;
+              isAtEnd = lockPosition();
+            }
+
+            // update display / text / audio
+            if (updateInfoThisRound && !isAtEnd) {
+              if (constants.brailleMode == 'off') {
+                UpdateAll();
+              } else {
+                UpdateAllBraille();
+              }
+            }
+            if (isAtEnd) {
+              audio.playEnd();
+            }
           }
         },
       ]);
