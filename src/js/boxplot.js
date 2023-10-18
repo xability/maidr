@@ -171,6 +171,7 @@ class BoxPlot {
       Math.ceil(constants.AUTOPLAY_DURATION / this.plotData.length),
       constants.MAX_SPEED
     );
+    constants.DEFAULT_SPEED = constants.autoPlayRate;
   }
 
   GetPlotBounds() {
