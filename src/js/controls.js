@@ -60,7 +60,12 @@ class Control {
 
           if (e.key == ' ') {
             // space 32, replay info but no other changes
-            UpdateAll();
+            if (constants.showDisplay) {
+              display.displayValues();
+            }
+            if (constants.sonifMode != 'off') {
+              plot.PlayTones();
+            }
           }
 
           // switch layer controls
@@ -234,8 +239,6 @@ class Control {
     if ([].concat(singleMaidr.type).includes('bar')) {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
-
-      let audio = new Audio();
 
       // global variables
       constants.lastx = 0;
@@ -441,7 +444,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -452,7 +455,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
 
         if (constants.brailleMode != 'off') {
@@ -467,7 +470,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }
@@ -515,7 +518,6 @@ class Control {
         rect = new BoxplotRect();
         constants.hasRect = true;
       }
-      let audio = new Audio();
       let lastPlayed = '';
 
       // control eventlisteners
@@ -969,7 +971,7 @@ class Control {
           rect.UpdateRect();
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -980,7 +982,7 @@ class Control {
           rect.UpdateRect();
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
         if (constants.brailleMode != 'off') {
           display.UpdateBraillePos();
@@ -994,7 +996,7 @@ class Control {
           rect.UpdateRect();
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }
@@ -1123,7 +1125,6 @@ class Control {
       window.position = new Position(-1, -1);
       window.plot = new HeatMap();
       let rect = new HeatMapRect();
-      let audio = new Audio();
       let lastPlayed = '';
       constants.lastx = 0;
 
@@ -1497,7 +1498,7 @@ class Control {
           rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -1508,7 +1509,7 @@ class Control {
           rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
         if (constants.brailleMode != 'off') {
           display.UpdateBraillePos();
@@ -1522,7 +1523,7 @@ class Control {
           rect.UpdateRectDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }
@@ -1590,7 +1591,6 @@ class Control {
       constants.plotId = 'geom_point.points.12.1';
       window.position = new Position(-1, -1);
       window.plot = new ScatterPlot();
-      let audio = new Audio();
       let layer0Point = new Layer0Point();
       let layer1Point = new Layer1Point();
 
@@ -1872,7 +1872,7 @@ class Control {
           layer0Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
       }
 
@@ -1888,7 +1888,7 @@ class Control {
           }
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
         if (constants.brailleMode != 'off') {
           display.UpdateBraillePos();
@@ -1902,7 +1902,7 @@ class Control {
           layer1Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
-          plot.PlayTones(audio);
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }
@@ -2049,8 +2049,6 @@ class Control {
     } else if ([].concat(singleMaidr.type).includes('hist')) {
       window.position = new Position(-1, -1);
       window.plot = new Histogram();
-
-      let audio = new Audio();
 
       // global variables
       let lastPlayed = '';
@@ -2231,7 +2229,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -2242,7 +2240,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
 
         if (constants.brailleMode != 'off') {
@@ -2257,7 +2255,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone();
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }
@@ -2293,8 +2291,6 @@ class Control {
     } else if ([].concat(singleMaidr.type).includes('stacked_bar')) {
       window.position = new Position(-1, -1);
       window.plot = new Segmented();
-
-      let audio = new Audio();
 
       // global variables
       let lastPlayed = '';
@@ -2561,11 +2557,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          if (plot.plotData[position.x][position.y] != 0) {
-            audio.playTone();
-          } else {
-            audio.PlayNull();
-          }
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -2576,11 +2568,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          if (plot.plotData[position.x][position.y] != 0) {
-            audio.playTone();
-          } else {
-            audio.PlayNull();
-          }
+          plot.PlayTones();
         }
 
         if (constants.brailleMode != 'off') {
@@ -2595,11 +2583,7 @@ class Control {
           plot.Select();
         }
         if (constants.sonifMode != 'off') {
-          if (plot.plotData[position.x][position.y] != 0) {
-            audio.playTone();
-          } else {
-            audio.PlayNull();
-          }
+          plot.PlayTones();
         }
 
         display.UpdateBraillePos();
@@ -2663,8 +2647,6 @@ class Control {
       window.position = new Position(-1, -1);
       window.plot = new LinePlot();
       let point = new Point();
-
-      let audio = new Audio();
 
       // global variables
       let lastPlayed = '';
@@ -2888,7 +2870,7 @@ class Control {
           point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone(); // TODO
+          plot.PlayTones();
         }
       }
       function UpdateAllAutoplay() {
@@ -2899,7 +2881,7 @@ class Control {
           point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone(); // TODO
+          plot.PlayTones();
         }
 
         if (constants.brailleMode != 'off') {
@@ -2914,7 +2896,7 @@ class Control {
           point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
-          audio.playTone(); // TODO
+          plot.PlayTones();
         }
         display.UpdateBraillePos();
       }

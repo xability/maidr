@@ -210,6 +210,10 @@ class Audio {
       );
     } else if (constants.chartType == 'stacked_bar') {
       rawFreq = plot.plotData[position.x][position.y];
+      if (rawFreq == 0) {
+        this.PlayNull();
+        return;
+      }
       rawPanning = position.x;
       frequency = this.SlideBetween(
         rawFreq,

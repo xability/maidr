@@ -381,7 +381,7 @@ class ScatterPlot {
     }
   }
 
-  PlayTones(audio) {
+  PlayTones() {
     // kill the previous separate-points play before starting the next play
     if (constants.sepPlayId) {
       constants.KillSepPlay();

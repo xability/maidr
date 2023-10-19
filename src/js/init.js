@@ -87,6 +87,7 @@ function InitMaidr(thisMaidr) {
     window.control = new Control(); // this inits the plot
     window.review = new Review();
     window.display = new Display();
+    window.audio = new Audio();
 
     // blur destruction events
     let controlElements = [
@@ -220,6 +221,7 @@ function DestroyMaidr() {
   window.display = null;
   window.control = null;
   window.plot = null;
+  window.audio = null;
   window.singleMaidr = null;
 }
 function KillAutoplayEvent(e) {
