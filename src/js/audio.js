@@ -231,7 +231,7 @@ class Audio {
         -1,
         1
       );
-      let waveTypeArr = ['sine', 'triangle', 'square', 'sawtooth'];
+      let waveTypeArr = ['triangle', 'square', 'sawtooth', 'sine'];
       waveType = waveTypeArr[position.y];
     }
 

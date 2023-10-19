@@ -183,7 +183,8 @@ class Display {
     ) {
       constants.brailleInput.setSelectionRange(position.x, position.x);
     } else if (constants.chartType == 'stacked_bar') {
-      let pos = position.x * (plot.fill.length + 1) + position.y;
+      //let pos = position.x * (plot.fill.length + 1) + position.y;
+      let pos = position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
     } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
@@ -594,18 +595,15 @@ class Display {
       let medium = low + range;
       let medium_high = medium + range;
       for (let i = 0; i < plot.plotData.length; i++) {
-        for (let j = 0; j < plot.plotData[i].length; j++) {
-          if (plot.plotData[i][j] <= low) {
-            brailleArray.push('⣀');
-          } else if (plot.plotData[i][j] <= medium) {
-            brailleArray.push('⠤');
-          } else if (plot.plotData[i][j] <= medium_high) {
-            brailleArray.push('⠒');
-          } else {
-            brailleArray.push('⠉');
-          }
+        if (plot.plotData[i][position.y] <= low) {
+          brailleArray.push('⣀');
+        } else if (plot.plotData[i][position.y] <= medium) {
+          brailleArray.push('⠤');
+        } else if (plot.plotData[i][position.y] <= medium_high) {
+          brailleArray.push('⠒');
+        } else {
+          brailleArray.push('⠉');
         }
-        brailleArray.push('⠳');
       }
       for (let i = 0; i < plot.plotData.length; i++) {}
     } else if (constants.chartType == 'bar') {

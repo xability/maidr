@@ -2577,6 +2577,7 @@ class Control {
       }
       function UpdateAllBraille() {
         if (constants.showDisplayInBraille) {
+          display.SetBraille();
           display.displayValues();
         }
         if (constants.showRect && constants.hasRect) {
