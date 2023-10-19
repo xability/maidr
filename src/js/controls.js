@@ -414,7 +414,7 @@ class Control {
         }
 
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -427,7 +427,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           audio.playTone();
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
@@ -874,7 +874,7 @@ class Control {
           plot.PlayTones(audio);
         }
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -887,7 +887,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
       function lockPosition() {
         // lock to min / max postions
@@ -1355,7 +1355,7 @@ class Control {
           audio.playTone();
         }
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -1368,7 +1368,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           audio.playTone();
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
 
       function Autoplay(dir, start, end) {
@@ -1595,7 +1595,7 @@ class Control {
           plot.PlayTones(audio);
         }
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -1608,7 +1608,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           plot.PlayTones(audio);
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
 
       function Autoplay(dir, start, end) {
@@ -1904,7 +1904,7 @@ class Control {
         }
 
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -1917,7 +1917,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           audio.playTone();
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
@@ -1967,6 +1967,14 @@ class Control {
           let isAtEnd = false;
           constants.navigation = 0; // 0 for up/down, 1 for left/right
 
+          if (constants.brailleMode == 'on') {
+            if (e.key == 'Tab') {
+              // allow
+            } else {
+              e.preventDefault();
+            }
+          }
+
           // Right
           if (
             e.key == 'ArrowRight' &&
@@ -1994,7 +2002,7 @@ class Control {
           ) {
             // alt shift right, autoplay from right
             constants.lastx = position.x;
-            Autoplay('reverse-right', plot.bars.length, position.x);
+            Autoplay('reverse-right', plot.plotData.length, position.x);
           } else if (
             e.key == 'ArrowRight' &&
             (constants.isMac ? e.metaKey : e.ctrlKey) &&
@@ -2056,6 +2064,30 @@ class Control {
             updateInfoThisRound = true;
             constants.navigation = 0;
             isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowUp' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift up arrow, autoplay up
+            Autoplay('up', position.y, plot.plotData[0].length);
+          } else if (
+            e.key == 'ArrowUp' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift up, autoplay from up
+            constants.lastx = position.x;
+            Autoplay('reverse-up', -1, plot.plotData[0].length);
+          } else if (
+            e.key == 'ArrowUp' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl up arrow, go to top
+            position.y = plot.plotData[0].length - 1;
+            updateInfoThisRound = true;
           }
 
           // Down
@@ -2069,6 +2101,30 @@ class Control {
             updateInfoThisRound = true;
             constants.navigation = 0;
             isAtEnd = lockPosition();
+          } else if (
+            e.key == 'ArrowDown' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.shiftKey
+          ) {
+            // ctrl shift down arrow, autoplay down
+            Autoplay('down', position.y, -1);
+          } else if (
+            e.key == 'ArrowDown' &&
+            !(constants.isMac ? e.metaKey : e.ctrlKey) &&
+            e.altKey &&
+            e.shiftKey
+          ) {
+            // alt shift down, autoplay from down
+            constants.lastx = position.x;
+            Autoplay('reverse-down', -1, position.y);
+          } else if (
+            e.key == 'ArrowDown' &&
+            (constants.isMac ? e.metaKey : e.ctrlKey) &&
+            !e.shiftKey
+          ) {
+            // ctrl down arrow, go to bottom
+            position.y = 0;
+            updateInfoThisRound = true;
           }
 
           // update display / text / audio
@@ -2131,7 +2187,7 @@ class Control {
         }
 
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -2144,12 +2200,18 @@ class Control {
         if (constants.sonifMode != 'off') {
           audio.playTone();
         }
-        display.UpdateBraillePos(plot);
+
+        display.UpdateBraillePos();
       }
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
-        let step = 1; // default right and reverse-left
-        if (dir == 'left' || dir == 'reverse-right') {
+        let step = 1; // default right, up, reverse-left, and reverse-down
+        if (
+          dir == 'left' ||
+          dir == 'down' ||
+          dir == 'reverse-right' ||
+          dir == 'reverse-up'
+        ) {
           step = -1;
         }
 
@@ -2158,20 +2220,41 @@ class Control {
           constants.KillAutoplay();
         }
 
-        if (dir == 'reverse-right' || dir == 'reverse-left') {
+        if (dir == 'reverse-left' || dir == 'reverse-right') {
           position.x = start;
+        } else if (dir == 'reverse-up' || dir == 'reverse-down') {
+          position.y = start;
         }
 
         constants.autoplayId = setInterval(function () {
-          position.x += step;
-          if (position.x < 0 || plot.plotData.length - 1 < position.x) {
-            constants.KillAutoplay();
-            lockPosition();
-          } else if (position.x == end) {
-            constants.KillAutoplay();
-            UpdateAllAutoplay();
+          if (
+            dir == 'left' ||
+            dir == 'right' ||
+            dir == 'reverse-left' ||
+            dir == 'reverse-right'
+          ) {
+            position.x += step;
+            if (position.x < 0 || plot.plotData.length - 1 < position.x) {
+              constants.KillAutoplay();
+              lockPosition();
+            } else if (position.x == end) {
+              constants.KillAutoplay();
+              UpdateAllAutoplay();
+            } else {
+              UpdateAllAutoplay();
+            }
           } else {
-            UpdateAllAutoplay();
+            // up or down
+            position.y += step;
+            if (position.y < 0 || plot.plotData[0].length - 1 < position.y) {
+              constants.KillAutoplay();
+              lockPosition();
+            } else if (position.y == end) {
+              constants.KillAutoplay();
+              UpdateAllAutoplay();
+            } else {
+              UpdateAllAutoplay();
+            }
           }
         }, constants.autoPlayRate);
       }
@@ -2326,7 +2409,7 @@ class Control {
         }
 
         if (constants.brailleMode != 'off') {
-          display.UpdateBraillePos(plot);
+          display.UpdateBraillePos();
         }
       }
       function UpdateAllBraille() {
@@ -2339,7 +2422,7 @@ class Control {
         if (constants.sonifMode != 'off') {
           audio.playTone(); // TODO
         }
-        display.UpdateBraillePos(plot);
+        display.UpdateBraillePos();
       }
       function Autoplay(dir, start, end) {
         lastPlayed = dir;
