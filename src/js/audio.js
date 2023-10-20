@@ -35,6 +35,8 @@ class Audio {
     let frequency = 0;
     let panning = 0;
 
+    let waveType = 'sine';
+
     // freq goes between min / max as rawFreq goes between min(0) / max
     if (constants.chartType == 'bar') {
       rawFreq = plot.plotData[position.x];
@@ -210,6 +212,10 @@ class Audio {
       );
     } else if (constants.chartType == 'stacked_bar') {
       rawFreq = plot.plotData[position.x][position.y];
+      if (rawFreq == 0) {
+        this.PlayNull();
+        return;
+      }
       rawPanning = position.x;
       frequency = this.SlideBetween(
         rawFreq,
@@ -225,6 +231,8 @@ class Audio {
         -1,
         1
       );
+      let waveTypeArr = ['triangle', 'square', 'sawtooth', 'sine'];
+      waveType = waveTypeArr[position.y];
     }
 
     if (constants.debugLevel > 5) {
@@ -280,7 +288,7 @@ class Audio {
     }
 
     // create tones
-    this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
+    this.playOscillator(frequency, currentDuration, panning, volume, waveType);
     if (constants.chartType == 'box') {
       let sectionKey = plot.GetSectionKey(
         constants.plotOrientation == 'vert' ? position.y : position.x

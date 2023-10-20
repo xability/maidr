@@ -165,6 +165,10 @@ class LinePlot {
       }
     }
   }
+
+  PlayTones() {
+    audio.playTone();
+  }
 }
 
 class Point {

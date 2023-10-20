@@ -171,6 +171,10 @@ class BarChart {
     constants.DEFAULT_SPEED = constants.autoPlayRate;
   }
 
+  PlayTones() {
+    audio.playTone();
+  }
+
   GetLegendFromManualData() {
     let legend = {};
 

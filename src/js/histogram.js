@@ -76,6 +76,10 @@ class Histogram {
     this.autoplay = null;
   }
 
+  PlayTones() {
+    audio.playTone();
+  }
+
   SetMaxMin() {
     for (let i = 0; i < this.plotData.length; i++) {
       if (i == 0) {

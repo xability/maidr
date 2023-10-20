@@ -159,6 +159,10 @@ class Segmented {
     return [plotData, plotElements];
   }
 
+  PlayTones() {
+    audio.playTone();
+  }
+
   SetMaxMin() {
     for (let i = 0; i < singleMaidr.data.length; i++) {
       if (i == 0) {

@@ -539,7 +539,7 @@ class BoxPlot {
     };
   }
 
-  PlayTones(audio) {
+  PlayTones() {
     // init
     let plotPos = null;
     let sectionKey = null;

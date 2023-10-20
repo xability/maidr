@@ -210,6 +210,10 @@ class HeatMap {
     constants.DEFAULT_SPEED = constants.autoPlayRate;
   }
 
+  PlayTones() {
+    audio.playTone();
+  }
+
   GetSVGScaler() {
     let scaleX = 1;
     let scaleY = 1;
