@@ -43,9 +43,9 @@ class Constants {
 
   // autoplay speed
   MAX_SPEED = 500;
-  MIN_SPEED = 1; // 50;
+  MIN_SPEED = 50; // 50;
   DEFAULT_SPEED = 250;
-  INTERVAL = 50;
+  INTERVAL = 10;
   AUTOPLAY_DURATION = 5000; // 5s
 
   // user settings
@@ -250,7 +250,7 @@ class Menu {
                             <p><input type="range" id="vol" name="vol" min="0" max="1" step=".05"><label for="vol">Volume</label></p>
                             <!-- <p><input type="checkbox" id="show_rect" name="show_rect"><label for="show_rect">Show Outline</label></p> //-->
                             <p><input type="number" min="4" max="2000" step="1" id="braille_display_length" name="braille_display_length"><label for="braille_display_length">Braille Display Size</label></p>
-                            <p><input type="number" min="1" max="500" step="20" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
+                            <p><input type="number" min="50" max="500" step="10" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
                             <p><input type="color" id="color_selected" name="color_selected"><label for="color_selected">Outline Color</label></p>
                             <p><input type="number" min="10" max="2000" step="10" id="min_freq" name="min_freq"><label for="min_freq">Min Frequency (Hz)</label></p>
                             <p><input type="number" min="20" max="2010" step="10" id="max_freq" name="max_freq"><label for="max_freq">Max Frequency (Hz)</label></p>

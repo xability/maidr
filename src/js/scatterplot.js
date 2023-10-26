@@ -346,6 +346,9 @@ class ScatterPlot {
         constants.MAX_SPEED
       );
       constants.DEFAULT_SPEED = constants.autoPlayRate;
+      if (constants.autoPlayRate < constants.MIN_SPEED) {
+        constants.MIN_SPEED = constants.autoPlayRate;
+      }
 
       points = new Map(
         [...points].sort(function (a, b) {
