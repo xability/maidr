@@ -112,6 +112,10 @@ class Segmented {
     // set the max and min values for the plot
     this.SetMaxMin();
 
+    // create summary and all levels
+    this.CreateSummaryLevel();
+    this.CreateAllLevel();
+
     this.autoplay = null;
   }
 
@@ -159,8 +163,57 @@ class Segmented {
     return [plotData, plotElements];
   }
 
+  CreateSummaryLevel() {
+    // create another y level that is the sum of all the other levels
+
+    for (let i = 0; i < this.plotData.length; i++) {
+      let sum = 0;
+      for (let j = 0; j < this.plotData[i].length; j++) {
+        sum += this.plotData[i][j];
+      }
+      this.plotData[i].push(sum);
+    }
+
+    this.fill.push('Sum');
+  }
+
+  CreateAllLevel() {
+    // create another y level that plays all the other levels seperately
+
+    for (let i = 0; i < this.plotData.length; i++) {
+      let all = [];
+      for (let j = 0; j < this.plotData[i].length; j++) {
+        all.push(this.plotData[i][j]);
+      }
+      this.plotData[i].push(all);
+    }
+
+    this.fill.push('All');
+  }
+
   PlayTones() {
-    audio.playTone();
+    if (Array.isArray(this.plotData[position.x][position.y])) {
+      // we play a run of tones
+      position.z = 0;
+      constants.sepPlayId = setInterval(
+        function () {
+          // play this tone
+          audio.playTone();
+
+          // and then set up for the next one
+          position.z += 1;
+
+          // and kill if we're done
+          if (position.z + 1 > plot.plotData[position.x][position.y].length) {
+            constants.KillSepPlay();
+            position.z = -1;
+          }
+        },
+        constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
+      );
+    } else {
+      audio.playTone();
+    }
   }
 
   SetMaxMin() {

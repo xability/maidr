@@ -215,6 +215,8 @@ class Audio {
       if (rawFreq == 0) {
         this.PlayNull();
         return;
+      } else if (Array.isArray(rawFreq)) {
+        rawFreq = rawFreq[position.z];
       }
       rawPanning = position.x;
       frequency = this.SlideBetween(
@@ -440,7 +442,6 @@ class Audio {
   }
 
   PlayNull() {
-    console.log('playing null');
     let frequency = constants.NULL_FREQUENCY;
     let duration = constants.duration;
     let panning = 0;
