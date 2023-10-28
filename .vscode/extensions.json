@@ -16,7 +16,8 @@
     "github.copilot-chat",
     "usernamehw.errorlens",
     "mhutchie.git-graph",
-    "eamodio.gitlens"
+    "eamodio.gitlens",
+    "ms-edgedevtools.vscode-edge-devtools"
   ],
   "unwantedRecommendations": ["ms-vscode.js-debug"]
 }
