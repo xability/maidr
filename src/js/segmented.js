@@ -48,10 +48,6 @@ class Segmented {
       return;
     }
 
-    // bookmark: just set an array of elements that matches the data elements.
-    // Now I need to do the actual visual highlighting thing,
-    // which involves picking the right one and then sending in through the highlight system
-
     // column labels, both legend and tick
     let legendX = '';
     let legendY = '';
@@ -247,7 +243,8 @@ class Segmented {
       this.activeElement = this.elements[position.x][position.y];
       if (this.activeElement) {
         this.activeElementColor = this.activeElement.style.fill;
-        this.activeElement.style.fill = constants.colorSelected;
+        let invertedColor = constants.ColorInvert(this.activeElementColor);
+        this.activeElement.style.fill = invertedColor;
       }
     }
   }

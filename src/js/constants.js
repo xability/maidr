@@ -120,6 +120,15 @@ class Constants {
   SpeedReset() {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
+
+  ColorInvert(color) {
+    // invert an rgb color
+    let rgb = color.replace(/[^\d,]/g, '').split(',');
+    let r = 255 - rgb[0];
+    let g = 255 - rgb[1];
+    let b = 255 - rgb[2];
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
 }
 
 class Resources {
