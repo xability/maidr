@@ -183,8 +183,13 @@ class Display {
     ) {
       constants.brailleInput.setSelectionRange(position.x, position.x);
     } else if (constants.chartType == 'stacked_bar') {
-      //let pos = position.x * (plot.fill.length + 1) + position.y;
-      let pos = position.x;
+      // if we're not on the top y position
+      let pos = null;
+      if (position.y < plot.plotData[0].length - 1) {
+        pos = position.x;
+      } else {
+        pos = position.x * (plot.fill.length + 1) + position.y;
+      }
       constants.brailleInput.setSelectionRange(pos, pos);
     } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
@@ -590,22 +595,59 @@ class Display {
         brailleArray.push('⠳');
       }
     } else if (constants.chartType == 'stacked_bar') {
-      let range = (constants.maxY - constants.minY) / 4;
-      let low = constants.minY + range;
-      let medium = low + range;
-      let medium_high = medium + range;
-      for (let i = 0; i < plot.plotData.length; i++) {
-        if (plot.plotData[i][position.y] <= low) {
-          brailleArray.push('⣀');
-        } else if (plot.plotData[i][position.y] <= medium) {
-          brailleArray.push('⠤');
-        } else if (plot.plotData[i][position.y] <= medium_high) {
-          brailleArray.push('⠒');
-        } else {
-          brailleArray.push('⠉');
+      // if we're not on the top y position, display just this level, using local min max
+      if (position.y < plot.plotData[0].length - 1) {
+        let localMin = null;
+        let localMax = null;
+        for (let i = 0; i < plot.plotData.length; i++) {
+          if (i == 0) {
+            localMin = plot.plotData[i][position.y];
+            localMax = plot.plotData[i][position.y];
+          } else {
+            if (plot.plotData[i][position.y] < localMin) {
+              localMin = plot.plotData[i][position.y];
+            }
+            if (plot.plotData[i][position.y] > localMax) {
+              localMax = plot.plotData[i][position.y];
+            }
+          }
+        }
+        let range = (localMax - localMin) / 4;
+        let low = localMin + range;
+        let medium = low + range;
+        let medium_high = medium + range;
+        for (let i = 0; i < plot.plotData.length; i++) {
+          if (plot.plotData[i][position.y] <= low) {
+            brailleArray.push('⣀');
+          } else if (plot.plotData[i][position.y] <= medium) {
+            brailleArray.push('⠤');
+          } else if (plot.plotData[i][position.y] <= medium_high) {
+            brailleArray.push('⠒');
+          } else {
+            brailleArray.push('⠉');
+          }
+        }
+      } else {
+        // all mode, do braille similar to heatmap, with all data and seperator
+        for (let i = 0; i < plot.plotData.length; i++) {
+          let range = (constants.maxY - constants.minY) / 4;
+          let low = constants.minY + range;
+          let medium = low + range;
+          let medium_high = medium + range;
+          for (let j = 0; j < plot.plotData[i].length; j++) {
+            if (plot.plotData[i][j] <= low) {
+              brailleArray.push('⣀');
+            } else if (plot.plotData[i][j] <= medium) {
+              brailleArray.push('⠤');
+            } else if (plot.plotData[i][j] <= medium_high) {
+              brailleArray.push('⠒');
+            } else {
+              brailleArray.push('⠉');
+            }
+          }
+          brailleArray.push('⠳');
         }
       }
-      for (let i = 0; i < plot.plotData.length; i++) {}
     } else if (constants.chartType == 'bar') {
       let range = (constants.maxY - constants.minY) / 4;
       let low = constants.minY + range;
