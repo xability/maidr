@@ -617,7 +617,9 @@ class Display {
         let medium = low + range;
         let medium_high = medium + range;
         for (let i = 0; i < plot.plotData.length; i++) {
-          if (plot.plotData[i][position.y] <= low) {
+          if (plot.plotData[i][position.y] == 0) {
+            brailleArray.push('⠀');
+          } else if (plot.plotData[i][position.y] <= low) {
             brailleArray.push('⣀');
           } else if (plot.plotData[i][position.y] <= medium) {
             brailleArray.push('⠤');
@@ -635,7 +637,9 @@ class Display {
           let medium = low + range;
           let medium_high = medium + range;
           for (let j = 0; j < plot.plotData[i].length; j++) {
-            if (plot.plotData[i][j] <= low) {
+            if (plot.plotData[i][j] == 0) {
+              brailleArray.push('⠀');
+            } else if (plot.plotData[i][j] <= low) {
               brailleArray.push('⣀');
             } else if (plot.plotData[i][j] <= medium) {
               brailleArray.push('⠤');

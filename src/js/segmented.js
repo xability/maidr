@@ -178,13 +178,16 @@ class Segmented {
 
     for (let i = 0; i < this.plotData.length; i++) {
       let all = [];
-      for (let j = 0; j < this.plotData[i].length; j++) {
-        all.push(this.plotData[i][j]);
+      for (let j = 0; j < this.fill.length; j++) {
+        if (this.fill[j] != 'Sum') {
+          all.push(this.plotData[i][j]);
+        }
       }
       this.plotData[i].push(all);
     }
 
     this.fill.push('All');
+    console.log(this.plotData);
   }
 
   PlayTones() {
