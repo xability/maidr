@@ -187,7 +187,6 @@ class Segmented {
     }
 
     this.fill.push('All');
-    console.log(this.plotData);
   }
 
   PlayTones() {

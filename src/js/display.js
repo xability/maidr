@@ -182,7 +182,11 @@ class Display {
       constants.chartType == 'line'
     ) {
       constants.brailleInput.setSelectionRange(position.x, position.x);
-    } else if (constants.chartType == 'stacked_bar') {
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       // if we're not on the top y position
       let pos = null;
       if (position.y < plot.plotData[0].length - 1) {
@@ -510,7 +514,11 @@ class Display {
         // set from verboseText
         output += '<p>' + verboseText + '</p>\n';
       }
-    } else if (constants.chartType == 'stacked_bar') {
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       // {legend x} is {colname x}, {legend y} is {colname y}, value is {plotData[x][y]}
       verboseText += plot.plotLegend.x + ' is ' + plot.level[position.x] + ', ';
       verboseText += plot.plotLegend.y + ' is ' + plot.fill[position.y] + ', ';
@@ -594,7 +602,11 @@ class Display {
         }
         brailleArray.push('⠳');
       }
-    } else if (constants.chartType == 'stacked_bar') {
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       // if we're not on the top y position, display just this level, using local min max
       if (position.y < plot.plotData[0].length - 1) {
         let localMin = null;

@@ -210,7 +210,11 @@ class Audio {
         -1,
         1
       );
-    } else if (constants.chartType == 'stacked_bar') {
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       rawFreq = plot.plotData[position.x][position.y];
       if (rawFreq == 0) {
         this.PlayNull();

@@ -2288,7 +2288,11 @@ class Control {
           }
         }, constants.autoPlayRate);
       }
-    } else if ([].concat(singleMaidr.type).includes('stacked_bar')) {
+    } else if (
+      [].concat(singleMaidr.type).includes('stacked_bar') ||
+      [].concat(singleMaidr.type).includes('stacked_normalized_bar') ||
+      [].concat(singleMaidr.type).includes('dodged_bar')
+    ) {
       window.position = new Position(-1, -1);
       window.plot = new Segmented();
 
