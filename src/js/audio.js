@@ -34,6 +34,9 @@ class Audio {
     let rawFreq = 0;
     let frequency = 0;
     let panning = 0;
+
+    let waveType = 'sine';
+
     // freq goes between min / max as rawFreq goes between min(0) / max
     if (constants.chartType == 'bar') {
       rawFreq = plot.plotData[position.x];
@@ -55,23 +58,17 @@ class Audio {
     } else if (constants.chartType == 'box') {
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      if (
-        position.z > -1 &&
-        Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')
-      ) {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (Array.isArray(plot.plotData[plotPos][sectionKey])) {
         // outliers are stored in values with a seperate itterator
-        rawFreq = plot.plotData[plotPos][sectionPos].values[position.z];
+        rawFreq = plot.plotData[plotPos][sectionKey][position.z];
       } else {
         // normal points
-        if (constants.plotOrientation == 'vert') {
-          rawFreq = plot.plotData[plotPos][sectionPos].y;
-        } else {
-          rawFreq = plot.plotData[plotPos][sectionPos].x;
-        }
+        rawFreq = plot.plotData[plotPos][sectionKey];
       }
-      if (plot.plotData[plotPos][sectionPos].type != 'blank') {
+      if (plot.plotData[plotPos][sectionKey] != null) {
         if (constants.plotOrientation == 'vert') {
           frequency = this.SlideBetween(
             rawFreq,
@@ -128,6 +125,18 @@ class Audio {
       constants.chartType == 'point' ||
       constants.chartType == 'smooth'
     ) {
+      // are we using global min / max, or just this layer?
+      constants.globalMinMax = true;
+      let chartMin = constants.minY;
+      let chartMax = constants.maxY;
+      if (constants.chartType == 'smooth') {
+        chartMin = plot.curveMinY;
+        chartMax = plot.curveMaxY;
+      }
+      if (constants.globalMinMax) {
+        chartMin = Math.min(constants.minY, plot.curveMinY);
+        chartMax = Math.max(constants.maxY, plot.curveMaxY);
+      }
       if (constants.chartType == 'point') {
         // point layer
         // more than one point with same x-value
@@ -147,18 +156,12 @@ class Audio {
         rawPanning = position.x;
         frequency = this.SlideBetween(
           rawFreq,
-          constants.minY,
-          constants.maxY,
+          chartMin,
+          chartMax,
           constants.MIN_FREQUENCY,
           constants.MAX_FREQUENCY
         );
-        panning = this.SlideBetween(
-          rawPanning,
-          constants.minX,
-          constants.maxX,
-          -1,
-          1
-        );
+        panning = this.SlideBetween(rawPanning, chartMin, chartMax, -1, 1);
       } else if (constants.chartType == 'smooth') {
         // best fit smooth layer
 
@@ -166,19 +169,76 @@ class Audio {
         rawPanning = positionL1.x;
         frequency = this.SlideBetween(
           rawFreq,
-          plot.curveMinY,
-          plot.curveMaxY,
+          chartMin,
+          chartMax,
           constants.MIN_FREQUENCY,
           constants.MAX_FREQUENCY
         );
-        panning = this.SlideBetween(
-          rawPanning,
-          constants.minX,
-          constants.maxX,
-          -1,
-          1
-        );
+        panning = this.SlideBetween(rawPanning, chartMin, chartMax, -1, 1);
       }
+    } else if (constants.chartType == 'hist') {
+      rawFreq = plot.plotData[position.x].y;
+      rawPanning = plot.plotData[position.x].x;
+      frequency = this.SlideBetween(
+        rawFreq,
+        constants.minY,
+        constants.maxY,
+        constants.MIN_FREQUENCY,
+        constants.MAX_FREQUENCY
+      );
+      panning = this.SlideBetween(
+        rawPanning,
+        constants.minX,
+        constants.maxX,
+        -1,
+        1
+      );
+    } else if (constants.chartType == 'line') {
+      rawFreq = plot.pointValuesY[position.x];
+      rawPanning = position.x;
+      frequency = this.SlideBetween(
+        rawFreq,
+        constants.minY,
+        constants.maxY,
+        constants.MIN_FREQUENCY,
+        constants.MAX_FREQUENCY
+      );
+      panning = this.SlideBetween(
+        rawPanning,
+        constants.minX,
+        constants.maxX,
+        -1,
+        1
+      );
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
+      rawFreq = plot.plotData[position.x][position.y];
+      if (rawFreq == 0) {
+        this.PlayNull();
+        return;
+      } else if (Array.isArray(rawFreq)) {
+        rawFreq = rawFreq[position.z];
+      }
+      rawPanning = position.x;
+      frequency = this.SlideBetween(
+        rawFreq,
+        constants.minY,
+        constants.maxY,
+        constants.MIN_FREQUENCY,
+        constants.MAX_FREQUENCY
+      );
+      panning = this.SlideBetween(
+        rawPanning,
+        constants.minX,
+        constants.maxX,
+        -1,
+        1
+      );
+      let waveTypeArr = ['triangle', 'square', 'sawtooth', 'sine'];
+      waveType = waveTypeArr[position.y];
     }
 
     if (constants.debugLevel > 5) {
@@ -217,14 +277,16 @@ class Audio {
       // outlier = short tone
       // whisker = normal tone
       // range = chord
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      let sectionType = plot.plotData[plotPos][sectionPos].type;
-      if (sectionType == 'outlier') {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         currentDuration = constants.outlierDuration;
-      } else if (sectionType == 'whisker') {
+      } else if (
+        sectionKey == 'q1' ||
+        sectionKey == 'q2' ||
+        sectionKey == 'q3'
+      ) {
         //currentDuration = constants.duration * 2;
       } else {
         //currentDuration = constants.duration * 2;
@@ -232,14 +294,12 @@ class Audio {
     }
 
     // create tones
-    this.playOscillator(frequency, currentDuration, panning, volume, 'sine');
+    this.playOscillator(frequency, currentDuration, panning, volume, waveType);
     if (constants.chartType == 'box') {
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
-      let sectionType = plot.plotData[plotPos][sectionPos].type;
-      if (sectionType == 'range') {
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
+      if (sectionKey == 'q1' || sectionKey == 'q2' || sectionKey == 'q3') {
         // also play an octive below at lower vol
         let freq2 = frequency / 2;
         this.playOscillator(
@@ -386,7 +446,6 @@ class Audio {
   }
 
   PlayNull() {
-    console.log('playing null');
     let frequency = constants.NULL_FREQUENCY;
     let duration = constants.duration;
     let panning = 0;

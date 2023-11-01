@@ -1,12 +1,105 @@
 class HeatMap {
   constructor() {
+    // initialize variables xlevel, data, and elements
+    let xlevel = null;
+    let ylevel = null;
+    if ('axes' in singleMaidr) {
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.level) {
+          xlevel = singleMaidr.axes.x.level;
+        }
+      }
+      if (singleMaidr.axes.y) {
+        if (singleMaidr.axes.y.level) {
+          ylevel = singleMaidr.axes.y.level;
+        }
+      }
+    }
+    let data = null;
+    let dataLength = 0;
+    if ('data' in singleMaidr) {
+      data = singleMaidr.data;
+      for (let i = 0; i < data.length; i++) {
+        dataLength += data[i].length;
+      }
+    }
+    let elements = null;
+    if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
+    }
+
+    // if (xlevel && ylevel && data && elements) {
+    //   if (elements.length != dataLength) {
+    //     // I didn't throw an error but give a warning
+    //     constants.hasRect = 0;
+    //     logError.LogDifferentLengths('data', 'elements');
+    //   } else if (ylevel.length != data.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else if (data[0].length != xlevel.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (ylevel && data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else if (ylevel.length != data.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (xlevel && data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else if (xlevel.length != data[0].length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // }
+    // else if (xlevel && ylevel && data) {
+    //   constants.hasRect = 0;
+    //   if (ylevel.length != data.length) {
+    //     logError.logDifferentLengths('y level', 'rows');
+    //   } else if (data[0].length != xlevel.length) {
+    //     logError.logDifferentLengths('x level', 'columns');
+    //   }
+    //   logError.LogAbsentElement('elements');
+    // }
+    // else if (data && elements) {
+    //   if (dataLength != elements.length) {
+    //     constants.hasRect = 0;
+    //     logError.logDifferentLengths('data', 'elements');
+    //   } else {
+    //     this.plots = elements;
+    //     constants.hasRect = 1;
+    //   }
+    // } else if (data) {
+    //   constants.hasRect = 0;
+    //   if (!xlevel) logError.LogAbsentElement('x level');
+    //   if (!ylevel) logError.LogAbsentElement('y level');
+    //   if (!elements) logError.LogAbsentElement('elements');
+    // }
+
     this.plots = maidr.elements;
     constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
-    this.x_labels = this.getXLabels();
-    this.y_labels = this.getYLabels();
+    // this.x_labels = this.getXLabels();
+    // this.y_labels = this.getYLabels();
+    this.x_labels = xlevel;
+    this.y_labels = ylevel;
     this.title = this.getTitle();
+    this.fill = this.getFill();
 
     this.plotData = this.getHeatMapData();
     this.updateConstants();
@@ -19,7 +112,6 @@ class HeatMap {
 
     this.x_group_label = this.group_labels[0].trim();
     this.y_group_label = this.group_labels[1].trim();
-    this.box_label = this.group_labels[2].trim();
   }
 
   getHeatMapData() {
@@ -63,9 +155,9 @@ class HeatMap {
     let num_rows = 0;
     let num_cols = 0;
     let num_squares = 0;
-    if ('data' in maidr) {
-      num_rows = maidr.data.length;
-      num_cols = maidr.data[0].length;
+    if ('data' in singleMaidr) {
+      num_rows = singleMaidr.data.length;
+      num_cols = singleMaidr.data[0].length;
     } else {
       num_rows = unique_y_coord.length;
       num_cols = unique_x_coord.length;
@@ -73,8 +165,8 @@ class HeatMap {
     num_squares = num_rows * num_cols;
 
     let norms = [];
-    if ('data' in maidr) {
-      norms = [...maidr.data];
+    if ('data' in singleMaidr) {
+      norms = [...singleMaidr.data];
     } else {
       norms = Array(num_rows)
         .fill()
@@ -111,6 +203,18 @@ class HeatMap {
           constants.maxY = this.plotData[2][i][j];
       }
     }
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+      constants.MAX_SPEED
+    );
+    constants.DEFAULT_SPEED = constants.autoPlayRate;
+    if (constants.autoPlayRate < constants.MIN_SPEED) {
+      constants.MIN_SPEED = constants.autoPlayRate;
+    }
+  }
+
+  PlayTones() {
+    audio.playTone();
   }
 
   GetSVGScaler() {
@@ -173,88 +277,90 @@ class HeatMap {
 
   getGroupLabels() {
     let labels_nodelist;
-    let title = '';
     let legendX = '';
     let legendY = '';
 
-    if ('title' in maidr) {
-      title = maidr.title;
-    } else {
-      title = constants.chart.querySelector(
-        'g[id^="guide.title"] text > tspan'
-      ).innerHTML;
+    if ('labels' in singleMaidr) {
+      if ('x' in singleMaidr.labels) {
+        legendX = singleMaidr.labels.x;
+      }
+      if ('y' in singleMaidr.labels) {
+        legendY = singleMaidr.labels.y;
+      }
     }
-
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('label' in maidr.axes.x) {
-          legendX = maidr.axes.x.label;
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.x) {
+          if (legendX == '') {
+            legendX = singleMaidr.axes.x.label;
+          }
         }
       }
-      if ('y' in maidr.axes) {
-        if ('label' in maidr.axes.y) {
-          legendY = maidr.axes.y.label;
+      if ('y' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.y) {
+          if (legendY == '') {
+            legendY = singleMaidr.axes.y.label;
+          }
         }
       }
-    } else {
-      legendX = constants.chart.querySelector(
-        'g[id^="xlab"] text > tspan'
-      ).innerHTML;
-      legendY = constants.chart.querySelector(
-        'g[id^="ylab"] text > tspan'
-      ).innerHTML;
     }
 
-    labels_nodelist = [legendX, legendY, title];
+    labels_nodelist = [legendX, legendY];
 
     return labels_nodelist;
   }
 
   getXLabels() {
-    if ('axes' in maidr) {
-      if ('x' in maidr.axes) {
-        if ('format' in maidr.axes.x) {
-          return maidr.axes.x.format;
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.x) {
+          return singleMaidr.axes.x.level;
         }
       }
-    } else {
-      let x_labels_nodelist;
-      x_labels_nodelist = constants.chart.querySelectorAll('tspan[dy="10"]');
-      let labels = [];
-      for (let i = 0; i < x_labels_nodelist.length; i++) {
-        labels.push(x_labels_nodelist[i].innerHTML.trim());
-      }
-
-      return labels;
     }
   }
 
   getYLabels() {
-    if ('axes' in maidr) {
-      if ('y' in maidr.axes) {
-        if ('format' in maidr.axes.y) {
-          return maidr.axes.y.format;
+    if ('axes' in singleMaidr) {
+      if ('y' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.y) {
+          return singleMaidr.axes.y.level;
         }
       }
-    } else {
-      let y_labels_nodelist;
-      let labels = [];
-      y_labels_nodelist = constants.chart.querySelectorAll(
-        'tspan[id^="GRID.text.19.1"]'
-      );
-      for (let i = 0; i < y_labels_nodelist.length; i++) {
-        labels.push(y_labels_nodelist[i].innerHTML.trim());
-      }
-
-      return labels.reverse();
     }
   }
 
   getTitle() {
-    if ('title' in maidr) {
-      return maidr.title;
-    } else {
-      return '';
+    if ('title' in singleMaidr) {
+      return singleMaidr.title;
+    } else if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        return singleMaidr.labels.title;
+      }
+    }
+  }
+
+  getSubtitle() {
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        return singleMaidr.labels.subtitle;
+      }
+    }
+  }
+
+  getCaption() {
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        return singleMaidr.labels.caption;
+      }
+    }
+  }
+
+  getFill() {
+    if ('labels' in singleMaidr) {
+      if ('fill' in singleMaidr.labels) {
+        return singleMaidr.labels.fill;
+      }
     }
   }
 }

@@ -80,7 +80,7 @@ class Display {
       constants.brailleInput.focus();
       constants.brailleInput.setSelectionRange(position.x, position.x);
 
-      this.SetBraille(plot);
+      this.SetBraille();
 
       if (constants.chartType == 'heat') {
         let pos = position.y * (plot.num_cols + 1) + position.x;
@@ -156,6 +156,19 @@ class Display {
         }
       }
     }
+
+    // update position relative to where we were on the previous layer
+    // newX = oldX * newLen / oldLen
+    if (constants.chartType == 'point') {
+      position.x = Math.round(
+        ((plot.x.length - 1) * positionL1.x) / (plot.curvePoints.length - 1)
+      );
+    } else if (constants.chartType == 'smooth') {
+      // reverse math of the above
+      positionL1.x = Math.round(
+        ((plot.curvePoints.length - 1) * position.x) / (plot.x.length - 1)
+      );
+    }
   }
 
   announceText(txt) {
@@ -163,13 +176,30 @@ class Display {
   }
 
   UpdateBraillePos() {
-    if (constants.chartType == 'bar') {
+    if (
+      constants.chartType == 'bar' ||
+      constants.chartType == 'hist' ||
+      constants.chartType == 'line'
+    ) {
       constants.brailleInput.setSelectionRange(position.x, position.x);
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
+      // if we're not on the top y position
+      let pos = null;
+      if (position.y < plot.plotData[0].length - 1) {
+        pos = position.x;
+      } else {
+        pos = position.x * (plot.fill.length + 1) + position.y;
+      }
+      constants.brailleInput.setSelectionRange(pos, pos);
     } else if (constants.chartType == 'heat') {
       let pos = position.y * (plot.num_cols + 1) + position.x;
       constants.brailleInput.setSelectionRange(pos, pos);
     } else if (constants.chartType == 'box') {
-      // on box we extend characters a lot and have blanks, so we go to our label
+      // on box we extend characters a lot and have blanks, so we go to our type
       let sectionPos =
         constants.plotOrientation == 'vert' ? position.y : position.x;
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
@@ -179,7 +209,7 @@ class Display {
         for (let i = 0; i < constants.brailleData.length; i++) {
           if (constants.brailleData[i].type != 'blank') {
             if (
-              resources.GetString(constants.brailleData[i].label) == targetLabel
+              resources.GetString(constants.brailleData[i].type) == targetLabel
             ) {
               haveTargetLabel = true;
               break;
@@ -205,7 +235,7 @@ class Display {
     }
   }
 
-  displayValues(plot) {
+  displayValues() {
     // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
     // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
 
@@ -246,11 +276,11 @@ class Display {
           ' ' +
           plot.y_labels[position.y] +
           ', ' +
-          plot.box_label +
+          plot.fill +
           ' is ';
-        if (constants.hasRect) {
-          verboseText += plot.plotData[2][position.y][position.x];
-        }
+        // if (constants.hasRect) {
+        verboseText += plot.plotData[2][position.y][position.x];
+        // }
       } else {
         verboseText +=
           plot.y_group_label +
@@ -261,11 +291,11 @@ class Display {
           ' ' +
           plot.x_labels[position.x] +
           ', ' +
-          plot.box_label +
+          plot.fill +
           ' is ';
-        if (constants.hasRect) {
-          verboseText += plot.plotData[2][position.y][position.x];
-        }
+        // if (constants.hasRect) {
+        verboseText += plot.plotData[2][position.y][position.x];
+        // }
       }
       // terse and verbose alternate between columns and rows
       if (constants.textMode == 'off') {
@@ -299,33 +329,23 @@ class Display {
       let isOutlier = false;
       let plotPos =
         constants.plotOrientation == 'vert' ? position.x : position.y;
-      let sectionPos =
-        constants.plotOrientation == 'vert' ? position.y : position.x;
+      let sectionKey = plot.GetSectionKey(
+        constants.plotOrientation == 'vert' ? position.y : position.x
+      );
       let textTerse = '';
       let textVerbose = '';
 
-      if (
-        plot.plotData[plotPos][sectionPos].label == 'lower_outlier' ||
-        plot.plotData[plotPos][sectionPos].label == 'upper_outlier'
-      ) {
+      if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         isOutlier = true;
       }
-      if (plot.plotData[plotPos][sectionPos].type == 'outlier') {
-        val = plot.plotData[plotPos][sectionPos].values.join(', ');
-        if (plot.plotData[plotPos][sectionPos].values.length > 0) {
-          numPoints = plot.plotData[plotPos][sectionPos].values.length;
-        } else {
-          numPoints = 0;
-        }
-      } else if (plot.plotData[plotPos][sectionPos].type == 'blank') {
+      if (plot.plotData[plotPos][sectionKey] == null) {
         val = '';
         if (isOutlier) numPoints = 0;
+      } else if (isOutlier) {
+        val = plot.plotData[plotPos][sectionKey].join(', ');
+        numPoints = plot.plotData[plotPos][sectionKey].length;
       } else {
-        if (constants.plotOrientation == 'vert') {
-          val = plot.plotData[plotPos][sectionPos].y;
-        } else {
-          val = plot.plotData[plotPos][sectionPos].x;
-        }
+        val = plot.plotData[plotPos][sectionKey];
       }
 
       // set output
@@ -360,9 +380,7 @@ class Display {
         textVerbose += numPoints + ' ';
       }
       // label
-      textVerbose += resources.GetString(
-        plot.plotData[plotPos][sectionPos].label
-      );
+      textVerbose += resources.GetString(sectionKey);
       if (numPoints == 1) textVerbose += ' is ';
       else {
         textVerbose += 's ';
@@ -373,9 +391,7 @@ class Display {
         (constants.navigation && constants.plotOrientation == 'horz') ||
         (!constants.navigation && constants.plotOrientation == 'vert')
       ) {
-        textTerse += resources.GetString(
-          plot.plotData[plotPos][sectionPos].label
-        );
+        textTerse += resources.GetString(sectionKey);
 
         // grammar
         if (numPoints != 1) {
@@ -384,7 +400,7 @@ class Display {
         textTerse += ' ';
       }
       // val
-      if (plot.plotData[plotPos][sectionPos].type == 'blank' && !isOutlier) {
+      if (plot.plotData[plotPos][sectionKey] != null && !isOutlier) {
         textTerse += 'empty';
         textVerbose += 'empty';
       } else {
@@ -452,6 +468,84 @@ class Display {
       }
       if (constants.textMode == 'verbose')
         output = '<p>' + verboseText + '</p>\n';
+    } else if (constants.chartType == 'hist') {
+      if (constants.textMode == 'terse') {
+        // terse: {x}, {y}
+        output =
+          '<p>' +
+          plot.plotData[position.x].x +
+          ', ' +
+          plot.plotData[position.x].y +
+          '</p>\n';
+      } else if (constants.textMode == 'verbose') {
+        // verbose: {xlabel} is xmin through xmax, {ylabel} is y
+        output = '<p>';
+        if (plot.legendX) {
+          output = plot.legendX + ' is ';
+        }
+        output += plot.plotData[position.x].xmin;
+        output += ' through ' + plot.plotData[position.x].xmax + ', ';
+        if (plot.legendY) {
+          output += plot.legendY + ' is ';
+        }
+        output += plot.plotData[position.x].y;
+      }
+    } else if (constants.chartType == 'line') {
+      // line layer
+      verboseText +=
+        plot.x_group_label +
+        ' is ' +
+        plot.pointValuesX[position.x] +
+        ', ' +
+        plot.y_group_label +
+        ' is ' +
+        plot.pointValuesY[position.x];
+
+      if (constants.textMode == 'off') {
+        // do nothing
+      } else if (constants.textMode == 'terse') {
+        output +=
+          '<p>' +
+          plot.pointValuesX[position.x] +
+          ', ' +
+          plot.pointValuesY[position.x] +
+          '</p>\n';
+      } else if (constants.textMode == 'verbose') {
+        // set from verboseText
+        output += '<p>' + verboseText + '</p>\n';
+      }
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
+      // {legend x} is {colname x}, {legend y} is {colname y}, value is {plotData[x][y]}
+      verboseText += plot.plotLegend.x + ' is ' + plot.level[position.x] + ', ';
+      verboseText += plot.plotLegend.y + ' is ' + plot.fill[position.y] + ', ';
+      verboseText += 'value is ' + plot.plotData[position.x][position.y];
+
+      if (constants.textMode == 'off') {
+        // do nothing
+      } else if (constants.textMode == 'terse') {
+        // navigation == 1 ? {colname x} : {colname y} is {plotData[x][y]}
+        if (constants.navigation == 1) {
+          output +=
+            '<p>' +
+            plot.level[position.x] +
+            ' is ' +
+            plot.plotData[position.x][position.y] +
+            '</p>\n';
+        } else {
+          output +=
+            '<p>' +
+            plot.fill[position.y] +
+            ' is ' +
+            plot.plotData[position.x][position.y] +
+            '</p>\n';
+        }
+      } else {
+        output += '<p>' + verboseText + '</p>\n';
+      }
     }
 
     if (constants.infoDiv) constants.infoDiv.innerHTML = output;
@@ -464,74 +558,29 @@ class Display {
     }
   }
 
-  displayXLabel(plot) {
-    let xlabel = '';
-    if (constants.chartType == 'bar') {
-      xlabel = plot.plotLegend.x;
-    } else if (
-      constants.chartType == 'heat' ||
-      constants.chartType == 'box' ||
-      singleMaidr.type == 'point' ||
-      singleMaidr.type.includes('point')
-    ) {
-      xlabel = plot.x_group_label;
-    }
-    if (constants.textMode == 'terse') {
-      constants.infoDiv.innerHTML = '<p>' + xlabel + '<p>';
-    } else if (constants.textMode == 'verbose') {
-      constants.infoDiv.innerHTML = '<p>x label is ' + xlabel + '<p>';
-    }
-  }
-
-  displayYLabel(plot) {
-    let ylabel = '';
-    if (constants.chartType == 'bar') {
-      ylabel = plot.plotLegend.y;
-    } else if (
-      constants.chartType == 'heat' ||
-      constants.chartType == 'box' ||
-      singleMaidr.type == 'point' ||
-      singleMaidr.type.includes('point')
-    ) {
-      ylabel = plot.y_group_label;
-    }
-    if (constants.textMode == 'terse') {
-      constants.infoDiv.innerHTML = '<p>' + ylabel + '<p>';
-    } else if (constants.textMode == 'verbose') {
-      constants.infoDiv.innerHTML = '<p>y label is ' + ylabel + '<p>';
-    }
-  }
-
-  displayTitle(plot) {
-    if (constants.textMode == 'terse') {
-      if (plot.title != '') {
-        constants.infoDiv.innerHTML = '<p>' + plot.title + '<p>';
+  displayInfo(textType, textValue) {
+    if (textType) {
+      if (textValue) {
+        if (constants.textMode == 'terse') {
+          constants.infoDiv.innerHTML = '<p>' + textValue + '<p>';
+        } else if (constants.textMode == 'verbose') {
+          let capsTextType =
+            textType.charAt(0).toUpperCase() + textType.slice(1);
+          constants.infoDiv.innerHTML =
+            '<p>' + capsTextType + ' is ' + textValue + '<p>';
+        }
       } else {
-        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
-      }
-    } else if (constants.textMode == 'verbose') {
-      if (plot.title != '') {
-        constants.infoDiv.innerHTML = '<p>Title is ' + plot.title + '<p>';
-      } else {
-        constants.infoDiv.innerHTML = '<p>Plot does not have a title.<p>';
-      }
-    }
-  }
+        let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
+          ? 'an'
+          : 'a';
 
-  displayFill(plot) {
-    if (constants.textMode == 'terse') {
-      if (constants.chartType == 'heat') {
-        constants.infoDiv.innerHTML = '<p>' + plot.box_label + '<p>';
-      }
-    } else if (constants.textMode == 'verbose') {
-      if (constants.chartType == 'heat') {
         constants.infoDiv.innerHTML =
-          '<p>Fill label is ' + plot.box_label + '<p>';
+          '<p>Plot does not have ' + aOrAn + ' ' + textType + '<p>';
       }
     }
   }
 
-  SetBraille(plot) {
+  SetBraille() {
     let brailleArray = [];
 
     if (constants.chartType == 'heat') {
@@ -552,6 +601,68 @@ class Display {
           }
         }
         brailleArray.push('⠳');
+      }
+    } else if (
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
+      // if we're not on the top y position, display just this level, using local min max
+      if (position.y < plot.plotData[0].length - 1) {
+        let localMin = null;
+        let localMax = null;
+        for (let i = 0; i < plot.plotData.length; i++) {
+          if (i == 0) {
+            localMin = plot.plotData[i][position.y];
+            localMax = plot.plotData[i][position.y];
+          } else {
+            if (plot.plotData[i][position.y] < localMin) {
+              localMin = plot.plotData[i][position.y];
+            }
+            if (plot.plotData[i][position.y] > localMax) {
+              localMax = plot.plotData[i][position.y];
+            }
+          }
+        }
+        let range = (localMax - localMin) / 4;
+        let low = localMin + range;
+        let medium = low + range;
+        let medium_high = medium + range;
+        for (let i = 0; i < plot.plotData.length; i++) {
+          if (plot.plotData[i][position.y] == 0) {
+            brailleArray.push('⠀');
+          } else if (plot.plotData[i][position.y] <= low) {
+            brailleArray.push('⣀');
+          } else if (plot.plotData[i][position.y] <= medium) {
+            brailleArray.push('⠤');
+          } else if (plot.plotData[i][position.y] <= medium_high) {
+            brailleArray.push('⠒');
+          } else {
+            brailleArray.push('⠉');
+          }
+        }
+      } else {
+        // all mode, do braille similar to heatmap, with all data and seperator
+        for (let i = 0; i < plot.plotData.length; i++) {
+          let range = (constants.maxY - constants.minY) / 4;
+          let low = constants.minY + range;
+          let medium = low + range;
+          let medium_high = medium + range;
+          for (let j = 0; j < plot.plotData[i].length; j++) {
+            if (plot.plotData[i][j] == 0) {
+              brailleArray.push('⠀');
+            } else if (plot.plotData[i][j] <= low) {
+              brailleArray.push('⣀');
+            } else if (plot.plotData[i][j] <= medium) {
+              brailleArray.push('⠤');
+            } else if (plot.plotData[i][j] <= medium_high) {
+              brailleArray.push('⠒');
+            } else {
+              brailleArray.push('⠉');
+            }
+          }
+          brailleArray.push('⠳');
+        }
       }
     } else if (constants.chartType == 'bar') {
       let range = (constants.maxY - constants.minY) / 4;
@@ -586,8 +697,23 @@ class Display {
           brailleArray.push('⠉');
         }
       }
+    } else if (constants.chartType == 'hist') {
+      let range = (constants.maxY - constants.minY) / 4;
+      let low = constants.minY + range;
+      let medium = low + range;
+      let medium_high = medium + range;
+      for (let i = 0; i < plot.plotData.length; i++) {
+        if (plot.plotData[i].y <= low) {
+          brailleArray.push('⣀');
+        } else if (plot.plotData[i].y <= medium) {
+          brailleArray.push('⠤');
+        } else if (plot.plotData[i].y <= medium_high) {
+          brailleArray.push('⠒');
+        } else {
+          brailleArray.push('⠉');
+        }
+      }
     } else if (constants.chartType == 'box' && position.y > -1) {
-      // only run if we're on a plot
       // Idea here is to use different braille characters to physically represent the box
       // if sections are longer or shorter we'll add more characters
       // example: outlier, small space, long min, med 25/50/75, short max: ⠂ ⠒⠒⠒⠒⠒⠒⠿⠸⠿⠒
@@ -596,164 +722,86 @@ class Display {
       // and then create the appropriate number of characters
       // Full explanation on readme
       //
-      // This is messy and long (250 lines). If anyone wants to improve. Be my guest
+      // This is messy and long (250 lines). If anyone wants to improve, be my guest
 
-      // First some prep work, we make an array of lengths and types that represent our plot
-      let brailleData = [];
-      let isBeforeMid = true;
-      let plotPos =
-        constants.plotOrientation == 'vert' ? position.x : position.y;
-      let valCoord = constants.plotOrientation == 'vert' ? 'y' : 'x';
-      for (let i = 0; i < plot.plotData[plotPos].length; i++) {
-        let point = plot.plotData[plotPos][i];
-        // pre clean up, we may want to remove outliers that share the same coordinates. Reasoning: We want this to visually represent the data, and I can't see 2 points on top of each other
-        if (point.values && constants.visualBraille) {
-          point.values = [...new Set(point.values)];
-        }
+      // Some init stuff
+      let plotPos;
+      let globalMin;
+      let globalMax;
+      let numSections = plot.sections.length;
+      if (constants.plotOrientation == 'vert') {
+        plotPos = position.x;
+        globalMin = constants.minY;
+        globalMax = constants.maxY;
+      } else {
+        plotPos = position.y;
+        globalMin = constants.minX;
+        globalMax = constants.maxX;
+      }
 
-        let nextPoint = null;
-        let prevPoint = null;
-        if (i < plot.plotData[plotPos].length - 1) {
-          nextPoint = plot.plotData[plotPos][i + 1];
-        }
-        if (i > 0) {
-          prevPoint = plot.plotData[plotPos][i - 1];
-        }
-
+      // We convert main plot data to array of values and types, including min and max, and seperating outliers and removing nulls
+      let valData = [];
+      valData.push({ type: 'global_min', value: globalMin });
+      for (let i = 0; i < numSections; i++) {
+        let sectionKey = plot.sections[i];
+        let point = plot.plotData[plotPos][sectionKey];
         let charData = {};
 
-        if (i == 0) {
-          // first point, add space to next actual point
-          let firstCoord = 0;
-          for (let j = 0; j < plot.plotData[plotPos].length; j++) {
-            // find next actual point
-            if (valCoord in plot.plotData[plotPos][j]) {
-              firstCoord = plot.plotData[plotPos][j][valCoord];
-              break;
+        if (point != null) {
+          if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
+            for (let j = 0; j < point.length; j++) {
+              charData = {
+                type: sectionKey,
+                value: point[j],
+              };
+              valData.push(charData);
             }
-          }
-          charData = {};
-          let minVal =
-            constants.plotOrientation == 'vert'
-              ? constants.minY
-              : constants.minX;
-          if (firstCoord - minVal > 0) {
-            charData.length = firstCoord;
           } else {
-            charData.length = 0;
+            charData = {
+              type: sectionKey,
+              value: point,
+            };
+            valData.push(charData);
           }
-          if (charData.length < 0) charData.length = 0; // dunno why, but this happens sometimes
-          charData.type = 'blank';
-          charData.label = 'blank';
-          brailleData.push(charData);
-        }
-
-        if (point.type == 'blank') {
-          // this is a placeholder point, do nothing
-        } else if (point.type == 'outlier') {
-          // there might be lots of these or none
-
-          // Spacing is messy:
-          // isBeforeMid: no pre space, yes after space
-          // ! isBeforeMid: yes pre space, no after space
-          // either way add spaces in between outlier points
-
-          // pre point space
-          if (isBeforeMid) {
-            // no pre space
-          } else {
-            // yes after space
-            charData = {};
-            charData.length = point.values[0] - prevPoint[valCoord];
-            charData.type = 'blank';
-            charData.label = 'blank';
-            brailleData.push(charData);
-          }
-
-          // now add points with spaces in between
-          for (var k = 0; k < point.values.length; k++) {
-            if (k == 0) {
-              charData = {};
-              charData.length = 0;
-              charData.type = 'outlier';
-              charData.label = point.label;
-              brailleData.push(charData);
-            } else {
-              charData = {};
-              charData.length = point.values[k] - point.values[k - 1];
-              charData.type = 'blank';
-              charData.label = 'blank';
-              brailleData.push(charData);
-
-              charData = {};
-              charData.length = 0;
-              charData.type = 'outlier';
-              charData.label = point.label;
-              brailleData.push(charData);
-            }
-          }
-
-          // after point space
-          if (isBeforeMid) {
-            // yes pre space
-            charData = {};
-            charData.length =
-              nextPoint[valCoord] - point.values[point.values.length - 1];
-            charData.type = 'blank';
-            charData.label = 'blank';
-            brailleData.push(charData);
-          } else {
-            // no after space
-          }
-        } else {
-          if (point.label == '50') {
-            // exception: another 0 width point here
-            charData = {};
-            charData.length = 0;
-            charData.type = point.type;
-            charData.label = point.label;
-            brailleData.push(charData);
-
-            isBeforeMid = false; // mark this as we pass
-          } else {
-            // normal points: we calc dist between this point and point closest to middle
-            charData = {};
-            if (isBeforeMid) {
-              charData.length = nextPoint[valCoord] - point[valCoord];
-            } else {
-              charData.length = point[valCoord] - prevPoint[valCoord];
-            }
-            charData.type = point.type;
-            charData.label = point.label;
-            brailleData.push(charData);
-          }
-        }
-        if (i == plot.plotData[plotPos].length - 1) {
-          // last point gotta add ending space manually
-          charData = {};
-          let lastCoord = 0;
-          for (let j = 0; j < plot.plotData[plotPos].length; j++) {
-            // find last actual point
-
-            if (point.type == 'outlier') {
-              lastCoord = valCoord == 'y' ? point.yMax : point.xMax;
-            } else if (valCoord in plot.plotData[plotPos][j]) {
-              lastCoord = plot.plotData[plotPos][j][valCoord];
-            }
-          }
-          charData.length =
-            valCoord == 'y'
-              ? constants.maxY - lastCoord
-              : constants.maxX - lastCoord;
-          charData.type = 'blank';
-          charData.label = 'blank';
-          brailleData.push(charData);
         }
       }
-      // cleanup
-      for (let i = 0; i < brailleData.length; i++) {
-        // A bit of rounding to account for floating point errors
-        brailleData[i].length = Math.round(brailleData[i].length); // we currently just use rounding to whole number (pixel), but if other rounding is needed add it here
+      valData.push({ type: 'global_max', value: globalMax });
+
+      // Then we convert to lengths and types
+      // We assign lengths based on the difference between each point, and assign blanks if this comes before or after an outlier
+      let lenData = [];
+      let isBeforeMid = true;
+      for (let i = 0; i < valData.length; i++) {
+        let diff;
+        // we compare inwardly, and midpoint is len 0
+        if (isBeforeMid) {
+          diff = Math.abs(valData[i + 1].value - valData[i].value);
+        } else {
+          diff = Math.abs(valData[i].value - valData[i - 1].value);
+        }
+
+        if (
+          valData[i].type == 'global_min' ||
+          valData[i].type == 'global_max'
+        ) {
+          lenData.push({ type: 'blank', length: diff });
+        } else if (valData[i].type == 'lower_outlier') {
+          // add diff as space, as well as a 0 len outlier point
+          // add blank last, as the earlier point is covered by global_min
+          lenData.push({ type: valData[i].type, length: 0 });
+          lenData.push({ type: 'blank', length: diff });
+        } else if (valData[i].type == 'upper_outlier') {
+          // add diff as space, as well as a 0 len outlier point, but reverse order from lower_outlier obvs
+          lenData.push({ type: 'blank', length: diff });
+          lenData.push({ type: valData[i].type, length: 0 });
+        } else if (valData[i].type == 'q2') {
+          // change calc method after midpoint, as we want spacing to go outward from center (and so center has no length)
+          isBeforeMid = false;
+          lenData.push({ type: valData[i].type, length: 0 });
+        } else {
+          // normal points
+          lenData.push({ type: valData[i].type, length: diff });
+        }
       }
 
       // We create a set of braille characters based on the lengths
@@ -769,69 +817,71 @@ class Display {
       // exception: for 25/75 and min/max, if they aren't exactly equal, assign different num characters
       // exception: center is always 456 123
 
-      // Step 1, prepopulate each section with a single character, and log for character offset
+      // Step 1, sorta init.
+      // We prepopulate each non null section with a single character, and log for character offset
       let locMin = -1;
+      let locQ1 = -1;
+      let locQ3 = -1;
       let locMax = -1;
-      let loc25 = -1;
-      let loc75 = -1;
-      let numDefaultChars = 0;
-      for (let i = 0; i < brailleData.length; i++) {
+      let numAllocatedChars = 0; // counter for number of characters we've already assigned
+      for (let i = 0; i < lenData.length; i++) {
         if (
-          brailleData[i].type != 'blank' &&
-          (brailleData[i].length > 0 || brailleData[i].type == 'outlier')
+          lenData[i].type != 'blank' &&
+          (lenData[i].length > 0 ||
+            lenData[i].type == 'lower_outlier' ||
+            lenData[i].type == 'upper_outlier')
         ) {
-          brailleData[i].numChars = 1;
-          numDefaultChars++;
+          lenData[i].numChars = 1;
+          numAllocatedChars++;
         } else {
-          brailleData[i].numChars = 0;
+          lenData[i].numChars = 0;
         }
 
         // store 25/75 min/max locations so we can check them later more easily
-        if (brailleData[i].label == 'min' && brailleData[i].length > 0)
-          locMin = i;
-        if (brailleData[i].label == 'max' && brailleData[i].length > 0)
-          locMax = i;
-        if (brailleData[i].label == '25') loc25 = i;
-        if (brailleData[i].label == '75') loc75 = i;
+        if (lenData[i].type == 'min' && lenData[i].length > 0) locMin = i;
+        if (lenData[i].type == 'max' && lenData[i].length > 0) locMax = i;
+        if (lenData[i].type == 'q1') locQ1 = i;
+        if (lenData[i].type == 'q3') locQ3 = i;
 
         // 50 gets 2 characters by default
-        if (brailleData[i].label == '50') {
-          brailleData[i].numChars = 2;
-          numDefaultChars++;
+        if (lenData[i].type == 'q2') {
+          lenData[i].numChars = 2;
+          numAllocatedChars++; // we just ++ here as we already ++'d above
         }
       }
-      // add extras to 25/75 min/max if needed
-      let currentPairs = ['25', '75'];
+
+      // make sure rules are set for pairs (q1 / q3, min / max)
+      // if they're equal length, we don't need to do anything as they already each have 1 character
+      // if they're not equal length, we need to add 1 character to the longer one
       if (locMin > -1 && locMax > -1) {
-        currentPairs.push('min'); // we add these seperately because we don't always have both min and max
-        currentPairs.push('max');
-        if (brailleData[locMin].length != brailleData[locMax].length) {
-          if (brailleData[locMin].length > brailleData[locMax].length) {
-            // make sure if they're different, they appear different
-            brailleData[locMin].numChars++;
-            numDefaultChars++;
+        // we do it this way as we don't always have both min and max
+
+        if (lenData[locMin].length != lenData[locMax].length) {
+          if (lenData[locMin].length > lenData[locMax].length) {
+            lenData[locMin].numChars++;
+            numAllocatedChars++;
           } else {
-            brailleData[locMax].numChars++;
-            numDefaultChars++;
+            lenData[locMax].numChars++;
+            numAllocatedChars++;
           }
         }
       }
-      if (brailleData[loc25].length != brailleData[loc75].length) {
-        if (brailleData[loc25].length > brailleData[loc75].length) {
-          brailleData[loc25].numChars++;
-          numDefaultChars++;
+      // same for q1/q3
+      if (lenData[locQ1].length != lenData[locQ3].length) {
+        if (lenData[locQ1].length > lenData[locQ3].length) {
+          lenData[locQ1].numChars++;
+          numAllocatedChars++;
         } else {
-          brailleData[loc75].numChars++;
-          numDefaultChars++;
+          lenData[locQ3].numChars++;
+          numAllocatedChars++;
         }
       }
 
       // Step 2: normalize and allocate remaining characters and add to our main braille array
-      let charsAvailable = constants.brailleDisplayLength - numDefaultChars;
-      let allocateCharacters = this.AllocateCharacters(
-        brailleData,
-        charsAvailable
-      );
+      let charsAvailable = constants.brailleDisplayLength - numAllocatedChars;
+      let allocateCharacters = this.AllocateCharacters(lenData, charsAvailable);
+      // apply allocation
+      let brailleData = lenData;
       for (let i = 0; i < allocateCharacters.length; i++) {
         if (allocateCharacters[i]) {
           brailleData[i].numChars += allocateCharacters[i];
@@ -841,6 +891,8 @@ class Display {
       constants.brailleData = brailleData;
       if (constants.debugLevel > 5) {
         console.log('plotData[i]', plot.plotData[plotPos]);
+        console.log('valData', valData);
+        console.log('lenData', lenData);
         console.log('brailleData', brailleData);
       }
 
@@ -848,23 +900,106 @@ class Display {
       for (let i = 0; i < brailleData.length; i++) {
         for (let j = 0; j < brailleData[i].numChars; j++) {
           let brailleChar = '⠀'; // blank
-          if (brailleData[i].label == 'min' || brailleData[i].label == 'max') {
+          if (brailleData[i].type == 'min' || brailleData[i].type == 'max') {
             brailleChar = '⠒';
           } else if (
-            brailleData[i].label == '25' ||
-            brailleData[i].label == '75'
+            brailleData[i].type == 'q1' ||
+            brailleData[i].type == 'q3'
           ) {
             brailleChar = '⠿';
-          } else if (brailleData[i].label == '50') {
+          } else if (brailleData[i].type == 'q2') {
             if (j == 0) {
               brailleChar = '⠸';
             } else {
               brailleChar = '⠇';
             }
-          } else if (brailleData[i].type == 'outlier') {
+          } else if (
+            brailleData[i].type == 'lower_outlier' ||
+            brailleData[i].type == 'upper_outlier'
+          ) {
             brailleChar = '⠂';
           }
           brailleArray.push(brailleChar);
+        }
+      }
+    } else if (constants.chartType == 'line') {
+      // TODO
+      // ⠑
+      let range = (constants.maxY - constants.minY) / 4;
+      let low = constants.minY + range;
+      let medium = low + range;
+      let medium_high = medium + range;
+      let high = medium_high + range;
+
+      for (let i = 0; i < plot.pointValuesY.length; i++) {
+        if (
+          plot.pointValuesY[i] <= low &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > low
+        ) {
+          // move from higher ranges to low
+          if (plot.pointValuesY[i - 1] <= medium) {
+            // move away from medium range
+            brailleArray.push('⢄');
+          } else if (plot.pointValuesY[i - 1] <= medium_high) {
+            // move away from medium high range
+            brailleArray.push('⢆');
+          } else if (plot.pointValuesY[i - 1] > medium_high) {
+            // move away from high range
+            brailleArray.push('⢇');
+          }
+        } else if (plot.pointValuesY[i] <= low) {
+          // in the low range
+          brailleArray.push('⣀');
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= low) {
+          // move from low to higher ranges
+          if (plot.pointValuesY[i] <= medium) {
+            // move to medium range
+            brailleArray.push('⡠');
+          } else if (plot.pointValuesY[i] <= medium_high) {
+            // move to medium high range
+            brailleArray.push('⡰');
+          } else if (plot.pointValuesY[i] > medium_high) {
+            // move to high range
+            brailleArray.push('⡸');
+          }
+        } else if (
+          plot.pointValuesY[i] <= medium &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > medium
+        ) {
+          if (plot.pointValuesY[i - 1] <= medium_high) {
+            // move away from medium high range to medium
+            brailleArray.push('⠢');
+          } else if (plot.pointValuesY[i - 1] > medium_high) {
+            // move away from high range
+            brailleArray.push('⠣');
+          }
+        } else if (plot.pointValuesY[i] <= medium) {
+          brailleArray.push('⠤');
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= medium) {
+          // move from medium to higher ranges
+          if (plot.pointValuesY[i] <= medium_high) {
+            // move to medium high range
+            brailleArray.push('⠔');
+          } else if (plot.pointValuesY[i] > medium_high) {
+            // move to high range
+            brailleArray.push('⠜');
+          }
+        } else if (
+          plot.pointValuesY[i] <= medium_high &&
+          i - 1 >= 0 &&
+          plot.pointValuesY[i - 1] > medium_high
+        ) {
+          // move away from high range to medium high
+          brailleArray.push('⠑');
+        } else if (plot.pointValuesY[i] <= medium_high) {
+          brailleArray.push('⠒');
+        } else if (i - 1 >= 0 && plot.pointValuesY[i - 1] <= medium_high) {
+          // move from medium high to high range
+          brailleArray.push('⠊');
+        } else if (plot.pointValuesY[i] <= high) {
+          brailleArray.push('⠉');
         }
       }
     }
@@ -887,8 +1022,8 @@ class Display {
    * This function allocates a total number of characters among an array of lengths,
    * proportionally to each length.
    *
-   * @param {Array} arr - The array of lengths. Each length should be a positive number.
-   * @param {number} totalCharacters - The total number of characters to be allocated.
+   * @param {Array} arr - The array of objects containing lengths, type, and current numChars. Each length should be a positive number.
+   * @param {number} charsToAllocate - The total number of characters to be allocated.
    *
    * The function first calculates the sum of all lengths in the array. Then, it
    * iterates over the array and calculates an initial allocation for each length,
@@ -914,37 +1049,37 @@ class Display {
    *
    * @returns {Array} The array of allocations.
    */
-  AllocateCharacters(arr, totalCharacters) {
+  AllocateCharacters(arr, charsToAllocate) {
     // init
     let allocation = [];
     let sumLen = 0;
     for (let i = 0; i < arr.length; i++) {
       sumLen += arr[i].length;
     }
-    let notAllowed = ['lower_outlier', 'upper_outlier', '50'];
+    let notAllowed = ['lower_outlier', 'upper_outlier', '50']; // these types only have the 1 char they were assigned above
 
     // main allocation
     for (let i = 0; i < arr.length; i++) {
-      if (!notAllowed.includes(arr[i].label)) {
-        allocation[i] = Math.round((arr[i].length / sumLen) * totalCharacters);
+      if (!notAllowed.includes(arr[i].type)) {
+        allocation[i] = Math.round((arr[i].length / sumLen) * charsToAllocate);
       }
     }
 
-    // did it work? check for differences
+    // main allocation is not perfect, so we need to adjust
     let allocatedSum = allocation.reduce((a, b) => a + b, 0);
-    let difference = totalCharacters - allocatedSum;
+    let difference = charsToAllocate - allocatedSum;
 
     // If there's a rounding error, add/subtract characters proportionally
     let maxIterations = arr.length; // inf loop handler :D
     while (difference !== 0 && maxIterations > 0) {
       // (same method as above)
       for (let i = 0; i < arr.length; i++) {
-        if (!notAllowed.includes(arr[i].label)) {
+        if (!notAllowed.includes(arr[i].type)) {
           allocation[i] += Math.round((arr[i].length / sumLen) * difference);
         }
       }
       allocatedSum = allocation.reduce((a, b) => a + b, 0);
-      difference = totalCharacters - allocatedSum;
+      difference = charsToAllocate - allocatedSum;
 
       maxIterations--;
     }

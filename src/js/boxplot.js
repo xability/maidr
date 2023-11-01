@@ -2,138 +2,101 @@
 // BoxPlot class.
 // This initializes and contains the JSON data model for this chart
 //
+// todo:
 class BoxPlot {
-  // todo: new structure:
-  // use index of format and data to match plots
-  /*
-  newMaidr = {
-    axes: {
-      y: {
-        label: 'Car Class',
-        format: [
-          '2seater',
-          'compact',
-          'midsize',
-          'minivan',
-          'pickup',
-          'subcompact',
-          'suv',
-        ],
-      },
-      x: {
-        label: 'Highway Milage',
-      },
-    },
-    data: [
-      "2seater": {
-        lower_outlier: null,
-        min: 57.2,
-        q1: 59.3,
-        median: 60.3,
-        q3: 61.3,
-        max: 62.3,
-        upper_outlier: [63.2, 64.2, 65.2],
-      }
-    ],
-  };
-  */
   constructor() {
-    constants.plotId = 0;
-
     constants.plotOrientation = 'horz'; // default
-    if (typeof maidr !== 'undefined') {
-      constants.plotOrientation = maidr.orientation;
+    this.sections = [
+      'lower_outlier',
+      'min',
+      'q1',
+      'q2',
+      'q3',
+      'max',
+      'upper_outlier',
+    ];
+
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('level' in singleMaidr.axes.x) {
+          constants.plotOrientation = 'vert';
+        }
+      }
     }
 
-    if (
-      constants.chart.querySelector(
-        'g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
-      )
-    ) {
-      constants.plotId = constants.chart
-        .querySelector('g[id^="panel"] > g[id^="geom_boxplot.gTree"]')
-        .getAttribute('id');
+    // title
+    this.title = '';
+    if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        this.title = singleMaidr.labels.title;
+      }
+    }
+    if (this.title == '') {
+      if ('title' in singleMaidr) {
+        this.title = singleMaidr.title;
+      }
+    }
+    // subtitle
+    this.subtitle = '';
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        this.subtitle = singleMaidr.labels.subtitle;
+      }
+    }
+    // caption
+    this.caption = '';
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        this.caption = singleMaidr.labels.caption;
+      }
     }
 
-    if (constants.manualData) {
-      // title
-      let boxplotTitle = '';
-      if (typeof maidr !== 'undefined' && typeof maidr.title !== 'undefined') {
-        boxplotTitle = maidr.title;
-      } else if (constants.chart.querySelector('tspan[dy="9.45"]')) {
-        boxplotTitle =
-          constants.chart.querySelector('tspan[dy="9.45"]').innerHTML;
-        boxplotTitle = boxplotTitle.replace('\n', '').replace(/ +(?= )/g, ''); // there are multiple spaces and newlines, sometimes
-      }
-      this.title =
-        typeof boxplotTitle !== 'undefined' && typeof boxplotTitle != null
-          ? boxplotTitle
-          : '';
-
-      // axes labels
-      if (typeof maidr !== 'undefined') {
-        this.x_group_label = maidr.x_group_label;
-      } else {
-        this.x_group_label = constants.chart.querySelector(
-          'text:not([transform^="rotate"]) > tspan[dy="7.88"]'
-        ).innerHTML;
-      }
-      if (typeof maidr !== 'undefined') {
-        this.y_group_label = maidr.y_group_label;
-      } else {
-        this.y_group_label = constants.chart.querySelector(
-          'text[transform^="rotate"] > tspan[dy="7.88"]'
-        ).innerHTML;
-      }
-
-      // x y tick labels
-      let labels = [];
-      if (typeof maidr !== 'undefined') {
-        this.x_labels = maidr.x_labels;
-        this.y_labels = maidr.y_labels;
-      } else {
-        let elDy = '3.15';
-        if (constants.plotOrientation == 'vert') {
-          elDy = '6.3';
+    // axes labels
+    if ('labels' in singleMaidr) {
+      if (!this.x_group_label) {
+        if ('x' in singleMaidr.labels) {
+          this.x_group_label = singleMaidr.labels.x;
         }
-        let els = constants.chart.querySelectorAll('tspan[dy="' + elDy + '"]');
-        for (let i = 0; i < els.length; i++) {
-          labels.push(els[i].innerHTML.trim());
+      }
+      if (!this.y_group_label) {
+        if ('y' in singleMaidr.labels) {
+          this.y_group_label = singleMaidr.labels.y;
         }
-        if (constants.plotOrientation == 'vert') {
-          this.x_labels = labels;
-          this.y_labels = [];
+      }
+    }
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.x) {
+          if (!this.x_group_label) {
+            this.x_group_label = singleMaidr.axes.x.label;
+          }
+        }
+        if ('level' in singleMaidr.axes.x) {
+          this.x_labels = singleMaidr.axes.x.level;
         } else {
           this.x_labels = [];
-          this.y_labels = labels;
         }
       }
-
-      // main data
-      if (typeof maidr !== 'undefined') {
-        this.plotData = maidr.data;
-      } else {
-        this.plotData = maidr;
+      if ('y' in singleMaidr.axes) {
+        if ('label' in singleMaidr.axes.y) {
+          if (!this.y_group_label) {
+            this.y_group_label = singleMaidr.axes.y.label;
+          }
+        }
+        if ('level' in singleMaidr.axes.y) {
+          this.y_labels = singleMaidr.axes.y.level;
+        } else {
+          this.y_labels = [];
+        }
       }
-    } else {
-      this.x_group_label = constants.chart.getElementById(
-        'GRID.text.199.1.1.tspan.1'
-      ).innerHTML;
-      this.y_group_label = constants.chart.getElementById(
-        'GRID.text.202.1.1.tspan.1'
-      ).innerHTML;
-      if (constants.plotOrientation == 'vert') {
-        this.x_labels = this.GetLabels();
-        this.y_labels = [];
-      } else {
-        this.x_labels = [];
-        this.y_labels = this.GetLabels();
-      }
-      this.plotData = this.GetData(); // main json data
     }
 
-    if (constants.plotId) {
-      this.plotBounds = this.GetPlotBounds(constants.plotId); // bound data
+    // main data
+    this.plotData = singleMaidr.data;
+
+    // bounds data
+    if ('elements' in singleMaidr) {
+      this.plotBounds = this.GetPlotBounds();
       constants.hasRect = true;
     } else {
       constants.hasRect = false;
@@ -142,312 +105,82 @@ class BoxPlot {
     this.CleanData();
   }
 
-  GetLabels() {
-    let labels = [];
-    let query = 'tspan[dy="5"]';
-    let els = constants.chart.querySelectorAll(query);
-    for (let i = 0; i < els.length; i++) {
-      labels.push(els[i].innerHTML.trim());
-    }
-    return labels;
-  }
-
   CleanData() {
-    // we manually input data, so now we need to clean it up and set other vars
+    // clean up data and extra vars like min / max stuff
+
+    let min, max;
+    for (let i = 0; i < this.plotData.length; i++) {
+      if (this.plotData[i].lower_outlier) {
+        let outlierMin = Math.min(...this.plotData[i].lower_outlier);
+        let outlierMax = Math.max(...this.plotData[i].lower_outlier);
+
+        if (min == undefined || outlierMin < min) min = outlierMin;
+        if (max == undefined || outlierMax > max) max = outlierMax;
+      }
+      if (this.plotData[i].min) {
+        if (min == undefined || this.plotData[i].min < min)
+          min = this.plotData[i].min;
+        if (max == undefined || this.plotData[i].max > max)
+          max = this.plotData[i].max;
+      }
+      if (this.plotData[i].q1) {
+        if (min == undefined || this.plotData[i].q1 < min)
+          min = this.plotData[i].q1;
+        if (max == undefined || this.plotData[i].q1 > max)
+          max = this.plotData[i].q1;
+      }
+      if (this.plotData[i].q2) {
+        if (min == undefined || this.plotData[i].q2 < min)
+          min = this.plotData[i].q2;
+        if (max == undefined || this.plotData[i].q2 > max)
+          max = this.plotData[i].q2;
+      }
+      if (this.plotData[i].q3) {
+        if (min == undefined || this.plotData[i].q3 < min)
+          min = this.plotData[i].q3;
+        if (max == undefined || this.plotData[i].q3 > max)
+          max = this.plotData[i].q3;
+      }
+      if (this.plotData[i].max) {
+        if (min == undefined || this.plotData[i].max < min)
+          min = this.plotData[i].max;
+        if (max == undefined || this.plotData[i].max > max)
+          max = this.plotData[i].max;
+      }
+      if (this.plotData[i].upper_outlier) {
+        let outlierMin = Math.min(...this.plotData[i].upper_outlier);
+        let outlierMax = Math.max(...this.plotData[i].upper_outlier);
+
+        if (min == undefined || outlierMin < min) min = outlierMin;
+        if (max == undefined || outlierMax > max) max = outlierMax;
+      }
+    }
 
     if (constants.plotOrientation == 'vert') {
-      constants.minY = 0;
-      constants.maxY = 0;
-      for (let i = 0; i < this.plotData.length; i++) {
-        // each plot
-        for (let j = 0; j < this.plotData[i].length; j++) {
-          // each section in plot
-          let point = this.plotData[i][j];
-          if (point.hasOwnProperty('y')) {
-            if (point.y < constants.minY) {
-              constants.yMin = point.y;
-            }
-            if (point.hasOwnProperty('yMax')) {
-              if (point.yMax > constants.maxY) {
-                constants.maxY = point.yMax;
-              }
-            } else {
-              if (point.y > constants.maxY) {
-                constants.maxY = point.y;
-              }
-            }
-          }
-          if (point.hasOwnProperty('x')) {
-            if (point.x < constants.minX) {
-              constants.minX = point.x;
-            }
-            if (point.x > constants.maxX) {
-              constants.maxX = point.x;
-            }
-          }
-        }
-      }
-    } else {
+      constants.minY = min;
+      constants.maxY = max;
       constants.minX = 0;
-      constants.maxX = 0;
-      for (let i = 0; i < this.plotData.length; i++) {
-        // each plot
-        for (let j = 0; j < this.plotData[i].length; j++) {
-          // each section in plot
-          let point = this.plotData[i][j];
-          if (point.hasOwnProperty('x')) {
-            if (point.x < constants.minX) {
-              constants.xMin = point.x;
-            }
-            if (point.hasOwnProperty('xMax')) {
-              if (point.xMax > constants.maxX) {
-                constants.maxX = point.xMax;
-              }
-            } else {
-              if (point.x > constants.maxX) {
-                constants.maxX = point.x;
-              }
-            }
-          }
-          if (point.hasOwnProperty('y')) {
-            if (point.y < constants.minY) {
-              constants.minY = point.y;
-            }
-            if (point.y > constants.maxY) {
-              constants.maxY = point.y;
-            }
-          }
-        }
-      }
+      constants.maxX = this.plotData.length - 1;
+    } else {
+      constants.minX = min;
+      constants.maxX = max;
+      constants.minY = 0;
+      constants.maxY = this.plotData.length - 1;
+    }
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / this.plotData.length),
+      constants.MAX_SPEED
+    );
+    constants.DEFAULT_SPEED = constants.autoPlayRate;
+    if (constants.autoPlayRate < constants.MIN_SPEED) {
+      constants.MIN_SPEED = constants.autoPlayRate;
     }
   }
 
-  GetData() {
-    // data in chart is formed as nested <g> elements. Loop through and get all point data
-    // goal is to get bounding x values and type (outlier, whisker, range, placeholder)
-
-    let plotData = [];
-
-    let plots = document.querySelector(singleMaidr.element).children;
-    for (let i = 0; i < plots.length; i++) {
-      // each plot
-
-      let sections = plots[i].children;
-      let points = [];
-      for (let j = 0; j < sections.length; j++) {
-        // each segment (outlier, whisker, etc)
-        // get segments for this section, there are 2 each
-        // sometimes they're 0, so ignore those TODO
-        let segments = sections[j].children;
-        for (let k = 0; k < segments.length; k++) {
-          let segment = segments[k];
-
-          let segmentType = this.GetBoxplotSegmentType(
-            sections[j].getAttribute('id')
-          );
-          let segmentPoints = this.GetBoxplotSegmentPoints(
-            segment,
-            segmentType
-          );
-
-          for (let l = 0; l < segmentPoints.length; l += 2) {
-            if (
-              segmentType == 'whisker' &&
-              l == 0 &&
-              constants.plotOrientation == 'vert'
-            ) {
-            } else {
-              let thisPoint = {
-                x: Number(segmentPoints[l]),
-                y: Number(segmentPoints[l + 1]),
-                type: segmentType,
-              };
-              if (thisPoint.y > constants.maxY) constants.maxY = thisPoint.y;
-              points.push(thisPoint);
-            }
-          }
-        }
-      }
-
-      // post processing
-      // Sort this plot
-      points.sort(function (a, b) {
-        if (constants.plotOrientation == 'vert') {
-          return a.y - b.y;
-        } else {
-          return a.x - b.x;
-        }
-      });
-
-      if (constants.plotOrientation == 'horz') {
-        // and remove whisker from range dups
-        let noDupPoints = [];
-        for (let d = 0; d < points.length; d++) {
-          if (d > 0) {
-            if (points[d - 1].x == points[d].x) {
-              if (points[d - 1].type == 'whisker') {
-                noDupPoints.splice(-1, 1);
-                noDupPoints.push(points[d]);
-              } else {
-              }
-            } else {
-              noDupPoints.push(points[d]);
-            }
-          } else {
-            noDupPoints.push(points[d]);
-          }
-        }
-        points = noDupPoints;
-      }
-
-      plotData.push(points);
-    }
-
-    // put plots in order
-    plotData.sort(function (a, b) {
-      if (constants.plotOrientation == 'vert') {
-        return a[0].x - b[0].x;
-      } else {
-        return a[0].y - b[0].y;
-      }
-    });
-
-    // combine outliers into a single object for easier display
-    // info to grab: arr of values=y's or x's, y or x = ymin or xmin, yn xn = ymax xmax. The rest can stay as is
-    for (let i = 0; i < plotData.length; i++) {
-      let section = plotData[i];
-      // loop through points and find outliers
-      let outlierGroup = [];
-      for (let j = 0; j < section.length + 1; j++) {
-        let runProcessOutliers = false; // run if we're past outliers (catching the first set), or if we're at the end (catching the last set)
-        if (j == section.length) {
-          runProcessOutliers = true;
-        } else if (section[j].type != 'outlier') {
-          runProcessOutliers = true;
-        }
-        if (!runProcessOutliers) {
-          // add this to the group and continue
-          outlierGroup.push(section[j]);
-        } else if (outlierGroup.length > 0) {
-          // process!! This is the main bit of work done
-          let vals = [];
-          for (let k = 0; k < outlierGroup.length; k++) {
-            // save array of values
-            if (constants.plotOrientation == 'vert') {
-              vals.push(outlierGroup[k].y);
-            } else {
-              vals.push(outlierGroup[k].x);
-            }
-
-            // We're only keeping 1 outlier value, so mark all others to delete after we're done processing
-            if (k > 0) {
-              plotData[i][j + k - outlierGroup.length].type = 'delete';
-            }
-          }
-
-          // save data
-          if (constants.plotOrientation == 'vert') {
-            plotData[i][j - outlierGroup.length].y = outlierGroup[0].y;
-            plotData[i][j - outlierGroup.length].yMax =
-              outlierGroup[outlierGroup.length - 1].y;
-          } else {
-            plotData[i][j - outlierGroup.length].x = outlierGroup[0].x;
-            plotData[i][j - outlierGroup.length].xMax =
-              outlierGroup[outlierGroup.length - 1].x;
-          }
-          plotData[i][j - outlierGroup.length].values = vals;
-
-          // reset for next set
-          outlierGroup = [];
-        }
-      }
-    }
-    // clean up from the above outlier processing
-    let cleanData = [];
-    for (let i = 0; i < plotData.length; i++) {
-      cleanData[i] = [];
-      for (let j = 0; j < plotData[i].length; j++) {
-        if (plotData[i][j].type != 'delete') {
-          cleanData[i][j] = plotData[i][j];
-        }
-      }
-      cleanData[i] = cleanData[i].filter(function () {
-        return true;
-      });
-    }
-    plotData = cleanData;
-
-    // add labeling for display
-    for (let i = 0; i < plotData.length; i++) {
-      // each box section
-      let rangeCounter = 0;
-      for (let j = 0; j < plotData[i].length; j++) {
-        let point = plotData[i][j];
-        // each point, decide based on position with respect to range
-        if (point.type == 'outlier') {
-          if (rangeCounter > 0) {
-            plotData[i][j].label = resources.GetString('upper_outlier');
-          } else {
-            plotData[i][j].label = resources.GetString('lower_outlier');
-          }
-        } else if (point.type == 'whisker') {
-          if (rangeCounter > 0) {
-            plotData[i][j].label = resources.GetString('max');
-          } else {
-            plotData[i][j].label = resources.GetString('min');
-          }
-        } else if (point.type == 'range') {
-          if (rangeCounter == 0) {
-            plotData[i][j].label = resources.GetString('25');
-          } else if (rangeCounter == 1) {
-            plotData[i][j].label = resources.GetString('50');
-          } else if (rangeCounter == 2) {
-            plotData[i][j].label = resources.GetString('75');
-          }
-          rangeCounter++;
-        }
-      }
-    }
-
-    // often a plot doesn't have various sections.
-    // we expect outlier - min - 25 - 50 - 75 - max - outlier
-    // add blank placeholders where they don't exist for better vertical navigation
-    let allWeNeed = this.GetAllSegmentTypes();
-    for (let i = 0; i < plotData.length; i++) {
-      if (plotData[i].length == 7) {
-        // skip, this one has it all. The rare boi
-      } else {
-        let whatWeGot = []; // we'll get a set of labels that we have so we can find what's missing
-        for (let j = 0; j < plotData[i].length; j++) {
-          whatWeGot.push(plotData[i][j].label);
-        }
-
-        // add missing stuff where it should go. We use .label as the user facing var (todo, might be a mistake, maybe use .type?)
-        for (let j = 0; j < allWeNeed.length; j++) {
-          if (!whatWeGot.includes(allWeNeed[j])) {
-            // add a blank where it belongs
-            let blank = { type: 'blank', label: allWeNeed[j] };
-            plotData[i].splice(j, 0, blank);
-            whatWeGot.splice(j, 0, allWeNeed[j]);
-          }
-        }
-      }
-    }
-
-    // update 50% value as a midpoint of 25 and 75
-    for (let i = 0; i < plotData.length; i++) {
-      plotData[i][3].y = Math.round((plotData[i][2].y + plotData[i][4].y) / 2);
-    }
-
-    if (constants.debugLevel > 1) {
-      console.log('plotData:', plotData);
-    }
-
-    return plotData;
-  }
-
-  GetPlotBounds(plotId) {
-    // we fetch the elements in our parent, and similar to GetData we run through and get bounding boxes (or blanks) for everything, and store in an identical structure
+  GetPlotBounds() {
+    // we fetch the elements in our parent,
+    // and similar to old GetData we run through and get bounding boxes (or blanks) for everything,
+    // and store in an identical structure
 
     let plotBounds = [];
     let allWeNeed = this.GetAllSegmentTypes();
@@ -455,7 +188,7 @@ class BoxPlot {
 
     // get initial set of elements, a parent element for all outliers, whiskers, and range
     let initialElemSet = [];
-    let plots = document.getElementById(constants.plotId).children;
+    let plots = singleMaidr.elements.children;
     for (let i = 0; i < plots.length; i++) {
       // each plot
       let plotSet = {};
@@ -746,6 +479,7 @@ class BoxPlot {
 
     return segmentType;
   }
+
   GetBoxplotSegmentPoints(segment, segmentType) {
     // Helper function for main GetData:
     // Fetch x and y point data from chart
@@ -781,6 +515,19 @@ class BoxPlot {
 
     return points;
   }
+  GetAllSegmentTypes() {
+    let allWeNeed = [
+      resources.GetString('lower_outlier'),
+      resources.GetString('min'),
+      resources.GetString('25'),
+      resources.GetString('50'),
+      resources.GetString('75'),
+      resources.GetString('max'),
+      resources.GetString('upper_outlier'),
+    ];
+
+    return allWeNeed;
+  }
 
   convertBoundingClientRectToObj(rect) {
     return {
@@ -795,21 +542,27 @@ class BoxPlot {
     };
   }
 
-  PlayTones(audio) {
+  PlayTones() {
+    // init
     let plotPos = null;
-    let sectionPos = null;
+    let sectionKey = null;
     if (constants.outlierInterval) clearInterval(constants.outlierInterval);
     if (constants.plotOrientation == 'vert') {
       plotPos = position.x;
-      sectionPos = position.y;
+      sectionKey = this.GetSectionKey(position.y);
     } else {
       plotPos = position.y;
-      sectionPos = position.x;
+      sectionKey = this.GetSectionKey(position.x);
     }
-    if (plot.plotData[plotPos][sectionPos].type == 'blank') {
+
+    // chose tone to play
+    if (plot.plotData[plotPos][sectionKey] == null) {
       audio.PlayNull();
-    } else if (plot.plotData[plotPos][sectionPos].type != 'outlier') {
+    } else if (sectionKey != 'lower_outlier' && sectionKey != 'upper_outlier') {
+      // normal tone
       audio.playTone();
+    } else if (plot.plotData[plotPos][sectionKey].length == 0) {
+      audio.PlayNull();
     } else {
       // outlier(s): we play a run of tones
       position.z = 0;
@@ -821,18 +574,19 @@ class BoxPlot {
         position.z += 1;
 
         // and kill if we're done
-        if (!Object.hasOwn(plot.plotData[plotPos][sectionPos], 'values')) {
+        if (plot.plotData[plotPos][sectionKey] == null) {
           clearInterval(constants.outlierInterval);
           position.z = -1;
-        } else if (
-          position.z + 1 >
-          plot.plotData[plotPos][sectionPos].values.length
-        ) {
+        } else if (position.z + 1 > plot.plotData[plotPos][sectionKey].length) {
           clearInterval(constants.outlierInterval);
           position.z = -1;
         }
       }, constants.autoPlayOutlierRate);
     }
+  }
+
+  GetSectionKey(sectionPos) {
+    return this.sections[sectionPos];
   }
 }
 
@@ -860,10 +614,12 @@ class BoxplotRect {
 
     let plotPos = position.x;
     let sectionPos = position.y;
+    let sectionKey = plot.GetSectionKey(position.y);
     if (constants.plotOrientation == 'vert') {
     } else {
       plotPos = position.y;
       sectionPos = position.x;
+      sectionKey = plot.GetSectionKey(position.x);
     }
 
     if (
@@ -885,7 +641,7 @@ class BoxplotRect {
         if (constants.debugLevel > 5) {
           console.log(
             'Point',
-            plot.plotData[plotPos][sectionPos].label,
+            sectionKey,
             'bottom:',
             bounds.bottom,
             'top:',

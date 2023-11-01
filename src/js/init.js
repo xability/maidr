@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', function (e) {
   // create global vars
   window.constants = new Constants();
   window.resources = new Resources();
-  window.menu = new Menu();
   window.tracker = new Tracker();
+  window.logError = new LogError();
 
   // set focus events for all charts matching maidr ids
   let maidrObjects = [];
@@ -87,24 +87,22 @@ function InitMaidr(thisMaidr) {
     window.control = new Control(); // this inits the plot
     window.review = new Review();
     window.display = new Display();
+    window.audio = new Audio();
 
     // blur destruction events
-    constants.events.push([
-      document.getElementById(singleMaidr.id),
-      'blur',
-      ShouldWeDestroyMaidr,
-    ]);
+    let controlElements = [
+      constants.chart,
+      constants.brailleInput,
+      constants.review,
+    ];
+    for (let i = 0; i < controlElements.length; i++) {
+      constants.events.push([controlElements[i], 'blur', ShouldWeDestroyMaidr]);
+    }
 
     // kill autoplay event
     constants.events.push([document, 'keydown', KillAutoplayEvent]);
 
-    // add all events
-    for (let i = 0; i < constants.events.length; i++) {
-      constants.events[i][0].addEventListener(
-        constants.events[i][1],
-        constants.events[i][2]
-      );
-    }
+    this.SetEvents();
 
     // once everything is set up, announce the chart name (or title as a backup) to the user
     if ('name' in singleMaidr) {
@@ -135,53 +133,95 @@ function ShouldWeInitMaidr(thisMaidr) {
 }
 
 function ShouldWeDestroyMaidr(e) {
-  // conditions: we're not about to focus on any chart that is maidr enabled, or braille, or review input
-  // note: the case where we move from one maidr enabled chart to another is handled by ShouldWeInitMaidr
+  // conditions: we've tabbed away from the chart or any component
 
-  // timeout to delay blur event
+  // timeout to delay blur event. I forget why this is necessary, but it is
   setTimeout(() => {
-    let focusedElement = document.activeElement;
-    if (focusedElement.id) {
-      if (maidrIds.includes(focusedElement.id)) {
-        return; // about to focus on self, don't destroy
-      } else if (focusedElement.id == constants.braille_input_id) {
-        return; // about to focus on braille, don't destroy
-      } else if (focusedElement.id == constants.review.id) {
-        return; // about to focus on review, don't destroy
-      } else {
-        DestroyMaidr();
-      }
+    if (constants.tabMovement == 0) {
+      // do nothing, this is an allowed move
+      // but also reset so we can leave later
+      constants.tabMovement = null;
     } else {
-      // we're focused somewhere on the page that doesn't have an id, which means not maidr, so destroy
+      if (constants.tabMovement == 1 || constants.tabMovement == -1) {
+        // move to before / after, and then destroy
+        FocusBeforeOrAfter();
+      }
       DestroyMaidr();
     }
   }, 0);
 }
 
+function FocusBeforeOrAfter() {
+  // Tab / forward
+  if (constants.tabMovement == 1) {
+    let focusTemp = document.createElement('div');
+    focusTemp.setAttribute('tabindex', '0');
+    constants.main_container.after(focusTemp);
+    focusTemp.focus();
+    focusTemp.remove();
+  }
+  // Shift + Tab / backward
+  else if (constants.tabMovement == -1) {
+    // create an element to focus on, add it before currentFocus, focus it, then remove it
+    let focusTemp = document.createElement('div');
+    focusTemp.setAttribute('tabindex', '0');
+    constants.main_container.before(focusTemp);
+    focusTemp.focus();
+    focusTemp.remove();
+  }
+}
+
 function DestroyMaidr() {
   // chart cleanup
-  if (constants.chartType == 'bar') {
+  if (constants.chartType == 'bar' || constants.chartType == 'hist') {
     plot.DeselectAll();
   }
 
   // remove events
   for (let i = 0; i < constants.events.length; i++) {
-    constants.events[i][0].removeEventListener(
-      constants.events[i][1],
-      constants.events[i][2]
-    );
+    if (Array.isArray(constants.events[i][0])) {
+      for (let j = 0; j < constants.events[i][0].length; j++) {
+        constants.events[i][0][j].removeEventListener(
+          constants.events[i][1],
+          constants.events[i][2]
+        );
+      }
+    } else {
+      constants.events[i][0].removeEventListener(
+        constants.events[i][1],
+        constants.events[i][2]
+      );
+    }
+  }
+  for (let i = 0; i < constants.postLoadEvents.length; i++) {
+    if (Array.isArray(constants.postLoadEvents[i][0])) {
+      for (let j = 0; j < constants.postLoadEvents[i][0].length; j++) {
+        constants.postLoadEvents[i][0][j].removeEventListener(
+          constants.postLoadEvents[i][1],
+          constants.postLoadEvents[i][2]
+        );
+      }
+    } else {
+      constants.postLoadEvents[i][0].removeEventListener(
+        constants.postLoadEvents[i][1],
+        constants.postLoadEvents[i][2]
+      );
+    }
   }
   constants.events = [];
+  constants.postLoadEvents = [];
 
   // remove global vars
   constants.chartId = null;
   constants.chartType = null;
+  constants.tabMovement = null;
   DestroyChartComponents();
 
   window.review = null;
   window.display = null;
   window.control = null;
   window.plot = null;
+  window.audio = null;
   window.singleMaidr = null;
 }
 function KillAutoplayEvent(e) {
@@ -196,22 +236,65 @@ function KillAutoplayEvent(e) {
   }
 }
 
+function SetEvents() {
+  // add all events
+  for (let i = 0; i < constants.events.length; i++) {
+    if (Array.isArray(constants.events[i][0])) {
+      for (let j = 0; j < constants.events[i][0].length; j++) {
+        constants.events[i][0][j].addEventListener(
+          constants.events[i][1],
+          constants.events[i][2]
+        );
+      }
+    } else {
+      constants.events[i][0].addEventListener(
+        constants.events[i][1],
+        constants.events[i][2]
+      );
+    }
+  }
+  // add all post load events
+  // we delay adding post load events just a tick so the chart loads
+  setTimeout(function () {
+    for (let i = 0; i < constants.postLoadEvents.length; i++) {
+      if (Array.isArray(constants.postLoadEvents[i][0])) {
+        for (let j = 0; j < constants.postLoadEvents[i][0].length; j++) {
+          constants.postLoadEvents[i][0][j].addEventListener(
+            constants.postLoadEvents[i][1],
+            constants.postLoadEvents[i][2]
+          );
+        }
+      } else {
+        constants.postLoadEvents[i][0].addEventListener(
+          constants.postLoadEvents[i][1],
+          constants.postLoadEvents[i][2]
+        );
+      }
+    }
+  }, 100);
+}
+
 function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
 
   // core chart
   let chart = document.getElementById(singleMaidr.id);
 
-  // chart container, we create a parent of chart
+  // we create a structure with a main container, and a chart container
+  let main_container = document.createElement('div');
+  main_container.id = constants.main_container_id;
   let chart_container = document.createElement('div');
   chart_container.id = constants.chart_container_id;
-  // replace chart with chart container, and append chart to chart container
+  // update parents from just chart, to main container > chart container > chart
+  chart.parentNode.replaceChild(main_container, chart);
+  main_container.appendChild(chart);
   chart.parentNode.replaceChild(chart_container, chart);
   chart_container.appendChild(chart);
   chart.focus(); // focus used to be on chart and just got lost as we rearranged, so redo focus
 
   constants.chart = chart;
   constants.chart_container = chart_container;
+  constants.main_container = main_container;
 
   // braille input, pre sibling of chart container
   constants.chart_container.insertAdjacentHTML(
@@ -222,15 +305,10 @@ function CreateChartComponents() {
       constants.braille_input_id +
       '" class="braille-input" type="text" size="' +
       constants.brailleDisplayLength +
-      '" />\n</div>\n'
+      '" ' +
+      'aria-brailleroledescription="" ' + // this kills the 2 char 'edit' that screen readers add
+      '/>\n</div>\n'
   );
-
-  // set destruction possibility on braille
-  constants.events.push([
-    document.getElementById(constants.braille_input_id),
-    'blur',
-    ShouldWeDestroyMaidr,
-  ]);
 
   // info aria live, next sibling of chart container
   constants.chart_container.insertAdjacentHTML(
@@ -256,6 +334,18 @@ function CreateChartComponents() {
       '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
     );
 
+  // review mode form field
+  document
+    .getElementById(constants.info_id)
+    .insertAdjacentHTML(
+      'beforebegin',
+      '<div id="' +
+        constants.review_id_container +
+        '" class="hidden sr-only sr-only-focusable"><input id="' +
+        constants.review_id +
+        '" type="text" readonly size="50" /></div>'
+    );
+
   // some tweaks
   constants.chart_container.setAttribute('role', 'application');
 
@@ -270,6 +360,16 @@ function CreateChartComponents() {
   );
   constants.nonMenuFocus = constants.chart;
   constants.endChime = document.getElementById(constants.end_chime_id);
+  constants.review_container = document.querySelector(
+    '#' + constants.review_id_container
+  );
+  constants.review = document.querySelector('#' + constants.review_id);
+
+  // help menu
+  window.menu = new Menu();
+
+  // Description modal
+  window.description = new Description(); // developement on hold
 }
 
 function DestroyChartComponents() {
@@ -297,6 +397,16 @@ function DestroyChartComponents() {
   if (constants.endChime != null) {
     constants.endChime.remove();
   }
+  if (constants.review_container != null) {
+    constants.review_container.remove();
+  }
+
+  if (typeof menu != 'undefined') {
+    menu.Destroy();
+  }
+  if (typeof description != 'undefined') {
+    description.Destroy();
+  }
 
   constants.chart = null;
   constants.chart_container = null;
@@ -305,4 +415,7 @@ function DestroyChartComponents() {
   constants.infoDiv = null;
   constants.announceContainer = null;
   constants.endChime = null;
+  constants.review_container = null;
+  menu = null;
+  description = null;
 }

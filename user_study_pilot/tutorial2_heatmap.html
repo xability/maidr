@@ -1244,18 +1244,16 @@
       var maidr = {
         type: 'heat',
         id: 'heatmap1',
-        legend_x: 'Island',
-        legend_y: 'Species',
         title: 'Penguin Species by Island',
         elements: document.querySelectorAll('g[id^="geom_rect"] > rect'),
         axes: {
           x: {
             label: 'Island',
-            format: ['Biscoe', 'Dream', 'Torgersen'],
+            level: ['Biscoe', 'Dream', 'Torgersen'],
           },
           y: {
             label: 'Species',
-            format: ['Gentoo', 'Chinstrap', 'Adelie'],
+            level: ['Gentoo', 'Chinstrap', 'Adelie'],
           },
         },
         data: [

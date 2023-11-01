@@ -5,27 +5,117 @@ document.addEventListener('DOMContentLoaded', function (e) {
 class ScatterPlot {
   constructor() {
     this.prefix = this.GetPrefix();
+    // this.SetVisualHighlight();
     this.SetScatterLayer();
     this.SetLineLayer();
     this.SetAxes();
     this.svgScaler = this.GetSVGScaler();
   }
 
+  // SetVisualHighlight() {
+  //   let point_index = this.GetElementIndex('point');
+  //   let smooth_index = this.GetElementIndex('smooth');
+  //   if (point_index && smooth_index && elements < 2) {
+  //     logError.LogAbsentElement('point or/and smooth line elements');
+  //   }
+  //   if (point_index != -1) {
+  //     this.CheckData(point_index);
+  //   }
+
+  //   if (smooth_index != -1) {
+  //     this.CheckData(smooth_index);
+  //   }
+  // }
+
+  // CheckData(i) {
+  //   let elements = 'elements' in singleMaidr ? singleMaidr.elements : null;
+
+  //   // elements does not exist at all
+  //   if (elements == null) {
+  //     logError.LogAbsentElement('elements');
+  //     if (i == 0) constants.hasRect = 0;
+  //     if (i == 1) constants.hasSmooth = 0;
+  //     return;
+  //   }
+
+  //   // elements exists but is empty
+  //   if (elements.length == 0) {
+  //     logError.LogAbsentElement('elements');
+  //     if (i == 0) constants.hasRect = 0;
+  //     if (i == 1) constants.hasSmooth = 0;
+  //     return;
+  //   }
+
+  //   // elements exists but is not an array
+  //   if (!Array.isArray(elements)) {
+  //     logError.LogNotArray('elements');
+  //     if (i == 0) constants.hasRect = 0;
+  //     if (i == 1) constants.hasSmooth = 0;
+  //     return;
+  //   }
+
+  //   // elements.length is more than 2
+  //   if (elements.length > 2) {
+  //     logError.LogTooManyElements('elements', 2);
+  //   }
+
+  //   if ('data' in singleMaidr) {
+  //     if (i == 0) {
+  //       // check point elements
+  //       if (
+  //         singleMaidr.data[i] == null ||
+  //         singleMaidr.data[i].length != singleMaidr.elements[i].length
+  //       ) {
+  //         constants.hasRect = 0;
+  //         logError.LogDifferentLengths('point data', 'point elements');
+  //       }
+  //     } else if (i == 1) {
+  //       // check smooth line elements
+  //       if (
+  //         singleMaidr.data[i] == null ||
+  //         (!Array.isArray(singleMaidr.data[i]) &&
+  //           singleMaidr.data[i].length != this.chartLineX.length)
+  //       ) {
+  //         constants.hasSmooth = 0;
+  //         logError.LogDifferentLengths(
+  //           'smooth line data',
+  //           'smooth line elements'
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
+
   SetAxes() {
     this.x_group_label = '';
     this.y_group_label = '';
     this.title = '';
-    if (typeof maidr !== 'undefined') {
-      if ('axes' in maidr) {
-        if ('x' in maidr.axes) {
-          this.x_group_label = maidr.axes.x.label;
-        }
-        if ('y' in maidr.axes) {
-          this.y_group_label = maidr.axes.y.label;
+    if ('labels' in singleMaidr) {
+      if ('x' in singleMaidr.labels) {
+        this.x_group_label = singleMaidr.labels.x;
+      }
+      if ('y' in singleMaidr.labels) {
+        this.y_group_label = singleMaidr.labels.y;
+      }
+      if ('title' in singleMaidr.labels) {
+        this.title = singleMaidr.labels.title;
+      }
+    }
+    if ('axes' in singleMaidr) {
+      if ('x' in singleMaidr.axes) {
+        if (this.x_group_label == '') {
+          this.x_group_label = singleMaidr.axes.x.label;
         }
       }
-      if ('title' in maidr) {
-        this.title = maidr.title;
+      if ('y' in singleMaidr.axes) {
+        if (this.y_group_label == '') {
+          this.y_group_label = singleMaidr.axes.y.label;
+        }
+      }
+    }
+    if ('title' in singleMaidr) {
+      if (this.title == '') {
+        this.title = singleMaidr.title;
       }
     }
   }
@@ -34,9 +124,9 @@ class ScatterPlot {
     // initially set as smooth layer (layer 2), if possible
     let elIndex = this.GetElementIndex('point');
     if (elIndex != -1) {
-      this.plotPoints = maidr.elements[elIndex];
-    } else if (maidr.type == 'point') {
-      this.plotPoints = maidr.elements;
+      this.plotPoints = singleMaidr.elements[elIndex];
+    } else if (singleMaidr.type == 'point') {
+      this.plotPoints = singleMaidr.elements;
     }
     if (typeof this.plotPoints !== 'undefined') {
       let svgPointCoords = this.GetSvgPointCoords();
@@ -55,12 +145,12 @@ class ScatterPlot {
   }
 
   SetLineLayer() {
-    // layer = 2, smooth layer (from maidr types)
+    // layer = 2, smooth layer (from singleMaidr types)
     let elIndex = this.GetElementIndex('smooth');
     if (elIndex != -1) {
-      this.plotLine = maidr.elements[elIndex];
-    } else if (maidr.type == 'smooth') {
-      this.plotLine = maidr.elements;
+      this.plotLine = singleMaidr.elements[elIndex];
+    } else if (singleMaidr.type == 'smooth') {
+      this.plotLine = singleMaidr.elements;
     }
     if (typeof this.plotLine !== 'undefined') {
       let svgLineCoords = this.GetSvgLineCoords();
@@ -115,8 +205,8 @@ class ScatterPlot {
 
   GetElementIndex(elementName = 'point') {
     let elIndex = -1;
-    if ('type' in maidr) {
-      elIndex = maidr.type.indexOf(elementName);
+    if ('type' in singleMaidr) {
+      elIndex = singleMaidr.type.indexOf(elementName);
     }
     return elIndex;
   }
@@ -124,8 +214,8 @@ class ScatterPlot {
   GetDataXYFormat(dataIndex) {
     // detect if data is in form [{x: 1, y: 2}, {x: 2, y: 3}] (object) or {x: [1, 2], y: [2, 3]]} (array)
     let xyFormat = 'array';
-    if (maidr.data[dataIndex]) {
-      if (Array.isArray(maidr.data[dataIndex])) {
+    if (singleMaidr.data[dataIndex]) {
+      if (Array.isArray(singleMaidr.data[dataIndex])) {
         xyFormat = 'object';
       }
     }
@@ -140,6 +230,7 @@ class ScatterPlot {
     // but first, are we even in an svg that can be scaled?
     let isSvg = false;
     let element = this.plotPoints[0]; // a random start, may as well be the first
+    console.log(element);
     while (element) {
       if (element.tagName.toLowerCase() == 'body') {
         break;
@@ -181,12 +272,12 @@ class ScatterPlot {
     let elIndex = this.GetElementIndex('point');
     let element;
     if (elIndex != -1) {
-      element = maidr.elements[elIndex][0];
-    } else if (maidr.type == 'point') {
-      element = maidr.elements[0];
+      element = singleMaidr.elements[elIndex][0];
+    } else if (singleMaidr.type == 'point') {
+      element = singleMaidr.elements[0];
     }
     let prefix = '';
-    if (element.tagName.toLowerCase() == 'circle') {
+    if ('element' in singleMaidr && element.tagName.toLowerCase() == 'circle') {
       prefix = 'c';
     }
     return prefix;
@@ -205,25 +296,25 @@ class ScatterPlot {
     let data;
     if (elIndex > -1) {
       // data comes directly as an array, in a 'point' layer, so fetch directly as an array from that index
-      data = maidr.data[elIndex];
-    } else if (maidr.type == 'point') {
+      data = singleMaidr.data[elIndex];
+    } else if (singleMaidr.type == 'point') {
       // data comes directly as an array, no 'point' layer, so fetch directly as an array
-      data = maidr.data;
+      data = singleMaidr.data;
     }
     if (typeof data !== 'undefined') {
       // assuming we got something, loop through the data and extract the x and y values
 
       if (xyFormat == 'array') {
-        if ('x' in maidr.data[elIndex]) {
-          xValues = maidr.data[elIndex]['x'];
+        if ('x' in singleMaidr.data[elIndex]) {
+          xValues = singleMaidr.data[elIndex]['x'];
         }
-        if ('y' in maidr.data[elIndex]) {
-          yValues = maidr.data[elIndex]['y'];
+        if ('y' in singleMaidr.data[elIndex]) {
+          yValues = singleMaidr.data[elIndex]['y'];
         }
       } else if (xyFormat == 'object') {
-        for (let i = 0; i < maidr.data[elIndex].length; i++) {
-          let x = maidr.data[elIndex][i]['x'];
-          let y = maidr.data[elIndex][i]['y'];
+        for (let i = 0; i < singleMaidr.data[elIndex].length; i++) {
+          let x = singleMaidr.data[elIndex][i]['x'];
+          let y = singleMaidr.data[elIndex][i]['y'];
           xValues.push(x);
           yValues.push(y);
         }
@@ -249,6 +340,15 @@ class ScatterPlot {
 
       constants.minY = Math.min(...yValues);
       constants.maxY = Math.max(...yValues);
+
+      constants.autoPlayRate = Math.min(
+        Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+        constants.MAX_SPEED
+      );
+      constants.DEFAULT_SPEED = constants.autoPlayRate;
+      if (constants.autoPlayRate < constants.MIN_SPEED) {
+        constants.MIN_SPEED = constants.autoPlayRate;
+      }
 
       points = new Map(
         [...points].sort(function (a, b) {
@@ -284,7 +384,7 @@ class ScatterPlot {
     }
   }
 
-  PlayTones(audio) {
+  PlayTones() {
     // kill the previous separate-points play before starting the next play
     if (constants.sepPlayId) {
       constants.KillSepPlay();
@@ -342,23 +442,23 @@ class ScatterPlot {
     let data;
     if (elIndex > -1) {
       // data comes directly as an array, in a 'smooth' layer, so fetch directly as an array from that index
-      data = maidr.data[elIndex];
-    } else if (maidr.type == 'smooth') {
+      data = singleMaidr.data[elIndex];
+    } else if (singleMaidr.type == 'smooth') {
       // data comes directly as an array, no 'smooth' layer, so fetch directly as an array
-      data = maidr.data;
+      data = singleMaidr.data;
     }
     if (typeof data !== 'undefined') {
       if (xyFormat == 'object') {
-        for (let i = 0; i < maidr.data[elIndex].length; i++) {
-          x_points.push(maidr.data[elIndex][i]['x']);
-          y_points.push(maidr.data[elIndex][i]['y']);
+        for (let i = 0; i < singleMaidr.data[elIndex].length; i++) {
+          x_points.push(singleMaidr.data[elIndex][i]['x']);
+          y_points.push(singleMaidr.data[elIndex][i]['y']);
         }
       } else if (xyFormat == 'array') {
-        if ('x' in maidr.data[elIndex]) {
-          x_points = maidr.data[elIndex]['x'];
+        if ('x' in singleMaidr.data[elIndex]) {
+          x_points = singleMaidr.data[elIndex]['x'];
         }
-        if ('y' in maidr.data[elIndex]) {
-          y_points = maidr.data[elIndex]['y'];
+        if ('y' in singleMaidr.data[elIndex]) {
+          y_points = singleMaidr.data[elIndex]['y'];
         }
       }
 

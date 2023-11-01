@@ -1,6 +1,7 @@
 class Constants {
   // element ids
   chart_container_id = 'chart-container';
+  main_container_id = 'maidr-container';
   //chart_container_class = 'chart-container'; // remove later
   braille_container_id = 'braille-div';
   braille_input_id = 'braille-input';
@@ -15,6 +16,7 @@ class Constants {
   reviewSaveBrailleMode;
   chartId = '';
   events = [];
+  postLoadEvents = [];
 
   // default constructor for all charts
   constructor() {}
@@ -40,14 +42,16 @@ class Constants {
   NULL_FREQUENCY = 100;
 
   // autoplay speed
-  MAX_SPEED = 2000;
-  MIN_SPEED = 50;
+  MAX_SPEED = 500;
+  MIN_SPEED = 50; // 50;
   DEFAULT_SPEED = 250;
-  INTERVAL = 50;
+  INTERVAL = 20;
+  AUTOPLAY_DURATION = 5000; // 5s
 
   // user settings
   vol = 0.5;
   MAX_VOL = 30;
+  // autoPlayRate = this.DEFAULT_SPEED; // ms per tone
   autoPlayRate = this.DEFAULT_SPEED; // ms per tone
   colorSelected = '#03C809';
   brailleDisplayLength = 32; // num characters in user's braille display.  40 is common length for desktop / mobile applications
@@ -55,6 +59,7 @@ class Constants {
   // advanced user settings
   showRect = 1; // true / false
   hasRect = 1; // true / false
+  hasSmooth = 1; // true / false (for smooth line points)
   duration = 0.3;
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50; // ms per tone
@@ -62,6 +67,7 @@ class Constants {
   colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
+  globalMinMax = true;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -75,7 +81,10 @@ class Constants {
   alt = this.isMac ? 'option' : 'Alt';
   home = this.isMac ? 'fn + Left arrow' : 'Home';
   end = this.isMac ? 'fn + Right arrow' : 'End';
+
+  // internal controls
   keypressInterval = 2000; // ms or 2s
+  tabMovement = null;
 
   // debug stuff
   debugLevel = 3; // 0 = no console output, 1 = some console, 2 = more console, etc
@@ -111,6 +120,15 @@ class Constants {
   SpeedReset() {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
+
+  ColorInvert(color) {
+    // invert an rgb color
+    let rgb = color.replace(/[^\d,]/g, '').split(',');
+    let r = 255 - rgb[0];
+    let g = 255 - rgb[1];
+    let b = 255 - rgb[2];
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
 }
 
 class Resources {
@@ -130,6 +148,9 @@ class Resources {
         25: '25%',
         50: '50%',
         75: '75%',
+        q1: '25%',
+        q2: '50%',
+        q3: '75%',
         son_on: 'Sonification on',
         son_off: 'Sonification off',
         son_des: 'Sonification descrete',
@@ -238,7 +259,7 @@ class Menu {
                             <p><input type="range" id="vol" name="vol" min="0" max="1" step=".05"><label for="vol">Volume</label></p>
                             <!-- <p><input type="checkbox" id="show_rect" name="show_rect"><label for="show_rect">Show Outline</label></p> //-->
                             <p><input type="number" min="4" max="2000" step="1" id="braille_display_length" name="braille_display_length"><label for="braille_display_length">Braille Display Size</label></p>
-                            <p><input type="number" min="50" max="2000" step="50" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
+                            <p><input type="number" min="${constants.MIN_SPEED}" max="500" step="${constants.INTERVAL}" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
                             <p><input type="color" id="color_selected" name="color_selected"><label for="color_selected">Outline Color</label></p>
                             <p><input type="number" min="10" max="2000" step="10" id="min_freq" name="min_freq"><label for="min_freq">Min Frequency (Hz)</label></p>
                             <p><input type="number" min="20" max="2010" step="10" id="max_freq" name="max_freq"><label for="max_freq">Max Frequency (Hz)</label></p>
@@ -252,7 +273,7 @@ class Menu {
                 </div>
             </div>
         </div>
-        <div id="modal_backdrop" class="modal-backdrop hidden"></div>
+        <div id="menu_modal_backdrop" class="modal-backdrop hidden"></div>
         `;
 
   CreateMenu() {
@@ -264,31 +285,56 @@ class Menu {
     // menu close events
     let allClose = document.querySelectorAll('#close_menu, #menu .close');
     for (let i = 0; i < allClose.length; i++) {
-      allClose[i].addEventListener('click', function (e) {
-        menu.Toggle(false);
-      });
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          menu.Toggle(false);
+        },
+      ]);
     }
-    document
-      .getElementById('save_and_close_menu')
-      .addEventListener('click', function (e) {
+    constants.events.push([
+      document.getElementById('save_and_close_menu'),
+      'click',
+      function (e) {
         menu.SaveData();
         menu.Toggle(false);
-      });
-    document.getElementById('menu').addEventListener('keydown', function (e) {
-      if (e.key == 'Esc') {
-        // esc
-        menu.Toggle(false);
-      }
-    });
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('menu'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          menu.Toggle(false);
+        }
+      },
+    ]);
 
-    // menu open events
+    // open events
     // note: this triggers a maidr destroy
-    document.addEventListener('keyup', function (e) {
-      if (e.key == 'h') {
-        // M(77) for menu, or H(72) for help? I don't like it
-        menu.Toggle(true);
-      }
-    });
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'h') {
+          menu.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // menu element destruction
+    let menu = document.getElementById('menu');
+    if (menu) {
+      menu.remove();
+    }
+    let backdrop = document.getElementById('menu_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
   }
 
   Toggle(onoff = false) {
@@ -303,13 +349,14 @@ class Menu {
       // open
       this.whereWasMyFocus = document.activeElement;
       this.PopulateData();
+      constants.tabMovement = 0;
       document.getElementById('menu').classList.remove('hidden');
-      document.getElementById('modal_backdrop').classList.remove('hidden');
+      document.getElementById('menu_modal_backdrop').classList.remove('hidden');
       document.querySelector('#menu .close').focus();
     } else {
       // close
       document.getElementById('menu').classList.add('hidden');
-      document.getElementById('modal_backdrop').classList.add('hidden');
+      document.getElementById('menu_modal_backdrop').classList.add('hidden');
       this.whereWasMyFocus.focus();
       this.whereWasMyFocus = null;
     }
@@ -367,6 +414,252 @@ class Menu {
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
     }
+  }
+}
+
+class Description {
+  // This class creates an html modal containing summary info of the active chart
+  // Trigger popup with 'D' key
+  // Info is basically anything available, but stuff like:
+  // - chart type
+  // - chart labels, like title, subtitle, caption etc
+  // - chart data (an accessible html table)
+
+  constructor() {
+    //this.CreateComponent(); // disabled as we're in development and have switched priorities
+  }
+
+  CreateComponent() {
+    // modal containing description summary stuff
+    let html = `
+        <div id="description" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 id="desc_title" class="modal-title">Description</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="desc_content">
+                        content here
+                        </div>
+                        <div id="desc_table">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="close_desc">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="desc_modal_backdrop" class="modal-backdrop hidden"></div>
+
+    `;
+
+    document.querySelector('body').insertAdjacentHTML('beforeend', html);
+
+    // close events
+    let allClose = document.querySelectorAll(
+      '#close_desc, #description .close'
+    );
+    for (let i = 0; i < allClose.length; i++) {
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          description.Toggle(false);
+        },
+      ]);
+    }
+    constants.events.push([
+      document.getElementById('description'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          description.Toggle(false);
+        }
+      },
+    ]);
+
+    // open events
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == 'd') {
+          description.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  Destroy() {
+    // description element destruction
+    let description = document.getElementById('menu');
+    if (description) {
+      description.remove();
+    }
+    let backdrop = document.getElementById('desc_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  Toggle(onoff = false) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('description').classList.contains('hidden')) {
+        onoff = true;
+      } else {
+        onoff = false;
+      }
+    }
+    if (onoff) {
+      // open
+      this.whereWasMyFocus = document.activeElement;
+      constants.tabMovement = 0;
+      this.PopulateData();
+      document.getElementById('description').classList.remove('hidden');
+      document.getElementById('desc_modal_backdrop').classList.remove('hidden');
+      document.querySelector('#description .close').focus();
+    } else {
+      // close
+      document.getElementById('description').classList.add('hidden');
+      document.getElementById('desc_modal_backdrop').classList.add('hidden');
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
+    }
+  }
+
+  PopulateData() {
+    let descHtml = '';
+
+    // chart labels and descriptions
+    let descType = '';
+    if (constants.chartType == 'bar') {
+      descType = 'Bar chart';
+    } else if (constants.chartType == 'heat') {
+      descType = 'Heatmap';
+    } else if (constants.chartType == 'box') {
+      descType = 'Box plot';
+    } else if (constants.chartType == 'scatter') {
+      descType = 'Scatter plot';
+    } else if (constants.chartType == 'line') {
+      descType = 'Line chart';
+    } else if (constants.chartType == 'hist') {
+      descType = 'Histogram';
+    }
+
+    if (descType) {
+      descHtml += `<p>Type: ${descType}</p>`;
+    }
+    if (plot.title != null) {
+      descHtml += `<p>Title: ${plot.title}</p>`;
+    }
+    if (plot.subtitle != null) {
+      descHtml += `<p>Subtitle: ${plot.subtitle}</p>`;
+    }
+    if (plot.caption != null) {
+      descHtml += `<p>Caption: ${plot.caption}</p>`;
+    }
+
+    // table of data, prep
+    let descTableHtml = '';
+    let descLabelX = null;
+    let descLabelY = null;
+    let descTickX = null;
+    let descTickY = null;
+    let descData = null;
+    let descNumCols = 0;
+    let descNumColsWithLabels = 0;
+    let descNumRows = 0;
+    let descNumRowsWithLabels = 0;
+    if (constants.chartType == 'bar') {
+      if (plot.plotLegend.x != null) {
+        descLabelX = plot.plotLegend.x;
+        descNumColsWithLabels += 1;
+      }
+      if (plot.plotLegend.y != null) {
+        descLabelY = plot.plotLegend.y;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.columnLabels != null) {
+        descTickX = plot.columnLabels;
+        descNumRowsWithLabels += 1;
+      }
+      if (plot.plotData != null) {
+        descData = [];
+        descData[0] = plot.plotData;
+        descNumCols = plot.plotData.length;
+        descNumRows = 1;
+        descNumColsWithLabels += descNumCols;
+        descNumRowsWithLabels += descNumRows;
+      }
+    }
+
+    // table of data, create
+    if (descData != null) {
+      descTableHtml += '<table>';
+
+      // header rows
+      if (descLabelX != null || descTickX != null) {
+        descTableHtml += '<thead>';
+        if (descLabelX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          descTableHtml += `<th scope="col" colspan="${descNumCols}">${descLabelX}</th>`;
+          descTableHtml += '</tr>';
+        }
+        if (descTickX != null) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null) {
+            descTableHtml += '<td></td>';
+          }
+          if (descTickY != null) {
+            descTableHtml += '<td></td>';
+          }
+          for (let i = 0; i < descNumCols; i++) {
+            descTableHtml += `<th scope="col">${descTickX[i]}</th>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</thead>';
+      }
+
+      // body rows
+      if (descNumRows > 0) {
+        descTableHtml += '<tbody>';
+        for (let i = 0; i < descNumRows; i++) {
+          descTableHtml += '<tr>';
+          if (descLabelY != null && i == 0) {
+            descTableHtml += `<th scope="row" rowspan="${descNumRows}">${descLabelY}</th>`;
+          }
+          if (descTickY != null) {
+            descTableHtml += `<th scope="row">${descTickY[i]}</th>`;
+          }
+          for (let j = 0; j < descNumCols; j++) {
+            descTableHtml += `<td>${descData[i][j]}</td>`;
+          }
+          descTableHtml += '</tr>';
+        }
+        descTableHtml += '</tbody>';
+      }
+
+      descTableHtml += '</table>';
+    }
+
+    // bar: don't need colspan or rowspan stuff, put legendX and Y as headers
+
+    document.getElementById('desc_title').innerHTML = descType + ' description';
+    document.getElementById('desc_content').innerHTML = descHtml;
+    document.getElementById('desc_table').innerHTML = descTableHtml;
   }
 }
 
@@ -667,60 +960,7 @@ class Tracker {
 }
 
 class Review {
-  constructor() {
-    this.CreateReviewHtml();
-    this.QueueReviewEvents();
-  }
-
-  CreateReviewHtml() {
-    // review mode form field
-    if (!document.getElementById(constants.review_id)) {
-      if (document.getElementById(constants.info_id)) {
-        document
-          .getElementById(constants.info_id)
-          .insertAdjacentHTML(
-            'beforebegin',
-            '<div id="' +
-              constants.review_id_container +
-              '" class="hidden sr-only sr-only-focusable"><input id="' +
-              constants.review_id +
-              '" type="text" readonly size="50" /></div>'
-          );
-      }
-    }
-
-    constants.review_container = document.querySelector(
-      '#' + constants.review_id_container
-    );
-    constants.review = document.querySelector('#' + constants.review_id);
-  }
-
-  QueueReviewEvents() {
-    constants.events.push([
-      document.getElementById(singleMaidr.id),
-      'keydown',
-      this.ReviewModeEvent,
-    ]);
-    constants.events.push([constants.review, 'keydown', this.ReviewModeEvent]);
-    constants.events.push([
-      document.getElementById(constants.braille_input_id),
-      'keydown',
-      this.ReviewModeEvent,
-    ]);
-  }
-
-  ReviewModeEvent(e) {
-    // Review mode
-    if (e.key == 'r' && !e.ctrlKey && !e.altKey) {
-      // r, but let Ctrl and Shift R go through cause I use that to refresh
-      e.preventDefault();
-      if (constants.review_container.classList.contains('hidden')) {
-        review.ToggleReviewMode(true);
-      } else {
-        review.ToggleReviewMode(false);
-      }
-    }
-  }
+  constructor() {}
 
   ToggleReviewMode(onoff = true) {
     // true means on or show
@@ -741,5 +981,40 @@ class Review {
       }
       display.announceText('Review off');
     }
+  }
+}
+
+class LogError {
+  constructor() {}
+
+  LogAbsentElement(a) {
+    console.log(a, 'not found. Visual highlighting is turned off.');
+  }
+
+  LogCriticalElement(a) {
+    consolelog(a, 'is critical. MAIDR unable to run');
+  }
+
+  LogDifferentLengths(a, b) {
+    console.log(
+      a,
+      'and',
+      b,
+      'do not have the same length. Visual highlighting is turned off.'
+    );
+  }
+
+  LogTooManyElements(a, b) {
+    console.log(
+      'Too many',
+      a,
+      'elements. Only the first',
+      b,
+      'will be highlighted.'
+    );
+  }
+
+  LogNotArray(a) {
+    console.log(a, 'is not an array. Visual highlighting is turned off.');
   }
 }
