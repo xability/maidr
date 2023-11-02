@@ -113,7 +113,12 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (singleMaidr.type == 'point' || singleMaidr.type.includes('point')) {
+    if (
+      constants.chartType == 'point' ||
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'on';
         this.announceText(resources.GetString('son_sep'));
