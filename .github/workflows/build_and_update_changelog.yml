@@ -19,21 +19,15 @@ jobs:
         node-version: '14'
 
     - name: Install dependencies
-      run: yarn install
+      run: |
+        yarn install
+        yarn add github-changelog-generator
 
     - name: Build
       run: yarn build
 
     - name: Generate Changelog
-      uses: github-changelog-generator/github-changelog-generator@master
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        output: CHANGELOG.md
-        base: ''
-        header-label: '# Changelog'
-        unreleased: true
-        compare-link: true
-        future-release: vNext
+      run: yarn github-changelog-generator --output CHANGELOG.md --header-label '# Changelog' --unreleased --compare-link --future-release vNext
 
     - name: Commit changes
       run: |
