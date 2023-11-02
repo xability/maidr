@@ -191,24 +191,32 @@ class Segmented {
 
   PlayTones() {
     if (Array.isArray(this.plotData[position.x][position.y])) {
-      // we play a run of tones
-      position.z = 0;
-      constants.sepPlayId = setInterval(
-        function () {
-          // play this tone
+      if (constants.sonifMode == 'on') {
+        // we play a run of tones
+        position.z = 0;
+        constants.sepPlayId = setInterval(
+          function () {
+            // play this tone
+            audio.playTone();
+
+            // and then set up for the next one
+            position.z += 1;
+
+            // and kill if we're done
+            if (position.z + 1 > plot.plotData[position.x][position.y].length) {
+              constants.KillSepPlay();
+              position.z = -1;
+            }
+          },
+          constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
+        );
+      } else {
+        // sonifMode == 'same', so we play all at once
+        for (let i = 0; i < this.plotData[position.x][position.y].length; i++) {
+          position.z = i;
           audio.playTone();
-
-          // and then set up for the next one
-          position.z += 1;
-
-          // and kill if we're done
-          if (position.z + 1 > plot.plotData[position.x][position.y].length) {
-            constants.KillSepPlay();
-            position.z = -1;
-          }
-        },
-        constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
-      );
+        }
+      }
     } else {
       audio.playTone();
     }
@@ -245,8 +253,8 @@ class Segmented {
       this.activeElement = this.elements[position.x][position.y];
       if (this.activeElement) {
         this.activeElementColor = this.activeElement.style.fill;
-        let invertedColor = constants.ColorInvert(this.activeElementColor);
-        this.activeElement.style.fill = invertedColor;
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.style.fill = newColor;
       }
     }
   }

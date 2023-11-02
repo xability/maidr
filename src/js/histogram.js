@@ -117,15 +117,17 @@ class Histogram {
     if (this.bars) {
       this.activeElement = this.bars[position.x];
       if (this.activeElement) {
-        this.activeElementColor = this.activeElement.style.fill;
-        this.activeElement.style.fill = constants.colorSelected;
+        this.activeElementColor = this.activeElement.getAttribute('fill');
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.setAttribute('fill', newColor);
       }
     }
   }
 
   UnSelectPrevious() {
     if (this.activeElement) {
-      this.activeElement.style.fill = this.activeElementColor;
+      // set fill attribute to the original color
+      this.activeElement.setAttribute('fill', this.activeElementColor);
       this.activeElement = null;
     }
   }

@@ -63,8 +63,8 @@ class Constants {
   duration = 0.3;
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50; // ms per tone
-  autoPlayPointsRate = 30;
-  colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
+  autoPlayPointsRate = 50; // time between tones in a run
+  colorUnselected = '#595959'; // deprecated, todo: find all instances replace with storing old color method
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
@@ -128,6 +128,24 @@ class Constants {
     let g = 255 - rgb[1];
     let b = 255 - rgb[2];
     return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+  GetBetterColor(oldColor) {
+    // get a highly contrasting color against the current
+    // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    let newColor = this.ColorInvert(oldColor);
+    let rgb = newColor.replace(/[^\d,]/g, '').split(',');
+    if (
+      rgb[1] < rgb[0] + 10 &&
+      rgb[1] > rgb[0] - 10 &&
+      rgb[2] < rgb[0] + 10 &&
+      rgb[2] > rgb[0] - 10 &&
+      (rgb[0] > 86 || rgb[0] < 169)
+    ) {
+      // too gray and too close to center gray, use default
+      newColor = this.colorSelected;
+    }
+
+    return newColor;
   }
 }
 

@@ -174,7 +174,13 @@ function FocusBeforeOrAfter() {
 function DestroyMaidr() {
   // chart cleanup
   if (constants.chartType == 'bar' || constants.chartType == 'hist') {
-    plot.DeselectAll();
+    // deselect, if possible
+    if (typeof plot.DeselectAll === 'function') {
+      plot.DeselectAll();
+    }
+    if (typeof plot.UnSelectPrevious === 'function') {
+      plot.UnSelectPrevious();
+    }
   }
 
   // remove events
