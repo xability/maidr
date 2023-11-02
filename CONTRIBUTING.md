@@ -2,43 +2,63 @@
 
 Thank you for your interest in contributing to maidr project! We welcome contributions from everyone.
 
+## Pre-requisites
+
+To contribute to this project, you need to have the following installed on your local machine:
+
+1. git .
+
+1. node.js
+
+1. npm (version 9 or higher is recommended)
+
+1. yarn
+
+1. [Visual Studio Code (VS Code)](https://code.visualstudio.com/) (recommended)
+
 ## Getting Started
 
 To get started, please follow these steps:
 
 1. Fork the repository on GitHub.
 
-2. Clone your forked repository to your local machine.
+1. Clone your forked repository to your local machine.
 
-3. install `npm` if you don't have it already (version 9 or higher is recommended).
+1. Open the project in VS Code.
 
-4. Install `yarn` if you don't have it already. You can install it by running the following command in your terminal:
+1. Install all the recommended extensions.
+
+1. install `npm` if you don't have it already.
+
+1. Install `yarn` if you don't have it already. You can install it by running the following command in your terminal:
 
 ```shell
 npm install -g yarn
 ``````
 
-5. In the forked project root, install the dependencies by running the following command in your terminal:
+1. In the forked project root, install the dependencies by running the following command in your terminal:
 
 ```shell
 yarn install
 ```
 
-5. Make changes.
+1. Make changes.
 
-6. Run `yarn lint` to lint the code.
+1. Run `yarn lint` to lint the code.
 
-7. Run `yarn build` to build the project.
+1. Run `yarn build` to build the project.
 
-8. Run `yarn test` to run the tests.
+1. Run `yarn test` to run the tests.
 
-9. Run `yarn docs` to generate the documentation.
+1. Run `yarn docs` to generate the documentation.
 
-10. Test the new features locally.
+1. Test the new features locally.
 
-11. Commit your changes and push them to your forked repository.
+1. Commit your changes and push them to your forked repository.
 
-12. Create a pull request to the main repository.
+1. Create a pull request to the main repository.
+
+* Note: If you are using VS Code, you can run the above commands (e.g., `yarn lint`, `yarn build`, `yarn test`, `yarn docs`) by pressing `Ctrl + Shift + B` (or `Cmd + Shift + B` on macOS) and selecting the command you want to run.
 
 ## Guidelines
 
