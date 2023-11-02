@@ -22,6 +22,8 @@ gulp.task('scripts', function () {
       './src/js/heatmap.js',
       './src/js/scatterplot.js',
       './src/js/histogram.js',
+      './src/js/lineplot.js',
+      './src/js/segmented.js',
       './src/js/controls.js',
       './src/js/init.js',
     ]) // order matters here

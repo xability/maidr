@@ -17,7 +17,8 @@
     "usernamehw.errorlens",
     "mhutchie.git-graph",
     "eamodio.gitlens",
-    "ms-edgedevtools.vscode-edge-devtools"
+    "ms-edgedevtools.vscode-edge-devtools",
+    "codium.codium"
   ],
   "unwantedRecommendations": ["ms-vscode.js-debug"]
 }
