@@ -27,7 +27,7 @@ jobs:
       run: yarn build
 
     - name: Generate Changelog
-      run: yarn github-changelog-generator --output CHANGELOG.md --header-label '# Changelog' --unreleased --compare-link --future-release vNext
+      run: npx github-changelog-generator --output CHANGELOG.md --header-label '# Changelog' --unreleased --compare-link --future-release vNext
 
     - name: Commit changes
       run: |
