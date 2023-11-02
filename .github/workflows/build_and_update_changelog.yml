@@ -1,38 +1,5 @@
-name: Build and Update Changelog
-
-on:
-  push:
-    branches:
-      - '**'
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Use Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-
-    - name: Install dependencies
-      run: |
-        yarn install
-        yarn add github-changelog-generator
-
-    - name: Build
-      run: yarn build
-
-    - name: Generate Changelog
-      run: npx github-changelog-generator --output CHANGELOG.md --header-label '# Changelog' --unreleased --compare-link --future-release vNext
-
-    - name: Commit changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add CHANGELOG.md
-        git commit -m "Update CHANGELOG.md" && git push origin || echo "No changes to commit"
-        
+- name: Build Changelog
+  id: build_changelog
+  uses: mikepenz/release-changelog-builder-action@v2
+  with:
+    configuration: ".github/changelog-configuration.json"
