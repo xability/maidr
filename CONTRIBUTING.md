@@ -8,7 +8,7 @@ To contribute to this project, you need to have the following installed on your 
 
 1. git .
 
-1. node.js
+1. node.js (version 16 or higher is recommended)
 
 1. npm (version 9 or higher is recommended)
 
