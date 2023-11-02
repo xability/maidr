@@ -129,6 +129,24 @@ class Constants {
     let b = 255 - rgb[2];
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
+  GetBetterColor(oldColor) {
+    // get a highly contrasting color against the current
+    // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    let newColor = this.ColorInvert(oldColor);
+    let rgb = newColor.replace(/[^\d,]/g, '').split(',');
+    if (
+      rgb[1] < rgb[0] + 10 &&
+      rgb[1] > rgb[0] - 10 &&
+      rgb[2] < rgb[0] + 10 &&
+      rgb[2] > rgb[0] - 10 &&
+      (rgb[0] > 86 || rgb[0] < 169)
+    ) {
+      // too gray and too close to center gray, use default
+      newColor = this.colorSelected;
+    }
+
+    return newColor;
+  }
 }
 
 class Resources {

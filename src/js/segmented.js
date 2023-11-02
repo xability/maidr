@@ -253,8 +253,8 @@ class Segmented {
       this.activeElement = this.elements[position.x][position.y];
       if (this.activeElement) {
         this.activeElementColor = this.activeElement.style.fill;
-        let invertedColor = constants.ColorInvert(this.activeElementColor);
-        this.activeElement.style.fill = invertedColor;
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.style.fill = newColor;
       }
     }
   }
