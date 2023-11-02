@@ -1,6 +1,6 @@
-# MAIDR: Multimodal Access and Interactive Data Representation
+# maidr: Multimodal Access and Interactive Data Representation
 
-MAIDR is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: sonification, braille, and text. This innovative approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://uiuc-ischool-accessible-computing-lab.github.io/MAIDR/user_study_pilot/intro.html). You may also clone or download the github repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
+maidr is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [maidr Demo](https://uiuc-ischool-accessible-computing-lab.github.io/maidr/user_study_pilot/intro.html). You may also clone or download the github repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
 
 ## Table of Contents
 
@@ -13,23 +13,23 @@ MAIDR is a system for non-visual access and control of statistical charts. It ai
 
 ## Usage
 
-To use MAIDR, follow these steps:
+To use maidr, follow these steps:
 
-1. **Import your chart or plot**: MAIDR is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported chart types include barplot, boxplot, heatmap, and scatterplot.
+1. **Import your plot or plot**: maidr is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported plot types include barplot, boxplot, heatmap, and scatterplot.
 
-2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your chart to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
+2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your plot to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
 ```html
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>MAIDR Example</title>
+    <title>maidr Example</title>
     <link rel="stylesheet" href="styles.min.css" />
   </head>
   <body>
     <div>
-      <!-- Your SVG chart is here -->
+      <!-- Your SVG plot is here -->
     </div>
     <script>
       <!-- json data is here -->
@@ -42,7 +42,7 @@ To use MAIDR, follow these steps:
 3. Add your data: Include your data as a json schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple charts exist on the page. Your json schema may look like so: (values for demonstration purposes)
 
 ```javascript
-// a single chart
+// a single plot
 var maidr = {
   type: 'box',
   id: 'myboxplot',
@@ -105,11 +105,11 @@ var maidr = [
 
    - `type`: the type of plot. Currently supported are 'bar', 'heat', 'box', 'scatter', and 'line'.
    - `id`: the id that you added as an attribute of your main SVG.
-   - `title`: the title of the chart. (optional)
-   - `axes`: axes info for your chart. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
-   - `data`: the main data for your chart. See below.
+   - `title`: the title of the plot. (optional)
+   - `axes`: axes info for your plot. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
+   - `data`: the main data for your plot. See below.
 
-5. Define your data set using the `maidr.data` property. This comes in different formats depending on chart type:
+5. Define your data set using the `maidr.data` property. This comes in different formats depending on plot type:
 
 ```javascript
 // barplot maidr.data structure: a simple array of values
@@ -206,10 +206,10 @@ For more information and examples, refer to the example HTML files provided in t
 
 ## Controls
 
-To interact with the charts using MAIDR, follow these steps:
+To interact with the charts using maidr, follow these steps:
 
 1. Press the **Tab** key to focus on the SVG element.
-2. Use the **arrow keys** to move around the chart.
+2. Use the **arrow keys** to move around the plot.
 3. Press **B** to toggle Braille mode.
 4. Press **S** to toggle Sonification (tones) mode.
 5. Press **T** to toggle Text mode.
@@ -236,20 +236,20 @@ Below is a detailed list of keyboard shortcuts for various functions:
 
 ### Scatterplot Controls
 
-In the Scatterplot chart, there are two layers: point mode (layer 1) and line mode (layer 2). To switch between these layers, use the Page Up and Page Down keys:
+In the Scatterplot plot, there are two layers: point mode (layer 1) and line mode (layer 2). To switch between these layers, use the Page Up and Page Down keys:
 
 - Press Page Up to move from point mode to line mode
 - Press Page Down to move from line mode to point mode
 
-Note that this control scheme can be used by any chart with multiple types.
+Note that this control scheme can be used by any plot with multiple types.
 
 ## Braille Generation
 
-MAIDR incorporates a Braille mode that represents the chart using Braille symbols. This allows users with visual impairments to explore and interact with the chart using a refreshable Braille display. To achieve this, our system translates the chart's visual elements and data points into a corresponding tactile representation using Braille patterns. For different chart types, such as barplot, boxplot, heatmap, and scatterplot, MAIDR employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends. These tactile encodings range from using distinct Braille characters to represent value ranges, to employing characters that visually resemble the corresponding sections of a chart. By providing a comprehensive Braille representation for various chart types, MAIDR enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
+maidr incorporates a Braille mode that represents the plot using Braille symbols. This allows users with visual impairments to explore and interact with the plot using a refreshable Braille display. To achieve this, our system translates the plot's visual elements and data points into a corresponding tactile representation using Braille patterns. For different plot types, such as barplot, boxplot, heatmap, and scatterplot, maidr employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends. These tactile encodings range from using distinct Braille characters to represent value ranges, to employing characters that visually resemble the corresponding sections of a plot. By providing a comprehensive Braille representation for various plot types, maidr enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
 
 ### Barplot
 
-In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the chart. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the four height levels of Braille, the encoding is as follows:
+In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the plot. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the four height levels of Braille, the encoding is as follows:
 
 - ⣀ represents values 0 to 25%
 - ⠤ represents the 25% to 50%
@@ -260,7 +260,7 @@ This tactile encoding allows users to easily differentiate between the various v
 
 ### Heatmap
 
-In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the chart, much like the approach used for barplots and scatterplots. Low values are denoted by Braille characters with dots only along the bottom, high values are represented by characters filled with dots, and blank or null values are indicated by empty spaces. With three height levels of Braille, the encoding is as follows:
+In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the plot, much like the approach used for barplots and scatterplots. Low values are denoted by Braille characters with dots only along the bottom, high values are represented by characters filled with dots, and blank or null values are indicated by empty spaces. With three height levels of Braille, the encoding is as follows:
 
 - ⠤ represents values from 0% to 33%
 - ⠒ represents values from 33% to 66%
@@ -311,7 +311,7 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ### Scatterplot
 
-In the Braille representation of a scatterplot, the encoding is performed only for the line layer (layer 2). The method is similar to that used for barplots, wherein data values are represented as Braille characters based on their relative magnitude within the chart. Low values are denoted by dots along the bottom, while high values are indicated by dots along the top. With four height levels of Braille, the encoding is as follows:
+In the Braille representation of a scatterplot, the encoding is performed only for the line layer (layer 2). The method is similar to that used for barplots, wherein data values are represented as Braille characters based on their relative magnitude within the plot. Low values are denoted by dots along the bottom, while high values are indicated by dots along the top. With four height levels of Braille, the encoding is as follows:
 
 - ⣀ represents values from 0% to 25%
 - ⠤ represents values from 25% to 50%
