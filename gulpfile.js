@@ -38,7 +38,7 @@ gulp.task('scripts', function () {
 gulp.task('styles', function () {
   return gulp
     .src('src/css/*.css')
-    .pipe(concatCss('styles.css'))
+    .pipe(concatCss('maidr_style.css'))
     .pipe(gulp.dest('dist')) // destination folder for unminified version
     .pipe(cleanCss())
     .pipe(rename({ extname: '.min.css' }))

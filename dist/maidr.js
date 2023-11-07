@@ -1,5 +1,12 @@
+/**
+ * A class representing constants used throughout the application.
+ */
 class Constants {
   // element ids
+  /**
+   * The ID of the chart container element.
+   * @type {string}
+   */
   chart_container_id = 'chart-container';
   main_container_id = 'maidr-container';
   //chart_container_class = 'chart-container'; // remove later
@@ -19,6 +26,10 @@ class Constants {
   postLoadEvents = [];
 
   // default constructor for all charts
+  /**
+   * Creates a new instance of the Constants class.
+   * @constructor
+   */
   constructor() {}
 
   // BTS modes initial values
@@ -63,8 +74,8 @@ class Constants {
   duration = 0.3;
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50; // ms per tone
-  autoPlayPointsRate = 30;
-  colorUnselected = '#595959'; // we don't use this yet, but remember: don't rely on color! also do a shape or pattern fill
+  autoPlayPointsRate = 50; // time between tones in a run
+  colorUnselected = '#595959'; // deprecated, todo: find all instances replace with storing old color method
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
@@ -129,8 +140,29 @@ class Constants {
     let b = 255 - rgb[2];
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
+  GetBetterColor(oldColor) {
+    // get a highly contrasting color against the current
+    // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    let newColor = this.ColorInvert(oldColor);
+    let rgb = newColor.replace(/[^\d,]/g, '').split(',');
+    if (
+      rgb[1] < rgb[0] + 10 &&
+      rgb[1] > rgb[0] - 10 &&
+      rgb[2] < rgb[0] + 10 &&
+      rgb[2] > rgb[0] - 10 &&
+      (rgb[0] > 86 || rgb[0] < 169)
+    ) {
+      // too gray and too close to center gray, use default
+      newColor = this.colorSelected;
+    }
+
+    return newColor;
+  }
 }
 
+/**
+ * Resources class contains properties and methods related to language, knowledge level, and strings.
+ */
 class Resources {
   constructor() {}
 
@@ -163,11 +195,19 @@ class Resources {
     },
   };
 
+  /**
+   * Returns a string based on the provided ID, language, and knowledge level.
+   * @param {string} id - The ID of the string to retrieve.
+   * @returns {string} The string corresponding to the provided ID, language, and knowledge level.
+   */
   GetString(id) {
     return this.strings[this.language][this.knowledgeLevel][id];
   }
 }
 
+/**
+ * Represents a menu object with various settings and keyboard shortcuts.
+ */
 class Menu {
   whereWasMyFocus = null;
 
@@ -276,6 +316,9 @@ class Menu {
         <div id="menu_modal_backdrop" class="modal-backdrop hidden"></div>
         `;
 
+  /**
+   * Creates a menu element and sets up event listeners for opening and closing the menu.
+   */
   CreateMenu() {
     // menu element creation
     document
@@ -325,6 +368,13 @@ class Menu {
     ]);
   }
 
+  /**
+   * Destroys the menu element and its backdrop.
+   * @function
+   * @name Destroy
+   * @memberof module:constants
+   * @returns {void}
+   */
   Destroy() {
     // menu element destruction
     let menu = document.getElementById('menu');
@@ -337,6 +387,10 @@ class Menu {
     }
   }
 
+  /**
+   * Toggles the menu on and off.
+   * @param {boolean} [onoff=false] - Whether to turn the menu on or off. Defaults to false.
+   */
   Toggle(onoff = false) {
     if (typeof onoff == 'undefined') {
       if (document.getElementById('menu').classList.contains('hidden')) {
@@ -362,6 +416,9 @@ class Menu {
     }
   }
 
+  /**
+   * Populates the data in the HTML elements with the values from the constants object.
+   */
   PopulateData() {
     document.getElementById('vol').value = constants.vol;
     //document.getElementById('show_rect').checked = constants.showRect;
@@ -375,6 +432,9 @@ class Menu {
       constants.keypressInterval;
   }
 
+  /**
+   * Saves the data from the HTML elements into the constants object.
+   */
   SaveData() {
     constants.vol = document.getElementById('vol').value;
     //constants.showRect = document.getElementById('show_rect').checked;
@@ -389,6 +449,12 @@ class Menu {
       document.getElementById('keypress_interval').value;
   }
 
+  /**
+   * Saves all data in this.SaveData() to local storage.
+   * @function
+   * @memberof constants
+   * @returns {void}
+   */
   SaveDataToLocalStorage() {
     // save all data in this.SaveData() to local storage
     let data = {};
@@ -402,6 +468,9 @@ class Menu {
     data.keypressInterval = constants.keypressInterval;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
+  /**
+   * Loads data from local storage and updates the constants object with the retrieved values.
+   */
   LoadDataFromLocalStorage() {
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
@@ -417,6 +486,10 @@ class Menu {
   }
 }
 
+/**
+ * Creates an html modal containing summary info of the active chart.
+ * @class
+ */
 class Description {
   // This class creates an html modal containing summary info of the active chart
   // Trigger popup with 'D' key
@@ -429,6 +502,9 @@ class Description {
     //this.CreateComponent(); // disabled as we're in development and have switched priorities
   }
 
+  /**
+   * Creates a modal component containing description summary stuff.
+   */
   CreateComponent() {
     // modal containing description summary stuff
     let html = `
@@ -496,6 +572,9 @@ class Description {
     ]);
   }
 
+  /**
+   * Removes the description element and backdrop from the DOM.
+   */
   Destroy() {
     // description element destruction
     let description = document.getElementById('menu');
@@ -508,6 +587,10 @@ class Description {
     }
   }
 
+  /**
+   * Toggles the visibility of the description element.
+   * @param {boolean} [onoff=false] - Whether to turn the description element on or off.
+   */
   Toggle(onoff = false) {
     if (typeof onoff == 'undefined') {
       if (document.getElementById('description').classList.contains('hidden')) {
@@ -533,6 +616,9 @@ class Description {
     }
   }
 
+  /**
+   * Populates the data for the chart and table based on the chart type and plot data.
+   */
   PopulateData() {
     let descHtml = '';
 
@@ -663,6 +749,10 @@ class Description {
   }
 }
 
+/**
+ * Represents a position in 3D space.
+ * @class
+ */
 class Position {
   constructor(x, y, z = -1) {
     this.x = x;
@@ -672,7 +762,16 @@ class Position {
 }
 
 // HELPER FUNCTIONS
+/**
+ * A helper class with static methods.
+ */
 class Helper {
+  /**
+   * Checks if an object is present in an array.
+   * @param {Object} obj - The object to search for.
+   * @param {Array} arr - The array to search in.
+   * @returns {boolean} - True if the object is present in the array, false otherwise.
+   */
   static containsObject(obj, arr) {
     for (let i = 0; i < arr.length; i++) {
       if (arr[i] === obj) return true;
@@ -681,11 +780,18 @@ class Helper {
   }
 }
 
+/**
+ * A class representing a Tracker.
+ * @class
+ */
 class Tracker {
   constructor() {
     this.DataSetup();
   }
 
+  /**
+   * Sets up the tracker data by checking if previous data exists and creating new data if it doesn't.
+   */
   DataSetup() {
     let prevData = this.GetTrackerData();
     if (prevData) {
@@ -702,6 +808,9 @@ class Tracker {
     }
   }
 
+  /**
+   * Downloads the tracker data as a JSON file.
+   */
   DownloadTrackerData() {
     let link = document.createElement('a');
     let data = this.GetTrackerData();
@@ -711,15 +820,26 @@ class Tracker {
     link.click();
   }
 
+  /**
+   * Saves the tracker data to local storage.
+   * @param {Object} data - The data to be saved.
+   */
   SaveTrackerData(data) {
     localStorage.setItem(constants.project_id, JSON.stringify(data));
   }
 
+  /**
+   * Retrieves tracker data from local storage.
+   * @returns {Object} The tracker data.
+   */
   GetTrackerData() {
     let data = JSON.parse(localStorage.getItem(constants.project_id));
     return data;
   }
 
+  /**
+   * Removes the project_id from localStorage, clears the tracking data, and sets up new data.
+   */
   Delete() {
     localStorage.removeItem(constants.project_id);
     this.data = null;
@@ -731,6 +851,10 @@ class Tracker {
     this.DataSetup();
   }
 
+  /**
+   * Logs an event with various properties to the tracker data.
+   * @param {Event} e - The event to log.
+   */
   LogEvent(e) {
     let eventToLog = {};
 
@@ -950,6 +1074,11 @@ class Tracker {
     this.SaveTrackerData(data);
   }
 
+  /**
+   * Checks if the given item is undefined or null.
+   * @param {*} item - The item to check.
+   * @returns {boolean} - Returns true if the item is undefined or null, else false.
+   */
   isUndefinedOrNull(item) {
     try {
       return item === undefined || item === null;
@@ -959,9 +1088,17 @@ class Tracker {
   }
 }
 
+/**
+ * Represents a Review object.
+ * @class
+ */
 class Review {
   constructor() {}
 
+  /**
+   * Toggles the review mode on or off.
+   * @param {boolean} [onoff=true] - Whether to turn review mode on or off. Default is true.
+   */
   ToggleReviewMode(onoff = true) {
     // true means on or show
     if (onoff) {
@@ -984,17 +1121,33 @@ class Review {
   }
 }
 
+/**
+ * Represents a class for logging errors.
+ */
 class LogError {
   constructor() {}
 
+  /**
+   * Logs the absent element and turns off visual highlighting.
+   * @param {string} a - The absent element to log.
+   */
   LogAbsentElement(a) {
     console.log(a, 'not found. Visual highlighting is turned off.');
   }
 
+  /**
+   * Logs a critical element and indicates that MAIDR is unable to run.
+   * @param {string} a - The critical element to log.
+   */
   LogCriticalElement(a) {
     consolelog(a, 'is critical. MAIDR unable to run');
   }
 
+  /**
+   * Logs a message indicating that two values do not have the same length.
+   * @param {*} a - The first value to compare.
+   * @param {*} b - The second value to compare.
+   */
   LogDifferentLengths(a, b) {
     console.log(
       a,
@@ -1004,6 +1157,11 @@ class LogError {
     );
   }
 
+  /**
+   * Logs a message indicating that too many elements were found and only the first n elements will be highlighted.
+   * @param {string} a - The type of element being highlighted.
+   * @param {number} b - The maximum number of elements to highlight.
+   */
   LogTooManyElements(a, b) {
     console.log(
       'Too many',
@@ -1014,15 +1172,23 @@ class LogError {
     );
   }
 
+  /**
+   * Logs a message indicating that the provided parameter is not an array.
+   * @param {*} a - The parameter that is not an array.
+   */
   LogNotArray(a) {
     console.log(a, 'is not an array. Visual highlighting is turned off.');
   }
 }
 
-// Audio class
-// Sets up audio stuff (compressor, gain),
-// sets up an oscillator that has good falloff (no clipping sounds) and can be instanced to be played anytime and can handle overlaps,
-// sets up an actual playTone function that plays tones based on current chart position
+/**
+ * Audio class
+ * Sets up audio stuff (compressor, gain),
+ * sets up an oscillator that has good falloff (no clipping sounds) and can be instanced to be played anytime and can handle overlaps,
+ * sets up an actual playTone function that plays tones based on current chart position
+ *
+ * @class
+ */
 class Audio {
   constructor() {
     this.AudioContext = window['AudioContext'] || window['webkitAudioContext'];
@@ -1030,6 +1196,10 @@ class Audio {
     this.compressor = this.compressorSetup(this.audioContext);
   }
 
+  /**
+   * Sets up a dynamics compressor for better audio quality.
+   * @returns {DynamicsCompressorNode} The created compressor.
+   */
   compressorSetup() {
     let compressor = this.audioContext.createDynamicsCompressor(); // create compressor for better audio quality
 
@@ -1047,6 +1217,9 @@ class Audio {
   }
 
   // an oscillator is created and destroyed after some falloff
+  /**
+   * Plays a tone based on the current chart type and position.
+   */
   playTone() {
     let currentDuration = constants.duration;
     let volume = constants.vol;
@@ -1339,6 +1512,14 @@ class Audio {
     }
   }
 
+  /**
+   * Plays an oscillator with the given frequency, duration, panning, volume, and wave type.
+   * @param {number} frequency - The frequency of the oscillator.
+   * @param {number} currentDuration - The duration of the oscillator in seconds.
+   * @param {number} panning - The panning value of the oscillator.
+   * @param {number} [currentVol=1] - The volume of the oscillator.
+   * @param {string} [wave='sine'] - The wave type of the oscillator.
+   */
   playOscillator(
     frequency,
     currentDuration,
@@ -1406,6 +1587,14 @@ class Audio {
     }, currentDuration * 1e3 * 2);
   }
 
+  /**
+   * Plays a smooth sound with the given frequency array, duration, panning array, volume, and wave type.
+   * @param {number[]} freqArr - The array of frequencies to play.
+   * @param {number} currentDuration - The duration of the sound in seconds.
+   * @param {number[]} panningArr - The array of panning values.
+   * @param {number} currentVol - The volume of the sound.
+   * @param {string} wave - The type of wave to use for the oscillator.
+   */
   playSmooth(
     freqArr = [600, 500, 400, 300],
     currentDuration = 2,
@@ -1466,6 +1655,9 @@ class Audio {
     }, currentDuration * 1e3 * 2);
   }
 
+  /**
+   * Plays a null frequency sound.
+   */
   PlayNull() {
     let frequency = constants.NULL_FREQUENCY;
     let duration = constants.duration;
@@ -1490,6 +1682,12 @@ class Audio {
     );
   }
 
+  /**
+   * Plays a pleasant end chime.
+   * @function
+   * @memberof audio
+   * @returns {void}
+   */
   playEnd() {
     // play a pleasent end chime. We'll use terminal chime from VSCode
     if (constants.canPlayEndChime) {
@@ -1519,6 +1717,13 @@ class Audio {
     }
   }
 
+  /**
+   * Stops the smooth gain and cancels any scheduled values.
+   * @function
+   * @memberof Audio
+   * @instance
+   * @returns {void}
+   */
   KillSmooth() {
     if (constants.smoothId) {
       this.smoothGain.gain.cancelScheduledValues(0);
@@ -1533,6 +1738,15 @@ class Audio {
     }
   }
 
+  /**
+   * Goes between min and max proportional to how val goes between a and b.
+   * @param {number} val - The value to slide between a and b.
+   * @param {number} a - The start value of the slide.
+   * @param {number} b - The end value of the slide.
+   * @param {number} min - The minimum value of the slide.
+   * @param {number} max - The maximum value of the slide.
+   * @returns {number} The new value between min and max.
+   */
   SlideBetween(val, a, b, min, max) {
     // helper function that goes between min and max proportional to how val goes between a and b
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
@@ -1658,7 +1872,12 @@ class Display {
   }
 
   toggleSonificationMode() {
-    if (singleMaidr.type == 'point' || singleMaidr.type.includes('point')) {
+    if (
+      constants.chartType == 'point' ||
+      constants.chartType == 'stacked_bar' ||
+      constants.chartType == 'stacked_normalized_bar' ||
+      constants.chartType == 'dodged_bar'
+    ) {
       if (constants.sonifMode == 'off') {
         constants.sonifMode = 'on';
         this.announceText(resources.GetString('son_sep'));
@@ -2902,15 +3121,17 @@ class BarChart {
     if (this.bars) {
       this.activeElement = this.bars[position.x];
       if (this.activeElement) {
-        this.activeElementColor = this.activeElement.style.fill;
-        this.activeElement.style.fill = constants.colorSelected;
+        this.activeElementColor = this.activeElement.getAttribute('fill');
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.setAttribute('fill', newColor);
       }
     }
   }
 
   UnSelectPrevious() {
     if (this.activeElement) {
-      this.activeElement.style.fill = this.activeElementColor;
+      // set fill attribute to the original color
+      this.activeElement.setAttribute('fill', this.activeElementColor);
       this.activeElement = null;
     }
   }
@@ -4750,15 +4971,17 @@ class Histogram {
     if (this.bars) {
       this.activeElement = this.bars[position.x];
       if (this.activeElement) {
-        this.activeElementColor = this.activeElement.style.fill;
-        this.activeElement.style.fill = constants.colorSelected;
+        this.activeElementColor = this.activeElement.getAttribute('fill');
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.setAttribute('fill', newColor);
       }
     }
   }
 
   UnSelectPrevious() {
     if (this.activeElement) {
-      this.activeElement.style.fill = this.activeElementColor;
+      // set fill attribute to the original color
+      this.activeElement.setAttribute('fill', this.activeElementColor);
       this.activeElement = null;
     }
   }
@@ -5177,24 +5400,32 @@ class Segmented {
 
   PlayTones() {
     if (Array.isArray(this.plotData[position.x][position.y])) {
-      // we play a run of tones
-      position.z = 0;
-      constants.sepPlayId = setInterval(
-        function () {
-          // play this tone
+      if (constants.sonifMode == 'on') {
+        // we play a run of tones
+        position.z = 0;
+        constants.sepPlayId = setInterval(
+          function () {
+            // play this tone
+            audio.playTone();
+
+            // and then set up for the next one
+            position.z += 1;
+
+            // and kill if we're done
+            if (position.z + 1 > plot.plotData[position.x][position.y].length) {
+              constants.KillSepPlay();
+              position.z = -1;
+            }
+          },
+          constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
+        );
+      } else {
+        // sonifMode == 'same', so we play all at once
+        for (let i = 0; i < this.plotData[position.x][position.y].length; i++) {
+          position.z = i;
           audio.playTone();
-
-          // and then set up for the next one
-          position.z += 1;
-
-          // and kill if we're done
-          if (position.z + 1 > plot.plotData[position.x][position.y].length) {
-            constants.KillSepPlay();
-            position.z = -1;
-          }
-        },
-        constants.sonifMode == 'on' ? constants.autoPlayPointsRate : 0
-      );
+        }
+      }
     } else {
       audio.playTone();
     }
@@ -5231,8 +5462,8 @@ class Segmented {
       this.activeElement = this.elements[position.x][position.y];
       if (this.activeElement) {
         this.activeElementColor = this.activeElement.style.fill;
-        let invertedColor = constants.ColorInvert(this.activeElementColor);
-        this.activeElement.style.fill = invertedColor;
+        let newColor = constants.GetBetterColor(this.activeElementColor);
+        this.activeElement.style.fill = newColor;
       }
     }
   }
@@ -8604,7 +8835,13 @@ function FocusBeforeOrAfter() {
 function DestroyMaidr() {
   // chart cleanup
   if (constants.chartType == 'bar' || constants.chartType == 'hist') {
-    plot.DeselectAll();
+    // deselect, if possible
+    if (typeof plot.DeselectAll === 'function') {
+      plot.DeselectAll();
+    }
+    if (typeof plot.UnSelectPrevious === 'function') {
+      plot.UnSelectPrevious();
+    }
   }
 
   // remove events
