@@ -34,7 +34,7 @@ To get started, please follow these steps:
 
 ```shell
 npm install -g yarn
-``````
+```
 
 1. In the forked project root, install the dependencies by running the following command in your terminal:
 
@@ -43,6 +43,8 @@ yarn install
 ```
 
 1. Make changes.
+
+1. Run `yarn format` to format the code.
 
 1. Run `yarn lint` to lint the code.
 
@@ -58,7 +60,7 @@ yarn install
 
 1. Create a pull request to the main repository.
 
-* Note: If you are using VS Code, you can run the above commands (e.g., `yarn lint`, `yarn build`, `yarn test`, `yarn docs`) by pressing `Ctrl + Shift + B` (or `Cmd + Shift + B` on macOS) and selecting the command you want to run.
+- Note: If you are using VS Code, you can run the above commands (e.g., `yarn format`, `yarn lint`, `yarn build`, `yarn test`, `yarn docs`) by pressing `Ctrl + Shift + B` (or `Cmd + Shift + B` on macOS) and selecting the command you want to run.
 
 ## Guidelines
 

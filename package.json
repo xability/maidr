@@ -6,7 +6,7 @@
   "scripts": {
     "build": "gulp",
     "test": "jest",
-    "lint": "eslint .",
+    "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write .",
     "docs": "jsdoc -c jsdoc.json"
   },
