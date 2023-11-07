@@ -25,16 +25,13 @@ To use maidr, follow these steps:
   <head>
     <meta charset="UTF-8" />
     <title>maidr Example</title>
-    <link rel="stylesheet" href="styles.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr/dist/maidr_style.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.min.js"></script>
   </head>
   <body>
     <div>
       <!-- Your SVG plot is here -->
     </div>
-    <script>
-      <!-- json data is here -->
-    </script>
-    <script src="maidr.min.js"></script>
   </body>
 </html>
 ```
