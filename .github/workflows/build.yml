@@ -16,5 +16,11 @@ jobs:
           node-version: '16.x'
       - name: Install dependencies
         run: yarn install
+      - name: Format code
+        run: yarn format
+      - name: Lint code
+        run: yarn lint
       - name: Build
         run: yarn build
+      - name: Generate docs
+        run: yarn docs
