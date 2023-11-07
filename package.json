@@ -10,6 +10,10 @@
     "format": "prettier --write .",
     "docs": "jsdoc -c jsdoc.json"
   },
+  "files": [
+    "dist/maidr.min.js",
+    "dist/styles.min.css"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/uiuc-ischool-accessible-computing-lab/maidr.git"
