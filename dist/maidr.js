@@ -1,5 +1,6 @@
 /**
  * A class representing constants used throughout the application.
+ * @class
  */
 class Constants {
   // element ids
@@ -1757,7 +1758,15 @@ class Audio {
   }
 }
 
+/**
+ * A class representing the display of the chart.
+ * @class
+ */
 class Display {
+  /**
+   * Creates a new instance of the Display class.
+   * @constructor
+   */
   constructor() {
     this.infoDiv = constants.infoDiv;
 
@@ -1780,6 +1789,10 @@ class Display {
     ];
   }
 
+  /**
+   * Toggles the text mode between 'off', 'terse', and 'verbose'.
+   * Updates the constants.textMode property and announces the new mode.
+   */
   toggleTextMode() {
     if (constants.textMode == 'off') {
       constants.textMode = 'terse';
@@ -1794,6 +1807,11 @@ class Display {
     );
   }
 
+  /**
+   * Toggles braille mode on or off.
+   * @param {string} [onoff] - Optional parameter to explicitly set braille mode on or off.
+   * @returns {void}
+   */
   toggleBrailleMode(onoff) {
     if (constants.chartType == 'point') {
       this.announceText('Braille is not supported in point layer.');
@@ -1871,6 +1889,11 @@ class Display {
     this.announceText('Braille ' + constants.brailleMode);
   }
 
+  /**
+   * Toggles the sonification mode based on the current chart type and sonification mode.
+   * If the chart type is point, stacked_bar, stacked_normalized_bar, or dodged_bar, the sonification mode can be toggled between 'off', 'on', and 'same'.
+   * If the chart type is not one of the above, the sonification mode can only be toggled between 'off' and 'on'.
+   */
   toggleSonificationMode() {
     if (
       constants.chartType == 'point' ||
@@ -1899,6 +1922,10 @@ class Display {
     }
   }
 
+  /**
+   * Changes the chart layer up or down and updates the position relative to where we were on the previous layer.
+   * @param {string} [updown='down'] - The direction to change the chart layer. Can be 'up' or 'down'. Defaults to 'down'.
+   */
   changeChartLayer(updown = 'down') {
     // get possible chart types, where we are, and move between them
     let chartTypes = maidr.type;
@@ -1935,10 +1962,17 @@ class Display {
     }
   }
 
+  /**
+   * Sets the text of the announce container element.
+   * @param {string} txt - The text to be displayed in the announce container.
+   */
   announceText(txt) {
     constants.announceContainer.innerHTML = txt;
   }
 
+  /**
+   * Updates the position of the cursor in the braille display based on the current chart type and position.
+   */
   UpdateBraillePos() {
     if (
       constants.chartType == 'bar' ||
@@ -1999,6 +2033,12 @@ class Display {
     }
   }
 
+  /**
+   * Builds an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode.
+   * @function
+   * @memberof module:display
+   * @returns {void}
+   */
   displayValues() {
     // we build an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode
     // note: we do this all as one string rather than changing individual element IDs so that aria-live receives a single update
@@ -2322,6 +2362,11 @@ class Display {
     }
   }
 
+  /**
+   * Displays information on the webpage based on the textType and textValue provided.
+   * @param {string} textType - The type of text to be displayed.
+   * @param {string} textValue - The value of the text to be displayed.
+   */
   displayInfo(textType, textValue) {
     if (textType) {
       if (textValue) {
@@ -2344,6 +2389,9 @@ class Display {
     }
   }
 
+  /**
+   * Sets the braille representation of the chart based on the current chart type and plot data.
+   */
   SetBraille() {
     let brailleArray = [];
 
@@ -2778,6 +2826,13 @@ class Display {
     this.UpdateBraillePos();
   }
 
+  /**
+   * Calculates the impact of character length on the given character data.
+   * @param {Object} charData - The character data to calculate the impact for.
+   * @param {number} charData.length - The total length of all characters.
+   * @param {number} charData.numChars - The total number of characters.
+   * @returns {number} The impact of character length on the given character data.
+   */
   CharLenImpact(charData) {
     return charData.length / charData.numChars;
   }
@@ -2882,7 +2937,15 @@ class Display {
   }
 }
 
+/**
+ * Represents a bar chart.
+ * @class
+ */
 class BarChart {
+  /**
+   * Creates a new instance of Barplot.
+   * @constructor
+   */
   constructor() {
     // initialize variables xlevel, data, and elements
     let xlevel = null;
@@ -3033,6 +3096,9 @@ class BarChart {
     this.autoplay = null;
   }
 
+  /**
+   * Sets the maximum and minimum values for the plot data and calculates other constants.
+   */
   SetMaxMin() {
     for (let i = 0; i < this.plotData.length; i++) {
       if (i == 0) {
@@ -3058,10 +3124,17 @@ class BarChart {
     }
   }
 
+  /**
+   * Plays a tone using the audio player.
+   */
   PlayTones() {
     audio.playTone();
   }
 
+  /**
+   * Returns the legend object for the barplot based on manual data.
+   * @returns {Object} The legend object with x and y coordinates.
+   */
   GetLegendFromManualData() {
     let legend = {};
 
@@ -3071,6 +3144,10 @@ class BarChart {
     return legend;
   }
 
+  /**
+   * Returns an array of heights for each bar in the plot.
+   * @returns {Array} An array of heights for each bar in the plot.
+   */
   GetData() {
     // set height for each bar
 
@@ -3085,6 +3162,10 @@ class BarChart {
     return plotData;
   }
 
+  /**
+   * Returns an array of column names from the chart.
+   * @returns {Array<string>} An array of column names.
+   */
   GetColumns() {
     // get column names
     // the pattern seems to be a <tspan> with dy="10", but check this for future output (todo)
@@ -3098,6 +3179,10 @@ class BarChart {
     return columnLabels;
   }
 
+  /**
+   * Returns an object containing the x and y coordinates of the legend.
+   * @returns {{x: string, y: string}} An object with x and y properties representing the coordinates of the legend.
+   */
   GetLegend() {
     let legend = {};
     let els = constants.chart.querySelectorAll('tspan[dy="12"]'); // todo, generalize this selector
@@ -3107,6 +3192,11 @@ class BarChart {
     return legend;
   }
 
+  /**
+   * Parses the innerHTML of elements.
+   * @param {Array} els - The array of elements to parse.
+   * @returns {Array} - The parsed innerHTML of the elements.
+   */
   ParseInnerHTML(els) {
     // parse innerHTML of elements
     let parsed = [];
@@ -3116,6 +3206,9 @@ class BarChart {
     return parsed;
   }
 
+  /**
+   * Selects the active element and changes its color.
+   */
   Select() {
     this.UnSelectPrevious();
     if (this.bars) {
@@ -3128,6 +3221,9 @@ class BarChart {
     }
   }
 
+  /**
+   * Unselects the previously selected element by setting its fill attribute to the original color.
+   */
   UnSelectPrevious() {
     if (this.activeElement) {
       // set fill attribute to the original color
@@ -3142,7 +3238,15 @@ class BarChart {
 // This initializes and contains the JSON data model for this chart
 //
 // todo:
+/**
+ * A class representing a box plot.
+ * @class
+ */
 class BoxPlot {
+  /**
+   * Creates a new instance of BoxPlot.
+   * @constructor
+   */
   constructor() {
     constants.plotOrientation = 'horz'; // default
     this.sections = [
@@ -3244,6 +3348,9 @@ class BoxPlot {
     this.CleanData();
   }
 
+  /**
+   * Cleans up data and extra variables like min/max stuff.
+   */
   CleanData() {
     // clean up data and extra vars like min / max stuff
 
@@ -3316,6 +3423,10 @@ class BoxPlot {
     }
   }
 
+  /**
+   * Calculates the bounding boxes for all elements in the parent element, including outliers, whiskers, and range.
+   * @returns {Array} An array of bounding boxes for all elements.
+   */
   GetPlotBounds() {
     // we fetch the elements in our parent,
     // and similar to old GetData we run through and get bounding boxes (or blanks) for everything,
@@ -3586,6 +3697,10 @@ class BoxPlot {
     return plotBounds;
   }
 
+  /**
+   * Returns an array of all segment types needed for a box plot.
+   * @returns {string[]} Array of segment types.
+   */
   GetAllSegmentTypes() {
     let allWeNeed = [
       resources.GetString('lower_outlier'),
@@ -3600,6 +3715,11 @@ class BoxPlot {
     return allWeNeed;
   }
 
+  /**
+   * Returns the type of boxplot segment based on the section id.
+   * @param {string} sectionId - The section id to determine the segment type.
+   * @returns {string} - The type of boxplot segment ('range', 'whisker', or 'outlier').
+   */
   GetBoxplotSegmentType(sectionId) {
     // Helper function for main GetData:
     // Fetch type, which comes from section id:
@@ -3619,6 +3739,12 @@ class BoxPlot {
     return segmentType;
   }
 
+  /**
+   * Helper function for main GetData: Fetch x and y point data from chart
+   * @param {Object} segment - The segment object to get points from
+   * @param {string} segmentType - The type of segment ('range', 'outlier', or 'whisker')
+   * @returns {Array} - An array of x and y point data from the chart
+   */
   GetBoxplotSegmentPoints(segment, segmentType) {
     // Helper function for main GetData:
     // Fetch x and y point data from chart
@@ -3654,6 +3780,10 @@ class BoxPlot {
 
     return points;
   }
+  /**
+   * Returns an array of all the segment types needed for a box plot.
+   * @returns {string[]} Array of segment types.
+   */
   GetAllSegmentTypes() {
     let allWeNeed = [
       resources.GetString('lower_outlier'),
@@ -3668,6 +3798,11 @@ class BoxPlot {
     return allWeNeed;
   }
 
+  /**
+   * Converts a DOMRect object to a plain object with properties for top, right, bottom, left, width, height, x, and y.
+   * @param {DOMRect} rect - The DOMRect object to convert.
+   * @returns {Object} An object with properties for top, right, bottom, left, width, height, x, and y.
+   */
   convertBoundingClientRectToObj(rect) {
     return {
       top: rect.top,
@@ -3681,6 +3816,9 @@ class BoxPlot {
     };
   }
 
+  /**
+   * Plays tones based on the plot data and position.
+   */
   PlayTones() {
     // init
     let plotPos = null;
@@ -3724,6 +3862,11 @@ class BoxPlot {
     }
   }
 
+  /**
+   * Returns the section key at the specified position.
+   * @param {number} sectionPos - The position of the section.
+   * @returns {string} The section key.
+   */
   GetSectionKey(sectionPos) {
     return this.sections[sectionPos];
   }
@@ -3731,11 +3874,27 @@ class BoxPlot {
 
 // BoxplotRect class
 // Initializes and updates the visual outline around sections of the chart
+/**
+ * Represents a rectangular box in a box plot chart.
+ * @class
+ */
 class BoxplotRect {
   // maybe put this stuff in user config?
+  /**
+   * The padding between rectangles in pixels.
+   * @type {number}
+   */
   rectPadding = 15; // px
+  /**
+   * The stroke width of the rectangle in the box plot.
+   * @type {number}
+   */
   rectStrokeWidth = 4; // px
 
+  /**
+   * Creates a new BoxPlot object.
+   * @constructor
+   */
   constructor() {
     this.x1 = 0;
     this.width = 0;
@@ -3745,6 +3904,9 @@ class BoxplotRect {
     this.chartOffsetTop = constants.chart.getBoundingClientRect().top;
   }
 
+  /**
+   * Updates the bounding box values from the object and gets bounds of visual outline to be drawn.
+   */
   UpdateRect() {
     // UpdateRect takes bounding box values from the object and gets bounds of visual outline to be drawn
 
@@ -3803,6 +3965,12 @@ class BoxplotRect {
     }
   }
 
+  /**
+   * Creates a visual outline using the given bounding points.
+   * @function
+   * @memberof module:boxplot.js
+   * @returns {void}
+   */
   CreateRectDisplay() {
     // CreateRectDisplay takes bounding points and creates the visual outline
 
@@ -3820,7 +3988,15 @@ class BoxplotRect {
   }
 }
 
+/**
+ * A class representing a heatmap.
+ * @class
+ */
 class HeatMap {
+  /**
+   * Creates a new Heatmap object.
+   * @constructor
+   */
   constructor() {
     // initialize variables xlevel, data, and elements
     let xlevel = null;
@@ -3936,6 +4112,11 @@ class HeatMap {
     this.y_group_label = this.group_labels[1].trim();
   }
 
+  /**
+   * Returns an array of heatmap data containing unique x and y coordinates, norms, number of rows, and number of columns.
+   * If 'data' exists in singleMaidr, it returns the norms from the data. Otherwise, it calculates the norms from the unique x and y coordinates.
+   * @returns {Array} An array of heatmap data containing unique x and y coordinates, norms, number of rows, and number of columns.
+   */
   getHeatMapData() {
     // get the x_coord and y_coord to check if a square exists at the coordinates
     let x_coord_check = [];
@@ -4012,6 +4193,9 @@ class HeatMap {
     return plotData;
   }
 
+  /**
+   * Updates the constants used in the heatmap.
+   */
   updateConstants() {
     constants.minX = 0;
     constants.maxX = this.plotData[4];
@@ -4035,10 +4219,17 @@ class HeatMap {
     }
   }
 
+  /**
+   * Plays a tone using the audio object.
+   */
   PlayTones() {
     audio.playTone();
   }
 
+  /**
+   * Returns an array of the X and Y scales of the first SVG element found in the plots array.
+   * @returns {Array<number>} An array containing the X and Y scales of the SVG element.
+   */
   GetSVGScaler() {
     let scaleX = 1;
     let scaleY = 1;
@@ -4084,6 +4275,11 @@ class HeatMap {
     return [scaleX, scaleY];
   }
 
+  /**
+   * Returns the sum of squared values of the RGB color of a plot element.
+   * @param {number} i - The index of the plot element.
+   * @returns {number} The sum of squared values of the RGB color.
+   */
   getRGBNorm(i) {
     let rgb_string = this.plots[i].getAttribute('fill');
     let rgb_array = rgb_string.slice(4, -1).split(',');
@@ -4097,6 +4293,10 @@ class HeatMap {
       });
   }
 
+  /**
+   * Returns an array of group labels for the heatmap.
+   * @returns {Array<string>} An array containing the X and Y labels for the heatmap.
+   */
   getGroupLabels() {
     let labels_nodelist;
     let legendX = '';
@@ -4132,6 +4332,10 @@ class HeatMap {
     return labels_nodelist;
   }
 
+  /**
+   * Returns the x-axis labels from the singleMaidr object.
+   * @returns {Array} The x-axis labels.
+   */
   getXLabels() {
     if ('axes' in singleMaidr) {
       if ('x' in singleMaidr.axes) {
@@ -4142,6 +4346,10 @@ class HeatMap {
     }
   }
 
+  /**
+   * Returns the y-axis labels from the singleMaidr object, if available.
+   * @returns {Array<string>|undefined} The y-axis labels, or undefined if not available.
+   */
   getYLabels() {
     if ('axes' in singleMaidr) {
       if ('y' in singleMaidr.axes) {
@@ -4152,6 +4360,11 @@ class HeatMap {
     }
   }
 
+  /**
+   * Returns the title of the singleMaidr object, if it exists.
+   * If not, returns the title of the labels object within singleMaidr, if it exists.
+   * @returns {string|undefined} The title of the singleMaidr or labels object, or undefined if neither exists.
+   */
   getTitle() {
     if ('title' in singleMaidr) {
       return singleMaidr.title;
@@ -4162,6 +4375,10 @@ class HeatMap {
     }
   }
 
+  /**
+   * Returns the subtitle from the `singleMaidr` object if it exists.
+   * @returns {string|undefined} The subtitle string if it exists, otherwise undefined.
+   */
   getSubtitle() {
     if ('labels' in singleMaidr) {
       if ('subtitle' in singleMaidr.labels) {
@@ -4170,6 +4387,10 @@ class HeatMap {
     }
   }
 
+  /**
+   * Returns the caption from the `singleMaidr` object's `labels` property, if it exists.
+   * @returns {string|undefined} The caption string, or undefined if it doesn't exist.
+   */
   getCaption() {
     if ('labels' in singleMaidr) {
       if ('caption' in singleMaidr.labels) {
@@ -4178,6 +4399,10 @@ class HeatMap {
     }
   }
 
+  /**
+   * Returns the fill color for the heatmap based on the `fill` property in `singleMaidr.labels`.
+   * @returns {string|undefined} The fill color or undefined if `singleMaidr.labels.fill` is not defined.
+   */
   getFill() {
     if ('labels' in singleMaidr) {
       if ('fill' in singleMaidr.labels) {
@@ -4187,7 +4412,15 @@ class HeatMap {
   }
 }
 
+/**
+ * Represents a rectangular heatmap.
+ * @class
+ */
 class HeatMapRect {
+  /**
+   * Creates a new instance of Heatmap.
+   * @constructor
+   */
   constructor() {
     if (constants.hasRect) {
       this.x = plot.x_coord[0];
@@ -4198,6 +4431,9 @@ class HeatMapRect {
     }
   }
 
+  /**
+   * Updates the position of the rectangle based on the current x and y coordinates.
+   */
   UpdateRect() {
     this.x = plot.x_coord[position.x];
     this.y = plot.y_coord[position.y];
@@ -4213,6 +4449,12 @@ class HeatMapRect {
     }
   }
 
+  /**
+   * Updates the rectangle display.
+   * @function
+   * @memberof Heatmap
+   * @returns {void}
+   */
   UpdateRectDisplay() {
     this.UpdateRect();
     if (document.getElementById('highlight_rect'))
@@ -4236,7 +4478,15 @@ document.addEventListener('DOMContentLoaded', function (e) {
   // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
 });
 
+/**
+ * A class representing a scatter plot.
+ * @class
+ */
 class ScatterPlot {
+  /**
+   * Creates a new Scatterplot object.
+   * @constructor
+   */
   constructor() {
     this.prefix = this.GetPrefix();
     // this.SetVisualHighlight();
@@ -4320,6 +4570,9 @@ class ScatterPlot {
   //   }
   // }
 
+  /**
+   * Sets the x and y group labels and title for the scatterplot based on the data in singleMaidr.
+   */
   SetAxes() {
     this.x_group_label = '';
     this.y_group_label = '';
@@ -4354,6 +4607,12 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Sets the scatter layer for the chart.
+   * @function
+   * @memberof scatterplot
+   * @returns {void}
+   */
   SetScatterLayer() {
     // initially set as smooth layer (layer 2), if possible
     let elIndex = this.GetElementIndex('point');
@@ -4378,6 +4637,9 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Sets the plot line layer for the scatterplot.
+   */
   SetLineLayer() {
     // layer = 2, smooth layer (from singleMaidr types)
     let elIndex = this.GetElementIndex('smooth');
@@ -4402,6 +4664,10 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Returns an array of X and Y coordinates of the plot points.
+   * @returns {Array<Array<number>>} An array of X and Y coordinates.
+   */
   GetSvgPointCoords() {
     let points = new Map();
 
@@ -4437,6 +4703,11 @@ class ScatterPlot {
     return [X, Y];
   }
 
+  /**
+   * Returns the index of the specified element in the singleMaidr object.
+   * @param {string} elementName - The name of the element to search for.
+   * @returns {number} - The index of the element in the singleMaidr object, or -1 if not found.
+   */
   GetElementIndex(elementName = 'point') {
     let elIndex = -1;
     if ('type' in singleMaidr) {
@@ -4445,6 +4716,11 @@ class ScatterPlot {
     return elIndex;
   }
 
+  /**
+   * Determines the format of the data at the given index and returns it as either an object or an array.
+   * @param {number} dataIndex - The index of the data to check.
+   * @returns {string} - The format of the data as either 'object' or 'array'.
+   */
   GetDataXYFormat(dataIndex) {
     // detect if data is in form [{x: 1, y: 2}, {x: 2, y: 3}] (object) or {x: [1, 2], y: [2, 3]]} (array)
     let xyFormat = 'array';
@@ -4456,6 +4732,10 @@ class ScatterPlot {
     return xyFormat;
   }
 
+  /**
+   * Returns an array of the X and Y scales of the first SVG element containing the plot points.
+   * @returns {Array<number>} An array containing the X and Y scales of the first SVG element containing the plot points.
+   */
   GetSVGScaler() {
     let scaleX = 1;
     let scaleY = 1;
@@ -4502,6 +4782,10 @@ class ScatterPlot {
     return [scaleX, scaleY];
   }
 
+  /**
+   * Returns a prefix based on the element type.
+   * @returns {string} The prefix.
+   */
   GetPrefix() {
     let elIndex = this.GetElementIndex('point');
     let element;
@@ -4517,6 +4801,10 @@ class ScatterPlot {
     return prefix;
   }
 
+  /**
+   * Retrieves x and y values from data and returns them in a specific format.
+   * @returns {Array} An array containing X, Y, points_count, and max_points.
+   */
   GetPointValues() {
     let points = new Map(); // keep track of x and y values
 
@@ -4618,6 +4906,12 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Plays a run of tones for the point layer or a single tone for the best fit smooth layer.
+   * @function
+   * @memberof ClassName
+   * @returns {void}
+   */
   PlayTones() {
     // kill the previous separate-points play before starting the next play
     if (constants.sepPlayId) {
@@ -4649,6 +4943,10 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Extracts the x and y coordinates from the point attribute of a polyline SVG element.
+   * @returns {Array<Array<number>>} An array containing two arrays: the x-coordinates and y-coordinates.
+   */
   GetSvgLineCoords() {
     // extract all the y coordinates from the point attribute of polyline
     let str = this.plotLine.getAttribute('points');
@@ -4666,6 +4964,10 @@ class ScatterPlot {
     return [X, Y];
   }
 
+  /**
+   * Returns an array of x and y points for a smooth curve.
+   * @returns {Array<Array<number>>|undefined} An array of x and y points or undefined if data is not defined.
+   */
   GetSmoothCurvePoints() {
     let x_points = [];
     let y_points = [];
@@ -4702,6 +5004,10 @@ class ScatterPlot {
     }
   }
 
+  /**
+   * Calculates the absolute gradient between each pair of consecutive points on the curve.
+   * @returns {Array<string|number>} An array of absolute gradients between each pair of consecutive points on the curve, followed by the string 'end'.
+   */
   GetGradient() {
     let gradients = [];
 
@@ -4719,9 +5025,17 @@ class ScatterPlot {
   }
 }
 
+/**
+ * Represents a point in Layer 0 of a scatterplot chart.
+ * @class
+ */
 class Layer0Point {
   // circles
 
+  /**
+   * Creates a new Layer0Point object.
+   * @constructor
+   */
   constructor() {
     this.x = plot.chartPointsX[0];
     this.y = plot.chartPointsY[0];
@@ -4729,6 +5043,10 @@ class Layer0Point {
     this.circleIndex = [];
   }
 
+  /**
+   * Clears the points and updates the chart with new data.
+   * @returns {Promise<void>}
+   */
   async UpdatePoints() {
     await this.ClearPoints();
     this.x = plot.chartPointsX[position.x];
@@ -4748,6 +5066,12 @@ class Layer0Point {
     }
   }
 
+  /**
+   * Clears the points, updates them, and prints them on the scatterplot.
+   * @async
+   * @function
+   * @returns {Promise<void>}
+   */
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
@@ -4779,6 +5103,10 @@ class Layer0Point {
     }
   }
 
+  /**
+   * Clears all highlighted points from the scatterplot.
+   * @async
+   */
   async ClearPoints() {
     if (document.getElementById('highlight_point'))
       document.getElementById('highlight_point').remove();
@@ -4788,6 +5116,9 @@ class Layer0Point {
     }
   }
 
+  /**
+   * Clears the points, updates them, and prints them to the screen.
+   */
   UpdatePointDisplay() {
     this.ClearPoints();
     this.UpdatePoints();
@@ -4795,21 +5126,38 @@ class Layer0Point {
   }
 }
 
+/**
+ * Represents a point in Layer 1 of a scatterplot chart.
+ */
 class Layer1Point {
   // smooth segments
 
+  /**
+   * Creates a new Layer1Point object.
+   * @constructor
+   */
   constructor() {
     this.x = plot.chartLineX[0];
     this.y = plot.chartLineY[0];
     this.strokeWidth = 1.35;
   }
 
+  /**
+   * Clears the existing points and updates the x and y coordinates of the chart line.
+   * @async
+   * @returns {Promise<void>}
+   */
   async UpdatePoints() {
     await this.ClearPoints();
     this.x = plot.chartLineX[positionL1.x];
     this.y = plot.chartLineY[positionL1.x];
   }
 
+  /**
+   * Clears the points, updates them, and prints them on the scatterplot.
+   * @async
+   * @returns {Promise<void>}
+   */
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
@@ -4836,6 +5184,10 @@ class Layer1Point {
     }
   }
 
+  /**
+   * Removes all highlighted points from the scatterplot.
+   * @async
+   */
   async ClearPoints() {
     let points = document.getElementsByClassName('highlight_point');
     for (let i = 0; i < points.length; i++) {
@@ -4845,6 +5197,9 @@ class Layer1Point {
       document.getElementById('highlight_point').remove();
   }
 
+  /**
+   * Clears the points, updates them, and prints them to the screen.
+   */
   UpdatePointDisplay() {
     this.ClearPoints();
     this.UpdatePoints();
@@ -4852,7 +5207,23 @@ class Layer1Point {
   }
 }
 
+/**
+ * A class representing a histogram.
+ * @class
+ */
+/**
+ * A class representing a histogram.
+ * @class
+ */
+/**
+ * A class representing a histogram.
+ * @class
+ */
 class Histogram {
+  /**
+   * Creates a new Histogram object.
+   * @constructor
+   */
   constructor() {
     // initialize main data: data, elements
 
@@ -4930,10 +5301,16 @@ class Histogram {
     this.autoplay = null;
   }
 
+  /**
+   * Plays a tone using the audio object.
+   */
   PlayTones() {
     audio.playTone();
   }
 
+  /**
+   * Sets the maximum and minimum values for the plot data.
+   */
   SetMaxMin() {
     for (let i = 0; i < this.plotData.length; i++) {
       if (i == 0) {
@@ -4966,6 +5343,9 @@ class Histogram {
     }
   }
 
+  /**
+   * Selects an element and changes its color.
+   */
   Select() {
     this.UnSelectPrevious();
     if (this.bars) {
@@ -4978,6 +5358,14 @@ class Histogram {
     }
   }
 
+  /**
+   * Unselects the previously selected element by setting its fill attribute to the original color.
+   * @function
+   * @name UnSelectPrevious
+   * @memberof module:histogram
+   * @instance
+   * @returns {void}
+   */
   UnSelectPrevious() {
     if (this.activeElement) {
       // set fill attribute to the original color
@@ -4987,7 +5375,15 @@ class Histogram {
   }
 }
 
+/**
+ * Represents a line plot.
+ * @class
+ */
 class LinePlot {
+  /**
+   * Creates a new instance of LinePlot.
+   * @constructor
+   */
   constructor() {
     this.SetLineLayer();
     this.SetAxes();
@@ -5044,6 +5440,9 @@ class LinePlot {
     }
   }
 
+  /**
+   * Sets the line layer for the chart.
+   */
   SetLineLayer() {
     let len = maidr.elements.length;
     this.plotLine = maidr.elements[len - 1];
@@ -5077,6 +5476,9 @@ class LinePlot {
     }
   }
 
+  /**
+   * Sets the minimum and maximum values for the x and y axes of a line plot.
+   */
   SetMinMax() {
     constants.minX = 0;
     constants.maxX = this.pointValuesX.length - 1;
@@ -5087,6 +5489,10 @@ class LinePlot {
     );
   }
 
+  /**
+   * Returns an array of x and y coordinates of each point in the plot line.
+   * @returns {Array<Array<string>>} An array of x and y coordinates of each point in the plot line.
+   */
   GetPointCoords() {
     let svgLineCoords = [[], []];
     let points = this.plotLine.getAttribute('points').split(' ');
@@ -5100,6 +5506,10 @@ class LinePlot {
     return svgLineCoords;
   }
 
+  /**
+   * Returns an array of x and y points from the data object in singleMaidr.
+   * @returns {Array<Array<number>>|undefined} An array containing two arrays of numbers representing x and y points respectively, or undefined if data is not defined.
+   */
   GetPoints() {
     let x_points = [];
     let y_points = [];
@@ -5135,6 +5545,9 @@ class LinePlot {
   //   return gradients;
   // }
 
+  /**
+   * Sets the x and y group labels and title for the line plot based on the axes and title properties of the singleMaidr object.
+   */
   SetAxes() {
     this.x_group_label = '';
     this.y_group_label = '';
@@ -5158,23 +5571,44 @@ class LinePlot {
     }
   }
 
+  /**
+   * Plays a tone using the audio object.
+   */
   PlayTones() {
     audio.playTone();
   }
 }
 
+/**
+ * Represents a point on a chart.
+ * @class
+ */
 class Point {
+  /**
+   * Creates a new instance of Point.
+   * @constructor
+   */
   constructor() {
     this.x = plot.chartLineX[0];
     this.y = plot.chartLineY[0];
   }
 
+  /**
+   * Clears the existing points and updates the x and y coordinates for the chart line.
+   * @async
+   * @returns {Promise<void>}
+   */
   async UpdatePoints() {
     await this.ClearPoints();
     this.x = plot.chartLineX[position.x];
     this.y = plot.chartLineY[position.x];
   }
 
+  /**
+   * Clears existing points, updates the points, and prints a new point on the chart.
+   * @async
+   * @returns {Promise<void>}
+   */
   async PrintPoints() {
     await this.ClearPoints();
     await this.UpdatePoints();
@@ -5191,6 +5625,10 @@ class Point {
     constants.chart.appendChild(point);
   }
 
+  /**
+   * Removes all highlighted points from the line plot.
+   * @async
+   */
   async ClearPoints() {
     let points = document.getElementsByClassName('highlight_point');
     for (let i = 0; i < points.length; i++) {
@@ -5200,6 +5638,9 @@ class Point {
       document.getElementById('highlight_point').remove();
   }
 
+  /**
+   * Clears the points, updates them, and prints them to the display.
+   */
   UpdatePointDisplay() {
     this.ClearPoints();
     this.UpdatePoints();
@@ -5207,7 +5648,15 @@ class Point {
   }
 }
 
+/**
+ * Represents a segmented chart.
+ * @class
+ */
 class Segmented {
+  /**
+   * Creates a new Segmented object.
+   * @constructor
+   */
   constructor() {
     // initialize variables level, data, and elements
     let level = null;
@@ -5324,6 +5773,12 @@ class Segmented {
     this.autoplay = null;
   }
 
+  /**
+   * Parses data and elements to create a full 2D array of data using level and fill.
+   * @param {Array} data - The data to parse.
+   * @param {Array} [elements=null] - The elements to parse.
+   * @returns {Array} An array containing the parsed plot data and plot elements.
+   */
   ParseData(data, elements = null) {
     let plotData = [];
     let plotElements = [];
@@ -5368,6 +5823,9 @@ class Segmented {
     return [plotData, plotElements];
   }
 
+  /**
+   * Creates another y level that is the sum of all the other levels.
+   */
   CreateSummaryLevel() {
     // create another y level that is the sum of all the other levels
 
@@ -5382,6 +5840,9 @@ class Segmented {
     this.fill.push('Sum');
   }
 
+  /**
+   * Creates another y level that plays all the other levels separately.
+   */
   CreateAllLevel() {
     // create another y level that plays all the other levels seperately
 
@@ -5398,6 +5859,10 @@ class Segmented {
     this.fill.push('All');
   }
 
+  /**
+   * Plays tones based on the plot data at the current position.
+   * If sonifMode is 'on', it plays a run of tones. If sonifMode is 'same', it plays all tones at once.
+   */
   PlayTones() {
     if (Array.isArray(this.plotData[position.x][position.y])) {
       if (constants.sonifMode == 'on') {
@@ -5431,6 +5896,10 @@ class Segmented {
     }
   }
 
+  /**
+   * Sets the maximum and minimum values for the y-axis based on the data in `singleMaidr.data`.
+   * Also sets the maximum x value, auto play rate, default speed, and minimum speed.
+   */
   SetMaxMin() {
     for (let i = 0; i < singleMaidr.data.length; i++) {
       if (i == 0) {
@@ -5456,6 +5925,9 @@ class Segmented {
     }
   }
 
+  /**
+   * Selects an element and changes its color to a better one.
+   */
   Select() {
     this.UnSelectPrevious();
     if (this.elements) {
@@ -5468,6 +5940,10 @@ class Segmented {
     }
   }
 
+  /**
+   * Unselects the previously selected element by resetting its fill color to the active element color.
+   * Also sets the active element to null.
+   */
   UnSelectPrevious() {
     if (this.activeElement) {
       this.activeElement.style.fill = this.activeElementColor;
@@ -5476,11 +5952,27 @@ class Segmented {
   }
 }
 
+/**
+ * Represents a control object.
+ * @class
+ */
 class Control {
+  /**
+   * Creates a new instance of the Controls class.
+   * @constructor
+   */
   constructor() {
     this.SetControls();
   }
 
+  /**
+   * Sets up event listeners for the global controls and prefix events.
+   * @function
+   * @memberof Maidr
+   * @instance
+   * @name SetControls
+   * @returns {void}
+   */
   SetControls() {
     // global controls
 
@@ -8630,6 +9122,11 @@ class Control {
     }
   }
 
+  /**
+   * Gets the next or previous focusable element based on the current focus.
+   * @param {string} nextprev - Determines whether to get the next or previous focusable element. Defaults to 'next'.
+   * @returns {HTMLElement|null} - The next or previous focusable element, or null if it does not exist.
+   */
   GetNextPrevFocusable(nextprev = 'next') {
     // store all focusable elements for future tabbing away from chart
     let focusableSelectors =
@@ -8733,6 +9230,10 @@ document.addEventListener('DOMContentLoaded', function (e) {
   }
 });
 
+/**
+ * Initializes the Maidr chart with the given configuration.
+ * @param {Object} thisMaidr - The configuration object for the Maidr chart.
+ */
 function InitMaidr(thisMaidr) {
   // just in case
   if (typeof constants != 'undefined') {
@@ -8774,6 +9275,10 @@ function InitMaidr(thisMaidr) {
   }
 }
 
+/**
+ * Determines whether to initialize Maidr based on certain conditions.
+ * @param {Object} thisMaidr - The Maidr object to be initialized.
+ */
 function ShouldWeInitMaidr(thisMaidr) {
   // conditions:
   // - maidr isn't enabled (check if singleMaidr is undefined or false)
@@ -8793,6 +9298,11 @@ function ShouldWeInitMaidr(thisMaidr) {
   }
 }
 
+/**
+ * Determines whether Maidr should be destroyed based on the tab movement.
+ * If tab movement is 0, do nothing. If tab movement is 1 or -1, move to before/after and then destroy.
+ * @param {Event} e - The blur event.
+ */
 function ShouldWeDestroyMaidr(e) {
   // conditions: we've tabbed away from the chart or any component
 
@@ -8812,6 +9322,12 @@ function ShouldWeDestroyMaidr(e) {
   }, 0);
 }
 
+/**
+ * Creates a temporary div element and sets focus on it before or after the main container based on the tab movement direction.
+ * @function
+ * @name FocusBeforeOrAfter
+ * @returns {void}
+ */
 function FocusBeforeOrAfter() {
   // Tab / forward
   if (constants.tabMovement == 1) {
@@ -8832,6 +9348,9 @@ function FocusBeforeOrAfter() {
   }
 }
 
+/**
+ * Removes all events, global variables, and chart components associated with Maidr.
+ */
 function DestroyMaidr() {
   // chart cleanup
   if (constants.chartType == 'bar' || constants.chartType == 'hist') {
@@ -8891,6 +9410,10 @@ function DestroyMaidr() {
   window.audio = null;
   window.singleMaidr = null;
 }
+/**
+ * Kills autoplay if the user presses the control key (Windows) or command key (Mac).
+ * @param {KeyboardEvent} e - The keyboard event object.
+ */
 function KillAutoplayEvent(e) {
   // Kill autoplay
   if (
@@ -8903,6 +9426,9 @@ function KillAutoplayEvent(e) {
   }
 }
 
+/**
+ * Adds all events and post load events to the DOM elements.
+ */
 function SetEvents() {
   // add all events
   for (let i = 0; i < constants.events.length; i++) {
@@ -8941,6 +9467,12 @@ function SetEvents() {
   }, 100);
 }
 
+/**
+ * Initializes the chart components by creating a structure with a main container and a chart container,
+ * updating the parents from just chart to main container > chart container > chart, and setting various
+ * page elements and attributes. Also creates a braille input, an info aria live region, announcements,
+ * an end chime audio element, and a review mode form field.
+ */
 function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
 
@@ -9039,6 +9571,12 @@ function CreateChartComponents() {
   window.description = new Description(); // developement on hold
 }
 
+/**
+ * Removes all chart components from the DOM and resets related variables to null.
+ * @function
+ * @name DestroyChartComponents
+ * @returns {void}
+ */
 function DestroyChartComponents() {
   // remove html stuff
   if (constants.chart_container != null) {

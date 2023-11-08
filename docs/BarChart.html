@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Description - Documentation</title>
+    <title>BarChart - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Description</h1>
+    <h1 class="page-title">BarChart</h1>
     
 
     
@@ -42,10 +42,10 @@
 <header>
     
         <h2>
-        Description
+        BarChart
         </h2>
         
-            <div class="class-description">Creates an html modal containing summary info of the active chart.</div>
+            <div class="class-description">Represents a bar chart.</div>
         
     
 </header>
@@ -60,11 +60,15 @@
     <h2>Constructor</h2>
     
 
-    <h4 class="name" id="Description"><span class="type-signature"></span>new Description<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="BarChart"><span class="type-signature"></span>new BarChart<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
+
+<div class="description">
+    Creates a new instance of Barplot.
+</div>
 
 
 
@@ -99,7 +103,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line494">line 494</a>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line5">line 5</a>
     </li></ul></dd>
     
 
@@ -157,14 +161,14 @@
 
     
 
-    <h4 class="name" id="CreateComponent"><span class="type-signature"></span>CreateComponent<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetColumns"><span class="type-signature"></span>GetColumns<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
 
     
 
 
 
 <div class="description">
-    Creates a modal component containing description summary stuff.
+    Returns an array of column names from the chart.
 </div>
 
 
@@ -200,7 +204,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line509">line 509</a>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line230">line 230</a>
     </li></ul></dd>
     
 
@@ -231,6 +235,31 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array.&lt;string></code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array of column names.
+</div>
+
+    
+</div>
+
 
 
 </div>
@@ -240,14 +269,14 @@
 
     
 
-    <h4 class="name" id="Destroy"><span class="type-signature"></span>Destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetData"><span class="type-signature"></span>GetData<span class="signature">()</span><span class="type-signature"> &rarr; {Array}</span></h4>
 
     
 
 
 
 <div class="description">
-    Removes the description element and backdrop from the DOM.
+    Returns an array of heights for each bar in the plot.
 </div>
 
 
@@ -283,7 +312,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line579">line 579</a>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line212">line 212</a>
     </li></ul></dd>
     
 
@@ -314,6 +343,31 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array of heights for each bar in the plot.
+</div>
+
+    
+</div>
+
 
 
 </div>
@@ -323,14 +377,14 @@
 
     
 
-    <h4 class="name" id="PopulateData"><span class="type-signature"></span>PopulateData<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetLegend"><span class="type-signature"></span>GetLegend<span class="signature">()</span><span class="type-signature"> &rarr; {Object}</span></h4>
 
     
 
 
 
 <div class="description">
-    Populates the data for the chart and table based on the chart type and plot data.
+    Returns an object containing the x and y coordinates of the legend.
 </div>
 
 
@@ -366,7 +420,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line623">line 623</a>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line247">line 247</a>
     </li></ul></dd>
     
 
@@ -397,6 +451,31 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Object</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An object with x and y properties representing the coordinates of the legend.
+</div>
+
+    
+</div>
+
 
 
 </div>
@@ -406,14 +485,14 @@
 
     
 
-    <h4 class="name" id="Toggle"><span class="type-signature"></span>Toggle<span class="signature">(onoff<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetLegendFromManualData"><span class="type-signature"></span>GetLegendFromManualData<span class="signature">()</span><span class="type-signature"> &rarr; {Object}</span></h4>
 
     
 
 
 
 <div class="description">
-    Toggles the visibility of the description element.
+    Returns the legend object for the barplot based on manual data.
 </div>
 
 
@@ -449,7 +528,115 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line595">line 595</a>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line199">line 199</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Object</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    The legend object with x and y coordinates.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="ParseInnerHTML"><span class="type-signature"></span>ParseInnerHTML<span class="signature">(els)</span><span class="type-signature"> &rarr; {Array}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Parses the innerHTML of elements.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line261">line 261</a>
     </li></ul></dd>
     
 
@@ -481,11 +668,7 @@
         <th>Type</th>
 
         
-        <th>Attributes</th>
-        
 
-        
-        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -497,40 +680,24 @@
 
         <tr>
             
-                <td class="name"><code>onoff</code></td>
+                <td class="name"><code>els</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>boolean</code></span>
+<span class="param-type"><code>Array</code></span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
 
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                    false
-                
-                </td>
             
 
             <td class="description last">
-                Whether to turn the description element on or off.
+                The array of elements to parse.
                 
             </td>
         </tr>
@@ -538,6 +705,363 @@
     
     </tbody>
 </table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    - The parsed innerHTML of the elements.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="PlayTones"><span class="type-signature"></span>PlayTones<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Plays a tone using the audio player.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line191">line 191</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="Select"><span class="type-signature"></span>Select<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Selects the active element and changes its color.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line273">line 273</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="SetMaxMin"><span class="type-signature"></span>SetMaxMin<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Sets the maximum and minimum values for the plot data and calculates other constants.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line163">line 163</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="UnSelectPrevious"><span class="type-signature"></span>UnSelectPrevious<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Unselects the previously selected element by setting its fill attribute to the original color.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="barplot.js.html">barplot.js</a>, <a href="barplot.js.html#line288">line 288</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
 
 
 

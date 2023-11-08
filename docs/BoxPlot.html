@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Description - Documentation</title>
+    <title>BoxPlot - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Description</h1>
+    <h1 class="page-title">BoxPlot</h1>
     
 
     
@@ -42,10 +42,10 @@
 <header>
     
         <h2>
-        Description
+        BoxPlot
         </h2>
         
-            <div class="class-description">Creates an html modal containing summary info of the active chart.</div>
+            <div class="class-description">A class representing a box plot.</div>
         
     
 </header>
@@ -60,11 +60,15 @@
     <h2>Constructor</h2>
     
 
-    <h4 class="name" id="Description"><span class="type-signature"></span>new Description<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="BoxPlot"><span class="type-signature"></span>new BoxPlot<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
+
+<div class="description">
+    Creates a new instance of BoxPlot.
+</div>
 
 
 
@@ -99,7 +103,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line494">line 494</a>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line10">line 10</a>
     </li></ul></dd>
     
 
@@ -157,14 +161,14 @@
 
     
 
-    <h4 class="name" id="CreateComponent"><span class="type-signature"></span>CreateComponent<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="CleanData"><span class="type-signature"></span>CleanData<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Creates a modal component containing description summary stuff.
+    Cleans up data and extra variables like min/max stuff.
 </div>
 
 
@@ -200,7 +204,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line509">line 509</a>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line119">line 119</a>
     </li></ul></dd>
     
 
@@ -240,14 +244,14 @@
 
     
 
-    <h4 class="name" id="Destroy"><span class="type-signature"></span>Destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetAllSegmentTypes"><span class="type-signature"></span>GetAllSegmentTypes<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
 
     
 
 
 
 <div class="description">
-    Removes the description element and backdrop from the DOM.
+    Returns an array of all segment types needed for a box plot.
 </div>
 
 
@@ -283,7 +287,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line579">line 579</a>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line469">line 469</a>
     </li></ul></dd>
     
 
@@ -314,6 +318,31 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array.&lt;string></code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    Array of segment types.
+</div>
+
+    
+</div>
+
 
 
 </div>
@@ -323,14 +352,14 @@
 
     
 
-    <h4 class="name" id="PopulateData"><span class="type-signature"></span>PopulateData<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetAllSegmentTypes"><span class="type-signature"></span>GetAllSegmentTypes<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
 
     
 
 
 
 <div class="description">
-    Populates the data for the chart and table based on the chart type and plot data.
+    Returns an array of all the segment types needed for a box plot.
 </div>
 
 
@@ -366,7 +395,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line623">line 623</a>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line552">line 552</a>
     </li></ul></dd>
     
 
@@ -397,6 +426,31 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array.&lt;string></code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    Array of segment types.
+</div>
+
+    
+</div>
+
 
 
 </div>
@@ -406,14 +460,14 @@
 
     
 
-    <h4 class="name" id="Toggle"><span class="type-signature"></span>Toggle<span class="signature">(onoff<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetBoxplotSegmentPoints"><span class="type-signature"></span>GetBoxplotSegmentPoints<span class="signature">(segment, segmentType)</span><span class="type-signature"> &rarr; {Array}</span></h4>
 
     
 
 
 
 <div class="description">
-    Toggles the visibility of the description element.
+    Helper function for main GetData: Fetch x and y point data from chart
 </div>
 
 
@@ -449,7 +503,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line595">line 595</a>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line513">line 513</a>
     </li></ul></dd>
     
 
@@ -481,11 +535,7 @@
         <th>Type</th>
 
         
-        <th>Attributes</th>
-        
 
-        
-        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -497,40 +547,50 @@
 
         <tr>
             
-                <td class="name"><code>onoff</code></td>
+                <td class="name"><code>segment</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>boolean</code></span>
+<span class="param-type"><code>Object</code></span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
 
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                    false
-                
-                </td>
             
 
             <td class="description last">
-                Whether to turn the description element on or off.
+                The segment object to get points from
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>segmentType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The type of segment ('range', 'outlier', or 'whisker')
                 
             </td>
         </tr>
@@ -551,6 +611,702 @@
 
 
 
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    - An array of x and y point data from the chart
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="GetBoxplotSegmentType"><span class="type-signature"></span>GetBoxplotSegmentType<span class="signature">(sectionId)</span><span class="type-signature"> &rarr; {string}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Returns the type of boxplot segment based on the section id.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line488">line 488</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>sectionId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The section id to determine the segment type.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>string</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    - The type of boxplot segment ('range', 'whisker', or 'outlier').
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="GetPlotBounds"><span class="type-signature"></span>GetPlotBounds<span class="signature">()</span><span class="type-signature"> &rarr; {Array}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Calculates the bounding boxes for all elements in the parent element, including outliers, whiskers, and range.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line195">line 195</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array of bounding boxes for all elements.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="GetSectionKey"><span class="type-signature"></span>GetSectionKey<span class="signature">(sectionPos)</span><span class="type-signature"> &rarr; {string}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Returns the section key at the specified position.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line635">line 635</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>sectionPos</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The position of the section.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>string</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    The section key.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="PlayTones"><span class="type-signature"></span>PlayTones<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Plays tones based on the plot data and position.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line587">line 587</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="convertBoundingClientRectToObj"><span class="type-signature"></span>convertBoundingClientRectToObj<span class="signature">(rect)</span><span class="type-signature"> &rarr; {Object}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Converts a DOMRect object to a plain object with properties for top, right, bottom, left, width, height, x, and y.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="boxplot.js.html">boxplot.js</a>, <a href="boxplot.js.html#line571">line 571</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>rect</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>DOMRect</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The DOMRect object to convert.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Object</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An object with properties for top, right, bottom, left, width, height, x, and y.
+</div>
+
+    
+</div>
 
 
 

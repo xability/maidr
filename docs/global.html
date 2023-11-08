@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Description - Documentation</title>
+    <title>Global - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Description</h1>
+    <h1 class="page-title">Global</h1>
     
 
     
@@ -42,10 +42,8 @@
 <header>
     
         <h2>
-        Description
-        </h2>
         
-            <div class="class-description">Creates an html modal containing summary info of the active chart.</div>
+        </h2>
         
     
 </header>
@@ -54,20 +52,8 @@
     <div class="container-overview">
     
         
-<div class="section-method">
 
-    
-    <h2>Constructor</h2>
-    
-
-    <h4 class="name" id="Description"><span class="type-signature"></span>new Description<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-
+        
 
 
 <dl class="details">
@@ -97,11 +83,6 @@
     
 
     
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line494">line 494</a>
-    </li></ul></dd>
-    
 
     
 
@@ -111,28 +92,7 @@
 </dl>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div>
+        
     
     </div>
 
@@ -157,14 +117,14 @@
 
     
 
-    <h4 class="name" id="CreateComponent"><span class="type-signature"></span>CreateComponent<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="CreateChartComponents"><span class="type-signature"></span>CreateChartComponents<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Creates a modal component containing description summary stuff.
+    Initializes the chart components by creating a structure with a main container and a chart container,updating the parents from just chart to main container > chart container > chart, and setting variouspage elements and attributes. Also creates a braille input, an info aria live region, announcements,an end chime audio element, and a review mode form field.
 </div>
 
 
@@ -200,7 +160,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line509">line 509</a>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line318">line 318</a>
     </li></ul></dd>
     
 
@@ -240,14 +200,14 @@
 
     
 
-    <h4 class="name" id="Destroy"><span class="type-signature"></span>Destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="DestroyChartComponents"><span class="type-signature"></span>DestroyChartComponents<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
 
     
 
 
 
 <div class="description">
-    Removes the description element and backdrop from the DOM.
+    Removes all chart components from the DOM and resets related variables to null.
 </div>
 
 
@@ -283,7 +243,111 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line579">line 579</a>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line416">line 416</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>void</code></span>
+
+
+    </dd>
+</dl>
+
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="DestroyMaidr"><span class="type-signature"></span>DestroyMaidr<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Removes all events, global variables, and chart components associated with Maidr.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line196">line 196</a>
     </li></ul></dd>
     
 
@@ -323,14 +387,14 @@
 
     
 
-    <h4 class="name" id="PopulateData"><span class="type-signature"></span>PopulateData<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="FocusBeforeOrAfter"><span class="type-signature"></span>FocusBeforeOrAfter<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
 
     
 
 
 
 <div class="description">
-    Populates the data for the chart and table based on the chart type and plot data.
+    Creates a temporary div element and sets focus on it before or after the main container based on the tab movement direction.
 </div>
 
 
@@ -366,7 +430,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line623">line 623</a>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line167">line 167</a>
     </li></ul></dd>
     
 
@@ -397,6 +461,27 @@
 
 
 
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>void</code></span>
+
+
+    </dd>
+</dl>
+
+
+    
+</div>
+
 
 
 </div>
@@ -406,14 +491,14 @@
 
     
 
-    <h4 class="name" id="Toggle"><span class="type-signature"></span>Toggle<span class="signature">(onoff<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="InitMaidr"><span class="type-signature"></span>InitMaidr<span class="signature">(thisMaidr)</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Toggles the visibility of the description element.
+    Initializes the Maidr chart with the given configuration.
 </div>
 
 
@@ -449,7 +534,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line595">line 595</a>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line79">line 79</a>
     </li></ul></dd>
     
 
@@ -481,11 +566,7 @@
         <th>Type</th>
 
         
-        <th>Attributes</th>
-        
 
-        
-        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -497,40 +578,512 @@
 
         <tr>
             
-                <td class="name"><code>onoff</code></td>
+                <td class="name"><code>thisMaidr</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>boolean</code></span>
+<span class="param-type"><code>Object</code></span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
 
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                    false
-                
-                </td>
             
 
             <td class="description last">
-                Whether to turn the description element on or off.
+                The configuration object for the Maidr chart.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="KillAutoplayEvent"><span class="type-signature"></span>KillAutoplayEvent<span class="signature">(e)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Kills autoplay if the user presses the control key (Windows) or command key (Mac).
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line259">line 259</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>e</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>KeyboardEvent</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The keyboard event object.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="SetEvents"><span class="type-signature"></span>SetEvents<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Adds all events and post load events to the DOM elements.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line274">line 274</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="ShouldWeDestroyMaidr"><span class="type-signature"></span>ShouldWeDestroyMaidr<span class="signature">(e)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Determines whether Maidr should be destroyed based on the tab movement.If tab movement is 0, do nothing. If tab movement is 1 or -1, move to before/after and then destroy.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line148">line 148</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>e</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Event</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The blur event.
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="ShouldWeInitMaidr"><span class="type-signature"></span>ShouldWeInitMaidr<span class="signature">(thisMaidr)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Determines whether to initialize Maidr based on certain conditions.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="init.js.html">init.js</a>, <a href="init.js.html#line124">line 124</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>thisMaidr</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Object</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                The Maidr object to be initialized.
                 
             </td>
         </tr>

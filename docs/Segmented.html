@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Description - Documentation</title>
+    <title>Segmented - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Description</h1>
+    <h1 class="page-title">Segmented</h1>
     
 
     
@@ -42,10 +42,10 @@
 <header>
     
         <h2>
-        Description
+        Segmented
         </h2>
         
-            <div class="class-description">Creates an html modal containing summary info of the active chart.</div>
+            <div class="class-description">Represents a segmented chart.</div>
         
     
 </header>
@@ -60,11 +60,15 @@
     <h2>Constructor</h2>
     
 
-    <h4 class="name" id="Description"><span class="type-signature"></span>new Description<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Segmented"><span class="type-signature"></span>new Segmented<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
+
+<div class="description">
+    Creates a new Segmented object.
+</div>
 
 
 
@@ -99,7 +103,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line494">line 494</a>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line5">line 5</a>
     </li></ul></dd>
     
 
@@ -157,14 +161,14 @@
 
     
 
-    <h4 class="name" id="CreateComponent"><span class="type-signature"></span>CreateComponent<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="CreateAllLevel"><span class="type-signature"></span>CreateAllLevel<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Creates a modal component containing description summary stuff.
+    Creates another y level that plays all the other levels separately.
 </div>
 
 
@@ -200,7 +204,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line509">line 509</a>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line196">line 196</a>
     </li></ul></dd>
     
 
@@ -240,14 +244,14 @@
 
     
 
-    <h4 class="name" id="Destroy"><span class="type-signature"></span>Destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="CreateSummaryLevel"><span class="type-signature"></span>CreateSummaryLevel<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Removes the description element and backdrop from the DOM.
+    Creates another y level that is the sum of all the other levels.
 </div>
 
 
@@ -283,7 +287,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line579">line 579</a>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line179">line 179</a>
     </li></ul></dd>
     
 
@@ -323,14 +327,14 @@
 
     
 
-    <h4 class="name" id="PopulateData"><span class="type-signature"></span>PopulateData<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="ParseData"><span class="type-signature"></span>ParseData<span class="signature">(data, elements<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Array}</span></h4>
 
     
 
 
 
 <div class="description">
-    Populates the data for the chart and table based on the chart type and plot data.
+    Parses data and elements to create a full 2D array of data using level and fill.
 </div>
 
 
@@ -366,90 +370,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line623">line 623</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div>
-        
-            
-<div class="section-method">
-
-    
-
-    <h4 class="name" id="Toggle"><span class="type-signature"></span>Toggle<span class="signature">(onoff<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-<div class="description">
-    Toggles the visibility of the description element.
-</div>
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line595">line 595</a>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line132">line 132</a>
     </li></ul></dd>
     
 
@@ -497,13 +418,51 @@
 
         <tr>
             
-                <td class="name"><code>onoff</code></td>
+                <td class="name"><code>data</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>boolean</code></span>
+<span class="param-type"><code>Array</code></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last">
+                The data to parse.
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>elements</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Array</code></span>
 
 
             
@@ -524,13 +483,13 @@
             
                 <td class="default">
                 
-                    false
+                    null
                 
                 </td>
             
 
             <td class="description last">
-                Whether to turn the description element on or off.
+                The elements to parse.
                 
             </td>
         </tr>
@@ -538,6 +497,363 @@
     
     </tbody>
 </table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array containing the parsed plot data and plot elements.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="PlayTones"><span class="type-signature"></span>PlayTones<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Plays tones based on the plot data at the current position.If sonifMode is 'on', it plays a run of tones. If sonifMode is 'same', it plays all tones at once.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line216">line 216</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="Select"><span class="type-signature"></span>Select<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Selects an element and changes its color to a better one.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line281">line 281</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="SetMaxMin"><span class="type-signature"></span>SetMaxMin<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Sets the maximum and minimum values for the y-axis based on the data in `singleMaidr.data`.Also sets the maximum x value, auto play rate, default speed, and minimum speed.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line253">line 253</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="UnSelectPrevious"><span class="type-signature"></span>UnSelectPrevious<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Unselects the previously selected element by resetting its fill color to the active element color.Also sets the active element to null.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="segmented.js.html">segmented.js</a>, <a href="segmented.js.html#line297">line 297</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
 
 
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Description - Documentation</title>
+    <title>LinePlot - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Description</h1>
+    <h1 class="page-title">LinePlot</h1>
     
 
     
@@ -42,10 +42,10 @@
 <header>
     
         <h2>
-        Description
+        LinePlot
         </h2>
         
-            <div class="class-description">Creates an html modal containing summary info of the active chart.</div>
+            <div class="class-description">Represents a line plot.</div>
         
     
 </header>
@@ -60,11 +60,15 @@
     <h2>Constructor</h2>
     
 
-    <h4 class="name" id="Description"><span class="type-signature"></span>new Description<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="LinePlot"><span class="type-signature"></span>new LinePlot<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
+
+<div class="description">
+    Creates a new instance of LinePlot.
+</div>
 
 
 
@@ -99,7 +103,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line494">line 494</a>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line5">line 5</a>
     </li></ul></dd>
     
 
@@ -157,14 +161,14 @@
 
     
 
-    <h4 class="name" id="CreateComponent"><span class="type-signature"></span>CreateComponent<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="GetPointCoords"><span class="type-signature"></span>GetPointCoords<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;Array.&lt;string>>}</span></h4>
 
     
 
 
 
 <div class="description">
-    Creates a modal component containing description summary stuff.
+    Returns an array of x and y coordinates of each point in the plot line.
 </div>
 
 
@@ -200,7 +204,226 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line509">line 509</a>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line119">line 119</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array.&lt;Array.&lt;string>></code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array of x and y coordinates of each point in the plot line.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="GetPoints"><span class="type-signature"></span>GetPoints<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;Array.&lt;number>>|undefined}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Returns an array of x and y points from the data object in singleMaidr.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line136">line 136</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Array.&lt;Array.&lt;number>></code></span>
+|
+
+<span class="param-type"><code>undefined</code></span>
+
+
+    </dd>
+</dl>
+
+
+<div class="param-desc">
+    An array containing two arrays of numbers representing x and y points respectively, or undefined if data is not defined.
+</div>
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="PlayTones"><span class="type-signature"></span>PlayTones<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Plays a tone using the audio object.
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line200">line 200</a>
     </li></ul></dd>
     
 
@@ -240,14 +463,14 @@
 
     
 
-    <h4 class="name" id="Destroy"><span class="type-signature"></span>Destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="SetAxes"><span class="type-signature"></span>SetAxes<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Removes the description element and backdrop from the DOM.
+    Sets the x and y group labels and title for the line plot based on the axes and title properties of the singleMaidr object.
 </div>
 
 
@@ -283,7 +506,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line579">line 579</a>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line174">line 174</a>
     </li></ul></dd>
     
 
@@ -323,14 +546,14 @@
 
     
 
-    <h4 class="name" id="PopulateData"><span class="type-signature"></span>PopulateData<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="SetLineLayer"><span class="type-signature"></span>SetLineLayer<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Populates the data for the chart and table based on the chart type and plot data.
+    Sets the line layer for the chart.
 </div>
 
 
@@ -366,7 +589,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line623">line 623</a>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line69">line 69</a>
     </li></ul></dd>
     
 
@@ -406,14 +629,14 @@
 
     
 
-    <h4 class="name" id="Toggle"><span class="type-signature"></span>Toggle<span class="signature">(onoff<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="SetMinMax"><span class="type-signature"></span>SetMinMax<span class="signature">()</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Toggles the visibility of the description element.
+    Sets the minimum and maximum values for the x and y axes of a line plot.
 </div>
 
 
@@ -449,7 +672,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="constants.js.html">constants.js</a>, <a href="constants.js.html#line595">line 595</a>
+        <a href="lineplot.js.html">lineplot.js</a>, <a href="lineplot.js.html#line105">line 105</a>
     </li></ul></dd>
     
 
@@ -466,78 +689,6 @@
 
 
 
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-        <th>Default</th>
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>onoff</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><code>boolean</code></span>
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                    false
-                
-                </td>
-            
-
-            <td class="description last">
-                Whether to turn the description element on or off.
-                
-            </td>
-        </tr>
-
-    
-    </tbody>
-</table>
 
 
 
