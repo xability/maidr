@@ -1,4 +1,20 @@
+/**
+ * A class representing a histogram.
+ * @class
+ */
+/**
+ * A class representing a histogram.
+ * @class
+ */
+/**
+ * A class representing a histogram.
+ * @class
+ */
 class Histogram {
+  /**
+   * Creates a new Histogram object.
+   * @constructor
+   */
   constructor() {
     // initialize main data: data, elements
 
@@ -76,10 +92,16 @@ class Histogram {
     this.autoplay = null;
   }
 
+  /**
+   * Plays a tone using the audio object.
+   */
   PlayTones() {
     audio.playTone();
   }
 
+  /**
+   * Sets the maximum and minimum values for the plot data.
+   */
   SetMaxMin() {
     for (let i = 0; i < this.plotData.length; i++) {
       if (i == 0) {
@@ -112,6 +134,9 @@ class Histogram {
     }
   }
 
+  /**
+   * Selects an element and changes its color.
+   */
   Select() {
     this.UnSelectPrevious();
     if (this.bars) {
@@ -124,6 +149,14 @@ class Histogram {
     }
   }
 
+  /**
+   * Unselects the previously selected element by setting its fill attribute to the original color.
+   * @function
+   * @name UnSelectPrevious
+   * @memberof module:histogram
+   * @instance
+   * @returns {void}
+   */
   UnSelectPrevious() {
     if (this.activeElement) {
       // set fill attribute to the original color

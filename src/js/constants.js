@@ -1,5 +1,6 @@
 /**
  * A class representing constants used throughout the application.
+ * @class
  */
 class Constants {
   // element ids

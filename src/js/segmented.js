@@ -1,4 +1,12 @@
+/**
+ * Represents a segmented chart.
+ * @class
+ */
 class Segmented {
+  /**
+   * Creates a new Segmented object.
+   * @constructor
+   */
   constructor() {
     // initialize variables level, data, and elements
     let level = null;
@@ -115,6 +123,12 @@ class Segmented {
     this.autoplay = null;
   }
 
+  /**
+   * Parses data and elements to create a full 2D array of data using level and fill.
+   * @param {Array} data - The data to parse.
+   * @param {Array} [elements=null] - The elements to parse.
+   * @returns {Array} An array containing the parsed plot data and plot elements.
+   */
   ParseData(data, elements = null) {
     let plotData = [];
     let plotElements = [];
@@ -159,6 +173,9 @@ class Segmented {
     return [plotData, plotElements];
   }
 
+  /**
+   * Creates another y level that is the sum of all the other levels.
+   */
   CreateSummaryLevel() {
     // create another y level that is the sum of all the other levels
 
@@ -173,6 +190,9 @@ class Segmented {
     this.fill.push('Sum');
   }
 
+  /**
+   * Creates another y level that plays all the other levels separately.
+   */
   CreateAllLevel() {
     // create another y level that plays all the other levels seperately
 
@@ -189,6 +209,10 @@ class Segmented {
     this.fill.push('All');
   }
 
+  /**
+   * Plays tones based on the plot data at the current position.
+   * If sonifMode is 'on', it plays a run of tones. If sonifMode is 'same', it plays all tones at once.
+   */
   PlayTones() {
     if (Array.isArray(this.plotData[position.x][position.y])) {
       if (constants.sonifMode == 'on') {
@@ -222,6 +246,10 @@ class Segmented {
     }
   }
 
+  /**
+   * Sets the maximum and minimum values for the y-axis based on the data in `singleMaidr.data`.
+   * Also sets the maximum x value, auto play rate, default speed, and minimum speed.
+   */
   SetMaxMin() {
     for (let i = 0; i < singleMaidr.data.length; i++) {
       if (i == 0) {
@@ -247,6 +275,9 @@ class Segmented {
     }
   }
 
+  /**
+   * Selects an element and changes its color to a better one.
+   */
   Select() {
     this.UnSelectPrevious();
     if (this.elements) {
@@ -259,6 +290,10 @@ class Segmented {
     }
   }
 
+  /**
+   * Unselects the previously selected element by resetting its fill color to the active element color.
+   * Also sets the active element to null.
+   */
   UnSelectPrevious() {
     if (this.activeElement) {
       this.activeElement.style.fill = this.activeElementColor;
