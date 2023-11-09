@@ -368,12 +368,13 @@ function CreateChartComponents() {
     );
 
   // end chime audio element
-  document
-    .getElementById(constants.info_id)
-    .insertAdjacentHTML(
-      'afterend',
-      '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
-    );
+  // TODO: external media file is not working as a stereo audio so commenting this out until we find a solution
+  // document
+  // .getElementById(constants.info_id)
+  // .insertAdjacentHTML(
+  // 'afterend',
+  // '<div class="hidden"> <audio src="../src/terminalBell.mp3" id="end_chime"></audio> </div>'
+  // );
 
   // review mode form field
   document
