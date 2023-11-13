@@ -227,7 +227,13 @@ class Segmented {
             position.z += 1;
 
             // and kill if we're done
-            if (position.z + 1 > plot.plotData[position.x][position.y].length) {
+            if (!Array.isArray(plot.plotData[position.x][position.y])) {
+              constants.KillSepPlay();
+              position.z = -1;
+            } else if (
+              position.z + 1 >
+              plot.plotData[position.x][position.y].length
+            ) {
               constants.KillSepPlay();
               position.z = -1;
             }
