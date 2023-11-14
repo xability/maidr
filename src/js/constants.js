@@ -52,6 +52,8 @@ class Constants {
   MAX_FREQUENCY = 1000;
   MIN_FREQUENCY = 200;
   NULL_FREQUENCY = 100;
+  combinedVolMin = 0.25; // volume for min amplitude combined tones
+  combinedVolMax = 1.25; // volume for max amplitude combined tones
 
   // autoplay speed
   MAX_SPEED = 500;

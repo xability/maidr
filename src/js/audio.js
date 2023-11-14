@@ -37,9 +37,14 @@ class Audio {
   /**
    * Plays a tone based on the current chart type and position.
    */
-  playTone() {
+  playTone(params = null) {
     let currentDuration = constants.duration;
     let volume = constants.vol;
+    if (params != null) {
+      if (params.volScale != null) {
+        volume = params.volScale * constants.vol;
+      }
+    }
 
     let rawPanning = 0;
     let rawFreq = 0;

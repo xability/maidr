@@ -242,9 +242,20 @@ class Segmented {
         );
       } else {
         // sonifMode == 'same', so we play all at once
+
+        // adjust these volumes by amplitude, min 50% max 125%
+        let volMin = Math.min(...this.plotData[position.x][position.y]);
+        let volMax = Math.max(...this.plotData[position.x][position.y]);
         for (let i = 0; i < this.plotData[position.x][position.y].length; i++) {
           position.z = i;
-          audio.playTone();
+          let vol = audio.SlideBetween(
+            this.plotData[position.x][position.y][i],
+            volMin,
+            volMax,
+            constants.combinedVolMin,
+            constants.combinedVolMax
+          );
+          audio.playTone({ volScale: vol });
         }
       }
     } else {
