@@ -207,7 +207,7 @@ class Display {
    * @param {string} txt - The text to be displayed in the announce container.
    */
   announceText(txt) {
-    constants.announceContainer.innerHTML = txt;
+    this.displayInfo('announce', txt, constants.announceContainer);
   }
 
   /**
@@ -607,25 +607,34 @@ class Display {
    * @param {string} textType - The type of text to be displayed.
    * @param {string} textValue - The value of the text to be displayed.
    */
-  displayInfo(textType, textValue) {
-    if (textType) {
+  displayInfo(textType, textValue, elem = constants.infoDiv) {
+    let textToAdd = '';
+    if (textType == 'announce') {
+      if (textValue) {
+        textToAdd = textValue;
+      }
+    } else if (textType) {
       if (textValue) {
         if (constants.textMode == 'terse') {
-          constants.infoDiv.innerHTML = '<p>' + textValue + '<p>';
+          textToAdd = textValue;
         } else if (constants.textMode == 'verbose') {
           let capsTextType =
             textType.charAt(0).toUpperCase() + textType.slice(1);
-          constants.infoDiv.innerHTML =
-            '<p>' + capsTextType + ' is ' + textValue + '<p>';
+          textToAdd = capsTextType + ' is ' + textValue;
         }
       } else {
         let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
           ? 'an'
           : 'a';
 
-        constants.infoDiv.innerHTML =
-          '<p>Plot does not have ' + aOrAn + ' ' + textType + '<p>';
+        textToAdd = 'Plot does not have ' + aOrAn + ' ' + textType;
       }
+    }
+    if (textToAdd.length > 0) {
+      elem.innerHTML = null;
+      let p = document.createElement('p');
+      p.innerHTML = textToAdd;
+      elem.appendChild(p);
     }
   }
 
