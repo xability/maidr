@@ -52,8 +52,6 @@ class Constants {
   MAX_FREQUENCY = 1000;
   MIN_FREQUENCY = 200;
   NULL_FREQUENCY = 100;
-  combinedVolMin = 0.25; // volume for min amplitude combined tones
-  combinedVolMax = 1.25; // volume for max amplitude combined tones
 
   // autoplay speed
   MAX_SPEED = 500;
@@ -1223,14 +1221,9 @@ class Audio {
   /**
    * Plays a tone based on the current chart type and position.
    */
-  playTone(params = null) {
+  playTone() {
     let currentDuration = constants.duration;
     let volume = constants.vol;
-    if (params != null) {
-      if (params.volScale != null) {
-        volume = params.volScale * constants.vol;
-      }
-    }
 
     let rawPanning = 0;
     let rawFreq = 0;
@@ -1974,7 +1967,7 @@ class Display {
    * @param {string} txt - The text to be displayed in the announce container.
    */
   announceText(txt) {
-    this.displayInfo('announce', txt, constants.announceContainer);
+    constants.announceContainer.innerHTML = txt;
   }
 
   /**
@@ -2374,34 +2367,25 @@ class Display {
    * @param {string} textType - The type of text to be displayed.
    * @param {string} textValue - The value of the text to be displayed.
    */
-  displayInfo(textType, textValue, elem = constants.infoDiv) {
-    let textToAdd = '';
-    if (textType == 'announce') {
-      if (textValue) {
-        textToAdd = textValue;
-      }
-    } else if (textType) {
+  displayInfo(textType, textValue) {
+    if (textType) {
       if (textValue) {
         if (constants.textMode == 'terse') {
-          textToAdd = textValue;
+          constants.infoDiv.innerHTML = '<p>' + textValue + '<p>';
         } else if (constants.textMode == 'verbose') {
           let capsTextType =
             textType.charAt(0).toUpperCase() + textType.slice(1);
-          textToAdd = capsTextType + ' is ' + textValue;
+          constants.infoDiv.innerHTML =
+            '<p>' + capsTextType + ' is ' + textValue + '<p>';
         }
       } else {
         let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
           ? 'an'
           : 'a';
 
-        textToAdd = 'Plot does not have ' + aOrAn + ' ' + textType;
+        constants.infoDiv.innerHTML =
+          '<p>Plot does not have ' + aOrAn + ' ' + textType + '<p>';
       }
-    }
-    if (textToAdd.length > 0) {
-      elem.innerHTML = null;
-      let p = document.createElement('p');
-      p.innerHTML = textToAdd;
-      elem.appendChild(p);
     }
   }
 
@@ -4811,10 +4795,7 @@ class ScatterPlot {
       element = singleMaidr.elements[0];
     }
     let prefix = '';
-    if (
-      'elements' in singleMaidr &&
-      element.tagName.toLowerCase() === 'circle'
-    ) {
+    if ('element' in singleMaidr && element.tagName.toLowerCase() == 'circle') {
       prefix = 'c';
     }
     return prefix;
@@ -5896,13 +5877,7 @@ class Segmented {
             position.z += 1;
 
             // and kill if we're done
-            if (!Array.isArray(plot.plotData[position.x][position.y])) {
-              constants.KillSepPlay();
-              position.z = -1;
-            } else if (
-              position.z + 1 >
-              plot.plotData[position.x][position.y].length
-            ) {
+            if (position.z + 1 > plot.plotData[position.x][position.y].length) {
               constants.KillSepPlay();
               position.z = -1;
             }
@@ -5911,20 +5886,9 @@ class Segmented {
         );
       } else {
         // sonifMode == 'same', so we play all at once
-
-        // adjust these volumes by amplitude, min 50% max 125%
-        let volMin = Math.min(...this.plotData[position.x][position.y]);
-        let volMax = Math.max(...this.plotData[position.x][position.y]);
         for (let i = 0; i < this.plotData[position.x][position.y].length; i++) {
           position.z = i;
-          let vol = audio.SlideBetween(
-            this.plotData[position.x][position.y][i],
-            volMin,
-            volMax,
-            constants.combinedVolMin,
-            constants.combinedVolMax
-          );
-          audio.playTone({ volScale: vol });
+          audio.playTone();
         }
       }
     } else {
