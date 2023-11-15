@@ -319,7 +319,10 @@ class ScatterPlot {
       element = singleMaidr.elements[0];
     }
     let prefix = '';
-    if ('element' in singleMaidr && element.tagName.toLowerCase() == 'circle') {
+    if (
+      'elements' in singleMaidr &&
+      element.tagName.toLowerCase() === 'circle'
+    ) {
       prefix = 'c';
     }
     return prefix;
