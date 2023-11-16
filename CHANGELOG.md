@@ -9,5 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Typo in scatterplot.js [#283](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/283)
 - Added some notes on manual testing
+- Fixed typo in task1_bar_plot.html, correct CSS file now called
 
 ## [1.0.0] - 2023-11-01
