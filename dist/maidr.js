@@ -52,6 +52,8 @@ class Constants {
   MAX_FREQUENCY = 1000;
   MIN_FREQUENCY = 200;
   NULL_FREQUENCY = 100;
+  combinedVolMin = 0.25; // volume for min amplitude combined tones
+  combinedVolMax = 1.25; // volume for max amplitude combined tones
 
   // autoplay speed
   MAX_SPEED = 500;
@@ -1221,9 +1223,14 @@ class Audio {
   /**
    * Plays a tone based on the current chart type and position.
    */
-  playTone() {
+  playTone(params = null) {
     let currentDuration = constants.duration;
     let volume = constants.vol;
+    if (params != null) {
+      if (params.volScale != null) {
+        volume = params.volScale * constants.vol;
+      }
+    }
 
     let rawPanning = 0;
     let rawFreq = 0;
@@ -1967,7 +1974,7 @@ class Display {
    * @param {string} txt - The text to be displayed in the announce container.
    */
   announceText(txt) {
-    constants.announceContainer.innerHTML = txt;
+    this.displayInfo('announce', txt, constants.announceContainer);
   }
 
   /**
@@ -2367,25 +2374,34 @@ class Display {
    * @param {string} textType - The type of text to be displayed.
    * @param {string} textValue - The value of the text to be displayed.
    */
-  displayInfo(textType, textValue) {
-    if (textType) {
+  displayInfo(textType, textValue, elem = constants.infoDiv) {
+    let textToAdd = '';
+    if (textType == 'announce') {
+      if (textValue) {
+        textToAdd = textValue;
+      }
+    } else if (textType) {
       if (textValue) {
         if (constants.textMode == 'terse') {
-          constants.infoDiv.innerHTML = '<p>' + textValue + '<p>';
+          textToAdd = textValue;
         } else if (constants.textMode == 'verbose') {
           let capsTextType =
             textType.charAt(0).toUpperCase() + textType.slice(1);
-          constants.infoDiv.innerHTML =
-            '<p>' + capsTextType + ' is ' + textValue + '<p>';
+          textToAdd = capsTextType + ' is ' + textValue;
         }
       } else {
         let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
           ? 'an'
           : 'a';
 
-        constants.infoDiv.innerHTML =
-          '<p>Plot does not have ' + aOrAn + ' ' + textType + '<p>';
+        textToAdd = 'Plot does not have ' + aOrAn + ' ' + textType;
       }
+    }
+    if (textToAdd.length > 0) {
+      elem.innerHTML = null;
+      let p = document.createElement('p');
+      p.innerHTML = textToAdd;
+      elem.appendChild(p);
     }
   }
 
@@ -4795,7 +4811,10 @@ class ScatterPlot {
       element = singleMaidr.elements[0];
     }
     let prefix = '';
-    if ('element' in singleMaidr && element.tagName.toLowerCase() == 'circle') {
+    if (
+      'elements' in singleMaidr &&
+      element.tagName.toLowerCase() === 'circle'
+    ) {
       prefix = 'c';
     }
     return prefix;
@@ -5877,7 +5896,13 @@ class Segmented {
             position.z += 1;
 
             // and kill if we're done
-            if (position.z + 1 > plot.plotData[position.x][position.y].length) {
+            if (!Array.isArray(plot.plotData[position.x][position.y])) {
+              constants.KillSepPlay();
+              position.z = -1;
+            } else if (
+              position.z + 1 >
+              plot.plotData[position.x][position.y].length
+            ) {
               constants.KillSepPlay();
               position.z = -1;
             }
@@ -5886,9 +5911,20 @@ class Segmented {
         );
       } else {
         // sonifMode == 'same', so we play all at once
+
+        // adjust these volumes by amplitude, min 50% max 125%
+        let volMin = Math.min(...this.plotData[position.x][position.y]);
+        let volMax = Math.max(...this.plotData[position.x][position.y]);
         for (let i = 0; i < this.plotData[position.x][position.y].length; i++) {
           position.z = i;
-          audio.playTone();
+          let vol = audio.SlideBetween(
+            this.plotData[position.x][position.y][i],
+            volMin,
+            volMax,
+            constants.combinedVolMin,
+            constants.combinedVolMax
+          );
+          audio.playTone({ volScale: vol });
         }
       }
     } else {
