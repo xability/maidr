@@ -53,6 +53,10 @@ class Display {
    * @returns {void}
    */
   toggleBrailleMode(onoff) {
+    // exception: if we just initilized, position might not be in range
+    if (position.x < 0) position.x = 0;
+    if (position.y < 0) position.y = 0;
+
     if (constants.chartType == 'point') {
       this.announceText('Braille is not supported in point layer.');
       return;

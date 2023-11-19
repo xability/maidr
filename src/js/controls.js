@@ -76,6 +76,11 @@ class Control {
 
           if (e.key == ' ') {
             // space 32, replay info but no other changes
+
+            // exception: if we just initilized, position might not be in range
+            if (position.x < 0) position.x = 0;
+            if (position.y < 0) position.y = 0;
+
             if (constants.showDisplay) {
               display.displayValues();
             }
