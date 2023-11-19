@@ -1,6 +1,6 @@
 # Manual Testing Process
 
-Basically, on each chart and in each mode, test all controls.
+Basically, on each chart, test each mode and controls. Text, Sonificiation, and Review modes shouldn't be connected so no need to test against each other, but all controls should be tested with braille on and off.
 
 ## Charts
 
@@ -17,18 +17,18 @@ BTSR
 
 ## Controls
 
-| Function                                | Key                                      |
-| --------------------------------------- | ---------------------------------------- |
-| Move around plot                        | Arrow keys                               |
-| Go to the very left right up down       | ${constants.control} + Arrow key         |
-| Select the first element                | ${constants.control} + ${constants.home} |
-| Select the last element                 | ${constants.control} + ${constants.end}  |
-| Toggle Braille Mode                     | b                                        |
-| Toggle Sonification Mode                | s                                        |
-| Toggle Text Mode                        | t                                        |
-| Repeat current sound                    | Space                                    |
-| Auto-play outward in direction of arrow | ${constants.control} + Shift + Arrow key |
-| Auto-play inward in direction of arrow  | ${constants.alt} + Shift + Arrow key     |
-| Stop Auto-play                          | ${constants.control}                     |
-| Auto-play speed up                      | Period                                   |
-| Auto-play speed down                    | Comma                                    |
+| Function                                | Key                      |
+| --------------------------------------- | ------------------------ |
+| Move around plot                        | Arrow keys               |
+| Go to the very left right up down       | Ctrl + Arrow key         |
+| Select the first element                | Ctrl + Home              |
+| Select the last element                 | Ctrl + End               |
+| Toggle Braille Mode                     | b                        |
+| Toggle Sonification Mode                | s                        |
+| Toggle Text Mode                        | t                        |
+| Repeat current sound                    | Space                    |
+| Auto-play outward in direction of arrow | Ctrl + Shift + Arrow key |
+| Auto-play inward in direction of arrow  | Alt + Shift + Arrow key  |
+| Stop Auto-play                          | Ctrl                     |
+| Auto-play speed up                      | Period                   |
+| Auto-play speed down                    | Comma                    |
