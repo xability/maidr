@@ -33,9 +33,9 @@ class Audio {
     return compressor;
   }
 
-  // an oscillator is created and destroyed after some falloff
   /**
-   * Plays a tone based on the current chart type and position.
+   * Initilizes a tone play based on the current chart type and position.
+   * Triggers playOscillator() with the correct parameters.
    */
   playTone(params = null) {
     let currentDuration = constants.duration;
@@ -336,6 +336,7 @@ class Audio {
 
   /**
    * Plays an oscillator with the given frequency, duration, panning, volume, and wave type.
+   * Typically used by playTone(), which does all the heavy lifting.
    * @param {number} frequency - The frequency of the oscillator.
    * @param {number} currentDuration - The duration of the oscillator in seconds.
    * @param {number} panning - The panning value of the oscillator.
@@ -411,6 +412,7 @@ class Audio {
 
   /**
    * Plays a smooth sound with the given frequency array, duration, panning array, volume, and wave type.
+   * The idea here is you give it an array of frequencies, and it plays them smoothly in order, like listening to a whole line chart
    * @param {number[]} freqArr - The array of frequencies to play.
    * @param {number} currentDuration - The duration of the sound in seconds.
    * @param {number[]} panningArr - The array of panning values.
@@ -478,7 +480,8 @@ class Audio {
   }
 
   /**
-   * Plays a null frequency sound.
+   * Initializes play of a custom null frequency sound.
+   * Calls the usual playOscillator() to do so.
    */
   PlayNull() {
     let frequency = constants.NULL_FREQUENCY;
@@ -570,7 +573,6 @@ class Audio {
    * @returns {number} The new value between min and max.
    */
   SlideBetween(val, a, b, min, max) {
-    // helper function that goes between min and max proportional to how val goes between a and b
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
     if (a == 0 && b == 0) {
       newVal = 0;

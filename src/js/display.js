@@ -49,7 +49,7 @@ class Display {
 
   /**
    * Toggles braille mode on or off.
-   * @param {string} [onoff] - Optional parameter to explicitly set braille mode on or off.
+   * @param {string} [onoff] - Optional parameter to explicitly set braille mode on or off. If not supplied, defaults to toggling the current braille mode.
    * @returns {void}
    */
   toggleBrailleMode(onoff) {
@@ -168,6 +168,7 @@ class Display {
 
   /**
    * Changes the chart layer up or down and updates the position relative to where we were on the previous layer.
+   * This only applies to charts that have multiple layers, such as point and smooth in a standard scatterplot.
    * @param {string} [updown='down'] - The direction to change the chart layer. Can be 'up' or 'down'. Defaults to 'down'.
    */
   changeChartLayer(updown = 'down') {
@@ -279,6 +280,7 @@ class Display {
 
   /**
    * Builds an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode.
+   * Typical output is something like "x is 5, y is 10".
    * @function
    * @memberof module:display
    * @returns {void}
@@ -607,7 +609,7 @@ class Display {
   }
 
   /**
-   * Displays information on the webpage based on the textType and textValue provided.
+   * Displays information on the webpage and an aria live region based on the textType and textValue provided.
    * @param {string} textType - The type of text to be displayed.
    * @param {string} textValue - The value of the text to be displayed.
    */
@@ -1081,6 +1083,7 @@ class Display {
 
   /**
    * Calculates the impact of character length on the given character data.
+   * Used by boxplots.
    * @param {Object} charData - The character data to calculate the impact for.
    * @param {number} charData.length - The total length of all characters.
    * @param {number} charData.numChars - The total number of characters.

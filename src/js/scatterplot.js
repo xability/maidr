@@ -1,7 +1,3 @@
-document.addEventListener('DOMContentLoaded', function (e) {
-  // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
-});
-
 /**
  * A class representing a scatter plot.
  * @class

@@ -177,8 +177,6 @@ class Segmented {
    * Creates another y level that is the sum of all the other levels.
    */
   CreateSummaryLevel() {
-    // create another y level that is the sum of all the other levels
-
     for (let i = 0; i < this.plotData.length; i++) {
       let sum = 0;
       for (let j = 0; j < this.plotData[i].length; j++) {
@@ -194,8 +192,6 @@ class Segmented {
    * Creates another y level that plays all the other levels separately.
    */
   CreateAllLevel() {
-    // create another y level that plays all the other levels seperately
-
     for (let i = 0; i < this.plotData.length; i++) {
       let all = [];
       for (let j = 0; j < this.fill.length; j++) {
