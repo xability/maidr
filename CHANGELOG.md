@@ -11,5 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added some notes on manual testing
 - Fixed typo in task1_bar_plot.html, correct CSS file now called
 - Fixed initial position out of range, #287
+- Updated documentation for all scripts
 
 ## [1.0.0] - 2023-11-01
