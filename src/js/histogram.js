@@ -2,14 +2,6 @@
  * A class representing a histogram.
  * @class
  */
-/**
- * A class representing a histogram.
- * @class
- */
-/**
- * A class representing a histogram.
- * @class
- */
 class Histogram {
   /**
    * Creates a new Histogram object.

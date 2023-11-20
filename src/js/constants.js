@@ -1,13 +1,9 @@
 /**
- * A class representing constants used throughout the application.
+ * A class representing system vars, user config vars, and helper functions used throughout the application.
+ *
  * @class
  */
 class Constants {
-  // element ids
-  /**
-   * The ID of the chart container element.
-   * @type {string}
-   */
   chart_container_id = 'chart-container';
   main_container_id = 'maidr-container';
   //chart_container_class = 'chart-container'; // remove later
@@ -26,11 +22,6 @@ class Constants {
   events = [];
   postLoadEvents = [];
 
-  // default constructor for all charts
-  /**
-   * Creates a new instance of the Constants class.
-   * @constructor
-   */
   constructor() {}
 
   // BTS modes initial values

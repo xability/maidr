@@ -1,8 +1,3 @@
-//
-// BoxPlot class.
-// This initializes and contains the JSON data model for this chart
-//
-// todo:
 /**
  * A class representing a box plot.
  * @class
@@ -14,6 +9,8 @@ class BoxPlot {
    */
   constructor() {
     constants.plotOrientation = 'horz'; // default
+
+    // the default sections for all boxplots
     this.sections = [
       'lower_outlier',
       'min',
@@ -117,8 +114,6 @@ class BoxPlot {
    * Cleans up data and extra variables like min/max stuff.
    */
   CleanData() {
-    // clean up data and extra vars like min / max stuff
-
     let min, max;
     for (let i = 0; i < this.plotData.length; i++) {
       if (this.plotData[i].lower_outlier) {
@@ -467,15 +462,10 @@ class BoxPlot {
    * @returns {string[]} Array of segment types.
    */
   GetAllSegmentTypes() {
-    let allWeNeed = [
-      resources.GetString('lower_outlier'),
-      resources.GetString('min'),
-      resources.GetString('25'),
-      resources.GetString('50'),
-      resources.GetString('75'),
-      resources.GetString('max'),
-      resources.GetString('upper_outlier'),
-    ];
+    let allWeNeed = [];
+    for (let i = 0; i < this.sections.length; i++) {
+      allWeNeed.push(resources.GetString(this.sections[i]));
+    }
 
     return allWeNeed;
   }
@@ -644,7 +634,6 @@ class BoxPlot {
  * @class
  */
 class BoxplotRect {
-  // maybe put this stuff in user config?
   /**
    * The padding between rectangles in pixels.
    * @type {number}
@@ -673,8 +662,6 @@ class BoxplotRect {
    * Updates the bounding box values from the object and gets bounds of visual outline to be drawn.
    */
   UpdateRect() {
-    // UpdateRect takes bounding box values from the object and gets bounds of visual outline to be drawn
-
     if (document.getElementById('highlight_rect'))
       document.getElementById('highlight_rect').remove(); // destroy to be recreated
 

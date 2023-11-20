@@ -73,11 +73,11 @@ document.addEventListener('DOMContentLoaded', function (e) {
 });
 
 /**
- * Initializes the Maidr chart with the given configuration.
- * @param {Object} thisMaidr - The configuration object for the Maidr chart.
+ * Initializes the Maidr app for a given chart, taken from the matching ID of the focused chart
+ * @param {Object} thisMaidr - The json schema for the chart to be initialized.
  */
 function InitMaidr(thisMaidr) {
-  // just in case
+  // there's a rare bug where constants isn't defined yet, so we check for that
   if (typeof constants != 'undefined') {
     // init vars and html
     window.singleMaidr = thisMaidr;
@@ -88,7 +88,7 @@ function InitMaidr(thisMaidr) {
       constants.chartType = singleMaidr.type;
     }
     CreateChartComponents(singleMaidr);
-    window.control = new Control(); // this inits the plot
+    window.control = new Control(); // this inits the actual chart object and Position
     window.review = new Review();
     window.display = new Display();
     window.audio = new Audio();
@@ -106,6 +106,7 @@ function InitMaidr(thisMaidr) {
     // kill autoplay event
     constants.events.push([document, 'keydown', KillAutoplayEvent]);
 
+    // actually do eventlisteners for all events
     this.SetEvents();
 
     // once everything is set up, announce the chart name (or title as a backup) to the user
@@ -118,15 +119,14 @@ function InitMaidr(thisMaidr) {
 }
 
 /**
- * Determines whether to initialize Maidr based on certain conditions.
+ * Determines whether to initialize Maidr based on conditions:
+  - maidr isn't enabled (check if singleMaidr is undefined or false)
+  - the chart we're moving to isn't the same as the one we're on
+  If successful, calls InitMaidr. If not, does nothing.
+  note: if we move from one to another, destroy the current first
  * @param {Object} thisMaidr - The Maidr object to be initialized.
  */
 function ShouldWeInitMaidr(thisMaidr) {
-  // conditions:
-  // - maidr isn't enabled (check if singleMaidr is undefined or false)
-  // - the chart we're moving to isn't the same as the one we're on
-  // note: if we move from one to another, destroy the current first
-
   if (typeof singleMaidr == 'undefined') {
     // not enabled
     InitMaidr(thisMaidr);
@@ -141,14 +141,15 @@ function ShouldWeInitMaidr(thisMaidr) {
 }
 
 /**
- * Determines whether Maidr should be destroyed based on the tab movement.
+ * Determines whether Maidr should be destroyed based conditions: 
+   - we've tabbed away from the chart or any component
+   - we're allowed to tab within the system (ie, braille input, review mode, etc)
  * If tab movement is 0, do nothing. If tab movement is 1 or -1, move to before/after and then destroy.
- * @param {Event} e - The blur event.
+ * @param {Event} e - The blur event from the Tab key that triggers this function.
  */
 function ShouldWeDestroyMaidr(e) {
-  // conditions: we've tabbed away from the chart or any component
-
-  // timeout to delay blur event. I forget why this is necessary, but it is
+  // timeout to delay blur event.
+  // I forget why this is necessary, but it is. - smm
   setTimeout(() => {
     if (constants.tabMovement == 0) {
       // do nothing, this is an allowed move
@@ -191,7 +192,7 @@ function FocusBeforeOrAfter() {
 }
 
 /**
- * Removes all events, global variables, and chart components associated with Maidr.
+ * Removes all events, global variables, and chart components associated with Maidr, resetting it to its uninitialized state.
  */
 function DestroyMaidr() {
   // chart cleanup
@@ -270,6 +271,7 @@ function KillAutoplayEvent(e) {
 
 /**
  * Adds all events and post load events to the DOM elements.
+ * Assumes that all events are in constants.events and all post load events are in constants.postLoadEvents.
  */
 function SetEvents() {
   // add all events
@@ -310,10 +312,15 @@ function SetEvents() {
 }
 
 /**
- * Initializes the chart components by creating a structure with a main container and a chart container,
- * updating the parents from just chart to main container > chart container > chart, and setting various
- * page elements and attributes. Also creates a braille input, an info aria live region, announcements,
- * an end chime audio element, and a review mode form field.
+ * Initializes the html chart components needed, such as:
+ * - Creates a structure with a main container and a chart container
+ * - Resets the parents from just chart to main container > chart container > chart
+ * - Creates a braille input
+ * - Creates an info aria live region
+ * - Creates announcements aria live region
+ * - Creates a review mode form field
+ * - Also sets the constants associated with these elements
+ *
  */
 function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
