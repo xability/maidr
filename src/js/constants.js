@@ -126,6 +126,28 @@ class Constants {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
 
+  ConvertHexToRGBString(hexColorString) {
+    return (
+      'rgb(' +
+      parseInt(hexColorString.slice(1, 3), 16) +
+      ',' +
+      parseInt(hexColorString.slice(3, 5), 16) +
+      ',' +
+      parseInt(hexColorString.slice(5, 7), 16) +
+      ')'
+    );
+  }
+
+  ConvertRGBStringToHex(rgbColorString) {
+    let rgb = rgbColorString.replace(/[^\d,]/g, '').split(',');
+    return (
+      '#' +
+      rgb[0].toString(16).padStart(2, '0') +
+      rgb[1].toString(16).padStart(2, '0') +
+      rgb[2].toString(16).padStart(2, '0')
+    );
+  }
+
   ColorInvert(color) {
     // invert an rgb color
     let rgb = color.replace(/[^\d,]/g, '').split(',');
@@ -137,6 +159,10 @@ class Constants {
   GetBetterColor(oldColor) {
     // get a highly contrasting color against the current
     // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    // Convert hex color to RGB color string if needed
+    if (oldColor.indexOf('#') !== -1) {
+      oldColor = this.ConvertHexToRGBString(oldColor);
+    }
     let newColor = this.ColorInvert(oldColor);
     let rgb = newColor.replace(/[^\d,]/g, '').split(',');
     if (
@@ -151,6 +177,27 @@ class Constants {
     }
 
     return newColor;
+  }
+
+  GetStyleArrayFromString(styleString) {
+    // Get an array of CSS style attributes and values from a style string
+    return styleString.replaceAll(' ', '').split(/[:;]/);
+  }
+  GetStyleStringFromArray(styleArray) {
+    // Get CSS style string from an array of style attributes and values
+    let styleString = '';
+    for (let i = 0; i < styleArray.length; i++) {
+      if (i % 2 === 0) {
+        if (i !== styleArray.length - 1) {
+          styleString += styleArray[i] + ': ';
+        } else {
+          styleString += styleArray[i];
+        }
+      } else {
+        styleString += styleArray[i] + '; ';
+      }
+    }
+    return styleString;
   }
 }
 
