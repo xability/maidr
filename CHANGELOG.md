@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add GitHub issue templates for bug report and feature request (#297)
+- Add GitHub issue templates for bug report and feature request [#297](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/297)
 - Added some notes on manual testing
 
 ### Fixed
 
 - Typo in scatterplot.js [#283](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/283)
 - Fixed typo in task1_bar_plot.html, correct CSS file now called
-- Fixed initial position out of range, #287
+- Fixed initial position out of range, [#287](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/287)
 
 ### Changed
 
