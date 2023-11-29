@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add GitHub issue templates for bug report and feature request (#297)
 - Added some notes on manual testing
+- Add GitHub template for pull requests [#298](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/298)
 
 ### Fixed
 
