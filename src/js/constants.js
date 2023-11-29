@@ -126,6 +126,12 @@ class Constants {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
 
+  /**
+   * Function to convert hexadecimal color to string formatted rgb() functional notation.
+   * @param hexColorString - hexadecimal color (e.g., "#595959").
+   * @returns {string} - rgb() functional notation string (e.g., "rgb(100,100,100)").
+   * @constructor
+   */
   ConvertHexToRGBString(hexColorString) {
     return (
       'rgb(' +
@@ -138,6 +144,12 @@ class Constants {
     );
   }
 
+  /**
+   * Function to convert an rgb() functional notation string to hexadecimal color.
+   * @param rgbColorString - color in rgb() functional notation (e.g., "rgb(100,100,100)").
+   * @returns {string} - hexadecimal color (e.g., "#595959").
+   * @constructor
+   */
   ConvertRGBStringToHex(rgbColorString) {
     let rgb = rgbColorString.replace(/[^\d,]/g, '').split(',');
     return (
@@ -179,10 +191,23 @@ class Constants {
     return newColor;
   }
 
+  /**
+   * Function to parse a string containing CSS styles and return an array of strings containing CSS style attributes and values.
+   * @param styleString - a string containing CSS styles in inline format.
+   * @returns {string[]} - an array of strings containing CSS style attributes and values.
+   * @constructor
+   */
   GetStyleArrayFromString(styleString) {
     // Get an array of CSS style attributes and values from a style string
     return styleString.replaceAll(' ', '').split(/[:;]/);
   }
+
+  /**
+   * Function to parse an array of strings containing CSS style attributes and values and return a string containing CSS styles.
+   * @param styleArray - an array of strings containing CSS style attributes and values.
+   * @returns {string} - a string containing the CSS styles.
+   * @constructor
+   */
   GetStyleStringFromArray(styleArray) {
     // Get CSS style string from an array of style attributes and values
     let styleString = '';
