@@ -9,19 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add GitHub issue templates for bug report and feature request (#297)
-- Added some notes on manual testing
-- Add GitHub template for pull requests [#298](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/298)
+- Add GitHub issue templates for bug report and feature request. [#297](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/297)
+- Added some notes on manual testing.
+- Add GitHub template for pull requests. [#298](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/298)
 
 ### Fixed
 
-- Fixed broken link to the Acknowledgments section in README (#300, thanks @sehilyi)
-- Typo in scatterplot.js [#283](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/283)
-- Fixed typo in task1_bar_plot.html, correct CSS file now called
-- Fixed initial position out of range, #287
+- Fixed broken link to the Acknowledgments section in README ([#300](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/300), thanks @sehilyi).
+- Typo in scatterplot.js. [#283](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/283)
+- Fixed typo in task1_bar_plot.html, correct CSS file now called.
+- Fixed initial position out of range. [#287](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/287)
+- Fixed issue with sonification and highlight color in bar plots. [#299](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/299)
 
 ### Changed
 
-- Updated documentation for all scripts
+- Updated documentation for all scripts.
 
 ## [1.0.0] - 2023-11-01

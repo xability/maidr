@@ -126,6 +126,40 @@ class Constants {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
 
+  /**
+   * Function to convert hexadecimal color to string formatted rgb() functional notation.
+   * @param hexColorString - hexadecimal color (e.g., "#595959").
+   * @returns {string} - rgb() functional notation string (e.g., "rgb(100,100,100)").
+   * @constructor
+   */
+  ConvertHexToRGBString(hexColorString) {
+    return (
+      'rgb(' +
+      parseInt(hexColorString.slice(1, 3), 16) +
+      ',' +
+      parseInt(hexColorString.slice(3, 5), 16) +
+      ',' +
+      parseInt(hexColorString.slice(5, 7), 16) +
+      ')'
+    );
+  }
+
+  /**
+   * Function to convert an rgb() functional notation string to hexadecimal color.
+   * @param rgbColorString - color in rgb() functional notation (e.g., "rgb(100,100,100)").
+   * @returns {string} - hexadecimal color (e.g., "#595959").
+   * @constructor
+   */
+  ConvertRGBStringToHex(rgbColorString) {
+    let rgb = rgbColorString.replace(/[^\d,]/g, '').split(',');
+    return (
+      '#' +
+      rgb[0].toString(16).padStart(2, '0') +
+      rgb[1].toString(16).padStart(2, '0') +
+      rgb[2].toString(16).padStart(2, '0')
+    );
+  }
+
   ColorInvert(color) {
     // invert an rgb color
     let rgb = color.replace(/[^\d,]/g, '').split(',');
@@ -137,6 +171,10 @@ class Constants {
   GetBetterColor(oldColor) {
     // get a highly contrasting color against the current
     // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    // Convert hex color to RGB color string if needed
+    if (oldColor.indexOf('#') !== -1) {
+      oldColor = this.ConvertHexToRGBString(oldColor);
+    }
     let newColor = this.ColorInvert(oldColor);
     let rgb = newColor.replace(/[^\d,]/g, '').split(',');
     if (
@@ -151,6 +189,40 @@ class Constants {
     }
 
     return newColor;
+  }
+
+  /**
+   * Function to parse a string containing CSS styles and return an array of strings containing CSS style attributes and values.
+   * @param styleString - a string containing CSS styles in inline format.
+   * @returns {string[]} - an array of strings containing CSS style attributes and values.
+   * @constructor
+   */
+  GetStyleArrayFromString(styleString) {
+    // Get an array of CSS style attributes and values from a style string
+    return styleString.replaceAll(' ', '').split(/[:;]/);
+  }
+
+  /**
+   * Function to parse an array of strings containing CSS style attributes and values and return a string containing CSS styles.
+   * @param styleArray - an array of strings containing CSS style attributes and values.
+   * @returns {string} - a string containing the CSS styles.
+   * @constructor
+   */
+  GetStyleStringFromArray(styleArray) {
+    // Get CSS style string from an array of style attributes and values
+    let styleString = '';
+    for (let i = 0; i < styleArray.length; i++) {
+      if (i % 2 === 0) {
+        if (i !== styleArray.length - 1) {
+          styleString += styleArray[i] + ': ';
+        } else {
+          styleString += styleArray[i];
+        }
+      } else {
+        styleString += styleArray[i] + '; ';
+      }
+    }
+    return styleString;
   }
 }
 
