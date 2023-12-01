@@ -1,13 +1,9 @@
 /**
- * A class representing constants used throughout the application.
+ * A class representing system vars, user config vars, and helper functions used throughout the application.
+ *
  * @class
  */
 class Constants {
-  // element ids
-  /**
-   * The ID of the chart container element.
-   * @type {string}
-   */
   chart_container_id = 'chart-container';
   main_container_id = 'maidr-container';
   //chart_container_class = 'chart-container'; // remove later
@@ -26,11 +22,6 @@ class Constants {
   events = [];
   postLoadEvents = [];
 
-  // default constructor for all charts
-  /**
-   * Creates a new instance of the Constants class.
-   * @constructor
-   */
   constructor() {}
 
   // BTS modes initial values
@@ -135,6 +126,40 @@ class Constants {
     constants.autoPlayRate = constants.DEFAULT_SPEED;
   }
 
+  /**
+   * Function to convert hexadecimal color to string formatted rgb() functional notation.
+   * @param hexColorString - hexadecimal color (e.g., "#595959").
+   * @returns {string} - rgb() functional notation string (e.g., "rgb(100,100,100)").
+   * @constructor
+   */
+  ConvertHexToRGBString(hexColorString) {
+    return (
+      'rgb(' +
+      parseInt(hexColorString.slice(1, 3), 16) +
+      ',' +
+      parseInt(hexColorString.slice(3, 5), 16) +
+      ',' +
+      parseInt(hexColorString.slice(5, 7), 16) +
+      ')'
+    );
+  }
+
+  /**
+   * Function to convert an rgb() functional notation string to hexadecimal color.
+   * @param rgbColorString - color in rgb() functional notation (e.g., "rgb(100,100,100)").
+   * @returns {string} - hexadecimal color (e.g., "#595959").
+   * @constructor
+   */
+  ConvertRGBStringToHex(rgbColorString) {
+    let rgb = rgbColorString.replace(/[^\d,]/g, '').split(',');
+    return (
+      '#' +
+      rgb[0].toString(16).padStart(2, '0') +
+      rgb[1].toString(16).padStart(2, '0') +
+      rgb[2].toString(16).padStart(2, '0')
+    );
+  }
+
   ColorInvert(color) {
     // invert an rgb color
     let rgb = color.replace(/[^\d,]/g, '').split(',');
@@ -146,6 +171,10 @@ class Constants {
   GetBetterColor(oldColor) {
     // get a highly contrasting color against the current
     // method: choose an inverted color, but if it's just a shade of gray, default to this.colorSelected
+    // Convert hex color to RGB color string if needed
+    if (oldColor.indexOf('#') !== -1) {
+      oldColor = this.ConvertHexToRGBString(oldColor);
+    }
     let newColor = this.ColorInvert(oldColor);
     let rgb = newColor.replace(/[^\d,]/g, '').split(',');
     if (
@@ -160,6 +189,40 @@ class Constants {
     }
 
     return newColor;
+  }
+
+  /**
+   * Function to parse a string containing CSS styles and return an array of strings containing CSS style attributes and values.
+   * @param styleString - a string containing CSS styles in inline format.
+   * @returns {string[]} - an array of strings containing CSS style attributes and values.
+   * @constructor
+   */
+  GetStyleArrayFromString(styleString) {
+    // Get an array of CSS style attributes and values from a style string
+    return styleString.replaceAll(' ', '').split(/[:;]/);
+  }
+
+  /**
+   * Function to parse an array of strings containing CSS style attributes and values and return a string containing CSS styles.
+   * @param styleArray - an array of strings containing CSS style attributes and values.
+   * @returns {string} - a string containing the CSS styles.
+   * @constructor
+   */
+  GetStyleStringFromArray(styleArray) {
+    // Get CSS style string from an array of style attributes and values
+    let styleString = '';
+    for (let i = 0; i < styleArray.length; i++) {
+      if (i % 2 === 0) {
+        if (i !== styleArray.length - 1) {
+          styleString += styleArray[i] + ': ';
+        } else {
+          styleString += styleArray[i];
+        }
+      } else {
+        styleString += styleArray[i] + '; ';
+      }
+    }
+    return styleString;
   }
 }
 
@@ -757,7 +820,7 @@ class Description {
  * @class
  */
 class Position {
-  constructor(x, y, z = -1) {
+  constructor(x = 0, y = 0, z = -1) {
     this.x = x;
     this.y = y;
     this.z = z; // rarely used
@@ -1219,9 +1282,9 @@ class Audio {
     return compressor;
   }
 
-  // an oscillator is created and destroyed after some falloff
   /**
-   * Plays a tone based on the current chart type and position.
+   * Initilizes a tone play based on the current chart type and position.
+   * Triggers playOscillator() with the correct parameters.
    */
   playTone(params = null) {
     let currentDuration = constants.duration;
@@ -1522,6 +1585,7 @@ class Audio {
 
   /**
    * Plays an oscillator with the given frequency, duration, panning, volume, and wave type.
+   * Typically used by playTone(), which does all the heavy lifting.
    * @param {number} frequency - The frequency of the oscillator.
    * @param {number} currentDuration - The duration of the oscillator in seconds.
    * @param {number} panning - The panning value of the oscillator.
@@ -1597,6 +1661,7 @@ class Audio {
 
   /**
    * Plays a smooth sound with the given frequency array, duration, panning array, volume, and wave type.
+   * The idea here is you give it an array of frequencies, and it plays them smoothly in order, like listening to a whole line chart
    * @param {number[]} freqArr - The array of frequencies to play.
    * @param {number} currentDuration - The duration of the sound in seconds.
    * @param {number[]} panningArr - The array of panning values.
@@ -1664,7 +1729,8 @@ class Audio {
   }
 
   /**
-   * Plays a null frequency sound.
+   * Initializes play of a custom null frequency sound.
+   * Calls the usual playOscillator() to do so.
    */
   PlayNull() {
     let frequency = constants.NULL_FREQUENCY;
@@ -1756,7 +1822,6 @@ class Audio {
    * @returns {number} The new value between min and max.
    */
   SlideBetween(val, a, b, min, max) {
-    // helper function that goes between min and max proportional to how val goes between a and b
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
     if (a == 0 && b == 0) {
       newVal = 0;
@@ -1816,10 +1881,14 @@ class Display {
 
   /**
    * Toggles braille mode on or off.
-   * @param {string} [onoff] - Optional parameter to explicitly set braille mode on or off.
+   * @param {string} [onoff] - Optional parameter to explicitly set braille mode on or off. If not supplied, defaults to toggling the current braille mode.
    * @returns {void}
    */
   toggleBrailleMode(onoff) {
+    // exception: if we just initilized, position might not be in range
+    if (position.x < 0) position.x = 0;
+    if (position.y < 0) position.y = 0;
+
     if (constants.chartType == 'point') {
       this.announceText('Braille is not supported in point layer.');
       return;
@@ -1931,6 +2000,7 @@ class Display {
 
   /**
    * Changes the chart layer up or down and updates the position relative to where we were on the previous layer.
+   * This only applies to charts that have multiple layers, such as point and smooth in a standard scatterplot.
    * @param {string} [updown='down'] - The direction to change the chart layer. Can be 'up' or 'down'. Defaults to 'down'.
    */
   changeChartLayer(updown = 'down') {
@@ -2042,6 +2112,7 @@ class Display {
 
   /**
    * Builds an html text string to output to both visual users and aria live based on what chart we're on, our position, and the mode.
+   * Typical output is something like "x is 5, y is 10".
    * @function
    * @memberof module:display
    * @returns {void}
@@ -2370,7 +2441,7 @@ class Display {
   }
 
   /**
-   * Displays information on the webpage based on the textType and textValue provided.
+   * Displays information on the webpage and an aria live region based on the textType and textValue provided.
    * @param {string} textType - The type of text to be displayed.
    * @param {string} textValue - The value of the text to be displayed.
    */
@@ -2844,6 +2915,7 @@ class Display {
 
   /**
    * Calculates the impact of character length on the given character data.
+   * Used by boxplots.
    * @param {Object} charData - The character data to calculate the impact for.
    * @param {number} charData.length - The total length of all characters.
    * @param {number} charData.numChars - The total number of characters.
@@ -3230,9 +3302,31 @@ class BarChart {
     if (this.bars) {
       this.activeElement = this.bars[position.x];
       if (this.activeElement) {
-        this.activeElementColor = this.activeElement.getAttribute('fill');
-        let newColor = constants.GetBetterColor(this.activeElementColor);
-        this.activeElement.setAttribute('fill', newColor);
+        // Case where fill is a direct attribute
+        if (this.activeElement.hasAttribute('fill')) {
+          this.activeElementColor = this.activeElement.getAttribute('fill');
+          // Get new color to highlight and replace fill value
+          this.activeElement.setAttribute(
+            'fill',
+            constants.GetBetterColor(this.activeElementColor)
+          );
+          // Case where fill is within the style attribute
+        } else if (
+          this.activeElement.hasAttribute('style') &&
+          this.activeElement.getAttribute('style').indexOf('fill') !== -1
+        ) {
+          let styleString = this.activeElement.getAttribute('style');
+          // Extract all style attributes and values
+          let styleArray = constants.GetStyleArrayFromString(styleString);
+          this.activeElementColor = styleArray[styleArray.indexOf('fill') + 1];
+          // Get new color to highlight and replace fill value in style array
+          styleArray[styleArray.indexOf('fill') + 1] = constants.GetBetterColor(
+            this.activeElementColor
+          );
+          // Recreate style string and set style attribute
+          styleString = constants.GetStyleStringFromArray(styleArray);
+          this.activeElement.setAttribute('style', styleString);
+        }
       }
     }
   }
@@ -3243,17 +3337,25 @@ class BarChart {
   UnSelectPrevious() {
     if (this.activeElement) {
       // set fill attribute to the original color
-      this.activeElement.setAttribute('fill', this.activeElementColor);
-      this.activeElement = null;
+      if (this.activeElement.hasAttribute('fill')) {
+        this.activeElement.setAttribute('fill', this.activeElementColor);
+        this.activeElement = null;
+      } else if (
+        this.activeElement.hasAttribute('style') &&
+        this.activeElement.getAttribute('style').indexOf('fill') !== -1
+      ) {
+        let styleString = this.activeElement.getAttribute('style');
+        let styleArray = constants.GetStyleArrayFromString(styleString);
+        styleArray[styleArray.indexOf('fill') + 1] = this.activeElementColor;
+        // Recreate style string and set style attribute
+        styleString = constants.GetStyleStringFromArray(styleArray);
+        this.activeElement.setAttribute('style', styleString);
+        this.activeElement = null;
+      }
     }
   }
 }
 
-//
-// BoxPlot class.
-// This initializes and contains the JSON data model for this chart
-//
-// todo:
 /**
  * A class representing a box plot.
  * @class
@@ -3265,6 +3367,8 @@ class BoxPlot {
    */
   constructor() {
     constants.plotOrientation = 'horz'; // default
+
+    // the default sections for all boxplots
     this.sections = [
       'lower_outlier',
       'min',
@@ -3368,8 +3472,6 @@ class BoxPlot {
    * Cleans up data and extra variables like min/max stuff.
    */
   CleanData() {
-    // clean up data and extra vars like min / max stuff
-
     let min, max;
     for (let i = 0; i < this.plotData.length; i++) {
       if (this.plotData[i].lower_outlier) {
@@ -3718,15 +3820,10 @@ class BoxPlot {
    * @returns {string[]} Array of segment types.
    */
   GetAllSegmentTypes() {
-    let allWeNeed = [
-      resources.GetString('lower_outlier'),
-      resources.GetString('min'),
-      resources.GetString('25'),
-      resources.GetString('50'),
-      resources.GetString('75'),
-      resources.GetString('max'),
-      resources.GetString('upper_outlier'),
-    ];
+    let allWeNeed = [];
+    for (let i = 0; i < this.sections.length; i++) {
+      allWeNeed.push(resources.GetString(this.sections[i]));
+    }
 
     return allWeNeed;
   }
@@ -3895,7 +3992,6 @@ class BoxPlot {
  * @class
  */
 class BoxplotRect {
-  // maybe put this stuff in user config?
   /**
    * The padding between rectangles in pixels.
    * @type {number}
@@ -3924,8 +4020,6 @@ class BoxplotRect {
    * Updates the bounding box values from the object and gets bounds of visual outline to be drawn.
    */
   UpdateRect() {
-    // UpdateRect takes bounding box values from the object and gets bounds of visual outline to be drawn
-
     if (document.getElementById('highlight_rect'))
       document.getElementById('highlight_rect').remove(); // destroy to be recreated
 
@@ -4489,10 +4583,6 @@ class HeatMapRect {
     //constants.chart.appendChild(rect);
   }
 }
-
-document.addEventListener('DOMContentLoaded', function (e) {
-  // we wrap in DOMContentLoaded to make sure everything has loaded before we run anything
-});
 
 /**
  * A class representing a scatter plot.
@@ -5230,14 +5320,6 @@ class Layer1Point {
  * A class representing a histogram.
  * @class
  */
-/**
- * A class representing a histogram.
- * @class
- */
-/**
- * A class representing a histogram.
- * @class
- */
 class Histogram {
   /**
    * Creates a new Histogram object.
@@ -5846,8 +5928,6 @@ class Segmented {
    * Creates another y level that is the sum of all the other levels.
    */
   CreateSummaryLevel() {
-    // create another y level that is the sum of all the other levels
-
     for (let i = 0; i < this.plotData.length; i++) {
       let sum = 0;
       for (let j = 0; j < this.plotData[i].length; j++) {
@@ -5863,8 +5943,6 @@ class Segmented {
    * Creates another y level that plays all the other levels separately.
    */
   CreateAllLevel() {
-    // create another y level that plays all the other levels seperately
-
     for (let i = 0; i < this.plotData.length; i++) {
       let all = [];
       for (let j = 0; j < this.fill.length; j++) {
@@ -6066,6 +6144,11 @@ class Control {
 
           if (e.key == ' ') {
             // space 32, replay info but no other changes
+
+            // exception: if we just initilized, position might not be in range
+            if (position.x < 0) position.x = 0;
+            if (position.y < 0) position.y = 0;
+
             if (constants.showDisplay) {
               display.displayValues();
             }
@@ -9267,11 +9350,11 @@ document.addEventListener('DOMContentLoaded', function (e) {
 });
 
 /**
- * Initializes the Maidr chart with the given configuration.
- * @param {Object} thisMaidr - The configuration object for the Maidr chart.
+ * Initializes the Maidr app for a given chart, taken from the matching ID of the focused chart
+ * @param {Object} thisMaidr - The json schema for the chart to be initialized.
  */
 function InitMaidr(thisMaidr) {
-  // just in case
+  // there's a rare bug where constants isn't defined yet, so we check for that
   if (typeof constants != 'undefined') {
     // init vars and html
     window.singleMaidr = thisMaidr;
@@ -9282,7 +9365,7 @@ function InitMaidr(thisMaidr) {
       constants.chartType = singleMaidr.type;
     }
     CreateChartComponents(singleMaidr);
-    window.control = new Control(); // this inits the plot
+    window.control = new Control(); // this inits the actual chart object and Position
     window.review = new Review();
     window.display = new Display();
     window.audio = new Audio();
@@ -9300,6 +9383,7 @@ function InitMaidr(thisMaidr) {
     // kill autoplay event
     constants.events.push([document, 'keydown', KillAutoplayEvent]);
 
+    // actually do eventlisteners for all events
     this.SetEvents();
 
     // once everything is set up, announce the chart name (or title as a backup) to the user
@@ -9312,15 +9396,14 @@ function InitMaidr(thisMaidr) {
 }
 
 /**
- * Determines whether to initialize Maidr based on certain conditions.
+ * Determines whether to initialize Maidr based on conditions:
+  - maidr isn't enabled (check if singleMaidr is undefined or false)
+  - the chart we're moving to isn't the same as the one we're on
+  If successful, calls InitMaidr. If not, does nothing.
+  note: if we move from one to another, destroy the current first
  * @param {Object} thisMaidr - The Maidr object to be initialized.
  */
 function ShouldWeInitMaidr(thisMaidr) {
-  // conditions:
-  // - maidr isn't enabled (check if singleMaidr is undefined or false)
-  // - the chart we're moving to isn't the same as the one we're on
-  // note: if we move from one to another, destroy the current first
-
   if (typeof singleMaidr == 'undefined') {
     // not enabled
     InitMaidr(thisMaidr);
@@ -9335,14 +9418,15 @@ function ShouldWeInitMaidr(thisMaidr) {
 }
 
 /**
- * Determines whether Maidr should be destroyed based on the tab movement.
+ * Determines whether Maidr should be destroyed based conditions: 
+   - we've tabbed away from the chart or any component
+   - we're allowed to tab within the system (ie, braille input, review mode, etc)
  * If tab movement is 0, do nothing. If tab movement is 1 or -1, move to before/after and then destroy.
- * @param {Event} e - The blur event.
+ * @param {Event} e - The blur event from the Tab key that triggers this function.
  */
 function ShouldWeDestroyMaidr(e) {
-  // conditions: we've tabbed away from the chart or any component
-
-  // timeout to delay blur event. I forget why this is necessary, but it is
+  // timeout to delay blur event.
+  // I forget why this is necessary, but it is. - smm
   setTimeout(() => {
     if (constants.tabMovement == 0) {
       // do nothing, this is an allowed move
@@ -9385,7 +9469,7 @@ function FocusBeforeOrAfter() {
 }
 
 /**
- * Removes all events, global variables, and chart components associated with Maidr.
+ * Removes all events, global variables, and chart components associated with Maidr, resetting it to its uninitialized state.
  */
 function DestroyMaidr() {
   // chart cleanup
@@ -9464,6 +9548,7 @@ function KillAutoplayEvent(e) {
 
 /**
  * Adds all events and post load events to the DOM elements.
+ * Assumes that all events are in constants.events and all post load events are in constants.postLoadEvents.
  */
 function SetEvents() {
   // add all events
@@ -9504,10 +9589,15 @@ function SetEvents() {
 }
 
 /**
- * Initializes the chart components by creating a structure with a main container and a chart container,
- * updating the parents from just chart to main container > chart container > chart, and setting various
- * page elements and attributes. Also creates a braille input, an info aria live region, announcements,
- * an end chime audio element, and a review mode form field.
+ * Initializes the html chart components needed, such as:
+ * - Creates a structure with a main container and a chart container
+ * - Resets the parents from just chart to main container > chart container > chart
+ * - Creates a braille input
+ * - Creates an info aria live region
+ * - Creates announcements aria live region
+ * - Creates a review mode form field
+ * - Also sets the constants associated with these elements
+ *
  */
 function CreateChartComponents() {
   // init html stuff. aria live regions, braille input, etc
