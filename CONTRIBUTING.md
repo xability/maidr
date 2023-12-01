@@ -28,7 +28,7 @@ To get started, please follow these steps:
 
 1. Install all the recommended extensions.
 
-1. install `npm` if you don't have it already.
+1. Install `npm` if you don't have it already.
 
 1. Install `yarn` if you don't have it already. You can install it by running the following command in your terminal:
 
