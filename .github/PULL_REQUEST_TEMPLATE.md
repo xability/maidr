@@ -12,6 +12,8 @@
 
 ## Screenshots (if applicable)
 [Include any relevant screenshots or images to help visualize the changes.]
+You can take a gif animation screenshot very easily without any additional installation by using this browser-based tool:
+https://gifcap.dev
 
 ## Checklist
 [Please select all applicable options.]
