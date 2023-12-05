@@ -29,6 +29,8 @@ Please describe what actually happened.
 ## Screenshots
 
 If applicable, add screenshots to help explain the problem.
+You can take a gif animation screenshot very easily without any additional installation by using this browser-based tool:
+https://gifcap.dev
 
 ## Environment
 

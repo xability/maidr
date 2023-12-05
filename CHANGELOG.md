@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added instructions on how to take a screenshot in in GitHub bug report and pull request templates (#307).
+
 ### Fixed
 
 ### Changed
