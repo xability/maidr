@@ -101,6 +101,13 @@ class Control {
               display.changeChartLayer('up');
             }
           }
+
+          // Debugging.
+          // Because we destroy on blur, it's hard to debug, so here's throwaway code to put a breakpoint on
+          // todo: on publish, remove this
+          if (e.key == '-') {
+            let nothing = null;
+          }
         },
       ]);
     }

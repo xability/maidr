@@ -73,6 +73,7 @@ class Constants {
   isTracking = 1; // 0 / 1, is tracking on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
+  ariaMode = 'assertive'; // assertive (default) / polite
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -310,15 +311,21 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Go to the very left right up down</td>
-                                        <td>${constants.control} + Arrow key</td>
+                                        <td>${
+                                          constants.control
+                                        } + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Select the first element</td>
-                                        <td>${constants.control} + ${constants.home}</td>
+                                        <td>${constants.control} + ${
+    constants.home
+  }</td>
                                     </tr>
                                     <tr>
                                         <td>Select the last element</td>
-                                        <td>${constants.control} + ${constants.end}</td>
+                                        <td>${constants.control} + ${
+    constants.end
+  }</td>
                                     </tr>
                                     <tr>
                                         <td>Toggle Braille Mode</td>
@@ -338,11 +345,15 @@ class Menu {
                                     </tr>
                                     <tr>
                                         <td>Auto-play outward in direction of arrow</td>
-                                        <td>${constants.control} + Shift + Arrow key</td>
+                                        <td>${
+                                          constants.control
+                                        } + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Auto-play inward in direction of arrow</td>
-                                        <td>${constants.alt} + Shift + Arrow key</td>
+                                        <td>${
+                                          constants.alt
+                                        } + Shift + Arrow key</td>
                                     </tr>
                                     <tr>
                                         <td>Stop Auto-play</td>
@@ -365,11 +376,26 @@ class Menu {
                             <p><input type="range" id="vol" name="vol" min="0" max="1" step=".05"><label for="vol">Volume</label></p>
                             <!-- <p><input type="checkbox" id="show_rect" name="show_rect"><label for="show_rect">Show Outline</label></p> //-->
                             <p><input type="number" min="4" max="2000" step="1" id="braille_display_length" name="braille_display_length"><label for="braille_display_length">Braille Display Size</label></p>
-                            <p><input type="number" min="${constants.MIN_SPEED}" max="500" step="${constants.INTERVAL}" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
+                            <p><input type="number" min="${
+                              constants.MIN_SPEED
+                            }" max="500" step="${
+    constants.INTERVAL
+  }" id="autoplay_rate" name="autoplay_rate"><label for="autoplay_rate">Autoplay Rate</label></p>
                             <p><input type="color" id="color_selected" name="color_selected"><label for="color_selected">Outline Color</label></p>
                             <p><input type="number" min="10" max="2000" step="10" id="min_freq" name="min_freq"><label for="min_freq">Min Frequency (Hz)</label></p>
                             <p><input type="number" min="20" max="2010" step="10" id="max_freq" name="max_freq"><label for="max_freq">Max Frequency (Hz)</label></p>
                             <p><input type="number" min="500" max="5000" step="500" id="keypress_interval" name="keypress_interval"><label for="keypress_interval">Keypress Interval (ms)</label></p>
+                            <div><fieldset>
+                              <legend>Aria Mode</legend>
+                              <p><input type="radio" id="aria_mode_assertive" name="aria_mode" value="assertive" ${
+                                constants.ariaMode == 'assertive'
+                                  ? 'checked'
+                                  : ''
+                              }><label for="aria_mode_assertive">Assertive</label></p>
+                              <p><input type="radio" id="aria_mode_polite" name="aria_mode" value="polite" ${
+                                constants.ariaMode == 'polite' ? 'checked' : ''
+                              }><label for="aria_mode_polite">Polite</label></p>
+                              </fieldset></div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -383,7 +409,8 @@ class Menu {
         `;
 
   /**
-   * Creates a menu element and sets up event listeners for opening and closing the menu.
+   * Creates a menu element and sets up event listeners for opening and closing the menu,
+   * and saving and loading data from local storage.
    */
   CreateMenu() {
     // menu element creation
@@ -421,7 +448,7 @@ class Menu {
       },
     ]);
 
-    // open events
+    // Menu open events
     // note: this triggers a maidr destroy
     constants.events.push([
       document,
@@ -455,7 +482,7 @@ class Menu {
 
   /**
    * Toggles the menu on and off.
-   * @param {boolean} [onoff=false] - Whether to turn the menu on or off. Defaults to false.
+   * @param {boolean} [onoff=false] - Whether to turn the menu on or off. Defaults to false (close).
    */
   Toggle(onoff = false) {
     if (typeof onoff == 'undefined') {
@@ -483,7 +510,7 @@ class Menu {
   }
 
   /**
-   * Populates the data in the HTML elements with the values from the constants object.
+   * Populates the form fields in the help menu with the values from the constants object.
    */
   PopulateData() {
     document.getElementById('vol').value = constants.vol;
@@ -496,6 +523,15 @@ class Menu {
     document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
     document.getElementById('keypress_interval').value =
       constants.keypressInterval;
+
+    // aria mode
+    if (constants.ariaMode == 'assertive') {
+      document.getElementById('aria_mode_assertive').checked = true;
+      document.getElementById('aria_mode_polite').checked = false;
+    } else {
+      document.getElementById('aria_mode_polite').checked = true;
+      document.getElementById('aria_mode_assertive').checked = false;
+    }
   }
 
   /**
@@ -513,16 +549,40 @@ class Menu {
     constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
+
+    // aria
+    if (document.getElementById('aria_mode_assertive').checked) {
+      constants.ariaMode = 'assertive';
+    } else if (document.getElementById('aria_mode_polite').checked) {
+      constants.ariaMode = 'polite';
+    }
+
+    this.UpdateHtml();
   }
 
   /**
-   * Saves all data in this.SaveData() to local storage.
+   * Updates various html elements and attributes.
+   * Typically used to do things like update the aria-live attributes
+   *
+   * @function
+   * @memberof constants
+   * @returns {void}
+   */
+  UpdateHtml() {
+    // set aria attributes
+    constants.infoDiv.setAttribute('aria-live', constants.ariaMode);
+    document
+      .getElementById(constants.announcement_container_id)
+      .setAttribute('aria-live', constants.ariaMode);
+  }
+
+  /**
+   * Saves all data in Menu to local storage.
    * @function
    * @memberof constants
    * @returns {void}
    */
   SaveDataToLocalStorage() {
-    // save all data in this.SaveData() to local storage
     let data = {};
     data.vol = constants.vol;
     //data.showRect = constants.showRect;
@@ -532,12 +592,14 @@ class Menu {
     data.MIN_FREQUENCY = constants.MIN_FREQUENCY;
     data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
     data.keypressInterval = constants.keypressInterval;
+    data.ariaMode = constants.ariaMode;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
-   * Loads data from local storage and updates the constants object with the retrieved values.
+   * Loads data from local storage and updates the constants object with the retrieved values, to be loaded into the menu
    */
   LoadDataFromLocalStorage() {
+    // todo: run this on page load
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
@@ -548,12 +610,14 @@ class Menu {
       constants.MIN_FREQUENCY = data.MIN_FREQUENCY;
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
+      constants.ariaMode = data.ariaMode;
     }
+    this.UpdateHtml();
   }
 }
 
 /**
- * Creates an html modal containing summary info of the active chart.
+ * Creates an html modal containing summary info of the active chart. Title, subtitle, data table, etc.
  * @class
  */
 class Description {
