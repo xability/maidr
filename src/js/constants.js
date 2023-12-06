@@ -449,7 +449,6 @@ class Menu {
     ]);
 
     // Menu open events
-    // note: this triggers a maidr destroy
     constants.events.push([
       document,
       'keyup',
@@ -613,6 +612,130 @@ class Menu {
       constants.ariaMode = data.ariaMode;
     }
     this.UpdateHtml();
+  }
+}
+
+/**
+ * Creates an html modal with a basic text input,
+ * and hooks to send info to an LLM
+ * @class
+ */
+class ChatLLM {
+  constructor() {
+    this.CreateComponent();
+  }
+
+  /**
+   * Creates a modal component containing basic text input
+   */
+  CreateComponent() {
+    let html = `
+        <div id="chatLLM" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 id="chatLLM_title" class="modal-title">Ask a Question</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="chatLLM_content">
+                          <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
+                          <p><button type="button" id="chatLLM_submit">Submit</button></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="close_chatLLM">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="chatLLM_modal_backdrop" class="modal-backdrop hidden"></div>
+    `;
+    document.querySelector('body').insertAdjacentHTML('beforeend', html);
+
+    // chatLLM close events
+    let allClose = document.querySelectorAll('#close_chatLLM, #chatLLM .close');
+    for (let i = 0; i < allClose.length; i++) {
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          chatLLM.Toggle(false);
+        },
+      ]);
+    }
+    constants.events.push([
+      document.getElementById('chatLLM'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          chatLLM.Toggle(false);
+        }
+      },
+    ]);
+
+    // ChatLLM open events
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == '?' || e.key == '/') {
+          chatLLM.Toggle(true);
+        }
+      },
+    ]);
+  }
+
+  /**
+   * Destroys the chatLLM element and its backdrop.
+   * @function
+   * @name Destroy
+   * @memberof module:constants
+   * @returns {void}
+   */
+  Destroy() {
+    // chatLLM element destruction
+    let chatLLM = document.getElementById('chatLLM');
+    if (chatLLM) {
+      chatLLM.remove();
+    }
+    let backdrop = document.getElementById('chatLLM_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  /**
+   * Toggles the modal on and off.
+   * @param {boolean} [onoff=false] - Whether to turn the chatLLM on or off. Defaults to false (close).
+   */
+  Toggle(onoff = false) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('chatLLM').classList.contains('hidden')) {
+        onoff = true;
+      } else {
+        onoff = false;
+      }
+    }
+    if (onoff) {
+      // open
+      this.whereWasMyFocus = document.activeElement;
+      constants.tabMovement = 0;
+      document.getElementById('chatLLM').classList.remove('hidden');
+      document
+        .getElementById('chatLLM_modal_backdrop')
+        .classList.remove('hidden');
+      document.querySelector('#chatLLM .close').focus();
+    } else {
+      // close
+      document.getElementById('chatLLM').classList.add('hidden');
+      document.getElementById('chatLLM_modal_backdrop').classList.add('hidden');
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
+    }
   }
 }
 

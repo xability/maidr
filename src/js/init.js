@@ -417,6 +417,9 @@ function CreateChartComponents() {
   // help menu
   window.menu = new Menu();
 
+  // LLM question modal
+  window.chatLLM = new ChatLLM();
+
   // Description modal
   window.description = new Description(); // developement on hold
 }
