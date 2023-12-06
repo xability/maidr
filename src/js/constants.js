@@ -640,6 +640,8 @@ class ChatLLM {
                         </button>
                     </div>
                     <div class="modal-body">
+                        <div id="chatLLM_chat_history" aria-live="${constants.ariaMode}" aria-relevant="additions">
+                        </div>
                         <div id="chatLLM_content">
                           <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
                           <p><button type="button" id="chatLLM_submit">Submit</button></p>
@@ -687,6 +689,84 @@ class ChatLLM {
         }
       },
     ]);
+
+    // ChatLLM request events
+    constants.events.push([
+      document.getElementById('chatLLM_submit'),
+      'click',
+      function (e) {
+        let text = document.getElementById('chatLLM_input').value;
+        chatLLM.DisplayChatMessage('User', text);
+        chatLLM.Submit(text);
+      },
+    ]);
+  }
+
+  /**
+   * Submits text to the LLM with a REST call, returns the response to the user
+   * @function
+   * @name Submit
+   * @memberof module:constants
+   * @returns {void}
+   */
+  Submit(text) {
+    // send text to LLM
+    let url = 'https://my.end.point';
+
+    let requestJson = {};
+    requestJson.model = 'gpt-3.5-turbo-1106';
+    requestJson.created = new Date().toISOString();
+    requestJson.object = 'chat.completion';
+    requestJson.usage = {};
+    requestJson.usage.prompt_tokens = 13;
+    requestJson.usage.completion_tokens = 5;
+    requestJson.usage.total_tokens = 18;
+    requestJson.choices = [];
+    requestJson.choices[0] = {};
+    requestJson.choices[0].message = {};
+    requestJson.choices[0].message.role = 'assistant';
+    requestJson.choices[0].message.content = text;
+    requestJson.choices[0].finish_reason = 'stop';
+    requestJson.choices[0].index = 0;
+
+    let xhr = new XMLHttpRequest();
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestJson),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        let responseText = data.choices[0].text; // todo: handle response properly, this is a placeholder
+        chatLLM.DisplayChatMessage('LLM', responseText);
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+        // also todo: handle errors somehow
+      });
+  }
+
+  /**
+   * Displays chat message from the user and LLM in a chat history window
+   * @function
+   * @name DisplayChatMessage
+   * @memberof module:constants
+   * @returns {void}
+   */
+  DisplayChatMessage(user = 'User', text = '') {
+    let html = `
+      <div class="chatLLM_message">
+        <p class="chatLLM_message_${user == 'LLM' ? 'llm' : 'user'}">${user}</p>
+        <p class="chatLLM_message_text">${text}</p>
+      </div>
+    `;
+    document
+      .getElementById('chatLLM_chat_history')
+      .insertAdjacentHTML('beforeend', html);
+    document.getElementById('chatLLM_input').value = '';
   }
 
   /**
