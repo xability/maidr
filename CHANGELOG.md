@@ -9,18 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the ability to switch from assertive (default) to polite aria modes, in the help menu. [#230](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/230)
 
 ### Fixed
 
-
 ### Changed
-
 
 ### Chores
 
 - Added instructions on how to take a screenshot in in GitHub bug report and pull request templates (#307).
 - Commented out the instructions on GitHub templates so that users can keep it while adding new content (#308).
-
 
 ## [1.0.4] - 2023-11-30
 
