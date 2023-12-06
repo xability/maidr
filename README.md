@@ -236,12 +236,21 @@ Below is a detailed list of keyboard shortcuts for various functions:
 
 ### Scatterplot Controls
 
-In the Scatterplot plot, there are two layers: point mode (layer 1) and line mode (layer 2). To switch between these layers, use the Page Up and Page Down keys:
+In the Scatterplot, there are two layers: point mode (layer 1) and line mode (layer 2). To switch between these layers, use the Page Up and Page Down keys:
 
 - Press Page Up to move from point mode to line mode
 - Press Page Down to move from line mode to point mode
 
 Note that this control scheme can be used by any plot with multiple types.
+
+### Segmented Bar Controls
+
+In the various segmented bar plots (stacked bar, dodged bar, and normalized stacked bar), Up Down Left Right controls function similar to a grid:
+
+- Left and Right arrows move between different bars or points on the x axis.
+- Up and Down arrows move between different layers of the same bar or point on the x axis.
+
+Note that there are also pseudo layers at the top of each layer stack: a Summary layer representing a sum of all that bar's values, and a Combined layer that plays a separated or combined run of tones of all the layers. The standard 'S' key that controls sonification now has an extra setting to play either combined tones or separated tones.
 
 ## Braille Generation
 
@@ -249,7 +258,7 @@ maidr incorporates a Braille mode that represents the plot using Braille symbols
 
 ### Barplot
 
-In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the plot. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that are filled with dots. Given the four height levels of Braille, the encoding is as follows:
+In the Braille representation of a barplot, data values are encoded as Braille characters based on their relative magnitude within the plot. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that have dots along the top. Given the four height levels of Braille, the encoding is as follows:
 
 - ⣀ represents values 0 to 25%
 - ⠤ represents the 25% to 50%
@@ -317,6 +326,20 @@ In the Braille representation of a scatterplot, the encoding is performed only f
 - ⠤ represents values from 25% to 50%
 - ⠒ represents values from 50% to 75%
 - ⠉ represents values from 75% to 100%
+
+### Segmented Bar Plots
+
+Stacked bar, dodged bar, and normalized stacked bar all share the same system:
+
+In the braille representation of segmented bar plots, braille depends on where you are. There are typically multiple levels to a segmented bar plot, and as you move (Up and Down arrow keys) between levels, the braille changes to represent your current level. At the top, there is also a Summary pseudo layer of all levels added together, and a Combined pseudo layer of each layer seperately.
+
+- Regular layers: Braille appears similar to a bar plot, with braille values corresponding to the magnitude of the layer's value for this point.
+- Summary layer: Same as regular layers, but values now reflect the combined magnitude of all layers' values for this point.
+- Combined layer: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each layer for the first point, then a seperator, then the second group has braille characters for each layer in the second point, then a seperator, and so on.
+
+### Lineplot
+
+In the Braille representation of a lineplot, braille is nearly identical to the above barplot: data values are encoded as Braille characters based on their relative magnitude within the plot. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that have dots higher up.
 
 ## License
 
