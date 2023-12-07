@@ -491,6 +491,12 @@ class Menu {
         onoff = false;
       }
     }
+    // don't open if we have another modal open already
+    if (onoff && document.getElementById('chatLLM')) {
+      if (!document.getElementById('chatLLM').classList.contains('hidden')) {
+        return;
+      }
+    }
     if (onoff) {
       // open
       this.whereWasMyFocus = document.activeElement;
@@ -758,8 +764,10 @@ class ChatLLM {
    */
   DisplayChatMessage(user = 'User', text = '') {
     let html = `
-      <div class="chatLLM_message">
-        <p class="chatLLM_message_${user == 'LLM' ? 'llm' : 'user'}">${user}</p>
+      <div class="chatLLM_message ${
+        user == 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
+      }">
+        <p class="chatLLM_message_user">${user}</p>
         <p class="chatLLM_message_text">${text}</p>
       </div>
     `;

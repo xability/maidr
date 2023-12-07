@@ -274,10 +274,27 @@ textarea {
 #chatLLM_chat_history {
   height: 100%;
   min-height: 400px;
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0.5rem;
   background-color: #fff;
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: column;
+  justify-content: center;
+}
+.chatLLM_message_self,
+.chatLLM_message_other {
+  padding: 0.5rem 1.5rem;
+  border-radius: 1.5rem;
+  margin: 0.5rem;
+  max-width: 70%;
+  word-wrap: break-word;
+}
+.chatLLM_message_self {
+  align-self: flex-end;
+}
+.chatLLM_message_other {
+  align-self: flex-start;
 }
