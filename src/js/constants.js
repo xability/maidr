@@ -74,6 +74,7 @@ class Constants {
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
+  hasChatLLM = true;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -396,6 +397,11 @@ class Menu {
                                 constants.ariaMode == 'polite' ? 'checked' : ''
                               }><label for="aria_mode_polite">Polite</label></p>
                               </fieldset></div>
+                              ${
+                                constants.hasChatLLM
+                                  ? '<p><input type="text" id="chatLLM_auth_key"> <label for="chatLLM_auth_key">OpenAI Authentication Key</label></p>'
+                                  : ''
+                              }
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -528,6 +534,9 @@ class Menu {
     document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
     document.getElementById('keypress_interval').value =
       constants.keypressInterval;
+    if (typeof constants.authKey == 'string') {
+      document.getElementById('chatLLM_auth_key').value = constants.authKey;
+    }
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -554,6 +563,7 @@ class Menu {
     constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
+    constants.authKey = document.getElementById('chatLLM_auth_key').value;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -562,6 +572,7 @@ class Menu {
       constants.ariaMode = 'polite';
     }
 
+    this.SaveDataToLocalStorage();
     this.UpdateHtml();
   }
 
@@ -598,13 +609,13 @@ class Menu {
     data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
     data.keypressInterval = constants.keypressInterval;
     data.ariaMode = constants.ariaMode;
+    data.authKey = constants.authKey;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
    * Loads data from local storage and updates the constants object with the retrieved values, to be loaded into the menu
    */
   LoadDataFromLocalStorage() {
-    // todo: run this on page load
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
@@ -616,7 +627,9 @@ class Menu {
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
       constants.ariaMode = data.ariaMode;
+      constants.authKey = data.authKey;
     }
+    this.PopulateData();
     this.UpdateHtml();
   }
 }
@@ -720,6 +733,7 @@ class ChatLLM {
     let url = 'https://my.end.point';
 
     let requestJson = {};
+    requestJson.Authorization = 'Bearer ' + constants.authKey;
     requestJson.model = 'gpt-3.5-turbo-1106';
     requestJson.created = new Date().toISOString();
     requestJson.object = 'chat.completion';
