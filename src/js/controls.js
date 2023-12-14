@@ -542,7 +542,7 @@ class Control {
       }
       let rect;
       constants.hasRect = false;
-      if ('elements' in singleMaidr) {
+      if ('selector' in singleMaidr) {
         rect = new BoxplotRect();
         constants.hasRect = true;
       }

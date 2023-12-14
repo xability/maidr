@@ -19,12 +19,8 @@ class Histogram {
     }
     // elements (optional)
     this.bars = null;
-    if ('elements' in singleMaidr) {
-      if (typeof singleMaidr.elements == 'string') {
-        this.bars = document.querySelectorAll(singleMaidr.elements);
-      } else {
-        this.bars = singleMaidr.elements;
-      }
+    if ('selector' in singleMaidr) {
+      this.bars = document.querySelectorAll(singleMaidr.selector);
     }
 
     // labels (optional)

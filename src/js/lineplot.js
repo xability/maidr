@@ -68,12 +68,8 @@ class LinePlot {
    */
   SetLineLayer() {
     let elements;
-    if ('elements' in singleMaidr) {
-      if (typeof singleMaidr.elements == 'string') {
-        elements = document.querySelectorAll(singleMaidr.elements);
-      } else {
-        elements = singleMaidr.elements;
-      }
+    if ('selector' in singleMaidr) {
+      elements = document.querySelectorAll(singleMaidr.selector);
     }
 
     let len = elements.length;

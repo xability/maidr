@@ -137,19 +137,11 @@ class ScatterPlot {
     // initially set as smooth layer (layer 2), if possible
     let elIndex = this.GetElementIndex('point');
     if (elIndex != -1) {
-      if (typeof singleMaidr.elements[elIndex] == 'string') {
-        this.plotPoints = document.querySelectorAll(
-          singleMaidr.elements[elIndex]
-        );
-      } else {
-        this.plotPoints = elements[elIndex];
-      }
+      this.plotPoints = document.querySelectorAll(
+        singleMaidr.selector[elIndex]
+      );
     } else if (singleMaidr.type == 'point') {
-      if (typeof singleMaidr.elements == 'string') {
-        this.plotPoints = document.querySelectorAll(singleMaidr.elements);
-      } else {
-        this.plotPoints = elements;
-      }
+      this.plotPoints = document.querySelectorAll(singleMaidr.selector);
     }
     if (typeof this.plotPoints !== 'undefined') {
       let svgPointCoords = this.GetSvgPointCoords();
@@ -174,19 +166,11 @@ class ScatterPlot {
     // layer = 2, smooth layer (from singleMaidr types)
     let elIndex = this.GetElementIndex('smooth');
     if (elIndex != -1) {
-      if (typeof singleMaidr.elements[elIndex] == 'string') {
-        this.plotLine = document.querySelectorAll(
-          singleMaidr.elements[elIndex]
-        )[0];
-      } else {
-        this.plotLine = singleMaidr.elements[elIndex][0];
-      }
+      this.plotLine = document.querySelectorAll(
+        singleMaidr.selector[elIndex]
+      )[0];
     } else if (singleMaidr.type == 'smooth') {
-      if (typeof singleMaidr.elements == 'string') {
-        this.plotLine = document.querySelectorAll(singleMaidr.elements);
-      } else {
-        this.plotLine = singleMaidr.elements;
-      }
+      this.plotLine = document.querySelectorAll(singleMaidr.selector);
     }
     if (typeof this.plotLine !== 'undefined') {
       let svgLineCoords = this.GetSvgLineCoords();
@@ -330,23 +314,13 @@ class ScatterPlot {
 
     let element;
     if (pointIndex != -1) {
-      if (typeof singleMaidr.elements[pointIndex] == 'string') {
-        element = document.querySelectorAll(
-          singleMaidr.elements[pointIndex]
-        )[0];
-      } else {
-        element = singleMaidr.elements[pointIndex][0];
-      }
+      element = document.querySelectorAll(singleMaidr.selector[pointIndex])[0];
     } else if (singleMaidr.type == 'point') {
-      if (typeof singleMaidr.elements == 'string') {
-        element = document.querySelectorAll(singleMaidr.elements)[0];
-      } else {
-        element = singleMaidr.elements[0];
-      }
+      element = document.querySelectorAll(singleMaidr.selector)[0];
     }
     let prefix = '';
     if (
-      'elements' in singleMaidr &&
+      'selector' in singleMaidr &&
       element.tagName.toLowerCase() === 'circle'
     ) {
       prefix = 'c';

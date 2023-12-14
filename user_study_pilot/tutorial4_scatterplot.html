@@ -4595,11 +4595,9 @@
         id: 'scatter1',
         title: 'Highway Mileage by Engine Displacement.',
         name: 'Tutorial 4: Scatterplot',
-        elements: [
-          document.querySelectorAll('g[id^="geom_point"] > use'),
-          document.querySelector(
-            'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]'
-          ),
+        selector: [
+          'g[id^="geom_point"] > use',
+          'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]',
         ],
         axes: {
           x: {
