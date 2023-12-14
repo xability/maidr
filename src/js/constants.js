@@ -831,6 +831,8 @@ class ChatLLM {
         .getElementById('chatLLM_modal_backdrop')
         .classList.remove('hidden');
       document.querySelector('#chatLLM .close').focus();
+      let img64 = this.ConvertSVGtoImg();
+      // todo: take return from ConvertSVGtoImg and attach to request
     } else {
       // close
       document.getElementById('chatLLM').classList.add('hidden');
@@ -839,8 +841,76 @@ class ChatLLM {
       this.whereWasMyFocus = null;
     }
   }
-}
+  blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(blob); // Converts the blob to base64 and calls onload when done
+      reader.onload = () => resolve(reader.result); // Resolve the promise with the base64 string
+      reader.onerror = (error) => reject(error); // Reject the promise in case of an error
+    });
+  }
 
+  /**
+   * Converts the active chart to a jpg image.
+   */
+  ConvertSVGtoImg() {
+    let svgNode = document.getElementById(singleMaidr.id);
+    let svgString = new XMLSerializer().serializeToString(svgNode);
+    let svgBlob = new Blob([svgString], {
+      type: 'image/svg+xml;charset=utf-8',
+    });
+
+    // todo: return this blog to be attached to the request
+    // however, to test, do the below
+    let returnBlob = false;
+    if (returnBlob) {
+      return this.blobToBase64(svgBlob);
+    } else {
+      chatLLM.TestDownloadSVG(svgNode, svgBlob);
+    }
+  }
+
+  TestDownloadSVG(svgNode, svgBlob) {
+    const DOMURL = window.URL || window.webkitURL || window;
+    const url = DOMURL.createObjectURL(svgBlob);
+
+    const image = new Image();
+    image.width = svgNode.width.baseVal.value;
+    image.height = svgNode.height.baseVal.value;
+    image.src = url;
+    image.onload = function () {
+      let canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image, 0, 0);
+      DOMURL.revokeObjectURL(url);
+
+      const imgURI = canvas
+        .toDataURL('image/png')
+        .replace('image/png', 'image/octet-stream');
+      chatLLM.TestTriggerDownload(imgURI);
+    };
+  }
+  TestTriggerDownload(imgURI) {
+    const a = document.createElement('a');
+    a.download = 'MY_COOL_IMAGE.png'; // filename
+    a.target = '_blank';
+    a.href = imgURI;
+
+    // trigger download button
+    // (set `bubbles` to false here.
+    // or just `a.click()` if you don't care about bubbling)
+    a.dispatchEvent(
+      new MouseEvent('click', {
+        view: window,
+        bubbles: false,
+        cancelable: true,
+      })
+    );
+  }
+}
 /**
  * Creates an html modal containing summary info of the active chart. Title, subtitle, data table, etc.
  * @class
