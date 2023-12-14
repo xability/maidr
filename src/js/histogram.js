@@ -20,7 +20,11 @@ class Histogram {
     // elements (optional)
     this.bars = null;
     if ('elements' in singleMaidr) {
-      this.bars = singleMaidr.elements;
+      if (typeof singleMaidr.elements == 'string') {
+        this.bars = document.querySelectorAll(singleMaidr.elements);
+      } else {
+        this.bars = singleMaidr.elements;
+      }
     }
 
     // labels (optional)

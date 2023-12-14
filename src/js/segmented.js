@@ -35,7 +35,11 @@ class Segmented {
       data = singleMaidr.data;
     }
     if ('elements' in singleMaidr) {
-      elements = singleMaidr.elements;
+      if (typeof singleMaidr.elements == 'string') {
+        elements = document.querySelectorAll(singleMaidr.elements);
+      } else {
+        elements = singleMaidr.elements;
+      }
     }
 
     // gracefull failure: must have level + fill + data, elements optional

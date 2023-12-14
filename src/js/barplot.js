@@ -24,7 +24,11 @@ class BarChart {
     }
     let elements = null;
     if ('elements' in singleMaidr) {
-      elements = singleMaidr.elements;
+      if (typeof singleMaidr.elements === 'string') {
+        elements = document.querySelectorAll(singleMaidr.elements);
+      } else {
+        elements = singleMaidr.elements;
+      }
     }
 
     if (xlevel && data && elements) {

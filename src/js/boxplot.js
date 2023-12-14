@@ -195,10 +195,14 @@ class BoxPlot {
     let plotBounds = [];
     let allWeNeed = this.GetAllSegmentTypes();
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
+    let elements =
+      typeof singleMaidr.elements == 'string'
+        ? document.querySelector(singleMaidr.elements)
+        : singleMaidr.elements;
 
     // get initial set of elements, a parent element for all outliers, whiskers, and range
     let initialElemSet = [];
-    let plots = singleMaidr.elements.children;
+    let plots = elements.children;
     for (let i = 0; i < plots.length; i++) {
       // each plot
       let plotSet = {};

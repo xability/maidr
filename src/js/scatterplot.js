@@ -137,9 +137,19 @@ class ScatterPlot {
     // initially set as smooth layer (layer 2), if possible
     let elIndex = this.GetElementIndex('point');
     if (elIndex != -1) {
-      this.plotPoints = singleMaidr.elements[elIndex];
+      if (typeof singleMaidr.elements[elIndex] == 'string') {
+        this.plotPoints = document.querySelectorAll(
+          singleMaidr.elements[elIndex]
+        );
+      } else {
+        this.plotPoints = elements[elIndex];
+      }
     } else if (singleMaidr.type == 'point') {
-      this.plotPoints = singleMaidr.elements;
+      if (typeof singleMaidr.elements == 'string') {
+        this.plotPoints = document.querySelectorAll(singleMaidr.elements);
+      } else {
+        this.plotPoints = elements;
+      }
     }
     if (typeof this.plotPoints !== 'undefined') {
       let svgPointCoords = this.GetSvgPointCoords();
@@ -164,9 +174,19 @@ class ScatterPlot {
     // layer = 2, smooth layer (from singleMaidr types)
     let elIndex = this.GetElementIndex('smooth');
     if (elIndex != -1) {
-      this.plotLine = singleMaidr.elements[elIndex];
+      if (typeof singleMaidr.elements[elIndex] == 'string') {
+        this.plotLine = document.querySelectorAll(
+          singleMaidr.elements[elIndex]
+        )[0];
+      } else {
+        this.plotLine = singleMaidr.elements[elIndex][0];
+      }
     } else if (singleMaidr.type == 'smooth') {
-      this.plotLine = singleMaidr.elements;
+      if (typeof singleMaidr.elements == 'string') {
+        this.plotLine = document.querySelectorAll(singleMaidr.elements);
+      } else {
+        this.plotLine = singleMaidr.elements;
+      }
     }
     if (typeof this.plotLine !== 'undefined') {
       let svgLineCoords = this.GetSvgLineCoords();
@@ -264,7 +284,6 @@ class ScatterPlot {
     // but first, are we even in an svg that can be scaled?
     let isSvg = false;
     let element = this.plotPoints[0]; // a random start, may as well be the first
-    console.log(element);
     while (element) {
       if (element.tagName.toLowerCase() == 'body') {
         break;
@@ -307,12 +326,23 @@ class ScatterPlot {
    * @returns {string} The prefix.
    */
   GetPrefix() {
-    let elIndex = this.GetElementIndex('point');
+    let pointIndex = this.GetElementIndex('point');
+
     let element;
-    if (elIndex != -1) {
-      element = singleMaidr.elements[elIndex][0];
+    if (pointIndex != -1) {
+      if (typeof singleMaidr.elements[pointIndex] == 'string') {
+        element = document.querySelectorAll(
+          singleMaidr.elements[pointIndex]
+        )[0];
+      } else {
+        element = singleMaidr.elements[pointIndex][0];
+      }
     } else if (singleMaidr.type == 'point') {
-      element = singleMaidr.elements[0];
+      if (typeof singleMaidr.elements == 'string') {
+        element = document.querySelectorAll(singleMaidr.elements)[0];
+      } else {
+        element = singleMaidr.elements[0];
+      }
     }
     let prefix = '';
     if (
