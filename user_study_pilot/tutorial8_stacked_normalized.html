@@ -732,9 +732,7 @@
       var maidr = {
         type: 'stacked_normalized_bar',
         id: 'stacked_normalized_bar',
-        elements: document.querySelectorAll(
-          'svg g:nth-of-type(2) rect[style*="butt"]'
-        ),
+        selector: 'svg g:nth-of-type(2) rect[style*="butt"]',
         labels: {
           title: 'Stacked Normlized Bar Plot',
           subtitle:

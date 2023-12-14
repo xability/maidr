@@ -67,8 +67,14 @@ class LinePlot {
    * Sets the line layer for the chart.
    */
   SetLineLayer() {
-    let len = maidr.elements.length;
-    this.plotLine = maidr.elements[len - 1];
+    let elements;
+    if ('selector' in singleMaidr) {
+      elements = document.querySelectorAll(singleMaidr.selector);
+    }
+
+    let len = elements.length;
+    this.plotLine = elements[len - 1];
+
     if (typeof this.plotLine !== 'undefined') {
       let pointCoords = this.GetPointCoords();
       let pointValues = this.GetPoints();

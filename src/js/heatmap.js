@@ -32,8 +32,8 @@ class HeatMap {
       }
     }
     let elements = null;
-    if ('elements' in singleMaidr) {
-      elements = singleMaidr.elements;
+    if ('selector' in singleMaidr) {
+      elements = document.querySelectorAll(singleMaidr.selector);
     }
 
     // if (xlevel && ylevel && data && elements) {
@@ -98,7 +98,7 @@ class HeatMap {
     //   if (!elements) logError.LogAbsentElement('elements');
     // }
 
-    this.plots = maidr.elements;
+    this.plots = elements;
     constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();

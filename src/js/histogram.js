@@ -19,8 +19,8 @@ class Histogram {
     }
     // elements (optional)
     this.bars = null;
-    if ('elements' in singleMaidr) {
-      this.bars = singleMaidr.elements;
+    if ('selector' in singleMaidr) {
+      this.bars = document.querySelectorAll(singleMaidr.selector);
     }
 
     // labels (optional)

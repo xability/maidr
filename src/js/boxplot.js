@@ -100,7 +100,7 @@ class BoxPlot {
     this.plotData = singleMaidr.data;
 
     // bounds data
-    if ('elements' in singleMaidr) {
+    if ('selector' in singleMaidr) {
       this.plotBounds = this.GetPlotBounds();
       constants.hasRect = true;
     } else {
@@ -195,10 +195,11 @@ class BoxPlot {
     let plotBounds = [];
     let allWeNeed = this.GetAllSegmentTypes();
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
+    let elements = document.querySelector(singleMaidr.selector);
 
     // get initial set of elements, a parent element for all outliers, whiskers, and range
     let initialElemSet = [];
-    let plots = singleMaidr.elements.children;
+    let plots = elements.children;
     for (let i = 0; i < plots.length; i++) {
       // each plot
       let plotSet = {};
