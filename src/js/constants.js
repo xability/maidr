@@ -75,6 +75,13 @@ class Constants {
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
 
+  // LLM settings
+  hasChatLLM = true;
+  LLMDebugMode = true; // true = use fake data, false = use real data
+  authKey = null; // OpenAI authentication key, set in menu
+  LLMmaxResponseTokens = 20; // max tokens to send to LLM, 20 for testing, 200 ish for real
+  LLMDetail = 'low'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
+
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
   showDisplayInBraille = 1; // true / false
@@ -396,6 +403,11 @@ class Menu {
                                 constants.ariaMode == 'polite' ? 'checked' : ''
                               }><label for="aria_mode_polite">Polite</label></p>
                               </fieldset></div>
+                              ${
+                                constants.hasChatLLM
+                                  ? '<p><input type="text" id="chatLLM_auth_key"> <label for="chatLLM_auth_key">OpenAI Authentication Key</label></p>'
+                                  : ''
+                              }
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -449,7 +461,6 @@ class Menu {
     ]);
 
     // Menu open events
-    // note: this triggers a maidr destroy
     constants.events.push([
       document,
       'keyup',
@@ -492,6 +503,12 @@ class Menu {
         onoff = false;
       }
     }
+    // don't open if we have another modal open already
+    if (onoff && document.getElementById('chatLLM')) {
+      if (!document.getElementById('chatLLM').classList.contains('hidden')) {
+        return;
+      }
+    }
     if (onoff) {
       // open
       this.whereWasMyFocus = document.activeElement;
@@ -523,6 +540,9 @@ class Menu {
     document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
     document.getElementById('keypress_interval').value =
       constants.keypressInterval;
+    if (typeof constants.authKey == 'string') {
+      document.getElementById('chatLLM_auth_key').value = constants.authKey;
+    }
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -549,6 +569,7 @@ class Menu {
     constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
+    constants.authKey = document.getElementById('chatLLM_auth_key').value;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -557,6 +578,7 @@ class Menu {
       constants.ariaMode = 'polite';
     }
 
+    this.SaveDataToLocalStorage();
     this.UpdateHtml();
   }
 
@@ -593,13 +615,13 @@ class Menu {
     data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
     data.keypressInterval = constants.keypressInterval;
     data.ariaMode = constants.ariaMode;
+    data.authKey = constants.authKey;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
    * Loads data from local storage and updates the constants object with the retrieved values, to be loaded into the menu
    */
   LoadDataFromLocalStorage() {
-    // todo: run this on page load
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
@@ -611,11 +633,430 @@ class Menu {
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
       constants.ariaMode = data.ariaMode;
+      constants.authKey = data.authKey;
     }
+    this.PopulateData();
     this.UpdateHtml();
   }
 }
 
+/**
+ * Creates an html modal with a basic text input,
+ * and hooks to send info to an LLM
+ * @class
+ */
+class ChatLLM {
+  constructor() {
+    this.CreateComponent();
+    this.SetEvents();
+    this.firstTime = true;
+  }
+
+  /**
+   * Creates a modal component containing basic text input
+   * Sets events to toggle on and off chat window
+   */
+  CreateComponent() {
+    let html = `
+        <div id="chatLLM" class="modal hidden" role="dialog" tabindex="-1">
+            <div class="modal-dialog" role="document" tabindex="0">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 id="chatLLM_title" class="modal-title">Ask a Question</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="chatLLM_chat_history" aria-live="${constants.ariaMode}" aria-relevant="additions">
+                        </div>
+                        <div id="chatLLM_content">
+                          <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
+                          <p><button type="button" id="chatLLM_submit">Submit</button></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="close_chatLLM">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="chatLLM_modal_backdrop" class="modal-backdrop hidden"></div>
+    `;
+    document.querySelector('body').insertAdjacentHTML('beforeend', html);
+  }
+
+  /**
+   * Sets events to toggle on and off chat window
+   */
+  SetEvents() {
+    // chatLLM close events
+    let allClose = document.querySelectorAll('#close_chatLLM, #chatLLM .close');
+    for (let i = 0; i < allClose.length; i++) {
+      constants.events.push([
+        allClose[i],
+        'click',
+        function (e) {
+          chatLLM.Toggle(false);
+        },
+      ]);
+    }
+    constants.events.push([
+      document.getElementById('chatLLM'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Esc') {
+          // esc
+          chatLLM.Toggle(false);
+        }
+      },
+    ]);
+
+    // ChatLLM open events
+    constants.events.push([
+      document,
+      'keyup',
+      function (e) {
+        if (e.key == '?' || e.key == '/') {
+          chatLLM.Toggle(true);
+        }
+      },
+    ]);
+
+    // ChatLLM request events
+    constants.events.push([
+      document.getElementById('chatLLM_submit'),
+      'click',
+      function (e) {
+        let text = document.getElementById('chatLLM_input').value;
+        chatLLM.DisplayChatMessage('User', text);
+        chatLLM.Submit(text);
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('chatLLM_input'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Enter' && !e.shiftKey) {
+          let text = document.getElementById('chatLLM_input').value;
+          chatLLM.DisplayChatMessage('User', text);
+          chatLLM.Submit(text);
+        }
+      },
+    ]);
+  }
+
+  /**
+   * Submits text to the LLM with a REST call, returns the response to the user
+   * @function
+   * @name Submit
+   * @memberof module:constants
+   * @text {string} - The text to send to the LLM.
+   * @img {string} - The image to send to the LLM in base64 string format. Defaults to null (no image).
+   * @returns {void}
+   */
+  Submit(text, img = null) {
+    // send text to LLM
+    let url = 'https://api.openai.com/v1/chat/completions';
+    //let url = 'temp';
+
+    let requestJson = this.GetLLMJRequestJson(text, img);
+    console.log(requestJson);
+
+    let xhr = new XMLHttpRequest();
+
+    if (constants.LLMDebugMode) {
+      chatLLM.ProcessLLMResponse(this.fakeLLMResponseData());
+    } else {
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + constants.authKey,
+        },
+        body: JSON.stringify(requestJson),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          chatLLM.ProcessLLMResponse(data);
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+          // also todo: handle errors somehow
+        });
+    }
+  }
+
+  /**
+   * Processes the response from the LLM and displays it to the user.
+   * @function
+   * @returns {void}
+   */
+  ProcessLLMResponse(data) {
+    let text = data.choices[0].message.content;
+    chatLLM.DisplayChatMessage('LLM', text);
+  }
+
+  /**
+   * Fakes an LLM response for testing purposes. Returns a JSON object formatted like the LLM response.
+   * @function
+   * @returns {json}
+   */
+  fakeLLMResponseData() {
+    let responseText = {};
+    if (this.requestJson.messages.length > 2) {
+      // subsequent responses
+      responseText = {
+        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
+        object: 'chat.completion',
+        created: 1703129508,
+        model: 'gpt-4-1106-vision-preview',
+        usage: {
+          prompt_tokens: 451,
+          completion_tokens: 16,
+          total_tokens: 467,
+        },
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'A fake response from the LLM. Nice.',
+            },
+            finish_reason: 'length',
+            index: 0,
+          },
+        ],
+      };
+    } else {
+      // first response
+      responseText = {
+        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
+        object: 'chat.completion',
+        created: 1703129508,
+        model: 'gpt-4-1106-vision-preview',
+        usage: {
+          prompt_tokens: 451,
+          completion_tokens: 16,
+          total_tokens: 467,
+        },
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content:
+                'The chart you\'re referring to is a bar graph titled "The Number of Diamonds',
+            },
+            finish_reason: 'length',
+            index: 0,
+          },
+        ],
+      };
+    }
+
+    return responseText;
+  }
+
+  /**
+   * Gets running prompt info, appends the latest request, and packages it into a JSON object for the LLM.
+   * @function
+   * @name GetLLMJRequestJson
+   * @memberof module:constants
+   * @returns {json}
+   */
+  GetLLMJRequestJson(text, img) {
+    if (!this.requestJson) {
+      this.requestJson = {};
+      this.requestJson.model = 'gpt-4-vision-preview';
+      this.max_tokens = constants.LLMmaxResponseTokens;
+      this.detail = constants.LLMDetail;
+      this.requestJson.messages = [];
+      this.requestJson.messages[0] = {};
+      this.requestJson.messages[0].role = 'system';
+      this.requestJson.messages[0].content =
+        'You are a helpful assistant describing the chart to a blind user';
+    }
+
+    let i = this.requestJson.messages.length;
+    this.requestJson.messages[i] = {};
+    this.requestJson.messages[i].role = 'user';
+    if (img) {
+      let image_url = img;
+      this.requestJson.messages[i].content = [
+        {
+          type: 'text',
+          text: text,
+        },
+        {
+          type: 'image_url',
+          image_url: { url: image_url },
+        },
+      ];
+    } else {
+      // just the text
+      this.requestJson.messages[i].content = text;
+    }
+
+    return this.requestJson;
+  }
+
+  /**
+   * Displays chat message from the user and LLM in a chat history window
+   * @function
+   * @name DisplayChatMessage
+   * @memberof module:constants
+   * @returns {void}
+   */
+  DisplayChatMessage(user = 'User', text = '') {
+    let html = `
+      <div class="chatLLM_message ${
+        user == 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
+      }">
+        <p class="chatLLM_message_user">${user}</p>
+        <p class="chatLLM_message_text">${text}</p>
+      </div>
+    `;
+    document
+      .getElementById('chatLLM_chat_history')
+      .insertAdjacentHTML('beforeend', html);
+    document.getElementById('chatLLM_input').value = '';
+
+    // scroll to bottom
+    document.getElementById('chatLLM_chat_history').scrollTop =
+      document.getElementById('chatLLM_chat_history').scrollHeight;
+  }
+
+  /**
+   * Destroys the chatLLM element and its backdrop.
+   * @function
+   * @name Destroy
+   * @memberof module:constants
+   * @returns {void}
+   */
+  Destroy() {
+    // chatLLM element destruction
+    let chatLLM = document.getElementById('chatLLM');
+    if (chatLLM) {
+      chatLLM.remove();
+    }
+    let backdrop = document.getElementById('chatLLM_modal_backdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+  }
+
+  /**
+   * Toggles the modal on and off.
+   * @param {boolean} [onoff=false] - Whether to turn the chatLLM on or off. Defaults to false (close).
+   */
+  Toggle(onoff = false) {
+    if (typeof onoff == 'undefined') {
+      if (document.getElementById('chatLLM').classList.contains('hidden')) {
+        onoff = true;
+      } else {
+        onoff = false;
+      }
+    }
+    if (onoff) {
+      // open
+      this.whereWasMyFocus = document.activeElement;
+      constants.tabMovement = 0;
+      document.getElementById('chatLLM').classList.remove('hidden');
+      document
+        .getElementById('chatLLM_modal_backdrop')
+        .classList.remove('hidden');
+      document.querySelector('#chatLLM .close').focus();
+
+      // first time, send default query
+      if (this.firstTime) {
+        this.firstTime = false;
+        this.DisplayChatMessage('LLM', 'Processing Chart...');
+        this.RunDefaultPrompt();
+      }
+    } else {
+      // close
+      document.getElementById('chatLLM').classList.add('hidden');
+      document.getElementById('chatLLM_modal_backdrop').classList.add('hidden');
+      this.whereWasMyFocus.focus();
+      this.whereWasMyFocus = null;
+    }
+  }
+
+  /**
+   * Converts the active chart to a jpg image.
+   * @id {string} - The html ID of the chart to convert.
+   */
+  async ConvertSVGtoJPG(id) {
+    let svgElement = document.getElementById(id);
+    return new Promise((resolve, reject) => {
+      // Create a canvas
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+
+      // Get dimensions from the SVG element
+      var svgRect = svgElement.getBoundingClientRect();
+      canvas.width = svgRect.width;
+      canvas.height = svgRect.height;
+
+      // Create an image to draw the SVG
+      var img = new Image();
+
+      // Convert SVG element to a data URL
+      var svgData = new XMLSerializer().serializeToString(svgElement);
+      var svgBlob = new Blob([svgData], {
+        type: 'image/svg+xml;charset=utf-8',
+      });
+      var url = URL.createObjectURL(svgBlob);
+
+      img.onload = function () {
+        // Draw the SVG on the canvas
+        ctx.drawImage(img, 0, 0, svgRect.width, svgRect.height);
+
+        // Convert the canvas to JPEG
+        var jpegData = canvas.toDataURL('image/jpeg');
+
+        // Resolve the promise with the Base64 JPEG data
+        resolve(jpegData);
+
+        // Clean up
+        URL.revokeObjectURL(url);
+      };
+
+      img.onerror = function () {
+        reject(new Error('Error loading SVG'));
+      };
+
+      img.src = url;
+    });
+  }
+
+  downloadJPEG(base64Data, filename) {
+    // Create a link element
+    var link = document.createElement('a');
+
+    // Set the download attribute with a filename
+    link.download = filename;
+
+    // Convert Base64 data to a data URL and set it as the href
+    link.href = base64Data;
+
+    // Append the link to the body (required for Firefox)
+    document.body.appendChild(link);
+
+    // Trigger the download
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
+  }
+
+  async RunDefaultPrompt() {
+    //let img = await this.ConvertSVGtoImg(singleMaidr.id);
+    let img = await this.ConvertSVGtoJPG(singleMaidr.id);
+    //this.downloadJPEG(img, 'test.jpg'); // test download
+    let text = 'Describe this chart';
+    chatLLM.Submit(text, img);
+  }
+}
 /**
  * Creates an html modal containing summary info of the active chart. Title, subtitle, data table, etc.
  * @class

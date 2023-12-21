@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the ability to switch from assertive (default) to polite aria modes, in the help menu. [#230](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/230).
-- Added lineplot, stacked bar, dodged bar, and normalized dodge bar info to the README.
+- Added the ability to switch from assertive (default) to polite aria modes, in the help menu. [#230](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/230)
+- Added lineplot, stacked bar, dodged bar, and normalized dodge bar info to the README, #303
+- Added ChatGPT query system. Hit ? from the main chart to toggle on. #312 and #311
 
 ### Fixed
 
