@@ -75,6 +75,7 @@ class Constants {
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
   hasChatLLM = true;
+  LLMDebugMode = true;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -642,10 +643,13 @@ class Menu {
 class ChatLLM {
   constructor() {
     this.CreateComponent();
+    this.SetEvents();
+    this.firstTime = true;
   }
 
   /**
    * Creates a modal component containing basic text input
+   * Sets events to toggle on and off chat window
    */
   CreateComponent() {
     let html = `
@@ -675,7 +679,12 @@ class ChatLLM {
         <div id="chatLLM_modal_backdrop" class="modal-backdrop hidden"></div>
     `;
     document.querySelector('body').insertAdjacentHTML('beforeend', html);
+  }
 
+  /**
+   * Sets events to toggle on and off chat window
+   */
+  SetEvents() {
     // chatLLM close events
     let allClose = document.querySelectorAll('#close_chatLLM, #chatLLM .close');
     for (let i = 0; i < allClose.length; i++) {
@@ -726,47 +735,152 @@ class ChatLLM {
    * @function
    * @name Submit
    * @memberof module:constants
+   * @text {string} - The text to send to the LLM.
+   * @img {string} - The image to send to the LLM in base64 string format. Defaults to null (no image).
    * @returns {void}
    */
-  Submit(text) {
+  Submit(text, img = null) {
     // send text to LLM
-    let url = 'https://my.end.point';
+    let url = 'https://api.openai.com/v1/chat/completions';
+    //let url = 'temp';
 
-    let requestJson = {};
-    requestJson.Authorization = 'Bearer ' + constants.authKey;
-    requestJson.model = 'gpt-3.5-turbo-1106';
-    requestJson.created = new Date().toISOString();
-    requestJson.object = 'chat.completion';
-    requestJson.usage = {};
-    requestJson.usage.prompt_tokens = 13;
-    requestJson.usage.completion_tokens = 5;
-    requestJson.usage.total_tokens = 18;
-    requestJson.choices = [];
-    requestJson.choices[0] = {};
-    requestJson.choices[0].message = {};
-    requestJson.choices[0].message.role = 'assistant';
-    requestJson.choices[0].message.content = text;
-    requestJson.choices[0].finish_reason = 'stop';
-    requestJson.choices[0].index = 0;
+    let requestJson = this.GetLLMJRequestJson(text, img);
+    console.log(requestJson);
 
     let xhr = new XMLHttpRequest();
 
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestJson),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        let responseText = data.choices[0].text; // todo: handle response properly, this is a placeholder
-        chatLLM.DisplayChatMessage('LLM', responseText);
+    if (constants.LLMDebugMode) {
+      chatLLM.ProcessLLMResponse(this.fakeLLMResponseData());
+    } else {
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + constants.authKey,
+        },
+        body: JSON.stringify(requestJson),
       })
-      .catch((error) => {
-        console.error('Error:', error);
-        // also todo: handle errors somehow
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          chatLLM.ProcessLLMResponse(data);
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+          // also todo: handle errors somehow
+        });
+    }
+  }
+
+  /**
+   * Processes the response from the LLM and displays it to the user.
+   * @function
+   * @returns {void}
+   */
+  ProcessLLMResponse(data) {
+    let text = data.choices[0].message.content;
+    chatLLM.DisplayChatMessage('LLM', text);
+  }
+
+  /**
+   * Fakes an LLM response for testing purposes. Returns a JSON object formatted like the LLM response.
+   * @function
+   * @returns {json}
+   */
+  fakeLLMResponseData() {
+    let responseText = {};
+    if (this.requestJson.messages.length > 2) {
+      // subsequent responses
+      responseText = {
+        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
+        object: 'chat.completion',
+        created: 1703129508,
+        model: 'gpt-4-1106-vision-preview',
+        usage: {
+          prompt_tokens: 451,
+          completion_tokens: 16,
+          total_tokens: 467,
+        },
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'Another fake response from the LLM.',
+            },
+            finish_reason: 'length',
+            index: 0,
+          },
+        ],
+      };
+    } else {
+      // first response
+      responseText = {
+        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
+        object: 'chat.completion',
+        created: 1703129508,
+        model: 'gpt-4-1106-vision-preview',
+        usage: {
+          prompt_tokens: 451,
+          completion_tokens: 16,
+          total_tokens: 467,
+        },
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content:
+                'The chart you\'re referring to is a bar graph titled "The Number of Diamonds',
+            },
+            finish_reason: 'length',
+            index: 0,
+          },
+        ],
+      };
+    }
+
+    return responseText;
+  }
+
+  /**
+   * Gets running prompt info, appends the latest request, and packages it into a JSON object for the LLM.
+   * @function
+   * @name GetLLMJRequestJson
+   * @memberof module:constants
+   * @returns {json}
+   */
+  GetLLMJRequestJson(text, img) {
+    if (!this.requestJson) {
+      this.requestJson = {};
+      this.requestJson.model = 'gpt-4-vision-preview';
+      this.max_tokens = 20; // todo, change to like 200
+      this.detail = 'low'; // todo, for testing low only costs 85 tokens. remove or change to high, or user config? high can be like 1000 tokens
+      this.requestJson.messages = [];
+      this.requestJson.messages[0] = {};
+      this.requestJson.messages[0].role = 'system';
+      this.requestJson.messages[0].content =
+        'You are a helpful assistant describing the chart to a blind user';
+    }
+
+    let i = this.requestJson.messages.length;
+    this.requestJson.messages[i] = {};
+    this.requestJson.messages[i].role = 'user';
+    if (img) {
+      let image_url = img;
+      this.requestJson.messages[i].content = [
+        {
+          type: 'text',
+          text: text,
+        },
+        {
+          type: 'image_url',
+          image_url: { url: image_url },
+        },
+      ];
+    } else {
+      // just the text
+      this.requestJson.messages[i].content = text;
+    }
+
+    return this.requestJson;
   }
 
   /**
@@ -831,8 +945,12 @@ class ChatLLM {
         .getElementById('chatLLM_modal_backdrop')
         .classList.remove('hidden');
       document.querySelector('#chatLLM .close').focus();
-      let img64 = this.ConvertSVGtoImg();
-      // todo: take return from ConvertSVGtoImg and attach to request
+
+      // first time, send default query
+      if (this.firstTime) {
+        this.firstTime = false;
+        this.RunDefaultPrompt();
+      }
     } else {
       // close
       document.getElementById('chatLLM').classList.add('hidden');
@@ -841,74 +959,81 @@ class ChatLLM {
       this.whereWasMyFocus = null;
     }
   }
-  blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob); // Converts the blob to base64 and calls onload when done
-      reader.onload = () => resolve(reader.result); // Resolve the promise with the base64 string
-      reader.onerror = (error) => reject(error); // Reject the promise in case of an error
-    });
-  }
 
   /**
    * Converts the active chart to a jpg image.
+   * @id {string} - The html ID of the chart to convert.
    */
-  ConvertSVGtoImg() {
-    let svgNode = document.getElementById(singleMaidr.id);
-    let svgString = new XMLSerializer().serializeToString(svgNode);
-    let svgBlob = new Blob([svgString], {
-      type: 'image/svg+xml;charset=utf-8',
+  async ConvertSVGtoJPG(id) {
+    let svgElement = document.getElementById(id);
+    return new Promise((resolve, reject) => {
+      // Create a canvas
+      var canvas = document.createElement('canvas');
+      var ctx = canvas.getContext('2d');
+
+      // Get dimensions from the SVG element
+      var svgRect = svgElement.getBoundingClientRect();
+      canvas.width = svgRect.width;
+      canvas.height = svgRect.height;
+
+      // Create an image to draw the SVG
+      var img = new Image();
+
+      // Convert SVG element to a data URL
+      var svgData = new XMLSerializer().serializeToString(svgElement);
+      var svgBlob = new Blob([svgData], {
+        type: 'image/svg+xml;charset=utf-8',
+      });
+      var url = URL.createObjectURL(svgBlob);
+
+      img.onload = function () {
+        // Draw the SVG on the canvas
+        ctx.drawImage(img, 0, 0, svgRect.width, svgRect.height);
+
+        // Convert the canvas to JPEG
+        var jpegData = canvas.toDataURL('image/jpeg');
+
+        // Resolve the promise with the Base64 JPEG data
+        resolve(jpegData);
+
+        // Clean up
+        URL.revokeObjectURL(url);
+      };
+
+      img.onerror = function () {
+        reject(new Error('Error loading SVG'));
+      };
+
+      img.src = url;
     });
-
-    // todo: return this blog to be attached to the request
-    // however, to test, do the below
-    let returnBlob = false;
-    if (returnBlob) {
-      return this.blobToBase64(svgBlob);
-    } else {
-      chatLLM.TestDownloadSVG(svgNode, svgBlob);
-    }
   }
 
-  TestDownloadSVG(svgNode, svgBlob) {
-    const DOMURL = window.URL || window.webkitURL || window;
-    const url = DOMURL.createObjectURL(svgBlob);
+  downloadJPEG(base64Data, filename) {
+    // Create a link element
+    var link = document.createElement('a');
 
-    const image = new Image();
-    image.width = svgNode.width.baseVal.value;
-    image.height = svgNode.height.baseVal.value;
-    image.src = url;
-    image.onload = function () {
-      let canvas = document.createElement('canvas');
-      canvas.width = image.width;
-      canvas.height = image.height;
+    // Set the download attribute with a filename
+    link.download = filename;
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(image, 0, 0);
-      DOMURL.revokeObjectURL(url);
+    // Convert Base64 data to a data URL and set it as the href
+    link.href = base64Data;
 
-      const imgURI = canvas
-        .toDataURL('image/png')
-        .replace('image/png', 'image/octet-stream');
-      chatLLM.TestTriggerDownload(imgURI);
-    };
+    // Append the link to the body (required for Firefox)
+    document.body.appendChild(link);
+
+    // Trigger the download
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
   }
-  TestTriggerDownload(imgURI) {
-    const a = document.createElement('a');
-    a.download = 'MY_COOL_IMAGE.png'; // filename
-    a.target = '_blank';
-    a.href = imgURI;
 
-    // trigger download button
-    // (set `bubbles` to false here.
-    // or just `a.click()` if you don't care about bubbling)
-    a.dispatchEvent(
-      new MouseEvent('click', {
-        view: window,
-        bubbles: false,
-        cancelable: true,
-      })
-    );
+  async RunDefaultPrompt() {
+    //let img = await this.ConvertSVGtoImg(singleMaidr.id);
+    let img = await this.ConvertSVGtoJPG(singleMaidr.id);
+    //this.downloadJPEG(img, 'test.jpg'); // test download
+    let text = 'Describe this chart';
+    chatLLM.Submit(text, img);
   }
 }
 /**
