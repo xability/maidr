@@ -34,13 +34,13 @@ class Segmented {
     if ('data' in singleMaidr) {
       data = singleMaidr.data;
     }
-    if ('elements' in singleMaidr) {
-      elements = singleMaidr.elements;
+    if ('selector' in singleMaidr) {
+      elements = document.querySelectorAll(singleMaidr.selector);
     }
 
     // gracefull failure: must have level + fill + data, elements optional
     if (elements == null) {
-      LogError.LogAbsentElement('elements');
+      logError.LogAbsentElement('elements');
       constants.hasRect = 0;
     }
     if (level != null && fill != null && data != null) {

@@ -23,21 +23,21 @@ class BarChart {
       data = singleMaidr.data;
     }
     let elements = null;
-    if ('elements' in singleMaidr) {
-      elements = singleMaidr.elements;
+    if ('selector' in singleMaidr) {
+      elements = document.querySelectorAll(singleMaidr.selector);
     }
 
     if (xlevel && data && elements) {
       if (elements.length != data.length) {
         // I didn't throw an error but give a warning
         constants.hasRect = 0;
-        logError.logDifferentLengths('elements', 'data');
+        logError.LogDifferentLengths('elements', 'data');
       } else if (xlevel.length != elements.length) {
         constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'elements');
+        logError.LogDifferentLengths('x level', 'elements');
       } else if (data.length != xlevel.length) {
         constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'data');
+        logError.LogDifferentLengths('x level', 'data');
       } else {
         this.bars = elements;
         constants.hasRect = 1;
@@ -45,7 +45,7 @@ class BarChart {
     } else if (data && elements) {
       if (data.length != elements.length) {
         constants.hasRect = 0;
-        logError.logDifferentLengths('data', 'elements');
+        logError.LogDifferentLengths('data', 'elements');
       } else {
         this.bars = elements;
         constants.hasRect = 1;
@@ -53,7 +53,7 @@ class BarChart {
     } else if (xlevel && data) {
       if (xlevel.length != data.length) {
         constants.hasRect = 0;
-        logError.logDifferentLengths('x level', 'data');
+        logError.LogDifferentLengths('x level', 'data');
       }
       logError.LogAbsentElement('elements');
     } else if (data) {

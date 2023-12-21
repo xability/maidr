@@ -137,9 +137,11 @@ class ScatterPlot {
     // initially set as smooth layer (layer 2), if possible
     let elIndex = this.GetElementIndex('point');
     if (elIndex != -1) {
-      this.plotPoints = singleMaidr.elements[elIndex];
+      this.plotPoints = document.querySelectorAll(
+        singleMaidr.selector[elIndex]
+      );
     } else if (singleMaidr.type == 'point') {
-      this.plotPoints = singleMaidr.elements;
+      this.plotPoints = document.querySelectorAll(singleMaidr.selector);
     }
     if (typeof this.plotPoints !== 'undefined') {
       let svgPointCoords = this.GetSvgPointCoords();
@@ -164,9 +166,11 @@ class ScatterPlot {
     // layer = 2, smooth layer (from singleMaidr types)
     let elIndex = this.GetElementIndex('smooth');
     if (elIndex != -1) {
-      this.plotLine = singleMaidr.elements[elIndex];
+      this.plotLine = document.querySelectorAll(
+        singleMaidr.selector[elIndex]
+      )[0];
     } else if (singleMaidr.type == 'smooth') {
-      this.plotLine = singleMaidr.elements;
+      this.plotLine = document.querySelectorAll(singleMaidr.selector);
     }
     if (typeof this.plotLine !== 'undefined') {
       let svgLineCoords = this.GetSvgLineCoords();
@@ -264,7 +268,6 @@ class ScatterPlot {
     // but first, are we even in an svg that can be scaled?
     let isSvg = false;
     let element = this.plotPoints[0]; // a random start, may as well be the first
-    console.log(element);
     while (element) {
       if (element.tagName.toLowerCase() == 'body') {
         break;
@@ -307,16 +310,17 @@ class ScatterPlot {
    * @returns {string} The prefix.
    */
   GetPrefix() {
-    let elIndex = this.GetElementIndex('point');
+    let pointIndex = this.GetElementIndex('point');
+
     let element;
-    if (elIndex != -1) {
-      element = singleMaidr.elements[elIndex][0];
+    if (pointIndex != -1) {
+      element = document.querySelectorAll(singleMaidr.selector[pointIndex])[0];
     } else if (singleMaidr.type == 'point') {
-      element = singleMaidr.elements[0];
+      element = document.querySelectorAll(singleMaidr.selector)[0];
     }
     let prefix = '';
     if (
-      'elements' in singleMaidr &&
+      'selector' in singleMaidr &&
       element.tagName.toLowerCase() === 'circle'
     ) {
       prefix = 'c';

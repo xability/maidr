@@ -573,6 +573,11 @@ class Audio {
    * @returns {number} The new value between min and max.
    */
   SlideBetween(val, a, b, min, max) {
+    val = Number(val);
+    a = Number(a);
+    b = Number(b);
+    min = Number(min);
+    max = Number(max);
     let newVal = ((val - a) / (b - a)) * (max - min) + min;
     if (a == 0 && b == 0) {
       newVal = 0;
