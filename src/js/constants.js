@@ -74,8 +74,13 @@ class Constants {
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
+
+  // LLM settings
   hasChatLLM = true;
-  LLMDebugMode = true;
+  LLMDebugMode = true; // true = use fake data, false = use real data
+  authKey = null; // OpenAI authentication key, set in menu
+  LLMmaxResponseTokens = 20; // max tokens to send to LLM, 20 for testing, 200 ish for real
+  LLMDetail = 'low'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -728,6 +733,17 @@ class ChatLLM {
         chatLLM.Submit(text);
       },
     ]);
+    constants.events.push([
+      document.getElementById('chatLLM_input'),
+      'keydown',
+      function (e) {
+        if (e.key == 'Enter' && !e.shiftKey) {
+          let text = document.getElementById('chatLLM_input').value;
+          chatLLM.DisplayChatMessage('User', text);
+          chatLLM.Submit(text);
+        }
+      },
+    ]);
   }
 
   /**
@@ -804,7 +820,7 @@ class ChatLLM {
           {
             message: {
               role: 'assistant',
-              content: 'Another fake response from the LLM.',
+              content: 'A fake response from the LLM. Nice.',
             },
             finish_reason: 'length',
             index: 0,
@@ -851,8 +867,8 @@ class ChatLLM {
     if (!this.requestJson) {
       this.requestJson = {};
       this.requestJson.model = 'gpt-4-vision-preview';
-      this.max_tokens = 20; // todo, change to like 200
-      this.detail = 'low'; // todo, for testing low only costs 85 tokens. remove or change to high, or user config? high can be like 1000 tokens
+      this.max_tokens = constants.LLMmaxResponseTokens;
+      this.detail = constants.LLMDetail;
       this.requestJson.messages = [];
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
@@ -903,6 +919,10 @@ class ChatLLM {
       .getElementById('chatLLM_chat_history')
       .insertAdjacentHTML('beforeend', html);
     document.getElementById('chatLLM_input').value = '';
+
+    // scroll to bottom
+    document.getElementById('chatLLM_chat_history').scrollTop =
+      document.getElementById('chatLLM_chat_history').scrollHeight;
   }
 
   /**
@@ -949,6 +969,7 @@ class ChatLLM {
       // first time, send default query
       if (this.firstTime) {
         this.firstTime = false;
+        this.DisplayChatMessage('LLM', 'Processing Chart...');
         this.RunDefaultPrompt();
       }
     } else {
