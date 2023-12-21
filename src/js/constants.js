@@ -77,10 +77,10 @@ class Constants {
 
   // LLM settings
   hasChatLLM = true;
-  LLMDebugMode = true; // true = use fake data, false = use real data
+  LLMDebugMode = false; // true = use fake data, false = use real data
   authKey = null; // OpenAI authentication key, set in menu
-  LLMmaxResponseTokens = 20; // max tokens to send to LLM, 20 for testing, 200 ish for real
-  LLMDetail = 'low'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
+  LLMmaxResponseTokens = 200; // max tokens to send to LLM, 20 for testing, 200 ish for real
+  LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
