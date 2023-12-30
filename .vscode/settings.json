@@ -26,5 +26,6 @@
     "editor.formatOnType": true,
     "editor.formatOnSave": true
   },
-  "cmake.configureOnOpen": false
+  "cmake.configureOnOpen": false,
+  "githubPullRequests.pullRequestDescription": "Copilot"
 }
