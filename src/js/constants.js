@@ -77,7 +77,7 @@ class Constants {
 
   // LLM settings
   hasChatLLM = true;
-  LLMDebugMode = false; // true = use fake data, false = use real data
+  LLMDebugMode = true; // true = use fake data, false = use real data
   authKey = null; // OpenAI authentication key, set in menu
   LLMmaxResponseTokens = 200; // max tokens to send to LLM, 20 for testing, 200 ish for real
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
@@ -717,7 +717,7 @@ class ChatLLM {
       document,
       'keyup',
       function (e) {
-        if (e.key == '?' || e.key == '/') {
+        if (e.key == '?') {
           chatLLM.Toggle(true);
         }
       },
@@ -793,6 +793,7 @@ class ChatLLM {
    * @returns {void}
    */
   ProcessLLMResponse(data) {
+    console.log('LLM response: ' + data);
     let text = data.choices[0].message.content;
     chatLLM.DisplayChatMessage('LLM', text);
   }
@@ -867,8 +868,8 @@ class ChatLLM {
     if (!this.requestJson) {
       this.requestJson = {};
       this.requestJson.model = 'gpt-4-vision-preview';
-      this.max_tokens = constants.LLMmaxResponseTokens;
-      this.detail = constants.LLMDetail;
+      //this.requestJson.max_tokens = constants.LLMmaxResponseTokens;
+      //this.requestJson.detail = constants.LLMDetail;
       this.requestJson.messages = [];
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
