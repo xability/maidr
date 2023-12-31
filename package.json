@@ -9,7 +9,8 @@
     "test": "jest",
     "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write .",
-    "docs": "jsdoc -c jsdoc.json"
+    "docs": "jsdoc -c jsdoc.json",
+    "commitlint": "commitlint"
   },
   "files": [
     "dist/*"
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",
     "@commitlint/config-conventional": "^18.4.3",
+    "commitlint": "18.4.3",
     "eslint": "^8.43.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^4.2.1",
