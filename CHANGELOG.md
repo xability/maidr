@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the ability to switch from assertive (default) to polite aria modes, in the help menu (#309).
 - Added OpenAI GPT4-vision query system. Hit ? from the main chart to toggle on. (#317))
+- Added suggestions system for users to be able to more easily click
 
 ### Fixed
 
