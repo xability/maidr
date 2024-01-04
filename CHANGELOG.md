@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - LLM popup now only triggered by ?, not /
+- LLM truncating responses, #322
 
 ### Changed
 
