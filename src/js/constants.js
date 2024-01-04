@@ -77,9 +77,9 @@ class Constants {
 
   // LLM settings
   hasChatLLM = true;
-  LLMDebugMode = true; // true = use fake data, false = use real data
+  LLMDebugMode = 0; // 0 = use real data, 1 = all fake, 2 = real data but no image
   authKey = null; // OpenAI authentication key, set in menu
-  LLMmaxResponseTokens = 200; // max tokens to send to LLM, 20 for testing, 200 ish for real
+  LLMmaxResponseTokens = 1000; // max tokens to send to LLM, 20 for testing, 1000 ish for real
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
 
   // user controls (not exposed to menu, with shortcuts usually)
@@ -765,7 +765,7 @@ class ChatLLM {
 
     let xhr = new XMLHttpRequest();
 
-    if (constants.LLMDebugMode) {
+    if (constants.LLMDebugMode == 1) {
       chatLLM.ProcessLLMResponse(this.fakeLLMResponseData());
     } else {
       fetch(url, {
@@ -793,7 +793,7 @@ class ChatLLM {
    * @returns {void}
    */
   ProcessLLMResponse(data) {
-    console.log('LLM response: ' + data);
+    console.log('LLM response: ', data);
     let text = data.choices[0].message.content;
     chatLLM.DisplayChatMessage('LLM', text);
   }
@@ -868,19 +868,23 @@ class ChatLLM {
     if (!this.requestJson) {
       this.requestJson = {};
       this.requestJson.model = 'gpt-4-vision-preview';
-      //this.requestJson.max_tokens = constants.LLMmaxResponseTokens;
-      //this.requestJson.detail = constants.LLMDetail;
+      this.requestJson.max_tokens = constants.LLMmaxResponseTokens; // note: if this is too short (tested with less than 200), the response gets cut off
+      this.requestJson.detail = constants.LLMDetail;
       this.requestJson.messages = [];
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
       this.requestJson.messages[0].content =
-        'You are a helpful assistant describing the chart to a blind user';
+        'You are a helpful assistant describing the chart to a blind person';
     }
 
     let i = this.requestJson.messages.length;
     this.requestJson.messages[i] = {};
     this.requestJson.messages[i].role = 'user';
-    if (img) {
+    if (constants.LLMDebugMode == 2) {
+      // test message only, no image
+      this.requestJson.messages[i].content =
+        'Describe bar charts to a blind person';
+    } else if (img) {
       let image_url = img;
       this.requestJson.messages[i].content = [
         {
