@@ -27,5 +27,65 @@
     "editor.formatOnSave": true
   },
   "cmake.configureOnOpen": false,
-  "githubPullRequests.pullRequestDescription": "Copilot"
+  "githubPullRequests.pullRequestDescription": "Copilot",
+  "githubPullRequests.createOnPublishBranch": "ask",
+  "githubPullRequests.pullBranch": "always",
+  "githubPullRequests.pushBranch": "always",
+  "githubPullRequests.notifications": "pullRequests",
+  "githubPullRequests.queries": [
+    {
+      "label": "Waiting For My Review",
+      "query": "is:open review-requested:${user}"
+    },
+    {
+      "label": "Assigned To Me",
+      "query": "is:open assignee:${user}"
+    },
+    {
+      "label": "Created By Me",
+      "query": "is:open author:${user}"
+    },
+    {
+      "label": "Mentioned Me",
+      "query": "is:open mentions:${user}"
+    }
+  ],
+  "githubIssues.queries": [
+    {
+      "label": "My Issues",
+      "query": "default"
+    },
+    {
+      "label": "Created Issues",
+      "query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
+    },
+    {
+      "label": "Recent Issues",
+      "query": "state:open repo:${owner}/${repository} sort:updated-desc"
+    },
+    {
+      "label": "Mentioned Me",
+      "query": "state:open mentions:${user} repo:${owner}/${repository} sort:created-desc"
+    }
+  ],
+
+  "git.supportCancellation": true,
+  "git.openRepositoryInParentFolders": "always",
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  "git.smartCommitChanges": "all",
+  "git.postCommitCommand": "sync",
+  "git.showPushSuccessNotification": true,
+  "conventionalCommits.autoCommit": true,
+  "conventionalCommits.showEditor": true,
+  "conventionalCommits.scopes": [
+    "vscode",
+    "braille",
+    "text",
+    "sonification",
+    "llm",
+    "ui",
+    "api"
+  ]
 }

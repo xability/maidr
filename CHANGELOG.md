@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+
 - LLM popup now only triggered by ?, not /
 - LLM truncating responses, #322
 
@@ -24,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added instructions on how to take a screenshot in in GitHub bug report and pull request templates (#307).
 - Commented out the instructions on GitHub templates so that users can keep it while adding new content (#308).
 - Added lineplot, stacked bar, dodged bar, and normalized dodge bar info to the README (#310).
+- Added Code of Conduct file in the project.
+
 
 ## [1.0.4] - 2023-11-30
 

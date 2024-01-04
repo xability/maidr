@@ -18,8 +18,10 @@
     "mhutchie.git-graph",
     "eamodio.gitlens",
     "ms-edgedevtools.vscode-edge-devtools",
-    "codium.codium",
-    "ms-vscode.vscode-speech"
+    // "codium.codium",
+    "ms-vscode.vscode-speech",
+    "vivaxy.vscode-conventional-commits",
+    "joshbolduc.commitlint"
   ],
   "unwantedRecommendations": ["ms-vscode.js-debug"]
 }
