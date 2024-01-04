@@ -672,6 +672,11 @@ class ChatLLM {
                         </div>
                         <div id="chatLLM_content">
                           <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
+                          <p class="LLM_suggestions">
+                            <button type="button">What is the title?</button>
+                            <button type="button">What are the high and low values?</button>
+                            <button type="button">What is the general shape of the chart?</button>
+                          </p>
                           <p><button type="button" id="chatLLM_submit">Submit</button></p>
                         </div>
                     </div>
@@ -744,6 +749,22 @@ class ChatLLM {
         }
       },
     ]);
+
+    // ChatLLM suggestion events
+    let suggestions = document.querySelectorAll(
+      '#chatLLM .LLM_suggestions button'
+    );
+    for (let i = 0; i < suggestions.length; i++) {
+      constants.events.push([
+        suggestions[i],
+        'click',
+        function (e) {
+          let text = e.target.innerHTML;
+          chatLLM.DisplayChatMessage('User', text);
+          chatLLM.Submit(text);
+        },
+      ]);
+    }
   }
 
   /**
@@ -765,8 +786,16 @@ class ChatLLM {
 
     let xhr = new XMLHttpRequest();
 
+    // start waiting sound
+    if (constants.sonifMode != 'off') {
+      chatLLM.WaitingSound(true);
+    }
+
     if (constants.LLMDebugMode == 1) {
-      chatLLM.ProcessLLMResponse(this.fakeLLMResponseData());
+      // do the below with a 5 sec delay
+      setTimeout(function () {
+        chatLLM.ProcessLLMResponse(chatLLM.fakeLLMResponseData());
+      }, 5000);
     } else {
       fetch(url, {
         method: 'POST',
@@ -781,9 +810,48 @@ class ChatLLM {
           chatLLM.ProcessLLMResponse(data);
         })
         .catch((error) => {
+          chatLLM.WaitingSound(false);
           console.error('Error:', error);
           // also todo: handle errors somehow
         });
+    }
+  }
+
+  /*
+   * Sets a waiting sound to play while waiting for the LLM to respond.
+   * @function
+   * @name SetWaitingSound
+   * @memberof module:constants
+   * @onoff {boolean} - Whether to turn the waiting sound on or off. Defaults to true (on).
+   * @returns {void}
+   */
+  WaitingSound(onoff = true) {
+    // clear old intervals and timeouts
+    if (constants.waitingInterval) {
+      // destroy old waiting sound
+      clearInterval(constants.waitingInterval);
+      constants.waitingSound = null;
+    }
+    if (constants.waitingSoundOverride) {
+      clearTimeout(constants.waitingSoundOverride);
+      constants.waitingSoundOverride = null;
+    }
+
+    // assuming we're turning it on, start playing a new waiting sound
+    if (onoff) {
+      // create new waiting sound
+      let delay = 1000;
+      let freq = 440; // a440 babee
+      constants.waitingInterval = setInterval(function () {
+        if (audio) {
+          audio.playOscillator(freq, 0.2, 0);
+        }
+      }, delay);
+
+      // clear automatically after 30 sec, assuming no response
+      constants.waitingSoundOverride = setTimeout(function () {
+        chatLLM.WaitingSound(false);
+      }, 30000);
     }
   }
 
@@ -793,6 +861,7 @@ class ChatLLM {
    * @returns {void}
    */
   ProcessLLMResponse(data) {
+    chatLLM.WaitingSound(false);
     console.log('LLM response: ', data);
     let text = data.choices[0].message.content;
     chatLLM.DisplayChatMessage('LLM', text);
@@ -869,7 +938,7 @@ class ChatLLM {
       this.requestJson = {};
       this.requestJson.model = 'gpt-4-vision-preview';
       this.requestJson.max_tokens = constants.LLMmaxResponseTokens; // note: if this is too short (tested with less than 200), the response gets cut off
-      this.requestJson.detail = constants.LLMDetail;
+      //this.requestJson.detail = constants.LLMDetail;
       this.requestJson.messages = [];
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
