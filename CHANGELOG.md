@@ -5,20 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.5] - Unreleased
+## [1.0.5] - 2024-01-05
 
 ### Added
 
 - Added the ability to switch from assertive (default) to polite aria modes, in the help menu (#309).
-- Added OpenAI GPT4-vision query system. Hit ? from the main chart to toggle on. (#317))
-- Added suggestions system for users to be able to more easily click
-
-### Fixed
-
-- LLM popup now only triggered by ?, not /
-- LLM truncating responses, #322
-
-### Changed
+- Added OpenAI GPT4-vision query system. Hit ? from the main chart to toggle on (#317).
+- Added LLM suggestions system for users to be able to more easily click (#333).
 
 ### Chores
 
