@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: 'lts/*'
+          node-version: '21.4.0'
 
       - name: Install Dependencies
         if: steps.check-commits.outputs.skip_release != 'true'
