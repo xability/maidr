@@ -65,6 +65,19 @@
         "reveal": "always"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "yarn semantic-release",
+      "type": "shell",
+      "command": "yarn semantic-release",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
     }
   ]
 }
