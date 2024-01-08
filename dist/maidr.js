@@ -74,13 +74,14 @@ class Constants {
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
+  playLLMWaitingSound = true;
 
   // LLM settings
-  hasChatLLM = true;
   LLMDebugMode = 0; // 0 = use real data, 1 = all fake, 2 = real data but no image
   authKey = null; // OpenAI authentication key, set in menu
   LLMmaxResponseTokens = 1000; // max tokens to send to LLM, 20 for testing, 1000 ish for real
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
+  skillLevel = 'basic'; // basic / intermediate / expert
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -403,15 +404,20 @@ class Menu {
                                 constants.ariaMode == 'polite' ? 'checked' : ''
                               }><label for="aria_mode_polite">Polite</label></p>
                               </fieldset></div>
-                              ${
-                                constants.hasChatLLM
-                                  ? '<p><input type="text" id="chatLLM_auth_key"> <label for="chatLLM_auth_key">OpenAI Authentication Key</label></p>'
-                                  : ''
-                              }
+                            <h5 class="modal-title">LLM Settings</h5>
+                            <p><input type="password" id="chatLLM_auth_key"> <label for="chatLLM_auth_key">OpenAI Authentication Key</label></p>
+                            <p>
+                                <select id="skill_level">
+                                    <option value="basic">Basic</option>
+                                    <option value="intermediate">Intermediate</option>
+                                    <option value="expert">Expert</option>
+                                </select>
+                                <label for="skill_level">Level of skill in statistical charts</label>
+                            </p>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="save_and_close_menu">Save and close</button>
+                        <button type="button" id="save_and_close_menu">Save and Close</button>
                         <button type="button" id="close_menu">Close</button>
                     </div>
                 </div>
@@ -543,6 +549,7 @@ class Menu {
     if (typeof constants.authKey == 'string') {
       document.getElementById('chatLLM_auth_key').value = constants.authKey;
     }
+    document.getElementById('skill_level').value = constants.skillLevel;
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -570,6 +577,7 @@ class Menu {
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
     constants.authKey = document.getElementById('chatLLM_auth_key').value;
+    constants.skillLevel = document.getElementById('skill_level').value;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -616,6 +624,7 @@ class Menu {
     data.keypressInterval = constants.keypressInterval;
     data.ariaMode = constants.ariaMode;
     data.authKey = constants.authKey;
+    data.skillLevel = constants.skillLevel;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
@@ -634,6 +643,7 @@ class Menu {
       constants.keypressInterval = data.keypressInterval;
       constants.ariaMode = data.ariaMode;
       constants.authKey = data.authKey;
+      constants.skillLevel = data.skillLevel;
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -787,7 +797,7 @@ class ChatLLM {
     let xhr = new XMLHttpRequest();
 
     // start waiting sound
-    if (constants.sonifMode != 'off') {
+    if (constants.playLLMWaitingSound) {
       chatLLM.WaitingSound(true);
     }
 
@@ -1127,7 +1137,21 @@ class ChatLLM {
     //let img = await this.ConvertSVGtoImg(singleMaidr.id);
     let img = await this.ConvertSVGtoJPG(singleMaidr.id);
     //this.downloadJPEG(img, 'test.jpg'); // test download
-    let text = 'Describe this chart';
+    let text = 'Describe this chart to a blind person';
+    if (constants.skillLevel) {
+      text +=
+        ' who has a ' +
+        constants.skillLevel +
+        ' understanding of statistical charts. ';
+    } else {
+      text += ' who has a basic understanding of statistical charts. ';
+    }
+    text += 'Here is chart in png format';
+    if (singleMaidr) {
+      text += ' and raw data in json format: \n';
+      text += JSON.stringify(singleMaidr);
+    }
+
     chatLLM.Submit(text, img);
   }
 }
