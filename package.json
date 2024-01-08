@@ -30,6 +30,7 @@
     "@commitlint/cli": "^18.4.3",
     "@commitlint/config-conventional": "^18.4.3",
     "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "commitlint": "18.4.3",
     "eslint": "^8.43.0",
     "eslint-config-prettier": "^8.8.0",

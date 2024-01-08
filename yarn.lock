@@ -1127,6 +1127,20 @@
   resolved "https://registry.yarnpkg.com/@semantic-release/error/-/error-4.0.0.tgz#692810288239637f74396976a9340fbc0aa9f6f9"
   integrity sha512-mgdxrHTLOjOddRVYIYDo0fR3/v61GNN1YGkfbrjuIKg/uMgCd+Qzo3UAXJ+woLQQpos4pl5Esuw5A7AoNlzjUQ==
 
+"@semantic-release/git@^10.0.1":
+  version "10.0.1"
+  resolved "https://registry.yarnpkg.com/@semantic-release/git/-/git-10.0.1.tgz#c646e55d67fae623875bf3a06a634dd434904498"
+  integrity sha512-eWrx5KguUcU2wUPaO6sfvZI0wPafUKAMNC18aXY4EnNcrZL86dEmpNVnC9uMpGZkmZJ9EfCVJBQx4pV4EMGT1w==
+  dependencies:
+    "@semantic-release/error" "^3.0.0"
+    aggregate-error "^3.0.0"
+    debug "^4.0.0"
+    dir-glob "^3.0.0"
+    execa "^5.0.0"
+    lodash "^4.17.4"
+    micromatch "^4.0.0"
+    p-reduce "^2.0.0"
+
 "@semantic-release/github@^9.0.0":
   version "9.2.6"
   resolved "https://registry.yarnpkg.com/@semantic-release/github/-/github-9.2.6.tgz#0b0b00ab3ab0486cd3aecb4ae2f9f9cf2edd8eae"
@@ -2715,7 +2729,7 @@ diff@^5.1.0:
   resolved "https://registry.yarnpkg.com/diff/-/diff-5.1.0.tgz#bc52d298c5ea8df9194800224445ed43ffc87e40"
   integrity sha512-D+mk+qE8VC/PAUrlAU34N+VfXev0ghe5ywmpqrawphmVZc1bEfn56uo9qpyGp1p4xpzOHkSW4ztBd6L7Xx4ACw==
 
-dir-glob@^3.0.1:
+dir-glob@^3.0.0, dir-glob@^3.0.1:
   version "3.0.1"
   resolved "https://registry.yarnpkg.com/dir-glob/-/dir-glob-3.0.1.tgz#56dbf73d992a4a93ba1584f4534063fd2e41717f"
   integrity sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==
@@ -5637,7 +5651,7 @@ micromatch@^3.0.4, micromatch@^3.1.10, micromatch@^3.1.4:
     snapdragon "^0.8.1"
     to-regex "^3.0.2"
 
-micromatch@^4.0.2, micromatch@^4.0.4:
+micromatch@^4.0.0, micromatch@^4.0.2, micromatch@^4.0.4:
   version "4.0.5"
   resolved "https://registry.yarnpkg.com/micromatch/-/micromatch-4.0.5.tgz#bc8999a7cbbf77cdc89f132f6e467051b49090c6"
   integrity sha512-DMy+ERcEW2q8Z2Po+WNXuw3c5YaUSFjAO5GsJqfEl7UjvtIuFKO6ZrKvcItdy98dwFI2N1tg3zNIdKaQT+aNdA==
@@ -6338,6 +6352,11 @@ p-map@^7.0.1:
   version "7.0.1"
   resolved "https://registry.yarnpkg.com/p-map/-/p-map-7.0.1.tgz#1faf994e597160f7851882926bfccabc1d226f80"
   integrity sha512-2wnaR0XL/FDOj+TgpDuRb2KTjLnu3Fma6b1ZUwGY7LcqenMcvP/YFpjpbPKY6WVGsbuJZRuoUz8iPrt8ORnAFw==
+
+p-reduce@^2.0.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/p-reduce/-/p-reduce-2.1.0.tgz#09408da49507c6c274faa31f28df334bc712b64a"
+  integrity sha512-2USApvnsutq8uoxZBGbbWM0JIYLiEMJ9RlaN7fAzVNb9OZN0SHjjTTfIcb667XynS5Y1VhwDJVDa72TnPzAYWw==
 
 p-reduce@^3.0.0:
   version "3.0.0"
