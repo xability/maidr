@@ -10,7 +10,8 @@
     "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write .",
     "docs": "jsdoc -c jsdoc.json",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "semantic-release": "semantic-release"
   },
   "files": [
     "dist/*"
