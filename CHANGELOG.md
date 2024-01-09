@@ -1,31 +1,23 @@
 # [1.1.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.0.6...v1.1.0) (2024-01-09)
 
-
-### Bug Fixes
+## Bug Fixes
 
 * added json data to LLM first prompt ([#339](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/339)) ([176adc8](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/176adc8dfb2595a96b36a5ff0c4fe470c4773571)), closes [#334](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/334)
 * LLM waiting beep always plays ([#338](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/338)) ([ee5491c](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/ee5491c1288e228a83f40326011ae315521c3624)), closes [#337](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/337)
 
-
-### Features
+## Features
 
 * Integrated level of skill into initial LLM prompt, pulling from a user setting ([#340](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/340)) ([fc02b42](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/fc02b42390e35dcc33de61bae707c68959a8ca34))
 
-# Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.0.6] - 2024-01-05
+# [1.0.6] - 2024-01-05
 
 ### Internal Chores
 
 - Enforced Conventional Commits for commit messages (#327). This is a BREAKING CHANGE because any commit messages that do not follow the Conventional Commits format will not be accepted by the repository. Please see the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) website for more information.
 - Added new sections and examples of how to use the Conventional Commits format to the CONTRIBUTING file (#327).
 
-## [1.0.5] - 2024-01-05
+# [1.0.5] - 2024-01-05
 
 ### Added
 
@@ -40,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added lineplot, stacked bar, dodged bar, and normalized dodge bar info to the README (#310).
 - Added Code of Conduct file in the project.
 
-## [1.0.4] - 2023-11-30
+# [1.0.4] - 2023-11-30
 
 ### Added
 
@@ -60,6 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated documentation for all scripts.
 
-## [1.0.0] - 2023-11-01
+# [1.0.0] - 2023-11-01
 
 - Released in NPM.
