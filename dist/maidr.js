@@ -78,9 +78,13 @@ class Constants {
 
   // LLM settings
   LLMDebugMode = 0; // 0 = use real data, 1 = all fake, 2 = real data but no image
-  authKey = null; // OpenAI authentication key, set in menu
+  openAIAuthKey = null; // OpenAI authentication key, set in menu
+  geminiAuthKey = null; // Gemini authentication key, set in menu
   LLMmaxResponseTokens = 1000; // max tokens to send to LLM, 20 for testing, 1000 ish for real
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
+  LLMModel = 'openai'; // openai (default) / gemini
+  LLMSystemMessage =
+    'You are a helpful assistant describing the chart to a blind person';
   skillLevel = 'basic'; // basic / intermediate / expert
   skillLevelOther = ''; // custom skill level
 
@@ -406,7 +410,15 @@ class Menu {
                               }><label for="aria_mode_polite">Polite</label></p>
                               </fieldset></div>
                             <h5 class="modal-title">LLM Settings</h5>
-                            <p><input type="password" id="chatLLM_auth_key"> <label for="chatLLM_auth_key">OpenAI Authentication Key</label></p>
+                            <p>
+                                <select id="LLM_model">
+                                    <option value="openai">OpenAI Vision</option>
+                                    <option value="gemini">Gemini Pro Vision</option>
+                                </select>
+                                <label for="LLM_model">LLM Model</label>
+                            </p>
+                            <p id="openai_auth_key_container" class="hidden"><input type="password" id="openai_auth_key"> <label for="openai_auth_key">OpenAI Authentication Key</label></p>
+                            <p id="gemini_auth_key_container" class="hidden"><input type="password" id="gemini_auth_key"> <label for="gemini_auth_key">Gemini Authentication Key</label></p>
                             <p>
                                 <select id="skill_level">
                                     <option value="basic">Basic</option>
@@ -479,6 +491,29 @@ class Menu {
           return;
         } else if (e.key == 'h') {
           menu.Toggle(true);
+        }
+      },
+    ]);
+
+    // toggle auth key fields
+    constants.events.push([
+      document.getElementById('LLM_model'),
+      'change',
+      function (e) {
+        if (e.target.value == 'openai') {
+          document
+            .getElementById('openai_auth_key_container')
+            .classList.remove('hidden');
+          document
+            .getElementById('gemini_auth_key_container')
+            .classList.add('hidden');
+        } else if (e.target.value == 'gemini') {
+          document
+            .getElementById('openai_auth_key_container')
+            .classList.add('hidden');
+          document
+            .getElementById('gemini_auth_key_container')
+            .classList.remove('hidden');
         }
       },
     ]);
@@ -569,14 +604,21 @@ class Menu {
     document.getElementById('max_freq').value = constants.MAX_FREQUENCY;
     document.getElementById('keypress_interval').value =
       constants.keypressInterval;
-    if (typeof constants.authKey == 'string') {
-      document.getElementById('chatLLM_auth_key').value = constants.authKey;
+    if (typeof constants.openAIAuthKey == 'string') {
+      document.getElementById('openai_auth_key').value =
+        constants.openAIAuthKey;
+    }
+    if (typeof constants.geminiAuthKey == 'string') {
+      document.getElementById('gemini_auth_key').value =
+        constants.geminiAuthKey;
     }
     document.getElementById('skill_level').value = constants.skillLevel;
     if (constants.skillLevelOther) {
       document.getElementById('skill_level_other').value =
         constants.skillLevelOther;
     }
+    document.getElementById('LLM_model').value = constants.LLMModel;
+
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -585,6 +627,22 @@ class Menu {
     } else {
       document.getElementById('aria_mode_polite').checked = true;
       document.getElementById('aria_mode_assertive').checked = false;
+    }
+    // hide either openai or gemini auth key field
+    if (constants.LLMModel == 'openai') {
+      document
+        .getElementById('openai_auth_key_container')
+        .classList.remove('hidden');
+      document
+        .getElementById('gemini_auth_key_container')
+        .classList.add('hidden');
+    } else if (constants.LLMModel == 'gemini') {
+      document
+        .getElementById('openai_auth_key_container')
+        .classList.add('hidden');
+      document
+        .getElementById('gemini_auth_key_container')
+        .classList.remove('hidden');
     }
     // skill level other
     if (constants.skillLevel == 'other') {
@@ -609,10 +667,12 @@ class Menu {
     constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
-    constants.authKey = document.getElementById('chatLLM_auth_key').value;
+    constants.openAIAuthKey = document.getElementById('openai_auth_key').value;
+    constants.geminiAuthKey = document.getElementById('gemini_auth_key').value;
     constants.skillLevel = document.getElementById('skill_level').value;
     constants.skillLevelOther =
       document.getElementById('skill_level_other').value;
+    constants.LLMModel = document.getElementById('LLM_model').value;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -658,9 +718,11 @@ class Menu {
     data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
     data.keypressInterval = constants.keypressInterval;
     data.ariaMode = constants.ariaMode;
-    data.authKey = constants.authKey;
+    data.openAIAuthKey = constants.openAIAuthKey;
+    data.geminiAuthKey = constants.geminiAuthKey;
     data.skillLevel = constants.skillLevel;
     data.skillLevelOther = constants.skillLevelOther;
+    data.LLMModel = constants.LLMModel;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
@@ -678,9 +740,11 @@ class Menu {
       constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
       constants.keypressInterval = data.keypressInterval;
       constants.ariaMode = data.ariaMode;
-      constants.authKey = data.authKey;
+      constants.openAIAuthKey = data.openAIAuthKey;
+      constants.geminiAuthKey = data.geminiAuthKey;
       constants.skillLevel = data.skillLevel;
       constants.skillLevelOther = data.skillLevelOther;
+      constants.LLMModel = data.LLMModel ? data.LLMModel : constants.LLMModel;
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -824,15 +888,6 @@ class ChatLLM {
    * @returns {void}
    */
   Submit(text, img = null) {
-    // send text to LLM
-    let url = 'https://api.openai.com/v1/chat/completions';
-    //let url = 'temp';
-
-    let requestJson = this.GetLLMJRequestJson(text, img);
-    console.log(requestJson);
-
-    let xhr = new XMLHttpRequest();
-
     // start waiting sound
     if (constants.playLLMWaitingSound) {
       chatLLM.WaitingSound(true);
@@ -843,24 +898,11 @@ class ChatLLM {
       setTimeout(function () {
         chatLLM.ProcessLLMResponse(chatLLM.fakeLLMResponseData());
       }, 5000);
-    } else {
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + constants.authKey,
-        },
-        body: JSON.stringify(requestJson),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          chatLLM.ProcessLLMResponse(data);
-        })
-        .catch((error) => {
-          chatLLM.WaitingSound(false);
-          console.error('Error:', error);
-          // also todo: handle errors somehow
-        });
+      return;
+    } else if (constants.LLMModel == 'gemini') {
+      chatLLM.GeminiPrompt(text, img);
+    } else if (constants.LLMModel == 'openai') {
+      chatLLM.OpenAIPrompt(text, img);
     }
   }
 
@@ -910,8 +952,38 @@ class ChatLLM {
   ProcessLLMResponse(data) {
     chatLLM.WaitingSound(false);
     console.log('LLM response: ', data);
-    let text = data.choices[0].message.content;
-    chatLLM.DisplayChatMessage('LLM', text);
+    let text = '';
+    let LLMName = '';
+
+    if (constants.LLMModel == 'openai') {
+      LLMName = 'OpenAI';
+      text = data.choices[0].message.content;
+      let i = this.requestJson.messages.length;
+      this.requestJson.messages[i] = {};
+      this.requestJson.messages[i].role = 'assistant';
+      this.requestJson.messages[i].content = text;
+
+      if (data.error) {
+        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.');
+      } else {
+        chatLLM.DisplayChatMessage(LLMName, text);
+      }
+    } else if (constants.LLMModel == 'gemini') {
+      LLMName = 'Gemini';
+      if (data.text()) {
+        text = data.text();
+        chatLLM.DisplayChatMessage(LLMName, text);
+      } else {
+        if (!data.error) {
+          data.error = 'Error processing request.';
+        }
+      }
+      if (data.error) {
+        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.');
+      } else {
+        // todo: display actual response
+      }
+    }
   }
 
   /**
@@ -976,32 +1048,63 @@ class ChatLLM {
   /**
    * Gets running prompt info, appends the latest request, and packages it into a JSON object for the LLM.
    * @function
-   * @name GetLLMJRequestJson
+   * @name OpenAIPrompt
    * @memberof module:constants
    * @returns {json}
    */
-  GetLLMJRequestJson(text, img) {
+  OpenAIPrompt(text, img) {
+    // request init
+    let url = 'https://api.openai.com/v1/chat/completions';
+    let auth = constants.openAIAuthKey;
+    let requestJson = chatLLM.OpenAIJson(text, img);
+    console.log('LLM request: ', requestJson);
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + auth,
+      },
+      body: JSON.stringify(requestJson),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        chatLLM.ProcessLLMResponse(data);
+      })
+      .catch((error) => {
+        chatLLM.WaitingSound(false);
+        console.error('Error:', error);
+        chatLLM.DisplayChatMessage('LLM', 'Error processing request.');
+        // also todo: handle errors somehow
+      });
+  }
+  OpenAIJson(text, img) {
+    let sysMessage = constants.LLMSystemMessage;
+    let backupMessage =
+      'Describe ' + singleMaidr.type + ' charts to a blind person';
+    // headers and sys message
     if (!this.requestJson) {
       this.requestJson = {};
       this.requestJson.model = 'gpt-4-vision-preview';
       this.requestJson.max_tokens = constants.LLMmaxResponseTokens; // note: if this is too short (tested with less than 200), the response gets cut off
-      //this.requestJson.detail = constants.LLMDetail;
+
+      // sys message
       this.requestJson.messages = [];
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
-      this.requestJson.messages[0].content =
-        'You are a helpful assistant describing the chart to a blind person';
+      this.requestJson.messages[0].content = sysMessage;
     }
 
+    // user message
+    // if we have an image (first time only), send the image and the text, otherwise just the text
     let i = this.requestJson.messages.length;
     this.requestJson.messages[i] = {};
     this.requestJson.messages[i].role = 'user';
     if (constants.LLMDebugMode == 2) {
-      // test message only, no image
-      this.requestJson.messages[i].content =
-        'Describe bar charts to a blind person';
+      // backup message only, no image
+      this.requestJson.messages[i].content = backupMessage;
     } else if (img) {
-      let image_url = img;
+      // first message, include the img
       this.requestJson.messages[i].content = [
         {
           type: 'text',
@@ -1009,7 +1112,7 @@ class ChatLLM {
         },
         {
           type: 'image_url',
-          image_url: { url: image_url },
+          image_url: { url: img },
         },
       ];
     } else {
@@ -1018,6 +1121,47 @@ class ChatLLM {
     }
 
     return this.requestJson;
+  }
+
+  // Assuming this function is part of your existing JavaScript file
+  async GeminiPrompt(text, imgBase64 = null) {
+    try {
+      // Save the image for next time
+      if (imgBase64 == null) {
+        imgBase64 = constants.LLMImage;
+      } else {
+        constants.LLMImage = imgBase64;
+      }
+      constants.LLMImage = imgBase64;
+
+      // Import the module
+      const { GoogleGenerativeAI } = await import(
+        'https://esm.run/@google/generative-ai'
+      );
+      const API_KEY = constants.geminiAuthKey;
+      const genAI = new GoogleGenerativeAI(API_KEY);
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+
+      // Create the prompt
+      const prompt = constants.LLMSystemMessage + '\n\n' + text; // Use the text parameter as the prompt
+      const image = {
+        inlineData: {
+          data: imgBase64, // Use the base64 image string
+          mimeType: 'image/png', // Or the appropriate mime type of your image
+        },
+      };
+
+      // Generate the content
+      console.log('LLM request: ', prompt, image);
+      const result = await model.generateContent([prompt, image]);
+      console.log(result.response.text());
+
+      // Process the response
+      chatLLM.ProcessLLMResponse(result.response);
+    } catch (error) {
+      console.error('Error in GeminiPrompt:', error);
+      throw error; // Rethrow the error for further handling if necessary
+    }
   }
 
   /**
@@ -1089,8 +1233,9 @@ class ChatLLM {
 
       // first time, send default query
       if (this.firstTime) {
+        let LLMName = constants.LLMModel == 'openai' ? 'OpenAI' : 'Gemini';
         this.firstTime = false;
-        this.DisplayChatMessage('LLM', 'Processing Chart...');
+        this.DisplayChatMessage(LLMName, 'Processing Chart...');
         this.RunDefaultPrompt();
       }
     } else {
@@ -1109,36 +1254,30 @@ class ChatLLM {
   async ConvertSVGtoJPG(id) {
     let svgElement = document.getElementById(id);
     return new Promise((resolve, reject) => {
-      // Create a canvas
       var canvas = document.createElement('canvas');
       var ctx = canvas.getContext('2d');
 
-      // Get dimensions from the SVG element
-      var svgRect = svgElement.getBoundingClientRect();
-      canvas.width = svgRect.width;
-      canvas.height = svgRect.height;
-
-      // Create an image to draw the SVG
-      var img = new Image();
-
-      // Convert SVG element to a data URL
       var svgData = new XMLSerializer().serializeToString(svgElement);
-      var svgBlob = new Blob([svgData], {
-        type: 'image/svg+xml;charset=utf-8',
-      });
-      var url = URL.createObjectURL(svgBlob);
+      if (!svgData.startsWith('<svg xmlns')) {
+        svgData = `<svg xmlns="http://www.w3.org/2000/svg" ${svgData.slice(4)}`;
+      }
 
+      var svgSize =
+        svgElement.viewBox.baseVal || svgElement.getBoundingClientRect();
+      canvas.width = svgSize.width;
+      canvas.height = svgSize.height;
+
+      var img = new Image();
       img.onload = function () {
-        // Draw the SVG on the canvas
-        ctx.drawImage(img, 0, 0, svgRect.width, svgRect.height);
-
-        // Convert the canvas to JPEG
-        var jpegData = canvas.toDataURL('image/jpeg');
-
-        // Resolve the promise with the Base64 JPEG data
-        resolve(jpegData);
-
-        // Clean up
+        ctx.drawImage(img, 0, 0, svgSize.width, svgSize.height);
+        var jpegData = canvas.toDataURL('image/jpeg', 0.9); // 0.9 is the quality parameter
+        if (constants.LLMModel == 'openai') {
+          resolve(jpegData);
+        } else if (constants.LLMModel == 'gemini') {
+          let base64Data = jpegData.split(',')[1];
+          resolve(base64Data);
+          //resolve(jpegData);
+        }
         URL.revokeObjectURL(url);
       };
 
@@ -1146,28 +1285,12 @@ class ChatLLM {
         reject(new Error('Error loading SVG'));
       };
 
+      var svgBlob = new Blob([svgData], {
+        type: 'image/svg+xml;charset=utf-8',
+      });
+      var url = URL.createObjectURL(svgBlob);
       img.src = url;
     });
-  }
-
-  downloadJPEG(base64Data, filename) {
-    // Create a link element
-    var link = document.createElement('a');
-
-    // Set the download attribute with a filename
-    link.download = filename;
-
-    // Convert Base64 data to a data URL and set it as the href
-    link.href = base64Data;
-
-    // Append the link to the body (required for Firefox)
-    document.body.appendChild(link);
-
-    // Trigger the download
-    link.click();
-
-    // Clean up
-    document.body.removeChild(link);
   }
 
   /**
@@ -1178,7 +1301,6 @@ class ChatLLM {
   async RunDefaultPrompt() {
     //let img = await this.ConvertSVGtoImg(singleMaidr.id);
     let img = await this.ConvertSVGtoJPG(singleMaidr.id);
-    //this.downloadJPEG(img, 'test.jpg'); // test download
     let text = 'Describe this chart to a blind person';
     if (constants.skillLevel) {
       if (constants.skillLevel == 'other' && constants.skillLevelOther) {
@@ -4899,8 +5021,10 @@ class HeatMap {
           if (this.plots[i] instanceof SVGPathElement) {
             // Assuming the path data is in the format "M x y L x y L x y L x y"
             const path_d = this.plots[i].getAttribute('d');
-            const coords = path_d.match(/[\d\.]+/g).map(Number);
+            const regex = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
+            const match = regex.exec(path_d);
 
+            const coords = [Number(match[1]), Number(match[3])];
             const x = coords[0];
             const y = coords[1];
 
