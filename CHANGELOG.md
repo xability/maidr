@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.2.2...v1.3.0) (2024-01-25)
+
+
+### Bug Fixes
+
+* Added fill label in heatmap tutorial ([#362](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/362)) ([3509be0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/3509be023f6b2f0a6d3ebe6923dbbb0ea7fd3914))
+* Made heatmap x, y coordinate regex more robust ([#364](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/364)) ([4fe9e38](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/4fe9e385e5a0854854d729fa6cbd49da0b39bd72))
+
+
+### Features
+
+* Added Gemini as an option for users, including a menu setting to switch and set auth key ([#365](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/365)) ([cd5da87](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/cd5da87442a0eb4aa4889701ca1bf8e5b8f8d9f5)), closes [#341](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/341)
+
 ## [1.2.2](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.2.1...v1.2.2) (2024-01-24)
 
 
