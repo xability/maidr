@@ -68,6 +68,7 @@
       "query": "state:open mentions:${user} repo:${owner}/${repository} sort:created-desc"
     }
   ],
+  "githubPullRequests.defaultMergeMethod": "squash",
 
   "git.supportCancellation": true,
   "git.openRepositoryInParentFolders": "always",
