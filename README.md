@@ -1,6 +1,6 @@
 # maidr: Multimodal Access and Interactive Data Representation
 
-maidr is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [maidr Demo](https://uiuc-ischool-accessible-computing-lab.github.io/maidr/user_study_pilot/intro.html). You may also clone or download the github repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
+maidr is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-modal exploration on visualization. Check out the current build: [maidr Demo](https://uiuc-ischool-accessible-computing-lab.github.io/maidr/user_study_pilot/intro.html). You may also clone or download the GitHub repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
 
 ## Table of Contents
 
@@ -19,87 +19,83 @@ To use maidr, follow these steps:
 
 2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your plot to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>maidr Example</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/maidr/dist/maidr_style.min.css"
-    />
-    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.min.js"></script>
-  </head>
-  <body>
-    <div>
-      <!-- Your SVG plot is here -->
-    </div>
-  </body>
-</html>
-```
+   ```html
+   <!DOCTYPE html>
+   <html lang="en">
+     <head>
+       <meta charset="UTF-8" />
+       <title>maidr Example</title>
+       <link
+         rel="stylesheet"
+         href="https://cdn.jsdelivr.net/npm/maidr/dist/maidr_style.min.css"
+       />
+       <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.min.js"></script>
+     </head>
+     <body>
+       <div>
+         <!-- Your SVG plot is here -->
+       </div>
+     </body>
+   </html>
+   ```
 
 3. Add your data: Include your data as a json schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple charts exist on the page. Your json schema may look like so: (values for demonstration purposes)
 
-```javascript
-// a single plot
-var maidr = {
-  type: 'box',
-  id: 'myboxplot',
-  title: 'Highway Mileage by Car Class.',
-  axes: {
-    y: {
-      label: 'Car Class',
-      level: [
-        '2seater',
-        'compact',
-        'midsize',
-        'minivan',
-        'pickup',
-        'subcompact',
-        'suv',
-      ],
-    },
-    x: { label: 'Highway Milage' },
-  },
-  elements: document.querySelector(
-    '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
-  ),
-  data: ...
-}
-
-// or, multiple charts
-var maidr = [
-  {
-    type: 'box',
-    id: 'myboxplot',
-    title: 'Highway Mileage by Car Class.',
-    axes: {
-      y: {
-        label: 'Car Class',
-        level: [
-          '2seater',
-          'compact',
-          'midsize',
-          'minivan',
-          'pickup',
-          'subcompact',
-          'suv',
-        ],
-      },
-      x: { label: 'Highway Milage' },
-    },
-    elements: document.querySelector(
-      '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]'
-    ),
-    data: ...
-  },
-  {
-    type: 'bar',
-    id: 'mybarplot',
-    ... // etc
-  }
-```
+   ```javascript
+   // a single plot
+   let maidr = {
+     type: 'box',
+     id: 'myboxplot',
+     title: 'Highway Mileage by Car Class.',
+     axes: {
+       y: {
+         label: 'Car Class',
+         level: [
+           '2seater',
+           'compact',
+           'midsize',
+           'minivan',
+           'pickup',
+           'subcompact',
+           'suv',
+         ],
+       },
+       x: { label: 'Highway Milage' },
+     },
+     selector: '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]',
+     data: ...
+   }
+   
+   // or, multiple charts
+   let maidr = [
+     {
+       type: 'box',
+       id: 'myboxplot',
+       title: 'Highway Mileage by Car Class.',
+       axes: {
+         y: {
+           label: 'Car Class',
+           level: [
+             '2seater',
+             'compact',
+             'midsize',
+             'minivan',
+             'pickup',
+             'subcompact',
+             'suv',
+           ],
+         },
+         x: { label: 'Highway Milage' },
+       },
+       selector: '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]',
+       data: ...
+     },
+     {
+       type: 'bar',
+       id: 'mybarplot',
+       ... // etc
+     }
+   ```
 
 4. Use the following to define the object properties:
 
@@ -111,96 +107,96 @@ var maidr = [
 
 5. Define your data set using the `maidr.data` property. This comes in different formats depending on plot type:
 
-```javascript
-// barplot maidr.data structure: a simple array of values
-var maidr = {
-  data: [929539693, 898871185, 3811953828, 586098530, 24549948],
-};
-
-// heatmap maidr.data structure: a 2D array of values
-var maidr = {
-  data: [
-    [124, 0, 0],
-    [0, 68, 0],
-    [44, 56, 52],
-  ],
-};
-
-// boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
-var maidr = {
-  data: [
-    {
-      lower_outlier: null,
-      min: 23,
-      q1: 24,
-      q2: 25,
-      q3: 26,
-      max: 26,
-      upper_outlier: null,
-    },
-    {
-      // etc
-    },
-  ],
-};
-
-// scatterplot maidr.data: an object containing x and y properties, each with an array of float values
-// note that data is an array here as scatterplots are often combine with line plots
-var maidr = {
-  data: [
-    {
-      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
-      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-    },
-    // line data could go here
-  ],
-};
-
-// smooth line maidr.data: an object containing x and y properties, each with an array of float values
-// note that data is an array here as scatterplots are often combine with line plots
-var maidr = {
-  data: [
-    // scatterplot data could go here
-    {
-      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
-      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-    },
-  ],
-};
-```
+   ```javascript
+   // barplot maidr.data structure: a simple array of values
+   var maidr = {
+     data: [929539693, 898871185, 3811953828, 586098530, 24549948],
+   };
+   
+   // heatmap maidr.data structure: a 2D array of values
+   var maidr = {
+     data: [
+       [124, 0, 0],
+       [0, 68, 0],
+       [44, 56, 52],
+     ],
+   };
+   
+   // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
+   var maidr = {
+     data: [
+       {
+         lower_outlier: null,
+         min: 23,
+         q1: 24,
+         q2: 25,
+         q3: 26,
+         max: 26,
+         upper_outlier: null,
+       },
+       {
+         // etc
+       },
+     ],
+   };
+   
+   // scatterplot maidr.data: an object containing x and y properties, each with an array of float values
+   // note that data is an array here as scatterplots are often combine with line plots
+   var maidr = {
+     data: [
+       {
+         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
+         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+       },
+       // line data could go here
+     ],
+   };
+   
+   // smooth line maidr.data: an object containing x and y properties, each with an array of float values
+   // note that data is an array here as scatterplots are often combine with line plots
+   var maidr = {
+     data: [
+       // scatterplot data could go here
+       {
+         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
+         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+       },
+     ],
+   };
+   ```
 
 6. If multiple plots are overlaid on the same SVG, the `type` and `data` properties can be an array instead of a single value. Be sure the order is matched between them. Final json schema could look like so:
 
-```javascript
-var maidr = {
-  type: ['point', 'smooth'],
-  id: 'scatter1',
-  title: 'Highway Mileage by Engine Displacement.',
-  name: 'Tutorial 4: Scatterplot',
-  elements: [
-    document.querySelectorAll('g[id^="geom_point"] > use'),
-    document.querySelector(
-      'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]'
-    ),
-  ],
-  axes: {
-    x: {
-      label: 'Engine Displacement',
-    },
-    y: {
-      label: 'Highway Mileage',
-    },
-  },
-  data: [
-    {
-      x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1, 2.8],
-      y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-    },
-    {
-      x: [1.6, 1.6684, 1.7367, 1.8051, 1.8734, 1.9418, 2.0101, 2.0785, 2.1468, 2.2152, 2.2835, 2.3519, 2.4203, 2.4886, 2.557, 2.6253],
-      y: [33.0929, 32.5108, 31.9422, 31.3885, 30.8509, 30.33, 29.8239, 29.3334, 28.8584, 28.3981, 27.9519, 27.5189, 27.0988, 26.6958, 26.3091, 25.9356]
-    },
-```
+   ```javascript
+   var maidr = {
+     type: ['point', 'smooth'],
+     id: 'scatter1',
+     title: 'Highway Mileage by Engine Displacement.',
+     name: 'Tutorial 4: Scatterplot',
+     selector: [
+         'g[id^="geom_point"] > use',
+         'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]',
+     ],
+     axes: {
+       x: {
+         label: 'Engine Displacement',
+       },
+       y: {
+         label: 'Highway Mileage',
+       },
+     },
+     data: [
+       {
+         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1, 2.8],
+         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
+       },
+       {
+         x: [1.6, 1.6684, 1.7367, 1.8051, 1.8734, 1.9418, 2.0101, 2.0785, 2.1468, 2.2152, 2.2835, 2.3519, 2.4203, 2.4886, 2.557, 2.6253],
+         y: [33.0929, 32.5108, 31.9422, 31.3885, 30.8509, 30.33, 29.8239, 29.3334, 28.8584, 28.3981, 27.9519, 27.5189, 27.0988, 26.6958, 26.3091, 25.9356]
+       }
+    ]
+   }
+   ```
 
 For more information and examples, refer to the example HTML files provided in the repository.
 
@@ -218,7 +214,7 @@ To interact with the charts using maidr, follow these steps:
 Below is a detailed list of keyboard shortcuts for various functions:
 
 | Function                                | Key (Windows)               | Key (Mac)                   |
-| --------------------------------------- | --------------------------- | --------------------------- |
+|-----------------------------------------|-----------------------------|-----------------------------|
 | Move around plot                        | Arrow keys                  | Arrow keys                  |
 | Go to the very left, right, up, or down | Control + Arrow key         | Command + Arrow key         |
 | Select the first element                | Control + Home              | Command + Function + Left   |
@@ -247,8 +243,8 @@ Note that this control scheme can be used by any plot with multiple types.
 
 In the various segmented bar plots (stacked bar, dodged bar, and normalized stacked bar), Up Down Left Right controls function similar to a grid:
 
-- Left and Right arrows move between different bars or points on the x axis.
-- Up and Down arrows move between different layers of the same bar or point on the x axis.
+- Left and Right arrows move between different bars or points on the x-axis.
+- Up and Down arrows move between different layers of the same bar or point on the x-axis.
 
 Note that there are also pseudo layers at the top of each layer stack: a Summary layer representing a sum of all that bar's values, and a Combined layer that plays a separated or combined run of tones of all the layers. The standard 'S' key that controls sonification now has an extra setting to play either combined tones or separated tones.
 
@@ -275,7 +271,7 @@ In the Braille representation of a heatmap, values are depicted based on their r
 - ⠒ represents values from 33% to 66%
 - ⠉ represents values from 66% to 100%
 - "⠀" (braille space) represents null or empty values
-- "⢳" represents a row seperator
+- "⢳" represents a row separator
 
 ### Boxplot
 
@@ -331,11 +327,11 @@ In the Braille representation of a scatterplot, the encoding is performed only f
 
 Stacked bar, dodged bar, and normalized stacked bar all share the same system:
 
-In the braille representation of segmented bar plots, braille depends on where you are. There are typically multiple levels to a segmented bar plot, and as you move (Up and Down arrow keys) between levels, the braille changes to represent your current level. At the top, there is also a Summary pseudo layer of all levels added together, and a Combined pseudo layer of each layer seperately.
+In the braille representation of segmented bar plots, braille depends on where you are. There are typically multiple levels to a segmented bar plot, and as you move (Up and Down arrow keys) between levels, the braille changes to represent your current level. At the top, there is also a Summary pseudo level of all levels added together, and a Combined pseudo level of each level separately.
 
-- Regular layers: Braille appears similar to a bar plot, with braille values corresponding to the magnitude of the layer's value for this point.
-- Summary layer: Same as regular layers, but values now reflect the combined magnitude of all layers' values for this point.
-- Combined layer: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each layer for the first point, then a seperator, then the second group has braille characters for each layer in the second point, then a seperator, and so on.
+- Regular level: Braille appears similar to a bar plot, with braille values corresponding to the magnitude of the level's value for this point.
+- Summary level: Same as regular level, but values now reflect the combined magnitude of all levels' values for this point.
+- Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
 
 ### Lineplot
 
