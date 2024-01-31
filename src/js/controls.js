@@ -541,10 +541,8 @@ class Control {
         window.position = new Position(-1, plot.plotData.length);
       }
       let rect;
-      constants.hasRect = false;
-      if ('selector' in singleMaidr) {
+      if (constants.hasRect) {
         rect = new BoxplotRect();
-        constants.hasRect = true;
       }
       let lastPlayed = '';
 
@@ -1493,7 +1491,7 @@ class Control {
         return new Promise((resolve) => setTimeout(resolve, time));
       }
 
-      // helper functions
+      // heat helper functions
       function lockPosition() {
         // lock to min / max postions
         let didLockHappen = false;
@@ -1896,7 +1894,7 @@ class Control {
         if (constants.showDisplay) {
           display.displayValues();
         }
-        if (constants.showRect) {
+        if (layer0Point.hasRect) {
           layer0Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
@@ -1909,9 +1907,9 @@ class Control {
           display.displayValues();
         }
         if (constants.showRect) {
-          if (constants.chartType == 'point') {
+          if (constants.chartType == 'point' && layer0Point.hasRect) {
             layer0Point.UpdatePointDisplay();
-          } else {
+          } else if (constants.chartType == 'smooth' && layer1Point.hasRect) {
             layer1Point.UpdatePointDisplay();
           }
         }
@@ -1926,7 +1924,7 @@ class Control {
         if (constants.showDisplayInBraille) {
           display.displayValues();
         }
-        if (constants.showRect) {
+        if (layer1Point.hasRect) {
           layer1Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
