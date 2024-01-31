@@ -595,7 +595,6 @@ class Menu {
    */
   PopulateData() {
     document.getElementById('vol').value = constants.vol;
-    //document.getElementById('show_rect').checked = constants.showRect;
     document.getElementById('autoplay_rate').value = constants.autoPlayRate;
     document.getElementById('braille_display_length').value =
       constants.brailleDisplayLength;
@@ -618,7 +617,6 @@ class Menu {
         constants.skillLevelOther;
     }
     document.getElementById('LLM_model').value = constants.LLMModel;
-
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -657,7 +655,6 @@ class Menu {
    */
   SaveData() {
     constants.vol = document.getElementById('vol').value;
-    //constants.showRect = document.getElementById('show_rect').checked;
     constants.autoPlayRate = document.getElementById('autoplay_rate').value;
     constants.brailleDisplayLength = document.getElementById(
       'braille_display_length'
@@ -710,7 +707,6 @@ class Menu {
   SaveDataToLocalStorage() {
     let data = {};
     data.vol = constants.vol;
-    //data.showRect = constants.showRect;
     data.autoPlayRate = constants.autoPlayRate;
     data.brailleDisplayLength = constants.brailleDisplayLength;
     data.colorSelected = constants.colorSelected;
@@ -732,7 +728,6 @@ class Menu {
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
-      //constants.showRect = data.showRect;
       constants.autoPlayRate = data.autoPlayRate;
       constants.brailleDisplayLength = data.brailleDisplayLength;
       constants.colorSelected = data.colorSelected;

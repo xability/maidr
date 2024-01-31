@@ -329,7 +329,7 @@ class Display {
           plot.fill +
           ' is ';
         // if (constants.hasRect) {
-        verboseText += plot.plotData[2][position.y][position.x];
+        verboseText += plot.data[position.y][position.x];
         // }
       } else {
         verboseText +=
@@ -344,7 +344,7 @@ class Display {
           plot.fill +
           ' is ';
         // if (constants.hasRect) {
-        verboseText += plot.plotData[2][position.y][position.x];
+        verboseText += plot.data[position.y][position.x];
         // }
       }
       // terse and verbose alternate between columns and rows
@@ -358,7 +358,7 @@ class Display {
             '<p>' +
             plot.x_labels[position.x] +
             ', ' +
-            plot.plotData[2][position.y][position.x] +
+            plot.data[position.y][position.x] +
             '</p>\n';
         } else {
           // row navigation
@@ -366,7 +366,7 @@ class Display {
             '<p>' +
             plot.y_labels[position.y] +
             ', ' +
-            plot.plotData[2][position.y][position.x] +
+            plot.data[position.y][position.x] +
             '</p>\n';
         }
       } else if (constants.textMode == 'verbose') {
@@ -543,11 +543,11 @@ class Display {
     } else if (constants.chartType == 'line') {
       // line layer
       verboseText +=
-        plot.x_group_label +
+        plot.plotLegend.x +
         ' is ' +
         plot.pointValuesX[position.x] +
         ', ' +
-        plot.y_group_label +
+        plot.plotLegend.y +
         ' is ' +
         plot.pointValuesY[position.x];
 
