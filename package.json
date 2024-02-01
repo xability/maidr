@@ -75,7 +75,7 @@
       "@semantic-release/npm",
       {
         "path": "@semantic-release/exec",
-        "cmd": "yarn doc"
+        "cmd": "yarn docs"
       },
       {
         "path": "@semantic-release/git",
