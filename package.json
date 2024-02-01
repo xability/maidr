@@ -36,7 +36,6 @@
     "@commitlint/cli": "^18.4.3",
     "@commitlint/config-conventional": "^18.4.3",
     "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/exec": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^9.2.6",
     "commitlint": "18.4.3",
@@ -74,15 +73,10 @@
       "@semantic-release/changelog",
       "@semantic-release/npm",
       {
-        "path": "@semantic-release/exec",
-        "cmd": "yarn docs"
-      },
-      {
         "path": "@semantic-release/git",
         "assets": [
           "package.json",
-          "CHANGELOG.md",
-          "docs"
+          "CHANGELOG.md"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       },
