@@ -11,11 +11,6 @@
     "format": "prettier --write .",
     "docs": "jsdoc -c jsdoc.json",
     "commitlint": "commitlint",
-    "husky": {
-      "hooks": {
-        "pre-commit": "if ! git log -1 --pretty=%B | grep '\\[skip ci\\]'; then npm test; fi"
-      }
-    },
     "semantic-release": "semantic-release"
   },
   "files": [
@@ -78,7 +73,7 @@
           "package.json",
           "CHANGELOG.md"
         ],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n[See changes in the CHANGELOG]"
       },
       "@semantic-release/github"
     ]
