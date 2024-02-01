@@ -11,6 +11,11 @@
     "format": "prettier --write .",
     "docs": "jsdoc -c jsdoc.json",
     "commitlint": "commitlint",
+    "husky": {
+      "hooks": {
+        "pre-commit": "if ! git log -1 --pretty=%B | grep '\\[skip ci\\]'; then npm test; fi"
+      }
+    },
     "semantic-release": "semantic-release"
   },
   "files": [
