@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.0...v1.3.1) (2024-02-01)
+
+
+### Bug Fixes
+
+* change 'other' skill level field under LLM/AI in settings to be more intuitive ([#377](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/377)) ([11d4bab](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/11d4bab0e6553f4ba52c28fc4d5ea9a5682912f4))
+
 # [1.3.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.2.2...v1.3.0) (2024-01-25)
 
 
