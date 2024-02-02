@@ -73,7 +73,7 @@
           "package.json",
           "CHANGELOG.md"
         ],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n[See changes in the CHANGELOG]"
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       },
       "@semantic-release/github"
     ]
