@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.1...v1.3.2) (2024-02-02)
+
+
+### Bug Fixes
+
+* support histogram svg with path tag ([#383](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/383)) ([e47062e](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/e47062e838dc3641cfc6884a53fdeda16ffa5595)), closes [#380](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/380) [#382](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/382)
+
 ## [1.3.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.0...v1.3.1) (2024-02-01)
 
 
