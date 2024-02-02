@@ -15,7 +15,7 @@ maidr is a system for non-visual access and control of statistical plots. It aim
 
 To use maidr, follow these steps:
 
-1. **Import your plot or plot**: maidr is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported plot types include barplot, boxplot, heatmap, and scatterplot.
+1. **Import your plot or plot**: maidr is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported plot types include barplot, boxplot, heatmap, scatterplot, lineplot, histogram, segmented barplots (e.g., stacked barplot, side-by-side dodged plot, and normalized stacked barplot).
 
 2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your plot to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
