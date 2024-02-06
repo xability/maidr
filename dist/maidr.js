@@ -74,13 +74,12 @@ class Constants {
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
-  playLLMWaitingSound = true;
 
   // LLM settings
-  LLMDebugMode = 0; // 0 = use real data, 1 = all fake, 2 = real data but no image
   openAIAuthKey = null; // OpenAI authentication key, set in menu
   geminiAuthKey = null; // Gemini authentication key, set in menu
   LLMmaxResponseTokens = 1000; // max tokens to send to LLM, 20 for testing, 1000 ish for real
+  playLLMWaitingSound = true;
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
   LLMModel = 'openai'; // openai (default) / gemini
   LLMSystemMessage =
@@ -301,7 +300,7 @@ class Menu {
             <div class="modal-dialog" role="document" tabindex="0">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h4 class="modal-title">Menu</h4>
+                        <h2 class="modal-title">Menu</h2>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -428,7 +427,7 @@ class Menu {
                                 </select>
                                 <label for="skill_level">Level of skill in statistical charts</label>
                             </p>
-                            <p id="skill_level_other_container" class="hidden"><input type="text" id="skill_level_other"> <label for="skill_level_other">"I have a(n) [X] understanding of statistical charts"</label></p>
+                            <p id="skill_level_other_container" class="hidden"><input type="text" placeholder="Very basic" id="skill_level_other"> <label for="skill_level_other">Describe your level of skill in statistical charts</label></p>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -595,7 +594,6 @@ class Menu {
    */
   PopulateData() {
     document.getElementById('vol').value = constants.vol;
-    //document.getElementById('show_rect').checked = constants.showRect;
     document.getElementById('autoplay_rate').value = constants.autoPlayRate;
     document.getElementById('braille_display_length').value =
       constants.brailleDisplayLength;
@@ -618,7 +616,6 @@ class Menu {
         constants.skillLevelOther;
     }
     document.getElementById('LLM_model').value = constants.LLMModel;
-
 
     // aria mode
     if (constants.ariaMode == 'assertive') {
@@ -657,7 +654,6 @@ class Menu {
    */
   SaveData() {
     constants.vol = document.getElementById('vol').value;
-    //constants.showRect = document.getElementById('show_rect').checked;
     constants.autoPlayRate = document.getElementById('autoplay_rate').value;
     constants.brailleDisplayLength = document.getElementById(
       'braille_display_length'
@@ -710,7 +706,6 @@ class Menu {
   SaveDataToLocalStorage() {
     let data = {};
     data.vol = constants.vol;
-    //data.showRect = constants.showRect;
     data.autoPlayRate = constants.autoPlayRate;
     data.brailleDisplayLength = constants.brailleDisplayLength;
     data.colorSelected = constants.colorSelected;
@@ -732,7 +727,6 @@ class Menu {
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
       constants.vol = data.vol;
-      //constants.showRect = data.showRect;
       constants.autoPlayRate = data.autoPlayRate;
       constants.brailleDisplayLength = data.brailleDisplayLength;
       constants.colorSelected = data.colorSelected;
@@ -773,7 +767,7 @@ class ChatLLM {
             <div class="modal-dialog" role="document" tabindex="0">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h4 id="chatLLM_title" class="modal-title">Ask a Question</h4>
+                        <h2 id="chatLLM_title" class="modal-title">Ask a Question</h2>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -833,7 +827,7 @@ class ChatLLM {
       document,
       'keyup',
       function (e) {
-        if (e.key == '?') {
+        if (e.key == '?' && (e.ctrlKey || e.metaKey)) {
           chatLLM.Toggle(true);
         }
       },
@@ -893,13 +887,7 @@ class ChatLLM {
       chatLLM.WaitingSound(true);
     }
 
-    if (constants.LLMDebugMode == 1) {
-      // do the below with a 5 sec delay
-      setTimeout(function () {
-        chatLLM.ProcessLLMResponse(chatLLM.fakeLLMResponseData());
-      }, 5000);
-      return;
-    } else if (constants.LLMModel == 'gemini') {
+    if (constants.LLMModel == 'gemini') {
       chatLLM.GeminiPrompt(text, img);
     } else if (constants.LLMModel == 'openai') {
       chatLLM.OpenAIPrompt(text, img);
@@ -1100,10 +1088,7 @@ class ChatLLM {
     let i = this.requestJson.messages.length;
     this.requestJson.messages[i] = {};
     this.requestJson.messages[i].role = 'user';
-    if (constants.LLMDebugMode == 2) {
-      // backup message only, no image
-      this.requestJson.messages[i].content = backupMessage;
-    } else if (img) {
+    if (img) {
       // first message, include the img
       this.requestJson.messages[i].content = [
         {
@@ -1176,7 +1161,7 @@ class ChatLLM {
       <div class="chatLLM_message ${
         user == 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
       }">
-        <p class="chatLLM_message_user">${user}</p>
+        <h3 class="chatLLM_message_user">${user}</h3>
         <p class="chatLLM_message_text">${text}</p>
       </div>
     `;
@@ -1352,7 +1337,7 @@ class Description {
             <div class="modal-dialog" role="document" tabindex="0">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h4 id="desc_title" class="modal-title">Description</h4>
+                        <h2 id="desc_title" class="modal-title">Description</h2>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -2144,7 +2129,7 @@ class Audio {
         panning = 0;
       }
     } else if (constants.chartType == 'heat') {
-      rawFreq = plot.values[position.y][position.x];
+      rawFreq = plot.data[position.y][position.x];
       rawPanning = position.x;
       frequency = this.SlideBetween(
         rawFreq,
@@ -2940,7 +2925,7 @@ class Display {
           plot.fill +
           ' is ';
         // if (constants.hasRect) {
-        verboseText += plot.plotData[2][position.y][position.x];
+        verboseText += plot.data[position.y][position.x];
         // }
       } else {
         verboseText +=
@@ -2955,7 +2940,7 @@ class Display {
           plot.fill +
           ' is ';
         // if (constants.hasRect) {
-        verboseText += plot.plotData[2][position.y][position.x];
+        verboseText += plot.data[position.y][position.x];
         // }
       }
       // terse and verbose alternate between columns and rows
@@ -2969,7 +2954,7 @@ class Display {
             '<p>' +
             plot.x_labels[position.x] +
             ', ' +
-            plot.plotData[2][position.y][position.x] +
+            plot.data[position.y][position.x] +
             '</p>\n';
         } else {
           // row navigation
@@ -2977,7 +2962,7 @@ class Display {
             '<p>' +
             plot.y_labels[position.y] +
             ', ' +
-            plot.plotData[2][position.y][position.x] +
+            plot.data[position.y][position.x] +
             '</p>\n';
         }
       } else if (constants.textMode == 'verbose') {
@@ -3154,11 +3139,11 @@ class Display {
     } else if (constants.chartType == 'line') {
       // line layer
       verboseText +=
-        plot.x_group_label +
+        plot.plotLegend.x +
         ' is ' +
         plot.pointValuesX[position.x] +
         ', ' +
-        plot.y_group_label +
+        plot.plotLegend.y +
         ' is ' +
         plot.pointValuesY[position.x];
 
@@ -3831,6 +3816,8 @@ class BarChart {
     let elements = null;
     if ('selector' in singleMaidr) {
       elements = document.querySelectorAll(singleMaidr.selector);
+    } else if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
     }
 
     if (xlevel && data && elements) {
@@ -3866,15 +3853,6 @@ class BarChart {
       logError.LogAbsentElement('x level');
       logError.LogAbsentElement('elements');
     }
-
-    // bars. The actual bar elements in the SVG. Used to highlight visually
-    // if ('elements' in singleMaidr) {
-    //   this.bars = singleMaidr.elements;
-    //   constants.hasRect = 1;
-    // } else {
-    //   // this.bars = constants.chart.querySelectorAll('g[id^="geom_rect"] > rect'); // if we use plot.plotData.length instead of plot.bars.length, we don't have to include this
-    //   constants.hasRect = 0;
-    // }
 
     // column labels, both legend and tick
     this.columnLabels = [];
@@ -3951,10 +3929,8 @@ class BarChart {
 
     if (Array.isArray(singleMaidr)) {
       this.plotData = singleMaidr;
-    } else {
-      if ('data' in singleMaidr) {
-        this.plotData = singleMaidr.data;
-      }
+    } else if ('data' in singleMaidr) {
+      this.plotData = singleMaidr.data;
     }
 
     // set the max and min values for the plot
@@ -4145,8 +4121,6 @@ class BoxPlot {
    * @constructor
    */
   constructor() {
-    constants.plotOrientation = 'horz'; // default
-
     // the default sections for all boxplots
     this.sections = [
       'lower_outlier',
@@ -4158,6 +4132,8 @@ class BoxPlot {
       'upper_outlier',
     ];
 
+    // set orientation
+    constants.plotOrientation = 'horz';
     if ('axes' in singleMaidr) {
       if ('x' in singleMaidr.axes) {
         if ('level' in singleMaidr.axes.x) {
@@ -4238,7 +4214,11 @@ class BoxPlot {
 
     // bounds data
     if ('selector' in singleMaidr) {
-      this.plotBounds = this.GetPlotBounds();
+      let elements = document.querySelector(singleMaidr.selector);
+      this.plotBounds = this.GetPlotBounds(elements);
+      constants.hasRect = true;
+    } else if ('elements' in singleMaidr) {
+      this.plotBounds = this.GetPlotBounds(singleMaidr.elements);
       constants.hasRect = true;
     } else {
       constants.hasRect = false;
@@ -4324,7 +4304,7 @@ class BoxPlot {
    * Calculates the bounding boxes for all elements in the parent element, including outliers, whiskers, and range.
    * @returns {Array} An array of bounding boxes for all elements.
    */
-  GetPlotBounds() {
+  GetPlotBounds(elements) {
     // we fetch the elements in our parent,
     // and similar to old GetData we run through and get bounding boxes (or blanks) for everything,
     // and store in an identical structure
@@ -4332,7 +4312,6 @@ class BoxPlot {
     let plotBounds = [];
     let allWeNeed = this.GetAllSegmentTypes();
     let re = /(?:\d+(?:\.\d*)?|\.\d+)/g;
-    let elements = document.querySelector(singleMaidr.selector);
 
     // get initial set of elements, a parent element for all outliers, whiskers, and range
     let initialElemSet = [];
@@ -4903,100 +4882,36 @@ class HeatMap {
         }
       }
     }
-    let data = null;
-    let dataLength = 0;
     if ('data' in singleMaidr) {
-      data = singleMaidr.data;
-      for (let i = 0; i < data.length; i++) {
-        dataLength += data[i].length;
-      }
+      this.data = singleMaidr.data;
+      this.num_rows = this.data.length;
+      this.num_cols = this.data[0].length;
+    } else {
+      // critical error, no data
+      console.error('No data found in singleMaidr object');
     }
-    let elements = null;
     if ('selector' in singleMaidr) {
-      elements = document.querySelectorAll(singleMaidr.selector);
+      this.elements = document.querySelectorAll(singleMaidr.selector);
+      constants.hasRect = 1;
+    } else if ('elements' in singleMaidr) {
+      this.elements = singleMaidr.elements;
+      constants.hasRect = 1;
+    } else {
+      this.elements = null;
+      constants.hasRect = 0;
     }
-
-    // if (xlevel && ylevel && data && elements) {
-    //   if (elements.length != dataLength) {
-    //     // I didn't throw an error but give a warning
-    //     constants.hasRect = 0;
-    //     logError.LogDifferentLengths('data', 'elements');
-    //   } else if (ylevel.length != data.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('y level', 'rows');
-    //   } else if (data[0].length != xlevel.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('x level', 'columns');
-    //   } else {
-    //     this.plots = elements;
-    //     constants.hasRect = 1;
-    //   }
-    // } else if (ylevel && data && elements) {
-    //   if (dataLength != elements.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('data', 'elements');
-    //   } else if (ylevel.length != data.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('y level', 'rows');
-    //   } else {
-    //     this.plots = elements;
-    //     constants.hasRect = 1;
-    //   }
-    // } else if (xlevel && data && elements) {
-    //   if (dataLength != elements.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('data', 'elements');
-    //   } else if (xlevel.length != data[0].length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('x level', 'columns');
-    //   } else {
-    //     this.plots = elements;
-    //     constants.hasRect = 1;
-    //   }
-    // }
-    // else if (xlevel && ylevel && data) {
-    //   constants.hasRect = 0;
-    //   if (ylevel.length != data.length) {
-    //     logError.logDifferentLengths('y level', 'rows');
-    //   } else if (data[0].length != xlevel.length) {
-    //     logError.logDifferentLengths('x level', 'columns');
-    //   }
-    //   logError.LogAbsentElement('elements');
-    // }
-    // else if (data && elements) {
-    //   if (dataLength != elements.length) {
-    //     constants.hasRect = 0;
-    //     logError.logDifferentLengths('data', 'elements');
-    //   } else {
-    //     this.plots = elements;
-    //     constants.hasRect = 1;
-    //   }
-    // } else if (data) {
-    //   constants.hasRect = 0;
-    //   if (!xlevel) logError.LogAbsentElement('x level');
-    //   if (!ylevel) logError.LogAbsentElement('y level');
-    //   if (!elements) logError.LogAbsentElement('elements');
-    // }
-
-    this.plots = elements;
-    constants.hasRect = 1;
 
     this.group_labels = this.getGroupLabels();
-    // this.x_labels = this.getXLabels();
-    // this.y_labels = this.getYLabels();
     this.x_labels = xlevel;
     this.y_labels = ylevel;
     this.title = this.getTitle();
     this.fill = this.getFill();
 
-    this.plotData = this.getHeatMapData();
-    this.updateConstants();
+    if (constants.hasRect) {
+      this.SetHeatmapRectData();
+    }
 
-    this.x_coord = this.plotData[0];
-    this.y_coord = this.plotData[1];
-    this.values = this.plotData[2];
-    this.num_rows = this.plotData[3];
-    this.num_cols = this.plotData[4];
+    this.updateConstants();
 
     this.x_group_label = this.group_labels[0].trim();
     this.y_group_label = this.group_labels[1].trim();
@@ -5007,113 +4922,77 @@ class HeatMap {
    * If 'data' exists in singleMaidr, it returns the norms from the data. Otherwise, it calculates the norms from the unique x and y coordinates.
    * @returns {Array} An array of heatmap data containing unique x and y coordinates, norms, number of rows, and number of columns.
    */
-  getHeatMapData() {
+  SetHeatmapRectData() {
+    // We get a set of x and y coordinates from the heatmap squares,
+    // which is different and only sometimes connected to the actual data
+    // note, only runs if constants.hasRect is true
+
     // get the x_coord and y_coord to check if a square exists at the coordinates
     let x_coord_check = [];
     let y_coord_check = [];
-
     let unique_x_coord = [];
     let unique_y_coord = [];
-    if (constants.hasRect) {
-      for (let i = 0; i < this.plots.length; i++) {
-        if (this.plots[i]) {
-          // heatmap SVG containing path element instead of rect
-          if (this.plots[i] instanceof SVGPathElement) {
-            // Assuming the path data is in the format "M x y L x y L x y L x y"
-            const path_d = this.plots[i].getAttribute('d');
-            const regex = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
-            const match = regex.exec(path_d);
+    for (let i = 0; i < this.elements.length; i++) {
+      if (this.elements[i]) {
+        // heatmap SVG containing path element instead of rect
+        if (this.elements[i] instanceof SVGPathElement) {
+          // Assuming the path data is in the format "M x y L x y L x y L x y"
+          const path_d = this.elements[i].getAttribute('d');
+          const regex = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
+          const match = regex.exec(path_d);
 
-            const coords = [Number(match[1]), Number(match[3])];
-            const x = coords[0];
-            const y = coords[1];
+          const coords = [Number(match[1]), Number(match[3])];
+          const x = coords[0];
+          const y = coords[1];
 
-            x_coord_check.push(parseFloat(x));
-            y_coord_check.push(parseFloat(y));
-          } else {
-            x_coord_check.push(parseFloat(this.plots[i].getAttribute('x')));
-            y_coord_check.push(parseFloat(this.plots[i].getAttribute('y')));
-          }
+          x_coord_check.push(parseFloat(x));
+          y_coord_check.push(parseFloat(y));
+        } else {
+          x_coord_check.push(parseFloat(this.elements[i].getAttribute('x')));
+          y_coord_check.push(parseFloat(this.elements[i].getAttribute('y')));
         }
       }
-
-      // sort the squares to access from left to right, up to down
-      x_coord_check.sort(function (a, b) {
-        return a - b;
-      }); // ascending
-      y_coord_check.sort(function (a, b) {
-        return a - b;
-      });
-
-      let svgScaler = this.GetSVGScaler();
-      // inverse scale if svg is scaled
-      if (svgScaler[0] == -1) {
-        x_coord_check = x_coord_check.reverse();
-      }
-      if (svgScaler[1] == -1) {
-        y_coord_check = y_coord_check.reverse();
-      }
-
-      // get unique elements from x_coord and y_coord
-      unique_x_coord = [...new Set(x_coord_check)];
-      unique_y_coord = [...new Set(y_coord_check)];
     }
 
-    // get num of rows, num of cols, and total numbers of squares
-    let num_rows = 0;
-    let num_cols = 0;
-    let num_squares = 0;
-    if ('data' in singleMaidr) {
-      num_rows = singleMaidr.data.length;
-      num_cols = singleMaidr.data[0].length;
-    } else {
-      num_rows = unique_y_coord.length;
-      num_cols = unique_x_coord.length;
+    // sort the squares to access from left to right, up to down
+    x_coord_check.sort(function (a, b) {
+      return a - b;
+    }); // ascending
+    y_coord_check.sort(function (a, b) {
+      return a - b;
+    });
+
+    let svgScaler = this.GetSVGScaler();
+    // inverse scale if svg has a negative scale in the actual svg
+    if (svgScaler[0] == -1) {
+      x_coord_check = x_coord_check.reverse();
     }
-    num_squares = num_rows * num_cols;
-
-    let norms = [];
-    if ('data' in singleMaidr) {
-      norms = [...singleMaidr.data];
-    } else {
-      norms = Array(num_rows)
-        .fill()
-        .map(() => Array(num_cols).fill(0));
-      let min_norm = 3 * Math.pow(255, 2);
-      let max_norm = 0;
-
-      for (var i = 0; i < this.plots.length; i++) {
-        var x_index = unique_x_coord.indexOf(x_coord_check[i]);
-        var y_index = unique_y_coord.indexOf(y_coord_check[i]);
-        let norm = this.getRGBNorm(i);
-        norms[y_index][x_index] = norm;
-
-        if (norm < min_norm) min_norm = norm;
-        if (norm > max_norm) max_norm = norm;
-      }
+    if (svgScaler[1] == -1) {
+      y_coord_check = y_coord_check.reverse();
     }
 
-    let plotData = [unique_x_coord, unique_y_coord, norms, num_rows, num_cols];
+    // get unique elements from x_coord and y_coord
+    unique_x_coord = [...new Set(x_coord_check)];
+    unique_y_coord = [...new Set(y_coord_check)];
 
-    return plotData;
+    this.x_coord = unique_x_coord;
+    this.y_coord = unique_y_coord;
   }
 
   /**
    * Updates the constants used in the heatmap.
+   * minX: 0, always
+   * maxX: the x length of the data array
+   * minY: the minimum value of the data array
+   * maxY: the maximum value of the data array
+   * autoPlayRate: the rate at which the heatmap will autoplay, based on the number of columns
+   *
    */
   updateConstants() {
     constants.minX = 0;
-    constants.maxX = this.plotData[4];
-    constants.minY = this.plotData[2][0][0]; // initial val
-    constants.maxY = this.plotData[2][0][0]; // initial val
-    for (let i = 0; i < this.plotData[2].length; i++) {
-      for (let j = 0; j < this.plotData[2][i].length; j++) {
-        if (this.plotData[2][i][j] < constants.minY)
-          constants.minY = this.plotData[2][i][j];
-        if (this.plotData[2][i][j] > constants.maxY)
-          constants.maxY = this.plotData[2][i][j];
-      }
-    }
+    constants.maxX = this.data[0].length - 1;
+    constants.minY = Math.min(...this.data.map((row) => Math.min(...row)));
+    constants.maxY = Math.max(...this.data.map((row) => Math.max(...row)));
     constants.autoPlayRate = Math.min(
       Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
       constants.MAX_SPEED
@@ -5132,7 +5011,7 @@ class HeatMap {
   }
 
   /**
-   * Returns an array of the X and Y scales of the first SVG element found in the plots array.
+   * Returns an array of the X and Y scales of the first SVG element found in the elements array.
    * @returns {Array<number>} An array containing the X and Y scales of the SVG element.
    */
   GetSVGScaler() {
@@ -5142,7 +5021,7 @@ class HeatMap {
 
     // but first, are we even in an svg that can be scaled?
     let isSvg = false;
-    let element = this.plots[0]; // a random start, may as well be the first
+    let element = this.elements[0]; // a random start, may as well be the first
     while (element) {
       if (element.tagName.toLowerCase() == 'body') {
         break;
@@ -5154,7 +5033,7 @@ class HeatMap {
     }
 
     if (isSvg) {
-      let element = this.plots[0]; // a random start, may as well be the first
+      let element = this.elements[0]; // a random start, may as well be the first
       while (element) {
         if (element.tagName.toLowerCase() == 'body') {
           break;
@@ -5186,7 +5065,7 @@ class HeatMap {
    * @returns {number} The sum of squared values of the RGB color.
    */
   getRGBNorm(i) {
-    let rgb_string = this.plots[i].getAttribute('fill');
+    let rgb_string = this.elements[i].getAttribute('fill');
     let rgb_array = rgb_string.slice(4, -1).split(',');
     // just get the sum of squared value of rgb, similar without sqrt, save computation
     return rgb_array
@@ -5344,10 +5223,10 @@ class HeatMapRect {
     this.x = plot.x_coord[position.x];
     this.y = plot.y_coord[position.y];
     // find which square we're on by searching for the x and y coordinates
-    for (let i = 0; i < plot.plots.length; i++) {
+    for (let i = 0; i < plot.elements.length; i++) {
       if (
-        plot.plots[i].getAttribute('x') == this.x &&
-        plot.plots[i].getAttribute('y') == this.y
+        plot.elements[i].getAttribute('x') == this.x &&
+        plot.elements[i].getAttribute('y') == this.y
       ) {
         this.squareIndex = i;
         break;
@@ -5375,7 +5254,7 @@ class HeatMapRect {
     rect.setAttribute('stroke', constants.colorSelected);
     rect.setAttribute('stroke-width', this.rectStrokeWidth);
     rect.setAttribute('fill', 'none');
-    plot.plots[this.squareIndex].parentNode.appendChild(rect);
+    plot.elements[this.squareIndex].parentNode.appendChild(rect);
     //constants.chart.appendChild(rect);
   }
 }
@@ -5391,86 +5270,11 @@ class ScatterPlot {
    */
   constructor() {
     this.prefix = this.GetPrefix();
-    // this.SetVisualHighlight();
     this.SetScatterLayer();
     this.SetLineLayer();
     this.SetAxes();
     this.svgScaler = this.GetSVGScaler();
   }
-
-  // SetVisualHighlight() {
-  //   let point_index = this.GetElementIndex('point');
-  //   let smooth_index = this.GetElementIndex('smooth');
-  //   if (point_index && smooth_index && elements < 2) {
-  //     logError.LogAbsentElement('point or/and smooth line elements');
-  //   }
-  //   if (point_index != -1) {
-  //     this.CheckData(point_index);
-  //   }
-
-  //   if (smooth_index != -1) {
-  //     this.CheckData(smooth_index);
-  //   }
-  // }
-
-  // CheckData(i) {
-  //   let elements = 'elements' in singleMaidr ? singleMaidr.elements : null;
-
-  //   // elements does not exist at all
-  //   if (elements == null) {
-  //     logError.LogAbsentElement('elements');
-  //     if (i == 0) constants.hasRect = 0;
-  //     if (i == 1) constants.hasSmooth = 0;
-  //     return;
-  //   }
-
-  //   // elements exists but is empty
-  //   if (elements.length == 0) {
-  //     logError.LogAbsentElement('elements');
-  //     if (i == 0) constants.hasRect = 0;
-  //     if (i == 1) constants.hasSmooth = 0;
-  //     return;
-  //   }
-
-  //   // elements exists but is not an array
-  //   if (!Array.isArray(elements)) {
-  //     logError.LogNotArray('elements');
-  //     if (i == 0) constants.hasRect = 0;
-  //     if (i == 1) constants.hasSmooth = 0;
-  //     return;
-  //   }
-
-  //   // elements.length is more than 2
-  //   if (elements.length > 2) {
-  //     logError.LogTooManyElements('elements', 2);
-  //   }
-
-  //   if ('data' in singleMaidr) {
-  //     if (i == 0) {
-  //       // check point elements
-  //       if (
-  //         singleMaidr.data[i] == null ||
-  //         singleMaidr.data[i].length != singleMaidr.elements[i].length
-  //       ) {
-  //         constants.hasRect = 0;
-  //         logError.LogDifferentLengths('point data', 'point elements');
-  //       }
-  //     } else if (i == 1) {
-  //       // check smooth line elements
-  //       if (
-  //         singleMaidr.data[i] == null ||
-  //         (!Array.isArray(singleMaidr.data[i]) &&
-  //           singleMaidr.data[i].length != this.chartLineX.length)
-  //       ) {
-  //         constants.hasSmooth = 0;
-  //         logError.LogDifferentLengths(
-  //           'smooth line data',
-  //           'smooth line elements'
-  //         );
-  //       }
-  //     }
-  //   }
-  // }
 
   /**
    * Sets the x and y group labels and title for the scatterplot based on the data in singleMaidr.
@@ -5517,28 +5321,34 @@ class ScatterPlot {
    */
   SetScatterLayer() {
     // initially set as smooth layer (layer 2), if possible
-    let elIndex = this.GetElementIndex('point');
+    let elIndex = this.GetElementIndex('point'); // check if we have it
     if (elIndex != -1) {
-      this.plotPoints = document.querySelectorAll(
-        singleMaidr.selector[elIndex]
-      );
+      if ('selector' in singleMaidr) {
+        this.plotPoints = document.querySelectorAll(
+          singleMaidr.selector[elIndex]
+        );
+      } else if ('elements' in singleMaidr) {
+        this.plotPoints = singleMaidr.elements[elIndex];
+      }
     } else if (singleMaidr.type == 'point') {
-      this.plotPoints = document.querySelectorAll(singleMaidr.selector);
+      if ('selector' in singleMaidr) {
+        this.plotPoints = document.querySelectorAll(singleMaidr.selector);
+      } else if ('elements' in singleMaidr) {
+        this.plotPoints = singleMaidr.elements;
+      }
     }
-    if (typeof this.plotPoints !== 'undefined') {
-      let svgPointCoords = this.GetSvgPointCoords();
-      let pointValues = this.GetPointValues();
+    let svgPointCoords = this.GetSvgPointCoords();
+    let pointValues = this.GetPointValues();
 
-      this.chartPointsX = svgPointCoords[0]; // x coordinates of points
-      this.chartPointsY = svgPointCoords[1]; // y coordinates of points
+    this.chartPointsX = svgPointCoords[0]; // x coordinates of points
+    this.chartPointsY = svgPointCoords[1]; // y coordinates of points
 
-      this.x = pointValues[0]; // actual values of x
-      this.y = pointValues[1]; // actual values of y
+    this.x = pointValues[0]; // actual values of x
+    this.y = pointValues[1]; // actual values of y
 
-      // for sound weight use
-      this.points_count = pointValues[2]; // number of each points
-      this.max_count = pointValues[3];
-    }
+    // for sound weight use
+    this.points_count = pointValues[2]; // number of each points
+    this.max_count = pointValues[3];
   }
 
   /**
@@ -5546,28 +5356,34 @@ class ScatterPlot {
    */
   SetLineLayer() {
     // layer = 2, smooth layer (from singleMaidr types)
-    let elIndex = this.GetElementIndex('smooth');
+    let elIndex = this.GetElementIndex('smooth'); // check if we have it
     if (elIndex != -1) {
-      this.plotLine = document.querySelectorAll(
-        singleMaidr.selector[elIndex]
-      )[0];
+      if ('selector' in singleMaidr) {
+        this.plotLine = document.querySelectorAll(
+          singleMaidr.selector[elIndex]
+        )[0];
+      } else if ('elements' in singleMaidr) {
+        this.plotLine = singleMaidr.elements[elIndex][0];
+      }
     } else if (singleMaidr.type == 'smooth') {
-      this.plotLine = document.querySelectorAll(singleMaidr.selector);
+      if ('selector' in singleMaidr) {
+        this.plotLine = document.querySelectorAll(singleMaidr.selector);
+      } else if ('elements' in singleMaidr) {
+        this.plotLine = singleMaidr.elements;
+      }
     }
-    if (typeof this.plotLine !== 'undefined') {
-      let svgLineCoords = this.GetSvgLineCoords();
-      let smoothCurvePoints = this.GetSmoothCurvePoints();
+    let svgLineCoords = this.GetSvgLineCoords();
+    let smoothCurvePoints = this.GetSmoothCurvePoints();
 
-      this.chartLineX = svgLineCoords[0]; // x coordinates of curve
-      this.chartLineY = svgLineCoords[1]; // y coordinates of curve
+    this.chartLineX = svgLineCoords[0]; // x coordinates of curve
+    this.chartLineY = svgLineCoords[1]; // y coordinates of curve
 
-      this.curveX = smoothCurvePoints[0]; // actual values of x
-      this.curvePoints = smoothCurvePoints[1]; // actual values of y
+    this.curveX = smoothCurvePoints[0]; // actual values of x
+    this.curvePoints = smoothCurvePoints[1]; // actual values of y
 
-      this.curveMinY = Math.min(...this.curvePoints);
-      this.curveMaxY = Math.max(...this.curvePoints);
-      this.gradient = this.GetGradient();
-    }
+    this.curveMinY = Math.min(...this.curvePoints);
+    this.curveMaxY = Math.max(...this.curvePoints);
+    this.gradient = this.GetGradient();
   }
 
   /**
@@ -5577,13 +5393,33 @@ class ScatterPlot {
   GetSvgPointCoords() {
     let points = new Map();
 
-    for (let i = 0; i < this.plotPoints.length; i++) {
-      let x = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'x')); // .toFixed(1);
-      let y = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'y'));
-      if (!points.has(x)) {
-        points.set(x, new Set([y]));
-      } else {
-        points.get(x).add(y);
+    if (this.plotPoints) {
+      for (let i = 0; i < this.plotPoints.length; i++) {
+        let x = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'x')); // .toFixed(1);
+        let y = parseFloat(this.plotPoints[i].getAttribute(this.prefix + 'y'));
+        if (!points.has(x)) {
+          points.set(x, new Set([y]));
+        } else {
+          points.get(x).add(y);
+        }
+      }
+    } else {
+      // pull from data instead
+      let elIndex = this.GetElementIndex('point');
+      for (let i = 0; i < singleMaidr.data[elIndex].length; i++) {
+        let x;
+        let y;
+        if ('x' in singleMaidr.data[elIndex][i]) {
+          x = singleMaidr.data[elIndex][i]['x'];
+        }
+        if ('y' in singleMaidr.data[elIndex][i]) {
+          y = singleMaidr.data[elIndex][i]['y'];
+        }
+        if (!points.has(x)) {
+          points.set(x, new Set([y]));
+        } else {
+          points.get(x).add(y);
+        }
       }
     }
 
@@ -5649,38 +5485,40 @@ class ScatterPlot {
 
     // but first, are we even in an svg that can be scaled?
     let isSvg = false;
-    let element = this.plotPoints[0]; // a random start, may as well be the first
-    while (element) {
-      if (element.tagName.toLowerCase() == 'body') {
-        break;
-      }
-      if (element.tagName && element.tagName.toLowerCase() === 'svg') {
-        isSvg = true;
-      }
-      element = element.parentNode;
-    }
-
-    if (isSvg) {
+    if (this.plotPoints) {
       let element = this.plotPoints[0]; // a random start, may as well be the first
       while (element) {
         if (element.tagName.toLowerCase() == 'body') {
           break;
         }
-        if (element.getAttribute('transform')) {
-          let transform = element.getAttribute('transform');
-          let match = transform.match(
-            /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
-          );
-          if (match) {
-            if (!isNaN(match[1])) {
-              scaleX *= parseFloat(match[1]);
-            }
-            if (!isNaN(match[3])) {
-              scaleY *= parseFloat(match[3]);
-            }
-          }
+        if (element.tagName && element.tagName.toLowerCase() === 'svg') {
+          isSvg = true;
         }
         element = element.parentNode;
+      }
+
+      if (isSvg) {
+        let element = this.plotPoints[0]; // a random start, may as well be the first
+        while (element) {
+          if (element.tagName.toLowerCase() == 'body') {
+            break;
+          }
+          if (element.getAttribute('transform')) {
+            let transform = element.getAttribute('transform');
+            let match = transform.match(
+              /scale\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)/
+            );
+            if (match) {
+              if (!isNaN(match[1])) {
+                scaleX *= parseFloat(match[1]);
+              }
+              if (!isNaN(match[3])) {
+                scaleY *= parseFloat(match[3]);
+              }
+            }
+          }
+          element = element.parentNode;
+        }
       }
     }
 
@@ -5689,22 +5527,30 @@ class ScatterPlot {
 
   /**
    * Returns a prefix based on the element type.
+   * This helps manipulate svg stuff, as the attribute info is slightly different depending on svg source
    * @returns {string} The prefix.
    */
   GetPrefix() {
     let pointIndex = this.GetElementIndex('point');
 
-    let element;
+    let element = null;
     if (pointIndex != -1) {
-      element = document.querySelectorAll(singleMaidr.selector[pointIndex])[0];
+      if ('selector' in singleMaidr) {
+        element = document.querySelectorAll(
+          singleMaidr.selector[pointIndex]
+        )[0];
+      } else if ('elements' in singleMaidr) {
+        element = singleMaidr.elements[pointIndex][0];
+      }
     } else if (singleMaidr.type == 'point') {
-      element = document.querySelectorAll(singleMaidr.selector)[0];
+      if ('selector' in singleMaidr) {
+        element = document.querySelectorAll(singleMaidr.selector)[0];
+      } else if ('elements' in singleMaidr) {
+        element = singleMaidr.elements[0];
+      }
     }
     let prefix = '';
-    if (
-      'selector' in singleMaidr &&
-      element.tagName.toLowerCase() === 'circle'
-    ) {
+    if (element && element.tagName.toLowerCase() === 'circle') {
       prefix = 'c';
     }
     return prefix;
@@ -5857,20 +5703,32 @@ class ScatterPlot {
    * @returns {Array<Array<number>>} An array containing two arrays: the x-coordinates and y-coordinates.
    */
   GetSvgLineCoords() {
-    // extract all the y coordinates from the point attribute of polyline
-    let str = this.plotLine.getAttribute('points');
-    let coords = str.split(' ');
+    let x_points = [];
+    let y_points = [];
 
-    let X = [];
-    let Y = [];
-
-    for (let i = 0; i < coords.length; i++) {
-      let coord = coords[i].split(',');
-      X.push(parseFloat(coord[0]));
-      Y.push(parseFloat(coord[1]));
+    if (this.plotLine) {
+      // extract all the y coordinates from the point attribute of polyline
+      let str = this.plotLine.getAttribute('points');
+      let coords = str.split(' ');
+      for (let i = 0; i < coords.length; i++) {
+        let coord = coords[i].split(',');
+        x_points.push(parseFloat(coord[0]));
+        y_points.push(parseFloat(coord[1]));
+      }
+    } else {
+      // fetch from data instead
+      let elIndex = this.GetElementIndex('point');
+      for (let i = 0; i < singleMaidr.data[elIndex].length; i++) {
+        if ('x' in singleMaidr.data[elIndex][i]) {
+          x_points.push(singleMaidr.data[elIndex][i]['x']);
+        }
+        if ('y' in singleMaidr.data[elIndex][i]) {
+          y_points.push(singleMaidr.data[elIndex][i]['y']);
+        }
+      }
     }
 
-    return [X, Y];
+    return [x, y];
   }
 
   /**
@@ -5932,6 +5790,24 @@ class ScatterPlot {
 
     return gradients;
   }
+
+  /**
+   * Returns whether or not we have elements / selectors for the given type.
+   * @param {string} type - The type of element to check for. eg, 'point' or 'smooth'.
+   * @returns {boolean} - True if we have elements / selectors for the given type, false otherwise.
+   * @function
+   * @memberof scatterplot
+   */
+  GetRectStatus(type) {
+    let elIndex = this.GetElementIndex(type);
+    if ('selector' in singleMaidr) {
+      return singleMaidr.selector[elIndex] ? true : false;
+    } else if ('elements' in singleMaidr) {
+      return singleMaidr.elements[elIndex] ? true : false;
+    } else {
+      return false;
+    }
+  }
 }
 
 /**
@@ -5950,6 +5826,7 @@ class Layer0Point {
     this.y = plot.chartPointsY[0];
     this.strokeWidth = 1.35;
     this.circleIndex = [];
+    this.hasRect = plot.GetRectStatus('point');
   }
 
   /**
@@ -6049,6 +5926,7 @@ class Layer1Point {
     this.x = plot.chartLineX[0];
     this.y = plot.chartLineY[0];
     this.strokeWidth = 1.35;
+    this.hasRect = plot.GetRectStatus('point');
   }
 
   /**
@@ -6139,6 +6017,8 @@ class Histogram {
     this.bars = null;
     if ('selector' in singleMaidr) {
       this.bars = document.querySelectorAll(singleMaidr.selector);
+    } else if ('elements' in singleMaidr) {
+      this.bars = singleMaidr.elements;
     }
 
     // labels (optional)
@@ -6252,9 +6132,31 @@ class Histogram {
     if (this.bars) {
       this.activeElement = this.bars[position.x];
       if (this.activeElement) {
-        this.activeElementColor = this.activeElement.getAttribute('fill');
-        let newColor = constants.GetBetterColor(this.activeElementColor);
-        this.activeElement.setAttribute('fill', newColor);
+        // Case where fill is a direct attribute
+        if (this.activeElement.hasAttribute('fill')) {
+          this.activeElementColor = this.activeElement.getAttribute('fill');
+          // Get new color to highlight and replace fill value
+          this.activeElement.setAttribute(
+              'fill',
+              constants.GetBetterColor(this.activeElementColor)
+          );
+          // Case where fill is within the style attribute
+        } else if (
+            this.activeElement.hasAttribute('style') &&
+            this.activeElement.getAttribute('style').indexOf('fill') !== -1
+        ) {
+          let styleString = this.activeElement.getAttribute('style');
+          // Extract all style attributes and values
+          let styleArray = constants.GetStyleArrayFromString(styleString);
+          this.activeElementColor = styleArray[styleArray.indexOf('fill') + 1];
+          // Get new color to highlight and replace fill value in style array
+          styleArray[styleArray.indexOf('fill') + 1] = constants.GetBetterColor(
+              this.activeElementColor
+          );
+          // Recreate style string and set style attribute
+          styleString = constants.GetStyleStringFromArray(styleArray);
+          this.activeElement.setAttribute('style', styleString);
+        }
       }
     }
   }
@@ -6270,8 +6172,21 @@ class Histogram {
   UnSelectPrevious() {
     if (this.activeElement) {
       // set fill attribute to the original color
-      this.activeElement.setAttribute('fill', this.activeElementColor);
-      this.activeElement = null;
+      if (this.activeElement.hasAttribute('fill')) {
+        this.activeElement.setAttribute('fill', this.activeElementColor);
+        this.activeElement = null;
+      } else if (
+          this.activeElement.hasAttribute('style') &&
+          this.activeElement.getAttribute('style').indexOf('fill') !== -1
+      ) {
+        let styleString = this.activeElement.getAttribute('style');
+        let styleArray = constants.GetStyleArrayFromString(styleString);
+        styleArray[styleArray.indexOf('fill') + 1] = this.activeElementColor;
+        // Recreate style string and set style attribute
+        styleString = constants.GetStyleStringFromArray(styleArray);
+        this.activeElement.setAttribute('style', styleString);
+        this.activeElement = null;
+      }
     }
   }
 }
@@ -6288,57 +6203,7 @@ class LinePlot {
   constructor() {
     this.SetLineLayer();
     this.SetAxes();
-
-    let legendX = '';
-    let legendY = '';
-    if ('axes' in singleMaidr) {
-      // legend labels
-      if (singleMaidr.axes.x) {
-        if (singleMaidr.axes.x.label) {
-          if (legendX == '') {
-            legendX = singleMaidr.axes.x.label;
-          }
-        }
-      }
-      if (singleMaidr.axes.y) {
-        if (singleMaidr.axes.y.label) {
-          if (legendY == '') {
-            legendY = singleMaidr.axes.y.label;
-          }
-        }
-      }
-    }
-
-    this.plotLegend = {
-      x: legendX,
-      y: legendY,
-    };
-
-    // title
-    this.title = '';
-    if ('labels' in singleMaidr) {
-      if ('title' in singleMaidr.labels) {
-        this.title = singleMaidr.labels.title;
-      }
-    }
-    if (this.title == '') {
-      if ('title' in singleMaidr) {
-        this.title = singleMaidr.title;
-      }
-    }
-
-    // subtitle
-    if ('labels' in singleMaidr) {
-      if ('subtitle' in singleMaidr.labels) {
-        this.subtitle = singleMaidr.labels.subtitle;
-      }
-    }
-    // caption
-    if ('labels' in singleMaidr) {
-      if ('caption' in singleMaidr.labels) {
-        this.caption = singleMaidr.labels.caption;
-      }
-    }
+    this.UpdateConstants();
   }
 
   /**
@@ -6348,12 +6213,13 @@ class LinePlot {
     let elements;
     if ('selector' in singleMaidr) {
       elements = document.querySelectorAll(singleMaidr.selector);
+    } else if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
     }
 
-    let len = elements.length;
-    this.plotLine = elements[len - 1];
+    if (elements) {
+      this.plotLine = elements[elements.length - 1];
 
-    if (typeof this.plotLine !== 'undefined') {
       let pointCoords = this.GetPointCoords();
       let pointValues = this.GetPoints();
 
@@ -6365,35 +6231,33 @@ class LinePlot {
 
       this.curveMinY = Math.min(...this.pointValuesY);
       this.curveMaxY = Math.max(...this.pointValuesY);
-      constants.minX = 0;
-      constants.maxX = this.pointValuesX.length - 1;
-      constants.minY = this.curveMinY;
-      constants.maxY = this.curveMaxY;
-
-      constants.autoPlayRate = Math.min(
-        Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
-        constants.MAX_SPEED
-      );
-      constants.DEFAULT_SPEED = constants.autoPlayRate;
-      if (constants.autoPlayRate < constants.MIN_SPEED) {
-        constants.MIN_SPEED = constants.autoPlayRate;
-      }
-
-      // this.gradient = this.GetGradient();
     }
   }
 
   /**
-   * Sets the minimum and maximum values for the x and y axes of a line plot.
+   * Updates the constants for the line plot.
+   * This includes the minimum and maximum x and y values, the autoplay rate, and the default speed.
    */
-  SetMinMax() {
+  UpdateConstants() {
     constants.minX = 0;
-    constants.maxX = this.pointValuesX.length - 1;
-    constants.minY = this.curveMinY;
-    constants.maxY = this.curveMaxY;
-    constants.autoPlayRate = Math.ceil(
-      constants.AUTOPLAY_DURATION / (constants.maxX + 1)
+    constants.maxX = singleMaidr.data.length - 1;
+    constants.minY = singleMaidr.data.reduce(
+      (min, item) => (item.y < min ? item.y : min),
+      singleMaidr.data[0].y
     );
+    constants.maxY = singleMaidr.data.reduce(
+      (max, item) => (item.y > max ? item.y : max),
+      singleMaidr.data[0].y
+    );
+
+    constants.autoPlayRate = Math.min(
+      Math.ceil(constants.AUTOPLAY_DURATION / (constants.maxX + 1)),
+      constants.MAX_SPEED
+    );
+    constants.DEFAULT_SPEED = constants.autoPlayRate;
+    if (constants.autoPlayRate < constants.MIN_SPEED) {
+      constants.MIN_SPEED = constants.autoPlayRate;
+    }
   }
 
   /**
@@ -6449,44 +6313,58 @@ class LinePlot {
     }
   }
 
-  // GetGradient() {
-  //   let gradients = [];
-
-  //   for (let i = 0; i < this.pointValuesY.length - 1; i++) {
-  //     let abs_grad = Math.abs(
-  //       (this.pointValuesY[i + 1] - this.pointValuesY[i]) /
-  //         (this.pointValuesX[i + 1] - this.pointValuesX[i])
-  //     ).toFixed(3);
-  //     gradients.push(abs_grad);
-  //   }
-
-  //   gradients.push('end');
-
-  //   return gradients;
-  // }
-
   /**
    * Sets the x and y group labels and title for the line plot based on the axes and title properties of the singleMaidr object.
    */
   SetAxes() {
-    this.x_group_label = '';
-    this.y_group_label = '';
-    this.title = '';
+    let legendX = '';
+    let legendY = '';
     if ('axes' in singleMaidr) {
-      if ('x' in singleMaidr.axes) {
-        if (this.x_group_label == '') {
-          this.x_group_label = singleMaidr.axes.x.label;
+      // legend labels
+      if (singleMaidr.axes.x) {
+        if (singleMaidr.axes.x.label) {
+          if (legendX == '') {
+            legendX = singleMaidr.axes.x.label;
+          }
         }
       }
-      if ('y' in singleMaidr.axes) {
-        if (this.y_group_label == '') {
-          this.y_group_label = singleMaidr.axes.y.label;
+      if (singleMaidr.axes.y) {
+        if (singleMaidr.axes.y.label) {
+          if (legendY == '') {
+            legendY = singleMaidr.axes.y.label;
+          }
         }
       }
     }
-    if ('title' in singleMaidr) {
-      if (this.title == '') {
+
+    this.plotLegend = {
+      x: legendX,
+      y: legendY,
+    };
+
+    // title
+    this.title = '';
+    if ('labels' in singleMaidr) {
+      if ('title' in singleMaidr.labels) {
+        this.title = singleMaidr.labels.title;
+      }
+    }
+    if (this.title == '') {
+      if ('title' in singleMaidr) {
         this.title = singleMaidr.title;
+      }
+    }
+
+    // subtitle
+    if ('labels' in singleMaidr) {
+      if ('subtitle' in singleMaidr.labels) {
+        this.subtitle = singleMaidr.labels.subtitle;
+      }
+    }
+    // caption
+    if ('labels' in singleMaidr) {
+      if ('caption' in singleMaidr.labels) {
+        this.caption = singleMaidr.labels.caption;
       }
     }
   }
@@ -6579,7 +6457,6 @@ class Segmented {
    */
   constructor() {
     // initialize variables level, data, and elements
-    let level = null;
     let fill = null;
     let data = null;
     let elements = null;
@@ -6587,17 +6464,17 @@ class Segmented {
       //axes.x.level
       if ('x' in singleMaidr.axes) {
         if ('level' in singleMaidr.axes.x) {
-          level = singleMaidr.axes.x.level;
+          this.level = singleMaidr.axes.x.level;
         }
       } else if ('y' in singleMaidr.axes) {
         if ('level' in singleMaidr.axes.y) {
-          level = singleMaidr.axes.y.level;
+          this.level = singleMaidr.axes.y.level;
         }
       }
       // axes.fill
       if ('fill' in singleMaidr.axes) {
         if ('level' in singleMaidr.axes.fill) {
-          fill = singleMaidr.axes.fill.level;
+          this.fill = singleMaidr.axes.fill.level;
         }
       }
     }
@@ -6606,6 +6483,8 @@ class Segmented {
     }
     if ('selector' in singleMaidr) {
       elements = document.querySelectorAll(singleMaidr.selector);
+    } else if ('elements' in singleMaidr) {
+      elements = singleMaidr.elements;
     }
 
     // gracefull failure: must have level + fill + data, elements optional
@@ -6613,9 +6492,10 @@ class Segmented {
       logError.LogAbsentElement('elements');
       constants.hasRect = 0;
     }
-    if (level != null && fill != null && data != null) {
-      this.level = level;
-      this.fill = fill.reverse(); // typically fill is in reverse order
+    if (data) {
+      if (this.fill) {
+        this.fill = this.fill.reverse(); // typically fill is in reverse order
+      }
       let dataAndELements = this.ParseData(data, elements);
       this.plotData = dataAndELements[0];
       this.elements = dataAndELements[1];
@@ -6703,7 +6583,12 @@ class Segmented {
     let plotData = [];
     let plotElements = [];
 
-    if (elements.length != data.length) {
+    // override and kill elements if not same length as data
+    if (elements) {
+      if (elements.length != data.length) {
+        plotElements = null;
+      }
+    } else {
       plotElements = null;
     }
 
@@ -6733,7 +6618,9 @@ class Segmented {
           // set actual values
           if (data[k].x == this.level[i] && data[k].fill == this.fill[j]) {
             plotData[i][j] = data[k].y;
-            plotElements[i][j] = elements[k];
+            if (elements) {
+              plotElements[i][j] = elements[k];
+            }
             break;
           }
         }
@@ -6784,6 +6671,7 @@ class Segmented {
       if (constants.sonifMode == 'on') {
         // we play a run of tones
         position.z = 0;
+        constants.KillSepPlay();
         constants.sepPlayId = setInterval(
           function () {
             // play this tone
@@ -7428,10 +7316,8 @@ class Control {
         window.position = new Position(-1, plot.plotData.length);
       }
       let rect;
-      constants.hasRect = false;
-      if ('selector' in singleMaidr) {
+      if (constants.hasRect) {
         rect = new BoxplotRect();
-        constants.hasRect = true;
       }
       let lastPlayed = '';
 
@@ -8380,7 +8266,7 @@ class Control {
         return new Promise((resolve) => setTimeout(resolve, time));
       }
 
-      // helper functions
+      // heat helper functions
       function lockPosition() {
         // lock to min / max postions
         let didLockHappen = false;
@@ -8783,7 +8669,7 @@ class Control {
         if (constants.showDisplay) {
           display.displayValues();
         }
-        if (constants.showRect) {
+        if (layer0Point.hasRect) {
           layer0Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {
@@ -8796,9 +8682,9 @@ class Control {
           display.displayValues();
         }
         if (constants.showRect) {
-          if (constants.chartType == 'point') {
+          if (constants.chartType == 'point' && layer0Point.hasRect) {
             layer0Point.UpdatePointDisplay();
-          } else {
+          } else if (constants.chartType == 'smooth' && layer1Point.hasRect) {
             layer1Point.UpdatePointDisplay();
           }
         }
@@ -8813,7 +8699,7 @@ class Control {
         if (constants.showDisplayInBraille) {
           display.displayValues();
         }
-        if (constants.showRect) {
+        if (layer1Point.hasRect) {
           layer1Point.UpdatePointDisplay();
         }
         if (constants.sonifMode != 'off') {

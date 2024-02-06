@@ -1,6 +1,6 @@
 # maidr: Multimodal Access and Interactive Data Representation
 
-maidr is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-modal exploration on visualization. Check out the current build: [maidr Demo](https://uiuc-ischool-accessible-computing-lab.github.io/maidr/user_study_pilot/intro.html). You may also clone or download the GitHub repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
+maidr (pronounced as 'mader') is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-modal exploration on visualization. Check out the current build: [maidr Demo](https://uiuc-ischool-accessible-computing-lab.github.io/maidr/user_study_pilot/intro.html). You may also clone or download the GitHub repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ maidr is a system for non-visual access and control of statistical plots. It aim
 
 To use maidr, follow these steps:
 
-1. **Import your plot or plot**: maidr is designed to work seamlessly with ggplot in R, with a focus on highlighting SVG elements. The supported plot types include barplot, boxplot, heatmap, and scatterplot.
+1. **Import your plot or plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT-4 Vision and Google Gemini Pro-Vision. The supported plot types include barplot, boxplot, heatmap, scatterplot, lineplot, histogram, segmented barplots (e.g., stacked barplot, side-by-side dodged plot, and normalized stacked barplot).
 
 2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your plot to the main html body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
@@ -65,7 +65,7 @@ To use maidr, follow these steps:
      selector: '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]',
      data: ...
    }
-   
+
    // or, multiple charts
    let maidr = [
      {
@@ -112,7 +112,7 @@ To use maidr, follow these steps:
    var maidr = {
      data: [929539693, 898871185, 3811953828, 586098530, 24549948],
    };
-   
+
    // heatmap maidr.data structure: a 2D array of values
    var maidr = {
      data: [
@@ -121,7 +121,7 @@ To use maidr, follow these steps:
        [44, 56, 52],
      ],
    };
-   
+
    // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
    var maidr = {
      data: [
@@ -139,7 +139,7 @@ To use maidr, follow these steps:
        },
      ],
    };
-   
+
    // scatterplot maidr.data: an object containing x and y properties, each with an array of float values
    // note that data is an array here as scatterplots are often combine with line plots
    var maidr = {
@@ -151,7 +151,7 @@ To use maidr, follow these steps:
        // line data could go here
      ],
    };
-   
+
    // smooth line maidr.data: an object containing x and y properties, each with an array of float values
    // note that data is an array here as scatterplots are often combine with line plots
    var maidr = {
@@ -174,8 +174,8 @@ To use maidr, follow these steps:
      title: 'Highway Mileage by Engine Displacement.',
      name: 'Tutorial 4: Scatterplot',
      selector: [
-         'g[id^="geom_point"] > use',
-         'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]',
+       'g[id^="geom_point"] > use',
+       'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]',
      ],
      axes: {
        x: {
@@ -187,15 +187,25 @@ To use maidr, follow these steps:
      },
      data: [
        {
-         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1, 2.8],
+         x: [
+           1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1,
+           2.8,
+         ],
          y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
        },
        {
-         x: [1.6, 1.6684, 1.7367, 1.8051, 1.8734, 1.9418, 2.0101, 2.0785, 2.1468, 2.2152, 2.2835, 2.3519, 2.4203, 2.4886, 2.557, 2.6253],
-         y: [33.0929, 32.5108, 31.9422, 31.3885, 30.8509, 30.33, 29.8239, 29.3334, 28.8584, 28.3981, 27.9519, 27.5189, 27.0988, 26.6958, 26.3091, 25.9356]
-       }
-    ]
-   }
+         x: [
+           1.6, 1.6684, 1.7367, 1.8051, 1.8734, 1.9418, 2.0101, 2.0785, 2.1468,
+           2.2152, 2.2835, 2.3519, 2.4203, 2.4886, 2.557, 2.6253,
+         ],
+         y: [
+           33.0929, 32.5108, 31.9422, 31.3885, 30.8509, 30.33, 29.8239, 29.3334,
+           28.8584, 28.3981, 27.9519, 27.5189, 27.0988, 26.6958, 26.3091,
+           25.9356,
+         ],
+       },
+     ],
+   };
    ```
 
 For more information and examples, refer to the example HTML files provided in the repository.
@@ -214,7 +224,7 @@ To interact with the charts using maidr, follow these steps:
 Below is a detailed list of keyboard shortcuts for various functions:
 
 | Function                                | Key (Windows)               | Key (Mac)                   |
-|-----------------------------------------|-----------------------------|-----------------------------|
+| --------------------------------------- | --------------------------- | --------------------------- |
 | Move around plot                        | Arrow keys                  | Arrow keys                  |
 | Go to the very left, right, up, or down | Control + Arrow key         | Command + Arrow key         |
 | Select the first element                | Control + Home              | Command + Function + Left   |
