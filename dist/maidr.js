@@ -416,8 +416,8 @@ class Menu {
                                 </select>
                                 <label for="LLM_model">LLM Model</label>
                             </p>
-                            <p id="openai_auth_key_container" class="hidden"><input type="password" id="openai_auth_key"> <label for="openai_auth_key">OpenAI Authentication Key</label></p>
-                            <p id="gemini_auth_key_container" class="hidden"><input type="password" id="gemini_auth_key"> <label for="gemini_auth_key">Gemini Authentication Key</label></p>
+                            <p id="openai_auth_key_container" class="hidden"><input type="password" id="openai_auth_key"><button aria-label="Delete OpenAI key" title="Delete OpenAI key" id="delete_openai_key" class="invis_button">&times;</button><label for="openai_auth_key">OpenAI Authentication Key</label></p>
+                            <p id="gemini_auth_key_container" class="hidden"><input type="password" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label></p>
                             <p>
                                 <select id="skill_level">
                                     <option value="basic">Basic</option>
@@ -471,7 +471,7 @@ class Menu {
     ]);
     constants.events.push([
       document.getElementById('menu'),
-      'keydown',
+      'keyup',
       function (e) {
         if (e.key == 'Esc') {
           // esc
@@ -813,7 +813,7 @@ class ChatLLM {
     }
     constants.events.push([
       document.getElementById('chatLLM'),
-      'keydown',
+      'keyup',
       function (e) {
         if (e.key == 'Esc') {
           // esc
@@ -822,13 +822,13 @@ class ChatLLM {
       },
     ]);
 
-    // ChatLLM open events
+    // ChatLLM open/close toggle
     constants.events.push([
       document,
       'keyup',
       function (e) {
         if (e.key == '?' && (e.ctrlKey || e.metaKey)) {
-          chatLLM.Toggle(true);
+          chatLLM.Toggle();
         }
       },
     ]);
@@ -845,7 +845,7 @@ class ChatLLM {
     ]);
     constants.events.push([
       document.getElementById('chatLLM_input'),
-      'keydown',
+      'keyup',
       function (e) {
         if (e.key == 'Enter' && !e.shiftKey) {
           let text = document.getElementById('chatLLM_input').value;
@@ -870,6 +870,22 @@ class ChatLLM {
         },
       ]);
     }
+
+    // Delete OpenAI and Gemini keys
+    constants.events.push([
+      document.getElementById('delete_openai_key'),
+      'click',
+      function (e) {
+        document.getElementById('openai_auth_key').value = '';
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('delete_gemini_key'),
+      'click',
+      function (e) {
+        document.getElementById('gemini_auth_key').value = '';
+      },
+    ]);
   }
 
   /**
@@ -1198,7 +1214,7 @@ class ChatLLM {
    * Toggles the modal on and off.
    * @param {boolean} [onoff=false] - Whether to turn the chatLLM on or off. Defaults to false (close).
    */
-  Toggle(onoff = false) {
+  Toggle(onoff) {
     if (typeof onoff == 'undefined') {
       if (document.getElementById('chatLLM').classList.contains('hidden')) {
         onoff = true;
@@ -1376,7 +1392,7 @@ class Description {
     }
     constants.events.push([
       document.getElementById('description'),
-      'keydown',
+      'keyup',
       function (e) {
         if (e.key == 'Esc') {
           // esc
