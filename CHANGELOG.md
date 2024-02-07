@@ -1,3 +1,17 @@
+# [1.4.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.2...v1.4.0) (2024-02-07)
+
+
+### Bug Fixes
+
+* Gracefull failure now possible when main data (json schema) lacks elements or selector or both, on all chart types ([#375](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/375)) ([ea26e5b](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/ea26e5b3f224b3e63ae0cdb0cf1855510e10ad87))
+* Replaced elements with selector in documentation and examples to conform to the latest maidr json schema spec ([#372](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/372)) ([8a39dd5](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/8a39dd5770cc522c446fa4715358952c61e7566a))
+
+
+### Features
+
+* add delete buttons for LLM auth keys ([#394](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/394)) ([deffa5a](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/deffa5a8bd8cc85555738f748fb462853de39821)), closes [#378](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/378)
+* change LLM modal controls to toggle open/close for easier review ([#393](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/393)) ([63e52b4](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/63e52b4cbd5203a169b87c0bb47495dae0bfe484)), closes [#379](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/379)
+
 ## [1.3.2](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.1...v1.3.2) (2024-02-02)
 
 
