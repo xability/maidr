@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.4.0...v1.4.1) (2024-02-08)
+
+
+### Bug Fixes
+
+* support lack of plot legend in verbose text output ([#395](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/395)) ([a8e92c5](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/a8e92c58a264636afe20fd57c7bed6741660f7db)), closes [#217](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/217)
+
 # [1.4.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.3.2...v1.4.0) (2024-02-07)
 
 
