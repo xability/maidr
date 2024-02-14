@@ -71,6 +71,7 @@
   ],
   "githubPullRequests.defaultMergeMethod": "squash",
 
+    "git.ignoreRebaseWarning": true,
   "git.supportCancellation": true,
   "git.openRepositoryInParentFolders": "always",
   "git.confirmSync": false,
