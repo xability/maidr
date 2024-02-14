@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.4.1...v1.5.0) (2024-02-14)
+
+
+### Features
+
+* add user preferences to accompany initial prompt for LLM ([#401](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/401)) ([8783b82](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/8783b82b314529413ea75de745797c7cf4e1aa7a)), closes [#396](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/396)
+
 ## [1.4.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.4.0...v1.4.1) (2024-02-08)
 
 
