@@ -83,7 +83,7 @@ class Constants {
   LLMDetail = 'high'; // low (default for testing, like 100 tokens) / high (default for real, like 1000 tokens)
   LLMModel = 'openai'; // openai (default) / gemini
   LLMSystemMessage =
-    'You are a helpful assistant describing the chart to a blind person';
+    'You are a helpful assistant describing the chart to a blind person. ';
   skillLevel = 'basic'; // basic / intermediate / expert
   skillLevelOther = ''; // custom skill level
 
@@ -428,6 +428,8 @@ class Menu {
                                 <label for="skill_level">Level of skill in statistical charts</label>
                             </p>
                             <p id="skill_level_other_container" class="hidden"><input type="text" placeholder="Very basic" id="skill_level_other"> <label for="skill_level_other">Describe your level of skill in statistical charts</label></p>
+                            <p><label for="LLM_preferences">LLM Preferences</label></p>
+                            <p><textarea id="LLM_preferences" rows="4" cols="50" placeholder="I'm a stats undergrad and work with Python. I prefer a casual tone, and favor information accuracy over creative description; just the facts please!"></textarea></p>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -486,7 +488,10 @@ class Menu {
       'keyup',
       function (e) {
         // don't fire on input elements
-        if (e.target.tagName.toLowerCase() == 'input') {
+        if (
+          e.target.tagName.toLowerCase() == 'input' ||
+          e.target.tagName.toLowerCase() == 'textarea'
+        ) {
           return;
         } else if (e.key == 'h') {
           menu.Toggle(true);
@@ -647,6 +652,11 @@ class Menu {
         .getElementById('skill_level_other_container')
         .classList.remove('hidden');
     }
+    // LLM preferences
+    if (constants.LLMPreferences) {
+      document.getElementById('LLM_preferences').value =
+        constants.LLMPreferences;
+    }
   }
 
   /**
@@ -669,6 +679,7 @@ class Menu {
     constants.skillLevelOther =
       document.getElementById('skill_level_other').value;
     constants.LLMModel = document.getElementById('LLM_model').value;
+    constants.LLMPreferences = document.getElementById('LLM_preferences').value;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -718,6 +729,7 @@ class Menu {
     data.skillLevel = constants.skillLevel;
     data.skillLevelOther = constants.skillLevelOther;
     data.LLMModel = constants.LLMModel;
+    data.LLMPreferences = constants.LLMPreferences;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
@@ -739,6 +751,7 @@ class Menu {
       constants.skillLevel = data.skillLevel;
       constants.skillLevelOther = data.skillLevelOther;
       constants.LLMModel = data.LLMModel ? data.LLMModel : constants.LLMModel;
+      constants.LLMPreferences = data.LLMPreferences;
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -1097,6 +1110,11 @@ class ChatLLM {
       this.requestJson.messages[0] = {};
       this.requestJson.messages[0].role = 'system';
       this.requestJson.messages[0].content = sysMessage;
+      if (constants.LLMPreferences) {
+        this.requestJson.messages[1] = {};
+        this.requestJson.messages[1].role = 'system';
+        this.requestJson.messages[1].content = constants.LLMPreferences;
+      }
     }
 
     // user message
@@ -1124,7 +1142,6 @@ class ChatLLM {
     return this.requestJson;
   }
 
-  // Assuming this function is part of your existing JavaScript file
   async GeminiPrompt(text, imgBase64 = null) {
     try {
       // Save the image for next time
@@ -1144,7 +1161,11 @@ class ChatLLM {
       const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 
       // Create the prompt
-      const prompt = constants.LLMSystemMessage + '\n\n' + text; // Use the text parameter as the prompt
+      let prompt = constants.LLMSystemMessage;
+      if (constants.LLMPreferences) {
+        prompt += constants.LLMPreferences;
+      }
+      prompt += '\n\n' + text; // Use the text parameter as the prompt
       const image = {
         inlineData: {
           data: imgBase64, // Use the base64 image string
