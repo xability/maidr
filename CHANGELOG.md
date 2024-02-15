@@ -1,3 +1,21 @@
+# [2.0.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.5.0...v2.0.0) (2024-02-15)
+
+
+### Bug Fixes
+
+* add tabindex attribute to maidrElemn element ([#403](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/403)) ([f51b917](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/f51b9175dee386d82c33dea3b251e4278bc88724))
+
+
+### Features
+
+* Created ability to chat with multiple LLMs at once ([#402](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/402)) ([80aa119](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/80aa1193315430b2472ad210266b4360f7f3dc36)), closes [#388](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/388)
+
+
+### BREAKING CHANGES
+
+* Changed the way data was stored in the menu, first time
+you run you'll need to update LLM settings
+
 # [1.5.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.4.1...v1.5.0) (2024-02-14)
 
 
