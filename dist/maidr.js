@@ -270,6 +270,9 @@ class Resources {
         son_sep: 'Sonification separate',
         son_same: 'Sonification combined',
         empty: 'Empty',
+        openai: 'OpenAI Vision',
+        gemini: 'Gemini Pro Vision',
+        multi: 'Multiple',
       },
     },
   };
@@ -413,11 +416,18 @@ class Menu {
                                 <select id="LLM_model">
                                     <option value="openai">OpenAI Vision</option>
                                     <option value="gemini">Gemini Pro Vision</option>
+                                    <option value="multi">Multiple</option>
                                 </select>
                                 <label for="LLM_model">LLM Model</label>
                             </p>
-                            <p id="openai_auth_key_container" class="hidden"><input type="password" id="openai_auth_key"><button aria-label="Delete OpenAI key" title="Delete OpenAI key" id="delete_openai_key" class="invis_button">&times;</button><label for="openai_auth_key">OpenAI Authentication Key</label></p>
-                            <p id="gemini_auth_key_container" class="hidden"><input type="password" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label></p>
+                            <p id="openai_auth_key_container" class="multi_container hidden">
+                              <span id="openai_multi_container" class="hidden"><input type="checkbox" id="openai_multi" name="openai_multi" aria-label="Use OpenAI in Multi modal mode"></span>
+                              <input type="password" id="openai_auth_key"><button aria-label="Delete OpenAI key" title="Delete OpenAI key" id="delete_openai_key" class="invis_button">&times;</button><label for="openai_auth_key">OpenAI Authentication Key</label>
+                            </p>
+                            <p id="gemini_auth_key_container" class="multi_container hidden">
+                              <span id="gemini_multi_container" class="hidden"><input type="checkbox" id="gemini_multi" name="gemini_multi" aria-label="Use Gemini in Multi modal mode"></span>
+                              <input type="password" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label>
+                            </p>
                             <p>
                                 <select id="skill_level">
                                     <option value="basic">Basic</option>
@@ -511,6 +521,14 @@ class Menu {
           document
             .getElementById('gemini_auth_key_container')
             .classList.add('hidden');
+          document
+            .getElementById('openai_multi_container')
+            .classList.add('hidden');
+          document
+            .getElementById('gemini_multi_container')
+            .classList.add('hidden');
+          document.getElementById('openai_multi').checked = true;
+          document.getElementById('gemini_multi').checked = false;
         } else if (e.target.value == 'gemini') {
           document
             .getElementById('openai_auth_key_container')
@@ -518,6 +536,29 @@ class Menu {
           document
             .getElementById('gemini_auth_key_container')
             .classList.remove('hidden');
+          document
+            .getElementById('openai_multi_container')
+            .classList.add('hidden');
+          document
+            .getElementById('gemini_multi_container')
+            .classList.add('hidden');
+          document.getElementById('openai_multi').checked = false;
+          document.getElementById('gemini_multi').checked = true;
+        } else if (e.target.value == 'multi') {
+          document
+            .getElementById('openai_auth_key_container')
+            .classList.remove('hidden');
+          document
+            .getElementById('gemini_auth_key_container')
+            .classList.remove('hidden');
+          document
+            .getElementById('openai_multi_container')
+            .classList.remove('hidden');
+          document
+            .getElementById('gemini_multi_container')
+            .classList.remove('hidden');
+          document.getElementById('openai_multi').checked = true;
+          document.getElementById('gemini_multi').checked = true;
         }
       },
     ]);
@@ -645,6 +686,28 @@ class Menu {
       document
         .getElementById('gemini_auth_key_container')
         .classList.remove('hidden');
+    } else if (constants.LLMModel == 'multi') {
+      // multi LLM mode
+      document
+        .getElementById('openai_auth_key_container')
+        .classList.remove('hidden');
+      document
+        .getElementById('gemini_auth_key_container')
+        .classList.remove('hidden');
+      document
+        .getElementById('openai_multi_container')
+        .classList.remove('hidden');
+      document
+        .getElementById('gemini_multi_container')
+        .classList.remove('hidden');
+      document.getElementById('openai_multi').checked = false;
+      if (constants.LLMOpenAiMulti) {
+        document.getElementById('openai_multi').checked = true;
+      }
+      document.getElementById('gemini_multi').checked = false;
+      if (constants.LLMGeminiMulti) {
+        document.getElementById('gemini_multi').checked = true;
+      }
     }
     // skill level other
     if (constants.skillLevel == 'other') {
@@ -673,6 +736,7 @@ class Menu {
     constants.MAX_FREQUENCY = document.getElementById('max_freq').value;
     constants.keypressInterval =
       document.getElementById('keypress_interval').value;
+
     constants.openAIAuthKey = document.getElementById('openai_auth_key').value;
     constants.geminiAuthKey = document.getElementById('gemini_auth_key').value;
     constants.skillLevel = document.getElementById('skill_level').value;
@@ -680,6 +744,9 @@ class Menu {
       document.getElementById('skill_level_other').value;
     constants.LLMModel = document.getElementById('LLM_model').value;
     constants.LLMPreferences = document.getElementById('LLM_preferences').value;
+
+    constants.LLMOpenAiMulti = document.getElementById('openai_multi').checked;
+    constants.LLMGeminiMulti = document.getElementById('gemini_multi').checked;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -730,6 +797,8 @@ class Menu {
     data.skillLevelOther = constants.skillLevelOther;
     data.LLMModel = constants.LLMModel;
     data.LLMPreferences = constants.LLMPreferences;
+    data.LLMOpenAiMulti = constants.LLMOpenAiMulti;
+    data.LLMGeminiMulti = constants.LLMGeminiMulti;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
@@ -752,6 +821,8 @@ class Menu {
       constants.skillLevelOther = data.skillLevelOther;
       constants.LLMModel = data.LLMModel ? data.LLMModel : constants.LLMModel;
       constants.LLMPreferences = data.LLMPreferences;
+      constants.LLMOpenAiMulti = data.LLMOpenAiMulti;
+      constants.LLMGeminiMulti = data.LLMGeminiMulti;
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -902,7 +973,8 @@ class ChatLLM {
   }
 
   /**
-   * Submits text to the LLM with a REST call, returns the response to the user
+   * Submits text to the LLM with a REST call, returns the response to the user.
+   * Depends on the one or more LLMs being selected in the menu.
    * @function
    * @name Submit
    * @memberof module:constants
@@ -910,16 +982,24 @@ class ChatLLM {
    * @img {string} - The image to send to the LLM in base64 string format. Defaults to null (no image).
    * @returns {void}
    */
-  Submit(text, img = null) {
+  async Submit(text, firsttime = false) {
     // start waiting sound
     if (constants.playLLMWaitingSound) {
       chatLLM.WaitingSound(true);
     }
 
-    if (constants.LLMModel == 'gemini') {
-      chatLLM.GeminiPrompt(text, img);
-    } else if (constants.LLMModel == 'openai') {
+    let img = null;
+    if (constants.LLMOpenAiMulti) {
+      if (firsttime) {
+        img = await this.ConvertSVGtoJPG(singleMaidr.id, 'openai');
+      }
       chatLLM.OpenAIPrompt(text, img);
+    }
+    if (constants.LLMGeminiMulti) {
+      if (firsttime) {
+        img = await this.ConvertSVGtoJPG(singleMaidr.id, 'gemini');
+      }
+      chatLLM.GeminiPrompt(text, img);
     }
   }
 
@@ -966,14 +1046,13 @@ class ChatLLM {
    * @function
    * @returns {void}
    */
-  ProcessLLMResponse(data) {
+  ProcessLLMResponse(data, model) {
     chatLLM.WaitingSound(false);
     console.log('LLM response: ', data);
     let text = '';
-    let LLMName = '';
+    let LLMName = resources.GetString(model);
 
-    if (constants.LLMModel == 'openai') {
-      LLMName = 'OpenAI';
+    if (model == 'openai') {
       text = data.choices[0].message.content;
       let i = this.requestJson.messages.length;
       this.requestJson.messages[i] = {};
@@ -985,8 +1064,7 @@ class ChatLLM {
       } else {
         chatLLM.DisplayChatMessage(LLMName, text);
       }
-    } else if (constants.LLMModel == 'gemini') {
-      LLMName = 'Gemini';
+    } else if (model == 'gemini') {
       if (data.text()) {
         text = data.text();
         chatLLM.DisplayChatMessage(LLMName, text);
@@ -1069,7 +1147,7 @@ class ChatLLM {
    * @memberof module:constants
    * @returns {json}
    */
-  OpenAIPrompt(text, img) {
+  OpenAIPrompt(text, img = null) {
     // request init
     let url = 'https://api.openai.com/v1/chat/completions';
     let auth = constants.openAIAuthKey;
@@ -1086,7 +1164,7 @@ class ChatLLM {
     })
       .then((response) => response.json())
       .then((data) => {
-        chatLLM.ProcessLLMResponse(data);
+        chatLLM.ProcessLLMResponse(data, 'openai');
       })
       .catch((error) => {
         chatLLM.WaitingSound(false);
@@ -1095,7 +1173,7 @@ class ChatLLM {
         // also todo: handle errors somehow
       });
   }
-  OpenAIJson(text, img) {
+  OpenAIJson(text, img = null) {
     let sysMessage = constants.LLMSystemMessage;
     let backupMessage =
       'Describe ' + singleMaidr.type + ' charts to a blind person';
@@ -1179,7 +1257,7 @@ class ChatLLM {
       console.log(result.response.text());
 
       // Process the response
-      chatLLM.ProcessLLMResponse(result.response);
+      chatLLM.ProcessLLMResponse(result.response, 'gemini');
     } catch (error) {
       console.error('Error in GeminiPrompt:', error);
       throw error; // Rethrow the error for further handling if necessary
@@ -1255,10 +1333,12 @@ class ChatLLM {
 
       // first time, send default query
       if (this.firstTime) {
-        let LLMName = constants.LLMModel == 'openai' ? 'OpenAI' : 'Gemini';
+        // get name from resource
+        let LLMName = resources.GetString(constants.LLMModel);
         this.firstTime = false;
         this.DisplayChatMessage(LLMName, 'Processing Chart...');
-        this.RunDefaultPrompt();
+        let defaultPrompt = this.GetDefaultPrompt();
+        this.Submit(defaultPrompt, true);
       }
     } else {
       // close
@@ -1273,7 +1353,7 @@ class ChatLLM {
    * Converts the active chart to a jpg image.
    * @id {string} - The html ID of the chart to convert.
    */
-  async ConvertSVGtoJPG(id) {
+  async ConvertSVGtoJPG(id, model) {
     let svgElement = document.getElementById(id);
     return new Promise((resolve, reject) => {
       var canvas = document.createElement('canvas');
@@ -1293,9 +1373,9 @@ class ChatLLM {
       img.onload = function () {
         ctx.drawImage(img, 0, 0, svgSize.width, svgSize.height);
         var jpegData = canvas.toDataURL('image/jpeg', 0.9); // 0.9 is the quality parameter
-        if (constants.LLMModel == 'openai') {
+        if (model == 'openai') {
           resolve(jpegData);
-        } else if (constants.LLMModel == 'gemini') {
+        } else if (model == 'gemini') {
           let base64Data = jpegData.split(',')[1];
           resolve(base64Data);
           //resolve(jpegData);
@@ -1316,13 +1396,11 @@ class ChatLLM {
   }
 
   /**
-   * RunDefaultPrompt is an asynchronous function that generates a prompt for describing a chart to a blind person.
+   * GetDefaultPrompt is an asynchronous function that generates a prompt for describing a chart to a blind person.
    * It converts the chart to a JPG image using the ConvertSVGtoJPG method and then submits the prompt to the chatLLM function.
    * The prompt includes information about the blind person's skill level and the chart's image and raw data, if available.
    */
-  async RunDefaultPrompt() {
-    //let img = await this.ConvertSVGtoImg(singleMaidr.id);
-    let img = await this.ConvertSVGtoJPG(singleMaidr.id);
+  GetDefaultPrompt() {
     let text = 'Describe this chart to a blind person';
     if (constants.skillLevel) {
       if (constants.skillLevel == 'other' && constants.skillLevelOther) {
@@ -1345,7 +1423,7 @@ class ChatLLM {
       text += JSON.stringify(singleMaidr);
     }
 
-    chatLLM.Submit(text, img);
+    return text;
   }
 }
 /**
@@ -10061,6 +10139,7 @@ document.addEventListener('DOMContentLoaded', function (e) {
     maidrIds.push(maidrId);
     let maidrElemn = document.getElementById(maidrId);
     if (maidrElemn) {
+      maidrElemn.setAttribute('tabindex', '0');
       maidrElemn.addEventListener('focus', function (e) {
         ShouldWeInitMaidr(maidrObjects[i]);
       });
