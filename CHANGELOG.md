@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.0.0...v2.0.1) (2024-02-17)
+
+
+### Bug Fixes
+
+* **scatterplot:** support svg from matplotlib ([#406](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/406)) ([6069056](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/6069056552ddc5a7f1ffff4c8d2e5a0500430114)), closes [#400](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/400)
+
 # [2.0.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v1.5.0...v2.0.0) (2024-02-15)
 
 
