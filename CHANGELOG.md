@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.0.1...v2.1.0) (2024-02-21)
+
+
+### Features
+
+* add level based LLM suggestions ([#407](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/407)) ([e234566](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/e23456623c923a3df2ddebd8ae7520e82f3fabf6)), closes [#405](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/405)
+
 ## [2.0.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.0.0...v2.0.1) (2024-02-17)
 
 
