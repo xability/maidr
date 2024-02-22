@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.1.0...v2.1.1) (2024-02-22)
+
+
+### Bug Fixes
+
+* **heatmap:** support graceful failure in braille mode ([#409](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/409)) ([93e12d2](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/93e12d27aa9c874f79fcaa077bb6eef1ff9b9ac1)), closes [#408](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/408)
+
 # [2.1.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.0.1...v2.1.0) (2024-02-21)
 
 
