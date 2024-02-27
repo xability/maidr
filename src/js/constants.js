@@ -726,6 +726,8 @@ class Menu {
    * Saves the data from the HTML elements into the constants object.
    */
   SaveData() {
+    this.HandleLLMChanges();
+
     constants.vol = document.getElementById('vol').value;
     constants.autoPlayRate = document.getElementById('autoplay_rate').value;
     constants.brailleDisplayLength = document.getElementById(
@@ -773,6 +775,41 @@ class Menu {
     document
       .getElementById(constants.announcement_container_id)
       .setAttribute('aria-live', constants.ariaMode);
+  }
+
+  /**
+   * Handles changes to the LLM model and multi-modal settings.
+   * We reset if we change the LLM model, multi settings, or skill level.
+   */
+  HandleLLMChanges() {
+    let shouldReset = false;
+    if (
+      !shouldReset &&
+      constants.skillLevel != document.getElementById('skill_level').value
+    ) {
+      shouldReset = true;
+    }
+    if (
+      !shouldReset &&
+      constants.LLMModel != document.getElementById('LLM_model').value
+    ) {
+      shouldReset = true;
+    }
+    if (
+      !shouldReset &&
+      (constants.LLMOpenAiMulti !=
+        document.getElementById('openai_multi').checked ||
+        constants.LLMGeminiMulti !=
+          document.getElementById('gemini_multi').checked)
+    ) {
+      shouldReset = true;
+    }
+
+    if (shouldReset) {
+      if (chatLLM) {
+        chatLLM.ResetChatHistory();
+      }
+    }
   }
 
   /**
@@ -877,7 +914,8 @@ class ChatLLM {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="close_chatLLM">Close</button>
+                      <button type="button" id="reset_chatLLM">Reset</button>
+                      <button type="button" id="close_chatLLM">Close</button>
                     </div>
                 </div>
             </div>
@@ -888,7 +926,7 @@ class ChatLLM {
   }
 
   /**
-   * Sets events to toggle on and off chat window
+   * Sets events for the chatLLM modal
    */
   SetEvents() {
     // chatLLM close events
@@ -985,6 +1023,16 @@ class ChatLLM {
       'click',
       function (e) {
         document.getElementById('gemini_auth_key').value = '';
+      },
+    ]);
+
+    // Reset chatLLM
+    constants.events.push([
+      document.getElementById('reset_chatLLM'),
+      'click',
+      function (e) {
+        chatLLM.Toggle(false);
+        chatLLM.ResetChatHistory();
       },
     ]);
   }
@@ -1305,6 +1353,23 @@ class ChatLLM {
     // scroll to bottom
     document.getElementById('chatLLM_chat_history').scrollTop =
       document.getElementById('chatLLM_chat_history').scrollHeight;
+  }
+
+  /**
+   * Resets the chat history window
+   */
+  ResetChatHistory() {
+    // clear the main chat history
+    document.getElementById('chatLLM_chat_history').innerHTML = '';
+    // unhide the more button
+    document
+      .getElementById('more_suggestions_container')
+      .classList.add('hidden');
+    document.getElementById('more_suggestions').classList.remove('hidden');
+
+    // reset the data
+    this.requestJson = null;
+    this.firstTime = true;
   }
 
   /**
