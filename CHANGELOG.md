@@ -1,3 +1,15 @@
+# [2.2.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.1.1...v2.2.0) (2024-02-28)
+
+
+### Bug Fixes
+
+* more chat suggestoins button now hidden properly, including from AT ([#417](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/417)) ([1ad5193](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/1ad5193475cc9ddd6f7fb50ae25cf4f9ff21ae38)), closes [#412](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/412)
+
+
+### Features
+
+* add reset button to chat window, and auto reset on major LLM setting changes (model, skill level) ([#415](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/415)) ([de21e07](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/de21e07ee342f84e82c64078cda04366514726bc)), closes [#413](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/413)
+
 ## [2.1.1](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.1.0...v2.1.1) (2024-02-22)
 
 
