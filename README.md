@@ -367,7 +367,7 @@ JooYoung Seo - jseo1005@illinois.edu
 
 ## Acknowledgments
 
-This project is conducted through the Accessible Computing Lab at the University of Illinois at Urbana-Champaign, and funded by multiple grants, including:
+This project is conducted through the (x)Ability Design Lab at the University of Illinois at Urbana-Champaign, and funded by multiple grants, including:
 
 - The Institute of Museum and Library Services (IMLS) \#RE-254891-OLS-23
 
