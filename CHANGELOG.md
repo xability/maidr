@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.2.0...v2.3.0) (2024-02-29)
+
+
+### Features
+
+* add heading levels to multi ai responses for better AT navigation ([#418](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/418)) ([4223529](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/commit/4223529651b64b2ba409c4835a50779b5bf65528)), closes [#414](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/issues/414)
+
 # [2.2.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.1.1...v2.2.0) (2024-02-28)
 
 
