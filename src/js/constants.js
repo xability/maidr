@@ -272,7 +272,7 @@ class Resources {
         empty: 'Empty',
         openai: 'OpenAI Vision',
         gemini: 'Gemini Pro Vision',
-        multi: 'Multiple',
+        multi: 'Multiple AI',
       },
     },
   };
@@ -726,6 +726,8 @@ class Menu {
    * Saves the data from the HTML elements into the constants object.
    */
   SaveData() {
+    this.HandleLLMChanges();
+
     constants.vol = document.getElementById('vol').value;
     constants.autoPlayRate = document.getElementById('autoplay_rate').value;
     constants.brailleDisplayLength = document.getElementById(
@@ -773,6 +775,41 @@ class Menu {
     document
       .getElementById(constants.announcement_container_id)
       .setAttribute('aria-live', constants.ariaMode);
+  }
+
+  /**
+   * Handles changes to the LLM model and multi-modal settings.
+   * We reset if we change the LLM model, multi settings, or skill level.
+   */
+  HandleLLMChanges() {
+    let shouldReset = false;
+    if (
+      !shouldReset &&
+      constants.skillLevel != document.getElementById('skill_level').value
+    ) {
+      shouldReset = true;
+    }
+    if (
+      !shouldReset &&
+      constants.LLMModel != document.getElementById('LLM_model').value
+    ) {
+      shouldReset = true;
+    }
+    if (
+      !shouldReset &&
+      (constants.LLMOpenAiMulti !=
+        document.getElementById('openai_multi').checked ||
+        constants.LLMGeminiMulti !=
+          document.getElementById('gemini_multi').checked)
+    ) {
+      shouldReset = true;
+    }
+
+    if (shouldReset) {
+      if (chatLLM) {
+        chatLLM.ResetChatHistory();
+      }
+    }
   }
 
   /**
@@ -836,9 +873,10 @@ class Menu {
  */
 class ChatLLM {
   constructor() {
+    this.firstTime = true;
+    this.firstMulti = true;
     this.CreateComponent();
     this.SetEvents();
-    this.firstTime = true;
   }
 
   /**
@@ -861,16 +899,24 @@ class ChatLLM {
                         </div>
                         <div id="chatLLM_content">
                           <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
-                          <p class="LLM_suggestions">
-                            <button type="button">What is the title?</button>
-                            <button type="button">What are the high and low values?</button>
-                            <button type="button">What is the general shape of the chart?</button>
-                          </p>
+                          <div class="LLM_suggestions">
+                            <p><button type="button">What is the title?</button></p>
+                            <p><button type="button">What are the high and low values?</button></p>
+                            <p><button type="button">What is the general shape of the chart?</button></p>
+                            <p><button type="button" id="more_suggestions">More</button></p>
+                          </div>
+                          <div id="more_suggestions_container" class="hidden LLM_suggestions">
+                            <p><button type="button">Please provide the title of this visualization, then provide a description for someone who is blind or low vision. Include general overview of axes and the data at a high-level.</button></p>
+                            <p><button type="button">For the visualization I shared, please provide the following (where applicable): mean, standard deviation, extrema, correlations, relational comparisons like greater than OR lesser than.</button></p>
+                            <p><button type="button">Based on the visualization shared, address the following: Do you observe any unforeseen trends? If yes, what?  Please convey any complex multi-faceted patterns present. Can you identify any noteworthy exceptions that aren't readily apparent through non-visual methods of analysis?</button></p>
+                            <p><button type="button">Provide context to help explain the data depicted in this visualization based on domain-specific insight.</button></p>
+                          </div>
                           <p><button type="button" id="chatLLM_submit">Submit</button></p>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="close_chatLLM">Close</button>
+                      <button type="button" id="reset_chatLLM">Reset</button>
+                      <button type="button" id="close_chatLLM">Close</button>
                     </div>
                 </div>
             </div>
@@ -881,7 +927,7 @@ class ChatLLM {
   }
 
   /**
-   * Sets events to toggle on and off chat window
+   * Sets events for the chatLLM modal
    */
   SetEvents() {
     // chatLLM close events
@@ -940,8 +986,24 @@ class ChatLLM {
     ]);
 
     // ChatLLM suggestion events
+    // the more button
+    constants.events.push([
+      document.getElementById('more_suggestions'),
+      'click',
+      function (e) {
+        document
+          .getElementById('more_suggestions_container')
+          .classList.toggle('hidden');
+        // focus on button right after the more button
+        document
+          .querySelector('#more_suggestions_container > p > button')
+          .focus();
+        document.getElementById('more_suggestions').remove();
+      },
+    ]);
+    // actual suggestions:
     let suggestions = document.querySelectorAll(
-      '#chatLLM .LLM_suggestions button'
+      '#chatLLM .LLM_suggestions button:not(#more_suggestions)'
     );
     for (let i = 0; i < suggestions.length; i++) {
       constants.events.push([
@@ -970,6 +1032,16 @@ class ChatLLM {
         document.getElementById('gemini_auth_key').value = '';
       },
     ]);
+
+    // Reset chatLLM
+    constants.events.push([
+      document.getElementById('reset_chatLLM'),
+      'click',
+      function (e) {
+        chatLLM.Toggle(false);
+        chatLLM.ResetChatHistory();
+      },
+    ]);
   }
 
   /**
@@ -989,13 +1061,15 @@ class ChatLLM {
     }
 
     let img = null;
-    if (constants.LLMOpenAiMulti) {
+    this.firstMulti = true;
+
+    if (constants.LLMOpenAiMulti || constants.LLMModel == 'openai') {
       if (firsttime) {
         img = await this.ConvertSVGtoJPG(singleMaidr.id, 'openai');
       }
       chatLLM.OpenAIPrompt(text, img);
     }
-    if (constants.LLMGeminiMulti) {
+    if (constants.LLMGeminiMulti || constants.LLMModel == 'gemini') {
       if (firsttime) {
         img = await this.ConvertSVGtoJPG(singleMaidr.id, 'gemini');
       }
@@ -1060,7 +1134,7 @@ class ChatLLM {
       this.requestJson.messages[i].content = text;
 
       if (data.error) {
-        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.');
+        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
       } else {
         chatLLM.DisplayChatMessage(LLMName, text);
       }
@@ -1074,7 +1148,7 @@ class ChatLLM {
         }
       }
       if (data.error) {
-        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.');
+        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
       } else {
         // todo: display actual response
       }
@@ -1169,7 +1243,7 @@ class ChatLLM {
       .catch((error) => {
         chatLLM.WaitingSound(false);
         console.error('Error:', error);
-        chatLLM.DisplayChatMessage('LLM', 'Error processing request.');
+        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
         // also todo: handle errors somehow
       });
   }
@@ -1271,15 +1345,33 @@ class ChatLLM {
    * @memberof module:constants
    * @returns {void}
    */
-  DisplayChatMessage(user = 'User', text = '') {
+  DisplayChatMessage(user = 'User', text = '', isSystem = false) {
+    let hLevel = 'h3';
+    if (!isSystem && constants.LLMModel == 'multi' && user != 'User') {
+      if (this.firstMulti) {
+        let multiAIName = resources.GetString('multi');
+        let titleHtml = `
+          <div class="chatLLM_message chatLLM_message_other">
+            <h3 class="chatLLM_message_user">${multiAIName} Responses</h3>
+          </div>
+        `;
+        this.RenderChatMessage(titleHtml);
+        this.firstMulti = false;
+      }
+      hLevel = 'h4';
+    }
     let html = `
       <div class="chatLLM_message ${
         user == 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
       }">
-        <h3 class="chatLLM_message_user">${user}</h3>
+        <${hLevel} class="chatLLM_message_user">${user}</${hLevel}>
         <p class="chatLLM_message_text">${text}</p>
       </div>
     `;
+
+    this.RenderChatMessage(html);
+  }
+  RenderChatMessage(html) {
     document
       .getElementById('chatLLM_chat_history')
       .insertAdjacentHTML('beforeend', html);
@@ -1288,6 +1380,23 @@ class ChatLLM {
     // scroll to bottom
     document.getElementById('chatLLM_chat_history').scrollTop =
       document.getElementById('chatLLM_chat_history').scrollHeight;
+  }
+
+  /**
+   * Resets the chat history window
+   */
+  ResetChatHistory() {
+    // clear the main chat history
+    document.getElementById('chatLLM_chat_history').innerHTML = '';
+    // unhide the more button
+    document
+      .getElementById('more_suggestions_container')
+      .classList.add('hidden');
+    document.getElementById('more_suggestions').classList.remove('hidden');
+
+    // reset the data
+    this.requestJson = null;
+    this.firstTime = true;
   }
 
   /**
@@ -1336,7 +1445,7 @@ class ChatLLM {
         // get name from resource
         let LLMName = resources.GetString(constants.LLMModel);
         this.firstTime = false;
-        this.DisplayChatMessage(LLMName, 'Processing Chart...');
+        this.DisplayChatMessage(LLMName, 'Processing Chart...', true);
         let defaultPrompt = this.GetDefaultPrompt();
         this.Submit(defaultPrompt, true);
       }
