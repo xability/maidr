@@ -455,7 +455,7 @@ class Display {
         textTerse += ' ';
       }
       // val
-      if (plot.plotData[plotPos][sectionKey] != null && !isOutlier) {
+      if (plot.plotData[plotPos][sectionKey] == null && !isOutlier) {
         textTerse += 'empty';
         textVerbose += 'empty';
       } else {
