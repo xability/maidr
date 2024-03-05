@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/xability/maidr/compare/v2.3.0...v2.3.1) (2024-03-05)
+
+
+### Bug Fixes
+
+* **boxplot:** correct issues where min, max, outlier values are displayed as NULL ([4dce171](https://github.com/xability/maidr/commit/4dce1713e497cc7ac52bd5ad9fafe3a758f57f93))
+
 # [2.3.0](https://github.com/uiuc-ischool-accessible-computing-lab/maidr/compare/v2.2.0...v2.3.0) (2024-02-29)
 
 

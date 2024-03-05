@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "maidr: Multimodal Access and Interactive Data Representation. maidr is a system for non-visual access and control of statistical charts. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification. This comprehensive  approach enhances the accessibility of data visualization and encourages a multi-model exploration on visualization. Check out the current build: [MAIDR Demo](https://xability.github.io/maidr/user_study_pilot/intro.html).",
   "main": "dist/maidr.js",
   "scripts": {
@@ -13,7 +13,9 @@
     "commitlint": "commitlint",
     "semantic-release": "semantic-release"
   },
-  "files": ["dist/*"],
+  "files": [
+    "dist/*"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xability/maidr.git"
@@ -57,7 +59,9 @@
     "testEnvironment": "jsdom"
   },
   "release": {
-    "branches": ["main"],
+    "branches": [
+      "main"
+    ],
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
@@ -65,7 +69,10 @@
       "@semantic-release/npm",
       {
         "path": "@semantic-release/git",
-        "assets": ["package.json", "CHANGELOG.md"],
+        "assets": [
+          "package.json",
+          "CHANGELOG.md"
+        ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       },
       "@semantic-release/github"
