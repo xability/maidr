@@ -444,7 +444,7 @@ class Menu {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="save_and_close_menu">Save and Close</button>
+                        <button type="button" id="save_and_close_menu" aria-labelledby="save_and_close_text"><span id="save_and_close_text">Save and Close</span></button>
                         <button type="button" id="close_menu">Close</button>
                     </div>
                 </div>
@@ -578,6 +578,16 @@ class Menu {
             .getElementById('skill_level_other_container')
             .classList.add('hidden');
         }
+      },
+    ]);
+
+    // trigger notification that LLM will be reset
+    // this is done on change of LLM model, multi settings, or skill level
+    constants.events.push([
+      document.getElementById('LLM_model'),
+      'change',
+      function (e) {
+        menu.NotifyOfLLMReset();
       },
     ]);
   }
@@ -721,6 +731,9 @@ class Menu {
       document.getElementById('LLM_preferences').value =
         constants.LLMPreferences;
     }
+    if (document.getElementById('LLM_reset_notification')) {
+      document.getElementById('LLM_reset_notification').remove();
+    }
   }
 
   /**
@@ -778,6 +791,24 @@ class Menu {
       .setAttribute('aria-live', constants.ariaMode);
   }
 
+  /**
+   * Notifies the user that the LLM will be reset.
+   */
+  NotifyOfLLMReset() {
+    let html =
+      '<p id="LLM_reset_notification">Note: Changes in LLM settings will reset any existing conversation.</p>';
+    document
+      .getElementById('save_and_close_menu')
+      .insertAdjacentHTML('beforebegin', html);
+
+    // add to aria button text
+    document
+      .getElementById('save_and_close_menu')
+      .setAttribute(
+        'aria-labelledby',
+        'save_and_close_text LLM_reset_notification'
+      );
+  }
   /**
    * Handles changes to the LLM model and multi-modal settings.
    * We reset if we change the LLM model, multi settings, or skill level.
