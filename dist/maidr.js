@@ -273,6 +273,7 @@ class Resources {
         openai: 'OpenAI Vision',
         gemini: 'Gemini Pro Vision',
         multi: 'Multiple AI',
+        processing: 'Processing Chart...',
       },
     },
   };
@@ -443,7 +444,7 @@ class Menu {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="save_and_close_menu">Save and Close</button>
+                        <button type="button" id="save_and_close_menu" aria-labelledby="save_and_close_text"><span id="save_and_close_text">Save and Close</span></button>
                         <button type="button" id="close_menu">Close</button>
                     </div>
                 </div>
@@ -577,6 +578,16 @@ class Menu {
             .getElementById('skill_level_other_container')
             .classList.add('hidden');
         }
+      },
+    ]);
+
+    // trigger notification that LLM will be reset
+    // this is done on change of LLM model, multi settings, or skill level
+    constants.events.push([
+      document.getElementById('LLM_model'),
+      'change',
+      function (e) {
+        menu.NotifyOfLLMReset();
       },
     ]);
   }
@@ -720,6 +731,9 @@ class Menu {
       document.getElementById('LLM_preferences').value =
         constants.LLMPreferences;
     }
+    if (document.getElementById('LLM_reset_notification')) {
+      document.getElementById('LLM_reset_notification').remove();
+    }
   }
 
   /**
@@ -777,6 +791,24 @@ class Menu {
       .setAttribute('aria-live', constants.ariaMode);
   }
 
+  /**
+   * Notifies the user that the LLM will be reset.
+   */
+  NotifyOfLLMReset() {
+    let html =
+      '<p id="LLM_reset_notification">Note: Changes in LLM settings will reset any existing conversation.</p>';
+    document
+      .getElementById('save_and_close_menu')
+      .insertAdjacentHTML('beforebegin', html);
+
+    // add to aria button text
+    document
+      .getElementById('save_and_close_menu')
+      .setAttribute(
+        'aria-labelledby',
+        'save_and_close_text LLM_reset_notification'
+      );
+  }
   /**
    * Handles changes to the LLM model and multi-modal settings.
    * We reset if we change the LLM model, multi settings, or skill level.
@@ -895,7 +927,10 @@ class ChatLLM {
                         </button>
                     </div>
                     <div class="modal-body">
+                        <div id="chatLLM_chat_history_wrapper">
                         <div id="chatLLM_chat_history" aria-live="${constants.ariaMode}" aria-relevant="additions">
+                        </div>
+                        <p id="chatLLM_copy_all_wrapper"><button id="chatLLM_copy_all">Copy all to clipboard</button></p>
                         </div>
                         <div id="chatLLM_content">
                           <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
@@ -1038,8 +1073,39 @@ class ChatLLM {
       document.getElementById('reset_chatLLM'),
       'click',
       function (e) {
-        chatLLM.Toggle(false);
         chatLLM.ResetChatHistory();
+      },
+    ]);
+
+    // copy to clipboard
+    constants.events.push([
+      document.getElementById('chatLLM_copy_all'),
+      'click',
+      function (e) {
+        let text = document.getElementById('chatLLM_chat_history').innerText;
+        // need newlines instead of paragraphs headings etc
+        text = text.replace(/<p>/g, '\n').replace(/<\/p>/g, '\n');
+        text = text.replace(/<h\d>/g, '\n').replace(/<\/h\d>/g, '\n');
+        text = text.replace(/<.*?>/g, '');
+
+        navigator.clipboard.writeText(text);
+      },
+    ]);
+    constants.events.push([
+      document.getElementById('chatLLM_chat_history'),
+      'click',
+      function (e) {
+        // we're delegating here, so set the event on child .chatLLM_message_copy_button
+        if (e.target.matches('.chatLLM_message_copy_button')) {
+          // get the innerText of the element before the button
+          let text = e.target.closest('p').previousElementSibling.innerText;
+          // need newlines instead of paragraphs headings etc
+          text = text.replace(/<p>/g, '\n').replace(/<\/p>/g, '\n');
+          text = text.replace(/<h\d>/g, '\n').replace(/<\/h\d>/g, '\n');
+          text = text.replace(/<.*?>/g, '');
+
+          navigator.clipboard.writeText(text);
+        }
       },
     ]);
   }
@@ -1122,7 +1188,7 @@ class ChatLLM {
    */
   ProcessLLMResponse(data, model) {
     chatLLM.WaitingSound(false);
-    console.log('LLM response: ', data);
+    //console.log('LLM response: ', data);
     let text = '';
     let LLMName = resources.GetString(model);
 
@@ -1326,9 +1392,9 @@ class ChatLLM {
       };
 
       // Generate the content
-      console.log('LLM request: ', prompt, image);
+      //console.log('LLM request: ', prompt, image);
       const result = await model.generateContent([prompt, image]);
-      console.log(result.response.text());
+      //console.log(result.response.text());
 
       // Process the response
       chatLLM.ProcessLLMResponse(result.response, 'gemini');
@@ -1368,6 +1434,12 @@ class ChatLLM {
         <p class="chatLLM_message_text">${text}</p>
       </div>
     `;
+    // add a copy button to actual messages
+    if (user != 'User' && text != resources.GetString('processing')) {
+      html += `
+        <p class="chatLLM_message_copy"><button class="chatLLM_message_copy_button">Copy</button></p>
+      `;
+    }
 
     this.RenderChatMessage(html);
   }
@@ -1445,7 +1517,11 @@ class ChatLLM {
         // get name from resource
         let LLMName = resources.GetString(constants.LLMModel);
         this.firstTime = false;
-        this.DisplayChatMessage(LLMName, 'Processing Chart...', true);
+        this.DisplayChatMessage(
+          LLMName,
+          resources.GetString('processing'),
+          true
+        );
         let defaultPrompt = this.GetDefaultPrompt();
         this.Submit(defaultPrompt, true);
       }
