@@ -1,3 +1,12 @@
+# [2.4.0](https://github.com/xability/maidr/compare/v2.3.1...v2.4.0) (2024-03-07)
+
+
+### Features
+
+* add copy buttons to chat history window ([#426](https://github.com/xability/maidr/issues/426)) ([2bc0fb8](https://github.com/xability/maidr/commit/2bc0fb8080804818723920cadbe0435154b46b87)), closes [#424](https://github.com/xability/maidr/issues/424)
+* add notification to settings that will reset LLM chat history ([#428](https://github.com/xability/maidr/issues/428)) ([01f42d0](https://github.com/xability/maidr/commit/01f42d03f0109f6f5af5e6ae726c1a331c4050c7)), closes [#420](https://github.com/xability/maidr/issues/420)
+* don't close chat window on reset ([#427](https://github.com/xability/maidr/issues/427)) ([2a3d6af](https://github.com/xability/maidr/commit/2a3d6aff06825f1e78d856d4ecdfa2a157b11848)), closes [#422](https://github.com/xability/maidr/issues/422)
+
 ## [2.3.1](https://github.com/xability/maidr/compare/v2.3.0...v2.3.1) (2024-03-05)
 
 
