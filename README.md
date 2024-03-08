@@ -13,11 +13,15 @@ maidr (pronounced as 'mader') is a system for non-visual access and control of s
 ## Table of Contents
 
 1. [Usage](#usage)
-2. [Controls](#controls)
-3. [Braille Generation](#braille-generation)
-4. [License](#license)
-5. [Contact](#contact)
-6. [Acknowledgments](#acknowledgments)
+1. [Controls](#controls)
+1. [Braille Generation](#braille-generation)
+1. [API](#api)
+1. [Binders](#binders)
+1. [Papers](#papers)
+1. [License](#license)
+1. [Contact](#contact)
+1. [Acknowledgments](#acknowledgments)
+
 
 ## Usage
 
@@ -354,6 +358,53 @@ In the braille representation of segmented bar plots, braille depends on where y
 ### Lineplot
 
 In the Braille representation of a lineplot, braille is nearly identical to the above barplot: data values are encoded as Braille characters based on their relative magnitude within the plot. Low values are denoted by Braille characters that have dots only along the bottom, while high values are indicated by characters that have dots higher up.
+
+## API
+
+maidr is available via a restful API. Learn more about the usage at [maidr-api](https://github.com/xability/maidr-api) repo.
+
+## Binders
+
+We currently provide the following binders, all of which can be found at each separate repo:
+
+- [x] Python binder for matplotlib and seaborn: [py_maidr](https://github.com/xability/py_maidr).
+
+- [ ] R binder for ggplot2: [r_maidr](https://github.com/xability/r_maidr).
+
+## Papers
+
+To learn more about the theoretical background and user study results, we recommend you read and cite the following papers.
+
+1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://arxiv.org/abs/2403.00717):
+
+```tex
+@inproceedings{seoMAIDR2024,
+  title     = {{{MAIDR}}: Making Statistical Visualizations Accessible with Multimodal Data Representation},
+  booktitle = {Proceedings of the {{SIGCHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
+  author    = {Seo, JooYoung and Xia, Yilin and Lee, Bongshin and McCurry, Sean and Yam, Yu Jun},
+  year      = {2024},
+  doi       = {10.1145/3613904.3642730}
+}
+```
+
+1. [Born Accessible Data Science and Visualization Courses: Challenges of Developing Curriculum to be Taught by Blind Instructors to Blind Students](https://arxiv.org/abs/2403.02568v1):
+
+```tex
+@misc{seoBornAccessibleData2024,
+  title         = {Born {{Accessible Data Science}} and {{Visualization Courses}}: {{Challenges}} of {{Developing Curriculum}} to Be {{Taught}} by {{Blind Instructors}} to {{Blind Students}}},
+  shorttitle    = {Born {{Accessible Data Science}} and {{Visualization Courses}}},
+  author        = {Seo, JooYoung and O'Modhrain, Sile and Xia, Yilin and Kamath, Sanchita and Lee, Bongshin and Coughlan, James M.},
+  year          = {2024},
+  month         = mar,
+  number        = {arXiv:2403.02568},
+  eprint        = {2403.02568},
+  primaryclass  = {cs},
+  publisher     = {{arXiv}},
+  urldate       = {2024-03-08},
+  archiveprefix = {arxiv},
+  keywords      = {Computer Science - Human-Computer Interaction}
+}
+```
 
 ## License
 
