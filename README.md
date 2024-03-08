@@ -47,7 +47,7 @@ To use maidr, follow these steps:
    </html>
    ```
 
-3. Add your data: Include your data as a json schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple charts exist on the page. Your json schema may look like so: (values for demonstration purposes)
+3. Add your data: Include your data as a json schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple plots exist on the page. Your json schema may look like so: (values for demonstration purposes)
 
    ```javascript
    // a single plot
@@ -74,7 +74,7 @@ To use maidr, follow these steps:
      data: ...
    }
 
-   // or, multiple charts
+   // or, multiple plots
    let maidr = [
      {
        type: 'box',
@@ -220,7 +220,7 @@ For more information and examples, refer to the example HTML files provided in t
 
 ## Controls
 
-To interact with the charts using maidr, follow these steps:
+To interact with the plots using maidr, follow these steps:
 
 1. Press the **Tab** key to focus on the SVG element.
 2. Use the **arrow keys** to move around the plot.
