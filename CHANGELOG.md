@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/xability/maidr/compare/v2.4.0...v2.5.0) (2024-03-20)
+
+
+### Features
+
+* LLM now starts behind the scenes on chart load, with a user setting to toggle the feature ([#435](https://github.com/xability/maidr/issues/435)) ([8bb0392](https://github.com/xability/maidr/commit/8bb0392b646fe1f8465abd3a8873d8c2f44eb622)), closes [#425](https://github.com/xability/maidr/issues/425)
+
 # [2.4.0](https://github.com/xability/maidr/compare/v2.3.1...v2.4.0) (2024-03-07)
 
 
