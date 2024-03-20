@@ -86,6 +86,7 @@ class Constants {
     'You are a helpful assistant describing the chart to a blind person. ';
   skillLevel = 'basic'; // basic / intermediate / expert
   skillLevelOther = ''; // custom skill level
+  autoInitLLM = true; // auto initialize LLM on page load
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -429,6 +430,9 @@ class Menu {
                               <span id="gemini_multi_container" class="hidden"><input type="checkbox" id="gemini_multi" name="gemini_multi" aria-label="Use Gemini in Multi modal mode"></span>
                               <input type="password" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label>
                             </p>
+                            <p><input type="checkbox" ${
+                              constants.autoInitLLM ? 'checked' : ''
+                            } id="init_llm_on_load" name="init_llm_on_load"><label for="init_llm_on_load">Start first LLM chat chart load</label></p>
                             <p>
                                 <select id="skill_level">
                                     <option value="basic">Basic</option>
@@ -740,7 +744,7 @@ class Menu {
    * Saves the data from the HTML elements into the constants object.
    */
   SaveData() {
-    this.HandleLLMChanges();
+    let shouldReset = this.ShouldLLMReset();
 
     constants.vol = document.getElementById('vol').value;
     constants.autoPlayRate = document.getElementById('autoplay_rate').value;
@@ -760,9 +764,9 @@ class Menu {
       document.getElementById('skill_level_other').value;
     constants.LLMModel = document.getElementById('LLM_model').value;
     constants.LLMPreferences = document.getElementById('LLM_preferences').value;
-
     constants.LLMOpenAiMulti = document.getElementById('openai_multi').checked;
     constants.LLMGeminiMulti = document.getElementById('gemini_multi').checked;
+    constants.autoInitLLM = document.getElementById('init_llm_on_load').checked;
 
     // aria
     if (document.getElementById('aria_mode_assertive').checked) {
@@ -773,6 +777,12 @@ class Menu {
 
     this.SaveDataToLocalStorage();
     this.UpdateHtml();
+
+    if (shouldReset) {
+      if (chatLLM) {
+        chatLLM.ResetLLM();
+      }
+    }
   }
 
   /**
@@ -789,6 +799,8 @@ class Menu {
     document
       .getElementById(constants.announcement_container_id)
       .setAttribute('aria-live', constants.ariaMode);
+
+    document.getElementById('init_llm_on_load').checked = constants.autoInitLLM;
   }
 
   /**
@@ -797,6 +809,10 @@ class Menu {
   NotifyOfLLMReset() {
     let html =
       '<p id="LLM_reset_notification">Note: Changes in LLM settings will reset any existing conversation.</p>';
+
+    if (document.getElementById('LLM_reset_notification')) {
+      document.getElementById('LLM_reset_notification').remove();
+    }
     document
       .getElementById('save_and_close_menu')
       .insertAdjacentHTML('beforebegin', html);
@@ -813,7 +829,7 @@ class Menu {
    * Handles changes to the LLM model and multi-modal settings.
    * We reset if we change the LLM model, multi settings, or skill level.
    */
-  HandleLLMChanges() {
+  ShouldLLMReset() {
     let shouldReset = false;
     if (
       !shouldReset &&
@@ -837,11 +853,7 @@ class Menu {
       shouldReset = true;
     }
 
-    if (shouldReset) {
-      if (chatLLM) {
-        chatLLM.ResetChatHistory();
-      }
-    }
+    return shouldReset;
   }
 
   /**
@@ -868,6 +880,7 @@ class Menu {
     data.LLMPreferences = constants.LLMPreferences;
     data.LLMOpenAiMulti = constants.LLMOpenAiMulti;
     data.LLMGeminiMulti = constants.LLMGeminiMulti;
+    data.autoInitLLM = constants.autoInitLLM;
     localStorage.setItem('settings_data', JSON.stringify(data));
   }
   /**
@@ -892,6 +905,7 @@ class Menu {
       constants.LLMPreferences = data.LLMPreferences;
       constants.LLMOpenAiMulti = data.LLMOpenAiMulti;
       constants.LLMGeminiMulti = data.LLMGeminiMulti;
+      constants.autoInitLLM = data.autoInitLLM;
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -907,8 +921,12 @@ class ChatLLM {
   constructor() {
     this.firstTime = true;
     this.firstMulti = true;
+    this.shown = false;
     this.CreateComponent();
     this.SetEvents();
+    if (constants.autoInitLLM) {
+      this.InitChatMessage();
+    }
   }
 
   /**
@@ -1073,9 +1091,17 @@ class ChatLLM {
       document.getElementById('reset_chatLLM'),
       'click',
       function (e) {
-        chatLLM.ResetChatHistory();
+        chatLLM.ResetLLM();
       },
     ]);
+
+    // bookmark:
+    //
+    // have LLM run on init (#425)
+    // quiet first, but if they open window, it does the beep and aria live alert
+    // make toggle in settings to yes / no auto initiate LLM (or wait for window to open)
+    // as part of this, fix reset so it loads the LLM again without refreshing the window,
+    // left undone from the other request
 
     // copy to clipboard
     constants.events.push([
@@ -1123,7 +1149,7 @@ class ChatLLM {
   async Submit(text, firsttime = false) {
     // start waiting sound
     if (constants.playLLMWaitingSound) {
-      chatLLM.WaitingSound(true);
+      this.WaitingSound(true);
     }
 
     let img = null;
@@ -1169,7 +1195,7 @@ class ChatLLM {
       let delay = 1000;
       let freq = 440; // a440 babee
       constants.waitingInterval = setInterval(function () {
-        if (audio) {
+        if (audio && chatLLM.shown) {
           audio.playOscillator(freq, 0.2, 0);
         }
       }, delay);
@@ -1179,6 +1205,15 @@ class ChatLLM {
         chatLLM.WaitingSound(false);
       }, 30000);
     }
+  }
+
+  InitChatMessage() {
+    // get name from resource
+    let LLMName = resources.GetString(constants.LLMModel);
+    this.firstTime = false;
+    this.DisplayChatMessage(LLMName, resources.GetString('processing'), true);
+    let defaultPrompt = this.GetDefaultPrompt();
+    this.Submit(defaultPrompt, true);
   }
 
   /**
@@ -1392,9 +1427,9 @@ class ChatLLM {
       };
 
       // Generate the content
-      //console.log('LLM request: ', prompt, image);
+      console.log('LLM request: ', prompt, image);
       const result = await model.generateContent([prompt, image]);
-      //console.log(result.response.text());
+      console.log(result.response.text());
 
       // Process the response
       chatLLM.ProcessLLMResponse(result.response, 'gemini');
@@ -1457,7 +1492,7 @@ class ChatLLM {
   /**
    * Resets the chat history window
    */
-  ResetChatHistory() {
+  ResetLLM() {
     // clear the main chat history
     document.getElementById('chatLLM_chat_history').innerHTML = '';
     // unhide the more button
@@ -1469,6 +1504,11 @@ class ChatLLM {
     // reset the data
     this.requestJson = null;
     this.firstTime = true;
+
+    // and start over, if enabled
+    if (constants.autoInitLLM) {
+      chatLLM.InitChatMessage();
+    }
   }
 
   /**
@@ -1502,6 +1542,7 @@ class ChatLLM {
         onoff = false;
       }
     }
+    chatLLM.shown = onoff;
     if (onoff) {
       // open
       this.whereWasMyFocus = document.activeElement;
@@ -1511,20 +1552,6 @@ class ChatLLM {
         .getElementById('chatLLM_modal_backdrop')
         .classList.remove('hidden');
       document.querySelector('#chatLLM .close').focus();
-
-      // first time, send default query
-      if (this.firstTime) {
-        // get name from resource
-        let LLMName = resources.GetString(constants.LLMModel);
-        this.firstTime = false;
-        this.DisplayChatMessage(
-          LLMName,
-          resources.GetString('processing'),
-          true
-        );
-        let defaultPrompt = this.GetDefaultPrompt();
-        this.Submit(defaultPrompt, true);
-      }
     } else {
       // close
       document.getElementById('chatLLM').classList.add('hidden');
