@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/xability/maidr/compare/v2.5.0...v2.5.1) (2024-03-21)
+
+
+### Bug Fixes
+
+* **lineplot:** support graceful failure ([#430](https://github.com/xability/maidr/issues/430)) ([1f117c3](https://github.com/xability/maidr/commit/1f117c363909d18f12812602af181856e472736e))
+
 # [2.5.0](https://github.com/xability/maidr/compare/v2.4.0...v2.5.0) (2024-03-20)
 
 
