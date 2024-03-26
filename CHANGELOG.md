@@ -1,3 +1,10 @@
+## [2.5.2](https://github.com/xability/maidr/compare/v2.5.1...v2.5.2) (2024-03-26)
+
+
+### Bug Fixes
+
+* **boxplot:** update highlighter to bound with same whisker ([#443](https://github.com/xability/maidr/issues/443)) ([6626086](https://github.com/xability/maidr/commit/6626086f17a7a21ba146f0c475c005850234c5ab))
+
 ## [2.5.1](https://github.com/xability/maidr/compare/v2.5.0...v2.5.1) (2024-03-21)
 
 
