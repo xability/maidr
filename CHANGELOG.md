@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/xability/maidr/compare/v2.5.2...v2.6.0) (2024-03-27)
+
+
+### Features
+
+* copy correct LLM message updated to use markdown, skip the Copy button, and have shortcut Alt Shift C ([#444](https://github.com/xability/maidr/issues/444)) ([c978513](https://github.com/xability/maidr/commit/c97851343af16aeb9afc8c8b4da97ae9de64d11b)), closes [#432](https://github.com/xability/maidr/issues/432) [#438](https://github.com/xability/maidr/issues/438) [#439](https://github.com/xability/maidr/issues/439)
+
 ## [2.5.2](https://github.com/xability/maidr/compare/v2.5.1...v2.5.2) (2024-03-26)
 
 
