@@ -1095,45 +1095,110 @@ class ChatLLM {
       },
     ]);
 
-    // bookmark:
-    //
-    // have LLM run on init (#425)
-    // quiet first, but if they open window, it does the beep and aria live alert
-    // make toggle in settings to yes / no auto initiate LLM (or wait for window to open)
-    // as part of this, fix reset so it loads the LLM again without refreshing the window,
-    // left undone from the other request
-
     // copy to clipboard
     constants.events.push([
-      document.getElementById('chatLLM_copy_all'),
+      document.getElementById('chatLLM'),
       'click',
       function (e) {
-        let text = document.getElementById('chatLLM_chat_history').innerText;
-        // need newlines instead of paragraphs headings etc
-        text = text.replace(/<p>/g, '\n').replace(/<\/p>/g, '\n');
-        text = text.replace(/<h\d>/g, '\n').replace(/<\/h\d>/g, '\n');
-        text = text.replace(/<.*?>/g, '');
-
-        navigator.clipboard.writeText(text);
+        chatLLM.CopyChatHistory(e);
       },
     ]);
     constants.events.push([
-      document.getElementById('chatLLM_chat_history'),
-      'click',
+      document.getElementById('chatLLM'),
+      'keyup',
       function (e) {
-        // we're delegating here, so set the event on child .chatLLM_message_copy_button
-        if (e.target.matches('.chatLLM_message_copy_button')) {
-          // get the innerText of the element before the button
-          let text = e.target.closest('p').previousElementSibling.innerText;
-          // need newlines instead of paragraphs headings etc
-          text = text.replace(/<p>/g, '\n').replace(/<\/p>/g, '\n');
-          text = text.replace(/<h\d>/g, '\n').replace(/<\/h\d>/g, '\n');
-          text = text.replace(/<.*?>/g, '');
-
-          navigator.clipboard.writeText(text);
-        }
+        chatLLM.CopyChatHistory(e);
       },
     ]);
+  }
+
+  CopyChatHistory(e) {
+    let text = '';
+    // check for buttons
+    if (e.type == 'click') {
+      if (e.target.id == 'chatLLM_copy_all') {
+        // get html of the full chat history
+        text = document.getElementById('chatLLM_chat_history').innerHTML;
+      } else if (e.target.classList.contains('chatLLM_message_copy_button')) {
+        // get the text of the element before the button
+        text = e.target.closest('p').previousElementSibling.innerHTML;
+      }
+    } else if (e.type == 'keyup') {
+      // check for alt shift c
+      if (e.key == 'C' && (e.altKey || e.metaKey) && e.shiftKey) {
+        // get the last message
+        let elem = document.querySelector(
+          '#chatLLM_chat_history > .chatLLM_message_other:last-of-type'
+        );
+        if (elem) {
+          text = elem.innerHTML;
+        }
+      }
+    }
+
+    if (text == '') {
+      return;
+    } else {
+      // clear the html, removing buttons etc
+      let cleanElems = document.createElement('div');
+      cleanElems.innerHTML = text;
+      let removeThese = cleanElems.querySelectorAll('.chatLLM_message_copy');
+      removeThese.forEach((elem) => elem.remove());
+
+      // convert to markdown
+      let markdown = this.htmlToMarkdown(cleanElems);
+
+      // kill more than 2 newlines in a row
+      markdown = markdown.replace(/\n{3,}/g, '\n\n');
+
+      navigator.clipboard.writeText(markdown);
+    }
+  }
+
+  htmlToMarkdown(element) {
+    let markdown = '';
+
+    const convertElementToMarkdown = (element) => {
+      switch (element.tagName) {
+        case 'H1':
+          return `# ${element.textContent}`;
+        case 'H2':
+          return `## ${element.textContent}`;
+        case 'H3':
+          return `### ${element.textContent}`;
+        case 'H4':
+          return `#### ${element.textContent}`;
+        case 'H5':
+          return `##### ${element.textContent}`;
+        case 'H6':
+          return `###### ${element.textContent}`;
+        case 'P':
+          return element.textContent;
+        case 'DIV':
+          // For divs, process each child and add newlines as needed
+          return (
+            Array.from(element.childNodes)
+              .map((child) => convertElementToMarkdown(child))
+              .join('\n') + '\n\n'
+          );
+        default:
+          // For any other element, process its children recursively
+          return Array.from(element.childNodes)
+            .map((child) => convertElementToMarkdown(child))
+            .join('');
+      }
+    };
+
+    if (element.nodeType === Node.ELEMENT_NODE) {
+      markdown += convertElementToMarkdown(element);
+    } else if (
+      element.nodeType === Node.TEXT_NODE &&
+      element.textContent.trim() !== ''
+    ) {
+      markdown += element.textContent.trim();
+    }
+
+    return markdown.trim();
   }
 
   /**
