@@ -1,3 +1,16 @@
+# [2.7.0](https://github.com/xability/maidr/compare/v2.6.0...v2.7.0) (2024-03-28)
+
+
+### Bug Fixes
+
+* LLM doesn't fail if not autostarted ([#447](https://github.com/xability/maidr/issues/447)) ([419e034](https://github.com/xability/maidr/commit/419e0341b4b3445a7913fae3aff12a7dab773696))
+* move LLM settings note to below the Save button ([#446](https://github.com/xability/maidr/issues/446)) ([f84f921](https://github.com/xability/maidr/commit/f84f921645e1d19fc2c07687f19bf59f8962578e)), closes [#437](https://github.com/xability/maidr/issues/437)
+
+
+### Features
+
+* user study tracker updates with LLM chat history on every LLM response ([#448](https://github.com/xability/maidr/issues/448)) ([0afb864](https://github.com/xability/maidr/commit/0afb86442ffc7ee7b8e660aee4ecfc6640c723df)), closes [#440](https://github.com/xability/maidr/issues/440)
+
 # [2.6.0](https://github.com/xability/maidr/compare/v2.5.2...v2.6.0) (2024-03-27)
 
 
