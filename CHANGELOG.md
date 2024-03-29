@@ -1,3 +1,10 @@
+## [2.7.1](https://github.com/xability/maidr/compare/v2.7.0...v2.7.1) (2024-03-29)
+
+
+### Bug Fixes
+
+* tracker updated for refactored code from the past year ([#451](https://github.com/xability/maidr/issues/451)) ([a221eb6](https://github.com/xability/maidr/commit/a221eb60a0800de98a8b2feaa68a3245b4681f84)), closes [#449](https://github.com/xability/maidr/issues/449)
+
 # [2.7.0](https://github.com/xability/maidr/compare/v2.6.0...v2.7.0) (2024-03-28)
 
 
