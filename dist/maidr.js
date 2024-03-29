@@ -70,7 +70,8 @@ class Constants {
   autoPlayOutlierRate = 50; // ms per tone
   autoPlayPointsRate = 50; // time between tones in a run
   colorUnselected = '#595959'; // deprecated, todo: find all instances replace with storing old color method
-  isTracking = 1; // 0 / 1, is tracking on or off
+  canTrack = 1; // 0 / 1, can we track user data
+  isTracking = 1; // 0 / 1, is tracking currently on or off
   visualBraille = false; // do we want to represent braille based on what's visually there or actually there. Like if we have 2 outliers with the same position, do we show 1 (visualBraille true) or 2 (false)
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
@@ -2020,6 +2021,7 @@ class Helper {
 class Tracker {
   constructor() {
     this.DataSetup();
+    constants.isTracking = true;
   }
 
   /**
@@ -2303,6 +2305,7 @@ class Tracker {
     //console.log("x_tickmark: '", x_tickmark, "', y_tickmark: '", y_tickmark, "', x_label: '", x_label, "', y_label: '", y_label, "', value: '", value, "', fill_value: '", fill_value);
 
     this.SetData('events', eventToLog);
+    console.log('logged an event');
   }
 
   SetData(key, value) {
@@ -10548,15 +10551,16 @@ document.addEventListener('DOMContentLoaded', function (e) {
   // create global vars
   window.constants = new Constants();
   window.resources = new Resources();
-  window.tracker = new Tracker();
   window.logError = new LogError();
 
   // set focus events for all charts matching maidr ids
   let maidrObjects = [];
-  if (!Array.isArray(maidr)) {
-    maidrObjects.push(maidr);
-  } else {
-    maidrObjects = maidr;
+  if (typeof maidr != 'undefined') {
+    if (!Array.isArray(maidr)) {
+      maidrObjects.push(maidr);
+    } else {
+      maidrObjects = maidr;
+    }
   }
   // set focus events for all maidr ids
   DestroyMaidr(); // just in case
@@ -10576,13 +10580,16 @@ document.addEventListener('DOMContentLoaded', function (e) {
 
   // events etc for user study page
   // run tracker stuff only on user study page
-  if (document.getElementById('download_data_trigger')) {
-    // download data button
-    document
-      .getElementById('download_data_trigger')
-      .addEventListener('click', function (e) {
-        tracker.DownloadTrackerData();
-      });
+  if (constants.canTrack) {
+    window.tracker = new Tracker();
+    if (document.getElementById('download_data_trigger')) {
+      // we're on the intro page, so enable the download data button
+      document
+        .getElementById('download_data_trigger')
+        .addEventListener('click', function (e) {
+          tracker.DownloadTrackerData();
+        });
+    }
 
     // general events
     document.addEventListener('keydown', function (e) {
@@ -10597,14 +10604,12 @@ document.addEventListener('DOMContentLoaded', function (e) {
         location.reload(true);
       }
 
-      // Tracker
-      if (constants.isTracking) {
-        if (e.key == 'F10') {
-          //tracker.DownloadTrackerData();
-        } else {
-          if (plot) {
-            tracker.LogEvent(e);
-          }
+      // main event tracker, built for individual charts
+      if (e.key == 'F10') {
+        tracker.DownloadTrackerData();
+      } else {
+        if (plot) {
+          tracker.LogEvent(e);
         }
       }
 
