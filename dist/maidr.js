@@ -88,6 +88,7 @@ class Constants {
   skillLevel = 'basic'; // basic / intermediate / expert
   skillLevelOther = ''; // custom skill level
   autoInitLLM = true; // auto initialize LLM on page load
+  verboseText = '';
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -924,6 +925,7 @@ class ChatLLM {
   constructor() {
     this.firstTime = true;
     this.firstMulti = true;
+    this.firstOpen = true;
     this.shown = false;
     this.CreateComponent();
     this.SetEvents();
@@ -1157,7 +1159,11 @@ class ChatLLM {
       // kill more than 2 newlines in a row
       markdown = markdown.replace(/\n{3,}/g, '\n\n');
 
-      navigator.clipboard.writeText(markdown);
+      try {
+        navigator.clipboard.writeText(markdown);
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
       return markdown;
     }
   }
@@ -1219,13 +1225,29 @@ class ChatLLM {
    * @returns {void}
    */
   async Submit(text, firsttime = false) {
+    // misc init
+    let img = null;
+    this.firstMulti = true;
+
+    // if this is the user's first message (or we're gemini, in which case we need to send every time), prepend prompt with user position
+    if (
+      (this.firstOpen || constants.LLMModel == 'gemini') &&
+      !firsttime &&
+      constants.verboseText.length > 0
+    ) {
+      text =
+        "Here is the current position in the chart; no response necessarily needed, use this info only if it's relevant to future questions: " +
+        constants.verboseText +
+        '. My question is: ' +
+        text;
+
+      this.firstOpen = false;
+    }
+
     // start waiting sound
     if (constants.playLLMWaitingSound) {
       this.WaitingSound(true);
     }
-
-    let img = null;
-    this.firstMulti = true;
 
     if (constants.LLMOpenAiMulti || constants.LLMModel == 'openai') {
       if (firsttime) {
@@ -1640,6 +1662,7 @@ class ChatLLM {
       document.getElementById('chatLLM_modal_backdrop').classList.add('hidden');
       this.whereWasMyFocus.focus();
       this.whereWasMyFocus = null;
+      this.firstOpen = true;
     }
   }
 
@@ -2305,7 +2328,7 @@ class Tracker {
     //console.log("x_tickmark: '", x_tickmark, "', y_tickmark: '", y_tickmark, "', x_label: '", x_label, "', y_label: '", y_label, "', value: '", value, "', fill_value: '", fill_value);
 
     this.SetData('events', eventToLog);
-    console.log('logged an event');
+    //console.log('logged an event');
   }
 
   SetData(key, value) {
@@ -3306,9 +3329,10 @@ class Display {
 
     let output = '';
     let verboseText = '';
+    let terseText = '';
     let reviewText = '';
     if (constants.chartType == 'bar') {
-      // {legend x} is {colname x}, {legend y} is {value y}
+      // verbose: {legend x} is {colname x}, {legend y} is {value y}
       if (plot.columnLabels[position.x]) {
         if (plot.plotLegend.x.length > 0) {
           verboseText += plot.plotLegend.x + ' is ';
@@ -3321,20 +3345,16 @@ class Display {
         }
         verboseText += plot.plotData[position.x];
       }
-      if (constants.textMode == 'off') {
-        // do nothing :D
-      } else if (constants.textMode == 'terse') {
-        // {colname} {value}
-        output +=
-          '<p>' +
-          plot.columnLabels[position.x] +
-          ' ' +
-          plot.plotData[position.x] +
-          '</p>\n';
-      } else if (constants.textMode == 'verbose') {
-        output += '<p>' + verboseText + '</p>\n';
-      }
+      // terse: {colname} {value}
+      terseText +=
+        '<p>' +
+        plot.columnLabels[position.x] +
+        ' ' +
+        plot.plotData[position.x] +
+        '</p>\n';
+      verboseText = '<p>' + verboseText + '</p>\n';
     } else if (constants.chartType == 'heat') {
+      // verbose
       // col name and value
       if (constants.navigation == 1) {
         verboseText +=
@@ -3367,31 +3387,25 @@ class Display {
         verboseText += plot.data[position.y][position.x];
         // }
       }
-      // terse and verbose alternate between columns and rows
-      if (constants.textMode == 'off') {
-        // do nothing :D
-      } else if (constants.textMode == 'terse') {
-        // value only
-        if (constants.navigation == 1) {
-          // column navigation
-          output +=
-            '<p>' +
-            plot.x_labels[position.x] +
-            ', ' +
-            plot.data[position.y][position.x] +
-            '</p>\n';
-        } else {
-          // row navigation
-          output +=
-            '<p>' +
-            plot.y_labels[position.y] +
-            ', ' +
-            plot.data[position.y][position.x] +
-            '</p>\n';
-        }
-      } else if (constants.textMode == 'verbose') {
-        output += '<p>' + verboseText + '</p>\n';
+      // terse: value only
+      if (constants.navigation == 1) {
+        // column navigation
+        terseText +=
+          '<p>' +
+          plot.x_labels[position.x] +
+          ', ' +
+          plot.data[position.y][position.x] +
+          '</p>\n';
+      } else {
+        // row navigation
+        terseText +=
+          '<p>' +
+          plot.y_labels[position.y] +
+          ', ' +
+          plot.data[position.y][position.x] +
+          '</p>\n';
       }
+      verboseText = '<p>' + verboseText + '</p>\n';
     } else if (constants.chartType == 'box') {
       // setup
       let val = 0;
@@ -3402,8 +3416,6 @@ class Display {
       let sectionKey = plot.GetSectionKey(
         constants.plotOrientation == 'vert' ? position.y : position.x
       );
-      let textTerse = '';
-      let textVerbose = '';
 
       if (sectionKey == 'lower_outlier' || sectionKey == 'upper_outlier') {
         isOutlier = true;
@@ -3422,67 +3434,64 @@ class Display {
 
       // group label for verbose
       if (constants.navigation) {
-        if (plot.x_group_label) textVerbose += plot.x_group_label;
+        if (plot.x_group_label) verboseText += plot.x_group_label;
       } else if (!constants.navigation) {
-        if (plot.y_group_label) textVerbose += plot.y_group_label;
+        if (plot.y_group_label) verboseText += plot.y_group_label;
       }
       // and axes label
       if (constants.navigation) {
         if (plot.x_labels[plotPos]) {
-          textVerbose += ' is ';
-          textTerse += plot.x_labels[plotPos] + ', ';
-          textVerbose += plot.x_labels[plotPos] + ', ';
+          verboseText += ' is ';
+          terseText += plot.x_labels[plotPos] + ', ';
+          verboseText += plot.x_labels[plotPos] + ', ';
         } else {
-          textVerbose += ', ';
+          verboseText += ', ';
         }
       } else if (!constants.navigation) {
         if (plot.y_labels[plotPos]) {
-          textVerbose += ' is ';
-          textTerse += plot.y_labels[plotPos] + ', ';
-          textVerbose += plot.y_labels[plotPos] + ', ';
+          verboseText += ' is ';
+          terseText += plot.y_labels[plotPos] + ', ';
+          verboseText += plot.y_labels[plotPos] + ', ';
         } else {
-          textVerbose += ', ';
+          verboseText += ', ';
         }
       }
       // outliers
       if (isOutlier) {
-        textTerse += numPoints + ' ';
-        textVerbose += numPoints + ' ';
+        terseText += numPoints + ' ';
+        verboseText += numPoints + ' ';
       }
       // label
-      textVerbose += resources.GetString(sectionKey);
-      if (numPoints == 1) textVerbose += ' is ';
+      verboseText += resources.GetString(sectionKey);
+      if (numPoints == 1) verboseText += ' is ';
       else {
-        textVerbose += 's ';
-        if (numPoints > 1) textVerbose += ' are ';
+        verboseText += 's ';
+        if (numPoints > 1) verboseText += ' are ';
       }
       if (
         isOutlier ||
         (constants.navigation && constants.plotOrientation == 'horz') ||
         (!constants.navigation && constants.plotOrientation == 'vert')
       ) {
-        textTerse += resources.GetString(sectionKey);
+        terseText += resources.GetString(sectionKey);
 
         // grammar
         if (numPoints != 1) {
-          textTerse += 's';
+          terseText += 's';
         }
-        textTerse += ' ';
+        terseText += ' ';
       }
       // val
       if (plot.plotData[plotPos][sectionKey] == null && !isOutlier) {
-        textTerse += 'empty';
-        textVerbose += 'empty';
+        terseText += 'empty';
+        verboseText += 'empty';
       } else {
-        textTerse += val;
-        textVerbose += val;
+        terseText += val;
+        verboseText += val;
       }
 
-      verboseText = textVerbose; // yeah it's an extra var, who cares
-      if (constants.textMode == 'verbose')
-        output = '<p>' + textVerbose + '</p>\n';
-      else if (constants.textMode == 'terse')
-        output = '<p>' + textTerse + '</p>\n';
+      verboseText = '<p>' + verboseText + '</p>\n';
+      terseText = '<p>' + terseText + '</p>\n';
     } else if (
       [].concat(singleMaidr.type).includes('point') ||
       [].concat(singleMaidr.type).includes('smooth')
@@ -3499,20 +3508,15 @@ class Display {
           plot.y[position.x].join(', ') +
           ']';
 
-        if (constants.textMode == 'off') {
-          // do nothing
-        } else if (constants.textMode == 'terse') {
-          output +=
-            '<p>' +
-            plot.x[position.x] +
-            ', ' +
-            '[' +
-            plot.y[position.x].join(', ') +
-            ']' +
-            '</p>\n';
-        } else if (constants.textMode == 'verbose') {
-          // set from verboseText
-        }
+        // terse
+        terseText +=
+          '<p>' +
+          plot.x[position.x] +
+          ', ' +
+          '[' +
+          plot.y[position.x].join(', ') +
+          ']' +
+          '</p>\n';
       } else if (constants.chartType == 'smooth') {
         // best fit smooth layer
         verboseText +=
@@ -3524,42 +3528,31 @@ class Display {
           ' ' +
           plot.curvePoints[positionL1.x]; // verbose mode: x and y values
 
-        if (constants.textMode == 'off') {
-          // do nothing
-        } else if (constants.textMode == 'terse') {
-          // terse mode: gradient trend
-          // output += '<p>' + plot.gradient[positionL1.x] + '<p>\n';
+        // terse mode: gradient trend
 
-          // display absolute gradient of the graph
-          output += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
-        } else if (constants.textMode == 'verbose') {
-          // set from verboseText
-        }
+        // display absolute gradient of the graph
+        terseText += '<p>' + plot.curvePoints[positionL1.x] + '<p>\n';
       }
-      if (constants.textMode == 'verbose')
-        output = '<p>' + verboseText + '</p>\n';
+      verboseText = '<p>' + verboseText + '</p>\n';
     } else if (constants.chartType == 'hist') {
-      if (constants.textMode == 'terse') {
-        // terse: {x}, {y}
-        output =
-          '<p>' +
-          plot.plotData[position.x].x +
-          ', ' +
-          plot.plotData[position.x].y +
-          '</p>\n';
-      } else if (constants.textMode == 'verbose') {
-        // verbose: {xlabel} is xmin through xmax, {ylabel} is y
-        output = '<p>';
-        if (plot.legendX) {
-          output = plot.legendX + ' is ';
-        }
-        output += plot.plotData[position.x].xmin;
-        output += ' through ' + plot.plotData[position.x].xmax + ', ';
-        if (plot.legendY) {
-          output += plot.legendY + ' is ';
-        }
-        output += plot.plotData[position.x].y;
+      // terse: {x}, {y}
+      terseText =
+        '<p>' +
+        plot.plotData[position.x].x +
+        ', ' +
+        plot.plotData[position.x].y +
+        '</p>\n';
+      // verbose: {xlabel} is xmin through xmax, {ylabel} is y
+      verboseText = '<p>';
+      if (plot.legendX) {
+        verboseText = plot.legendX + ' is ';
       }
+      verboseText += plot.plotData[position.x].xmin;
+      verboseText += ' through ' + plot.plotData[position.x].xmax + ', ';
+      if (plot.legendY) {
+        verboseText += plot.legendY + ' is ';
+      }
+      verboseText += plot.plotData[position.x].y;
     } else if (constants.chartType == 'line') {
       // line layer
       if (plot.plotLegend) {
@@ -3571,19 +3564,15 @@ class Display {
       }
       verboseText += plot.pointValuesY[position.x];
 
-      if (constants.textMode == 'off') {
-        // do nothing
-      } else if (constants.textMode == 'terse') {
-        output +=
-          '<p>' +
-          plot.pointValuesX[position.x] +
-          ', ' +
-          plot.pointValuesY[position.x] +
-          '</p>\n';
-      } else if (constants.textMode == 'verbose') {
-        // set from verboseText
-        output += '<p>' + verboseText + '</p>\n';
-      }
+      // terse
+      terseText +=
+        '<p>' +
+        plot.pointValuesX[position.x] +
+        ', ' +
+        plot.pointValuesY[position.x] +
+        '</p>\n';
+
+      verboseText = '<p>' + verboseText + '</p>\n';
     } else if (
       constants.chartType == 'stacked_bar' ||
       constants.chartType == 'stacked_normalized_bar' ||
@@ -3600,29 +3589,32 @@ class Display {
       verboseText += plot.fill[position.y] + ', ';
       verboseText += 'value is ' + plot.plotData[position.x][position.y];
 
-      if (constants.textMode == 'off') {
-        // do nothing
-      } else if (constants.textMode == 'terse') {
-        // navigation == 1 ? {colname x} : {colname y} is {plotData[x][y]}
-        if (constants.navigation == 1) {
-          output +=
-            '<p>' +
-            plot.level[position.x] +
-            ' is ' +
-            plot.plotData[position.x][position.y] +
-            '</p>\n';
-        } else {
-          output +=
-            '<p>' +
-            plot.fill[position.y] +
-            ' is ' +
-            plot.plotData[position.x][position.y] +
-            '</p>\n';
-        }
+      // navigation == 1 ? {colname x} : {colname y} is {plotData[x][y]}
+      if (constants.navigation == 1) {
+        terseText +=
+          '<p>' +
+          plot.level[position.x] +
+          ' is ' +
+          plot.plotData[position.x][position.y] +
+          '</p>\n';
       } else {
-        output += '<p>' + verboseText + '</p>\n';
+        terseText +=
+          '<p>' +
+          plot.fill[position.y] +
+          ' is ' +
+          plot.plotData[position.x][position.y] +
+          '</p>\n';
       }
+      verboseText = '<p>' + verboseText + '</p>\n';
     }
+
+    // set outout text
+    if (constants.textMode == 'verbose') {
+      output = verboseText;
+    } else if (constants.textMode == 'terse') {
+      output = terseText;
+    }
+    constants.verboseText = verboseText;
 
     if (constants.infoDiv) constants.infoDiv.innerHTML = output;
     if (constants.review) {
@@ -7570,6 +7562,9 @@ class Control {
           } else if (e.key == 'c') {
             // caption
             display.displayInfo('caption', plot.caption);
+            pressedL = false;
+          } else if (e.key == 'f') {
+            display.displayInfo('fill', plot.fill);
             pressedL = false;
           } else if (e.key != 'l') {
             pressedL = false;
