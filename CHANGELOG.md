@@ -1,3 +1,11 @@
+# [2.8.0](https://github.com/xability/maidr/compare/v2.7.1...v2.8.0) (2024-03-31)
+
+
+### Features
+
+* add fill to L + X info ([#453](https://github.com/xability/maidr/issues/453)) ([8353341](https://github.com/xability/maidr/commit/835334155d1fb59ce678a1a6c8a0bfdc5738e159)), closes [#431](https://github.com/xability/maidr/issues/431)
+* LLM is informed of user position, updated every time you open the chat window ([#452](https://github.com/xability/maidr/issues/452)) ([f159bf8](https://github.com/xability/maidr/commit/f159bf8741b52572e5a93beec6e52086d45df9fd)), closes [#421](https://github.com/xability/maidr/issues/421)
+
 ## [2.7.1](https://github.com/xability/maidr/compare/v2.7.0...v2.7.1) (2024-03-29)
 
 
