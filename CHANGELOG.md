@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/xability/maidr/compare/v2.8.0...v2.9.0) (2024-04-01)
+
+
+### Features
+
+* copy shortcuts: Shift Ctrl C for copy last, Shift Ctrl A for copy all ([#454](https://github.com/xability/maidr/issues/454)) ([486076c](https://github.com/xability/maidr/commit/486076c5798204efdd7f6f9720f40c1de1da9874))
+
 # [2.8.0](https://github.com/xability/maidr/compare/v2.7.1...v2.8.0) (2024-03-31)
 
 
