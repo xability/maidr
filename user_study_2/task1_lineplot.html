@@ -7,7 +7,15 @@
             rel="stylesheet"
             href="https://cdn.jsdelivr.net/npm/maidr/dist/maidr_style.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.min.js"></script>
+    <script src="../src/js/constants.js"></script>
+    <script src="../src/js/audio.js"></script>
+    <script src="../src/js/display.js"></script>
+    <script src="../src/js/barplot.js"></script>
+    <script src="../src/js/lineplot.js"></script>
+    <script src="../src/js/heatmap.js"></script>
+    <script src="../src/js/scatterplot.js"></script>
+    <script src="../src/js/controls.js"></script>
+    <script src="../src/js/init.js"></script>
 </head>
 <body>
 <div>
@@ -1771,8 +1779,6 @@ z
     "type": "line",
     "id": "line",
     "title": "Apple's Market Share Worldwide",
-    "subtitle": "From 2010 to 2023",
-    "caption": "Source: Mobile vendor market share from https://gs.statcounter.com/vendor-market-share/mobile",
     "selector": "g[id='line2d_27'] > path",
     "axes": {
       "x": {
@@ -1781,6 +1787,10 @@ z
       "y": {
         "label": "Market Share (%)"
       }
+    },
+    "labels": {
+      "subtitle": "From 2010 to 2023",
+      "caption": "Source: Mobile vendor market share from https://gs.statcounter.com/vendor-market-share/mobile",
     },
     "data": [
       {

@@ -1,3 +1,10 @@
+## [2.9.1](https://github.com/xability/maidr/compare/v2.9.0...v2.9.1) (2024-04-03)
+
+
+### Bug Fixes
+
+* update LLM shortcuts to work on Macs better ([#458](https://github.com/xability/maidr/issues/458)) ([d0f697d](https://github.com/xability/maidr/commit/d0f697d2c818355a053d97409b269ccbafd0e24b)), closes [#457](https://github.com/xability/maidr/issues/457)
+
 # [2.9.0](https://github.com/xability/maidr/compare/v2.8.0...v2.9.0) (2024-04-01)
 
 
