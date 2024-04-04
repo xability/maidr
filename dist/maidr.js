@@ -76,6 +76,26 @@ class Constants {
   globalMinMax = true;
   ariaMode = 'assertive'; // assertive (default) / polite
 
+  userSettingsKeys = [
+    'vol',
+    'autoPlayRate',
+    'brailleDisplayLength',
+    'colorSelected',
+    'MIN_FREQUENCY',
+    'MAX_FREQUENCY',
+    'keypressInterval',
+    'ariaMode',
+    'openAIAuthKey',
+    'geminiAuthKey',
+    'skillLevel',
+    'skillLevelOther',
+    'LLMModel',
+    'LLMPreferences',
+    'LLMOpenAiMulti',
+    'LLMGeminiMulti',
+    'autoInitLLM',
+  ];
+
   // LLM settings
   openAIAuthKey = null; // OpenAI authentication key, set in menu
   geminiAuthKey = null; // Gemini authentication key, set in menu
@@ -389,7 +409,9 @@ class Menu {
                                     <tr>
                                         <td>Open GenAI Chat</td>
                                         <td>${
-                                          constants.control
+                                          constants.isMac
+                                            ? constants.alt
+                                            : constants.control
                                         } + Shift + ?</td>
                                     </tr>
                                     <tr>
@@ -605,13 +627,22 @@ class Menu {
 
     // trigger notification that LLM will be reset
     // this is done on change of LLM model, multi settings, or skill level
-    constants.events.push([
-      document.getElementById('LLM_model'),
-      'change',
-      function (e) {
-        menu.NotifyOfLLMReset();
-      },
-    ]);
+    let LLMResetIds = [
+      'LLM_model',
+      'openai_multi',
+      'gemini_multi',
+      'skill_level',
+      'LLM_preferences',
+    ];
+    for (let i = 0; i < LLMResetIds.length; i++) {
+      constants.events.push([
+        document.getElementById(LLMResetIds[i]),
+        'change',
+        function (e) {
+          menu.NotifyOfLLMReset();
+        },
+      ]);
+    }
   }
 
   /**
@@ -857,6 +888,13 @@ class Menu {
     }
     if (
       !shouldReset &&
+      constants.LLMPreferences !=
+        document.getElementById('LLM_preferences').value
+    ) {
+      shouldReset = true;
+    }
+    if (
+      !shouldReset &&
       constants.LLMModel != document.getElementById('LLM_model').value
     ) {
       shouldReset = true;
@@ -882,24 +920,21 @@ class Menu {
    */
   SaveDataToLocalStorage() {
     let data = {};
-    data.vol = constants.vol;
-    data.autoPlayRate = constants.autoPlayRate;
-    data.brailleDisplayLength = constants.brailleDisplayLength;
-    data.colorSelected = constants.colorSelected;
-    data.MIN_FREQUENCY = constants.MIN_FREQUENCY;
-    data.MAX_FREQUENCY = constants.MAX_FREQUENCY;
-    data.keypressInterval = constants.keypressInterval;
-    data.ariaMode = constants.ariaMode;
-    data.openAIAuthKey = constants.openAIAuthKey;
-    data.geminiAuthKey = constants.geminiAuthKey;
-    data.skillLevel = constants.skillLevel;
-    data.skillLevelOther = constants.skillLevelOther;
-    data.LLMModel = constants.LLMModel;
-    data.LLMPreferences = constants.LLMPreferences;
-    data.LLMOpenAiMulti = constants.LLMOpenAiMulti;
-    data.LLMGeminiMulti = constants.LLMGeminiMulti;
-    data.autoInitLLM = constants.autoInitLLM;
+    for (let i = 0; i < constants.userSettingsKeys.length; i++) {
+      data[constants.userSettingsKeys[i]] =
+        constants[constants.userSettingsKeys[i]];
+    }
     localStorage.setItem('settings_data', JSON.stringify(data));
+
+    // also save to tracking if we're doing that
+    if (constants.isTracking) {
+      // but not auth keys
+      data.openAIAuthKey = 'hidden';
+      data.geminiAuthKey = 'hidden';
+      // and need a timestamp
+      data.timestamp = new Date().toISOString();
+      tracker.SetData('settings', data);
+    }
   }
   /**
    * Loads data from local storage and updates the constants object with the retrieved values, to be loaded into the menu
@@ -907,23 +942,10 @@ class Menu {
   LoadDataFromLocalStorage() {
     let data = JSON.parse(localStorage.getItem('settings_data'));
     if (data) {
-      constants.vol = data.vol;
-      constants.autoPlayRate = data.autoPlayRate;
-      constants.brailleDisplayLength = data.brailleDisplayLength;
-      constants.colorSelected = data.colorSelected;
-      constants.MIN_FREQUENCY = data.MIN_FREQUENCY;
-      constants.MAX_FREQUENCY = data.MAX_FREQUENCY;
-      constants.keypressInterval = data.keypressInterval;
-      constants.ariaMode = data.ariaMode;
-      constants.openAIAuthKey = data.openAIAuthKey;
-      constants.geminiAuthKey = data.geminiAuthKey;
-      constants.skillLevel = data.skillLevel;
-      constants.skillLevelOther = data.skillLevelOther;
-      constants.LLMModel = data.LLMModel ? data.LLMModel : constants.LLMModel;
-      constants.LLMPreferences = data.LLMPreferences;
-      constants.LLMOpenAiMulti = data.LLMOpenAiMulti;
-      constants.LLMGeminiMulti = data.LLMGeminiMulti;
-      constants.autoInitLLM = data.autoInitLLM;
+      for (let i = 0; i < constants.userSettingsKeys.length; i++) {
+        constants[constants.userSettingsKeys[i]] =
+          data[constants.userSettingsKeys[i]];
+      }
     }
     this.PopulateData();
     this.UpdateHtml();
@@ -1029,12 +1051,7 @@ class ChatLLM {
       document,
       'keyup',
       function (e) {
-        if (
-          ((e.ctrlKey || e.metaKey) &&
-            e.shiftKey &&
-            (e.key == '?' || e.key == '¿')) ||
-          (e.metaKey && e.altKey && (e.key == '?' || e.key == '¿'))
-        ) {
+        if ((e.key == '?' && (e.ctrlKey || e.metaKey)) || e.key == '¿') {
           chatLLM.Toggle();
         }
       },
@@ -2081,7 +2098,7 @@ class Tracker {
   DataSetup() {
     let prevData = this.GetTrackerData();
     if (prevData) {
-      // good to go already, do nothing
+      // good to go already, do nothing, but make sure we have our containers
     } else {
       let data = {};
       data.userAgent = Object.assign(navigator.userAgent);
@@ -2089,8 +2106,10 @@ class Tracker {
       data.language = Object.assign(navigator.language);
       data.platform = Object.assign(navigator.platform);
       data.events = [];
+      data.settings = [];
 
       this.SaveTrackerData(data);
+      this.SaveSettings();
     }
   }
 
@@ -2135,6 +2154,15 @@ class Tracker {
     }
 
     this.DataSetup();
+  }
+
+  SaveSettings() {
+    // fetch all settings, push to data.settings
+    let settings = JSON.parse(localStorage.getItem('settings_data'));
+    // don't store their auth keys
+    settings.openAIAuthKey = 'hidden';
+    settings.geminiAuthKey = 'hidden';
+    this.SetData('settings', settings);
   }
 
   /**
@@ -2361,10 +2389,14 @@ class Tracker {
 
   SetData(key, value) {
     let data = this.GetTrackerData();
-    if (key == 'events') {
-      data[key].push(value);
-    } else {
+    let arrayKeys = ['events', 'ChatHistory', 'settings'];
+    if (!arrayKeys.includes(key)) {
       data[key] = value;
+    } else {
+      if (!data[key]) {
+        data[key] = [];
+      }
+      data[key].push(value);
     }
     this.SaveTrackerData(data);
   }
