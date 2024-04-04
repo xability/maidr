@@ -1,3 +1,12 @@
+## [2.9.2](https://github.com/xability/maidr/compare/v2.9.1...v2.9.2) (2024-04-04)
+
+
+### Bug Fixes
+
+* gen ai keybinding and log tracker downloading ([#460](https://github.com/xability/maidr/issues/460)) ([c83fd01](https://github.com/xability/maidr/commit/c83fd01f82d170022c42cc5e0be6b24652938b33))
+* LLM now properly reset on any setting change ([#465](https://github.com/xability/maidr/issues/465)) ([719be1e](https://github.com/xability/maidr/commit/719be1ebb37b884c119a5f70f0ceac61e15f5444))
+* tracker collects on every LLM response and setting save ([#468](https://github.com/xability/maidr/issues/468)) ([fef42dc](https://github.com/xability/maidr/commit/fef42dc5f3c98c81e805352aff45f3e2a2bd3f36)), closes [#461](https://github.com/xability/maidr/issues/461)
+
 ## [2.9.1](https://github.com/xability/maidr/compare/v2.9.0...v2.9.1) (2024-04-03)
 
 
