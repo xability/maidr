@@ -476,12 +476,12 @@ class Menu {
                                     <option value="basic">Basic</option>
                                     <option value="intermediate">Intermediate</option>
                                     <option value="expert">Expert</option>
-                                    <option value="other">other</option>
+                                    <option value="other">Other: describe in your own words</option>
                                 </select>
                                 <label for="skill_level">Level of skill in statistical charts</label>
                             </p>
                             <p id="skill_level_other_container" class="hidden"><input type="text" placeholder="Very basic" id="skill_level_other"> <label for="skill_level_other">Describe your level of skill in statistical charts</label></p>
-                            <p><label for="LLM_preferences">LLM Preferences</label></p>
+                            <p><label for="LLM_preferences">Custom instructions for the chat response</label></p>
                             <p><textarea id="LLM_preferences" rows="4" cols="50" placeholder="I'm a stats undergrad and work with Python. I prefer a casual tone, and favor information accuracy over creative description; just the facts please!"></textarea></p>
                         </div>
                     </div>
@@ -966,7 +966,16 @@ class ChatLLM {
     this.CreateComponent();
     this.SetEvents();
     if (constants.autoInitLLM) {
-      this.InitChatMessage();
+      // only run if we have API keys set
+      if (
+        (constants.LLMModel == 'openai' && constants.openAIAuthKey) ||
+        (constants.LLMModel == 'gemini' && constants.geminiAuthKey) ||
+        (constants.LLMModel == 'multi' &&
+          constants.openAIAuthKey &&
+          constants.geminiAuthKey)
+      ) {
+        this.InitChatMessage();
+      }
     }
   }
 
@@ -997,11 +1006,10 @@ class ChatLLM {
                             <p><button type="button">What is the title?</button></p>
                             <p><button type="button">What are the high and low values?</button></p>
                             <p><button type="button">What is the general shape of the chart?</button></p>
-                            <p><button type="button" id="more_suggestions">More</button></p>
                           </div>
-                          <div id="more_suggestions_container" class="hidden LLM_suggestions">
+                          <div id="more_suggestions_container" class="LLM_suggestions">
                             <p><button type="button">Please provide the title of this visualization, then provide a description for someone who is blind or low vision. Include general overview of axes and the data at a high-level.</button></p>
-                            <p><button type="button">For the visualization I shared, please provide the following (where applicable): mean, standard deviation, extrema, correlations, relational comparisons like greater than OR lesser than.</button></p>
+                            <p><button type="button">For the visualization I shared, please provide the following (where applicable): mean, standard deviation, extreme, correlations, relational comparisons like greater than OR lesser than.</button></p>
                             <p><button type="button">Based on the visualization shared, address the following: Do you observe any unforeseen trends? If yes, what?  Please convey any complex multi-faceted patterns present. Can you identify any noteworthy exceptions that aren't readily apparent through non-visual methods of analysis?</button></p>
                             <p><button type="button">Provide context to help explain the data depicted in this visualization based on domain-specific insight.</button></p>
                           </div>
@@ -1080,21 +1088,6 @@ class ChatLLM {
     ]);
 
     // ChatLLM suggestion events
-    // the more button
-    constants.events.push([
-      document.getElementById('more_suggestions'),
-      'click',
-      function (e) {
-        document
-          .getElementById('more_suggestions_container')
-          .classList.toggle('hidden');
-        // focus on button right after the more button
-        document
-          .querySelector('#more_suggestions_container > p > button')
-          .focus();
-        document.getElementById('more_suggestions').remove();
-      },
-    ]);
     // actual suggestions:
     let suggestions = document.querySelectorAll(
       '#chatLLM .LLM_suggestions button:not(#more_suggestions)'
@@ -1205,7 +1198,7 @@ class ChatLLM {
       markdown = markdown.replace(/\n{3,}/g, '\n\n');
 
       try {
-        navigator.clipboard.writeText(markdown);
+        navigator.clipboard.writeText(markdown); // note: this fails if you're on the inspector. That's fine as it'll never happen to real users
       } catch (err) {
         console.error('Failed to copy: ', err);
       }
@@ -1375,6 +1368,7 @@ class ChatLLM {
 
       if (data.error) {
         chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
+        chatLLM.WaitingSound(false);
       } else {
         chatLLM.DisplayChatMessage(LLMName, text);
       }
@@ -1385,10 +1379,12 @@ class ChatLLM {
       } else {
         if (!data.error) {
           data.error = 'Error processing request.';
+          chatLLM.WaitingSound(false);
         }
       }
       if (data.error) {
         chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
+        chatLLM.WaitingSound(false);
       } else {
         // todo: display actual response
       }
@@ -1489,7 +1485,7 @@ class ChatLLM {
       .catch((error) => {
         chatLLM.WaitingSound(false);
         console.error('Error:', error);
-        chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
+        chatLLM.DisplayChatMessage('OpenAI', 'Error processing request.', true);
         // also todo: handle errors somehow
       });
   }
@@ -1579,6 +1575,8 @@ class ChatLLM {
       // Process the response
       chatLLM.ProcessLLMResponse(result.response, 'gemini');
     } catch (error) {
+      chatLLM.WaitingSound(false);
+      chatLLM.DisplayChatMessage('Gemini', 'Error processing request.', true);
       console.error('Error in GeminiPrompt:', error);
       throw error; // Rethrow the error for further handling if necessary
     }
@@ -1640,11 +1638,6 @@ class ChatLLM {
   ResetLLM() {
     // clear the main chat history
     document.getElementById('chatLLM_chat_history').innerHTML = '';
-    // unhide the more button
-    document
-      .getElementById('more_suggestions_container')
-      .classList.add('hidden');
-    document.getElementById('more_suggestions').classList.remove('hidden');
 
     // reset the data
     this.requestJson = null;
@@ -2159,10 +2152,12 @@ class Tracker {
   SaveSettings() {
     // fetch all settings, push to data.settings
     let settings = JSON.parse(localStorage.getItem('settings_data'));
-    // don't store their auth keys
-    settings.openAIAuthKey = 'hidden';
-    settings.geminiAuthKey = 'hidden';
-    this.SetData('settings', settings);
+    if (settings) {
+      // don't store their auth keys
+      settings.openAIAuthKey = 'hidden';
+      settings.geminiAuthKey = 'hidden';
+      this.SetData('settings', settings);
+    }
   }
 
   /**
@@ -2308,6 +2303,7 @@ class Tracker {
         constants.plotOrientation == 'vert' ? position.x : position.y;
       let sectionPos =
         constants.plotOrientation == 'vert' ? position.y : position.x;
+      let sectionLabel = plot.sections[sectionPos];
 
       if (!this.isUndefinedOrNull(plot.x_group_label)) {
         x_label = plot.x_group_label;
@@ -2317,42 +2313,26 @@ class Tracker {
       }
       if (constants.plotOrientation == 'vert') {
         if (plotPos > -1 && sectionPos > -1) {
-          if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)
-          ) {
-            y_tickmark = plot.plotData[plotPos][sectionPos].label;
+          if (!this.isUndefinedOrNull(sectionLabel)) {
+            y_tickmark = sectionLabel;
           }
           if (!this.isUndefinedOrNull(plot.x_labels[position.x])) {
             x_tickmark = plot.x_labels[position.x];
           }
-          if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)
-          ) {
-            value = plot.plotData[plotPos][sectionPos].values;
-          } else if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].y)
-          ) {
-            value = plot.plotData[plotPos][sectionPos].y;
+          if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionLabel])) {
+            value = plot.plotData[plotPos][sectionLabel];
           }
         }
       } else {
         if (plotPos > -1 && sectionPos > -1) {
-          if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].label)
-          ) {
-            x_tickmark = plot.plotData[plotPos][sectionPos].label;
+          if (!this.isUndefinedOrNull(sectionLabel)) {
+            x_tickmark = sectionLabel;
           }
           if (!this.isUndefinedOrNull(plot.y_labels[position.y])) {
             y_tickmark = plot.y_labels[position.y];
           }
-          if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].values)
-          ) {
-            value = plot.plotData[plotPos][sectionPos].values;
-          } else if (
-            !this.isUndefinedOrNull(plot.plotData[plotPos][sectionPos].x)
-          ) {
-            value = plot.plotData[plotPos][sectionPos].x;
+          if (!this.isUndefinedOrNull(plot.plotData[plotPos][sectionLabel])) {
+            value = plot.plotData[plotPos][sectionLabel];
           }
         }
       }
