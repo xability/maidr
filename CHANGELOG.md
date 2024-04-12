@@ -1,3 +1,19 @@
+# [2.10.0](https://github.com/xability/maidr/compare/v2.9.2...v2.10.0) (2024-04-12)
+
+
+### Bug Fixes
+
+* graceful failure when no API key is provided ([#481](https://github.com/xability/maidr/issues/481)) ([8c3dcb1](https://github.com/xability/maidr/commit/8c3dcb17b0e486fbe3fb97b80065fc4984c46693))
+* hotfix for syntax level error ([#477](https://github.com/xability/maidr/issues/477)) ([6647c5a](https://github.com/xability/maidr/commit/6647c5afc0ecac72a2d99c36719cc5c171622346))
+* hotfix: update error handling to fail gracefully ([#479](https://github.com/xability/maidr/issues/479)) ([116c643](https://github.com/xability/maidr/commit/116c6435eb9de30aae7178dc2a3a72a74293ed1e))
+* update tracker for new boxplot data structure ([#482](https://github.com/xability/maidr/issues/482)) ([44e10ae](https://github.com/xability/maidr/commit/44e10ae17939998c4d059e5b0a06072c727e37d3)), closes [#478](https://github.com/xability/maidr/issues/478)
+
+
+### Features
+
+* more button removed ([#471](https://github.com/xability/maidr/issues/471)) ([6d68773](https://github.com/xability/maidr/commit/6d687732c5591af5ea58276e7a9bb503f2729b7a))
+* update labels in help menu for LLM settings ([#476](https://github.com/xability/maidr/issues/476)) ([a052b95](https://github.com/xability/maidr/commit/a052b95737c59cfddfa8d66300dd3a97bf0dbd30)), closes [#474](https://github.com/xability/maidr/issues/474)
+
 ## [2.9.2](https://github.com/xability/maidr/compare/v2.9.1...v2.9.2) (2024-04-04)
 
 
