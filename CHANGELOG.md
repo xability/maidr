@@ -1,3 +1,15 @@
+# [2.11.0](https://github.com/xability/maidr/compare/v2.10.0...v2.11.0) (2024-04-18)
+
+
+### Bug Fixes
+
+* LLM window now resizes and scrolls properly as content updates ([#484](https://github.com/xability/maidr/issues/484)) ([ad9d6f6](https://github.com/xability/maidr/commit/ad9d6f66cef0ced6a8a2c2b1bf37f2c8e32b024d)), closes [#464](https://github.com/xability/maidr/issues/464)
+
+
+### Features
+
+* added 'done' tone to incoming LLM message ([#483](https://github.com/xability/maidr/issues/483)) ([4465ede](https://github.com/xability/maidr/commit/4465ede7a951cb1f6bfd7ae0ddc45ecfa547ca92)), closes [#473](https://github.com/xability/maidr/issues/473)
+
 # [2.10.0](https://github.com/xability/maidr/compare/v2.9.2...v2.10.0) (2024-04-12)
 
 
