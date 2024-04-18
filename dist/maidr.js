@@ -109,6 +109,7 @@ class Constants {
   skillLevelOther = ''; // custom skill level
   autoInitLLM = true; // auto initialize LLM on page load
   verboseText = '';
+  waitingQueue = 0;
 
   // user controls (not exposed to menu, with shortcuts usually)
   showDisplay = 1; // true / false
@@ -462,11 +463,11 @@ class Menu {
                             </p>
                             <p id="openai_auth_key_container" class="multi_container hidden">
                               <span id="openai_multi_container" class="hidden"><input type="checkbox" id="openai_multi" name="openai_multi" aria-label="Use OpenAI in Multi modal mode"></span>
-                              <input type="password" id="openai_auth_key"><button aria-label="Delete OpenAI key" title="Delete OpenAI key" id="delete_openai_key" class="invis_button">&times;</button><label for="openai_auth_key">OpenAI Authentication Key</label>
+                              <input type="text" size="50" id="openai_auth_key"><button aria-label="Delete OpenAI key" title="Delete OpenAI key" id="delete_openai_key" class="invis_button">&times;</button><label for="openai_auth_key">OpenAI Authentication Key</label>
                             </p>
                             <p id="gemini_auth_key_container" class="multi_container hidden">
                               <span id="gemini_multi_container" class="hidden"><input type="checkbox" id="gemini_multi" name="gemini_multi" aria-label="Use Gemini in Multi modal mode"></span>
-                              <input type="password" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label>
+                              <input type="text" size="50" id="gemini_auth_key"><button aria-label="Delete Gemini key" title="Delete Gemini key" id="delete_gemini_key" class="invis_button">&times;</button><label for="gemini_auth_key">Gemini Authentication Key</label>
                             </p>
                             <p><input type="checkbox" ${
                               constants.autoInitLLM ? 'checked' : ''
@@ -1310,22 +1311,40 @@ class ChatLLM {
    * @returns {void}
    */
   WaitingSound(onoff = true) {
-    // clear old intervals and timeouts
-    if (constants.waitingInterval) {
-      // destroy old waiting sound
-      clearInterval(constants.waitingInterval);
-      constants.waitingSound = null;
-    }
-    if (constants.waitingSoundOverride) {
-      clearTimeout(constants.waitingSoundOverride);
-      constants.waitingSoundOverride = null;
+    let delay = 1000;
+    let freq = 440; // a440 babee
+    let inprogressFreq = freq * 2;
+
+    if (onoff) {
+      // if turning on, clear old intervals and timeouts
+      if (constants.waitingInterval) {
+        // destroy old waiting sound
+        clearInterval(constants.waitingInterval);
+        constants.waitingInterval = null;
+      }
+      if (constants.waitingSoundOverride) {
+        clearTimeout(constants.waitingSoundOverride);
+        constants.waitingSoundOverride = null;
+      }
+    } else {
+      // notify user that we're done waiting for this one
+      if (audio && chatLLM.shown) {
+        audio.playOscillator(inprogressFreq, 0.2, 0);
+      }
+
+      // turning off, but do we have more in the queue after this?
+      if (constants.waitingQueue > 1) {
+        // turning off and still have a queue, decrement by 1, and play a new sound
+        constants.waitingQueue--;
+      } else {
+        // no queue, just turn off
+        chatLLM.KillAllWaitingSounds();
+      }
     }
 
-    // assuming we're turning it on, start playing a new waiting sound
+    // turning it on: start playing a new waiting sound
     if (onoff) {
       // create new waiting sound
-      let delay = 1000;
-      let freq = 440; // a440 babee
       constants.waitingInterval = setInterval(function () {
         if (audio && chatLLM.shown) {
           audio.playOscillator(freq, 0.2, 0);
@@ -1334,9 +1353,36 @@ class ChatLLM {
 
       // clear automatically after 30 sec, assuming no response
       constants.waitingSoundOverride = setTimeout(function () {
-        chatLLM.WaitingSound(false);
+        chatLLM.KillAllWaitingSounds();
       }, 30000);
+
+      // set queue for multi
+      if (constants.LLMModel != 'multi') {
+        constants.waitingQueue = 1;
+      } else {
+        constants.waitingQueue = 0;
+        if (constants.LLMGeminiMulti) {
+          constants.waitingQueue++;
+        }
+        if (constants.LLMOpenAiMulti) {
+          constants.waitingQueue++;
+        }
+      }
     }
+  }
+  /**
+   * Overrides and kills all waiting sounds for LLM
+   */
+  KillAllWaitingSounds() {
+    if (constants.waitingInterval) {
+      clearInterval(constants.waitingInterval);
+      constants.waitingInterval = null;
+    }
+    if (constants.waitingSoundOverride) {
+      clearTimeout(constants.waitingSoundOverride);
+      constants.waitingSoundOverride = null;
+    }
+    constants.waitingQueue = 0;
   }
 
   InitChatMessage() {
@@ -1355,7 +1401,7 @@ class ChatLLM {
    */
   ProcessLLMResponse(data, model) {
     chatLLM.WaitingSound(false);
-    //console.log('LLM response: ', data);
+    console.log('LLM response: ', data);
     let text = '';
     let LLMName = resources.GetString(model);
 
@@ -1537,6 +1583,7 @@ class ChatLLM {
   }
 
   async GeminiPrompt(text, imgBase64 = null) {
+    // https://ai.google.dev/docs/gemini_api_overview#node.js
     try {
       // Save the image for next time
       if (imgBase64 == null) {
@@ -1607,9 +1654,11 @@ class ChatLLM {
     let html = `
       <div class="chatLLM_message ${
         user == 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
-      }">
-        <${hLevel} class="chatLLM_message_user">${user}</${hLevel}>
-        <p class="chatLLM_message_text">${text}</p>
+      }">`;
+    if (text != resources.GetString('processing')) {
+      html += `<${hLevel} class="chatLLM_message_user">${user}</${hLevel}>`;
+    }
+    html += `<p class="chatLLM_message_text">${text}</p>
       </div>
     `;
     // add a copy button to actual messages
