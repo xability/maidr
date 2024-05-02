@@ -8,7 +8,7 @@
 
 # maidr: Multimodal Access and Interactive Data Representation
 
-maidr (pronounced as 'mader') is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-modal exploration on visualization. Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html). You may also clone or download the GitHub repo, navigate to the ./user_study_pilot folder, and open any of the html files in your browser.
+maidr (pronounced as 'mader') is a system for non-visual access and control of statistical plots. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction: braille, text, and sonification (BTS). This comprehensive approach enhances the accessibility of data visualization and encourages a multi-modal exploration on visualization. Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html).
 
 ## Table of Contents
 

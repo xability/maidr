@@ -91,5 +91,8 @@
     "ui",
     "api",
     "release"
+  ],
+  "githubPullRequests.ignoredPullRequestBranches": [
+    "main"
   ]
 }
