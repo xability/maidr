@@ -378,12 +378,22 @@ To learn more about the theoretical background and user study results, we recomm
 1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://arxiv.org/abs/2403.00717):
 
 ```tex
-@inproceedings{seoMAIDR2024,
-  title     = {{{MAIDR}}: Making Statistical Visualizations Accessible with Multimodal Data Representation},
-  booktitle = {Proceedings of the {{SIGCHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
-  author    = {Seo, JooYoung and Xia, Yilin and Lee, Bongshin and McCurry, Sean and Yam, Yu Jun},
-  year      = {2024},
-  doi       = {10.1145/3613904.3642730}
+@inproceedings{seoMAIDRMakingStatistical2024,
+  title      = {{{MAIDR}}: {{Making Statistical Visualizations Accessible}} with {{Multimodal Data Representation}}},
+  shorttitle = {{{MAIDR}}},
+  booktitle  = {Proceedings of the {{CHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
+  author     = {Seo, JooYoung and Xia, Yilin and Lee, Bongshin and Mccurry, Sean and Yam, Yu Jun},
+  year       = {2024},
+  month      = may,
+  series     = {{{CHI}} '24},
+  pages      = {1--22},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  doi        = {10.1145/3613904.3642730},
+  urldate    = {2024-05-14},
+  abstract   = {This paper investigates new data exploration experiences that enable blind users to interact with statistical data visualizations---bar plots, heat maps, box plots, and scatter plots---leveraging multimodal data representations. In addition to sonification and textual descriptions that are commonly employed by existing accessible visualizations, our MAIDR (multimodal access and interactive data representation) system incorporates two additional modalities (braille and review) that offer complementary benefits. It also provides blind users with the autonomy and control to interactively access and understand data visualizations. In a user study involving 11 blind participants, we found the MAIDR system facilitated the accurate interpretation of statistical visualizations. Participants exhibited a range of strategies in combining multiple modalities, influenced by their past interactions and experiences with data visualizations. This work accentuates the overlooked potential of combining refreshable tactile representation with other modalities and elevates the discussion on the importance of user autonomy when designing accessible data visualizations.},
+  isbn       = {9798400703300},
+  keywords   = {Accessibility,Blind,Braille Display,Multimodality,Screen Readers,Statistical Visualization}
 }
 ```
 
