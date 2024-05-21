@@ -375,7 +375,7 @@ We currently provide the following binders, all of which can be found at each se
 
 To learn more about the theoretical background and user study results, we recommend you read and cite the following papers.
 
-1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://arxiv.org/abs/2403.00717):
+1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://dl.acm.org/doi/10.1145/3613904.3642730):
 
 ```tex
 @inproceedings{seoMAIDRMakingStatistical2024,
