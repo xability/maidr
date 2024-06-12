@@ -281,21 +281,20 @@ class Control {
       // testing for braille cursor routing
       document.addEventListener('selectionchange', function (e) {
         const selection = document.getSelection();
-        console.log('Testing cursor routing', new Date().getTime());
-        if (selection.anchorNode == constants.brailleInput) {
-          console.log("We're in braille input");
-          let pos = constants.brailleInput.selectionStart;
-          console.log('Position: ', pos);
-          position.x = pos;
-          let testEnd = lockPosition();
+        console.log('Testing cursor routing', new Date().toLocaleTimeString());
+        console.log('selection: ', selection);
 
-          // update display / text / audio
-          if (testEnd) {
-            UpdateAll();
-          }
-          if (testEnd) {
-            audio.playEnd();
-          }
+        let pos = constants.brailleInput.selectionStart;
+        console.log('Position: ', pos);
+        position.x = pos;
+        let testEnd = lockPosition();
+
+        // update display / text / audio
+        if (testEnd) {
+          UpdateAll();
+        }
+        if (testEnd) {
+          audio.playEnd();
         }
       });
 
