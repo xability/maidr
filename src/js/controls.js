@@ -285,18 +285,19 @@ class Control {
 
         console.log('Testing cursor routing');
         console.log('Selection:', selection);
+        console.log('Target:', selection.anchorNode);
         console.log('Offset:', offset);
         console.log('Target:', e.target);
 
         position.x = offset;
-        updateInfoThisRound = true;
-        isAtEnd = lockPosition();
+        let testUpdate = true;
+        let testEnd = lockPosition();
 
         // update display / text / audio
-        if (updateInfoThisRound && !isAtEnd) {
+        if (testUpdate && !testEnd) {
           UpdateAll();
         }
-        if (isAtEnd) {
+        if (testEnd) {
           audio.playEnd();
         }
       });
