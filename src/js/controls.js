@@ -281,24 +281,21 @@ class Control {
       // testing for braille cursor routing
       document.addEventListener('selectionchange', function (e) {
         const selection = document.getSelection();
-        let offset = selection.anchorOffset;
+        console.log('Testing cursor routing', new Date().getTime());
+        if (selection.anchorNode == constants.brailleInput) {
+          console.log("We're in braille input");
+          let pos = constants.brailleInput.selectionStart;
+          console.log('Position: ', pos);
+          position.x = pos;
+          let testEnd = lockPosition();
 
-        console.log('Testing cursor routing');
-        console.log('Selection:', selection);
-        console.log('Target:', selection.anchorNode);
-        console.log('Offset:', offset);
-        console.log('Target:', e.target);
-
-        position.x = offset;
-        let testUpdate = true;
-        let testEnd = lockPosition();
-
-        // update display / text / audio
-        if (testUpdate && !testEnd) {
-          UpdateAll();
-        }
-        if (testEnd) {
-          audio.playEnd();
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
         }
       });
 
