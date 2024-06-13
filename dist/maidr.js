@@ -7693,22 +7693,19 @@ class Control {
       // testing for braille cursor routing
       document.addEventListener('selectionchange', function (e) {
         const selection = document.getSelection();
-        let offset = selection.anchorOffset;
+        console.log('Testing cursor routing', new Date().toLocaleTimeString());
+        console.log('selection: ', selection);
 
-        console.log('Testing cursor routing');
-        console.log('Selection:', selection);
-        console.log('Offset:', offset);
-        console.log('Target:', e.target);
-
-        position.x = offset;
-        updateInfoThisRound = true;
-        isAtEnd = lockPosition();
+        let pos = constants.brailleInput.selectionStart;
+        console.log('Position: ', pos);
+        position.x = pos;
+        let testEnd = lockPosition();
 
         // update display / text / audio
-        if (updateInfoThisRound && !isAtEnd) {
+        if (testEnd) {
           UpdateAll();
         }
-        if (isAtEnd) {
+        if (testEnd) {
           audio.playEnd();
         }
       });
