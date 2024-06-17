@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/xability/maidr/compare/v2.11.0...v2.12.0) (2024-06-17)
+
+
+### Features
+
+* add cursor routing functionality in beta mode, just for barplots ([#503](https://github.com/xability/maidr/issues/503)) ([719c684](https://github.com/xability/maidr/commit/719c68451c2df3602169e8f6b256a2d535156af0))
+
 # [2.11.0](https://github.com/xability/maidr/compare/v2.10.0...v2.11.0) (2024-04-18)
 
 
