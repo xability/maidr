@@ -283,6 +283,7 @@ class Control {
       let lastPlayed = '';
 
       // testing for braille cursor routing
+      /*
       document.addEventListener('selectionchange', function (e) {
         // notes:
         // this basically works
@@ -309,6 +310,7 @@ class Control {
           audio.playEnd();
         }
       });
+      */
 
       // control eventlisteners
       constants.events.push([
