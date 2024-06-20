@@ -1,3 +1,15 @@
+# [2.13.0](https://github.com/xability/maidr/compare/v2.12.0...v2.13.0) (2024-06-20)
+
+
+### Bug Fixes
+
+* fix prefix mode for x and y for histogram ([#505](https://github.com/xability/maidr/issues/505)) ([9acc5fa](https://github.com/xability/maidr/commit/9acc5fa90d87a6490c79b18b1d419e6f68255dee)), closes [#502](https://github.com/xability/maidr/issues/502)
+
+
+### Features
+
+* proper documentation part 1: all classes and functions in constants.js ([#504](https://github.com/xability/maidr/issues/504)) ([c32f43b](https://github.com/xability/maidr/commit/c32f43b9ed90bd2fb35deb0ff4fff58a59fad380))
+
 # [2.12.0](https://github.com/xability/maidr/compare/v2.11.0...v2.12.0) (2024-06-17)
 
 
