@@ -397,22 +397,19 @@ To learn more about the theoretical background and user study results, we recomm
 }
 ```
 
-1. [Born Accessible Data Science and Visualization Courses: Challenges of Developing Curriculum to be Taught by Blind Instructors to Blind Students](https://arxiv.org/abs/2403.02568v1):
+1. [Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students](https://diglib.eg.org:8443/server/api/core/bitstreams/6d392735-a045-46bb-867c-90b0a538b1b7/content):
 
 ```tex
-@misc{seoBornAccessibleData2024,
-  title         = {Born {{Accessible Data Science}} and {{Visualization Courses}}: {{Challenges}} of {{Developing Curriculum}} to Be {{Taught}} by {{Blind Instructors}} to {{Blind Students}}},
-  shorttitle    = {Born {{Accessible Data Science}} and {{Visualization Courses}}},
-  author        = {Seo, JooYoung and O'Modhrain, Sile and Xia, Yilin and Kamath, Sanchita and Lee, Bongshin and Coughlan, James M.},
-  year          = {2024},
-  month         = mar,
-  number        = {arXiv:2403.02568},
-  eprint        = {2403.02568},
-  primaryclass  = {cs},
-  publisher     = {{arXiv}},
-  urldate       = {2024-03-08},
-  archiveprefix = {arxiv},
-  keywords      = {Computer Science - Human-Computer Interaction}
+@inproceedings{10.2312:eved.20241053,
+  booktitle = {EuroVis 2024 - Education Papers},
+  editor    = {Firat, Elif E. and Laramee, Robert S. and Andersen, Nicklas Sindelv},
+  title     = {{Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors
+               to Blind Students}},
+  author    = {JooYoung Seo and Sile O'Modhrain and Yilin Xia and Sanchita Kamath and Bongshin Lee and James M. Coughlan},
+  year      = {2024},
+  publisher = {The Eurographics Association},
+  isbn      = {978-3-03868-257-8},
+  doi       = {10.2312/eved.20241053}
 }
 ```
 
