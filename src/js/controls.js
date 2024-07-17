@@ -282,35 +282,30 @@ class Control {
       constants.lastx = 0;
       let lastPlayed = '';
 
-      // testing for braille cursor routing
-      /*
+      // braille cursor routing
       document.addEventListener('selectionchange', function (e) {
-        // notes:
-        // this basically works
-        // constants.braillInput.selectionStart is the key, and is the position,
-        // but it starts at 1, so we need to subtract 1 to get the actual position
-        // hard part is that we need to wire this through the whole script
-        // event is selectionchange, so we'll either need to refactor and do separate events + functions for this,
-        // or pull UpdateAll() etc into their own area so it can be triggered from anywhere
-        // ... ideally let's do that. Better yet, have a global UpdateAll, not per chart
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+          position.x = pos;
+          lockPosition();
+          let testEnd = true;
 
-        const selection = document.getSelection();
-        console.log('Testing cursor routing', new Date().toLocaleTimeString());
-        console.log('selection: ', selection);
-        let pos = constants.brailleInput.selectionStart;
-        console.log('Position: ', pos);
-        position.x = pos - 1; // selection starts at 1, so we subtract 1 to get the actual position
-        let testEnd = lockPosition();
-
-        // update display / text / audio
-        if (testEnd) {
-          UpdateAll();
-        }
-        if (testEnd) {
-          audio.playEnd();
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        } else {
+          // we're using normal cursor, let the default handle it
         }
       });
-      */
 
       // control eventlisteners
       constants.events.push([
@@ -489,17 +484,19 @@ class Control {
       function lockPosition() {
         // lock to min / max postions
         let didLockHappen = false;
-        // if (!constants.hasRect) {
-        //   return didLockHappen;
-        // }
 
         if (position.x < 0) {
           position.x = 0;
           didLockHappen = true;
+          if (constants.brailleMode != 'off') {
+            // change selection to match postion as well
+            constants.brailleInput.selectionEnd = 0;
+          }
         }
         if (position.x > plot.plotData.length - 1) {
           position.x = plot.plotData.length - 1;
           didLockHappen = true;
+          constants.brailleInput.selectionEnd = plot.plotData.length - 1;
         }
 
         return didLockHappen;
@@ -586,6 +583,59 @@ class Control {
       }
       let lastPlayed = '';
 
+      // braille cursor routing
+      // bug: still not working. Not really sure what's going on but the tethering is now totally broken
+      // like, it doesn't even seem to be on the right plot
+      document.addEventListener('selectionchange', function (e) {
+        e.preventDefault();
+        if (
+          constants.brailleMode == 'on' &&
+          constants.brailleInput.selectionStart
+        ) {
+          let cursorPos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          cursorPos = constants.brailleInput.selectionStart;
+          if (cursorPos < 0) {
+            pos = 0;
+          }
+          // convert braille position to start of whatever section we're in
+          let walk = 0;
+          let posType = '';
+          if (constants.brailleData) {
+            for (let i = 0; i < constants.brailleData.length; i++) {
+              walk += constants.brailleData[i].numChars;
+              if (walk > cursorPos) {
+                if (constants.brailleData[i].type == 'blank') {
+                  posType = constants.brailleData[i + 1].type;
+                } else {
+                  posType = constants.brailleData[i].type;
+                }
+                break;
+              }
+            }
+          }
+          let pos = plot.sections.indexOf(posType);
+
+          if (posType.length > 0) {
+            if (constants.plotOrientation == 'vert') {
+              position.y = pos;
+            } else {
+              position.x = pos;
+            }
+            lockPosition();
+            let testEnd = true;
+
+            // update display / text / audio
+            if (testEnd) {
+              UpdateAll();
+            }
+            if (testEnd) {
+              audio.playEnd();
+            }
+          }
+        }
+      });
+
       // control eventlisteners
       constants.events.push([
         constants.chart,
@@ -598,12 +648,14 @@ class Control {
           if (e.key == 'ArrowRight') {
             if (constants.isMac ? e.metaKey : e.ctrlKey) {
               if (e.shiftKey) {
+                // autoplay
                 if (constants.plotOrientation == 'vert') {
                   Autoplay('right', position.x, plot.plotData.length - 1);
                 } else {
                   Autoplay('right', position.x, plot.sections.length - 1);
                 }
               } else {
+                // move to end
                 isAtEnd = lockPosition();
                 if (constants.plotOrientation == 'vert') {
                   position.x = plot.plotData.length - 1;
@@ -622,6 +674,7 @@ class Control {
                 lastY = position.y;
                 Autoplay('reverse-right', plot.plotData.length - 1, position.x);
               } else {
+                // normal movement
                 if (position.x == -1 && position.y == plot.sections.length) {
                   position.y -= 1;
                 }
@@ -1194,6 +1247,45 @@ class Control {
       let lastPlayed = '';
       constants.lastx = 0;
 
+      document.addEventListener('selectionchange', function (e) {
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+
+          // exception: don't let users click the seperator char
+          let seperatorPositions = constants.brailleInput.value
+            .split('')
+            .reduce((positions, char, index) => {
+              if (char === '⠳') positions.push(index);
+              return positions;
+            }, []);
+          if (seperatorPositions.includes(pos)) {
+            return;
+          }
+
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+
+          // actual position is based on num_cols and num_rows and the spacer
+          position.y = Math.floor(pos / (plot.num_cols + 1));
+          position.x = pos % (plot.num_cols + 1);
+          lockPosition();
+          let testEnd = true;
+
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        } else {
+          // we're using normal cursor, let the default handle it
+        }
+      });
+
       // control eventlisteners
       constants.events.push([
         constants.chart,
@@ -1299,6 +1391,8 @@ class Control {
             }
             constants.navigation = 0;
           }
+
+          console.log('position: ' + position.x + ', ' + position.y);
 
           // update text, display, and audio
           if (updateInfoThisRound && !isAtEnd) {
@@ -1819,6 +1913,32 @@ class Control {
         }
       }
 
+      // todo / bug: does'nt work at all on just line (in gallery)
+      // it sorta works in scatter (in gallery), visual highlight changes, but sonify and text don't update
+      document.addEventListener('selectionchange', function (e) {
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+          positionL1.x = pos;
+          lockPosition();
+          let testEnd = true;
+
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAllBraille();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        } else {
+          // we're using normal cursor, let the default handle it
+        }
+      });
+
       constants.events.push([
         constants.brailleInput,
         'keydown',
@@ -2120,6 +2240,30 @@ class Control {
       let lastPlayed = '';
       constants.lastx = 0;
 
+      document.addEventListener('selectionchange', function (e) {
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+          position.x = pos;
+          lockPosition();
+          let testEnd = true;
+
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        } else {
+          // we're using normal cursor, let the default handle it
+        }
+      });
+
       // control eventlisteners
       constants.events.push([
         [constants.chart, constants.brailleInput],
@@ -2365,6 +2509,32 @@ class Control {
       // global variables
       let lastPlayed = '';
       constants.lastx = 0;
+
+      // todo bug, forgot about all mode
+      // bug: you can click 1 past end (for all chart types). Make sure we're lockign and then resetting the selectionStart
+      document.addEventListener('selectionchange', function (e) {
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+          position.x = pos;
+          lockPosition();
+          let testEnd = true;
+
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        } else {
+          // we're using normal cursor, let the default handle it
+        }
+      });
 
       // control eventlisteners
       constants.events.push([
@@ -2722,6 +2892,29 @@ class Control {
       // global variables
       let lastPlayed = '';
       constants.lastx = 0;
+
+      // braille cursor routing
+      document.addEventListener('selectionchange', function (e) {
+        if (constants.brailleMode == 'on') {
+          let pos = constants.brailleInput.selectionStart;
+          // we're using braille cursor, update the selection from what was clicked
+          pos = constants.brailleInput.selectionStart;
+          if (pos < 0) {
+            pos = 0;
+          }
+          position.x = pos;
+          lockPosition();
+          let testEnd = true;
+
+          // update display / text / audio
+          if (testEnd) {
+            UpdateAll();
+          }
+          if (testEnd) {
+            audio.playEnd();
+          }
+        }
+      });
 
       // control eventlisteners
       constants.events.push([
