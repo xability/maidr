@@ -1,3 +1,10 @@
+# [2.14.0](https://github.com/xability/maidr/compare/v2.13.0...v2.14.0) (2024-07-18)
+
+
+### Features
+
+* add cursor routing; the ability to click braille keys to move position on all charts ([#509](https://github.com/xability/maidr/issues/509)) ([5c42ef9](https://github.com/xability/maidr/commit/5c42ef93cff6e39a31c3b4110c44b855ef69f954))
+
 # [2.13.0](https://github.com/xability/maidr/compare/v2.12.0...v2.13.0) (2024-06-20)
 
 
