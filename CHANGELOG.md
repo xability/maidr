@@ -1,3 +1,10 @@
+## [2.14.1](https://github.com/xability/maidr/compare/v2.14.0...v2.14.1) (2024-07-30)
+
+
+### Bug Fixes
+
+* disabled tracking while it's getting fixed ([#512](https://github.com/xability/maidr/issues/512)) ([cf5dbc5](https://github.com/xability/maidr/commit/cf5dbc5bb0d6910992c2f22089171b0b981b19de)), closes [#508](https://github.com/xability/maidr/issues/508) [#486](https://github.com/xability/maidr/issues/486)
+
 # [2.14.0](https://github.com/xability/maidr/compare/v2.13.0...v2.14.0) (2024-07-18)
 
 
