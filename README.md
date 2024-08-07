@@ -229,8 +229,8 @@ To interact with the plots using maidr, follow these steps:
 1. Press the **Tab** key to focus on the SVG element.
 2. Use the **arrow keys** to move around the plot.
 3. Press **B** to toggle Braille mode.
-4. Press **S** to toggle Sonification (tones) mode.
-5. Press **T** to toggle Text mode.
+4. Press **T** to toggle Text mode.
+5. Press **S** to toggle Sonification (tones) mode.
 6. Press **R** to toggle Review mode.
 
 Below is a detailed list of keyboard shortcuts for various functions:
