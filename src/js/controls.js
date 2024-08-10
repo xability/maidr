@@ -214,6 +214,12 @@ class Control {
               singleMaidr.type.includes('point')
             ) {
               xlabel = plot.x_group_label;
+            } else if (
+              singleMaidr.type == 'stacked_bar' ||
+              singleMaidr.type == 'stacked_normalized_bar' ||
+              singleMaidr.type == 'dodged_bar'
+            ) {
+              xlabel = plot.plotLegend.x;
             }
             display.displayInfo('x label', xlabel);
             pressedL = false;
@@ -232,6 +238,12 @@ class Control {
               singleMaidr.type.includes('point')
             ) {
               ylabel = plot.y_group_label;
+            } else if (
+              singleMaidr.type == 'stacked_bar' ||
+              singleMaidr.type == 'stacked_normalized_bar' ||
+              singleMaidr.type == 'dodged_bar'
+            ) {
+              ylabel = plot.plotLegend.y;
             }
             display.displayInfo('y label', ylabel);
             pressedL = false;
