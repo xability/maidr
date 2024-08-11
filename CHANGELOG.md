@@ -1,3 +1,11 @@
+## [2.14.2](https://github.com/xability/maidr/compare/v2.14.1...v2.14.2) (2024-08-11)
+
+
+### Bug Fixes
+
+* add lx and ly for stacked plots ([fe6db71](https://github.com/xability/maidr/commit/fe6db7113bf9d740854518151468d95866fcca67))
+* use level instead of y label in verbose mode for stacked bar ([#517](https://github.com/xability/maidr/issues/517)) ([1363d5c](https://github.com/xability/maidr/commit/1363d5cc8245aa440fe2e477775865e541285dcd)), closes [#515](https://github.com/xability/maidr/issues/515)
+
 ## [2.14.1](https://github.com/xability/maidr/compare/v2.14.0...v2.14.1) (2024-07-30)
 
 
