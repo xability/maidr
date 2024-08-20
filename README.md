@@ -397,7 +397,7 @@ To learn more about the theoretical background and user study results, we recomm
 }
 ```
 
-2. [Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students](https://diglib.eg.org:8443/server/api/core/bitstreams/6d392735-a045-46bb-867c-90b0a538b1b7/content):
+2. [Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students](https://diglib.eg.org/items/5e71b594-3762-4604-a9c4-96623cda8bc3):
 
 ```tex
 @inproceedings{10.2312:eved.20241053,
