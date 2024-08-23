@@ -1,3 +1,10 @@
+## [2.14.3](https://github.com/xability/maidr/compare/v2.14.2...v2.14.3) (2024-08-23)
+
+
+### Bug Fixes
+
+* destroy chatLLM dialog when maidr is deactivated ([#525](https://github.com/xability/maidr/issues/525)) ([6b705d8](https://github.com/xability/maidr/commit/6b705d8852c09fc398f4b1bcb028364bae0ebdd3))
+
 ## [2.14.2](https://github.com/xability/maidr/compare/v2.14.1...v2.14.2) (2024-08-11)
 
 
