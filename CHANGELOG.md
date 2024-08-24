@@ -1,3 +1,10 @@
+## [2.14.4](https://github.com/xability/maidr/compare/v2.14.3...v2.14.4) (2024-08-24)
+
+
+### Bug Fixes
+
+* **scatterplot:** destroy highlight and cease autoplay if active on scatterplot ([#528](https://github.com/xability/maidr/issues/528)) ([5b8d3e2](https://github.com/xability/maidr/commit/5b8d3e28922cf07353d5b928e184227d33f1f998))
+
 ## [2.14.3](https://github.com/xability/maidr/compare/v2.14.2...v2.14.3) (2024-08-23)
 
 
