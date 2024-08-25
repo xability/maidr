@@ -1,3 +1,10 @@
+## [2.14.5](https://github.com/xability/maidr/compare/v2.14.4...v2.14.5) (2024-08-25)
+
+
+### Bug Fixes
+
+* **lineplot:** destroy highlight and cease autoplay if active on lineplot ([#530](https://github.com/xability/maidr/issues/530)) ([c65ef3c](https://github.com/xability/maidr/commit/c65ef3c407b1ecc8bf59c91108182e68f0d45045))
+
 ## [2.14.4](https://github.com/xability/maidr/compare/v2.14.3...v2.14.4) (2024-08-24)
 
 
