@@ -1,3 +1,10 @@
+## [2.14.6](https://github.com/xability/maidr/compare/v2.14.5...v2.14.6) (2024-08-28)
+
+
+### Bug Fixes
+
+* cease autoplay when maidr is deactivated (outside the plot) ([#526](https://github.com/xability/maidr/issues/526)) ([dd564ec](https://github.com/xability/maidr/commit/dd564ecdf147536a9354ee1fda019bbb7fb1b043))
+
 ## [2.14.5](https://github.com/xability/maidr/compare/v2.14.4...v2.14.5) (2024-08-25)
 
 
