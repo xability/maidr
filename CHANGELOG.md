@@ -1,3 +1,11 @@
+## [2.14.7](https://github.com/xability/maidr/compare/v2.14.6...v2.14.7) (2024-08-29)
+
+
+### Bug Fixes
+
+* **ci:** rectify formatting in affected file for build workflow ([#536](https://github.com/xability/maidr/issues/536)) ([03ed380](https://github.com/xability/maidr/commit/03ed3807e002ca64873eada3daf99f7968bcd648))
+* **heatmap:** kill visual selector and autoplay post maidr teardown ([#534](https://github.com/xability/maidr/issues/534)) ([17c286d](https://github.com/xability/maidr/commit/17c286df25aaa2652ee2c32270321c0ec9ea3e66))
+
 ## [2.14.6](https://github.com/xability/maidr/compare/v2.14.5...v2.14.6) (2024-08-28)
 
 
