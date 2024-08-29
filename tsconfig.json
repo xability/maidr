@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es6", // Compile to ES5, which is broadly compatible with older browsers
+    "lib": ["es2021", "dom"],
+    "sourceMap": true,
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}
