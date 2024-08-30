@@ -1,5 +1,5 @@
 {
-  "window.title": "${activeRepositoryBranchName}${dirty}${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}${appName}",
+  "window.title": "${activeRepositoryBranchName} ${dirty}${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}${appName}",
   "editor.stickyScroll.enabled": true,
   "editor.stickyScroll.defaultModel": "foldingProviderModel",
   "[javascript]": {
