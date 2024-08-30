@@ -1,3 +1,10 @@
+## [2.14.8](https://github.com/xability/maidr/compare/v2.14.7...v2.14.8) (2024-08-30)
+
+
+### Bug Fixes
+
+* update current active element's highlight color or fill on color change ([#538](https://github.com/xability/maidr/issues/538)) ([d001287](https://github.com/xability/maidr/commit/d00128715d52d2deab1b2a3d95c4bfc76cf731b0))
+
 ## [2.14.7](https://github.com/xability/maidr/compare/v2.14.6...v2.14.7) (2024-08-29)
 
 
