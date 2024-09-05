@@ -192,6 +192,12 @@ export class Constants {
     }
     return styleString;
   }
+  static readonly OSCILLATOR_TYPES = {
+    SINE: 'sine' as OscillatorType,
+    SQUARE: 'square' as OscillatorType,
+    SAWTOOTH: 'sawtooth' as OscillatorType,
+    TRIANGLE: 'triangle' as OscillatorType
+  };
 }
 
 export class Resources {
