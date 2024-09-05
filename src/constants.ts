@@ -1,47 +1,54 @@
-type EventType = 'click' | 'keydown' | 'blur' | 'keyup';
+type EventType = "click" | "keydown" | "blur" | "keyup";
 
 export class Constants {
-  chartContainerId = 'chart-container';
-  mainContainerId = 'maidr-container';
+  chartContainerId = "chart-container";
+  mainContainerId = "maidr-container";
 
-  brailleContainerId = 'braille-div';
-  brailleInputId = 'braille-input';
+  brailleContainerId = "braille-div";
+  brailleInputId = "braille-input";
   brailleInput: HTMLInputElement | null = null;
 
-  infoId = 'info';
+  infoId = "info";
   infoDiv: HTMLElement | null = null;
 
-  announcementContainerId = 'announcements';
+  announcementContainerId = "announcements";
 
   announcementContainer: HTMLElement | null = null;
 
   LLMmaxResponseTokens = 1000;
 
-  endChimeId = 'end_chime';
+  endChimeId = "end_chime";
   endChime: Node | null = null;
 
-  containerId = 'container';
-  projectId = 'maidr';
+  containerId = "container";
+  projectId = "maidr";
 
-  chartId = '';
+  chartId = "";
   chart: HTMLElement | null = null;
   chartContainer: HTMLDivElement | null = null;
   mainContainer: HTMLDivElement | null = null;
 
-  events: Array<[HTMLElement | HTMLElement[] | Document, EventType, (e: KeyboardEvent) => void]> = [];
-  postLoadEvents: Array<[HTMLElement | HTMLElement[], string, EventListener]> = [];
+  events: Array<
+    [
+      HTMLElement | HTMLElement[] | Document,
+      EventType,
+      (e: KeyboardEvent) => void
+    ]
+  > = [];
+  postLoadEvents: Array<[HTMLElement | HTMLElement[], string, EventListener]> =
+    [];
 
-  textMode: 'off' | 'terse' | 'verbose' = 'verbose';
-  brailleMode: 'off' | 'on' = 'off';
-  soundMode: 'on' | 'off' | 'sep' | 'same' = 'on';
-  reviewMode: 'off' | 'on' = 'off';
+  textMode: "off" | "terse" | "verbose" = "verbose";
+  brailleMode: "off" | "on" = "off";
+  soundMode: "on" | "off" | "sep" | "same" = "on";
+  reviewMode: "off" | "on" = "off";
 
   minX = 0;
   maxX = 0;
   minY = 0;
   maxY = 0;
-  plotId = '';
-  chartType = '';
+  plotId = "";
+  chartType = "";
   navigation = 1;
 
   MAX_FREQUENCY = 1000;
@@ -59,7 +66,7 @@ export class Constants {
   vol = 0.5;
   MAX_VOL = 30;
   autoPlayRate = this.DEFAULT_SPEED;
-  colorSelected = '#03C809';
+  colorSelected = "#03C809";
   brailleDisplayLength = 32;
 
   showRect = 1;
@@ -69,43 +76,44 @@ export class Constants {
   outlierDuration = 0.06;
   autoPlayOutlierRate = 50;
   autoPlayPointsRate = 50;
-  colorUnselected = '#595959';
+  colorUnselected = "#595959";
   canTrack = 0;
   isTracking = 1;
   visualBraille = false;
-  ariaMode: 'assertive' | 'polite' = 'assertive';
+  ariaMode: "assertive" | "polite" = "assertive";
 
   userSettingsKeys = [
-    'vol',
-    'autoPlayRate',
-    'brailleDisplayLength',
-    'colorSelected',
-    'MIN_FREQUENCY',
-    'MAX_FREQUENCY',
-    'keypressInterval',
-    'ariaMode',
-    'openAIAuthKey',
-    'geminiAuthKey',
-    'skillLevel',
-    'skillLevelOther',
-    'LLMModel',
-    'LLMPreferences',
-    'LLMOpenAiMulti',
-    'LLMGeminiMulti',
-    'autoInitLLM',
+    "vol",
+    "autoPlayRate",
+    "brailleDisplayLength",
+    "colorSelected",
+    "MIN_FREQUENCY",
+    "MAX_FREQUENCY",
+    "keypressInterval",
+    "ariaMode",
+    "openAIAuthKey",
+    "geminiAuthKey",
+    "skillLevel",
+    "skillLevelOther",
+    "LLMModel",
+    "LLMPreferences",
+    "LLMOpenAiMulti",
+    "LLMGeminiMulti",
+    "autoInitLLM",
   ];
 
   openAIAuthKey: string | null = null;
   geminiAuthKey: string | null = null;
   maxLLMResponseTokens = 1000;
   playLLMWaitingSound = true;
-  LLMDetail: 'low' | 'high' = 'high';
-  LLMModel: 'openai' | 'gemini' | 'multi' = 'openai';
-  LLMSystemMessage = 'You are a helpful assistant describing the chart to a blind person. ';
-  skillLevel: 'basic' | 'intermediate' | 'expert' | 'other' = 'basic';
-  skillLevelOther = '';
+  LLMDetail: "low" | "high" = "high";
+  LLMModel: "openai" | "gemini" | "multi" = "openai";
+  LLMSystemMessage =
+    "You are a helpful assistant describing the chart to a blind person. ";
+  skillLevel: "basic" | "intermediate" | "expert" | "other" = "basic";
+  skillLevelOther = "";
   autoInitLLM = true;
-  verboseText = '';
+  verboseText = "";
   waitingQueue = 0;
 
   showDisplay = 1;
@@ -113,11 +121,11 @@ export class Constants {
   showDisplayInAutoplay = 0;
   outlierInterval: number | null = null;
 
-  isMac = navigator.userAgent.toLowerCase().includes('mac');
-  control = this.isMac ? 'Cmd' : 'Ctrl';
-  alt = this.isMac ? 'option' : 'Alt';
-  home = this.isMac ? 'fn + Left arrow' : 'Home';
-  end = this.isMac ? 'fn + Right arrow' : 'End';
+  isMac = navigator.userAgent.toLowerCase().includes("mac");
+  control = this.isMac ? "Cmd" : "Ctrl";
+  alt = this.isMac ? "option" : "Alt";
+  home = this.isMac ? "fn + Left arrow" : "Home";
+  end = this.isMac ? "fn + Right arrow" : "End";
 
   keypressInterval = 2000;
   tabMovement: number | null = null;
@@ -132,17 +140,17 @@ export class Constants {
   constructor() {}
   ConvertHexToRGBString(hexColorString: string): string {
     return (
-        'rgb(' +
-        parseInt(hexColorString.slice(1, 3), 16) +
-        ',' +
-        parseInt(hexColorString.slice(3, 5), 16) +
-        ',' +
-        parseInt(hexColorString.slice(5, 7), 16) +
-        ')'
+      "rgb(" +
+      parseInt(hexColorString.slice(1, 3), 16) +
+      "," +
+      parseInt(hexColorString.slice(3, 5), 16) +
+      "," +
+      parseInt(hexColorString.slice(5, 7), 16) +
+      ")"
     );
   }
   ColorInvert(color: string): string {
-    const rgb = color.replace(/[^\d,]/g, '').split(',');
+    const rgb = color.replace(/[^\d,]/g, "").split(",");
     const r = 255 - parseInt(rgb[0]);
     const g = 255 - parseInt(rgb[1]);
     const b = 255 - parseInt(rgb[2]);
@@ -150,15 +158,15 @@ export class Constants {
   }
 
   GetBetterColor(oldColor: string): string {
-    if (oldColor.indexOf('#') !== -1) {
+    if (oldColor.indexOf("#") !== -1) {
       oldColor = this.ConvertHexToRGBString(oldColor);
     }
     let newColor = this.ColorInvert(oldColor);
-    const rgb = newColor.replace(/[^\d,]/g, '').split(',');
+    const rgb = newColor.replace(/[^\d,]/g, "").split(",");
     if (
-        Math.abs(parseInt(rgb[1]) - parseInt(rgb[0])) < 10 &&
-        Math.abs(parseInt(rgb[2]) - parseInt(rgb[0])) < 10 &&
-        (parseInt(rgb[0]) > 86 || parseInt(rgb[0]) < 169)
+      Math.abs(parseInt(rgb[1]) - parseInt(rgb[0])) < 10 &&
+      Math.abs(parseInt(rgb[2]) - parseInt(rgb[0])) < 10 &&
+      (parseInt(rgb[0]) > 86 || parseInt(rgb[0]) < 169)
     ) {
       newColor = this.colorSelected;
     }
@@ -166,51 +174,50 @@ export class Constants {
   }
 
   GetStyleArrayFromString(styleString: string): string[] {
-    return styleString.replaceAll(' ', '').split(/[:;]/);
+    return styleString.replaceAll(" ", "").split(/[:;]/);
   }
 
   GetStyleStringFromArray(styleArray: string[]): string {
-    let styleString = '';
+    let styleString = "";
     for (let i = 0; i < styleArray.length; i++) {
       if (i % 2 === 0) {
         if (i !== styleArray.length - 1) {
-          styleString += styleArray[i] + ': ';
+          styleString += styleArray[i] + ": ";
         } else {
           styleString += styleArray[i];
         }
       } else {
-        styleString += styleArray[i] + '; ';
+        styleString += styleArray[i] + "; ";
       }
     }
     return styleString;
   }
 }
 
-
 export class Resources {
-  strings: {[key: string]: string }= {
-    upper_outlier: 'Upper Outlier',
-    lower_outlier: 'Lower Outlier',
-    min: 'Minimum',
-    max: 'Maximum',
-    25: '25%',
-    50: '50%',
-    75: '75%',
-    q1: '25%',
-    q2: '50%',
-    q3: '75%',
-    son_on: 'Sonification on',
-    son_off: 'Sonification off',
-    son_des: 'Sonification descrete',
-    son_comp: 'Sonification compare',
-    son_ch: 'Sonification chord',
-    son_sep: 'Sonification separate',
-    son_same: 'Sonification combined',
-    empty: 'Empty',
-    openai: 'OpenAI Vision',
-    gemini: 'Gemini Pro Vision',
-    multi: 'Multiple AI',
-    processing: 'Processing Chart...',
+  strings: { [key: string]: string } = {
+    upper_outlier: "Upper Outlier",
+    lower_outlier: "Lower Outlier",
+    min: "Minimum",
+    max: "Maximum",
+    25: "25%",
+    50: "50%",
+    75: "75%",
+    q1: "25%",
+    q2: "50%",
+    q3: "75%",
+    son_on: "Sonification on",
+    son_off: "Sonification off",
+    son_des: "Sonification descrete",
+    son_comp: "Sonification compare",
+    son_ch: "Sonification chord",
+    son_sep: "Sonification separate",
+    son_same: "Sonification combined",
+    empty: "Empty",
+    openai: "OpenAI Vision",
+    gemini: "Gemini Pro Vision",
+    multi: "Multiple AI",
+    processing: "Processing Chart...",
   };
 
   GetString(id: string): string {
@@ -272,24 +279,28 @@ export class ChatLLM {
         </div>
         <div id="chatLLM_modal_backdrop" class="modal-backdrop hidden"></div>
     `;
-    document.querySelector('body')?.insertAdjacentHTML('beforeend', html);
+    document.querySelector("body")?.insertAdjacentHTML("beforeend", html);
   }
 
   setEvents() {
     let constants = window.constants;
-    const allClose = document.querySelectorAll('#close_chatLLM, #chatLLM .close');
-    allClose.forEach((closeElem) => window.constants.events.push([
-      closeElem as HTMLElement,
-      'click',
-      () => {
-        this.Toggle(false);
-      },
-    ]));
+    const allClose = document.querySelectorAll(
+      "#close_chatLLM, #chatLLM .close"
+    );
+    allClose.forEach((closeElem) =>
+      window.constants.events.push([
+        closeElem as HTMLElement,
+        "click",
+        () => {
+          this.Toggle(false);
+        },
+      ])
+    );
     window.constants.events.push([
-      document.getElementById('chatLLM')!,
-      'keyup',
+      document.getElementById("chatLLM")!,
+      "keyup",
       (e) => {
-        if (e.key === 'Esc') {
+        if (e.key === "Esc") {
           this.Toggle(false);
         }
       },
@@ -297,81 +308,91 @@ export class ChatLLM {
 
     window.constants.events.push([
       document,
-      'keyup',
+      "keyup",
       (e) => {
-        if ((e.key === '?' && (e.ctrlKey || e.metaKey)) || e.key === '¿') {
+        if ((e.key === "?" && (e.ctrlKey || e.metaKey)) || e.key === "¿") {
           this.Toggle();
         }
       },
     ]);
 
     window.constants.events.push([
-      document.getElementById('chatLLM_submit')!,
-      'click',
+      document.getElementById("chatLLM_submit")!,
+      "click",
       () => {
-        const text = (document.getElementById('chatLLM_input') as HTMLInputElement).value;
-        this.DisplayChatMessage('User', text);
+        const text = (
+          document.getElementById("chatLLM_input") as HTMLInputElement
+        ).value;
+        this.DisplayChatMessage("User", text);
         this.Submit(text);
       },
     ]);
 
     window.constants.events.push([
-      document.getElementById('chatLLM_input')!,
-      'keyup',
+      document.getElementById("chatLLM_input")!,
+      "keyup",
       (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          const text = (document.getElementById('chatLLM_input') as HTMLInputElement).value;
-          this.DisplayChatMessage('User', text);
+        if (e.key === "Enter" && !e.shiftKey) {
+          const text = (
+            document.getElementById("chatLLM_input") as HTMLInputElement
+          ).value;
+          this.DisplayChatMessage("User", text);
           this.Submit(text);
         }
       },
     ]);
 
-    const suggestions = document.querySelectorAll('#chatLLM .LLM_suggestions button:not(#more_suggestions)');
-    suggestions.forEach((suggestion) => window.constants.events.push([
-      suggestion as HTMLElement,
-      'click',
-      (e) => {
-        const text = (e.target as HTMLElement).innerHTML;
-        this.DisplayChatMessage('User', text);
-        this.Submit(text);
-      },
-    ]))
+    const suggestions = document.querySelectorAll(
+      "#chatLLM .LLM_suggestions button:not(#more_suggestions)"
+    );
+    suggestions.forEach((suggestion) =>
+      window.constants.events.push([
+        suggestion as HTMLElement,
+        "click",
+        (e) => {
+          const text = (e.target as HTMLElement).innerHTML;
+          this.DisplayChatMessage("User", text);
+          this.Submit(text);
+        },
+      ])
+    );
 
     window.constants.events.push([
-      document.getElementById('delete_openai_key')!,
-      'click',
+      document.getElementById("delete_openai_key")!,
+      "click",
       () => {
-        (document.getElementById('openai_auth_key') as HTMLInputElement).value = '';
+        (document.getElementById("openai_auth_key") as HTMLInputElement).value =
+          "";
       },
     ]);
     window.constants.events.push([
-      document.getElementById('delete_gemini_key')!,
-      'click',
+      document.getElementById("delete_gemini_key")!,
+      "click",
       () => {
-        (document.getElementById('gemini_auth_key') as HTMLInputElement).value = '';
+        (document.getElementById("gemini_auth_key") as HTMLInputElement).value =
+          "";
       },
     ]);
 
     window.constants.events.push([
-      document.getElementById('reset_chatLLM')!,
-      'click',
+      document.getElementById("reset_chatLLM")!,
+      "click",
       () => {
         this.ResetLLM();
       },
     ]);
 
     window.constants.events.push([
-      document.getElementById('chatLLM')!,
-      'click',
+      document.getElementById("chatLLM")!,
+      "click",
       (e) => {
         this.CopyChatHistory(e);
       },
     ]);
 
     window.constants.events.push([
-      document.getElementById('chatLLM')!,
-      'keyup',
+      document.getElementById("chatLLM")!,
+      "keyup",
       (e) => {
         this.CopyChatHistory(e);
       },
@@ -379,89 +400,103 @@ export class ChatLLM {
   }
 
   CopyChatHistory(e?: Event | KeyboardEvent) {
-    let text = '';
-    if (typeof e === 'undefined') {
-      text = document.getElementById('chatLLM_chat_history')!.innerHTML;
-    } else if (e.type === 'click') {
-      if ((e.target as HTMLElement).id === 'chatLLM_copy_all') {
-        text = document.getElementById('chatLLM_chat_history')!.innerHTML;
-      } else if ((e.target as HTMLElement).classList.contains('chatLLM_message_copy_button')) {
-        text = (e.target as HTMLElement).closest('p')!.previousElementSibling!.innerHTML;
+    let text = "";
+    if (typeof e === "undefined") {
+      text = document.getElementById("chatLLM_chat_history")!.innerHTML;
+    } else if (e.type === "click") {
+      if ((e.target as HTMLElement).id === "chatLLM_copy_all") {
+        text = document.getElementById("chatLLM_chat_history")!.innerHTML;
+      } else if (
+        (e.target as HTMLElement).classList.contains(
+          "chatLLM_message_copy_button"
+        )
+      ) {
+        text = (e.target as HTMLElement).closest("p")!.previousElementSibling!
+          .innerHTML;
       }
-    } else if (e.type === 'keyup' && e instanceof  KeyboardEvent) {
+    } else if (e.type === "keyup" && e instanceof KeyboardEvent) {
       if (
-          e.key === 'C' &&
-          ((e as KeyboardEvent).ctrlKey || (e as KeyboardEvent).metaKey || (e as KeyboardEvent).altKey) &&
-          (e as KeyboardEvent).shiftKey
+        e.key === "C" &&
+        ((e as KeyboardEvent).ctrlKey ||
+          (e as KeyboardEvent).metaKey ||
+          (e as KeyboardEvent).altKey) &&
+        (e as KeyboardEvent).shiftKey
       ) {
         e.preventDefault();
-        const elem = document.querySelector('#chatLLM_chat_history > .chatLLM_message_other:last-of-type');
+        const elem = document.querySelector(
+          "#chatLLM_chat_history > .chatLLM_message_other:last-of-type"
+        );
         if (elem) {
           text = elem.innerHTML;
         }
       } else if (
-          e.key === 'A' &&
-          ((e as KeyboardEvent).ctrlKey || (e as KeyboardEvent).metaKey || (e as KeyboardEvent).altKey) &&
-          (e as KeyboardEvent).shiftKey
+        e.key === "A" &&
+        ((e as KeyboardEvent).ctrlKey ||
+          (e as KeyboardEvent).metaKey ||
+          (e as KeyboardEvent).altKey) &&
+        (e as KeyboardEvent).shiftKey
       ) {
         e.preventDefault();
-        text = document.getElementById('chatLLM_chat_history')!.innerHTML;
+        text = document.getElementById("chatLLM_chat_history")!.innerHTML;
       }
     }
 
-    if (text !== '') {
-      const cleanElems = document.createElement('div');
+    if (text !== "") {
+      const cleanElems = document.createElement("div");
       cleanElems.innerHTML = text;
-      const removeThese = cleanElems.querySelectorAll('.chatLLM_message_copy');
+      const removeThese = cleanElems.querySelectorAll(".chatLLM_message_copy");
       removeThese.forEach((elem) => elem.remove());
 
       let markdown = this.htmlToMarkdown(cleanElems);
-      markdown = markdown.replace(/\n{3,}/g, '\n\n');
+      markdown = markdown.replace(/\n{3,}/g, "\n\n");
 
       try {
         navigator.clipboard.writeText(markdown);
       } catch (err) {
-        console.error('Failed to copy: ', err);
+        console.error("Failed to copy: ", err);
       }
       return markdown;
     }
   }
 
   htmlToMarkdown(element: HTMLElement): string {
-    let markdown = '';
+    let markdown = "";
 
     const convertElementToMarkdown = (element: Element): string => {
       switch (element.tagName) {
-        case 'H1':
+        case "H1":
           return `# ${element.textContent}`;
-        case 'H2':
+        case "H2":
           return `## ${element.textContent}`;
-        case 'H3':
+        case "H3":
           return `### ${element.textContent}`;
-        case 'H4':
+        case "H4":
           return `#### ${element.textContent}`;
-        case 'H5':
+        case "H5":
           return `##### ${element.textContent}`;
-        case 'H6':
+        case "H6":
           return `###### ${element.textContent}`;
-        case 'P':
+        case "P":
           return element.textContent!;
-        case 'DIV':
+        case "DIV":
           return (
-              Array.from(element.childNodes)
-                  .map((child) => convertElementToMarkdown(child as Element))
-                  .join('\n') + '\n\n'
+            Array.from(element.childNodes)
+              .map((child) => convertElementToMarkdown(child as Element))
+              .join("\n") + "\n\n"
           );
         default:
           return Array.from(element.childNodes)
-              .map((child) => convertElementToMarkdown(child as Element))
-              .join('');
+            .map((child) => convertElementToMarkdown(child as Element))
+            .join("");
       }
     };
 
     if (element.nodeType === Node.ELEMENT_NODE) {
       markdown += convertElementToMarkdown(element);
-    } else if (element.nodeType === Node.TEXT_NODE && element.textContent!.trim() !== '') {
+    } else if (
+      element.nodeType === Node.TEXT_NODE &&
+      element.textContent!.trim() !== ""
+    ) {
       markdown += element.textContent!.trim();
     }
 
@@ -474,15 +509,15 @@ export class ChatLLM {
     this.firstMulti = true;
 
     if (
-        (this.firstOpen || window.constants.LLMModel === 'gemini') &&
-        !firsttime &&
-        window.constants.verboseText.length > 0
+      (this.firstOpen || window.constants.LLMModel === "gemini") &&
+      !firsttime &&
+      window.constants.verboseText.length > 0
     ) {
       text =
-          "Here is the current position in the chart; no response necessarily needed, use this info only if it's relevant to future questions: " +
-          window.constants.verboseText +
-          '. My question is: ' +
-          text;
+        "Here is the current position in the chart; no response necessarily needed, use this info only if it's relevant to future questions: " +
+        window.constants.verboseText +
+        ". My question is: " +
+        text;
 
       this.firstOpen = false;
     }
@@ -491,9 +526,9 @@ export class ChatLLM {
       this.WaitingSound(true);
     }
 
-    if (window.constants.LLMModel === 'openai') {
+    if (window.constants.LLMModel === "openai") {
       if (firsttime) {
-        img = await this.ConvertSVGtoJPG(window.maidr!.id, 'openai');
+        img = await this.ConvertSVGtoJPG(window.maidr!.id, "openai");
       }
       this.OpenAIPrompt(text, img);
     }
@@ -536,42 +571,46 @@ export class ChatLLM {
   InitChatMessage() {
     const LLMName = window.resources.GetString(window.constants.LLMModel);
     this.firstTime = false;
-    this.DisplayChatMessage(LLMName, window.resources.GetString('processing'), true);
+    this.DisplayChatMessage(
+      LLMName,
+      window.resources.GetString("processing"),
+      true
+    );
     const defaultPrompt = this.GetDefaultPrompt();
     this.Submit(defaultPrompt, true);
   }
 
   ProcessLLMResponse(data: any, model: string) {
     this.WaitingSound(false);
-    console.log('LLM response: ', data);
-    let text = '';
+    console.log("LLM response: ", data);
+    let text = "";
     const LLMName = window.resources.GetString(model);
 
-    if (model === 'openai') {
+    if (model === "openai") {
       text = data.choices[0].message.content;
       const i = this.requestJson.messages.length;
       this.requestJson.messages[i] = {};
-      this.requestJson.messages[i].role = 'assistant';
+      this.requestJson.messages[i].role = "assistant";
       this.requestJson.messages[i].content = text;
 
       if (data.error) {
-        this.DisplayChatMessage(LLMName, 'Error processing request.', true);
+        this.DisplayChatMessage(LLMName, "Error processing request.", true);
         this.WaitingSound(false);
       } else {
         this.DisplayChatMessage(LLMName, text);
       }
-    } else if (model === 'gemini') {
+    } else if (model === "gemini") {
       if (data.text()) {
         text = data.text();
         this.DisplayChatMessage(LLMName, text);
       } else {
         if (!data.error) {
-          data.error = 'Error processing request.';
+          data.error = "Error processing request.";
           this.WaitingSound(false);
         }
       }
       if (data.error) {
-        this.DisplayChatMessage(LLMName, 'Error processing request.', true);
+        this.DisplayChatMessage(LLMName, "Error processing request.", true);
         this.WaitingSound(false);
       } else {
         // todo: display actual response
@@ -583,10 +622,10 @@ export class ChatLLM {
     let responseText;
     if (this.requestJson.messages.length > 2) {
       responseText = {
-        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
-        object: 'chat.completion',
+        id: "chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7",
+        object: "chat.completion",
         created: 1703129508,
-        model: 'gpt-4-1106-vision-preview',
+        model: "gpt-4-1106-vision-preview",
         usage: {
           prompt_tokens: 451,
           completion_tokens: 16,
@@ -595,20 +634,20 @@ export class ChatLLM {
         choices: [
           {
             message: {
-              role: 'assistant',
-              content: 'A fake response from the LLM. Nice.',
+              role: "assistant",
+              content: "A fake response from the LLM. Nice.",
             },
-            finish_reason: 'length',
+            finish_reason: "length",
             index: 0,
           },
         ],
       };
     } else {
       responseText = {
-        id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
-        object: 'chat.completion',
+        id: "chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7",
+        object: "chat.completion",
         created: 1703129508,
-        model: 'gpt-4-1106-vision-preview',
+        model: "gpt-4-1106-vision-preview",
         usage: {
           prompt_tokens: 451,
           completion_tokens: 16,
@@ -617,11 +656,11 @@ export class ChatLLM {
         choices: [
           {
             message: {
-              role: 'assistant',
+              role: "assistant",
               content:
-                  'The chart you\'re referring to is a bar graph titled "The Number of Diamonds',
+                "The chart you're referring to is a bar graph titled \"The Number of Diamonds",
             },
-            finish_reason: 'length',
+            finish_reason: "length",
             index: 0,
           },
         ],
@@ -632,40 +671,41 @@ export class ChatLLM {
   }
 
   OpenAIPrompt(text: string, img: string | null = null) {
-    const url = 'https://api.openai.com/v1/chat/completions';
+    const url = "https://api.openai.com/v1/chat/completions";
     const auth = window.constants.openAIAuthKey;
     const requestJson = this.OpenAIJson(text, img);
-    console.log('LLM request: ', requestJson);
+    console.log("LLM request: ", requestJson);
 
     fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + auth,
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + auth,
       },
       body: JSON.stringify(requestJson),
     })
-        .then((response) => response.json())
-        .then((data) => {
-          this.ProcessLLMResponse(data, 'openai');
-        })
-        .catch((error) => {
-          this.WaitingSound(false);
-          console.error('Error:', error);
-          this.DisplayChatMessage('OpenAI', 'Error processing request.', true);
-        });
+      .then((response) => response.json())
+      .then((data) => {
+        this.ProcessLLMResponse(data, "openai");
+      })
+      .catch((error) => {
+        this.WaitingSound(false);
+        console.error("Error:", error);
+        this.DisplayChatMessage("OpenAI", "Error processing request.", true);
+      });
   }
 
   OpenAIJson(text: string, img: string | null = null) {
     let sysMessage = window.constants.LLMSystemMessage;
-    const backupMessage = 'Describe ' + window.maidr!.type + ' charts to a blind person';
+    const backupMessage =
+      "Describe " + window.maidr!.type + " charts to a blind person";
     if (!this.requestJson) {
       this.requestJson = {
-        model: 'gpt-4o',
+        model: "gpt-4o",
         max_tokens: window.constants.LLMmaxResponseTokens,
         messages: [
           {
-            role: 'system',
+            role: "system",
             content: sysMessage,
           },
         ],
@@ -674,26 +714,26 @@ export class ChatLLM {
 
     const i = this.requestJson.messages.length;
     this.requestJson.messages[i] = {
-      role: 'user',
+      role: "user",
       content: img
-          ? [
+        ? [
             {
-              type: 'text',
+              type: "text",
               text,
             },
             {
-              type: 'image_url',
+              type: "image_url",
               image_url: { url: img },
             },
           ]
-          : text,
+        : text,
     };
 
     return this.requestJson;
   }
-  DisplayChatMessage(user = 'User', text = '', isSystem = false) {
-    const hLevel = 'h3';
-    const multiAIName = window.resources.GetString('multi');
+  DisplayChatMessage(user = "User", text = "", isSystem = false) {
+    const hLevel = "h3";
+    const multiAIName = window.resources.GetString("multi");
     const titleHtml = `
       <div class="chatLLM_message chatLLM_message_other">
         <h3 class="chatLLM_message_user">${multiAIName} Responses</h3>
@@ -701,20 +741,20 @@ export class ChatLLM {
     `;
     const html = `
       <div class="chatLLM_message ${
-        user === 'User' ? 'chatLLM_message_self' : 'chatLLM_message_other'
-    }">
+        user === "User" ? "chatLLM_message_self" : "chatLLM_message_other"
+      }">
       ${
-        text !== window.resources.GetString('processing')
-            ? `<${hLevel} class="chatLLM_message_user">${user}</${hLevel}>`
-            : ''
-    }
+        text !== window.resources.GetString("processing")
+          ? `<${hLevel} class="chatLLM_message_user">${user}</${hLevel}>`
+          : ""
+      }
       <p class="chatLLM_message_text">${text}</p>
       </div>
       ${
-        user !== 'User' && text !== window.resources.GetString('processing')
-            ? `<p class="chatLLM_message_copy"><button class="chatLLM_message_copy_button">Copy</button></p>`
-            : ''
-    }
+        user !== "User" && text !== window.resources.GetString("processing")
+          ? `<p class="chatLLM_message_copy"><button class="chatLLM_message_copy_button">Copy</button></p>`
+          : ""
+      }
     `;
 
     this.RenderChatMessage(html);
@@ -722,16 +762,16 @@ export class ChatLLM {
 
   RenderChatMessage(html: string) {
     document
-        .getElementById('chatLLM_chat_history')!
-        .insertAdjacentHTML('beforeend', html);
-    (document.getElementById('chatLLM_input') as HTMLInputElement).value = '';
+      .getElementById("chatLLM_chat_history")!
+      .insertAdjacentHTML("beforeend", html);
+    (document.getElementById("chatLLM_input") as HTMLInputElement).value = "";
 
-    document.getElementById('chatLLM_chat_history')!.scrollTop =
-        document.getElementById('chatLLM_chat_history')!.scrollHeight;
+    document.getElementById("chatLLM_chat_history")!.scrollTop =
+      document.getElementById("chatLLM_chat_history")!.scrollHeight;
   }
 
   ResetLLM() {
-    document.getElementById('chatLLM_chat_history')!.innerHTML = '';
+    document.getElementById("chatLLM_chat_history")!.innerHTML = "";
 
     this.requestJson = null;
     this.firstTime = true;
@@ -742,34 +782,38 @@ export class ChatLLM {
   }
 
   Destroy() {
-    const chatLLM = document.getElementById('chatLLM');
+    const chatLLM = document.getElementById("chatLLM");
     if (chatLLM) {
       chatLLM.remove();
     }
-    const backdrop = document.getElementById('chatLLM_modal_backdrop');
+    const backdrop = document.getElementById("chatLLM_modal_backdrop");
     if (backdrop) {
       backdrop.remove();
     }
   }
 
   Toggle(onoff?: boolean) {
-    if (typeof onoff === 'undefined') {
-      onoff = document.getElementById('chatLLM')!.classList.contains('hidden');
+    if (typeof onoff === "undefined") {
+      onoff = document.getElementById("chatLLM")!.classList.contains("hidden");
     }
     this.shown = onoff;
     if (onoff) {
       this.whereWasMyFocus = document.activeElement as HTMLElement;
       this.tabMovement = 0;
-      document.getElementById('chatLLM')!.classList.remove('hidden');
-      document.getElementById('chatLLM_modal_backdrop')!.classList.remove('hidden');
+      document.getElementById("chatLLM")!.classList.remove("hidden");
+      document
+        .getElementById("chatLLM_modal_backdrop")!
+        .classList.remove("hidden");
       // document.querySelector('#chatLLM .close')!.focus();
 
       if (this.firstTime) {
         this.InitChatMessage();
       }
     } else {
-      document.getElementById('chatLLM')!.classList.add('hidden');
-      document.getElementById('chatLLM_modal_backdrop')!.classList.add('hidden');
+      document.getElementById("chatLLM")!.classList.add("hidden");
+      document
+        .getElementById("chatLLM_modal_backdrop")!
+        .classList.add("hidden");
       this.whereWasMyFocus!.focus();
       this.whereWasMyFocus = null;
       this.firstOpen = true;
@@ -779,38 +823,39 @@ export class ChatLLM {
   async ConvertSVGtoJPG(id: string, model: string) {
     const svgElement = document.getElementById(id)!;
     return new Promise<string>((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
 
       let svgData = new XMLSerializer().serializeToString(svgElement);
-      if (!svgData.startsWith('<svg xmlns')) {
+      if (!svgData.startsWith("<svg xmlns")) {
         svgData = `<svg xmlns="http://www.w3.org/2000/svg" ${svgData.slice(4)}`;
       }
 
       const svgSize =
-          (svgElement as unknown as SVGMarkerElement).viewBox.baseVal || svgElement.getBoundingClientRect();
+        (svgElement as unknown as SVGMarkerElement).viewBox.baseVal ||
+        svgElement.getBoundingClientRect();
       canvas.width = svgSize.width;
       canvas.height = svgSize.height;
 
       const img = new Image();
       img.onload = function () {
         ctx.drawImage(img, 0, 0, svgSize.width, svgSize.height);
-        const jpegData = canvas.toDataURL('image/jpeg', 0.9);
-        if (model === 'openai') {
+        const jpegData = canvas.toDataURL("image/jpeg", 0.9);
+        if (model === "openai") {
           resolve(jpegData);
-        } else if (model === 'gemini') {
-          const base64Data = jpegData.split(',')[1];
+        } else if (model === "gemini") {
+          const base64Data = jpegData.split(",")[1];
           resolve(base64Data);
         }
         URL.revokeObjectURL(url);
       };
 
       img.onerror = function () {
-        reject(new Error('Error loading SVG'));
+        reject(new Error("Error loading SVG"));
       };
 
       const svgBlob = new Blob([svgData], {
-        type: 'image/svg+xml;charset=utf-8',
+        type: "image/svg+xml;charset=utf-8",
       });
       const url = URL.createObjectURL(svgBlob);
       img.src = url;
@@ -818,27 +863,30 @@ export class ChatLLM {
   }
 
   GetDefaultPrompt() {
-    let text = 'Describe this chart to a blind person';
+    let text = "Describe this chart to a blind person";
     let constants = window.constants;
     let singleMaidr = window.maidr;
     if (window.constants.skillLevel) {
-      if (window.constants.skillLevel === 'other' && window.constants.skillLevelOther) {
+      if (
+        window.constants.skillLevel === "other" &&
+        window.constants.skillLevelOther
+      ) {
         text +=
-            ' who has a ' +
-            window.constants.skillLevelOther +
-            ' understanding of statistical charts. ';
+          " who has a " +
+          window.constants.skillLevelOther +
+          " understanding of statistical charts. ";
       } else {
         text +=
-            ' who has a ' +
-            window.constants.skillLevel +
-            ' understanding of statistical charts. ';
+          " who has a " +
+          window.constants.skillLevel +
+          " understanding of statistical charts. ";
       }
     } else {
-      text += ' who has a basic understanding of statistical charts. ';
+      text += " who has a basic understanding of statistical charts. ";
     }
-    text += 'Here is a chart in image format';
+    text += "Here is a chart in image format";
     if (singleMaidr) {
-      text += ' and raw data in json format: \n';
+      text += " and raw data in json format: \n";
       text += JSON.stringify(singleMaidr);
     }
 
@@ -846,24 +894,21 @@ export class ChatLLM {
   }
 }
 
-export class Position {
-  constructor(public x = 0, public y = 0, public z = -1) {}
-}
 export class LogError {
   LogAbsentElement(a: string) {
-    console.log(a, 'not found. Visual highlighting is turned off.');
+    console.log(a, "not found. Visual highlighting is turned off.");
   }
 
   LogCriticalElement(a: string) {
-    console.log(a, 'is critical. MAIDR unable to run');
+    console.log(a, "is critical. MAIDR unable to run");
   }
 
   LogDifferentLengths(a: any, b: any) {
     console.log(
-        a,
-        'and',
-        b,
-        'do not have the same length. Visual highlighting is turned off.'
+      a,
+      "and",
+      b,
+      "do not have the same length. Visual highlighting is turned off."
     );
   }
 }

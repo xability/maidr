@@ -1,8 +1,12 @@
 import Audio from "./audio";
 import Control from "./controls";
-import {ChatLLM, Constants, LogError, Position, Resources} from './constants';
-import Display from "./display";
+import { ChatLLM, Constants, LogError, Resources } from "./constants";
+// import Display from "./display";
 import Maidr from "./maidr";
+import { Position } from "./helpers/position";
+import { convertToChartType } from "./helpers/chart_type";
+import { getDisplayFromChartType } from "./helpers/utils";
+import { Display } from "./display/display";
 
 declare global {
   interface Window {
@@ -21,7 +25,7 @@ declare global {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener("DOMContentLoaded", function () {
   window.constants = new Constants();
   window.resources = new Resources();
   window.logError = new LogError();
@@ -31,14 +35,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const maidrElement = document.getElementById(maidr.id);
   if (maidrElement) {
-    maidrElement.setAttribute('tabindex', '0');
-    maidrElement.addEventListener('focus', () => onPlotFocus(maidr));
+    maidrElement.setAttribute("tabindex", "0");
+    maidrElement.addEventListener("focus", () => onPlotFocus(maidr));
   }
 });
 
 function initMaidr(maidr: Maidr) {
   let constants = window.constants;
-  if (typeof constants !== 'undefined') {
+  if (typeof constants !== "undefined") {
     window.maidr = maidr;
     window.constants.chartId = maidr.id;
     window.constants.chartType = maidr.type;
@@ -46,19 +50,25 @@ function initMaidr(maidr: Maidr) {
     createChartComponents(maidr);
 
     window.audio = new Audio();
-    window.display = new Display();
+    // window.display = new Display();
+    var chartType = convertToChartType(maidr.type);
+    var display = getDisplayFromChartType(chartType);
+    window.display = display;
     window.control = new Control();
 
-    const controlElements = [window.constants.chart, window.constants.brailleInput];
+    const controlElements = [
+      window.constants.chart,
+      window.constants.brailleInput,
+    ];
     for (const controlElement of controlElements) {
       if (controlElement)
-        window.constants.events.push([controlElement, 'blur', onMaidrDestroy]);
+        window.constants.events.push([controlElement, "blur", onMaidrDestroy]);
     }
 
     setEvents();
 
-    if ('title' in maidr) {
-      window.display.announceText(maidr.title);
+    if ("title" in maidr) {
+      window.display?.announceText(maidr.title);
     }
   }
 }
@@ -71,11 +81,14 @@ function onPlotFocus(maidr: Maidr) {
 }
 
 function onMaidrDestroy() {
-  let constants = window.constants
+  let constants = window.constants;
   setTimeout(() => {
     if (window.constants.tabMovement === 0) {
       window.constants.tabMovement = null;
-    } else if (window.constants.tabMovement === 1 || window.constants.tabMovement === -1) {
+    } else if (
+      window.constants.tabMovement === 1 ||
+      window.constants.tabMovement === -1
+    ) {
       onNonFocus();
       destroyMaidr();
     }
@@ -83,16 +96,16 @@ function onMaidrDestroy() {
 }
 
 function onNonFocus() {
-  let constants = window.constants
+  let constants = window.constants;
   if (window.constants.tabMovement === 1) {
-    const focusTemp = document.createElement('div');
-    focusTemp.setAttribute('tabindex', '0');
+    const focusTemp = document.createElement("div");
+    focusTemp.setAttribute("tabindex", "0");
     window.constants.mainContainer?.after(focusTemp);
     focusTemp.focus();
     focusTemp.remove();
   } else if (window.constants.tabMovement === -1) {
-    const focusTemp = document.createElement('div');
-    focusTemp.setAttribute('tabindex', '0');
+    const focusTemp = document.createElement("div");
+    focusTemp.setAttribute("tabindex", "0");
     window.constants.mainContainer?.before(focusTemp);
     focusTemp.focus();
     focusTemp.remove();
@@ -100,11 +113,11 @@ function onNonFocus() {
 }
 
 function destroyMaidr() {
-  if (window.constants.chartType === 'bar') {
-    if (window.plot && 'deselectAll' in window.plot) {
+  if (window.constants.chartType === "bar") {
+    if (window.plot && "deselectAll" in window.plot) {
       window.plot.deselectAll();
     }
-    if (window.plot && 'deselectPrevious' in window.plot) {
+    if (window.plot && "deselectPrevious" in window.plot) {
       window.plot.deselectPrevious();
     }
   }
@@ -132,8 +145,8 @@ function destroyMaidr() {
   window.constants.events = [];
   window.constants.postLoadEvents = [];
 
-  window.constants.chartId = '';
-  window.constants.chartType = '';
+  window.constants.chartId = "";
+  window.constants.chartType = "";
   window.constants.tabMovement = null;
 
   destroyChartComponents();
@@ -171,8 +184,8 @@ function setEvents() {
 
 function createChartComponents(maidr: Maidr) {
   const chart = document.getElementById(maidr.id)!;
-  const mainContainer = document.createElement('div');
-  const chartContainer = document.createElement('div');
+  const mainContainer = document.createElement("div");
+  const chartContainer = document.createElement("div");
   const constants = window.constants;
 
   mainContainer.id = window.constants.mainContainerId;
@@ -188,32 +201,42 @@ function createChartComponents(maidr: Maidr) {
   window.constants.mainContainer = mainContainer;
 
   window.constants.chartContainer.insertAdjacentHTML(
-      'beforebegin',
-      `<div class="hidden" id="${window.constants.brailleContainerId}">
+    "beforebegin",
+    `<div class="hidden" id="${window.constants.brailleContainerId}">
       <input id="${window.constants.brailleInputId}" class="braille-input" type="text" size="${window.constants.brailleDisplayLength}" autocomplete="off" />
     </div>`
   );
 
   window.constants.chartContainer.insertAdjacentHTML(
-      'afterend',
-      `<br><div id="${window.constants.infoId}" aria-live="assertive" aria-atomic="true">
+    "afterend",
+    `<br><div id="${window.constants.infoId}" aria-live="assertive" aria-atomic="true">
       <p id="x"></p>
       <p id="y"></p>
     </div>`
   );
 
-  document.getElementById(window.constants.infoId)!.insertAdjacentHTML(
-      'afterend',
+  document
+    .getElementById(window.constants.infoId)!
+    .insertAdjacentHTML(
+      "afterend",
       `<div id="${window.constants.announcementContainerId}" aria-live="assertive" aria-atomic="true" class="mb-3"></div>`
-  );
+    );
 
-  window.constants.chartContainer.setAttribute('role', 'application');
+  window.constants.chartContainer.setAttribute("role", "application");
 
-  window.constants.brailleContainer = document.getElementById(window.constants.brailleContainerId)!;
-  window.constants.brailleInput = document.getElementById(window.constants.brailleInputId)! as HTMLInputElement;
+  window.constants.brailleContainer = document.getElementById(
+    window.constants.brailleContainerId
+  )!;
+  window.constants.brailleInput = document.getElementById(
+    window.constants.brailleInputId
+  )! as HTMLInputElement;
   window.constants.infoDiv = document.getElementById(window.constants.infoId)!;
-  window.constants.announcementContainer = document.getElementById(window.constants.announcementContainerId)!;
-  window.constants.endChime = document.getElementById(window.constants.endChimeId)!;
+  window.constants.announcementContainer = document.getElementById(
+    window.constants.announcementContainerId
+  )!;
+  window.constants.endChime = document.getElementById(
+    window.constants.endChimeId
+  )!;
 
   window.chatLLM = new ChatLLM();
 }
@@ -224,8 +247,8 @@ function destroyChartComponents() {
     if (window.constants.chart !== null) {
       if (window.constants.chartContainer.parentNode !== null) {
         window.constants.chartContainer.parentNode.replaceChild(
-            window.constants.chart,
-            window.constants.chartContainer
+          window.constants.chart,
+          window.constants.chartContainer
         );
       }
     }

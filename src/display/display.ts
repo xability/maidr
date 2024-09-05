@@ -1,16 +1,19 @@
 import { Constants } from "../constants";
+import { Position } from "../helpers/position";
 
 export abstract class Display {
   infoDiv: HTMLElement | null;
   constants: Constants;
   x: { id: string; textBase: string };
   y: { id: string; textBase: string };
+  position: Position;
 
   constructor() {
     this.constants = window.constants;
     this.infoDiv = this.constants.infoDiv;
     this.x = { id: "x", textBase: "x-value: " };
     this.y = { id: "y", textBase: "y-value: " };
+    this.position = new Position();
   }
 
   announceText(text: string) {
@@ -79,6 +82,21 @@ export abstract class Display {
     }
   }
 
+  toggleTextMode() {
+    if (this.constants.textMode == "off") {
+      this.constants.textMode = "terse";
+    } else if (this.constants.textMode == "terse") {
+      this.constants.textMode = "verbose";
+    } else if (this.constants.textMode == "verbose") {
+      this.constants.textMode = "off";
+    }
+
+    this.announceText(
+      '<span aria-hidden="true">Text mode:</span> ' + this.constants.textMode
+    );
+  }
+
   abstract displayValues(): void;
   abstract setBraille(...args: any[]): void;
+  abstract updateBraillePos(): void;
 }

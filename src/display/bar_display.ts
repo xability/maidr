@@ -32,4 +32,11 @@ export default class BarDisplay extends Display {
     }
     this.displayBraille(brailleArray);
   }
+
+  override updateBraillePos(): void {
+    this.constants.brailleInput?.setSelectionRange(
+      this.position.x,
+      this.position.x
+    );
+  }
 }

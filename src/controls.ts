@@ -1,5 +1,5 @@
-import {Position} from "./constants";
 import BarChart from "./barplot";
+import { Position } from "./helpers/position";
 
 export default class Control {
   constructor() {
@@ -17,55 +17,55 @@ export default class Control {
     let pressedL = false;
     for (const controlElement of controlElements) {
       if (controlElement)
-      window.constants.events.push([
-        controlElement,
-        'keydown',
-        (e: KeyboardEvent) => {
-          if (pressedL) return;
+        window.constants.events.push([
+          controlElement,
+          "keydown",
+          (e: KeyboardEvent) => {
+            if (pressedL) return;
 
-          if (e.key === 'b') {
-            window.constants.tabMovement = 0;
-            e.preventDefault();
-            window.display!.toggleBrailleMode();
-          }
+            if (e.key === "b") {
+              window.constants.tabMovement = 0;
+              e.preventDefault();
+              window.display!.toggleBrailleMode();
+            }
 
-          if (e.key === 't') {
-            window.display!.toggleTextMode();
-          }
+            if (e.key === "t") {
+              window.display!.toggleTextMode();
+            }
 
-          if (e.key === 's') {
-            window.display!.toggleSonificationMode();
-          }
-        },
-      ]);
+            if (e.key === "s") {
+              window.display!.toggleSonificationMode();
+            }
+          },
+        ]);
     }
 
     for (const controlElement of controlElements) {
       if (controlElement)
-      window.constants.events.push([
-        controlElement,
-        'keydown',
-        (e: KeyboardEvent) => {
-          if (e.key === 'Tab') {
-            if (e.shiftKey) {
-              window.constants.tabMovement = -1;
-            } else {
-              window.constants.tabMovement = 1;
+        window.constants.events.push([
+          controlElement,
+          "keydown",
+          (e: KeyboardEvent) => {
+            if (e.key === "Tab") {
+              if (e.shiftKey) {
+                window.constants.tabMovement = -1;
+              } else {
+                window.constants.tabMovement = 1;
+              }
             }
-          }
-        },
-      ]);
+          },
+        ]);
     }
 
-    if (window.maidr!.type === 'bar') {
+    if (window.maidr!.type === "bar") {
       window.position = new Position(-1, -1);
       window.plot = new BarChart();
 
       let constants = window.constants;
       window.constants.lastx = 0;
 
-      document.addEventListener('selectionchange', () => {
-        if (window.constants.brailleMode === 'on') {
+      document.addEventListener("selectionchange", () => {
+        if (window.constants.brailleMode === "on") {
           let pos = window.constants.brailleInput!.selectionStart!;
           if (pos < 0) {
             pos = 0;
@@ -85,16 +85,16 @@ export default class Control {
 
       window.constants.events.push([
         window.constants.chart!,
-        'keydown',
+        "keydown",
         (e: KeyboardEvent) => {
           let updateInfoThisRound = false;
           let isAtEnd = false;
 
-          if (e.key === 'ArrowRight') {
+          if (e.key === "ArrowRight") {
             window.position!.x += 1;
             updateInfoThisRound = true;
             isAtEnd = lockPosition();
-          } else if (e.key === 'ArrowLeft') {
+          } else if (e.key === "ArrowLeft") {
             window.position!.x -= 1;
             updateInfoThisRound = true;
             isAtEnd = lockPosition();
@@ -111,23 +111,23 @@ export default class Control {
 
       window.constants.events.push([
         window.constants.brailleInput!,
-        'keydown',
+        "keydown",
         (e: KeyboardEvent | Event) => {
           if (e instanceof KeyboardEvent) {
             let updateInfoThisRound = false;
             let isAtEnd = false;
 
-            if (e.key === 'ArrowRight') {
+            if (e.key === "ArrowRight") {
               e.preventDefault();
               window.position!.x += 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
-            } else if (e.key === 'ArrowLeft') {
+            } else if (e.key === "ArrowLeft") {
               e.preventDefault();
               window.position!.x -= 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
-            } else if (e.key === 'Tab') {
+            } else if (e.key === "Tab") {
             } else {
               e.preventDefault();
             }
@@ -148,14 +148,15 @@ export default class Control {
         if (window.position!.x < 0) {
           window.position!.x = 0;
           didLockHappen = true;
-          if (window.constants.brailleMode !== 'off') {
+          if (window.constants.brailleMode !== "off") {
             window.constants.brailleInput!.selectionEnd = 0;
           }
         }
         if (window.position!.x > window.plot.plotData.length - 1) {
           window.position!.x = window.plot.plotData.length - 1;
           didLockHappen = true;
-          window.constants.brailleInput!.selectionEnd = window.plot.plotData.length - 1;
+          window.constants.brailleInput!.selectionEnd =
+            window.plot.plotData.length - 1;
         }
 
         return didLockHappen;
@@ -168,7 +169,7 @@ export default class Control {
         if (window.constants.showRect && window.constants.hasRect) {
           window.plot.Select();
         }
-        if (window.constants.soundMode !== 'off') {
+        if (window.constants.soundMode !== "off") {
           window.plot.PlayTones();
         }
       }
@@ -179,10 +180,10 @@ export default class Control {
         if (window.constants.showRect && window.constants.hasRect) {
           window.plot.Select();
         }
-        if (window.constants.soundMode !== 'off') {
+        if (window.constants.soundMode !== "off") {
           window.plot.PlayTones();
         }
-        window.display!.UpdateBraillePos();
+        window.display!.updateBraillePos();
       }
     }
   }
