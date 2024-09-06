@@ -1,4 +1,4 @@
-import Audio from "./audio";
+// import Audio from "./audio";
 import Control from "./controls";
 import { ChatLLM, Constants, LogError, Resources } from "./constants";
 // import Display from "./display";
@@ -7,6 +7,8 @@ import { Position } from "./helpers/position";
 import { convertToChartType } from "./helpers/chart_type";
 import { getDisplayFromChartType } from "./helpers/utils";
 import { Display } from "./display/display";
+import { AudioManager } from "./audio/AudioManager";
+import { AudioFactory } from "./audio/AudioFactory";
 
 declare global {
   interface Window {
@@ -17,7 +19,7 @@ declare global {
     control: Control | null;
     plot: any;
     position: Position | null;
-    audio: Audio | null;
+    audio: AudioManager | null;
     display: Display | null;
     chatLLM: ChatLLM | null;
 
@@ -49,12 +51,13 @@ function initMaidr(maidr: Maidr) {
 
     createChartComponents(maidr);
 
-    window.audio = new Audio();
+    
     // window.display = new Display();
     var chartType = convertToChartType(maidr.type);
     var display = getDisplayFromChartType(chartType);
     window.display = display;
     window.control = new Control();
+    window.audio = AudioFactory.createAudio(chartType);
 
     const controlElements = [
       window.constants.chart,

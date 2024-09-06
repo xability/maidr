@@ -18,7 +18,6 @@ export class Constants {
   LLMmaxResponseTokens = 1000;
 
   endChimeId = "end_chime";
-  endChime: Node | null = null;
 
   containerId = "container";
   projectId = "maidr";
@@ -131,7 +130,6 @@ export class Constants {
   tabMovement: number | null = null;
 
   debugLevel = 3;
-  canPlayEndChime = false;
   manualData = true;
   brailleContainer: HTMLElement | null = null;
 
