@@ -3,12 +3,12 @@ import Control from "./controls";
 import { ChatLLM, Constants, LogError, Resources } from "./constants";
 // import Display from "./display";
 import Maidr from "./maidr";
-import { Position } from "./helpers/position";
-import { convertToChartType } from "./helpers/chart_type";
-import { getDisplayFromChartType } from "./helpers/utils";
-import { Display } from "./display/display";
+import { Position } from "./helpers/Position";
+import { convertToChartType } from "./helpers/ChartType";
+import { DisplayManager } from "./display/DisplayManager";
 import { AudioManager } from "./audio/AudioManager";
 import { AudioFactory } from "./audio/AudioFactory";
+import { DisplayFactory } from "./display/DisplayFactory";
 
 declare global {
   interface Window {
@@ -20,7 +20,7 @@ declare global {
     plot: any;
     position: Position | null;
     audio: AudioManager | null;
-    display: Display | null;
+    display: DisplayManager | null;
     chatLLM: ChatLLM | null;
 
     maidr: Maidr | null;
@@ -51,11 +51,9 @@ function initMaidr(maidr: Maidr) {
 
     createChartComponents(maidr);
 
-    
     // window.display = new Display();
     var chartType = convertToChartType(maidr.type);
-    var display = getDisplayFromChartType(chartType);
-    window.display = display;
+    window.display = DisplayFactory.createDisplay(chartType);
     window.control = new Control();
     window.audio = AudioFactory.createAudio(chartType);
 
@@ -237,10 +235,11 @@ function createChartComponents(maidr: Maidr) {
   window.constants.announcementContainer = document.getElementById(
     window.constants.announcementContainerId
   )!;
-  window.constants.endChime = document.getElementById(
-    window.constants.endChimeId
-  )!;
-
+  if (window.audio) {
+    window.audio.endChime = document.getElementById(
+      window.constants.endChimeId
+    )!;
+  }
   window.chatLLM = new ChatLLM();
 }
 
@@ -273,5 +272,7 @@ function destroyChartComponents() {
   window.constants.brailleInput = null;
   window.constants.infoDiv = null;
   window.constants.announcementContainer = null;
-  window.constants.endChime = null;
+  if (window.audio) {
+    window.audio.endChime = null;
+  }
 }

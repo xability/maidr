@@ -1,5 +1,5 @@
 import BarChart from "./barplot";
-import { Position } from "./helpers/position";
+import { Position } from "./helpers/Position";
 
 export default class Control {
   constructor() {

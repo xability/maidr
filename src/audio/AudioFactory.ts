@@ -1,14 +1,14 @@
-import { ChartType } from "../helpers/chart_type";
+import { ChartType } from "../helpers/ChartType";
 import { AudioManager } from "./AudioManager";
-import { BarPlotAudio } from "./BarPlotAudio";
+import { BarAudio } from "./BarAudio";
 
 export class AudioFactory {
-    static createAudio(chartType: ChartType): AudioManager {
-      switch (chartType) {
-        case ChartType.Bar:
-          return new BarPlotAudio();
-        default:
-          throw new Error(`Unsupported chart type: ${chartType}`);
-      }
+  static createAudio(chartType: ChartType | undefined): AudioManager {
+    switch (chartType) {
+      case ChartType.Bar:
+        return new BarAudio();
+      default:
+        throw new Error(`Unsupported chart type: ${chartType}`);
     }
   }
+}

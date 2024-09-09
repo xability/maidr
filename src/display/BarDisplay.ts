@@ -1,6 +1,6 @@
-import { Display } from "./display";
+import { DisplayManager } from "./DisplayManager";
 
-export default class BarDisplay extends Display {
+export default class BarDisplay extends DisplayManager {
   constructor() {
     super();
   }

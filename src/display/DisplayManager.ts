@@ -1,7 +1,7 @@
 import { Constants } from "../constants";
-import { Position } from "../helpers/position";
+import { Position } from "../helpers/Position";
 
-export abstract class Display {
+export abstract class DisplayManager {
   infoDiv: HTMLElement | null;
   constants: Constants;
   x: { id: string; textBase: string };

@@ -1,4 +1,5 @@
-import { Plot } from "./plot";
+import { Position } from "../helpers/Position";
+import { Plot } from "./Plot";
 
 export class BarPlot extends Plot {
   maxY: number = 0;
@@ -6,4 +7,5 @@ export class BarPlot extends Plot {
   minY: number = 0;
   minX: number = 0;
   plotData: any;
+  position: Position | null = null;
 }
