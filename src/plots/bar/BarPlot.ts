@@ -18,4 +18,8 @@ export class BarPlot extends Plot {
   constructor() {
     super();
   }
+
+  playTones() {
+    this.audio.playTone(null, this.plotData);
+  }
 }
