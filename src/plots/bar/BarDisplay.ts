@@ -1,4 +1,4 @@
-import { DisplayManager } from "./DisplayManager";
+import { DisplayManager } from "../../display/DisplayManager";
 
 export default class BarDisplay extends DisplayManager {
   constructor() {

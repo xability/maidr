@@ -1,5 +1,5 @@
 import { ChartType } from "../helpers/ChartType";
-import BarDisplay from "./BarDisplay";
+import BarDisplay from "../plots/bar/BarDisplay";
 import { DisplayManager } from "./DisplayManager";
 
 export class DisplayFactory {

@@ -1,5 +1,5 @@
-import { AudioManager } from "./AudioManager";
-import { slideBetween } from "../helpers/utils";
+import { AudioManager } from "../../audio/AudioManager";
+import { slideBetween } from "../../helpers/utils";
 
 export class BarAudio extends AudioManager {
   constructor() {

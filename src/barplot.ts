@@ -1,5 +1,5 @@
 import { AudioManager } from "./audio/AudioManager";
-import { BarAudio } from "./audio/BarAudio";
+import { BarAudio } from "./plots/bar/BarAudio";
 
 export default class BarChart {
   bars: HTMLElement[] | null = null;

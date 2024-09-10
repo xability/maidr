@@ -1,5 +1,6 @@
 import BarChart from "./barplot";
 import { Position } from "./helpers/Position";
+import { BarPlot } from "./plots/bar/BarPlot";
 
 export default class Control {
   constructor() {
@@ -59,7 +60,8 @@ export default class Control {
 
     if (window.maidr!.type === "bar") {
       window.position = new Position(-1, -1);
-      window.plot = new BarChart();
+      // window.plot = new BarChart();
+      window.plot = new BarPlot();
 
       let constants = window.constants;
       window.constants.lastx = 0;

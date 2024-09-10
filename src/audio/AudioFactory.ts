@@ -1,6 +1,6 @@
 import { ChartType } from "../helpers/ChartType";
 import { AudioManager } from "./AudioManager";
-import { BarAudio } from "./BarAudio";
+import { BarAudio } from "../plots/bar/BarAudio";
 
 export class AudioFactory {
   static createAudio(chartType: ChartType | undefined): AudioManager {
