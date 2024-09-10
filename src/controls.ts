@@ -1,10 +1,20 @@
 import BarChart from "./barplot";
 import { Position } from "./helpers/Position";
+import { ReactivePosition } from "./helpers/ReactivePosition";
 import { BarPlot } from "./plots/bar/BarPlot";
 
 export default class Control {
-  constructor() {
+  position: ReactivePosition;
+  constructor(position: ReactivePosition) {
     this.SetControls();
+    this.position = position;
+    this.position.subscribe(this.onPositionChange.bind(this));
+  }
+
+  onPositionChange(x: number, y: number, z: number): void {
+    this.position.x = x;
+    this.position.y = y;
+    this.position.z = z;
   }
 
   SetControls() {
@@ -59,7 +69,8 @@ export default class Control {
     }
 
     if (window.maidr!.type === "bar") {
-      window.position = new Position(-1, -1);
+      // window.position = new Position(-1, -1);
+      this.position.set(-1, -1);
       // window.plot = new BarChart();
       window.plot = new BarPlot();
 
@@ -72,7 +83,8 @@ export default class Control {
           if (pos < 0) {
             pos = 0;
           }
-          window.position!.x = pos;
+          this.position.setX(pos);
+          // window.position!.x = pos;
           lockPosition();
           let testEnd = true;
 
@@ -93,11 +105,13 @@ export default class Control {
           let isAtEnd = false;
 
           if (e.key === "ArrowRight") {
-            window.position!.x += 1;
+            this.position.setX(this.position.x + 1);
+            // window.position!.x += 1;
             updateInfoThisRound = true;
             isAtEnd = lockPosition();
           } else if (e.key === "ArrowLeft") {
-            window.position!.x -= 1;
+            this.position.setX(this.position.x - 1);
+            // window.position!.x -= 1;
             updateInfoThisRound = true;
             isAtEnd = lockPosition();
           }
@@ -121,12 +135,14 @@ export default class Control {
 
             if (e.key === "ArrowRight") {
               e.preventDefault();
-              window.position!.x += 1;
+              this.position.setX(this.position.x + 1);
+              // window.position!.x += 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             } else if (e.key === "ArrowLeft") {
               e.preventDefault();
-              window.position!.x -= 1;
+              this.position.setX(this.position.x - 1);
+              // window.position!.x -= 1;
               updateInfoThisRound = true;
               isAtEnd = lockPosition();
             } else if (e.key === "Tab") {
@@ -144,17 +160,20 @@ export default class Control {
         },
       ]);
 
-      function lockPosition() {
+      const lockPosition = () => {
         let didLockHappen = false;
 
-        if (window.position!.x < 0) {
-          window.position!.x = 0;
+        // if (window.position!.x < 0) {
+        if (this.position.x < 0) {
+          // window.position!.x = 0;
+          this.position.setX(0);
           didLockHappen = true;
           if (window.constants.brailleMode !== "off") {
             window.constants.brailleInput!.selectionEnd = 0;
           }
         }
-        if (window.position!.x > window.plot.plotData.length - 1) {
+        // if (window.position!.x > window.plot.plotData.length - 1) {
+        if (this.position.x > window.plot.plotData.length - 1) {
           window.position!.x = window.plot.plotData.length - 1;
           didLockHappen = true;
           window.constants.brailleInput!.selectionEnd =
@@ -162,7 +181,7 @@ export default class Control {
         }
 
         return didLockHappen;
-      }
+      };
 
       function UpdateAll() {
         if (window.constants.showDisplay) {

@@ -7,8 +7,7 @@ import { Position } from "./helpers/Position";
 import { convertToChartType } from "./helpers/ChartType";
 import { DisplayManager } from "./display/DisplayManager";
 import { AudioManager } from "./audio/AudioManager";
-import { AudioFactory } from "./audio/AudioFactory";
-import { DisplayFactory } from "./display/DisplayFactory";
+import { PlotFactory } from "./plots/PlotFactory";
 
 declare global {
   interface Window {
@@ -53,9 +52,10 @@ function initMaidr(maidr: Maidr) {
 
     // window.display = new Display();
     var chartType = convertToChartType(maidr.type);
-    window.display = DisplayFactory.createDisplay(chartType);
-    window.control = new Control();
-    window.audio = AudioFactory.createAudio(chartType);
+    window.plot = PlotFactory.createPlot(chartType);
+    // window.display = DisplayFactory.createDisplay(chartType);
+    // window.control = new Control();
+    // window.audio = AudioFactory.createAudio(chartType);
 
     const controlElements = [
       window.constants.chart,

@@ -1,8 +1,17 @@
 import { DisplayManager } from "../../display/DisplayManager";
+import { ReactivePosition } from "../../helpers/ReactivePosition";
 
 export default class BarDisplay extends DisplayManager {
-  constructor() {
+  constructor(position: ReactivePosition) {
     super();
+    this.position = position;
+    this.position.subscribe(this.onPositionChange.bind(this));
+  }
+
+  onPositionChange(x: number, y: number, z: number): void {
+    this.position.x = x;
+    this.position.y = y;
+    this.position.z = z;
   }
 
   override displayValues(): void {

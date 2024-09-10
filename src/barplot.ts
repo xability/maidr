@@ -13,7 +13,7 @@ export default class BarChart {
 
   constructor() {
     let maidr = window.maidr!;
-    this.audio = window.audio;
+    // if (window.audio) this.audio = window.audio;
 
     let xlevel: string[] = [];
     if ("axes" in maidr) {

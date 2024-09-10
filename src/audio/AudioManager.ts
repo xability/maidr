@@ -1,12 +1,12 @@
 import { Constants } from "../constants";
-import { Position } from "../helpers/Position";
+import { ReactivePosition } from "../helpers/ReactivePosition";
 
 export abstract class AudioManager {
   protected AudioContext: AudioContext;
   protected audioContext: AudioContext;
   protected compressor: DynamicsCompressorNode;
   protected smoothGain: GainNode;
-  position: Position;
+  position: ReactivePosition;
   constants: Constants;
   private smoothId: any | null = null;
   private isSmoothAutoplay: boolean = false;
@@ -20,7 +20,7 @@ export abstract class AudioManager {
     this.audioContext = new AudioContext();
     this.compressor = this.compressorSetup();
     this.smoothGain = this.audioContext.createGain();
-    this.position = new Position();
+    this.position = new ReactivePosition();
   }
 
   protected compressorSetup(): DynamicsCompressorNode {

@@ -14,6 +14,21 @@ export class ReactivePosition extends Position {
     this.notifySubscribers();
   }
 
+  setX(x: number) {
+    this.x = x;
+    this.notifySubscribers();
+  }
+
+  setY(y: number) {
+    this.y = y;
+    this.notifySubscribers();
+  }
+
+  setZ(z: number) {
+    this.z = z;
+    this.notifySubscribers();
+  }
+
   subscribe(callback: (x: number, y: number, z: number) => void) {
     this.subscribers.push(callback);
   }

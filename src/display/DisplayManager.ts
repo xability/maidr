@@ -1,19 +1,20 @@
 import { Constants } from "../constants";
 import { Position } from "../helpers/Position";
+import { ReactivePosition } from "../helpers/ReactivePosition";
 
 export abstract class DisplayManager {
   infoDiv: HTMLElement | null;
   constants: Constants;
   x: { id: string; textBase: string };
   y: { id: string; textBase: string };
-  position: Position;
+  position: ReactivePosition;
 
   constructor() {
     this.constants = window.constants;
     this.infoDiv = this.constants.infoDiv;
     this.x = { id: "x", textBase: "x-value: " };
     this.y = { id: "y", textBase: "y-value: " };
-    this.position = new Position();
+    this.position = new ReactivePosition();
   }
 
   announceText(text: string) {
