@@ -42,6 +42,8 @@ export class Constants {
   soundMode: "on" | "off" | "sep" | "same" = "on";
   reviewMode: "off" | "on" = "off";
 
+  sonifMode = 'on';
+
   minX = 0;
   maxX = 0;
   minY = 0;
