@@ -8,6 +8,8 @@ export enum ChartType {
   StackedBar = "stacked_bar",
   StackedNormalizedBar = "stacked_normalized_bar",
   DodgedBar = "dodged_bar",
+  Point = 'point',
+  Smooth = "smooth",
 }
 
 export function convertToChartType(type: string): ChartType | undefined {
@@ -30,6 +32,10 @@ export function convertToChartType(type: string): ChartType | undefined {
       return ChartType.StackedNormalizedBar;
     case "dodged_bar":
       return ChartType.DodgedBar;
+    case "point":
+      return ChartType.Point;
+    case "smooth":
+      return ChartType.Smooth;
     default:
       return undefined;
   }

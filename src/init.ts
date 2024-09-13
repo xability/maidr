@@ -52,7 +52,7 @@ function initMaidr(maidr: Maidr) {
 
     // window.display = new Display();
     var chartType = convertToChartType(maidr.type);
-    window.plot = PlotFactory.createPlot(chartType);
+    window.plot = PlotFactory.createPlot(chartType, maidr);
     // window.display = DisplayFactory.createDisplay(chartType);
     // window.control = new Control();
     // window.audio = AudioFactory.createAudio(chartType);

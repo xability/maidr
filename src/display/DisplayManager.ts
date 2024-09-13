@@ -97,6 +97,38 @@ export abstract class DisplayManager {
     );
   }
 
+  displayInfo(textType: string, textValue: string): void {
+    let textToAdd = '';
+    var elem = this.constants.infoDiv;
+    if (textType == 'announce') {
+      if (textValue) {
+        textToAdd = textValue;
+      }
+    } else if (textType) {
+      if (textValue) {
+        if (this.constants.textMode == 'terse') {
+          textToAdd = textValue;
+        } else if (this.constants.textMode == 'verbose') {
+          let capsTextType =
+            textType.charAt(0).toUpperCase() + textType.slice(1);
+          textToAdd = capsTextType + ' is ' + textValue;
+        }
+      } else {
+        let aOrAn = ['a', 'e', 'i', 'o', 'u'].includes(textType.charAt(0))
+          ? 'an'
+          : 'a';
+
+        textToAdd = 'Plot does not have ' + aOrAn + ' ' + textType;
+      }
+    }
+    if (textToAdd.length > 0 && elem) {
+      elem.innerHTML = '';
+      let p = document.createElement('p');
+      p.innerHTML = textToAdd;
+      elem?.appendChild(p);
+    }
+  }
+
   abstract displayValues(): void;
   abstract setBraille(...args: any[]): void;
   abstract updateBraillePos(): void;

@@ -1,4 +1,5 @@
 import { ControlManager } from "../../control/ControlManager";
+import { ChartType } from "../../helpers/ChartType";
 import { ReactivePosition } from "../../helpers/ReactivePosition";
 import { BarAudio } from "./BarAudio";
 import BarDisplay from "./BarDisplay";
@@ -12,24 +13,22 @@ export class BarControl extends ControlManager {
   position: ReactivePosition;
   audio: BarAudio;
   display: BarDisplay;
-  plotData: any;
   lastPlayed: string = '';
   plot: BarPlot;
+  autoplayId: number | NodeJS.Timeout | null = null;
 
   constructor(
+    plot: BarPlot,
     position: ReactivePosition,
     audio: BarAudio,
-    display: BarDisplay
+    display: BarDisplay,
   ) {
-    super();
+    super(ChartType.Bar);
+    this.plot = plot;
     this.position = position;
     this.position.subscribe(this.onPositionChange.bind(this));
     this.audio = audio;
     this.display = display;
-    this.plotData = this.maidr;
-    this.SetControls();
-    this.position = new ReactivePosition(-1, -1);
-    this.plot = new BarPlot();
   }
 
   onPositionChange(x: number, y: number, z: number): void {
@@ -40,7 +39,7 @@ export class BarControl extends ControlManager {
 
   additionalSetControls(): void {
     this.controlElements.forEach(element => {
-        element.addEventListener('keydown', this.handleKeyDown.bind(this));
+        element?.addEventListener('keydown', this.handleKeyDown.bind(this));
       });
       document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
   }
@@ -73,16 +72,18 @@ export class BarControl extends ControlManager {
   
   handleArrowKey(key: 'ArrowRight' | 'ArrowLeft', isCommandKey: boolean, isShiftKey: boolean, isAltKey: boolean): void {
     const direction = key === 'ArrowRight' ? 1 : -1;
-    const endPosition = direction > 0 ? this.plotData.length - 1 : 0;
+    const endPosition = direction > 0 ? this.plot.plotData.length - 1 : 0;
     let updateInfo = false;
     let isAtEnd = false;
   
     if (isCommandKey) {
       if (isShiftKey) {
-        this.position.x -= direction;
-        this.autoplay(key === 'ArrowRight' ? 'right' : 'left', this.position.x, direction > 0 ? this.plotData.length : -1);
+        this.position.setX(this.position.x - direction)
+        // this.position.x -= direction;
+        this.autoplay(key === 'ArrowRight' ? 'right' : 'left', this.position.x, direction > 0 ? this.plot.plotData.length : -1);
       } else {
-        this.position.x = endPosition;
+        this.position.setX(endPosition)
+        // this.position.x = endPosition;
         updateInfo = true;
         isAtEnd = this.lockPosition();
       }
@@ -90,7 +91,9 @@ export class BarControl extends ControlManager {
       this.constants.lastx = this.position.x;
       this.autoplay(`reverse-${key === 'ArrowRight' ? 'right' : 'left'}`, endPosition, this.position.x);
     } else {
-      this.position.x += direction;
+      console.log('position.x | else', this.position.x);
+      this.position.setX(this.position.x + direction)
+      // this.position.x += direction;
       updateInfo = true;
       isAtEnd = this.lockPosition();
     }
@@ -157,43 +160,44 @@ export class BarControl extends ControlManager {
       this.display.displayValues();
     }
     if (this.constants.showRect && this.constants.hasRect) {
-      this.plot.Select();
+      this.display.selectActiveElement();
     }
     if (this.constants.sonifMode !== 'off') {
-      this.plot.playTones();
+      this.audio.playTone(null);
     }
   }
 
   // Destructured this, constants, and frequently used methods at the beginning to reduce property lookups.
 
   autoplay(dir: string, start: number, end: number): void {
-    const { constants, position, plot } = this;
-    const { KillAutoplay, autoPlayRate } = constants;
+    const { constants, position } = this;
+    const { KillAutoplay } = constants;
+    const autoPlayRate = this.plot.autoPlayRate;
     const step = (dir === 'left' || dir === 'reverse-right') ? -1 : 1;
   
     this.lastPlayed = dir;
     
     if (constants.autoplayId != null) {
-      KillAutoplay();
+      KillAutoplay(this.autoplayId);
     }
   
     if (dir.startsWith('reverse-')) {
       position.x = start;
     }
   
-    const plotDataLength = plot.plotData?.length ?? 0;
+    const plotDataLength = this.plot.plotData?.length ?? 0;
   
-    constants.autoplayId = setInterval(() => {
+    this.autoplayId = setInterval(() => {
       position.x += step;
   
-      if (!plot?.plotData || position.x < 0 || position.x > plotDataLength - 1) {
-        KillAutoplay();
+      if (!this?.plot.plotData || position.x < 0 || position.x > plotDataLength - 1) {
+        KillAutoplay(this.autoplayId);
         this.lockPosition();
         return;
       }
   
       if (position.x === end) {
-        KillAutoplay();
+        KillAutoplay(this.autoplayId);
       }
   
       this.updateAll();
@@ -205,7 +209,7 @@ export class BarControl extends ControlManager {
   playDuringSpeedChange(): void {
     if (this.constants.autoplayId == null) return;
   
-    this.constants.KillAutoplay();
+    this.constants.KillAutoplay(this.autoplayId);
   
     const direction = this.lastPlayed.startsWith('reverse-') 
       ? this.lastPlayed.replace('reverse-', '') === 'left' ? 'right' : 'left'

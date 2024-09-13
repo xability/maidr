@@ -17,6 +17,7 @@ export class BarPlot extends Plot {
   maxX: number = 0;
   minY: number = 0;
   minX: number = 0;
+  autoPlayRate: number = 0;
   plotData: any;
 
   /* Plot's Currently Active Position in Co-ordinate Space */
@@ -26,105 +27,23 @@ export class BarPlot extends Plot {
    * Have to check if any of these are needed and refactor
    * the constructor accordingly
    */
-  bars: HTMLElement[] | null = null;
-  plotLegend: { x: string; y: string };
-  columnLabels: string[];
-  title: string;
+  plotLegend: { x: string; y: string } | null = null;
+  columnLabels: string[] = [];
+  title: string = "";
+  bars: HTMLElement[] = [];
+  
   activeElement: HTMLElement | null = null;
   activeElementColor: string | null = null;
+  maidr: any;
 
-  constructor() {
+  constructor(maidr: any) {
     super();
-    this.position = new ReactivePosition();
-    this.audio = new BarAudio(this.position);
-    this.display = new BarDisplay(this.position);
-    this.control = new BarControl(this.position, this.audio, this.display);
-
-    /* Previous Constructor Code STARTS Here */
-    let maidr = window.maidr!;
-
-    let xlevel: string[] = [];
-    if ("axes" in maidr) {
-      if (maidr.axes.x && maidr.axes.x.level) {
-        xlevel = maidr.axes.x.level;
-      }
-    }
-
-    let data: any[] | null = null;
-    if ("data" in maidr) {
-      data = maidr.data;
-    }
-
-    let elements: NodeListOf<HTMLElement> | null = null;
-    if ("selector" in maidr) {
-      elements = document.querySelectorAll(maidr.selector);
-    }
-
-    if (xlevel && data && elements) {
-      if (elements.length !== data.length) {
-        window.constants.hasRect = 0;
-        window.logError.LogDifferentLengths("elements", "data");
-      } else if (xlevel.length !== elements.length) {
-        window.constants.hasRect = 0;
-        window.logError.LogDifferentLengths("x level", "elements");
-      } else if (data.length !== xlevel.length) {
-        window.constants.hasRect = 0;
-        window.logError.LogDifferentLengths("x level", "data");
-      } else {
-        this.bars = Array.from(elements);
-        window.constants.hasRect = 1;
-      }
-    } else if (data && elements) {
-      if (data.length !== elements.length) {
-        window.constants.hasRect = 0;
-        window.logError.LogDifferentLengths("data", "elements");
-      } else {
-        this.bars = Array.from(elements);
-        window.constants.hasRect = 1;
-      }
-    } else if (xlevel && data) {
-      if (xlevel.length !== data.length) {
-        window.constants.hasRect = 0;
-        window.logError.LogDifferentLengths("x level", "data");
-      }
-      window.logError.LogAbsentElement("elements");
-    } else if (data) {
-      window.logError.LogAbsentElement("x level");
-      window.logError.LogAbsentElement("elements");
-    }
-
-    this.columnLabels = [];
-    let legendX = "";
-    let legendY = "";
-
-    if ("axes" in maidr) {
-      if (maidr.axes.x && maidr.axes.x.label && legendX === "") {
-        legendX = maidr.axes.x.label;
-      }
-      if (maidr.axes.y && maidr.axes.y.label && legendY === "") {
-        legendY = maidr.axes.y.label;
-      }
-
-      if (maidr.axes.x && maidr.axes.x.level) {
-        this.columnLabels = maidr.axes.x.level;
-      }
-    }
-
-    this.plotLegend = {
-      x: legendX,
-      y: legendY,
-    };
-
-    this.title = "";
-    if (this.title === "" && "title" in maidr) {
-      this.title = maidr.title;
-    }
-
-    if (Array.isArray(maidr)) {
-      this.plotData = maidr;
-    } else if ("data" in maidr) {
-      this.plotData = maidr.data;
-    }
+    this.maidr = maidr;
+    this.plotData = maidr.data;
+    this.position = new ReactivePosition(-1, -1);
+    this.audio = new BarAudio(this, this.position);
+    this.display = new BarDisplay(this, this.position);
+    this.control = new BarControl(this, this.position, this.audio, this.display);
 
     this.SetMaxMin();
     /* Previous Constructor Code ENDS Here */
@@ -134,32 +53,26 @@ export class BarPlot extends Plot {
   SetMaxMin() {
     for (let i = 0; i < this.plotData.length; i++) {
       if (i === 0) {
-        window.constants.maxY = this.plotData[i];
-        window.constants.minY = this.plotData[i];
+        this.maxY = this.plotData[i];
+        this.minY = this.plotData[i];
       } else {
-        if (this.plotData[i] > window.constants.maxY) {
-          window.constants.maxY = this.plotData[i];
+        if (this.plotData[i] > this.maxY) {
+          this.maxY = this.plotData[i];
         }
-        if (this.plotData[i] < window.constants.minY) {
-          window.constants.minY = this.plotData[i];
+        if (this.plotData[i] < this.minY) {
+          this.minY = this.plotData[i];
         }
       }
     }
-    window.constants.maxX = this.columnLabels.length;
-    window.constants.autoPlayRate = Math.min(
+    this.maxX = this.columnLabels.length;
+    this.autoPlayRate = Math.min(
       Math.ceil(
-        window.constants.AUTOPLAY_DURATION / (window.constants.maxX + 1)
+        window.constants.AUTOPLAY_DURATION / (this.maxX + 1)
       ),
       window.constants.MAX_SPEED
     );
-    window.constants.DEFAULT_SPEED = window.constants.autoPlayRate;
-    if (window.constants.autoPlayRate < window.constants.MIN_SPEED) {
-      window.constants.MIN_SPEED = window.constants.autoPlayRate;
-    }
-  }
-  PlayTones() {
-    if (this.audio) {
-      this.audio.playTone(null, this.plotData);
+    if (this.autoPlayRate < window.constants.MIN_SPEED) {
+      window.constants.MIN_SPEED = this.autoPlayRate;
     }
   }
 
@@ -234,6 +147,6 @@ export class BarPlot extends Plot {
 
   /* New Functions STARTS Here */
   playTones() {
-    this.audio.playTone(null, this.plotData);
+    // this.audio.playTone(null, this.plotData);
   }
 }

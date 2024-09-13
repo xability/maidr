@@ -1,5 +1,6 @@
 import { Constants } from "../constants";
 import { DisplayManager } from "../display/DisplayManager";
+import { ChartType } from "../helpers/ChartType";
 import { ReactivePosition } from "../helpers/ReactivePosition";
 
 export abstract class ControlManager {
@@ -7,16 +8,17 @@ export abstract class ControlManager {
     display: DisplayManager | null = null;
     constants: Constants;
     plotData: any;
-    controlElements: HTMLElement[] = [];
+    controlElements: (HTMLElement | null)[] = [];
     pressedL: boolean = false;
     pressedTimeout: NodeJS.Timeout | null = null;
     maidr: any;
+    type: ChartType;
 
-    constructor() {
+    constructor(type: ChartType) {
         this.position = new ReactivePosition();
         this.constants = window.constants;
-        this.display = window.display;
         this.maidr = window.maidr;
+        this.type = type;
         this.controlElements = [
             this.constants.chart,
             this.constants.brailleInput,
@@ -28,9 +30,8 @@ export abstract class ControlManager {
 
     SetControls(): void {
         this.controlElements.forEach(element => {
-          element.addEventListener('keydown', this.handleKeyDown.bind(this));
+          element?.addEventListener('keydown', this.handleKeyDown.bind(this));
         });
-        this.additionalSetControls();
     }
 
     handleKeyDown(e: KeyboardEvent): void {
@@ -104,10 +105,10 @@ export abstract class ControlManager {
     }
 
     handleLayerChange(e: KeyboardEvent): void {
-        if (!Array.isArray(this.maidr.type) || this.constants.brailleMode !== 'off') return;
+        if (!Array.isArray(this.type) || this.constants.brailleMode !== 'off') return;
         
-        const types = Array.isArray(this.maidr.type) ? this.maidr.type : [this.maidr.type];
-        if (types.includes('point') && types.includes('smooth')) {
+        const types : ChartType[] = Array.isArray(this.type) ? this.type : [this.type];
+        if (types.includes(ChartType.Point) && types.includes(ChartType.Smooth)) {
            // Need to integrate changeChartLayer method to display manager before uncommenting this line
           // this.display!.changeChartLayer(e.key === 'PageDown' ? 'down' : 'up');
         }

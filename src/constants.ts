@@ -26,6 +26,7 @@ export class Constants {
   chart: HTMLElement | null = null;
   chartContainer: HTMLDivElement | null = null;
   mainContainer: HTMLDivElement | null = null;
+  review_container: HTMLElement | null = null;
 
   events: Array<
     [
@@ -219,10 +220,9 @@ export class Constants {
     this.autoPlayRate = this.DEFAULT_SPEED;
   }
 
-  KillAutoplay(): void {
-    if (this.autoplayId !== null) {
-      clearInterval(this.autoplayId);
-      this.autoplayId = null;
+  KillAutoplay(autoplayId: number | NodeJS.Timeout | null): void {
+    if (autoplayId !== null) {
+      clearInterval(autoplayId);
     }
   }
 

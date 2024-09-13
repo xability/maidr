@@ -48,6 +48,7 @@ export abstract class AudioManager {
     currentVol: number = 1,
     wave: OscillatorType = Constants.OSCILLATOR_TYPES.SINE
   ): void {
+    console.log("Playing oscillator", panning, frequency, currentVol);
     const t = this.audioContext.currentTime;
     const oscillator = this.audioContext.createOscillator();
     oscillator.type = wave;

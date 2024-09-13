@@ -72,7 +72,7 @@ export default class Control {
       // window.position = new Position(-1, -1);
       this.position.set(-1, -1);
       // window.plot = new BarChart();
-      window.plot = new BarPlot();
+      // window.plot = new BarPlot();
 
       let constants = window.constants;
       window.constants.lastx = 0;
