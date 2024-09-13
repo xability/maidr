@@ -137,6 +137,8 @@ export class Constants {
 
   lastx = 0;
 
+  autoplayId: number | NodeJS.Timeout | null = null;
+
   constructor() {}
   ConvertHexToRGBString(hexColorString: string): string {
     return (
@@ -198,6 +200,32 @@ export class Constants {
     SAWTOOTH: 'sawtooth' as OscillatorType,
     TRIANGLE: 'triangle' as OscillatorType
   };
+
+  // The methods SpeedUp(), SpeedDown(), SpeedReset() and KillAutoplay() are codebase-wide utilized methods. Should they be moved out of constants?
+  
+  SpeedUp() {
+    if (this.autoPlayRate - this.INTERVAL > this.MIN_SPEED) {
+      this.autoPlayRate -= this.INTERVAL;
+    }
+  }
+
+  SpeedDown() {
+    if (this.autoPlayRate + this.INTERVAL <= this.MAX_SPEED) {
+      this.autoPlayRate += this.INTERVAL;
+    }
+  }
+
+  SpeedReset() {
+    this.autoPlayRate = this.DEFAULT_SPEED;
+  }
+
+  KillAutoplay(): void {
+    if (this.autoplayId !== null) {
+      clearInterval(this.autoplayId);
+      this.autoplayId = null;
+    }
+  }
+
 }
 
 export class Resources {
@@ -898,6 +926,8 @@ export class ChatLLM {
 
     return text;
   }
+
+  
 }
 
 export class LogError {

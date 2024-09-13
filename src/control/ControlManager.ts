@@ -23,13 +23,14 @@ export abstract class ControlManager {
             // Review container is added to constants.js dynamically when an instance of controls is created. Need to analyze how to inject the review HTML element.
             this.constants.review_container
           ];
-        this.setControls();
+        this.SetControls();
     }
 
-    setControls(): void {
+    SetControls(): void {
         this.controlElements.forEach(element => {
           element.addEventListener('keydown', this.handleKeyDown.bind(this));
         });
+        this.additionalSetControls();
     }
 
     handleKeyDown(e: KeyboardEvent): void {
@@ -51,6 +52,8 @@ export abstract class ControlManager {
           case ' ':
             this.handleSpaceKey();
             break;
+          case 'tab':
+            this.handleTabKey(e);
           case 'pagedown':
           case 'pageup':
             this.handleLayerChange(e);
@@ -89,6 +92,14 @@ export abstract class ControlManager {
         }
         if (this.constants.sonifMode !== 'off') {
           this.plotData.PlayTones();
+        }
+    }
+    
+    handleTabKey(e: KeyboardEvent): void {
+        if (e.shiftKey) {
+          this.constants.tabMovement = -1;
+        } else {
+          this.constants.tabMovement = 1;
         }
     }
 
@@ -176,6 +187,7 @@ export abstract class ControlManager {
         return '';
     }
 
+    abstract additionalSetControls(): void;
     // GetNextPrevFocusable method has not been utilized anywhere else. Need to confirm if it is a method in development
-
+    
 }

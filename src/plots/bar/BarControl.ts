@@ -2,6 +2,7 @@ import { ControlManager } from "../../control/ControlManager";
 import { ReactivePosition } from "../../helpers/ReactivePosition";
 import { BarAudio } from "./BarAudio";
 import BarDisplay from "./BarDisplay";
+import { BarPlot } from "./BarPlot";
 
 /**
  * Note that this class is not completely refactored this is just
@@ -11,6 +12,9 @@ export class BarControl extends ControlManager {
   position: ReactivePosition;
   audio: BarAudio;
   display: BarDisplay;
+  plotData: any;
+  lastPlayed: string = '';
+  plot: BarPlot;
 
   constructor(
     position: ReactivePosition,
@@ -22,7 +26,10 @@ export class BarControl extends ControlManager {
     this.position.subscribe(this.onPositionChange.bind(this));
     this.audio = audio;
     this.display = display;
+    this.plotData = this.maidr;
     this.SetControls();
+    this.position = new ReactivePosition(-1, -1);
+    this.plot = new BarPlot();
   }
 
   onPositionChange(x: number, y: number, z: number): void {
@@ -31,196 +38,180 @@ export class BarControl extends ControlManager {
     this.position.z = z;
   }
 
-  SetControls() {
-    let constants = window.constants;
-
-    const controlElements = [
-      window.constants.chart,
-      window.constants.brailleInput,
-    ];
-
-    let pressedL = false;
-    for (const controlElement of controlElements) {
-      if (controlElement)
-        window.constants.events.push([
-          controlElement,
-          "keydown",
-          (e: KeyboardEvent) => {
-            if (pressedL) return;
-
-            if (e.key === "b") {
-              window.constants.tabMovement = 0;
-              e.preventDefault();
-              this.display.toggleBrailleMode();
-            }
-
-            if (e.key === "t") {
-              this.display.toggleTextMode();
-            }
-
-            if (e.key === "s") {
-              this.display.toggleSonificationMode();
-            }
-          },
-        ]);
-    }
-
-    for (const controlElement of controlElements) {
-      if (controlElement)
-        window.constants.events.push([
-          controlElement,
-          "keydown",
-          (e: KeyboardEvent) => {
-            if (e.key === "Tab") {
-              if (e.shiftKey) {
-                window.constants.tabMovement = -1;
-              } else {
-                window.constants.tabMovement = 1;
-              }
-            }
-          },
-        ]);
-    }
-
-    if (window.maidr!.type === "bar") {
-      // window.position = new Position(-1, -1);
-      this.position.set(-1, -1);
-      // window.plot = new BarChart();
-      //   window.plot = new BarPlot();
-
-      let constants = window.constants;
-      window.constants.lastx = 0;
-
-      document.addEventListener("selectionchange", () => {
-        if (window.constants.brailleMode === "on") {
-          let pos = window.constants.brailleInput!.selectionStart!;
-          if (pos < 0) {
-            pos = 0;
-          }
-          this.position.setX(pos);
-          // window.position!.x = pos;
-          lockPosition();
-          let testEnd = true;
-
-          if (testEnd) {
-            UpdateAll();
-          }
-          if (testEnd) {
-            window.audio!.playEnd();
-          }
-        }
+  additionalSetControls(): void {
+    this.controlElements.forEach(element => {
+        element.addEventListener('keydown', this.handleKeyDown.bind(this));
       });
+      document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
+  }
 
-      window.constants.events.push([
-        window.constants.chart!,
-        "keydown",
-        (e: KeyboardEvent) => {
-          let updateInfoThisRound = false;
-          let isAtEnd = false;
-
-          if (e.key === "ArrowRight") {
-            this.position.setX(this.position.x + 1);
-            // window.position!.x += 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          } else if (e.key === "ArrowLeft") {
-            this.position.setX(this.position.x - 1);
-            // window.position!.x -= 1;
-            updateInfoThisRound = true;
-            isAtEnd = lockPosition();
-          }
-
-          if (updateInfoThisRound && !isAtEnd) {
-            UpdateAll();
-          }
-          if (isAtEnd) {
-            window.audio!.playEnd();
-          }
-        },
-      ]);
-
-      window.constants.events.push([
-        window.constants.brailleInput!,
-        "keydown",
-        (e: KeyboardEvent | Event) => {
-          if (e instanceof KeyboardEvent) {
-            let updateInfoThisRound = false;
-            let isAtEnd = false;
-
-            if (e.key === "ArrowRight") {
-              e.preventDefault();
-              this.position.setX(this.position.x + 1);
-              // window.position!.x += 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            } else if (e.key === "ArrowLeft") {
-              e.preventDefault();
-              this.position.setX(this.position.x - 1);
-              // window.position!.x -= 1;
-              updateInfoThisRound = true;
-              isAtEnd = lockPosition();
-            } else if (e.key === "Tab") {
-            } else {
-              e.preventDefault();
-            }
-
-            if (updateInfoThisRound && !isAtEnd) {
-              UpdateAllBraille();
-            }
-            if (isAtEnd) {
-              window.audio!.playEnd();
-            }
-          }
-        },
-      ]);
-
-      const lockPosition = () => {
-        let didLockHappen = false;
-
-        // if (window.position!.x < 0) {
-        if (this.position.x < 0) {
-          // window.position!.x = 0;
-          this.position.setX(0);
-          didLockHappen = true;
-          if (window.constants.brailleMode !== "off") {
-            window.constants.brailleInput!.selectionEnd = 0;
-          }
-        }
-        // if (window.position!.x > window.plot.plotData.length - 1) {
-        if (this.position.x > window.plot.plotData.length - 1) {
-          // window.position!.x = window.plot.plotData.length - 1;
-          this.position.setX(window.plot.plotData.length - 1);
-          didLockHappen = true;
-          window.constants.brailleInput!.selectionEnd =
-            window.plot.plotData.length - 1;
-        }
-
-        return didLockHappen;
-      };
-
-      const UpdateAll = () => {
-        if (window.constants.showDisplay) {
-          this.display.displayValues();
-        }
-        if (window.constants.showRect && window.constants.hasRect) {
-          window.plot.Select();
-        }
-        if (window.constants.soundMode !== "off") {
-          window.plot.PlayTones();
-        }
-      };
-      const UpdateAllBraille = () => {
-        if (window.constants.showDisplayInBraille) {
-          this.display.displayValues();
-        }
-        if (window.constants.showRect && window.constants.hasRect) {
-          window.plot.Select();
-        }
-        if (window.constants.soundMode !== "off") {
-          window.plot.PlayTones();
-        }
-        this.display.updateBraillePos();
-      };
+  // The following methods are event listeners specific to bar plot. The key handling and speed change handling have been separated into their own methods for modularity.
+  // if-else conditional blocks have been replaced with switch-break wherever possible to promote easy logic.
+  
+  handleKeyDown(e: KeyboardEvent): void {
+    const isCommandKey = this.constants.isMac ? e.metaKey : e.ctrlKey;
+    const isShiftKey = e.shiftKey;
+    const isAltKey = e.altKey;
+  
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowLeft':
+        e.preventDefault();
+        this.handleArrowKey(e.key, isCommandKey, isShiftKey, isAltKey);
+        break;
+  
+      case '.':
+      case ',':
+      case '/':
+        this.handleSpeedChange(e.key);
+        break;
+  
+      default:
+        return;
     }
   }
+  
+  handleArrowKey(key: 'ArrowRight' | 'ArrowLeft', isCommandKey: boolean, isShiftKey: boolean, isAltKey: boolean): void {
+    const direction = key === 'ArrowRight' ? 1 : -1;
+    const endPosition = direction > 0 ? this.plotData.length - 1 : 0;
+    let updateInfo = false;
+    let isAtEnd = false;
+  
+    if (isCommandKey) {
+      if (isShiftKey) {
+        this.position.x -= direction;
+        this.autoplay(key === 'ArrowRight' ? 'right' : 'left', this.position.x, direction > 0 ? this.plotData.length : -1);
+      } else {
+        this.position.x = endPosition;
+        updateInfo = true;
+        isAtEnd = this.lockPosition();
+      }
+    } else if (isAltKey && isShiftKey && this.position.x !== endPosition) {
+      this.constants.lastx = this.position.x;
+      this.autoplay(`reverse-${key === 'ArrowRight' ? 'right' : 'left'}`, endPosition, this.position.x);
+    } else {
+      this.position.x += direction;
+      updateInfo = true;
+      isAtEnd = this.lockPosition();
+    }
+  
+    if (updateInfo && !isAtEnd) {
+      this.updateAll();
+    }
+    if (isAtEnd) {
+      this.audio.playEnd();
+    }
+  }
+  
+  handleSpeedChange(key: '.' | ',' | '/'): void {
+    switch (key) {
+      case '.':
+        this.constants.SpeedUp();
+        this.display.announceText('Speed up');
+        break;
+      case ',':
+        this.constants.SpeedDown();
+        this.display.announceText('Speed down');
+        break;
+      case '/':
+        this.constants.SpeedReset();
+        this.display.announceText('Speed reset');
+        break;
+    }
+    this.playDuringSpeedChange();
+  }
+
+  handleSelectionChange(e: Event): void {
+    if (this.constants.brailleMode === 'on') {
+      let pos = this.constants.brailleInput!.selectionStart ?? 0;
+      if (pos < 0) {
+        pos = 0;
+      }
+      this.position.x = pos;
+      this.lockPosition();
+      this.updateAll();
+    }
+  }
+
+  // Updated lockPosition() to utilize Math.max and Math.min to clamp the position value within the valid range. 
+  // It stores the original position and compares it at the end to determine if a lock happened
+
+  lockPosition(): boolean {
+    const minPosition = 0;
+    const maxPosition = this.plot.plotData.length - 1;
+    const originalPosition = this.position.x;
+  
+    this.position.x = Math.max(minPosition, Math.min(maxPosition, this.position.x));
+  
+    if (this.constants.brailleMode !== 'off') {
+      this.constants.brailleInput!.selectionEnd = this.position.x;
+    }
+  
+    return originalPosition !== this.position.x;
+  }
+  
+  //Already in most optimized form in maidr-js and hence adapted the same implementation to maidr-ts.
+
+  updateAll(): void {
+    if (this.constants.showDisplay) {
+      this.display.displayValues();
+    }
+    if (this.constants.showRect && this.constants.hasRect) {
+      this.plot.Select();
+    }
+    if (this.constants.sonifMode !== 'off') {
+      this.plot.playTones();
+    }
+  }
+
+  // Destructured this, constants, and frequently used methods at the beginning to reduce property lookups.
+
+  autoplay(dir: string, start: number, end: number): void {
+    const { constants, position, plot } = this;
+    const { KillAutoplay, autoPlayRate } = constants;
+    const step = (dir === 'left' || dir === 'reverse-right') ? -1 : 1;
+  
+    this.lastPlayed = dir;
+    
+    if (constants.autoplayId != null) {
+      KillAutoplay();
+    }
+  
+    if (dir.startsWith('reverse-')) {
+      position.x = start;
+    }
+  
+    const plotDataLength = plot.plotData?.length ?? 0;
+  
+    constants.autoplayId = setInterval(() => {
+      position.x += step;
+  
+      if (!plot?.plotData || position.x < 0 || position.x > plotDataLength - 1) {
+        KillAutoplay();
+        this.lockPosition();
+        return;
+      }
+  
+      if (position.x === end) {
+        KillAutoplay();
+      }
+  
+      this.updateAll();
+    }, autoPlayRate);
+  }
+
+  // Replaced if-else with ternary for better readabalility.
+
+  playDuringSpeedChange(): void {
+    if (this.constants.autoplayId == null) return;
+  
+    this.constants.KillAutoplay();
+  
+    const direction = this.lastPlayed.startsWith('reverse-') 
+      ? this.lastPlayed.replace('reverse-', '') === 'left' ? 'right' : 'left'
+      : this.lastPlayed;
+  
+    this.autoplay(direction, this.position.x, this.constants.lastx);
+  }
+
 }
