@@ -2,8 +2,10 @@ import { Constants } from "../constants";
 import { DisplayManager } from "../display/DisplayManager";
 import { ChartType } from "../helpers/ChartType";
 import { ReactivePosition } from "../helpers/ReactivePosition";
+import { BarAudio } from "../plots/bar/BarAudio";
 
 export abstract class ControlManager {
+    audio: BarAudio | null = null;
     position: ReactivePosition;
     display: DisplayManager | null = null;
     constants: Constants;
@@ -22,9 +24,9 @@ export abstract class ControlManager {
         this.controlElements = [
             this.constants.chart,
             this.constants.brailleInput,
-            // Review container is added to constants.js dynamically when an instance of controls is created. Need to analyze how to inject the review HTML element.
             this.constants.review_container
           ];
+        this.audio = new BarAudio(this.plotData, this.position);
         this.SetControls();
     }
 
@@ -39,6 +41,7 @@ export abstract class ControlManager {
     
         switch (e.key.toLowerCase()) {
           case 'b':
+            e.preventDefault();
             this.handleBrailleMode(e);
             break;
           case 't':
@@ -66,14 +69,18 @@ export abstract class ControlManager {
         this.constants.tabMovement = 0;
         e.preventDefault();
         this.display!.toggleBrailleMode();
+        this.display?.announceText(this.constants.brailleMode === 'on' ? 'Braille mode on' : 'Braille mode off');
     }
 
     handleTextMode(): void {
         this.display!.toggleTextMode();
+        this.display?.announceText(this.constants.textMode === 'verbose' ? 'Verbose mode on' : 'Verbose mode off');
     }
 
-    handleSonificationMode(): void {        
+    handleSonificationMode(): void {     
+        console.log('s key pressed');   
         this.display!.toggleSonificationMode();
+        this.display?.announceText(this.constants.sonifMode === 'on' ? 'Sonification on' : 'Sonification off');
     }
 
     handleReviewMode(e: KeyboardEvent): void {
@@ -92,7 +99,7 @@ export abstract class ControlManager {
           this.display!.displayValues();
         }
         if (this.constants.sonifMode !== 'off') {
-          this.plotData.PlayTones();
+          this.audio!.playTone(null);
         }
     }
     

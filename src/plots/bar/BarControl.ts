@@ -48,6 +48,10 @@ export class BarControl extends ControlManager {
   // if-else conditional blocks have been replaced with switch-break wherever possible to promote easy logic.
   
   handleKeyDown(e: KeyboardEvent): void {
+    super.handleKeyDown(e);
+    if (this.pressedL || ['b', 't', 's', 'r', ' ', 'tab', 'pagedown', 'pageup'].includes(e.key.toLowerCase())) {
+        return;
+    }
     const isCommandKey = this.constants.isMac ? e.metaKey : e.ctrlKey;
     const isShiftKey = e.shiftKey;
     const isAltKey = e.altKey;
@@ -62,6 +66,7 @@ export class BarControl extends ControlManager {
       case '.':
       case ',':
       case '/':
+        e.preventDefault();
         this.handleSpeedChange(e.key);
         break;
   
