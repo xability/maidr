@@ -1,37 +1,34 @@
-enum DisplayMode {
-    OFF = "off",
-    TERSE = "terse",
-    VERBOSE = "verbose"
-}
-
-export default class Display {
-
-    private mode: DisplayMode;
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var DisplayMode;
+(function (DisplayMode) {
+    DisplayMode["OFF"] = "off";
+    DisplayMode["TERSE"] = "terse";
+    DisplayMode["VERBOSE"] = "verbose";
+})(DisplayMode || (DisplayMode = {}));
+class Display {
     constructor() {
         this.mode = DisplayMode.TERSE;
     }
-
-    public showText(): void {
+    showText() {
         // Show text only if turned on.
         if (this.mode === DisplayMode.OFF) {
             return;
         }
     }
-
-    public toggle(): void {
+    toggle() {
         switch (this.mode) {
             case DisplayMode.OFF:
                 this.mode = DisplayMode.TERSE;
                 break;
-
             case DisplayMode.TERSE:
                 this.mode = DisplayMode.VERBOSE;
                 break;
-
             case DisplayMode.VERBOSE:
                 this.mode = DisplayMode.OFF;
                 break;
         }
     }
 }
+exports.default = Display;
+//# sourceMappingURL=display.js.map
