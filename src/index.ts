@@ -1,11 +1,9 @@
-document.addEventListener("DOMContentLoaded", main);
+document.addEventListener('DOMContentLoaded', main);
 
 function main(): void {
-    if (typeof window.maidr === "undefined") {
-        alert("No MAIDR found.");
-        return;
-    }
-    // TODO: Verify the structure.
-
-
+  if (typeof window.maidr === 'undefined') {
+    alert('No MAIDR found.');
+    return;
+  }
+  // TODO: Verify the structure.
 }

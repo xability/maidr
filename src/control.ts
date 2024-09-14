@@ -1,4 +1,1 @@
-export default class Control {
-
-
-}
+export default class Control {}

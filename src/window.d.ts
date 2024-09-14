@@ -1,9 +1,9 @@
-import Maidr from "./maidr";
+import Maidr from './maidr';
 
-export {}
+export {};
 
 declare global {
-    interface Window {
-        maidr: Maidr
-    }
+  interface Window {
+    maidr: Maidr;
+  }
 }

@@ -1,37 +1,36 @@
 enum DisplayMode {
-    OFF = "off",
-    TERSE = "terse",
-    VERBOSE = "verbose"
+  OFF = 'off',
+  TERSE = 'terse',
+  VERBOSE = 'verbose',
 }
 
 export default class Display {
+  private mode: DisplayMode;
 
-    private mode: DisplayMode;
+  constructor() {
+    this.mode = DisplayMode.TERSE;
+  }
 
-    constructor() {
+  public showText(): void {
+    // Show text only if turned on.
+    if (this.mode === DisplayMode.OFF) {
+      return;
+    }
+  }
+
+  public toggle(): void {
+    switch (this.mode) {
+      case DisplayMode.OFF:
         this.mode = DisplayMode.TERSE;
+        break;
+
+      case DisplayMode.TERSE:
+        this.mode = DisplayMode.VERBOSE;
+        break;
+
+      case DisplayMode.VERBOSE:
+        this.mode = DisplayMode.OFF;
+        break;
     }
-
-    public showText(): void {
-        // Show text only if turned on.
-        if (this.mode === DisplayMode.OFF) {
-            return;
-        }
-    }
-
-    public toggle(): void {
-        switch (this.mode) {
-            case DisplayMode.OFF:
-                this.mode = DisplayMode.TERSE;
-                break;
-
-            case DisplayMode.TERSE:
-                this.mode = DisplayMode.VERBOSE;
-                break;
-
-            case DisplayMode.VERBOSE:
-                this.mode = DisplayMode.OFF;
-                break;
-        }
-    }
+  }
 }
