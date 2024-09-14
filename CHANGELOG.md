@@ -1,3 +1,10 @@
+# [2.15.0](https://github.com/xability/maidr/compare/v2.14.8...v2.15.0) (2024-09-14)
+
+
+### Features
+
+* **llm:** update OpenAI model to gpt-4o-2024-08-06 ([e97c81f](https://github.com/xability/maidr/commit/e97c81ff20cb901df9fdb362a77f404f2de23377))
+
 ## [2.14.8](https://github.com/xability/maidr/compare/v2.14.7...v2.14.8) (2024-08-30)
 
 
