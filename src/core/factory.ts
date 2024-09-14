@@ -1,8 +1,8 @@
-import Audio from '../audio';
+import Audio from '../engine/audio';
 import BarPlot from './bar';
 import LinePlot from './line';
-import Maidr from '../maidr';
-import Plot from './plot';
+import {Maidr} from './maidr';
+import {Plot} from './plot';
 
 enum PlotType {
   BAR = 'bar',

@@ -1,8 +1,8 @@
 "use strict";
-document.addEventListener("DOMContentLoaded", main);
+document.addEventListener('DOMContentLoaded', main);
 function main() {
-    if (typeof window.maidr === "undefined") {
-        alert("No MAIDR found.");
+    if (typeof window.maidr === 'undefined') {
+        alert('No MAIDR found.');
         return;
     }
     // TODO: Verify the structure.

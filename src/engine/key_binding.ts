@@ -1,6 +1,6 @@
 import hotkeys from 'hotkeys-js';
 import Audio from './audio';
-import Plot from './layer/plot';
+import {Plot} from '../core/plot';
 import Command, {
   MoveDownCommand,
   MoveLeftCommand,

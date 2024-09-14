@@ -1,6 +1,6 @@
 import Audio from './audio';
 import Display from './display';
-import Plot from './layer/plot';
+import {Plot} from '../core/plot';
 
 export default interface Command {
   execute(event?: KeyboardEvent): void;

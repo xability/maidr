@@ -1,4 +1,4 @@
-import Coordinate from './coordinate';
+import Coordinate from '../core/coordinate';
 
 export default class Audio {
   private readonly audioContext: AudioContext;
@@ -70,9 +70,9 @@ export default class Audio {
     // Coordinate the audio slightly in front of the listener.
     const pannerNode = new PannerNode(this.audioContext, {
       distanceModel: 'linear',
-      positionX: position.x,
-      positionY: position.y,
-      positionZ: position.z,
+      positionX: 0.0,
+      positionY: 0.0,
+      positionZ: 0.0,
       orientationX: 0.0,
       orientationY: 0.0,
       orientationZ: -1.0,

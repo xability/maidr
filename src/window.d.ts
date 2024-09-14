@@ -1,6 +1,4 @@
-import Maidr from './maidr';
-
-export {};
+import {Maidr} from './core/maidr';
 
 declare global {
   interface Window {
