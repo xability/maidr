@@ -1,79 +1,81 @@
-import Audio from './audio';
-import Display from './display';
-import {Plot} from '../core/plot';
+import Action from "./Action";
 
-export default interface Command {
-  execute(event?: KeyboardEvent): void;
+export abstract class Command {
+  protected readonly action: Action;
+
+  protected constructor(action: Action) {
+    this.action = action;
+  }
+
+  public abstract execute(event?: KeyboardEvent): void;
 }
 
-export class MoveUpCommand implements Command {
-  private readonly plot: Plot;
-
-  constructor(plot: Plot) {
-    this.plot = plot;
+export class MoveUpCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.plot.moveUp();
+    this.action.moveUp();
   }
 }
 
-export class MoveDownCommand implements Command {
-  private readonly plot: Plot;
-
-  constructor(plot: Plot) {
-    this.plot = plot;
+export class MoveDownCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.plot.moveDown();
+    this.action.moveDown();
   }
 }
 
-export class MoveLeftCommand implements Command {
-  private readonly plot: Plot;
-
-  constructor(plot: Plot) {
-    this.plot = plot;
+export class MoveLeftCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.plot.moveLeft();
+    this.action.moveLeft();
   }
 }
 
-export class MoveRightCommand implements Command {
-  private readonly plot: Plot;
-
-  constructor(plot: Plot) {
-    this.plot = plot;
+export class MoveRightCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.plot.moveRight();
+    this.action.moveRight();
   }
 }
 
-export class ToggleSoundCommand implements Command {
-  private readonly audio: Audio;
-
-  constructor(audio: Audio) {
-    this.audio = audio;
+export class ToggleSoundCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.audio.toggle();
+    this.action.toggleSound();
   }
 }
 
-export class ToggleTextCommand implements Command {
-  private readonly display: Display;
-
-  constructor(display: Display) {
-    this.display = display;
+export class ToggleTextCommand extends Command {
+  constructor(action: Action) {
+    super(action);
   }
 
   public execute(): void {
-    this.display.toggle();
+    this.action.toggleText();
+  }
+}
+
+export class ToggleBrailleCommand extends Command {
+  constructor(action: Action) {
+    super(action);
+  }
+
+  execute(): void {
+    this.action.toggleBraille();
   }
 }

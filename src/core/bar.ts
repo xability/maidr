@@ -4,8 +4,8 @@ import {BarData, Maidr} from './maidr';
 import Coordinate from './coordinate';
 
 export default class BarPlot extends AbstractPlot {
-  constructor(audio: Audio, maidr: Maidr) {
-    super(audio, maidr);
+  constructor(maidr: Maidr) {
+    super(maidr);
   }
 
   protected initCoordinate(data: BarData): Coordinate {
@@ -23,6 +23,10 @@ class BarCoordinate implements Coordinate {
   private readonly maxY?: number;
 
   constructor(data: BarData) {
+    if (data.x.length !== data.y.length) {
+      throw new Error(`len(x): ${data.x.length} and len(y): ${data.y.length} do not match.`);
+    }
+
     this.xLevel = data.x;
     this.yLevel = data.y;
 

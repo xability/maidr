@@ -1,15 +1,14 @@
-import hotkeys from 'hotkeys-js';
-import Audio from './audio';
-import {Plot} from '../core/plot';
-import Command, {
+import hotkeys from "hotkeys-js";
+import {
+  Command,
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
-  MoveUpCommand,
+  MoveUpCommand, ToggleBrailleCommand,
   ToggleSoundCommand,
-  ToggleTextCommand,
-} from './command';
-import Display from './display';
+  ToggleTextCommand
+} from "./command";
+import Action from "./Action";
 
 enum Keymap {
   // Navigation
@@ -19,7 +18,7 @@ enum Keymap {
   MOVE_LEFT = 'left',
 
   // BTS
-  // TOGGLE_BRAILLE = "b",
+  TOGGLE_BRAILLE = "b",
   TOGGLE_TEXT = 't',
   TOGGLE_SOUND = 's',
 }
@@ -27,16 +26,10 @@ enum Keymap {
 export default class KeyBinding {
   private bindings: Map<string, Command>;
 
-  private readonly audio: Audio;
+  private readonly action: Action;
 
-  private readonly display: Display;
-
-  private readonly plot: Plot;
-
-  constructor(audio: Audio, display: Display, plot: Plot) {
-    this.audio = audio;
-    this.display = display;
-    this.plot = plot;
+  constructor(action: Action) {
+    this.action = action;
 
     this.bindings = this.createBindings();
   }
@@ -55,18 +48,20 @@ export default class KeyBinding {
   private createCommand(key: string): Command {
     switch (key) {
       case Keymap.MOVE_UP:
-        return new MoveUpCommand(this.plot);
+        return new MoveUpCommand(this.action);
       case Keymap.MOVE_DOWN:
-        return new MoveDownCommand(this.plot);
+        return new MoveDownCommand(this.action);
       case Keymap.MOVE_RIGHT:
-        return new MoveRightCommand(this.plot);
+        return new MoveRightCommand(this.action);
       case Keymap.MOVE_LEFT:
-        return new MoveLeftCommand(this.plot);
+        return new MoveLeftCommand(this.action);
 
-      case Keymap.TOGGLE_SOUND:
-        return new ToggleSoundCommand(this.audio);
+      case Keymap.TOGGLE_BRAILLE:
+        return new ToggleBrailleCommand(this.action);
       case Keymap.TOGGLE_TEXT:
-        return new ToggleTextCommand(this.display);
+        return new ToggleTextCommand(this.action);
+      case Keymap.TOGGLE_SOUND:
+        return new ToggleSoundCommand(this.action);
 
       default:
         throw new Error(`Unsupported key: ${key}`);

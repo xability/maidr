@@ -1,4 +1,3 @@
-import Audio from '../engine/audio';
 import {BarData, LineData, Maidr} from './maidr';
 import Coordinate from './coordinate';
 
@@ -6,6 +5,8 @@ export interface Plot {
   get title(): string;
   get xAxis(): string;
   get yAxis(): string;
+  get orientation(): Orientation;
+  get coordinate(): Coordinate;
 
   moveUp(): void;
   moveRight(): void;
@@ -16,14 +17,12 @@ export interface Plot {
   autoplayBackward(): void;
 }
 
-enum Orientation {
+export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
 }
 
 export abstract class AbstractPlot implements Plot {
-  protected readonly audio: Audio;
-
   // Default values.
   protected static readonly DEFAULT_TITLE: string = 'MAIDR Plot';
   protected static readonly DEFAULT_X_AXIS: string = 'X';
@@ -31,21 +30,24 @@ export abstract class AbstractPlot implements Plot {
 
   // Plot information.
   public readonly title: string;
+
   public readonly xAxis: string;
   public readonly yAxis: string;
-  protected readonly orientation: Orientation;
-  protected readonly coordinate: Coordinate;
 
-  protected constructor(audio: Audio, maidr: Maidr) {
-    this.audio = audio;
+  public readonly orientation: Orientation;
+  public readonly coordinate: Coordinate;
 
+  protected constructor(maidr: Maidr) {
     this.title = maidr.title ?? AbstractPlot.DEFAULT_TITLE;
+
     this.xAxis = maidr.axes?.x ?? AbstractPlot.DEFAULT_X_AXIS;
     this.yAxis = maidr.axes?.y ?? AbstractPlot.DEFAULT_Y_AXIS;
+
     this.orientation =
       maidr.orientation === Orientation.HORIZONTAL
         ? Orientation.HORIZONTAL
         : Orientation.VERTICAL;
+
     this.coordinate = this.initCoordinate(maidr.data);
   }
 

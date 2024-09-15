@@ -2,7 +2,6 @@ import Coordinate from '../core/coordinate';
 
 export default class Audio {
   private readonly audioContext: AudioContext;
-
   private readonly compressor: DynamicsCompressorNode;
 
   private enabled: boolean;
