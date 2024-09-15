@@ -1,5 +1,5 @@
-import {Maidr} from './core/maidr';
-import Control from './engine/control';
+import Control from './core/control';
+import {Maidr} from './plot/maidr';
 
 export enum EventType {
   BLUR = 'blur',
@@ -35,7 +35,7 @@ function main(): void {
     // Make the container focusable.
     container.setAttribute('tabindex', '0');
 
-    // Handle the MAIDR lifecycle only on focus.
+    // Handle the MAIDR lifecycle on focus.
     container.addEventListener(EventType.FOCUS, event => onFigureFocus(event));
   }
 }
@@ -52,7 +52,7 @@ function onFigureFocus(event: FocusEvent) {
     init(maidrContainer, maidr);
   } catch (error) {
     console.log(error);
-    throw new Error('Error parsing MAIDR data.');
+    throw new Error('Error parsing MAIDR data');
   }
 }
 

@@ -13,6 +13,9 @@ export interface Maidr {
 
 export type BarData = {
   x: number[] | string[];
+  y: number[];
+} | {
+  x: number[];
   y: number[] | string[];
 };
 

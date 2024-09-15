@@ -1,15 +1,23 @@
-import Coordinate from '../core/coordinate';
+import Coordinate from '../plot/coordinate';
+import Notification from './notification';
 
 export default class Audio {
+  private enabled: boolean;
+  private readonly notification: Notification;
+
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  private enabled: boolean;
+  constructor(notification: Notification) {
+    this.enabled = true;
+    this.notification = notification;
 
-  constructor() {
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
-    this.enabled = true;
+  }
+
+  public destroy(): void {
+    this.audioContext.close().then(() => this.compressor.disconnect());
   }
 
   private initCompressor(): DynamicsCompressorNode {
@@ -105,5 +113,8 @@ export default class Audio {
 
   public toggle() {
     this.enabled = !this.enabled;
+
+    const message = `Sound is ${this.enabled ? 'on' : 'off'}`;
+    this.notification.notify(message);
   }
 }

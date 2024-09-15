@@ -1,6 +1,6 @@
 import hotkeys from 'hotkeys-js';
+import Action from './action';
 import Command from './command';
-import Action from './Action';
 
 enum Keymap {
   // Navigation
@@ -16,13 +16,11 @@ enum Keymap {
 }
 
 export default class KeyBinding {
-  private bindings: Map<string, Command>;
-
   private readonly action: Action;
+  private readonly bindings: Map<string, Command>;
 
   constructor(action: Action) {
     this.action = action;
-
     this.bindings = this.createBindings();
   }
 
@@ -70,6 +68,7 @@ export default class KeyBinding {
   }
 
   public unregister(): void {
+    this.bindings.clear();
     hotkeys.unbind();
   }
 }

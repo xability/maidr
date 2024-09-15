@@ -1,6 +1,6 @@
 import {AbstractPlot} from './plot';
-import {LineData, Maidr} from './maidr';
 import Coordinate from './coordinate';
+import {LineData, Maidr} from './maidr';
 
 export default class LinePlot extends AbstractPlot {
   constructor(maidr: Maidr) {

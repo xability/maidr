@@ -1,35 +1,39 @@
-import Display from './display';
+import Action from './keyboard/action';
 import Audio from './audio';
-import {Plot} from '../core/plot';
-import {Maidr} from '../core/maidr';
 import Braille from './braille';
-import PlotFactory from '../core/factory';
-import Action from './Action';
-import KeyBinding from './key_binding';
+import Display from './display';
+import KeyBinding from './keyboard/key_binding';
+import {Maidr} from '../plot/maidr';
+import Notification from './notification';
+import {Plot} from '../plot/plot';
+import PlotFactory from '../plot/factory';
 
 export default class Control implements Action {
-  private readonly plot: Plot;
-
   private readonly audio: Audio;
-
   private readonly display: Display;
-
   private readonly braille: Braille;
 
+  private readonly notification: Notification;
   private readonly keyBinding: KeyBinding;
 
-  constructor(maidr: Maidr) {
-    this.audio = new Audio();
-    this.display = new Display();
+  private readonly plot: Plot;
 
+  constructor(maidr: Maidr) {
+    this.notification = new Notification();
     this.plot = PlotFactory.create(maidr);
-    this.braille = new Braille(this.plot.coordinate);
+
+    this.audio = new Audio(this.notification);
+    this.display = new Display(this.notification, maidr.id);
+    this.braille = new Braille(this.notification, this.plot.coordinate);
 
     this.keyBinding = new KeyBinding(this);
     this.keyBinding.register();
   }
 
   public destroy(): void {
+    this.notification.destroy();
+    this.audio.destroy();
+    this.display.destroy();
     this.keyBinding.unregister();
   }
 
@@ -51,13 +55,14 @@ export default class Control implements Action {
 
   public toggleBraille(): void {
     console.log('Toggle braille');
+    this.braille.toggle();
   }
 
   public toggleSound(): void {
-    console.log('Toggle sound');
+    this.audio.toggle();
   }
 
   public toggleText(): void {
-    console.log('Toggle text');
+    this.display.toggle();
   }
 }
