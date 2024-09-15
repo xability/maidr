@@ -1,7 +1,7 @@
-import Coordinate from "../core/coordinate";
+import Coordinate from '../core/coordinate';
 
 export default class Braille {
-  private enabled: boolean
+  private enabled: boolean;
 
   private data;
 

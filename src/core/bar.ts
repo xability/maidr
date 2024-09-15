@@ -1,5 +1,4 @@
 import {AbstractPlot} from './plot';
-import Audio from '../engine/audio';
 import {BarData, Maidr} from './maidr';
 import Coordinate from './coordinate';
 
@@ -24,20 +23,39 @@ class BarCoordinate implements Coordinate {
 
   constructor(data: BarData) {
     if (data.x.length !== data.y.length) {
-      throw new Error(`len(x): ${data.x.length} and len(y): ${data.y.length} do not match.`);
+      throw new Error(
+        `len(x): ${data.x.length} and len(y): ${data.y.length} do not match.`
+      );
     }
 
     this.xLevel = data.x;
     this.yLevel = data.y;
 
-    if (typeof this.xLevel[0] === 'number') {
-      this.minX = Math.min(...this.xLevel);
-      this.maxX = Math.max(...this.xLevel);
+    // Filter out non-number values before using Math.min and Math.max
+    const numericXLevel = this.xLevel.filter(
+      (value): value is number => typeof value === 'number'
+    );
+    const numericYLevel = this.yLevel.filter(
+      (value): value is number => typeof value === 'number'
+    );
+
+    if (numericXLevel.length > 0) {
+      this.minX = Math.min(...numericXLevel);
+      this.maxX = Math.max(...numericXLevel);
     }
-    if (typeof this.yLevel[0] === 'number') {
-      this.minY = Math.min(...this.yLevel);
-      this.maxY = Math.max(...this.yLevel);
+    if (numericYLevel.length > 0) {
+      this.minY = Math.min(...numericYLevel);
+      this.maxY = Math.max(...numericYLevel);
     }
+
+    // if (typeof this.xLevel[0] === 'number') {
+    //   this.minX = Math.min(...this.xLevel);
+    //   this.maxX = Math.max(...this.xLevel);
+    // }
+    // if (typeof this.yLevel[0] === 'number') {
+    //   this.minY = Math.min(...this.yLevel);
+    //   this.maxY = Math.max(...this.yLevel);
+    // }
   }
 
   x(): number | string {

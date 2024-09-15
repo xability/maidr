@@ -1,14 +1,6 @@
-import hotkeys from "hotkeys-js";
-import {
-  Command,
-  MoveDownCommand,
-  MoveLeftCommand,
-  MoveRightCommand,
-  MoveUpCommand, ToggleBrailleCommand,
-  ToggleSoundCommand,
-  ToggleTextCommand
-} from "./command";
-import Action from "./Action";
+import hotkeys from 'hotkeys-js';
+import Command from './command';
+import Action from './Action';
 
 enum Keymap {
   // Navigation
@@ -18,7 +10,7 @@ enum Keymap {
   MOVE_LEFT = 'left',
 
   // BTS
-  TOGGLE_BRAILLE = "b",
+  TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_SOUND = 's',
 }
@@ -38,30 +30,30 @@ export default class KeyBinding {
     const bindings = new Map<string, Command>();
 
     for (const key of Object.values(Keymap)) {
-      const command = this.createCommand(key);
-      this.bindings.set(key, command);
+      const action = this.getAction(key);
+      bindings.set(key, new Command(action));
     }
 
     return bindings;
   }
 
-  private createCommand(key: string): Command {
+  private getAction(key: string): () => void {
     switch (key) {
       case Keymap.MOVE_UP:
-        return new MoveUpCommand(this.action);
+        return () => this.action.moveUp();
       case Keymap.MOVE_DOWN:
-        return new MoveDownCommand(this.action);
+        return () => this.action.moveDown();
       case Keymap.MOVE_RIGHT:
-        return new MoveRightCommand(this.action);
+        return () => this.action.moveRight();
       case Keymap.MOVE_LEFT:
-        return new MoveLeftCommand(this.action);
+        return () => this.action.moveLeft();
 
       case Keymap.TOGGLE_BRAILLE:
-        return new ToggleBrailleCommand(this.action);
+        return () => this.action.toggleBraille();
       case Keymap.TOGGLE_TEXT:
-        return new ToggleTextCommand(this.action);
+        return () => this.action.toggleText();
       case Keymap.TOGGLE_SOUND:
-        return new ToggleSoundCommand(this.action);
+        return () => this.action.toggleSound();
 
       default:
         throw new Error(`Unsupported key: ${key}`);
@@ -72,7 +64,7 @@ export default class KeyBinding {
     for (const [key, command] of this.bindings.entries()) {
       hotkeys(key, (event: KeyboardEvent): void => {
         event.preventDefault();
-        command.execute(event);
+        command.execute();
       });
     }
   }

@@ -1,26 +1,42 @@
-import { Maidr } from "./core/maidr";
-import { initialize } from "esbuild";
-import Audio from "./engine/audio";
-import Display from "./engine/display";
-import Control from "./engine/control";
+import {Maidr} from './core/maidr';
+import Control from './engine/control';
 
 export enum EventType {
+  BLUR = 'blur',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
 }
 
-document.addEventListener(EventType.DOM_LOADED, main);
+document.addEventListener(EventType.DOM_LOADED, test);
+
+function test(): void {
+  if (!window.maidr) {
+    return;
+  }
+
+  const maidrId = window.maidr.id;
+  const maidrContainer = document.getElementById(maidrId);
+  maidrContainer?.setAttribute('tabindex', '0');
+  maidrContainer?.addEventListener(EventType.FOCUS, event =>
+    onTestFocus(event)
+  );
+}
+
+function onTestFocus(event: FocusEvent): void {
+  const maidrContainer = event.currentTarget as HTMLElement;
+  init(maidrContainer, window.maidr);
+}
 
 function main(): void {
-  const plotContainers = document.querySelectorAll<HTMLElement>('div[maidr-container]');
+  const plotContainers = Array.from(
+    document.querySelectorAll<HTMLElement>('svg[maidr-container]')
+  );
   for (const container of plotContainers) {
     // Make the container focusable.
     container.setAttribute('tabindex', '0');
 
     // Handle the MAIDR lifecycle only on focus.
-    container.addEventListener(EventType.FOCUS, onFigureFocus);
-
-    // TODO: Handle `blur` event to destroy the created objects.
+    container.addEventListener(EventType.FOCUS, event => onFigureFocus(event));
   }
 }
 
@@ -41,7 +57,6 @@ function onFigureFocus(event: FocusEvent) {
 }
 
 function init(container: HTMLElement, maidr: Maidr) {
-  const audio = new Audio();
-  const display = new Display();
-  const control = new Control();
+  const control = new Control(maidr);
+  container.addEventListener(EventType.BLUR, () => control.destroy());
 }
