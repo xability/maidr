@@ -1,4 +1,4 @@
-type EventType = "click" | "keydown" | "blur" | "keyup";
+type EventType = "click" | "keydown" | "blur" | "keyup" | "change" | "input";
 
 export class Constants {
   chartContainerId = "chart-container";
@@ -21,6 +21,7 @@ export class Constants {
 
   containerId = "container";
   projectId = "maidr";
+  announcement_container_id = 'announcements';
 
   chartId = "";
   chart: HTMLElement | null = null;

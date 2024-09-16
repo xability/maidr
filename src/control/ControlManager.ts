@@ -78,7 +78,6 @@ export abstract class ControlManager {
     }
 
     handleSonificationMode(): void {     
-        console.log('s key pressed');   
         this.display!.toggleSonificationMode();
         this.display?.announceText(this.constants.sonifMode === 'on' ? 'Sonification on' : 'Sonification off');
     }

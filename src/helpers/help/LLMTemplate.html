@@ -1,0 +1,39 @@
+<div id="chatLLM" class="modal hidden" role="dialog" tabindex="-1">
+    <div class="modal-dialog" role="document" tabindex="0">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="chatLLM_title" class="modal-title">Ask a Question</h2>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="chatLLM_chat_history_wrapper">
+                <div id="chatLLM_chat_history" aria-live="${constants.ariaMode}" aria-relevant="additions">
+                </div>
+                <p id="chatLLM_copy_all_wrapper"><button id="chatLLM_copy_all">Copy all to clipboard</button></p>
+                </div>
+                <div id="chatLLM_content">
+                  <p><input type="text" id="chatLLM_input" class="form-control" name="chatLLM_input" aria-labelledby="chatLLM_title" size="50"></p>
+                  <div class="LLM_suggestions">
+                    <p><button type="button">What is the title?</button></p>
+                    <p><button type="button">What are the high and low values?</button></p>
+                    <p><button type="button">What is the general shape of the chart?</button></p>
+                  </div>
+                  <div id="more_suggestions_container" class="LLM_suggestions">
+                    <p><button type="button">Please provide the title of this visualization, then provide a description for someone who is blind or low vision. Include general overview of axes and the data at a high-level.</button></p>
+                    <p><button type="button">For the visualization I shared, please provide the following (where applicable): mean, standard deviation, extreme, correlations, relational comparisons like greater than OR lesser than.</button></p>
+                    <p><button type="button">Based on the visualization shared, address the following: Do you observe any unforeseen trends? If yes, what?  Please convey any complex multi-faceted patterns present. Can you identify any noteworthy exceptions that aren't readily apparent through non-visual methods of analysis?</button></p>
+                    <p><button type="button">Provide context to help explain the data depicted in this visualization based on domain-specific insight.</button></p>
+                  </div>
+                  <p><button type="button" id="chatLLM_submit">Submit</button></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" id="reset_chatLLM">Reset</button>
+              <button type="button" id="close_chatLLM">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="chatLLM_modal_backdrop" class="modal-backdrop hidden"></div>
