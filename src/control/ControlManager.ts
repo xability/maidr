@@ -1,11 +1,11 @@
+import { AudioManager } from "../audio/AudioManager";
 import { Constants } from "../constants";
 import { DisplayManager } from "../display/DisplayManager";
 import { ChartType } from "../helpers/ChartType";
 import { ReactivePosition } from "../helpers/ReactivePosition";
-import { BarAudio } from "../plots/bar/BarAudio";
 
 export abstract class ControlManager {
-    audio: BarAudio | null = null;
+    audio: AudioManager | null = null;
     position: ReactivePosition;
     display: DisplayManager | null = null;
     constants: Constants;
@@ -26,7 +26,6 @@ export abstract class ControlManager {
             this.constants.brailleInput,
             this.constants.review_container
           ];
-        this.audio = new BarAudio(this.plotData, this.position);
         this.SetControls();
     }
 
@@ -98,7 +97,7 @@ export abstract class ControlManager {
           this.display!.displayValues();
         }
         if (this.constants.sonifMode !== 'off') {
-          this.audio!.playTone(null);
+          this.audio?.playTone(null);
         }
     }
     

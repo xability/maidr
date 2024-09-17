@@ -84,11 +84,9 @@ export class BarControl extends ControlManager {
     if (isCommandKey) {
       if (isShiftKey) {
         this.position.setX(this.position.x - direction)
-        // this.position.x -= direction;
         this.autoplay(key === 'ArrowRight' ? 'right' : 'left', this.position.x, direction > 0 ? this.plot.plotData.length : -1);
       } else {
         this.position.setX(endPosition)
-        // this.position.x = endPosition;
         updateInfo = true;
         isAtEnd = this.lockPosition();
       }
@@ -98,7 +96,6 @@ export class BarControl extends ControlManager {
     } else {
       console.log('position.x | else', this.position.x);
       this.position.setX(this.position.x + direction)
-      // this.position.x += direction;
       updateInfo = true;
       isAtEnd = this.lockPosition();
     }
@@ -131,11 +128,11 @@ export class BarControl extends ControlManager {
 
   handleSelectionChange(e: Event): void {
     if (this.constants.brailleMode === 'on') {
-      let pos = this.constants.brailleInput!.selectionStart ?? 0;
+      let pos = this.constants.brailleInput?.selectionStart ?? 0;
       if (pos < 0) {
         pos = 0;
       }
-      this.position.x = pos;
+      this.position.setX(pos);
       this.lockPosition();
       this.updateAll();
     }
