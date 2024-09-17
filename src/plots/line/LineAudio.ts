@@ -18,7 +18,12 @@ export class LineAudio extends AudioManager {
         this.position.z = z;
       }
   playTone(params: any): void {
-    const rawFreq = this.plot.plotData[this.position.x];
+    let currentDuration = this.constants.duration;
+    let volume = this.constants.vol;
+    if (params?.volScale) {
+      volume *= params.volScale;
+    }
+    const rawFreq = this.plot.pointValuesY[this.position.x];
     const rawPanning = this.position.x;
    
     const frequency = slideBetween(
@@ -35,5 +40,6 @@ export class LineAudio extends AudioManager {
       -1,
       1
     );
+    this.playOscillator(frequency, currentDuration, panning, volume, "sine");
   }
 }

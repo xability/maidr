@@ -140,12 +140,13 @@ export class LineControl extends ControlManager {
     isShiftKey: boolean,
     isAltKey: boolean
   ): void {
-    console.log("handleArrowKey");
+    const direction = key === 'ArrowRight' ? 1 : -1;
+
     let updateInfoThisRound = false;
     let isAtEnd = false;
     if (isCommandKey) {
       if (isShiftKey) {
-        this.position.setX(this.position.x - 1);
+        this.position.setX(this.position.x - direction);
         this.autoplay("right", this.position.x, this.plot.pointValuesY.length);
       } else {
         this.position.setX(this.plot.pointValuesY.length - 1); // go all the way
@@ -164,9 +165,15 @@ export class LineControl extends ControlManager {
         this.position.x
       );
     } else {
-      this.position.setX(this.position.x + 1);
+      this.position.setX(this.position.x + direction);
       updateInfoThisRound = true;
       isAtEnd = this.lockPosition();
+    }
+    if (updateInfoThisRound && !isAtEnd) {
+      this.updateAll();
+    }
+    if (isAtEnd) {
+      this.audio.playEnd();
     }
   }
 

@@ -20,25 +20,27 @@ export class LineDisplay extends DisplayManager {
   }
 
   displayValues(): void {
-    // line layer
-    if (plot.plotLegend) {
-        verboseText += plot.plotLegend.x + ' is ';
+    let verboseText = '';
+    let terseText = '';
+    if (this.plot.plotLegend) {
+        verboseText += this.plot.plotLegend.x + ' is ';
       }
-      verboseText += plot.pointValuesX[position.x] + ', ';
-      if (plot.plotLegend) {
-        plot.plotLegend.y + ' is ';
+      verboseText += this.plot.pointValuesX[this.position.x] + ', ';
+      if (this.plot.plotLegend) {
+        this.plot.plotLegend.y + ' is ';
       }
-      verboseText += plot.pointValuesY[position.x];
+      verboseText += this.plot.pointValuesY[this.position.x];
 
       // terse
       terseText +=
         '<p>' +
-        plot.pointValuesX[position.x] +
+        this.plot.pointValuesX[this.position.x] +
         ', ' +
-        plot.pointValuesY[position.x] +
+        this.plot.pointValuesY[this.position.x] +
         '</p>\n';
 
       verboseText = '<p>' + verboseText + '</p>\n';
+      this.displayValuesCommon("", verboseText, terseText);
   }
   setBraille(...args: any[]): void {
     throw new Error("Method not implemented.");

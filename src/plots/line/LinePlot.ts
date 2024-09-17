@@ -89,16 +89,14 @@ export class LinePlot extends Plot {
     let svgLineCoords: [string[], string[]] = [[], []];
 
     if (this.plotLine) {
-      // lineplot SVG containing path element instead of polyline
       if (this.plotLine instanceof SVGPathElement) {
-        // Assuming the path data is in the format "M x y L x y L x y L x y"
         const pathD = this.plotLine.getAttribute("d") ?? "";
         const regex = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
         let match;
         while ((match = regex.exec(pathD)) !== null) {
-          svgLineCoords[0].push(match[1]); // x coordinate
-          svgLineCoords[1].push(match[3]); // y coordinate
+          svgLineCoords[0].push(match[1]); 
+          svgLineCoords[1].push(match[3]); 
         }
       } else {
         let points = this.plotLine.getAttribute("points").split(" ");
@@ -127,7 +125,7 @@ export class LinePlot extends Plot {
       }
       return [x_points, y_points];
     }
-
+    console.log(svgLineCoords);
     return svgLineCoords;
   }
 
@@ -156,6 +154,8 @@ export class LinePlot extends Plot {
       (min: number, item: { y: number; }) => (item.y < min ? item.y : min),
       this.maidr.data[0].y
     );
+
+    
     this.maxY = this.maidr.data.reduce(
       (max: number, item: { y: number; }) => (item.y > max ? item.y : max),
       this.maidr.data[0].y
