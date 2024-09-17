@@ -11,13 +11,15 @@ export interface Maidr {
   data: BarData | LineData;
 }
 
-export type BarData = {
-  x: number[] | string[];
-  y: number[];
-} | {
-  x: number[];
-  y: number[] | string[];
-};
+export type BarData =
+  | {
+      x: number[] | string[];
+      y: number[];
+    }
+  | {
+      x: number[];
+      y: number[] | string[];
+    };
 
 export type LineData = [
   {

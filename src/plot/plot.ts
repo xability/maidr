@@ -1,9 +1,16 @@
-import {BarData, LineData, Maidr} from './maidr';
-import Coordinate from './coordinate';
+import {PlotState} from './state';
+import {Maidr} from './grammar';
+import BarPlot from './bar';
+import LinePlot from './line';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
+
+export enum PlotType {
+  BAR = 'bar',
+  LINE = 'line',
+}
 
 export enum Orientation {
   VERTICAL = 'vert',
@@ -11,30 +18,31 @@ export enum Orientation {
 }
 
 export interface Plot {
+  get id(): string;
+  get type(): string;
   get title(): string;
-  get xAxis(): string;
-  get yAxis(): string;
-  get orientation(): Orientation;
-  get coordinate(): Coordinate;
+
+  state(): PlotState;
 
   moveUp(): void;
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
-
-  autoplayForward(): void;
-  autoplayBackward(): void;
 }
 
 export abstract class AbstractPlot implements Plot {
+  public readonly id: string;
+  public readonly type: string;
   public readonly title: string;
-  public readonly xAxis: string;
-  public readonly yAxis: string;
 
-  public readonly orientation: Orientation;
-  public readonly coordinate: Coordinate;
+  protected readonly xAxis: string;
+  protected readonly yAxis: string;
+
+  protected readonly orientation: Orientation;
 
   protected constructor(maidr: Maidr) {
+    this.id = maidr.id;
+    this.type = maidr.type;
     this.title = maidr.title ?? DEFAULT_TILE;
 
     this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
@@ -44,21 +52,33 @@ export abstract class AbstractPlot implements Plot {
       maidr.orientation === Orientation.HORIZONTAL
         ? Orientation.HORIZONTAL
         : Orientation.VERTICAL;
-
-    this.coordinate = this.initCoordinate(maidr.data);
   }
 
-  protected abstract initCoordinate(data: BarData | LineData): Coordinate;
+  public abstract state(): PlotState;
 
-  public moveDown(): void {}
+  public abstract moveLeft(): void;
+  public abstract moveRight(): void;
 
-  public moveLeft(): void {}
+  // TODO: Implement 2D in bar plot to lock position and play null.
+  public moveUp(): void {
+    throw new Error(`Move up not supported for ${this.type}`);
+  }
+  public moveDown(): void {
+    throw new Error(`Move down not supported for ${this.type}`);
+  }
+}
 
-  public moveRight(): void {}
+export abstract class PlotFactory {
+  public static create(maidr: Maidr): Plot {
+    switch (maidr.type) {
+      case PlotType.BAR:
+        return new BarPlot(maidr);
 
-  public moveUp(): void {}
+      case PlotType.LINE:
+        return new LinePlot(maidr);
 
-  public autoplayBackward(): void {}
-
-  public autoplayForward(): void {}
+      default:
+        throw new Error(`Invalid plot type: ${maidr.type}`);
+    }
+  }
 }

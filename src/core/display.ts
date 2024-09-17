@@ -1,5 +1,6 @@
 import Constant from '../util/constant';
-import Notification from './notification';
+import NotificationManager from './notification';
+import {DisplayState} from '../plot/state';
 
 enum DisplayMode {
   OFF = 'off',
@@ -7,15 +8,15 @@ enum DisplayMode {
   VERBOSE = 'verbose',
 }
 
-export default class Display {
+export default class DisplayManager {
   private mode: DisplayMode;
-  private readonly notification!: Notification;
+  private readonly notification!: NotificationManager;
 
   private readonly chart?: HTMLElement;
   private readonly chartDiv?: HTMLElement;
   private readonly infoDiv?: HTMLElement;
 
-  constructor(notification: Notification, maidrId: string) {
+  constructor(maidrId: string, notification: NotificationManager) {
     const chart = document.getElementById(maidrId);
     if (!chart) {
       console.error('Chart container not found');
@@ -71,29 +72,61 @@ export default class Display {
     return infoDiv;
   }
 
-  public showInfo(type: string, text: string): void {
+  public show(state: string | DisplayState): void {
     // Show text only if turned on.
     if (this.mode === DisplayMode.OFF) {
       return;
     }
-    if (!type) {
-      throw new Error(`Info type is required. Got ${type}`);
-    }
 
     // Format the text based on the display mode.
-    let info: string;
-    if (!text) {
-      info = `No ${type} to display`;
+    let text;
+    if (!state) {
+      text = 'No info to display';
+    } else if (typeof state === 'string') {
+      text = state;
     } else if (this.mode === DisplayMode.VERBOSE) {
-      info = `${type} is ${text}`;
+      // TODO: Format for segmented and boxplot.
+      const verbose = [];
+      // Format main-axis values.
+      verbose.push(state.mainLabel, Constant.IS);
+
+      // Format for histogram.
+      if (state.min && state.max) {
+        verbose.push(state.min, Constant.THROUGH, state.max);
+      } else {
+        verbose.push(state.mainValue);
+      }
+
+      // Format cross-axis values.
+      verbose.push(Constant.COMMA, Constant.SPACE);
+      verbose.push(state.crossLabel, Constant.IS, state.crossValue);
+
+      // Format for heatmap.
+      if (state.fillValue) {
+        verbose.push(
+          Constant.SPACE,
+          state.fillLabel,
+          Constant.IS,
+          state.fillValue
+        );
+      }
+
+      text = verbose.join(Constant.EMPTY);
     } else {
-      info = text;
+      // TODO: Format for segmented and boxplot.
+      const terse = [
+        state.mainValue,
+        Constant.COMMA,
+        Constant.SPACE,
+        state.crossValue,
+      ];
+      text = terse.join(Constant.EMPTY);
     }
 
     // Display the text.
-    if (info && this.infoDiv) {
+    if (text && this.infoDiv) {
       const paragraph = document.createElement(Constant.P);
-      paragraph.innerHTML = info;
+      paragraph.innerHTML = text;
 
       this.infoDiv.innerHTML = Constant.EMPTY;
       this.infoDiv.append(paragraph);

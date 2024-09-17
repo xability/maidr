@@ -1,6 +1,6 @@
 import Constant from '../util/constant';
 
-export default class Notification {
+export default class NotificationManager {
   public readonly notificationDiv!: HTMLElement;
 
   constructor() {
