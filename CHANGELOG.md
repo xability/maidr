@@ -1,3 +1,11 @@
+## [2.15.1](https://github.com/xability/maidr/compare/v2.15.0...v2.15.1) (2024-09-18)
+
+
+### Bug Fixes
+
+* autoplay on line plots ([#551](https://github.com/xability/maidr/issues/551)) ([7b6ac3e](https://github.com/xability/maidr/commit/7b6ac3e657fcf02d3749c91399ff2a0de021086f))
+* autoplay on scatter and line plots ([#552](https://github.com/xability/maidr/issues/552)) ([49de1e3](https://github.com/xability/maidr/commit/49de1e35c9261e611997757426103991e828d59f))
+
 # [2.15.0](https://github.com/xability/maidr/compare/v2.14.8...v2.15.0) (2024-09-14)
 
 
