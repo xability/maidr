@@ -37,6 +37,7 @@ export default class BarDisplay extends DisplayManager {
 
     if (xlevel && data && elements) {
       if (elements.length !== data.length) {
+        console.log("elements", elements, "data", data);
         window.constants.hasRect = 0;
         window.logError.LogDifferentLengths("elements", "data");
       } else if (xlevel.length !== elements.length) {

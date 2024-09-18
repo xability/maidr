@@ -50,27 +50,42 @@ function initMaidr(maidr: Maidr) {
 
     createChartComponents(maidr);
 
-    // window.display = new Display();
-    var chartType = convertToChartType(maidr.type);
-    window.plot = PlotFactory.createPlot(chartType, maidr);
-    // window.display = DisplayFactory.createDisplay(chartType);
-    // window.control = new Control();
-    // window.audio = AudioFactory.createAudio(chartType);
+    const maidrObjects = [];
 
-    const controlElements = [
-      window.constants.chart,
-      window.constants.brailleInput,
-    ];
-    for (const controlElement of controlElements) {
-      if (controlElement)
-        window.constants.events.push([controlElement, "blur", onMaidrDestroy]);
+    if ("panels" in maidr) {
+      const panels = maidr.panels as any[]; // Create proper type for this
+      for (const panel of panels) {
+        const layers = panel.layers as any[]; // Create proper type for this
+        for (const layer of layers) {
+          const chartType = convertToChartType(layer.type);
+          const plot = PlotFactory.createPlot(chartType, layer);
+          maidrObjects.push(plot);
+        }
+      }
+      console.log(maidrObjects)
+    } else {
+      var chartType = convertToChartType(maidr.type);
+      window.plot = PlotFactory.createPlot(chartType, maidr);
     }
+      const controlElements = [
+        window.constants.chart,
+        window.constants.brailleInput,
+      ];
+      for (const controlElement of controlElements) {
+        if (controlElement)
+          window.constants.events.push([
+            controlElement,
+            "blur",
+            onMaidrDestroy,
+          ]);
+      }
 
-    setEvents();
+      setEvents();
 
-    if ("title" in maidr) {
-      window.display?.announceText(maidr.title);
-    }
+      if ("title" in maidr) {
+        window.display?.announceText(maidr.title);
+      }
+    
   }
 }
 
@@ -184,18 +199,21 @@ function setEvents() {
 }
 
 function createChartComponents(maidr: Maidr) {
-  const chart = document.getElementById(maidr.id)!;
+  const chart = document.getElementById(maidr.id);
   const mainContainer = document.createElement("div");
   const chartContainer = document.createElement("div");
   const constants = window.constants;
 
   mainContainer.id = window.constants.mainContainerId;
   chartContainer.id = window.constants.chartContainerId;
-  chart.parentNode!.replaceChild(mainContainer, chart);
-  mainContainer.appendChild(chart);
-  chart.parentNode!.replaceChild(chartContainer, chart);
-  chartContainer.appendChild(chart);
-  chart.focus();
+  console.log("CHART: ", chart)
+  if(chart){
+    chart.parentNode?.replaceChild(mainContainer, chart);
+    mainContainer.appendChild(chart);
+    chart.parentNode?.replaceChild(chartContainer, chart);
+    chartContainer.appendChild(chart);
+    chart.focus();
+  }
 
   window.constants.chart = chart;
   window.constants.chartContainer = chartContainer;

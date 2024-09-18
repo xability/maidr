@@ -169,7 +169,21 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+dist/audio
+dist/control
+dist/display
+dist/helpers
+dist/plot
+dist/plots
+dist/audio.d.ts
+dist/control.d.ts
+dist/display.d.ts
+dist/init.d.ts
+dist/maidr.d.ts
+dist/controls.d.ts
+dist/barplot.d.ts
+dist/constants.d.ts
+dist/bundle.js.map
 
 # Gatsby files
 .cache/
