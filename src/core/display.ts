@@ -46,9 +46,9 @@ export default class Display {
     chartDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
     // Replace the chart with the container and re-focus the chart.
-    if (this.chart) {
+    if (this.chart && this.chart.parentNode) {
+      this.chart.parentNode.replaceChild(chartDiv, this.chart);
       chartDiv.appendChild(this.chart);
-      this.chart.parentNode?.replaceChild(chartDiv, this.chart);
     }
 
     const br = document.createElement(Constant.BR);
