@@ -15,9 +15,7 @@ export default class Braille {
     this.data = this.transform(coordinate);
   }
 
-  public destroy(): void {
-
-  }
+  public destroy(): void {}
 
   private transform(coordinate: Coordinate): string[] {
     return [];

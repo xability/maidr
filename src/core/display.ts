@@ -40,21 +40,27 @@ export default class Display {
   }
 
   private createChartContainer(): HTMLElement {
-    // Create a container for the chart.
+    // Create a main container for the chart.
+    const mainDiv = document.createElement(Constant.DIV);
+    mainDiv.id = Constant.MAIN_CONTAINER_ID;
+    mainDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
+
+    // Create a chart container for the SVG.
     const chartDiv = document.createElement(Constant.DIV);
     chartDiv.id = Constant.CHART_CONTAINER_ID;
     chartDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
     // Replace the chart with the container and re-focus the chart.
     if (this.chart && this.chart.parentNode) {
-      this.chart.parentNode.replaceChild(chartDiv, this.chart);
+      this.chart.parentNode.replaceChild(mainDiv, this.chart);
+      mainDiv.appendChild(chartDiv);
       chartDiv.appendChild(this.chart);
     }
 
     const br = document.createElement(Constant.BR);
-    chartDiv.insertAdjacentElement(Constant.AFTER_END, br);
+    mainDiv.insertAdjacentElement(Constant.AFTER_END, br);
 
-    return chartDiv;
+    return mainDiv;
   }
 
   private createInfoContainer(): HTMLElement {
