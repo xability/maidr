@@ -1,3 +1,10 @@
+# [2.16.0](https://github.com/xability/maidr/compare/v2.15.1...v2.16.0) (2024-09-19)
+
+
+### Features
+
+* support cursor within Review mode ([#553](https://github.com/xability/maidr/issues/553)) ([64f362d](https://github.com/xability/maidr/commit/64f362d150390afcf757fa72967a7e0d395c8301))
+
 ## [2.15.1](https://github.com/xability/maidr/compare/v2.15.0...v2.15.1) (2024-09-18)
 
 
