@@ -1,27 +1,22 @@
-import Coordinate from '../plot/coordinate';
-import Notification from './notification';
+import NotificationManager from './notification';
+import {BrailleState} from '../plot/state';
 
-export default class Braille {
+export default class BrailleManager {
   private enabled: boolean;
-  private readonly notification: Notification;
+  private readonly notification: NotificationManager;
 
-  private data;
-  private readonly coordinate: Coordinate;
-
-  constructor(notification: Notification, coordinate: Coordinate) {
+  constructor(notification: NotificationManager) {
     this.enabled = false;
     this.notification = notification;
-    this.coordinate = coordinate;
-    this.data = this.transform(coordinate);
   }
 
   public destroy(): void {}
-
+  
   private transform(coordinate: Coordinate): string[] {
     return [];
   }
 
-  public show(): void {
+  public show(state: BrailleState): void {
     if (!this.enabled) {
       return;
     }

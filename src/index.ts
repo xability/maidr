@@ -1,5 +1,5 @@
-import Control from './core/control';
-import {Maidr} from './plot/maidr';
+import Controller from './core/controller';
+import {Maidr} from './plot/grammar';
 
 export enum EventType {
   BLUR = 'blur',
@@ -57,6 +57,6 @@ function onFigureFocus(event: FocusEvent) {
 }
 
 function init(container: HTMLElement, maidr: Maidr) {
-  const control = new Control(maidr);
+  const control = new Controller(maidr);
   container.addEventListener(EventType.BLUR, () => control.destroy());
 }

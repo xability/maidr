@@ -1,4 +1,4 @@
-import {Maidr} from './plot/maidr';
+import {Maidr} from './plot/grammar';
 
 declare global {
   interface Window {

@@ -1,52 +1,78 @@
 import {AbstractPlot, Orientation} from './plot';
-import {BarData, Maidr} from './maidr';
-import Coordinate from './coordinate';
+import {PlotState} from './state';
+import {BarData, Maidr} from './grammar';
 
-export default class BarPlot extends AbstractPlot {
-  constructor(maidr: Maidr) {
-    super(maidr);
-  }
+export default class BarCoordinate extends AbstractPlot {
+  private readonly x: number[] | string[];
+  private readonly y: number[] | string[];
 
-  protected initCoordinate(data: BarData): Coordinate {
-    return new BarCoordinate(data, this.orientation);
-  }
-}
-
-class BarCoordinate implements Coordinate {
-  private readonly main: number[];
-  private readonly cross: number[] | string[];
-
+  private readonly size: number;
   private readonly min: number;
   private readonly max: number;
 
-  public index: number;
+  private index: number;
 
-  constructor(data: BarData, orientation: Orientation) {
+  constructor(maidr: Maidr) {
+    super(maidr);
+
+    const data = maidr.data as BarData;
     if (data.x.length !== data.y.length) {
       throw new Error(
         `len(x): ${data.x.length} and len(y): ${data.y.length} do not match`
       );
     }
 
-    this.index = 0;
+    this.index = -1;
 
-    if (orientation === Orientation.VERTICAL) {
-      this.main = data.x as number[];
-      this.cross = data.y;
+    this.x = data.x;
+    this.y = data.y;
+
+    let values;
+    if (this.orientation === Orientation.VERTICAL) {
+      values = this.y.filter(e => typeof e === 'number');
     } else {
-      this.main = data.y as number[];
-      this.cross = data.x;
+      values = this.x.filter(e => typeof e === 'number');
     }
 
-    this.min = Math.min(...this.main);
-    this.max = Math.min(...this.main);
+    this.min = Math.min(...values);
+    this.max = Math.max(...values);
+    this.size = values.length;
   }
 
-  x(): number | string {
-    return '';
+  public state(): PlotState {
+    const common = {
+      min: this.min,
+      max: this.max,
+      size: this.size,
+      index: this.index,
+    };
+
+    if (this.orientation === Orientation.VERTICAL) {
+      return {
+        ...common,
+        mainLabel: this.xAxis,
+        crossLabel: this.yAxis,
+        mainValue: this.y[this.index],
+        crossValue: this.x[this.index],
+        value: this.y[this.index],
+      };
+    } else {
+      return {
+        ...common,
+        mainLabel: this.yAxis,
+        crossLabel: this.xAxis,
+        mainValue: this.x[this.index],
+        crossValue: this.y[this.index],
+        value: this.x[this.index],
+      };
+    }
   }
 
-  y(): number | string {
-    return '';
+  public moveLeft(): void {
+    this.index -= this.index > 0 ? 1 : 0;
+  }
+
+  public moveRight(): void {
+    this.index += this.index < this.size - 2 ? 1 : 0;
   }
 }

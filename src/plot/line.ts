@@ -1,23 +1,17 @@
+import {Maidr} from './grammar';
 import {AbstractPlot} from './plot';
-import Coordinate from './coordinate';
-import {LineData, Maidr} from './maidr';
+import {PlotState} from './state';
 
 export default class LinePlot extends AbstractPlot {
-  constructor(maidr: Maidr) {
-    super(maidr);
+  constructor(_: Maidr) {
+    super(_);
   }
 
-  protected initCoordinate(data: LineData): Coordinate {
-    return new LineCoordinate();
-  }
-}
+  moveLeft(): void {}
 
-class LineCoordinate implements Coordinate {
-  x(): number | string {
-    return '';
-  }
+  moveRight(): void {}
 
-  y(): number | string {
-    return '';
+  state(): PlotState {
+    return;
   }
 }
