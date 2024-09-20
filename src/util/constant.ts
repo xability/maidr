@@ -5,11 +5,10 @@ export default abstract class Constant {
   static readonly P = 'p';
 
   // HTML IDs.
-  static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
   static readonly CHART_CONTAINER_ID = 'maidr-chart-container';
   static readonly INFO_CONTAINER_ID = 'maidr-info-container';
+  static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
   static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
-
   // HTML attributes.
   static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';

@@ -11,7 +11,6 @@ export default class BrailleManager {
   }
 
   public destroy(): void {}
-  
   private transform(coordinate: Coordinate): string[] {
     return [];
   }
