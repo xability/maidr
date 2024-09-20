@@ -11,9 +11,9 @@ export default class BrailleManager {
   }
 
   public destroy(): void {}
-  private transform(coordinate: Coordinate): string[] {
-    return [];
-  }
+  // private transform(coordinate: Coordinate): string[] {
+  //   return [];
+  // }
 
   public show(state: BrailleState): void {
     if (!this.enabled) {

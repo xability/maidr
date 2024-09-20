@@ -5,7 +5,8 @@ import DisplayManager from './display';
 import KeyBinding from './keyboard/key_binding';
 import {Maidr} from '../plot/grammar';
 import NotificationManager from './notification';
-import {Plot, PlotFactory, PlotType} from '../plot/plot';
+import {Plot, PlotType} from '../plot/plot';
+import {PlotFactory} from '../plot/factory';
 
 export default class Controller implements Action {
   private readonly audio: AudioManager;

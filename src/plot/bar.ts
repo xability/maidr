@@ -2,7 +2,7 @@ import {AbstractPlot, Orientation} from './plot';
 import {PlotState} from './state';
 import {BarData, Maidr} from './grammar';
 
-export default class BarCoordinate extends AbstractPlot {
+export class BarPlot extends AbstractPlot {
   private readonly x: number[] | string[];
   private readonly y: number[] | string[];
 
@@ -54,7 +54,7 @@ export default class BarCoordinate extends AbstractPlot {
         crossLabel: this.yAxis,
         mainValue: this.y[this.index],
         crossValue: this.x[this.index],
-        value: this.y[this.index],
+        value: Number(this.y[this.index]),
       };
     } else {
       return {
@@ -63,7 +63,7 @@ export default class BarCoordinate extends AbstractPlot {
         crossLabel: this.xAxis,
         mainValue: this.x[this.index],
         crossValue: this.y[this.index],
-        value: this.x[this.index],
+        value: Number(this.x[this.index]),
       };
     }
   }
@@ -73,6 +73,6 @@ export default class BarCoordinate extends AbstractPlot {
   }
 
   public moveRight(): void {
-    this.index += this.index < this.size - 2 ? 1 : 0;
+    this.index += this.index < this.size - 1 ? 1 : 0;
   }
 }

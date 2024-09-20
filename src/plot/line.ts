@@ -2,7 +2,7 @@ import {Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {PlotState} from './state';
 
-export default class LinePlot extends AbstractPlot {
+export class LinePlot extends AbstractPlot {
   constructor(_: Maidr) {
     super(_);
   }
@@ -12,6 +12,16 @@ export default class LinePlot extends AbstractPlot {
   moveRight(): void {}
 
   state(): PlotState {
-    return;
+    return {
+      min: 0,
+      max: 0,
+      size: 0,
+      index: 0,
+      mainLabel: '',
+      crossLabel: '',
+      mainValue: 0,
+      crossValue: 0,
+      value: 0,
+    };
   }
 }

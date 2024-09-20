@@ -1,7 +1,5 @@
 import {PlotState} from './state';
 import {Maidr} from './grammar';
-import BarPlot from './bar';
-import LinePlot from './line';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
@@ -65,20 +63,5 @@ export abstract class AbstractPlot implements Plot {
   }
   public moveDown(): void {
     throw new Error(`Move down not supported for ${this.type}`);
-  }
-}
-
-export abstract class PlotFactory {
-  public static create(maidr: Maidr): Plot {
-    switch (maidr.type) {
-      case PlotType.BAR:
-        return new BarPlot(maidr);
-
-      case PlotType.LINE:
-        return new LinePlot(maidr);
-
-      default:
-        throw new Error(`Invalid plot type: ${maidr.type}`);
-    }
   }
 }
