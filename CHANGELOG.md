@@ -1,3 +1,11 @@
+## [2.16.1](https://github.com/xability/maidr/compare/v2.16.0...v2.16.1) (2024-09-21)
+
+
+### Bug Fixes
+
+* address an issue where label keybindings are not included in Help menu ([#563](https://github.com/xability/maidr/issues/563)) ([102733f](https://github.com/xability/maidr/commit/102733fbb45631442d38518ad65d53c86f0f512a))
+* enable aria live announcement of name or title on load ([#557](https://github.com/xability/maidr/issues/557)) ([6553aa8](https://github.com/xability/maidr/commit/6553aa87108080bd7595d8c570077a7aa093ede1))
+
 # [2.16.0](https://github.com/xability/maidr/compare/v2.15.1...v2.16.0) (2024-09-19)
 
 
