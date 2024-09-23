@@ -11,12 +11,17 @@ enum DisplayMode {
 export default class DisplayManager {
   private mode: DisplayMode;
   private readonly notification!: NotificationManager;
+  private readonly maidrTitle!: string;
 
   private readonly chart?: HTMLElement;
   private readonly chartDiv?: HTMLElement;
   private readonly infoDiv?: HTMLElement;
 
-  constructor(maidrId: string, notification: NotificationManager) {
+  constructor(
+    maidrId: string,
+    maidrTitle: string,
+    notification: NotificationManager
+  ) {
     const chart = document.getElementById(maidrId);
     if (!chart) {
       console.error('Chart container not found');
@@ -24,6 +29,7 @@ export default class DisplayManager {
       return;
     }
 
+    this.maidrTitle = maidrTitle;
     this.mode = DisplayMode.TERSE;
     this.notification = notification;
 
@@ -70,7 +76,11 @@ export default class DisplayManager {
     infoDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     infoDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
+    const chartlabel = document.createElement(Constant.P);
+    chartlabel.innerHTML = this.maidrTitle;
+
     this.chartDiv?.insertAdjacentElement(Constant.AFTER_END, infoDiv);
+    infoDiv.appendChild(chartlabel);
     infoDiv.insertAdjacentElement(
       Constant.AFTER_END,
       this.notification.notificationDiv
@@ -81,6 +91,10 @@ export default class DisplayManager {
   public show(state: string | DisplayState): void {
     // Show text only if turned on.
     if (this.mode === DisplayMode.OFF) {
+      const infoDiv = document.getElementById(Constant.INFO_CONTAINER_ID);
+      if (infoDiv) {
+        infoDiv.innerHTML = Constant.EMPTY;
+      }
       return;
     }
 
@@ -97,7 +111,7 @@ export default class DisplayManager {
       verbose.push(state.mainLabel, Constant.IS);
 
       // Format for histogram.
-      if (state.min && state.max) {
+      if (state.min && state.max && this.chart?.id === 'histogram') {
         verbose.push(state.min, Constant.THROUGH, state.max);
       } else {
         verbose.push(state.mainValue);
@@ -116,9 +130,8 @@ export default class DisplayManager {
           state.fillValue
         );
       }
-
-      text = verbose.join(Constant.EMPTY);
-    } else {
+      text = verbose.join(Constant.SPACE);
+    } else if (this.mode === DisplayMode.TERSE) {
       // TODO: Format for segmented and boxplot.
       const terse = [
         state.mainValue,

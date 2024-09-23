@@ -23,7 +23,11 @@ export default class Controller implements Action {
     this.plot = PlotFactory.create(maidr);
 
     this.audio = new AudioManager(this.notification);
-    this.display = new DisplayManager(maidr.id, this.notification);
+    this.display = new DisplayManager(
+      maidr.id,
+      maidr.title!,
+      this.notification
+    );
     this.braille = new BrailleManager(this.notification);
 
     this.keyBinding = new KeyBinding(this);
