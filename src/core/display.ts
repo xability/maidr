@@ -28,7 +28,6 @@ export default class DisplayManager {
       this.mode = DisplayMode.OFF;
       return;
     }
-
     this.maidrTitle = maidrTitle;
     this.mode = DisplayMode.TERSE;
     this.notification = notification;
