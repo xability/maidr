@@ -23,12 +23,13 @@ export default class Controller implements Action {
     this.plot = PlotFactory.create(maidr);
 
     this.audio = new AudioManager(this.notification);
+    this.braille = new BrailleManager(this.notification);
     this.display = new DisplayManager(
       maidr.id,
       maidr.title!,
-      this.notification
+      this.notification,
+      this.braille
     );
-    this.braille = new BrailleManager(this.notification);
 
     this.keyBinding = new KeyBinding(this);
     this.keyBinding.register();
@@ -38,6 +39,7 @@ export default class Controller implements Action {
     this.notification.destroy();
     this.audio.destroy();
     this.display.destroy();
+    this.braille.destroy();
     this.keyBinding.unregister();
   }
 
@@ -66,7 +68,7 @@ export default class Controller implements Action {
   }
 
   public toggleBraille(): void {
-    this.braille.toggle();
+    this.braille.toggle(this.plot.state());
   }
 
   public toggleSound(): void {

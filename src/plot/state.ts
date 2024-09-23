@@ -15,6 +15,7 @@ export type DisplayState = {
 export type BrailleState = {
   value: number;
   index: number;
+  brailleArray?: string[];
 };
 
 export type AudioState = {

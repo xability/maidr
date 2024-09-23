@@ -1,6 +1,7 @@
+import BrailleManager from './braille';
 import Constant from '../util/constant';
-import NotificationManager from './notification';
 import {DisplayState} from '../plot/state';
+import NotificationManager from './notification';
 
 enum DisplayMode {
   OFF = 'off',
@@ -16,11 +17,13 @@ export default class DisplayManager {
   private readonly chart?: HTMLElement;
   private readonly chartDiv?: HTMLElement;
   private readonly infoDiv?: HTMLElement;
+  private readonly brailleDiv?: HTMLElement;
 
   constructor(
     maidrId: string,
     maidrTitle: string,
-    notification: NotificationManager
+    notification: NotificationManager,
+    braille: BrailleManager
   ) {
     const chart = document.getElementById(maidrId);
     if (!chart) {
@@ -33,6 +36,7 @@ export default class DisplayManager {
     this.notification = notification;
 
     this.chart = chart;
+    this.brailleDiv = braille?.brailleDiv;
     this.chartDiv = this.createChartContainer();
     this.infoDiv = this.createInfoContainer();
   }
@@ -65,6 +69,10 @@ export default class DisplayManager {
 
     const br = document.createElement(Constant.BR);
     mainDiv.insertAdjacentElement(Constant.AFTER_END, br);
+
+    if (this.brailleDiv) {
+      mainDiv?.insertAdjacentElement(Constant.BEFORE_BEGIN, this.brailleDiv);
+    }
 
     return mainDiv;
   }
