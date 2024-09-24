@@ -26,7 +26,6 @@ export default class Controller implements Action {
     this.braille = new BrailleManager(this.notification);
     this.display = new DisplayManager(
       maidr.id,
-      maidr.title!,
       this.notification,
       this.braille
     );

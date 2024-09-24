@@ -25,9 +25,6 @@ function test(): void {
 }
 
 function onTestFocus(event: FocusEvent): void {
-  if (document.getElementById(Constant.MAIN_CONTAINER_ID)) {
-    return;
-  }
   const maidrContainer = event.currentTarget as HTMLElement;
   init(maidrContainer, window.maidr);
 }
@@ -63,12 +60,5 @@ function onFigureFocus(event: FocusEvent) {
 
 function init(container: HTMLElement, maidr: Maidr) {
   const control = new Controller(maidr);
-  document.addEventListener(EventType.CLICK, (event: MouseEvent) => {
-    const element = (event.target as Element).closest(
-      Constant.MAIN_CONTAINER_ID
-    );
-    if (!element) {
-      control.destroy();
-    }
-  });
+  container.addEventListener(EventType.BLUR, () => control.destroy());
 }

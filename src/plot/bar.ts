@@ -45,6 +45,7 @@ export class BarPlot extends AbstractPlot {
       max: this.max,
       size: this.size,
       index: this.index,
+      title: this.title,
     };
 
     if (this.orientation === Orientation.VERTICAL) {

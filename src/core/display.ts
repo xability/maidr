@@ -12,40 +12,37 @@ enum DisplayMode {
 export default class DisplayManager {
   private mode: DisplayMode;
   private readonly notification!: NotificationManager;
-  private readonly maidrTitle!: string;
 
   private readonly chart?: HTMLElement;
-  private readonly chartDiv?: HTMLElement;
+  private readonly mainDiv?: HTMLElement;
   private readonly infoDiv?: HTMLElement;
   private readonly brailleDiv?: HTMLElement;
 
   constructor(
     maidrId: string,
-    maidrTitle: string,
     notification: NotificationManager,
     braille: BrailleManager
   ) {
     const chart = document.getElementById(maidrId);
-    if (!chart) {
+    if (!chart || !chart.parentNode) {
       console.error('Chart container not found');
       this.mode = DisplayMode.OFF;
       return;
     }
-    this.maidrTitle = maidrTitle;
     this.mode = DisplayMode.TERSE;
     this.notification = notification;
 
     this.chart = chart;
     this.brailleDiv = braille?.brailleDiv;
-    this.chartDiv = this.createChartContainer();
+    this.mainDiv = this.createChartContainer();
     this.infoDiv = this.createInfoContainer();
   }
 
   public destroy(): void {
     if (this.chart) {
-      this.chartDiv?.parentNode?.replaceChild(this.chart, this.chartDiv);
+      this.mainDiv?.parentNode?.replaceChild(this.chart, this.mainDiv);
     }
-    this.chartDiv?.remove();
+    this.mainDiv?.remove();
     this.infoDiv?.remove();
   }
 
@@ -83,11 +80,7 @@ export default class DisplayManager {
     infoDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     infoDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    const chartlabel = document.createElement(Constant.P);
-    chartlabel.innerHTML = this.maidrTitle;
-
-    this.chartDiv?.insertAdjacentElement(Constant.AFTER_END, infoDiv);
-    infoDiv.appendChild(chartlabel);
+    this.mainDiv?.insertAdjacentElement(Constant.AFTER_END, infoDiv);
     infoDiv.insertAdjacentElement(
       Constant.AFTER_END,
       this.notification.notificationDiv
