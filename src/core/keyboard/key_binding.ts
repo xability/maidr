@@ -16,6 +16,8 @@ enum Keymap {
 
   // Plot Actions
   REPEAT_POINT = 'space',
+  SHOW_X_LABEL = 'l+x',
+  SHOW_Y_LABEL = 'l+y',
 }
 
 export default class KeyBinding {
@@ -58,6 +60,10 @@ export default class KeyBinding {
 
       case Keymap.REPEAT_POINT:
         return () => this.action.repeatPoint();
+      case Keymap.SHOW_X_LABEL:
+        return () => this.action.showXLabel();
+      case Keymap.SHOW_Y_LABEL:
+        return () => this.action.showYLabel();
 
       default:
         throw new Error(`Unsupported key: ${key}`);

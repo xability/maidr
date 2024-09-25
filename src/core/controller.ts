@@ -81,6 +81,15 @@ export default class Controller implements Action {
   public repeatPoint(): void {
     this.show();
   }
+
+  public showXLabel(): void {
+    this.display.showXLabel(this.plot.state());
+  }
+
+  public showYLabel(): void {
+    this.display.showYLabel(this.plot.state());
+  }
+
   private show(): void {
     this.display.show(this.plot.state());
     this.audio.play(this.plot.state());

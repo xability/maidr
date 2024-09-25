@@ -152,6 +152,36 @@ export default class DisplayManager {
     }
   }
 
+  public showXLabel(state: string | DisplayState): void {
+    if (this.mode === DisplayMode.OFF) {
+      return;
+    }
+    const infoDiv = document.getElementById(Constant.INFO_CONTAINER_ID);
+    if (infoDiv) {
+      const paragraph = document.createElement(Constant.P);
+      if (state && typeof state !== 'string') {
+        paragraph.innerHTML = `X-label is ${state.mainLabel}`;
+        infoDiv.innerHTML = Constant.EMPTY;
+        infoDiv.append(paragraph);
+      }
+    }
+  }
+
+  public showYLabel(state: string | DisplayState): void {
+    if (this.mode === DisplayMode.OFF) {
+      return;
+    }
+    const infoDiv = document.getElementById(Constant.INFO_CONTAINER_ID);
+    if (infoDiv) {
+      const paragraph = document.createElement(Constant.P);
+      if (state && typeof state !== 'string') {
+        paragraph.innerHTML = `Y-label is ${state.crossLabel}`;
+        infoDiv.innerHTML = Constant.EMPTY;
+        infoDiv.append(paragraph);
+      }
+    }
+  }
+
   public toggle(): void {
     switch (this.mode) {
       case DisplayMode.OFF:

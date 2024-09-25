@@ -9,4 +9,7 @@ export default interface Action {
   toggleText(): void;
 
   repeatPoint(): void;
+
+  showXLabel(): void;
+  showYLabel(): void;
 }
