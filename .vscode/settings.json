@@ -1,4 +1,21 @@
 {
+  // Exclude all files and folders from search by default
+  "search.exclude": {
+    "dist/**": true,
+    "docs/**": true,
+    "examples/**": true,
+    "galleries/**": true,
+    "ManualTestingProcess.md": true,
+    "README.md": true,
+"user_study_2": true,
+"user_study_pilot": true
+  },
+
+  // Include only the src/ folder and its subfolders in the search
+  "search.include": [
+    "src/**"
+  ],
+
   "window.title": "${activeRepositoryBranchName} ${dirty}${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}${appName}",
   "editor.stickyScroll.enabled": true,
   "editor.stickyScroll.defaultModel": "foldingProviderModel",
