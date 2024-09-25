@@ -11,6 +11,8 @@ export class LinePlot extends AbstractPlot {
 
   moveRight(): void {}
 
+  repeatPoint(): void {}
+
   state(): PlotState {
     return {
       min: 0,

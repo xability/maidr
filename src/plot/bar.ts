@@ -45,7 +45,6 @@ export class BarPlot extends AbstractPlot {
       max: this.max,
       size: this.size,
       index: this.index,
-      title: this.title,
     };
 
     if (this.orientation === Orientation.VERTICAL) {
@@ -99,4 +98,6 @@ export class BarPlot extends AbstractPlot {
   public moveRight(): void {
     this.index += this.index < this.size - 1 ? 1 : 0;
   }
+
+  public repeatPoint(): void {}
 }

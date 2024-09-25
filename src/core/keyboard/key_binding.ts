@@ -13,6 +13,9 @@ enum Keymap {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_SOUND = 's',
+
+  // Plot Actions
+  REPEAT_POINT = 'space',
 }
 
 export default class KeyBinding {
@@ -52,6 +55,9 @@ export default class KeyBinding {
         return () => this.action.toggleText();
       case Keymap.TOGGLE_SOUND:
         return () => this.action.toggleSound();
+
+      case Keymap.REPEAT_POINT:
+        return () => this.action.repeatPoint();
 
       default:
         throw new Error(`Unsupported key: ${key}`);

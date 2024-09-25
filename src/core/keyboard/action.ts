@@ -7,4 +7,6 @@ export default interface Action {
   toggleSound(): void;
   toggleBraille(): void;
   toggleText(): void;
+
+  repeatPoint(): void;
 }

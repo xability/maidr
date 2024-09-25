@@ -78,6 +78,9 @@ export default class Controller implements Action {
     this.display.toggle();
   }
 
+  public repeatPoint(): void {
+    this.show();
+  }
   private show(): void {
     this.display.show(this.plot.state());
     this.audio.play(this.plot.state());

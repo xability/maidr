@@ -26,6 +26,8 @@ export interface Plot {
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
+
+  repeatPoint(): void;
 }
 
 export abstract class AbstractPlot implements Plot {
@@ -64,4 +66,6 @@ export abstract class AbstractPlot implements Plot {
   public moveDown(): void {
     throw new Error(`Move down not supported for ${this.type}`);
   }
+
+  public abstract repeatPoint(): void;
 }
