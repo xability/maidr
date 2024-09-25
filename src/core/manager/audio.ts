@@ -1,5 +1,5 @@
 import NotificationManager from './notification';
-import {AudioState} from '../plot/state';
+import {AudioState} from '../../plot/state';
 
 type Range = {
   min: number;
@@ -27,7 +27,10 @@ export default class AudioManager {
   }
 
   public destroy(): void {
-    this.audioContext.close().then(() => this.compressor.disconnect());
+    if (this.audioContext.state !== 'closed') {
+      this.compressor.disconnect();
+      this.audioContext.close().finally();
+    }
   }
 
   private initCompressor(): DynamicsCompressorNode {

@@ -1,4 +1,4 @@
-import {PlotState} from './state';
+import {AudioState, BrailleState, TextState} from './state';
 import {Maidr} from './grammar';
 
 const DEFAULT_TILE = 'MAIDR Plot';
@@ -19,15 +19,17 @@ export interface Plot {
   get id(): string;
   get type(): string;
   get title(): string;
+  get xAxis(): string;
+  get yAxis(): string;
 
-  state(): PlotState;
+  audio(): AudioState;
+  braille(): BrailleState;
+  text(): TextState;
 
   moveUp(): void;
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
-
-  repeatPoint(): void;
 }
 
 export abstract class AbstractPlot implements Plot {
@@ -35,8 +37,8 @@ export abstract class AbstractPlot implements Plot {
   public readonly type: string;
   public readonly title: string;
 
-  protected readonly xAxis: string;
-  protected readonly yAxis: string;
+  public readonly xAxis: string;
+  public readonly yAxis: string;
 
   protected readonly orientation: Orientation;
 
@@ -54,7 +56,9 @@ export abstract class AbstractPlot implements Plot {
         : Orientation.VERTICAL;
   }
 
-  public abstract state(): PlotState;
+  public abstract audio(): AudioState;
+  public abstract braille(): BrailleState;
+  public abstract text(): TextState;
 
   public abstract moveLeft(): void;
   public abstract moveRight(): void;
@@ -66,6 +70,4 @@ export abstract class AbstractPlot implements Plot {
   public moveDown(): void {
     throw new Error(`Move down not supported for ${this.type}`);
   }
-
-  public abstract repeatPoint(): void;
 }
