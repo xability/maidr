@@ -1,7 +1,5 @@
-import {PlotState} from './state';
+import {AudioState, BrailleState, TextState} from './state';
 import {Maidr} from './grammar';
-import BarPlot from './bar';
-import LinePlot from './line';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
@@ -21,8 +19,12 @@ export interface Plot {
   get id(): string;
   get type(): string;
   get title(): string;
+  get xAxis(): string;
+  get yAxis(): string;
 
-  state(): PlotState;
+  audio(): AudioState;
+  braille(): BrailleState;
+  text(): TextState;
 
   moveUp(): void;
   moveRight(): void;
@@ -35,8 +37,8 @@ export abstract class AbstractPlot implements Plot {
   public readonly type: string;
   public readonly title: string;
 
-  protected readonly xAxis: string;
-  protected readonly yAxis: string;
+  public readonly xAxis: string;
+  public readonly yAxis: string;
 
   protected readonly orientation: Orientation;
 
@@ -54,7 +56,9 @@ export abstract class AbstractPlot implements Plot {
         : Orientation.VERTICAL;
   }
 
-  public abstract state(): PlotState;
+  public abstract audio(): AudioState;
+  public abstract braille(): BrailleState;
+  public abstract text(): TextState;
 
   public abstract moveLeft(): void;
   public abstract moveRight(): void;
@@ -65,20 +69,5 @@ export abstract class AbstractPlot implements Plot {
   }
   public moveDown(): void {
     throw new Error(`Move down not supported for ${this.type}`);
-  }
-}
-
-export abstract class PlotFactory {
-  public static create(maidr: Maidr): Plot {
-    switch (maidr.type) {
-      case PlotType.BAR:
-        return new BarPlot(maidr);
-
-      case PlotType.LINE:
-        return new LinePlot(maidr);
-
-      default:
-        throw new Error(`Invalid plot type: ${maidr.type}`);
-    }
   }
 }

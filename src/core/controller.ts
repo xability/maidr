@@ -1,80 +1,51 @@
-import Action from './keyboard/action';
-import AudioManager from './audio';
-import BrailleManager from './braille';
-import DisplayManager from './display';
-import KeyBinding from './keyboard/key_binding';
+import AudioManager from './manager/audio';
+import BrailleManager from './manager/braille';
+import DisplayManager from './manager/display';
+import KeyBinding from './key_binding';
 import {Maidr} from '../plot/grammar';
-import NotificationManager from './notification';
-import {Plot, PlotFactory, PlotType} from '../plot/plot';
+import NotificationManager from './manager/notification';
+import {Plot} from '../plot/plot';
+import {PlotFactory} from '../plot/factory';
+import TextManager from './manager/text';
 
-export default class Controller implements Action {
+export default class Controller {
   private readonly audio: AudioManager;
-  private readonly display: DisplayManager;
   private readonly braille: BrailleManager;
+  private readonly text: TextManager;
 
+  private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
   private readonly keyBinding: KeyBinding;
 
   private readonly plot: Plot;
 
   constructor(maidr: Maidr) {
-    this.notification = new NotificationManager();
+    this.display = new DisplayManager(maidr.id);
     this.plot = PlotFactory.create(maidr);
 
+    this.notification = new NotificationManager(this.display.notificationDiv);
     this.audio = new AudioManager(this.notification);
-    this.display = new DisplayManager(maidr.id, this.notification);
-    this.braille = new BrailleManager(this.notification);
+    this.braille = new BrailleManager(
+      this.notification,
+      this.plot.braille(),
+      this.display.brailleDiv,
+      this.display.brailleInput
+    );
+    this.text = new TextManager(this.notification, this.display.textDiv);
 
-    this.keyBinding = new KeyBinding(this);
+    const commandContext = {
+      audio: this.audio,
+      text: this.text,
+      braille: this.braille,
+      plot: this.plot,
+    };
+    this.keyBinding = new KeyBinding(commandContext);
     this.keyBinding.register();
   }
 
   public destroy(): void {
-    this.notification.destroy();
+    this.keyBinding.unregister();
     this.audio.destroy();
     this.display.destroy();
-    this.keyBinding.unregister();
-  }
-
-  public moveUp(): void {
-    if (this.plot.type !== PlotType.BAR) {
-      this.plot.moveUp();
-      this.show();
-    }
-  }
-
-  public moveDown(): void {
-    if (this.plot.type !== PlotType.BAR) {
-      this.plot.moveDown();
-      this.show();
-    }
-  }
-
-  public moveLeft(): void {
-    this.plot.moveLeft();
-    this.show();
-  }
-
-  public moveRight(): void {
-    this.plot.moveRight();
-    this.show();
-  }
-
-  public toggleBraille(): void {
-    this.braille.toggle();
-  }
-
-  public toggleSound(): void {
-    this.audio.toggle();
-  }
-
-  public toggleText(): void {
-    this.display.toggle();
-  }
-
-  private show(): void {
-    this.display.show(this.plot.state());
-    this.audio.play(this.plot.state());
-    this.braille.show(this.plot.state());
   }
 }

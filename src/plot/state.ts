@@ -1,6 +1,4 @@
-export type PlotState = DisplayState & AudioState;
-
-export type DisplayState = {
+export type TextState = {
   mainLabel: string;
   mainValue: number | string;
   crossLabel: string;
@@ -13,14 +11,16 @@ export type DisplayState = {
 };
 
 export type BrailleState = {
-  value: number;
   index: number;
+  braille: string[];
 };
 
 export type AudioState = {
   min: number;
   max: number;
   size: number;
+  value: number;
+  index: number;
   count?: number;
   volume?: number;
-} & BrailleState;
+};

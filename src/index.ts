@@ -58,5 +58,7 @@ function onFigureFocus(event: FocusEvent) {
 
 function init(container: HTMLElement, maidr: Maidr) {
   const control = new Controller(maidr);
-  container.addEventListener(EventType.BLUR, () => control.destroy());
+  container.addEventListener(EventType.BLUR, () => control.destroy(), {
+    once: true,
+  });
 }

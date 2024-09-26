@@ -1,16 +1,17 @@
 import {AbstractPlot, Orientation} from './plot';
-import {PlotState} from './state';
+import {AudioState, BrailleState, TextState} from './state';
 import {BarData, Maidr} from './grammar';
 
-export default class BarCoordinate extends AbstractPlot {
+export class BarPlot extends AbstractPlot {
   private readonly x: number[] | string[];
   private readonly y: number[] | string[];
 
-  private readonly size: number;
   private readonly min: number;
   private readonly max: number;
 
   private index: number;
+  private readonly values: number[];
+  private readonly brailleValues: string[];
 
   constructor(maidr: Maidr) {
     super(maidr);
@@ -27,45 +28,74 @@ export default class BarCoordinate extends AbstractPlot {
     this.x = data.x;
     this.y = data.y;
 
-    let values;
     if (this.orientation === Orientation.VERTICAL) {
-      values = this.y.filter(e => typeof e === 'number');
+      this.values = this.y.filter(e => typeof e === 'number');
     } else {
-      values = this.x.filter(e => typeof e === 'number');
+      this.values = this.x.filter(e => typeof e === 'number');
     }
 
-    this.min = Math.min(...values);
-    this.max = Math.max(...values);
-    this.size = values.length;
+    this.min = Math.min(...this.values);
+    this.max = Math.max(...this.values);
+
+    this.brailleValues = this.toBraille(this.values);
   }
 
-  public state(): PlotState {
-    const common = {
+  public audio(): AudioState {
+    return {
       min: this.min,
       max: this.max,
-      size: this.size,
+      size: this.values.length,
+      index: this.index,
+      value: this.values[this.index],
+    };
+  }
+
+  public braille(): BrailleState {
+    return {
+      braille: this.brailleValues,
       index: this.index,
     };
+  }
 
+  public text(): TextState {
     if (this.orientation === Orientation.VERTICAL) {
       return {
-        ...common,
         mainLabel: this.xAxis,
-        crossLabel: this.yAxis,
         mainValue: this.y[this.index],
+        crossLabel: this.yAxis,
         crossValue: this.x[this.index],
-        value: this.y[this.index],
       };
     } else {
       return {
-        ...common,
         mainLabel: this.yAxis,
-        crossLabel: this.xAxis,
         mainValue: this.x[this.index],
+        crossLabel: this.xAxis,
         crossValue: this.y[this.index],
-        value: this.x[this.index],
       };
     }
+  }
+
+  private toBraille(data: number[]): string[] {
+    const braille = [];
+
+    const range = (this.max - this.min) / 4;
+    const low = this.min + range;
+    const medium = low + range;
+    const high = medium + range;
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] <= low) {
+        braille.push('⣀');
+      } else if (data[i] <= medium) {
+        braille.push('⠤');
+      } else if (data[i] <= high) {
+        braille.push('⠒');
+      } else {
+        braille.push('⠉');
+      }
+    }
+
+    return braille;
   }
 
   public moveLeft(): void {
@@ -73,6 +103,6 @@ export default class BarCoordinate extends AbstractPlot {
   }
 
   public moveRight(): void {
-    this.index += this.index < this.size - 2 ? 1 : 0;
+    this.index += this.index < this.values.length - 1 ? 1 : 0;
   }
 }
