@@ -11,7 +11,7 @@ export default class DisplayManager {
   public readonly notificationDiv?: HTMLElement;
 
   public readonly brailleDiv?: HTMLElement;
-  public readonly brailleInput?: HTMLElement;
+  public readonly brailleInput?: HTMLInputElement;
 
   constructor(maidrId: string) {
     const chart = document.getElementById(maidrId);
@@ -110,9 +110,10 @@ export default class DisplayManager {
     return brailleDiv;
   }
 
-  private createBrailleInput(): HTMLElement {
-    const brailleInput = document.createElement(Constant.DIV);
+  private createBrailleInput(): HTMLInputElement {
+    const brailleInput = document.createElement(Constant.INPUT);
     brailleInput.id = Constant.BRAILLE_INPUT_ID;
+    brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
     brailleInput.ariaBrailleRoleDescription = Constant.EMPTY;
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
 

@@ -1,6 +1,5 @@
 export default abstract class Constant {
   // HTML elements.
-  static readonly A = 'a';
   static readonly BR = 'br';
   static readonly DIV = 'div';
   static readonly INPUT = 'input';
@@ -9,7 +8,7 @@ export default abstract class Constant {
   // HTML IDs.
   static readonly BRAILLE_CONTAINER_ID = 'maidr-braille-container';
   static readonly BRAILLE_INPUT_ID = 'maidr-braille-input';
-  static readonly BRAILLE_POINT_ID = 'maidr-braille-point';
+  static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly CHART_CONTAINER_ID = 'maidr-chart-container';
   static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
   static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
@@ -21,9 +20,7 @@ export default abstract class Constant {
   // HTML attributes.
   static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';
-  static readonly BACKGROUND_COLOR = 'background-color';
   static readonly ROLE = 'role';
-  static readonly STYLE = 'style';
 
   // HTML positions.
   static readonly AFTER_BEGIN = 'afterbegin';
@@ -34,7 +31,6 @@ export default abstract class Constant {
   // Attribute values.
   static readonly APPLICATION = 'application';
   static readonly ASSERTIVE = 'assertive';
-  static readonly COLON = ': ';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
@@ -45,7 +41,4 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
-
-  // Background Color values.
-  static readonly BRAILLE_POINT_BACKGROUND_COLOR = '#efefef';
 }

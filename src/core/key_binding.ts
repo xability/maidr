@@ -2,6 +2,7 @@ import hotkeys from 'hotkeys-js';
 import AudioManager from './manager/audio';
 import BrailleManager from './manager/braille';
 import {Command, CommandContext} from './command/command';
+import Constant from '../util/constant';
 import {
   DescribePointCommand,
   DescribeXCommand,
@@ -119,6 +120,18 @@ export default class KeyBinding {
   }
 
   public register(): void {
+    hotkeys.filter = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      // Allow keybindings only for MAIDR braille input.
+      if (target.isContentEditable) {
+        return target.id === Constant.BRAILLE_INPUT_ID;
+      }
+
+      // Allow keybindings for all other non-editable elements.
+      return true;
+    };
+
+    // Register all bindings.
     for (const [key, command] of this.bindings.entries()) {
       hotkeys(key, (event: KeyboardEvent): void => {
         event.preventDefault();

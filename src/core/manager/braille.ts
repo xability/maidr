@@ -7,13 +7,13 @@ export default class BrailleManager {
   private readonly notification: NotificationManager;
 
   private readonly brailleDiv?: HTMLElement;
-  private readonly brailleInput?: HTMLElement;
+  private readonly brailleInput?: HTMLInputElement;
 
   constructor(
     notification: NotificationManager,
     state: BrailleState,
     brailleDiv?: HTMLElement,
-    brailleInput?: HTMLElement
+    brailleInput?: HTMLInputElement
   ) {
     this.enabled = false;
     this.notification = notification;
@@ -25,12 +25,12 @@ export default class BrailleManager {
     this.brailleDiv = brailleDiv;
     this.brailleInput = brailleInput;
 
-    this.initBraille(state);
+    this.setBraille(state);
   }
 
-  private initBraille(state: BrailleState): void {
-    const anchorElements = this.getAnchorElements(state.braille);
-    this.brailleInput!.append(...anchorElements);
+  private setBraille(state: BrailleState): void {
+    this.brailleInput!.value = state.braille.join(Constant.EMPTY);
+    this.brailleInput!.setSelectionRange(state.index, state.index);
   }
 
   public show(state: BrailleState): void {
@@ -38,39 +38,22 @@ export default class BrailleManager {
       return;
     }
 
-    this.brailleInput!.innerHTML = Constant.EMPTY;
-
-    const anchorElements = this.getAnchorElements(state.braille);
-    this.brailleInput!.append(...anchorElements);
-
-    const currentElement = document.getElementById(
-      Constant.BRAILLE_POINT_ID + '-' + state.index
-    );
-    currentElement!.setAttribute(
-      Constant.STYLE,
-      [
-        Constant.BACKGROUND_COLOR,
-        Constant.COLON,
-        Constant.BRAILLE_POINT_BACKGROUND_COLOR,
-      ].join(Constant.EMPTY)
-    );
-  }
-
-  private getAnchorElements(brailleArray: string[]): HTMLElement[] {
-    return brailleArray.map((char, i) => {
-      const brailleA = document.createElement(Constant.A);
-      brailleA.id = `${Constant.BRAILLE_POINT_ID}-${i}`;
-      brailleA.textContent = char;
-      return brailleA;
-    });
+    this.setBraille(state);
+    // Scroll to the current caret position.
+    // Focus will be lost when disabled.
+    this.brailleInput!.focus();
   }
 
   public toggle(): void {
     this.enabled = !this.enabled;
 
     if (this.enabled) {
+      // Show the Braille input and focus on it when enabled.
       this.brailleDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleInput?.focus();
     } else {
+      // Remove the focus and then hide the Braille input.
+      this.brailleInput?.blur();
       this.brailleDiv?.classList.add(Constant.HIDDEN);
     }
 
