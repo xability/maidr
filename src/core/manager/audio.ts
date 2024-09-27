@@ -52,7 +52,7 @@ export default class AudioManager {
 
   public play(state: AudioState): void {
     // Play audio only if turned on.
-    if (!this.enabled) {
+    if (!this.enabled || state.index === -1 || state.index === state.size) {
       return;
     }
 

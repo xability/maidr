@@ -13,6 +13,9 @@ export class BarPlot extends AbstractPlot {
   private readonly values: number[];
   private readonly brailleValues: string[];
 
+  private leftmostBar = false;
+  private rightmostBar = false;
+
   constructor(maidr: Maidr) {
     super(maidr);
 
@@ -99,10 +102,16 @@ export class BarPlot extends AbstractPlot {
   }
 
   public moveLeft(): void {
-    this.index -= this.index > 0 ? 1 : 0;
+    this.index = Math.max(-1, this.index - 1);
+    if (this.index === -1) {
+      this.leftmostBar = true;
+    }
   }
 
   public moveRight(): void {
-    this.index += this.index < this.values.length - 1 ? 1 : 0;
+    this.index = Math.min(this.values.length, this.index + 1);
+    if (this.index === this.values.length) {
+      this.rightmostBar = true;
+    }
   }
 }
