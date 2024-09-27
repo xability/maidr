@@ -1,16 +1,12 @@
 {
+  "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
-    "target": "es6", // Compile to ES5, which is broadly compatible with older browsers
-    "lib": ["es2021", "dom"],
-    "sourceMap": true,
-    "declaration": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": ".",
+    "outDir": "build",
+    "lib": ["es2021", "dom"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
