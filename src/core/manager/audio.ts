@@ -1,5 +1,5 @@
 import NotificationManager from './notification';
-import {AudioState} from '../../plot/state';
+import {PlotState} from '../../plot/plot';
 
 type Range = {
   min: number;
@@ -50,21 +50,29 @@ export default class AudioManager {
     return compressor;
   }
 
-  public play(state: AudioState): void {
+  public play(state: PlotState): void {
     // Play audio only if turned on.
-    if (!this.enabled || state.index === -1 || state.index === state.size) {
+    console.log(state.audio);
+    console.log(state.empty);
+    if (!this.enabled || !state.empty) {
+      console.log('Audio is off or plot is unitialized');
       return;
     }
 
     // TODO: Handle point, segmented, and boxplot.
-    const fromFreq = {min: state.min, max: state.max};
+    const audioState = state.audio;
+    const fromFreq = {min: audioState.min, max: audioState.max};
     const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
-    const frequency = this.interpolate(state.value, fromFreq, toFreq);
+    const frequency = this.interpolate(audioState.value, fromFreq, toFreq);
+    // Handling boundary conditions
+    if (isNaN(frequency)) {
+      return;
+    }
 
-    const fromPanning = {min: 0, max: state.size};
+    const fromPanning = {min: 0, max: audioState.size};
     const toPanning = {min: -1, max: 1};
-    const panning = this.interpolate(state.index, fromPanning, toPanning);
-
+    const panning = this.interpolate(audioState.index, fromPanning, toPanning);
+    console.log(frequency, panning);
     const volume = this.volume;
     const duration = 0.3;
 
