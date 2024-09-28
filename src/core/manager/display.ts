@@ -1,10 +1,10 @@
 import Constant from '../../util/constant';
 
 export default class DisplayManager {
-  private readonly chart?: HTMLElement;
+  private readonly plot?: HTMLElement;
 
   private readonly mainDiv?: HTMLElement;
-  private readonly chartDiv?: HTMLElement;
+  private readonly plotDiv?: HTMLElement;
   private readonly br?: HTMLElement;
 
   public readonly textDiv?: HTMLElement;
@@ -14,15 +14,15 @@ export default class DisplayManager {
   public readonly brailleInput?: HTMLInputElement;
 
   constructor(maidrId: string) {
-    const chart = document.getElementById(maidrId);
-    if (!chart || !chart.parentNode) {
-      console.error('Chart container not found');
+    const plot = document.getElementById(maidrId);
+    if (!plot || !plot.parentNode) {
+      console.error('Plot container not found');
       return;
     }
 
-    this.chart = chart;
+    this.plot = plot;
 
-    this.chartDiv = this.createChartContainer();
+    this.plotDiv = this.createPlotContainer();
     this.mainDiv = this.createMainContainer();
     this.br = this.createBreakElement();
 
@@ -34,13 +34,13 @@ export default class DisplayManager {
   }
 
   public destroy(): void {
-    if (this.chart && this.chartDiv) {
-      this.mainDiv?.parentNode?.replaceChild(this.chartDiv, this.mainDiv);
-      this.chartDiv?.parentNode?.replaceChild(this.chart, this.chartDiv);
+    if (this.plot && this.plotDiv) {
+      this.mainDiv?.parentNode?.replaceChild(this.plotDiv, this.mainDiv);
+      this.plotDiv?.parentNode?.replaceChild(this.plot, this.plotDiv);
     }
     this.mainDiv?.remove();
     this.br?.remove();
-    this.chartDiv?.remove();
+    this.plotDiv?.remove();
 
     this.textDiv?.remove();
     this.notificationDiv?.remove();
@@ -50,33 +50,33 @@ export default class DisplayManager {
   }
 
   private createMainContainer(): HTMLElement {
-    // Create a main container for the chart.
+    // Create a main container for the plot.
     const mainDiv = document.createElement(Constant.DIV);
     mainDiv.id = Constant.MAIN_CONTAINER_ID;
     mainDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
-    // Replace the chart container with the main container.
-    this.chartDiv!.parentNode!.replaceChild(mainDiv, this.chartDiv!);
-    mainDiv.appendChild(this.chartDiv!);
+    // Replace the plot container with the main container.
+    this.plotDiv!.parentNode!.replaceChild(mainDiv, this.plotDiv!);
+    mainDiv.appendChild(this.plotDiv!);
 
     return mainDiv;
   }
 
-  private createChartContainer(): HTMLElement {
-    // Create a chart container for the SVG.
-    const chartDiv = document.createElement(Constant.DIV);
-    chartDiv.id = Constant.CHART_CONTAINER_ID;
-    chartDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
+  private createPlotContainer(): HTMLElement {
+    // Create a plot container for the SVG.
+    const plotDiv = document.createElement(Constant.DIV);
+    plotDiv.id = Constant.PLOT_CONTAINER_ID;
+    plotDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
-    // Replace the chart with the container.
-    this.chart!.parentNode!.replaceChild(chartDiv, this.chart!);
-    chartDiv.appendChild(this.chart!);
-    return chartDiv;
+    // Replace the plot with the container.
+    this.plot!.parentNode!.replaceChild(plotDiv, this.plot!);
+    plotDiv.appendChild(this.plot!);
+    return plotDiv;
   }
 
   private createBreakElement(): HTMLElement {
     const br = document.createElement(Constant.BR);
-    this.chartDiv!.insertAdjacentElement(Constant.AFTER_END, br);
+    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, br);
     return br;
   }
 
@@ -86,7 +86,7 @@ export default class DisplayManager {
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.chartDiv!.insertAdjacentElement(Constant.AFTER_END, textDiv);
+    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, textDiv);
     return textDiv;
   }
 
@@ -97,7 +97,7 @@ export default class DisplayManager {
     notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.chartDiv!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
+    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
     return notificationDiv;
   }
 
@@ -106,7 +106,7 @@ export default class DisplayManager {
     brailleDiv.id = Constant.BRAILLE_CONTAINER_ID;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    this.chartDiv!.insertAdjacentElement(Constant.BEFORE_BEGIN, brailleDiv);
+    this.plotDiv!.insertAdjacentElement(Constant.BEFORE_BEGIN, brailleDiv);
     return brailleDiv;
   }
 
