@@ -7,23 +7,43 @@ export interface Maidr {
   axes?: {
     x?: string;
     y?: string;
+    z?: string;
   };
-  data: BarData | LineData;
+  data: BarData | LineData | HistData | BoxData;
 }
 
 export type BarData =
   | {
-      x: number[] | string[];
-      y: number[];
-    }
+    x: string[];
+    y: number[];
+  }
   | {
-      x: number[];
-      y: number[] | string[];
-    };
+    x: number[];
+    y: string[];
+  };
 
 export type LineData = [
   {
-    x: number;
-    y: number;
+    x: Date[] | number[];
+    y: number[];
+  }
+];
+
+
+export type HistData = [
+  {
+    x: number[];
+    y: number[];
   },
 ];
+
+
+export type BoxData =
+  | {
+    x: string[];
+    y: number[];
+  }
+  | {
+    x: number[];
+    y: string[];
+  };
