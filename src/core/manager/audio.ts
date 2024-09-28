@@ -52,10 +52,7 @@ export default class AudioManager {
 
   public play(state: PlotState): void {
     // Play audio only if turned on.
-    console.log(state.audio);
-    console.log(state.empty);
     if (!this.enabled || !state.empty) {
-      console.log('Audio is off or plot is unitialized');
       return;
     }
 
@@ -72,7 +69,6 @@ export default class AudioManager {
     const fromPanning = {min: 0, max: audioState.size};
     const toPanning = {min: -1, max: 1};
     const panning = this.interpolate(audioState.index, fromPanning, toPanning);
-    console.log(frequency, panning);
     const volume = this.volume;
     const duration = 0.3;
 

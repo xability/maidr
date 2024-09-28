@@ -58,7 +58,6 @@ export class BarPlot extends AbstractPlot {
   }
 
   public empty(): EmptyState {
-    console.log(this.index, this.values.length);
     return {
       empty: this.index < 0 || this.index >= this.values.length,
     };
