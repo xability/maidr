@@ -23,6 +23,4 @@ export type AudioState = {
   index: number;
   count?: number;
   volume?: number;
-  leftmostBar?: boolean;
-  rightmostBar?: boolean;
 };
