@@ -18,8 +18,8 @@ export default abstract class Constant {
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
 
   // HTML attributes.
-  static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';
+  static readonly ARIA_LIVE = 'aria-live';
   static readonly ROLE = 'role';
   static readonly TABINDEX = 'tabindex';
 
@@ -32,16 +32,16 @@ export default abstract class Constant {
   // Attribute values.
   static readonly APPLICATION = 'application';
   static readonly ASSERTIVE = 'assertive';
-  static readonly POLITE = 'polite';
+  static readonly COMMA = ', ';
+  static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
+  static readonly POLITE = 'polite';
+  static readonly SPACE = ' ';
+  static readonly THROUGH = ' through ';
   static readonly TRUE = 'true';
   static readonly X = 'x';
   static readonly Y = 'y';
-  static readonly EMPTY = '';
-  static readonly SPACE = ' ';
-  static readonly COMMA = ', ';
-  static readonly THROUGH = ' through ';
   static readonly ZERO = '0';
 }
