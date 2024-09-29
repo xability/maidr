@@ -21,6 +21,7 @@ export default abstract class Constant {
   static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';
   static readonly ROLE = 'role';
+  static readonly TABINDEX = 'tabindex';
 
   // HTML positions.
   static readonly AFTER_BEGIN = 'afterbegin';
@@ -31,6 +32,7 @@ export default abstract class Constant {
   // Attribute values.
   static readonly APPLICATION = 'application';
   static readonly ASSERTIVE = 'assertive';
+  static readonly POLITE = 'polite';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
@@ -41,4 +43,5 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
+  static readonly ZERO = '0';
 }

@@ -53,7 +53,6 @@ export default class DisplayManager {
     // Create a main container for the chart.
     const mainDiv = document.createElement(Constant.DIV);
     mainDiv.id = Constant.MAIN_CONTAINER_ID;
-    mainDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
     // Replace the chart container with the main container.
     this.chartDiv!.parentNode!.replaceChild(mainDiv, this.chartDiv!);
@@ -67,6 +66,7 @@ export default class DisplayManager {
     const chartDiv = document.createElement(Constant.DIV);
     chartDiv.id = Constant.CHART_CONTAINER_ID;
     chartDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    chartDiv.setAttribute(Constant.TABINDEX, Constant.ZERO);
 
     // Replace the chart with the container.
     this.chart!.parentNode!.replaceChild(chartDiv, this.chart!);

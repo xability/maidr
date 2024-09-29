@@ -16,7 +16,6 @@ function test(): void {
 
   const maidrId = window.maidr.id;
   const maidrContainer = document.getElementById(maidrId);
-  maidrContainer?.setAttribute('tabindex', '0');
   maidrContainer?.addEventListener(EventType.FOCUS, event =>
     onTestFocus(event)
   );
@@ -32,8 +31,6 @@ function main(): void {
     document.querySelectorAll<HTMLElement>('svg[maidr-container]')
   );
   for (const container of plotContainers) {
-    // Make the container focusable.
-    container.setAttribute('tabindex', '0');
 
     // Handle the MAIDR lifecycle on focus.
     container.addEventListener(EventType.FOCUS, event => onFigureFocus(event));
