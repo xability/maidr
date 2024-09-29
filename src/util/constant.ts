@@ -9,9 +9,9 @@ export default abstract class Constant {
   static readonly BRAILLE_CONTAINER_ID = 'maidr-braille-container';
   static readonly BRAILLE_INPUT_ID = 'maidr-braille-input';
   static readonly BRAILLE_INPUT_LENGTH = 32;
-  static readonly PLOT_CONTAINER_ID = 'maidr-plot-container';
   static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
   static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
+  static readonly PLOT_CONTAINER_ID = 'maidr-plot-container';
   static readonly TEXT_CONTAINER_ID = 'maidr-info-container';
 
   // HTML Classes.
