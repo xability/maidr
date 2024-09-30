@@ -8551,6 +8551,7 @@ class Control {
               position.x += 1;
               updateInfoThisRound = true;
               isAtEnd = control.lockPosition();
+              let test = true;
             }
           } else if (e.key == 'ArrowLeft') {
             // var prevLink = document.getElementById('prev');   // what is prev in the html?
@@ -10017,7 +10018,7 @@ class Control {
           }
 
           // update display / text / audio
-          if (updateInfoThisRound) {
+          if (updateInfoThisRound && !isAtEnd) {
             if (constants.brailleMode == 'off') {
               control.UpdateAll();
             } else {
@@ -10370,7 +10371,6 @@ class Control {
       }
     } else {
       // lock to min / max postions
-      let didLockHappen = false;
       if (position.y < 0) {
         position.y = 0;
         didLockHappen = true;
