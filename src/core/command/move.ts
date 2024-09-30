@@ -25,8 +25,8 @@ abstract class MoveCommand implements Command {
 
   public execute(): void {
     this.move();
-    this.audio.play(this.plot.audio());
-    this.text.show(this.plot.text());
+    this.audio.play(this.plot.state);
+    this.text.show(this.plot.state);
     this.braille.show(this.plot.braille());
   }
 
