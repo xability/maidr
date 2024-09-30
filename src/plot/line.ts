@@ -12,10 +12,6 @@ export class LinePlot extends AbstractPlot {
     // TODO: Assign index and values according to grammar of lineplot
   }
 
-  moveLeft(): void {}
-
-  moveRight(): void {}
-
   audio(): AudioState {
     return {index: 0, max: 0, min: 0, size: 0, value: 0};
   }
@@ -32,4 +28,12 @@ export class LinePlot extends AbstractPlot {
   text(): TextState {
     return {crossLabel: '', crossValue: 0, mainLabel: '', mainValue: 0};
   }
+
+  protected down(): void {}
+
+  protected left(): void {}
+
+  protected right(): void {}
+
+  protected up(): void {}
 }

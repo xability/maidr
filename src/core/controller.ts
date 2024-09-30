@@ -41,9 +41,17 @@ export default class Controller {
     };
     this.keyBinding = new KeyBinding(commandContext);
     this.keyBinding.register();
+
+    this.plot.addObserver(this.audio);
+    this.plot.addObserver(this.braille);
+    this.plot.addObserver(this.text);
   }
 
   public destroy(): void {
+    this.plot.removeObserver(this.text);
+    this.plot.removeObserver(this.braille);
+    this.plot.removeObserver(this.audio);
+
     this.keyBinding.unregister();
     this.audio.destroy();
     this.display.destroy();

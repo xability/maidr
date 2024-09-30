@@ -1,8 +1,9 @@
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
+import {Observer} from '../observer';
 import {PlotState} from '../../plot/state';
 
-export default class BrailleManager {
+export default class BrailleManager implements Observer {
   private enabled: boolean;
   private readonly notification: NotificationManager;
 
@@ -40,7 +41,7 @@ export default class BrailleManager {
     }
   }
 
-  public show(state: PlotState): void {
+  public update(state: PlotState): void {
     if (!this.enabled || state.empty) {
       return;
     }

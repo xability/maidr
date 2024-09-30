@@ -1,5 +1,6 @@
 import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
+import {Observer, Subject} from '../core/observer';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
@@ -15,7 +16,7 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export interface Plot {
+export interface Plot extends Subject {
   id: string;
   type: string;
 
@@ -32,6 +33,8 @@ export interface Plot {
 }
 
 export abstract class AbstractPlot implements Plot {
+  private observers: Observer[];
+
   public readonly id: string;
   public readonly type: string;
   public readonly title: string;
@@ -42,6 +45,8 @@ export abstract class AbstractPlot implements Plot {
   protected readonly orientation: Orientation;
 
   protected constructor(maidr: Maidr) {
+    this.observers = [];
+
     this.id = maidr.id;
     this.type = maidr.type;
     this.title = maidr.title ?? DEFAULT_TILE;
@@ -55,6 +60,21 @@ export abstract class AbstractPlot implements Plot {
         : Orientation.VERTICAL;
   }
 
+  public addObserver(observer: Observer): void {
+    this.observers.push(observer);
+  }
+
+  public removeObserver(observer: Observer): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  public notifyObservers(): void {
+    const currentState = this.state;
+    for (const observer of this.observers) {
+      observer.update(currentState);
+    }
+  }
+
   public get state(): PlotState {
     return {
       empty: this.empty(),
@@ -64,19 +84,32 @@ export abstract class AbstractPlot implements Plot {
     };
   }
 
+  public moveUp(): void {
+    this.up();
+    this.notifyObservers();
+  }
+  public moveDown(): void {
+    this.down();
+    this.notifyObservers();
+  }
+
+  public moveLeft(): void {
+    this.left();
+    this.notifyObservers();
+  }
+
+  public moveRight(): void {
+    this.right();
+    this.notifyObservers();
+  }
+
   protected abstract empty(): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;
 
-  public abstract moveLeft(): void;
-  public abstract moveRight(): void;
-
-  // TODO: Implement 2D in bar plot to lock position and play null.
-  public moveUp(): void {
-    throw new Error(`Move up not supported for ${this.type}`);
-  }
-  public moveDown(): void {
-    throw new Error(`Move down not supported for ${this.type}`);
-  }
+  protected abstract up(): void;
+  protected abstract down(): void;
+  protected abstract left(): void;
+  protected abstract right(): void;
 }

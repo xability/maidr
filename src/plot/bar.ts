@@ -40,6 +40,10 @@ export class BarPlot extends AbstractPlot {
     this.brailleValues = this.toBraille(this.values);
   }
 
+  public empty(): boolean {
+    return this.index < 0 || this.index >= this.values.length;
+  }
+
   public audio(): AudioState {
     return {
       min: this.min,
@@ -57,10 +61,6 @@ export class BarPlot extends AbstractPlot {
     };
   }
 
-  public empty(): boolean {
-    return this.index < 0 || this.index >= this.values.length;
-  }
-
   public text(): TextState {
     if (this.orientation === Orientation.VERTICAL) {
       return {
@@ -76,6 +76,28 @@ export class BarPlot extends AbstractPlot {
         crossLabel: this.xAxis,
         crossValue: this.y[this.index],
       };
+    }
+  }
+
+  // TODO: Implement 2D in bar plot to lock position and play null.
+  protected up(): void {
+    throw new Error(`Move up not supported for ${this.type}`);
+  }
+
+  // TODO: Implement 2D in bar plot to lock position and play null.
+  protected down(): void {
+    throw new Error(`Move down not supported for ${this.type}`);
+  }
+
+  protected left(): void {
+    if (this.index > -1) {
+      this.index -= 1;
+    }
+  }
+
+  protected right(): void {
+    if (this.index < this.values.length) {
+      this.index += 1;
     }
   }
 
@@ -100,17 +122,5 @@ export class BarPlot extends AbstractPlot {
     }
 
     return braille;
-  }
-
-  public moveLeft(): void {
-    if (this.index > -1) {
-      this.index -= 1;
-    }
-  }
-
-  public moveRight(): void {
-    if (this.index < this.values.length) {
-      this.index += 1;
-    }
   }
 }

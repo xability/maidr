@@ -1,5 +1,6 @@
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
+import {Observer} from '../observer';
 import {PlotState} from '../../plot/state';
 
 enum TextMode {
@@ -8,7 +9,7 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export default class TextManager {
+export default class TextManager implements Observer {
   private mode: TextMode;
   private readonly notification: NotificationManager;
   private readonly textDiv!: HTMLElement;
@@ -24,7 +25,7 @@ export default class TextManager {
     this.textDiv = textDiv;
   }
 
-  public show(state: string | PlotState): void {
+  public update(state: string | PlotState): void {
     // Show text only if turned on.
     if (this.mode === TextMode.OFF) {
       return;

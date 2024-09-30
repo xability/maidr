@@ -1,4 +1,5 @@
 import NotificationManager from './notification';
+import {Observer} from '../observer';
 import {PlotState} from '../../plot/state';
 
 type Range = {
@@ -9,7 +10,7 @@ type Range = {
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 
-export default class AudioManager {
+export default class AudioManager implements Observer {
   private enabled: boolean;
   private volume: number;
   private readonly notification: NotificationManager;
@@ -50,7 +51,7 @@ export default class AudioManager {
     return compressor;
   }
 
-  public play(state: PlotState): void {
+  public update(state: PlotState): void {
     // Play audio only if turned on.
     if (!this.enabled) {
       return;
