@@ -5,6 +5,17 @@ const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 
+export type EmptyState = {
+  empty: boolean;
+};
+
+export type PlotState = {
+  audio: AudioState;
+  braille: BrailleState;
+  text: TextState;
+  empty: EmptyState;
+};
+
 export enum PlotType {
   BAR = 'bar',
   LINE = 'line',
@@ -24,12 +35,14 @@ export interface Plot {
 
   audio(): AudioState;
   braille(): BrailleState;
+  state: PlotState;
   text(): TextState;
 
   moveUp(): void;
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
+  moveToIndex(index: number): void;
 }
 
 export abstract class AbstractPlot implements Plot {
@@ -58,10 +71,21 @@ export abstract class AbstractPlot implements Plot {
 
   public abstract audio(): AudioState;
   public abstract braille(): BrailleState;
+  public abstract empty(): EmptyState;
   public abstract text(): TextState;
 
   public abstract moveLeft(): void;
   public abstract moveRight(): void;
+  public abstract moveToIndex(index: number): void;
+
+  get state(): PlotState {
+    return {
+      audio: this.audio(),
+      braille: this.braille(),
+      text: this.text(),
+      empty: this.empty(),
+    };
+  }
 
   // TODO: Implement 2D in bar plot to lock position and play null.
   public moveUp(): void {

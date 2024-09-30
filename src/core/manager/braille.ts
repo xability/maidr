@@ -13,7 +13,8 @@ export default class BrailleManager {
     notification: NotificationManager,
     state: BrailleState,
     brailleDiv?: HTMLElement,
-    brailleInput?: HTMLInputElement
+    brailleInput?: HTMLInputElement,
+    moveToIndex?: (index: number) => void
   ) {
     this.enabled = false;
     this.notification = notification;
@@ -24,6 +25,11 @@ export default class BrailleManager {
 
     this.brailleDiv = brailleDiv;
     this.brailleInput = brailleInput;
+
+    this.brailleInput.addEventListener('selectionchange', e => {
+      e.preventDefault();
+      moveToIndex ? moveToIndex(this.brailleInput?.selectionStart || 0) : null;
+    });
 
     this.setBraille(state);
   }

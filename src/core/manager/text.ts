@@ -1,4 +1,4 @@
-import {TextState} from '../../plot/state';
+import { PlotState } from '../../plot/plot';
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
 
@@ -24,9 +24,9 @@ export default class TextManager {
     this.textDiv = textDiv;
   }
 
-  public show(state: string | TextState): void {
+  public show(state: string | PlotState): void {
     // Show text only if turned on.
-    if (this.mode === TextMode.OFF) {
+    if (this.mode === TextMode.OFF || (typeof state !== 'string' && 'empty' in state && state.empty.empty)) {
       return;
     }
 
@@ -40,36 +40,36 @@ export default class TextManager {
       // TODO: Format for segmented and boxplot.
       const verbose = [];
       // Format main-axis values.
-      verbose.push(state.mainLabel, Constant.IS);
+      verbose.push(state.text.mainLabel, Constant.IS);
 
       // Format for histogram.
-      if (state.min && state.max) {
-        verbose.push(state.min, Constant.THROUGH, state.max);
+      if (state.text.min && state.text.max) {
+        verbose.push(state.text.min, Constant.THROUGH, state.text.max);
       } else {
-        verbose.push(state.mainValue);
+        verbose.push(state.text.mainValue);
       }
 
       // Format cross-axis values.
       verbose.push(
         Constant.COMMA,
-        state.crossLabel,
+        state.text.crossLabel,
         Constant.IS,
-        state.crossValue
+        state.text.crossValue
       );
 
       // Format for heatmap.
-      if (state.fillValue) {
+      if (state.text.fillValue) {
         verbose.push(
           Constant.COMMA,
-          state.fillLabel,
+          state.text.fillLabel,
           Constant.IS,
-          state.fillValue
+          state.text.fillValue
         );
       }
       text = verbose.join(Constant.EMPTY);
     } else {
       // TODO: Format for segmented and boxplot.
-      const terse = [state.mainValue, Constant.COMMA, state.crossValue];
+      const terse = [state.text.mainValue, Constant.COMMA, state.text.crossValue];
       text = terse.join(Constant.EMPTY);
     }
 

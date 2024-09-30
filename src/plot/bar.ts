@@ -1,4 +1,4 @@
-import {AbstractPlot, Orientation} from './plot';
+import {AbstractPlot, EmptyState, Orientation} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
 import {BarData, Maidr} from './grammar';
 
@@ -57,6 +57,12 @@ export class BarPlot extends AbstractPlot {
     };
   }
 
+  public empty(): EmptyState {
+    return {
+      empty: this.index < 0 || this.index >= this.values.length,
+    };
+  }
+
   public text(): TextState {
     if (this.orientation === Orientation.VERTICAL) {
       return {
@@ -99,10 +105,18 @@ export class BarPlot extends AbstractPlot {
   }
 
   public moveLeft(): void {
-    this.index -= this.index > 0 ? 1 : 0;
+    if (this.index > -1) {
+      this.index -= 1;
+    }
   }
 
   public moveRight(): void {
-    this.index += this.index < this.values.length - 1 ? 1 : 0;
+    if (this.index < this.values.length) {
+      this.index += 1;
+    }
+  }
+
+  public moveToIndex(index: number): void {
+    this.index = index;
   }
 }

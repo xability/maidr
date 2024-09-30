@@ -23,14 +23,14 @@ abstract class MoveCommand implements Command {
     this.text = text;
   }
 
-  public execute(): void {
-    this.move();
-    this.audio.play(this.plot.audio());
-    this.text.show(this.plot.text());
+  public execute(...args: unknown[]): void {
+    this.move(args);
+    this.audio.play(this.plot.state);
+    this.text.show(this.plot.state);
     this.braille.show(this.plot.braille());
   }
 
-  protected abstract move(): void;
+  protected abstract move(...args: unknown[]): void;
 }
 
 export class MoveUpCommand extends MoveCommand {
@@ -90,5 +90,20 @@ export class MoveRightCommand extends MoveCommand {
 
   public move(): void {
     this.plot.moveRight();
+  }
+}
+
+export class MoveToIndexCommand extends MoveCommand {
+  constructor(
+    plot: Plot,
+    audio: AudioManager,
+    braille: BrailleManager,
+    text: TextManager
+  ) {
+    super(plot, audio, braille, text);
+  }
+
+  public move(index: number): void {
+    this.plot.moveToIndex(index);
   }
 }
