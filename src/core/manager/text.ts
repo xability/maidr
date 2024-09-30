@@ -1,6 +1,6 @@
-import { PlotState } from '../../plot/plot';
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
+import {PlotState} from '../../plot/state';
 
 enum TextMode {
   OFF = 'off',
@@ -26,16 +26,16 @@ export default class TextManager {
 
   public show(state: string | PlotState): void {
     // Show text only if turned on.
-    if (this.mode === TextMode.OFF || (typeof state !== 'string' && 'empty' in state && state.empty.empty)) {
+    if (this.mode === TextMode.OFF) {
       return;
     }
 
     // Format the text based on the display mode.
     let text;
-    if (!state) {
-      text = 'No info to display';
-    } else if (typeof state === 'string') {
+    if (typeof state === 'string') {
       text = state;
+    } else if (!state || state.empty) {
+      text = 'No info to display';
     } else if (this.mode === TextMode.VERBOSE) {
       // TODO: Format for segmented and boxplot.
       const verbose = [];
@@ -66,10 +66,15 @@ export default class TextManager {
           state.text.fillValue
         );
       }
+
       text = verbose.join(Constant.EMPTY);
     } else {
       // TODO: Format for segmented and boxplot.
-      const terse = [state.text.mainValue, Constant.COMMA, state.text.crossValue];
+      const terse = [
+        state.text.mainValue,
+        Constant.COMMA,
+        state.text.crossValue,
+      ];
       text = terse.join(Constant.EMPTY);
     }
 

@@ -27,7 +27,7 @@ export default class Controller {
     this.audio = new AudioManager(this.notification);
     this.braille = new BrailleManager(
       this.notification,
-      this.plot.braille(),
+      this.plot.state,
       this.display.brailleDiv,
       this.display.brailleInput
     );

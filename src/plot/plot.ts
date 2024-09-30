@@ -1,20 +1,9 @@
-import {AudioState, BrailleState, TextState} from './state';
+import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-
-export type EmptyState = {
-  empty: boolean;
-};
-
-export type PlotState = {
-  audio: AudioState;
-  braille: BrailleState;
-  text: TextState;
-  empty: EmptyState;
-};
 
 export enum PlotType {
   BAR = 'bar',
@@ -27,16 +16,14 @@ export enum Orientation {
 }
 
 export interface Plot {
-  get id(): string;
-  get type(): string;
-  get title(): string;
-  get xAxis(): string;
-  get yAxis(): string;
+  id: string;
+  type: string;
 
-  audio(): AudioState;
-  braille(): BrailleState;
-  state: PlotState;
-  text(): TextState;
+  title: string;
+  xAxis: string;
+  yAxis: string;
+
+  get state(): PlotState;
 
   moveUp(): void;
   moveRight(): void;
@@ -68,22 +55,22 @@ export abstract class AbstractPlot implements Plot {
         : Orientation.VERTICAL;
   }
 
-  public abstract audio(): AudioState;
-  public abstract braille(): BrailleState;
-  public abstract empty(): EmptyState;
-  public abstract text(): TextState;
-
-  public abstract moveLeft(): void;
-  public abstract moveRight(): void;
-
-  get state(): PlotState {
+  public get state(): PlotState {
     return {
+      empty: this.empty(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
-      empty: this.empty(),
     };
   }
+
+  protected abstract empty(): boolean;
+  protected abstract audio(): AudioState;
+  protected abstract braille(): BrailleState;
+  protected abstract text(): TextState;
+
+  public abstract moveLeft(): void;
+  public abstract moveRight(): void;
 
   // TODO: Implement 2D in bar plot to lock position and play null.
   public moveUp(): void {

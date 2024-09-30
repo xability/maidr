@@ -55,7 +55,7 @@ export class DescribePointCommand extends DescribeCommand {
 
   execute(): void {
     this.audio.play(this.plot.state);
-    this.braille.show(this.plot.braille());
+    this.braille.show(this.plot.state);
     this.text.show(this.plot.state);
   }
 }

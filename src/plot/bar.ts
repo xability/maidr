@@ -1,4 +1,4 @@
-import {AbstractPlot, EmptyState, Orientation} from './plot';
+import {AbstractPlot, Orientation} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
 import {BarData, Maidr} from './grammar';
 
@@ -52,15 +52,13 @@ export class BarPlot extends AbstractPlot {
 
   public braille(): BrailleState {
     return {
-      braille: this.brailleValues,
+      values: this.brailleValues,
       index: this.index,
     };
   }
 
-  public empty(): EmptyState {
-    return {
-      empty: this.index < 0 || this.index >= this.values.length,
-    };
+  public empty(): boolean {
+    return this.index < 0 || this.index >= this.values.length;
   }
 
   public text(): TextState {
