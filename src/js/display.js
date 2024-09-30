@@ -578,6 +578,16 @@ class Display {
       output = terseText;
     }
     constants.verboseText = verboseText;
+    // aria live hack. If we're repeating (Space), aria won't detect if text is the same, so we modify vey slightly by adding / removing period at the end
+    if (output == constants.infoDiv.innerHTML) {
+      if (constants.infoDiv.innerHTML.endsWith('.')) {
+        if (output.endsWith('.')) {
+          output = output.slice(0, -1);
+        }
+      } else {
+        output = output + '.';
+      }
+    }
 
     if (constants.infoDiv) constants.infoDiv.innerHTML = output;
     if (constants.review) {
