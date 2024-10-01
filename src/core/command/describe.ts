@@ -23,7 +23,7 @@ export class DescribeXCommand extends DescribeCommand {
 
   public execute(): void {
     const message = `X label is ${this.plot.xAxis}`;
-    this.text.show(message);
+    this.text.update(message);
   }
 }
 
@@ -34,7 +34,7 @@ export class DescribeYCommand extends DescribeCommand {
 
   public execute(): void {
     const message = `Y label is ${this.plot.yAxis}`;
-    this.text.show(message);
+    this.text.update(message);
   }
 }
 
@@ -54,8 +54,8 @@ export class DescribePointCommand extends DescribeCommand {
   }
 
   execute(): void {
-    this.audio.play(this.plot.state);
-    this.braille.show(this.plot.braille());
-    this.text.show(this.plot.state);
+    this.audio.update(this.plot.state);
+    this.braille.update(this.plot.state);
+    this.text.update(this.plot.state);
   }
 }
