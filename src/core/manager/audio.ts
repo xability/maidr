@@ -1,5 +1,6 @@
 import NotificationManager from './notification';
-import {PlotState} from '../../plot/plot';
+import {Observer} from '../observer';
+import {PlotState} from '../../plot/state';
 
 type Range = {
   min: number;
@@ -9,7 +10,7 @@ type Range = {
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 
-export default class AudioManager {
+export default class AudioManager implements Observer {
   private enabled: boolean;
   private volume: number;
   private readonly notification: NotificationManager;
@@ -50,25 +51,28 @@ export default class AudioManager {
     return compressor;
   }
 
-  public play(state: PlotState): void {
+  public update(state: PlotState): void {
     // Play audio only if turned on.
-    if (!this.enabled || !state.empty) {
+    if (!this.enabled) {
+      return;
+    }
+
+    // TODO: Play empty sound.
+    if (state.empty) {
       return;
     }
 
     // TODO: Handle point, segmented, and boxplot.
-    const audioState = state.audio;
-    const fromFreq = {min: audioState.min, max: audioState.max};
-    const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
-    const frequency = this.interpolate(audioState.value, fromFreq, toFreq);
-    // Handling boundary conditions
-    if (isNaN(frequency)) {
-      return;
-    }
+    const audio = state.audio;
 
-    const fromPanning = {min: 0, max: audioState.size};
+    const fromFreq = {min: audio.min, max: audio.max};
+    const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
+    const frequency = this.interpolate(audio.value, fromFreq, toFreq);
+
+    const fromPanning = {min: 0, max: audio.size};
     const toPanning = {min: -1, max: 1};
-    const panning = this.interpolate(audioState.index, fromPanning, toPanning);
+    const panning = this.interpolate(audio.index, fromPanning, toPanning);
+
     const volume = this.volume;
     const duration = 0.3;
 

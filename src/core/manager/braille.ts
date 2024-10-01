@@ -1,8 +1,9 @@
-import {BrailleState} from '../../plot/state';
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
+import {Observer} from '../observer';
+import {PlotState} from '../../plot/state';
 
-export default class BrailleManager {
+export default class BrailleManager implements Observer {
   private enabled: boolean;
   private readonly notification: NotificationManager;
 
@@ -11,7 +12,7 @@ export default class BrailleManager {
 
   constructor(
     notification: NotificationManager,
-    state: BrailleState,
+    state: PlotState,
     brailleDiv?: HTMLElement,
     brailleInput?: HTMLInputElement
   ) {
@@ -28,13 +29,20 @@ export default class BrailleManager {
     this.setBraille(state);
   }
 
-  private setBraille(state: BrailleState): void {
-    this.brailleInput!.value = state.braille.join(Constant.EMPTY);
-    this.brailleInput!.setSelectionRange(state.index, state.index);
+  private setBraille(state: PlotState): void {
+    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
+
+    // Show the braille caret only if available.
+    if (!state.empty) {
+      this.brailleInput!.setSelectionRange(
+        state.braille.index,
+        state.braille.index
+      );
+    }
   }
 
-  public show(state: BrailleState): void {
-    if (!this.enabled) {
+  public update(state: PlotState): void {
+    if (!this.enabled || state.empty) {
       return;
     }
 

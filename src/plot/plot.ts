@@ -1,20 +1,10 @@
-import {AudioState, BrailleState, TextState} from './state';
+import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
+import {Observer, Subject} from '../core/observer';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-
-export type EmptyState = {
-  empty: boolean;
-};
-
-export type PlotState = {
-  audio: AudioState;
-  braille: BrailleState;
-  text: TextState;
-  empty: EmptyState;
-};
 
 export enum PlotType {
   BAR = 'bar',
@@ -26,17 +16,15 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export interface Plot {
-  get id(): string;
-  get type(): string;
-  get title(): string;
-  get xAxis(): string;
-  get yAxis(): string;
+export interface Plot extends Subject {
+  id: string;
+  type: string;
 
-  audio(): AudioState;
-  braille(): BrailleState;
-  state: PlotState;
-  text(): TextState;
+  title: string;
+  xAxis: string;
+  yAxis: string;
+
+  get state(): PlotState;
 
   moveUp(): void;
   moveRight(): void;
@@ -45,6 +33,8 @@ export interface Plot {
 }
 
 export abstract class AbstractPlot implements Plot {
+  private observers: Observer[];
+
   public readonly id: string;
   public readonly type: string;
   public readonly title: string;
@@ -55,6 +45,8 @@ export abstract class AbstractPlot implements Plot {
   protected readonly orientation: Orientation;
 
   protected constructor(maidr: Maidr) {
+    this.observers = [];
+
     this.id = maidr.id;
     this.type = maidr.type;
     this.title = maidr.title ?? DEFAULT_TILE;
@@ -68,28 +60,56 @@ export abstract class AbstractPlot implements Plot {
         : Orientation.VERTICAL;
   }
 
-  public abstract audio(): AudioState;
-  public abstract braille(): BrailleState;
-  public abstract empty(): EmptyState;
-  public abstract text(): TextState;
+  public addObserver(observer: Observer): void {
+    this.observers.push(observer);
+  }
 
-  public abstract moveLeft(): void;
-  public abstract moveRight(): void;
+  public removeObserver(observer: Observer): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
 
-  get state(): PlotState {
+  public notifyObservers(): void {
+    const currentState = this.state;
+    for (const observer of this.observers) {
+      observer.update(currentState);
+    }
+  }
+
+  public get state(): PlotState {
     return {
+      empty: this.empty(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
-      empty: this.empty(),
     };
   }
 
-  // TODO: Implement 2D in bar plot to lock position and play null.
   public moveUp(): void {
-    throw new Error(`Move up not supported for ${this.type}`);
+    this.up();
+    this.notifyObservers();
   }
   public moveDown(): void {
-    throw new Error(`Move down not supported for ${this.type}`);
+    this.down();
+    this.notifyObservers();
   }
+
+  public moveLeft(): void {
+    this.left();
+    this.notifyObservers();
+  }
+
+  public moveRight(): void {
+    this.right();
+    this.notifyObservers();
+  }
+
+  protected abstract empty(): boolean;
+  protected abstract audio(): AudioState;
+  protected abstract braille(): BrailleState;
+  protected abstract text(): TextState;
+
+  protected abstract up(): void;
+  protected abstract down(): void;
+  protected abstract left(): void;
+  protected abstract right(): void;
 }
