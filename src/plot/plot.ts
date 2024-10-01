@@ -87,15 +87,6 @@ export abstract class AbstractPlot implements Plot {
     };
   }
 
-  get state(): PlotState {
-    return {
-      audio: this.audio(),
-      braille: this.braille(),
-      text: this.text(),
-      empty: this.empty(),
-    };
-  }
-
   // TODO: Implement 2D in bar plot to lock position and play null.
   public moveUp(): void {
     throw new Error(`Move up not supported for ${this.type}`);

@@ -23,7 +23,6 @@ abstract class MoveCommand implements Command {
     this.text = text;
   }
 
-
   public execute(...args: unknown[]): void {
     this.move(args);
     this.audio.play(this.plot.state);
