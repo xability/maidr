@@ -43,4 +43,5 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
+  static readonly ZERO = 0;
 }

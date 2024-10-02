@@ -69,6 +69,7 @@ export default class DisplayManager {
     // Create a figure element that wraps the SVG
     const plotFigure = document.createElement(Constant.FIGURE);
     plotFigure.id = Constant.PLOT_FIGURE_ID;
+    plotFigure.tabIndex = 0;
     // plotFigure.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
     // Wrap the SVG within the figure
