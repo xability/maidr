@@ -49,6 +49,8 @@ export default class Controller {
   }
 
   public destroy(): void {
+    this.braille.removeEventListener();
+
     this.plot.removeObserver(this.text);
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);

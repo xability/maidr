@@ -10,6 +10,8 @@ export default class BrailleManager implements Observer {
   private readonly brailleDiv?: HTMLElement;
   private readonly brailleInput?: HTMLInputElement;
 
+  public selectionChangeHandler!: (e: Event) => void;
+
   constructor(
     notification: NotificationManager,
     state: PlotState,
@@ -27,10 +29,15 @@ export default class BrailleManager implements Observer {
     this.brailleDiv = brailleDiv;
     this.brailleInput = brailleInput;
 
-    this.brailleInput.addEventListener('selectionchange', e => {
+    this.selectionChangeHandler = e => {
       e.preventDefault();
       moveToIndex ? moveToIndex(this.brailleInput?.selectionStart || 0) : null;
-    });
+    };
+
+    this.brailleInput.addEventListener(
+      'selectionchange',
+      this.selectionChangeHandler
+    );
 
     this.setBraille(state);
   }
@@ -73,5 +80,12 @@ export default class BrailleManager implements Observer {
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
+  }
+
+  public removeEventListener(): void {
+    this.brailleInput?.removeEventListener(
+      'selectionchange',
+      this.selectionChangeHandler
+    );
   }
 }
