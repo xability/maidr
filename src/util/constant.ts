@@ -1,7 +1,9 @@
 export default abstract class Constant {
   // HTML elements.
+  static readonly ARTICLE = 'article';
   static readonly BR = 'br';
   static readonly DIV = 'div';
+  static readonly FIGURE = 'figure';
   static readonly INPUT = 'input';
   static readonly P = 'p';
 
@@ -9,9 +11,9 @@ export default abstract class Constant {
   static readonly BRAILLE_CONTAINER_ID = 'maidr-braille-container';
   static readonly BRAILLE_INPUT_ID = 'maidr-braille-input';
   static readonly BRAILLE_INPUT_LENGTH = 32;
-  static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
+  static readonly MAIN_ARTICLE_ID = 'maidr-main-article';
   static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
-  static readonly PLOT_CONTAINER_ID = 'maidr-plot-container';
+  static readonly PLOT_FIGURE_ID = 'maidr-plot-figure';
   static readonly TEXT_CONTAINER_ID = 'maidr-info-container';
 
   // HTML Classes.
