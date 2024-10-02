@@ -67,33 +67,13 @@ export default class KeyBinding {
   private getCommand(key: string): Command {
     switch (key) {
       case Keymap.MOVE_UP:
-        return new MoveUpCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        );
+        return new MoveUpCommand(this.plot);
       case Keymap.MOVE_DOWN:
-        return new MoveDownCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        );
+        return new MoveDownCommand(this.plot);
       case Keymap.MOVE_RIGHT:
-        return new MoveRightCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        );
+        return new MoveRightCommand(this.plot);
       case Keymap.MOVE_LEFT:
-        return new MoveLeftCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        );
+        return new MoveLeftCommand(this.plot);
 
       case Keymap.TOGGLE_BRAILLE:
         return new ToggleBraille(this.braille);

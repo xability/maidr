@@ -29,7 +29,7 @@ export default class Controller {
     this.text = new TextManager(this.notification, this.display.textDiv);
     this.braille = new BrailleManager(
       this.notification,
-      this.plot.braille(),
+      this.plot.state,
       this.display.brailleDiv,
       this.display.brailleInput,
       (index: number) =>
@@ -49,9 +49,17 @@ export default class Controller {
     };
     this.keyBinding = new KeyBinding(commandContext);
     this.keyBinding.register();
+
+    this.plot.addObserver(this.audio);
+    this.plot.addObserver(this.braille);
+    this.plot.addObserver(this.text);
   }
 
   public destroy(): void {
+    this.plot.removeObserver(this.text);
+    this.plot.removeObserver(this.braille);
+    this.plot.removeObserver(this.audio);
+
     this.keyBinding.unregister();
     this.audio.destroy();
     this.display.destroy();
