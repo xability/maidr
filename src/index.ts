@@ -16,7 +16,6 @@ function test(): void {
 
   const maidrId = window.maidr.id;
   const maidrContainer = document.getElementById(maidrId);
-  maidrContainer?.setAttribute('tabindex', '0');
   maidrContainer?.addEventListener(EventType.FOCUS, event =>
     onTestFocus(event)
   );
