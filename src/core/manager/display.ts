@@ -90,24 +90,24 @@ export default class DisplayManager {
 
   private createFigureElement(figureId: string): HTMLElement {
     // Create a figure element that wraps the SVG.
-    const plotFigureWrapper = document.createElement(Constant.FIGURE);
-    plotFigureWrapper.id = figureId;
-    plotFigureWrapper.role = Constant.APPLICATION;
-    plotFigureWrapper.tabIndex = 0;
+    const figureElement = document.createElement(Constant.FIGURE);
+    figureElement.id = figureId;
+    figureElement.role = Constant.APPLICATION;
+    figureElement.tabIndex = 0;
 
     // Wrap the SVG within the figure.
-    this.plot!.parentNode!.replaceChild(plotFigureWrapper, this.plot!);
-    plotFigureWrapper.appendChild(this.plot!);
+    this.plot!.parentNode!.replaceChild(figureElement, this.plot!);
+    figureElement.appendChild(this.plot!);
 
-    return plotFigureWrapper;
+    return figureElement;
   }
 
   private createBreakElement(breakId: string): HTMLElement {
     // Create a break element to use as a marker for div insertion.
     const br = document.createElement(Constant.BR);
     br.id = breakId;
-    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, br);
 
+    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, br);
     return br;
   }
 
@@ -119,7 +119,6 @@ export default class DisplayManager {
     textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
     this.figureElement!.insertAdjacentElement(Constant.AFTER_END, textDiv);
-
     return textDiv;
   }
 
@@ -135,7 +134,6 @@ export default class DisplayManager {
       Constant.AFTER_END,
       notificationDiv
     );
-
     return notificationDiv;
   }
 
@@ -150,7 +148,6 @@ export default class DisplayManager {
       brailleDiv,
       this.figureElement!.firstChild
     );
-
     return brailleDiv;
   }
 
