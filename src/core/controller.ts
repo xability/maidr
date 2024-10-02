@@ -7,7 +7,6 @@ import NotificationManager from './manager/notification';
 import {Plot} from '../plot/plot';
 import {PlotFactory} from '../plot/factory';
 import TextManager from './manager/text';
-import {MoveToIndexCommand} from './command/move';
 
 export default class Controller {
   private readonly audio: AudioManager;
@@ -32,13 +31,7 @@ export default class Controller {
       this.plot.state,
       this.display.brailleDiv,
       this.display.brailleInput,
-      (index: number) =>
-        new MoveToIndexCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        ).execute(index)
+      (index: number) => this.plot.moveToIndex(index)
     );
 
     const commandContext = {
