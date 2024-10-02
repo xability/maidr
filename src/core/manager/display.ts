@@ -3,8 +3,8 @@ import Constant from '../../util/constant';
 export default class DisplayManager {
   private readonly plot?: HTMLElement;
 
-  private readonly mainDiv?: HTMLElement;
-  private readonly plotDiv?: HTMLElement;
+  private readonly mainArticle?: HTMLElement;
+  private readonly plotFigure?: HTMLElement;
   private readonly br?: HTMLElement;
 
   public readonly textDiv?: HTMLElement;
@@ -22,8 +22,8 @@ export default class DisplayManager {
 
     this.plot = plot;
 
-    this.plotDiv = this.createPlotContainer();
-    this.mainDiv = this.createMainContainer();
+    this.plotFigure = this.createPlotFigureWrapper();
+    this.mainArticle = this.createMainArticleWrapper();
     this.br = this.createBreakElement();
 
     this.textDiv = this.createTextContainer();
@@ -34,13 +34,16 @@ export default class DisplayManager {
   }
 
   public destroy(): void {
-    if (this.plot && this.plotDiv) {
-      this.mainDiv?.parentNode?.replaceChild(this.plotDiv, this.mainDiv);
-      this.plotDiv?.parentNode?.replaceChild(this.plot, this.plotDiv);
+    if (this.plot && this.plotFigure) {
+      this.mainArticle?.parentNode?.replaceChild(
+        this.plotFigure,
+        this.mainArticle
+      );
+      this.plotFigure?.parentNode?.replaceChild(this.plot, this.plotFigure);
     }
-    this.mainDiv?.remove();
+    this.mainArticle?.remove();
     this.br?.remove();
-    this.plotDiv?.remove();
+    this.plotFigure?.remove();
 
     this.textDiv?.remove();
     this.notificationDiv?.remove();
@@ -49,34 +52,35 @@ export default class DisplayManager {
     this.brailleDiv?.remove();
   }
 
-  private createMainContainer(): HTMLElement {
-    // Create a main container for the plot.
-    const mainDiv = document.createElement(Constant.DIV);
-    mainDiv.id = Constant.MAIN_CONTAINER_ID;
-    mainDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
+  private createMainArticleWrapper(): HTMLElement {
+    // Create an article element that wraps the figure-wrapped SVG
+    const mainArticle = document.createElement(Constant.ARTICLE);
+    mainArticle.id = Constant.MAIN_ARTICLE_ID;
+    // mainDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
-    // Replace the plot container with the main container.
-    this.plotDiv!.parentNode!.replaceChild(mainDiv, this.plotDiv!);
-    mainDiv.appendChild(this.plotDiv!);
+    // Wrap the figure-wrapped SVG within the article
+    this.plotFigure!.parentNode!.replaceChild(mainArticle, this.plotFigure!);
+    mainArticle.appendChild(this.plotFigure!);
 
-    return mainDiv;
+    return mainArticle;
   }
 
-  private createPlotContainer(): HTMLElement {
-    // Create a plot container for the SVG.
-    const plotDiv = document.createElement(Constant.DIV);
-    plotDiv.id = Constant.PLOT_CONTAINER_ID;
-    plotDiv.setAttribute(Constant.ROLE, Constant.APPLICATION);
+  private createPlotFigureWrapper(): HTMLElement {
+    // Create a figure element that wraps the SVG
+    const plotFigure = document.createElement(Constant.FIGURE);
+    plotFigure.id = Constant.PLOT_FIGURE_ID;
+    // plotFigure.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
-    // Replace the plot with the container.
-    this.plot!.parentNode!.replaceChild(plotDiv, this.plot!);
-    plotDiv.appendChild(this.plot!);
-    return plotDiv;
+    // Wrap the SVG within the figure
+    this.plot?.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    this.plot!.parentNode!.replaceChild(plotFigure, this.plot!);
+    plotFigure.appendChild(this.plot!);
+    return plotFigure;
   }
 
   private createBreakElement(): HTMLElement {
     const br = document.createElement(Constant.BR);
-    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, br);
+    this.plotFigure!.insertAdjacentElement(Constant.AFTER_END, br);
     return br;
   }
 
@@ -86,7 +90,7 @@ export default class DisplayManager {
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, textDiv);
+    this.plotFigure!.insertAdjacentElement(Constant.AFTER_END, textDiv);
     return textDiv;
   }
 
@@ -97,7 +101,7 @@ export default class DisplayManager {
     notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
+    this.plotFigure!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
     return notificationDiv;
   }
 
@@ -106,7 +110,7 @@ export default class DisplayManager {
     brailleDiv.id = Constant.BRAILLE_CONTAINER_ID;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    this.plotDiv!.insertAdjacentElement(Constant.BEFORE_BEGIN, brailleDiv);
+    this.plotFigure!.insertAdjacentElement(Constant.BEFORE_BEGIN, brailleDiv);
     return brailleDiv;
   }
 

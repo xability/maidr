@@ -208,3 +208,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# HTML Linter prevention
+.hintrc
