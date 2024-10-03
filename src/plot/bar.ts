@@ -101,6 +101,10 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
+  protected toIndex(index: number): void {
+    this.index = index;
+  }
+
   private toBraille(data: number[]): string[] {
     const braille = [];
 

@@ -30,6 +30,7 @@ export interface Plot extends Subject {
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
+  moveToIndex(index: number): void;
 }
 
 export abstract class AbstractPlot implements Plot {
@@ -103,6 +104,11 @@ export abstract class AbstractPlot implements Plot {
     this.notifyObservers();
   }
 
+  public moveToIndex(index: number): void {
+    this.toIndex(index);
+    this.notifyObservers();
+  }
+
   protected abstract empty(): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
@@ -112,4 +118,5 @@ export abstract class AbstractPlot implements Plot {
   protected abstract down(): void;
   protected abstract left(): void;
   protected abstract right(): void;
+  protected abstract toIndex(index: number): void;
 }
