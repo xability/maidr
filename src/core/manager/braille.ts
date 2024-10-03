@@ -2,6 +2,7 @@ import Constant from '../../util/constant';
 import NotificationManager from './notification';
 import {Observer} from '../observer';
 import {PlotState} from '../../plot/state';
+import {EventType} from '../..';
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;
@@ -10,14 +11,14 @@ export default class BrailleManager implements Observer {
   private readonly brailleDiv?: HTMLElement;
   private readonly brailleInput?: HTMLInputElement;
 
-  public selectionChangeHandler!: (e: Event) => void;
+  public readonly selectionChangeHandler: (e: Event) => void = () => {};
 
   constructor(
     notification: NotificationManager,
     state: PlotState,
+    moveToIndex: (index: number) => void,
     brailleDiv?: HTMLElement,
-    brailleInput?: HTMLInputElement,
-    moveToIndex?: (index: number) => void
+    brailleInput?: HTMLInputElement
   ) {
     this.enabled = false;
     this.notification = notification;
@@ -31,11 +32,11 @@ export default class BrailleManager implements Observer {
 
     this.selectionChangeHandler = e => {
       e.preventDefault();
-      moveToIndex ? moveToIndex(this.brailleInput?.selectionStart || 0) : null;
+      moveToIndex(this.brailleInput?.selectionStart || 0);
     };
 
     this.brailleInput.addEventListener(
-      'selectionchange',
+      EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
 
@@ -82,9 +83,9 @@ export default class BrailleManager implements Observer {
     this.notification.notify(message);
   }
 
-  public removeEventListener(): void {
+  public destroy(): void {
     this.brailleInput?.removeEventListener(
-      'selectionchange',
+      EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
   }

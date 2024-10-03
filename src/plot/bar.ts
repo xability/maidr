@@ -101,7 +101,7 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  public toIndex(index: number): void {
+  protected toIndex(index: number): void {
     this.index = index;
   }
 

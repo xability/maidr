@@ -29,9 +29,9 @@ export default class Controller {
     this.braille = new BrailleManager(
       this.notification,
       this.plot.state,
+      (index: number) => this.plot.moveToIndex(index),
       this.display.brailleDiv,
-      this.display.brailleInput,
-      (index: number) => this.plot.moveToIndex(index)
+      this.display.brailleInput
     );
 
     const commandContext = {
@@ -49,13 +49,12 @@ export default class Controller {
   }
 
   public destroy(): void {
-    this.braille.removeEventListener();
-
     this.plot.removeObserver(this.text);
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
     this.keyBinding.unregister();
+    this.braille.destroy();
     this.audio.destroy();
     this.display.destroy();
   }
