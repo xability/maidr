@@ -36,4 +36,6 @@ export class LinePlot extends AbstractPlot {
   protected right(): void {}
 
   protected up(): void {}
+
+  protected toIndex(index: number): void {}
 }

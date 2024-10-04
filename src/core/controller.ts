@@ -25,13 +25,14 @@ export default class Controller {
 
     this.notification = new NotificationManager(this.display.notificationDiv);
     this.audio = new AudioManager(this.notification);
+    this.text = new TextManager(this.notification, this.display.textDiv);
     this.braille = new BrailleManager(
       this.notification,
       this.plot.state,
+      (index: number) => this.plot.moveToIndex(index),
       this.display.brailleDiv,
       this.display.brailleInput
     );
-    this.text = new TextManager(this.notification, this.display.textDiv);
 
     const commandContext = {
       audio: this.audio,
@@ -53,6 +54,7 @@ export default class Controller {
     this.plot.removeObserver(this.audio);
 
     this.keyBinding.unregister();
+    this.braille.destroy();
     this.audio.destroy();
     this.display.destroy();
   }

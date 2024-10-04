@@ -5,6 +5,7 @@ export enum EventType {
   BLUR = 'blur',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
+  SELECTION_CHANGE = 'selectionchange',
 }
 
 document.addEventListener(EventType.DOM_LOADED, test);
