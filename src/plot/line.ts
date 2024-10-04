@@ -16,11 +16,6 @@ export class LinePlot extends AbstractPlot {
     return {index: 0, max: 0, min: 0, size: 0, value: 0};
   }
 
-  public empty(): boolean {
-    // TODO: Modify boundary conditions according to grammar of lineplot
-    return this.index < 0 || this.index >= this.values.length;
-  }
-
   braille(): BrailleState {
     return {values: [], index: 0};
   }
@@ -38,4 +33,9 @@ export class LinePlot extends AbstractPlot {
   protected up(): void {}
 
   protected toIndex(index: number): void {}
+
+  protected isWithinRange(index?: number): boolean {
+    // TODO: Modify boundary conditions according to grammar of lineplot
+    return this.index < 0 || this.index >= this.values.length;
+  }
 }
