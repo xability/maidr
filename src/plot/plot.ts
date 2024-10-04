@@ -78,7 +78,7 @@ export abstract class AbstractPlot implements Plot {
 
   public get state(): PlotState {
     return {
-      empty: this.empty(),
+      empty: !this.isWithinRange(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
@@ -105,11 +105,13 @@ export abstract class AbstractPlot implements Plot {
   }
 
   public moveToIndex(index: number): void {
-    this.toIndex(index);
-    this.notifyObservers();
+    if (this.isWithinRange(index)) {
+      this.toIndex(index);
+      this.notifyObservers();
+    }
   }
 
-  protected abstract empty(): boolean;
+  protected abstract isWithinRange(index?: number): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;
