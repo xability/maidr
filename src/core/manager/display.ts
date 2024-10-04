@@ -70,10 +70,10 @@ export default class DisplayManager {
     const plotFigure = document.createElement(Constant.FIGURE);
     plotFigure.id = Constant.PLOT_FIGURE_ID;
     plotFigure.tabIndex = 0;
+    plotFigure.role = Constant.APPLICATION;
     // plotFigure.setAttribute(Constant.ROLE, Constant.APPLICATION);
 
     // Wrap the SVG within the figure
-    this.plot?.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot!.parentNode!.replaceChild(plotFigure, this.plot!);
     plotFigure.appendChild(this.plot!);
     return plotFigure;
