@@ -75,17 +75,17 @@ export default class DisplayManager {
 
   private createArticleElement(articleId: string): HTMLElement {
     // Create an article element that wraps the figure-wrapped SVG.
-    const mainArticleWrapper = document.createElement(Constant.ARTICLE);
-    mainArticleWrapper.id = articleId;
+    const articleElement = document.createElement(Constant.ARTICLE);
+    articleElement.id = articleId;
 
     // Wrap the figure-wrapped SVG within the article.
     this.figureElement!.parentNode!.replaceChild(
-      mainArticleWrapper,
+      articleElement,
       this.figureElement!
     );
-    mainArticleWrapper.appendChild(this.figureElement!);
+    articleElement.appendChild(this.figureElement!);
 
-    return mainArticleWrapper;
+    return articleElement;
   }
 
   private createFigureElement(figureId: string): HTMLElement {
