@@ -30,16 +30,16 @@ export default class BrailleManager implements Observer {
     this.brailleDiv = brailleDiv;
     this.brailleInput = brailleInput;
 
-    this.selectionChangeHandler = e => {
-      e.preventDefault();
+    this.selectionChangeHandler = (event: Event) => {
+      event.preventDefault();
       moveToIndex(this.brailleInput?.selectionStart || 0);
     };
-
-    this.setBraille(state);
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
+
+    this.setBraille(state);
   }
 
   private setBraille(state: PlotState): void {

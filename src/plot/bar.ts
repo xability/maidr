@@ -40,11 +40,7 @@ export class BarPlot extends AbstractPlot {
     this.brailleValues = this.toBraille(this.values);
   }
 
-  public empty(): boolean {
-    return this.index < 0 || this.index >= this.values.length;
-  }
-
-  public audio(): AudioState {
+  protected audio(): AudioState {
     return {
       min: this.min,
       max: this.max,
@@ -54,14 +50,14 @@ export class BarPlot extends AbstractPlot {
     };
   }
 
-  public braille(): BrailleState {
+  protected braille(): BrailleState {
     return {
       values: this.brailleValues,
       index: this.index,
     };
   }
 
-  public text(): TextState {
+  protected text(): TextState {
     if (this.orientation === Orientation.VERTICAL) {
       return {
         mainLabel: this.xAxis,
@@ -99,6 +95,11 @@ export class BarPlot extends AbstractPlot {
     if (this.index < this.values.length) {
       this.index += 1;
     }
+  }
+
+  protected isWithinRange(index?: number): boolean {
+    const idx = index ?? this.index;
+    return idx >= 0 && idx < this.values.length;
   }
 
   protected toIndex(index: number): void {
