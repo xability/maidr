@@ -19,7 +19,6 @@ export default class DisplayManager {
       console.error('Plot container not found');
       return;
     }
-
     this.plot = plot;
 
     this.plotFigureWrapper = this.createPlotFigureWrapper();
@@ -34,29 +33,34 @@ export default class DisplayManager {
   }
 
   public destroy(): void {
-    if (this.plot && this.plotFigureWrapper) {
-      this.mainArticleWrapper?.parentNode?.replaceChild(
-        this.plotFigureWrapper,
-        this.mainArticleWrapper
-      );
-      this.plotFigureWrapper?.parentNode?.replaceChild(
-        this.plot,
-        this.plotFigureWrapper
-      );
-    }
+    // if (this.plot && this.plotFigureWrapper) {
+    //   this.mainArticleWrapper?.parentNode?.replaceChild(
+    //     this.plotFigureWrapper,
+    //     this.mainArticleWrapper
+    //   );
+    //   this.plotFigureWrapper?.parentNode?.replaceChild(
+    //     this.plot,
+    //     this.plotFigureWrapper
+    //   );
+    // }
+    this.mainArticleWrapper?.insertAdjacentElement('afterend', this.plot!);
     this.mainArticleWrapper?.remove();
-    this.br?.remove();
-    this.plotFigureWrapper?.remove();
+    // this.mainArticleWrapper?.remove();
+    // this.br?.remove();
+    // this.plotFigureWrapper?.remove();
 
-    this.textDiv?.remove();
-    this.notificationDiv?.remove();
+    // this.textDiv?.remove();
+    // this.notificationDiv?.remove();
 
-    this.brailleInput?.remove();
-    this.brailleDiv?.remove();
+    // this.brailleInput?.remove();
+    // this.brailleDiv?.remove();
   }
 
   private createMainArticleWrapper(): HTMLElement {
     // Create an article element that wraps the figure-wrapped SVG
+    if (document.getElementById(Constant.MAIN_ARTICLE_ID)) {
+      document.getElementById(Constant.MAIN_ARTICLE_ID)?.remove();
+    }
     const mainArticleWrapper = document.createElement(Constant.ARTICLE);
     mainArticleWrapper.id = Constant.MAIN_ARTICLE_ID;
 
@@ -72,9 +76,13 @@ export default class DisplayManager {
 
   private createPlotFigureWrapper(): HTMLElement {
     // Create a figure element that wraps the SVG
+    if (document.getElementById(Constant.PLOT_FIGURE_ID)) {
+      document.getElementById(Constant.PLOT_FIGURE_ID)?.remove();
+    }
     const plotFigureWrapper = document.createElement(Constant.FIGURE);
     plotFigureWrapper.id = Constant.PLOT_FIGURE_ID;
     plotFigureWrapper.role = Constant.APPLICATION;
+    plotFigureWrapper.tabIndex = 0;
 
     // Wrap the SVG within the figure
     this.plot!.parentNode!.replaceChild(plotFigureWrapper, this.plot!);
