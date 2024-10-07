@@ -26,7 +26,6 @@ export default class DisplayManager {
       console.error('Plot container not found');
       return;
     }
-
     this.plot = plot;
     this.onFocus = onFocus;
     this.onBlur = onBlur;
