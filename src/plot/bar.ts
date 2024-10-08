@@ -1,37 +1,58 @@
 import {AbstractPlot, Orientation} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
-import {BarData, Maidr} from './grammar';
+import {BarData, FillData, Maidr} from './grammar';
 
 export class BarPlot extends AbstractPlot {
-  private readonly x: number[] | string[];
-  private readonly y: number[] | string[];
+  private readonly x: string[] | number[][];
+  private readonly y: string[] | number[][];
 
-  private readonly min: number;
-  private readonly max: number;
+  private min = 0;
+  private max = 0;
 
   private index: number;
-  private readonly values: number[];
-  private readonly brailleValues: string[];
+  private crossIndex: number;
+
+  private values: number[] = [];
+  private brailleValues: string[] = [];
+
+  private fillData?: FillData;
 
   constructor(maidr: Maidr) {
     super(maidr);
 
     const data = maidr.data as BarData;
-    if (data.x.length !== data.y.length) {
+    this.fillData = maidr.axes?.fill;
+
+    if (
+      (maidr.subtype === 'stacked' &&
+        this.orientation === Orientation.VERTICAL &&
+        data.x.length !== data.y[0].length) ||
+      (this.orientation === Orientation.HORIZONTAL &&
+        data.x[0].length !== data.y.length)
+    ) {
       throw new Error(
         `len(x): ${data.x.length} and len(y): ${data.y.length} do not match`
       );
     }
 
     this.index = -1;
+    this.crossIndex = 0;
 
     this.x = data.x;
     this.y = data.y;
 
+    this.init();
+  }
+
+  protected init(): void {
     if (this.orientation === Orientation.VERTICAL) {
-      this.values = this.y.filter(e => typeof e === 'number');
+      this.values = (this.y[this.crossIndex] as number[]).filter(
+        e => typeof e === 'number'
+      );
     } else {
-      this.values = this.x.filter(e => typeof e === 'number');
+      this.values = (this.x[this.crossIndex] as number[]).filter(
+        e => typeof e === 'number'
+      );
     }
 
     this.min = Math.min(...this.values);
@@ -60,29 +81,40 @@ export class BarPlot extends AbstractPlot {
   protected text(): TextState {
     if (this.orientation === Orientation.VERTICAL) {
       return {
-        mainLabel: this.xAxis,
-        mainValue: this.y[this.index],
-        crossLabel: this.yAxis,
+        mainLabel: this.yAxis,
+        mainValue: this.y[this.crossIndex][this.index],
+        crossLabel: this.xAxis,
         crossValue: this.x[this.index],
+        fillLabel: this.fillData?.label,
+        fillValue: this.fillData?.level?.[this.crossIndex],
       };
     } else {
       return {
-        mainLabel: this.yAxis,
-        mainValue: this.x[this.index],
-        crossLabel: this.xAxis,
+        mainLabel: this.xAxis,
+        mainValue: this.x[this.crossIndex][this.index],
+        crossLabel: this.yAxis,
         crossValue: this.y[this.index],
+        fillLabel: this.fillData?.label,
+        fillValue: this.fillData?.level?.[this.crossIndex],
       };
     }
   }
 
   // TODO: Implement 2D in bar plot to lock position and play null.
   protected up(): void {
-    throw new Error(`Move up not supported for ${this.type}`);
+    console.log(this.crossIndex, this.y.length);
+    if (this.crossIndex < this.y.length) {
+      this.crossIndex += 1;
+      this.init();
+    }
   }
 
   // TODO: Implement 2D in bar plot to lock position and play null.
   protected down(): void {
-    throw new Error(`Move down not supported for ${this.type}`);
+    if (this.crossIndex > 0) {
+      this.crossIndex -= 1;
+      this.init();
+    }
   }
 
   protected left(): void {
