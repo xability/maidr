@@ -1,3 +1,10 @@
+## [2.17.3](https://github.com/xability/maidr/compare/v2.17.2...v2.17.3) (2024-10-08)
+
+
+### Bug Fixes
+
+* selection change no longer calls itself and gets stuck in an infinite loop, messing up audio and more while in braille mode ([#572](https://github.com/xability/maidr/issues/572)) ([ade8fdb](https://github.com/xability/maidr/commit/ade8fdb9ebbc8676e270954bca5d0ba0fc6899f2))
+
 ## [2.17.2](https://github.com/xability/maidr/compare/v2.17.1...v2.17.2) (2024-10-01)
 
 
