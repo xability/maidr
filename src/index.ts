@@ -6,6 +6,7 @@ export enum EventType {
   BLUR = 'blur',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
+  FOCUS_OUT = 'focusout',
   SELECTION_CHANGE = 'selectionchange',
 }
 
