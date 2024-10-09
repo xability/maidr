@@ -17,6 +17,9 @@ function test(): void {
 
   const maidrId = window.maidr.id;
   const maidrContainer = document.getElementById(maidrId);
+  if (maidrContainer) {
+    init(maidrContainer, window.maidr);
+  }
   maidrContainer?.addEventListener(EventType.FOCUS, event =>
     onTestFocus(event)
   );
