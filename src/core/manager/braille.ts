@@ -72,10 +72,15 @@ export default class BrailleManager implements Observer {
       // Show the Braille input and focus on it when enabled.
       this.brailleDiv?.classList.remove(Constant.HIDDEN);
       this.brailleInput?.focus();
+      // console.log('active element in braille', document.activeElement);
+      // console.log('brailleInput', this.brailleInput);
     } else {
       // Remove the focus and then hide the Braille input.
       this.brailleInput?.blur();
       this.brailleDiv?.classList.add(Constant.HIDDEN);
+      // return focus to figure element once braille is toggled off
+      this.brailleDiv?.closest('article')?.querySelector('figure')?.focus();
+      // console.log('brailleInput blur', this.brailleInput);
     }
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;

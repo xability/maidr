@@ -19,8 +19,9 @@ export default class Controller {
 
   private readonly plot: Plot;
 
-  constructor(maidr: Maidr) {
-    this.display = new DisplayManager(maidr.id);
+  constructor(maidr: Maidr, display?: DisplayManager) {
+    // If init has created the displayManager object, use it or else create a new one
+    this.display = display ?? new DisplayManager(maidr.id);
     this.plot = PlotFactory.create(maidr);
 
     this.notification = new NotificationManager(this.display.notificationDiv);
