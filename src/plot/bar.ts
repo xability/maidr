@@ -86,20 +86,20 @@ export class BarPlot extends AbstractPlot {
   }
 
   protected left(): void {
-    if (this.index > -1) {
+    if (this.index > 0) {
       this.index -= 1;
     }
   }
 
   protected right(): void {
-    if (this.index < this.values.length) {
+    if (this.index < this.values.length - 1) {
       this.index += 1;
     }
   }
 
   protected isWithinRange(index?: number): boolean {
     const idx = index ?? this.index;
-    return idx >= 0 && idx < this.values.length;
+    return idx >= 0 && idx <= this.values.length - 1;
   }
 
   protected toIndex(index: number): void {
