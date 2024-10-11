@@ -10,6 +10,7 @@ export enum EventType {
   SELECTION_CHANGE = 'selectionchange',
 }
 
+// Stores the onLoad generated display object
 let initDisplay: DisplayManager | null = null;
 
 document.addEventListener(EventType.DOM_LOADED, test);
@@ -23,19 +24,22 @@ function test(): void {
   const maidrContainer = document.getElementById(maidrId);
   if (maidrContainer) {
     initDisplay = new DisplayManager(maidrId);
-    console.log(maidrContainer);
   }
+  // attaching focus to the figureWrapper
   maidrContainer?.parentElement?.addEventListener(EventType.FOCUS, event =>
     onTestFocus(event, initDisplay!)
   );
 }
 
 function onTestFocus(event: FocusEvent, display: DisplayManager): void {
-  console.log('Element that received focus:', event.target);
   const maidrContainer = event.target as HTMLElement;
+  // Passing the onLoad generated display object
   init(maidrContainer, window.maidr, display);
 }
 
+// These methods have not been used as of now and hence commenting them out for clarity
+
+/*
 function main(): void {
   const plotContainers = Array.from(
     document.querySelectorAll<HTMLElement>('svg[maidr-container]')
@@ -64,40 +68,23 @@ function onFigureFocus(event: FocusEvent) {
     throw new Error('Error parsing MAIDR data');
   }
 }
+*/
 
-function init(container: HTMLElement, maidr: Maidr, display?: DisplayManager) {
+function init(container: HTMLElement, maidr: Maidr, display: DisplayManager) {
   const control = new Controller(maidr, display);
   container.addEventListener(
     'focusout',
     () => {
-      // console.log('Container focusout:', container);
-      // console.log(
-      //   'active element in destroy invocation',
-      //   document.activeElement
-      // );
-
-      // Delay the execution of the event handler by 2 seconds
+      // Delay the execution of the event handler by 2 seconds and check if active element is within the invoking container.
       setTimeout(() => {
-        // Check if the new active element is within the container
         if (container.contains(document.activeElement)) {
-          // console.log('Focus moved within the container, no action taken.');
           return;
         }
-
-        // console.log('Focus moved outside the container, destroying control.');
         control.destroy();
-      }, 2000);
+      }, 100);
     },
     {
       once: true,
     }
   );
-
-  // console.log('init container', container);
-  // console.log('active element in init', document.activeElement);
-
-  // Additional logging to check focus movement
-  // setTimeout(() => {
-  //   console.log('active element after init timeout', document.activeElement);
-  // }, 0);
 }
