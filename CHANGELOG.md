@@ -1,3 +1,15 @@
+# [2.18.0](https://github.com/xability/maidr/compare/v2.17.3...v2.18.0) (2024-10-12)
+
+
+### Bug Fixes
+
+* **help:** add a missing keybinding for the autoplay speed reset ([8c3fadf](https://github.com/xability/maidr/commit/8c3fadff2f96b98fe5c0b1b07ac2cf5600cb40bd))
+
+
+### Features
+
+* add alt-text for maidr plot ([#568](https://github.com/xability/maidr/issues/568)) ([7752123](https://github.com/xability/maidr/commit/7752123dc16390acd4af2c4dc93e7a094b4bad9d))
+
 ## [2.17.3](https://github.com/xability/maidr/compare/v2.17.2...v2.17.3) (2024-10-08)
 
 
