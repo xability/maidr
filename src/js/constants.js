@@ -135,7 +135,7 @@ class Constants {
    * @memberof BTSModes
    * @default 'off'
    */
-  brailleMode = "off";
+  brailleMode = 'off';
 
   /**
    * We lock the selection so we don't pick up programatic selection changes
