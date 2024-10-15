@@ -13,6 +13,8 @@ export default class DisplayManager {
   public readonly brailleDiv?: HTMLElement;
   public readonly brailleInput?: HTMLInputElement;
 
+  public readonly reviewDiv?: HTMLElement;
+
   constructor(maidrId: string) {
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
@@ -31,6 +33,8 @@ export default class DisplayManager {
 
     this.brailleDiv = this.createBrailleContainer();
     this.brailleInput = this.createBrailleInput();
+
+    this.reviewDiv = this.createReviewContainer();
   }
 
   public destroy(): void {
@@ -47,6 +51,8 @@ export default class DisplayManager {
 
     this.brailleInput?.remove();
     this.brailleDiv?.remove();
+
+    this.reviewDiv?.remove();
   }
 
   private createMainContainer(): HTMLElement {
@@ -119,5 +125,14 @@ export default class DisplayManager {
 
     this.brailleDiv!.appendChild(brailleInput);
     return brailleInput;
+  }
+
+  private createReviewContainer(): HTMLElement {
+    const reviewDiv = document.createElement(Constant.DIV);
+    reviewDiv.id = Constant.REVIEW_CONTAINER_ID;
+    reviewDiv.classList.add(Constant.HIDDEN);
+
+    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, reviewDiv);
+    return reviewDiv;
   }
 }

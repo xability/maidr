@@ -13,6 +13,7 @@ export default abstract class Constant {
   static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
   static readonly PLOT_CONTAINER_ID = 'maidr-plot-container';
   static readonly TEXT_CONTAINER_ID = 'maidr-info-container';
+  static readonly REVIEW_CONTAINER_ID = 'maidr-review-container';
 
   // HTML Classes.
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';

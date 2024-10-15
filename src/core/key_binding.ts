@@ -17,6 +17,7 @@ import {
 import {Plot} from '../plot/plot';
 import TextManager from './manager/text';
 import {ToggleAudio, ToggleBraille, ToggleText} from './command/toggle';
+import {ToggleReview} from './manager/review';
 
 enum Keymap {
   // Navigation
@@ -29,6 +30,9 @@ enum Keymap {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+
+  // Features
+  TOGGLE_REVIEW = 'r',
 
   // Description
   DESCRIBE_X = 'l+x',
@@ -81,6 +85,9 @@ export default class KeyBinding {
         return new ToggleText(this.text);
       case Keymap.TOGGLE_AUDIO:
         return new ToggleAudio(this.audio);
+
+      case Keymap.TOGGLE_REVIEW:
+        return new ToggleReview();
 
       case Keymap.DESCRIBE_X:
         return new DescribeXCommand(this.plot, this.text);
