@@ -44,4 +44,8 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
+
+  // Hotkeys Scopes
+  static readonly HOTKEYS_SCOPE_DEFAULT = 'all';
+  static readonly HOTKEYS_SCOPE_LABEL = 'label';
 }
