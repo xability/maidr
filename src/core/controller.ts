@@ -1,7 +1,7 @@
 import AudioManager from './manager/audio';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
-import ScopeManager from './manager/keymap';
+import KeymapManager from './manager/keymap';
 import NotificationManager from './manager/notification';
 import TextManager from './manager/text';
 import {Plot} from '../model/plot';
@@ -15,7 +15,7 @@ export default class Controller {
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
-  private readonly keyBinding: ScopeManager;
+  private readonly keymap: KeymapManager;
 
   private readonly plot: Plot;
 
@@ -41,8 +41,8 @@ export default class Controller {
       braille: this.braille,
       plot: this.plot,
     };
-    this.keyBinding = new ScopeManager(commandContext);
-    this.keyBinding.register();
+    this.keymap = new KeymapManager(commandContext);
+    this.keymap.register();
 
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
@@ -54,7 +54,7 @@ export default class Controller {
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
-    this.keyBinding.unregister();
+    this.keymap.unregister();
     this.braille.destroy();
     this.audio.destroy();
     this.display.destroy();
