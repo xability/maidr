@@ -76,6 +76,7 @@ class Display {
       }
     }
     if (onoff == 'on') {
+      constants.lockSelection = true;
       if (constants.chartType == 'box') {
         // braille mode is on before any plot is selected
         if (
@@ -113,6 +114,9 @@ class Display {
       if (position.x == -1 && position.y == -1) {
         constants.brailleInput.setSelectionRange(0, 0);
       }
+      setTimeout(function () {
+        constants.lockSelection = false;
+      }, 50);
     } else {
       constants.brailleMode = 'off';
       document
@@ -219,6 +223,7 @@ class Display {
    * Updates the position of the cursor in the braille display based on the current chart type and position.
    */
   UpdateBraillePos() {
+    constants.lockSelection = true;
     if (
       constants.chartType == 'bar' ||
       constants.chartType == 'hist' ||
@@ -248,6 +253,7 @@ class Display {
       let targetLabel = this.boxplotGridPlaceholders[sectionPos];
       let haveTargetLabel = false;
       let adjustedPos = 0;
+
       if (constants.brailleData) {
         for (let i = 0; i < constants.brailleData.length; i++) {
           if (constants.brailleData[i].type != 'blank') {
@@ -276,6 +282,9 @@ class Display {
     ) {
       constants.brailleInput.setSelectionRange(positionL1.x, positionL1.x);
     }
+    setTimeout(function () {
+      constants.lockSelection = false;
+    }, 50);
   }
 
   /**
@@ -580,16 +589,20 @@ class Display {
     constants.verboseText = verboseText;
     // aria live hack. If we're repeating (Space), aria won't detect if text is the same, so we modify vey slightly by adding / removing period at the end
     if (output == constants.infoDiv.innerHTML) {
-      if (constants.infoDiv.innerHTML.endsWith('.')) {
-        if (output.endsWith('.')) {
-          output = output.slice(0, -1);
+      if (constants.infoDiv.textContent.endsWith('.')) {
+        if (output.endsWith('.</p>')) {
+          output = output.replace('.</p>', '</p>');
         }
       } else {
-        output = output + '.';
+        output = output.replace('</p>', '.</p>');
       }
     }
 
-    if (constants.infoDiv) constants.infoDiv.innerHTML = output;
+    // could also try this hack, but we'll need a time gap
+    if (constants.infoDiv) {
+      constants.infoDiv.innerHTML = '';
+      constants.infoDiv.innerHTML = output;
+    }
     if (constants.review) {
       if (output.length > 0) {
         constants.review.value = output.replace(/<[^>]*>?/gm, '');
@@ -942,6 +955,10 @@ class Display {
 
       // Step 2: normalize and allocate remaining characters and add to our main braille array
       let charsAvailable = constants.brailleDisplayLength - numAllocatedChars;
+      // Bug happened here: if our numAllocatedChars is bigger than brailleDisplayLength, it cuts off chars
+      // temp fix: just let it overflow by setting charsAvailable to positive if it's below 0. Or maybe 5 to still give us some play
+      // todo: real solution should probably be to kill outliers that are too close together
+      if (charsAvailable < 5) charsAvailable = 5;
       let allocateCharacters = this.AllocateCharacters(lenData, charsAvailable);
       // apply allocation
       let brailleData = lenData;
