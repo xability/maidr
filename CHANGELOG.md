@@ -1,3 +1,16 @@
+# [2.19.0](https://github.com/xability/maidr/compare/v2.18.0...v2.19.0) (2024-10-16)
+
+
+### Bug Fixes
+
+* prevent autocomplete for review input ([#579](https://github.com/xability/maidr/issues/579)) ([4742cb4](https://github.com/xability/maidr/commit/4742cb453781e537e6da75abf4a6cab527b3c280))
+* replaying current point with Space doesn't work on histogram ([d0c565a](https://github.com/xability/maidr/commit/d0c565af3072d7216a278ead282621f618c51a98))
+
+
+### Features
+
+* scale autoplay rate to chart size, expose var AUTOPLAY_RATE to users ([#580](https://github.com/xability/maidr/issues/580)) ([ebb19a9](https://github.com/xability/maidr/commit/ebb19a9e3df4d8953593abfa81fa1a88787e1237))
+
 # [2.18.0](https://github.com/xability/maidr/compare/v2.17.3...v2.18.0) (2024-10-12)
 
 
