@@ -1984,7 +1984,7 @@ class ChatLLM {
    */
   ProcessLLMResponse(data, model) {
     chatLLM.WaitingSound(false);
-    console.log('LLM response: ', data);
+    //console.log('LLM response: ', data);
     let text = '';
     let LLMName = resources.GetString(model);
 
@@ -2098,7 +2098,7 @@ class ChatLLM {
     let url = 'https://api.openai.com/v1/chat/completions';
     let auth = constants.openAIAuthKey;
     let requestJson = chatLLM.OpenAIJson(text, img);
-    console.log('LLM request: ', requestJson);
+    //console.log('LLM request: ', requestJson);
 
     fetch(url, {
       method: 'POST',
@@ -2202,9 +2202,9 @@ class ChatLLM {
       };
 
       // Generate the content
-      console.log('LLM request: ', prompt, image);
+      //console.log('LLM request: ', prompt, image);
       const result = await model.generateContent([prompt, image]);
-      console.log(result.response.text());
+      //console.log(result.response.text());
 
       // Process the response
       chatLLM.ProcessLLMResponse(result.response, 'gemini');
@@ -10630,10 +10630,10 @@ class Control {
 
       constants.autoplayId = setInterval(function () {
         position.x += step;
-        if (position.x < 0 || end - 1 < position.x) {
+        if (position.x < 0 || plot.plotData.length - 1 < position.x) {
           constants.KillAutoplay();
           control.lockPosition();
-        } else if (position.x >= end) {
+        } else if (position.x == end) {
           constants.KillAutoplay();
           control.UpdateAllAutoPlay();
         } else {
