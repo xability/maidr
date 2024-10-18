@@ -5,6 +5,8 @@ import {BarData, Maidr} from './grammar';
 export class BarPlot extends AbstractPlot {
   private readonly x: number[] | string[];
   private readonly y: number[] | string[];
+  protected left_extreme = false;
+  protected right_extreme = false;
 
   private readonly min: number;
   private readonly max: number;
@@ -47,6 +49,8 @@ export class BarPlot extends AbstractPlot {
       size: this.values.length,
       index: this.index,
       value: this.values[this.index],
+      left_extreme: this.left_extreme,
+      right_extreme: this.right_extreme,
     };
   }
 
@@ -87,13 +91,23 @@ export class BarPlot extends AbstractPlot {
 
   protected left(): void {
     if (this.index > 0) {
+      if (this.right_extreme) {
+        this.right_extreme = false;
+      }
       this.index -= 1;
+    } else {
+      this.left_extreme = true;
     }
   }
 
   protected right(): void {
     if (this.index < this.values.length - 1) {
+      if (this.left_extreme) {
+        this.left_extreme = false;
+      }
       this.index += 1;
+    } else {
+      this.right_extreme = true;
     }
   }
 

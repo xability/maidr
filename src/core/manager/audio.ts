@@ -57,6 +57,11 @@ export default class AudioManager implements Observer {
       return;
     }
 
+    if (state.audio.left_extreme || state.audio.right_extreme) {
+      this.playUniqueSound(300, 0.3);
+      return;
+    }
+
     // TODO: Play empty sound.
     if (state.empty) {
       return;
@@ -156,5 +161,28 @@ export default class AudioManager implements Observer {
 
   public updateVolume(volume: number): void {
     this.volume = volume;
+  }
+
+  public playUniqueSound(frequency: number, duration: number): void {
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+
+    // Create an oscillator
+    const oscillator = ctx.createOscillator();
+    oscillator.type = 'sine'; // Set Oscilscope type
+    oscillator.frequency.setValueAtTime(frequency, now); // Set the frequency
+
+    // Create a gain node for volume control
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(this.volume, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+    // Connect the oscillator to the gain node and the gain node to the destination
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    // Start and stop the oscillator
+    oscillator.start(now);
+    oscillator.stop(now + duration);
   }
 }

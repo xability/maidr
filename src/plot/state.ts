@@ -13,6 +13,8 @@ export type AudioState = {
   index: number;
   count?: number;
   volume?: number;
+  left_extreme?: boolean;
+  right_extreme?: boolean;
 };
 
 export type BrailleState = {
