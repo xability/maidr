@@ -67,11 +67,11 @@ export default class DisplayManager {
   }
 
   private createArticleElement(articleId: string): HTMLElement {
-    // Create an article element that wraps the figure-wrapped SVG
+    // Create an article element that wraps the figure-wrapped SVG.
     const mainArticleWrapper = document.createElement(Constant.ARTICLE);
     mainArticleWrapper.id = articleId;
 
-    // Wrap the figure-wrapped SVG within the article
+    // Wrap the figure-wrapped SVG within the article.
     this.figureElement!.parentNode!.replaceChild(
       mainArticleWrapper,
       this.figureElement!
@@ -82,13 +82,13 @@ export default class DisplayManager {
   }
 
   private createFigureElement(figureId: string): HTMLElement {
-    // Create a figure element that wraps the SVG
+    // Create a figure element that wraps the SVG.
     const plotFigureWrapper = document.createElement(Constant.FIGURE);
     plotFigureWrapper.id = figureId;
     plotFigureWrapper.role = Constant.APPLICATION;
     plotFigureWrapper.tabIndex = 0;
 
-    // Wrap the SVG within the figure
+    // Wrap the SVG within the figure.
     this.plot!.parentNode!.replaceChild(plotFigureWrapper, this.plot!);
     plotFigureWrapper.appendChild(this.plot!);
 
@@ -96,7 +96,7 @@ export default class DisplayManager {
   }
 
   private createBreakElement(breakId: string): HTMLElement {
-    // Create a break element to use as a marker for div insertion
+    // Create a break element to use as a marker for div insertion.
     const br = document.createElement(Constant.BR);
     br.id = breakId;
     this.figureElement!.insertAdjacentElement(Constant.AFTER_END, br);
@@ -105,7 +105,7 @@ export default class DisplayManager {
   }
 
   private createTextContainer(textId: string): HTMLElement {
-    // Create a div to display plot information based on user traversal
+    // Create a div to display plot information based on user traversal.
     const textDiv = document.createElement(Constant.DIV);
     textDiv.id = textId;
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
@@ -117,7 +117,7 @@ export default class DisplayManager {
   }
 
   private createNotificationContainer(notificationId: string): HTMLElement {
-    // Create a div to display configuration changes to the user
+    // Create a div to display configuration changes to the user.
     const notificationDiv = document.createElement(Constant.DIV);
     notificationDiv.id = notificationId;
     notificationDiv.classList.add(Constant.MB_3);
@@ -133,12 +133,12 @@ export default class DisplayManager {
   }
 
   private createBrailleContainer(brailleId: string): HTMLElement {
-    // Create a div to house the braille input
+    // Create a div to house the braille input.
     const brailleDiv = document.createElement(Constant.DIV);
     brailleDiv.id = brailleId;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    // Maintain the figure context by placing the braille as a child
+    // Maintain the figure context by placing the braille as a child.
     this.figureElement!.insertBefore(
       brailleDiv,
       this.figureElement!.firstChild
@@ -148,7 +148,7 @@ export default class DisplayManager {
   }
 
   private createBrailleInput(brailleInputId: string): HTMLInputElement {
-    // Create a braille input element for displaying plot information in braille format
+    // Create a braille input element for displaying plot information in braille format.
     const brailleInput = document.createElement(Constant.INPUT);
     brailleInput.id = brailleInputId;
     brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
