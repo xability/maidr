@@ -52,6 +52,8 @@ export default class DisplayManager {
     this.brailleInput =
       (document.getElementById(brailleInputId) as HTMLInputElement) ??
       this.createBrailleInput(brailleInputId);
+
+    this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
   }
 
   public destroy(): void {
@@ -154,7 +156,6 @@ export default class DisplayManager {
     brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
     brailleInput.ariaBrailleRoleDescription = Constant.EMPTY;
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
-    brailleInput.addEventListener(EventType.BLUR, this.onBlur!);
 
     this.brailleDiv!.appendChild(brailleInput);
 
