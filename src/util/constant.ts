@@ -8,13 +8,14 @@ export default abstract class Constant {
   static readonly P = 'p';
 
   // HTML IDs.
-  static readonly BRAILLE_CONTAINER_ID = 'maidr-braille-container';
-  static readonly BRAILLE_INPUT_ID = 'maidr-braille-input';
+  static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
+  static readonly BRAILLE_INPUT = 'maidr-braille-input-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
-  static readonly MAIN_ARTICLE_ID = 'maidr-main-article';
-  static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
-  static readonly PLOT_FIGURE_ID = 'maidr-plot-figure';
-  static readonly TEXT_CONTAINER_ID = 'maidr-info-container';
+  static readonly MAIDR_ARTICLE = 'maidr-article-';
+  static readonly MAIDR_BR = 'maidr-br-';
+  static readonly MAIDR_FIGURE = 'maidr-figure-';
+  static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
+  static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';

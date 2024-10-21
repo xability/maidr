@@ -1,10 +1,13 @@
 import Constant from '../../util/constant';
+import {EventType} from "../../index";
 
 export default class DisplayManager {
   private readonly plot?: HTMLElement;
+  private readonly onFocus?: () => void;
+  private readonly onBlur?: (event: FocusEvent) => void;
 
-  private readonly mainArticleWrapper?: HTMLElement;
-  private readonly plotFigureWrapper?: HTMLElement;
+  private readonly articleElement?: HTMLElement;
+  private readonly figureElement?: HTMLElement;
   private readonly br?: HTMLElement;
 
   public readonly textDiv?: HTMLElement;
@@ -13,54 +16,75 @@ export default class DisplayManager {
   public readonly brailleDiv?: HTMLElement;
   public readonly brailleInput?: HTMLInputElement;
 
-  constructor(maidrId: string) {
+  constructor(maidrId: string, onFocus: () => void, onBlur: (event: FocusEvent) => void) {
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
       return;
     }
+
     this.plot = plot;
+    this.onFocus = onFocus;
+    this.onBlur = onBlur;
 
-    this.plotFigureWrapper = this.createPlotFigureWrapper();
-    this.mainArticleWrapper = this.createMainArticleWrapper();
-    this.br = this.createBreakElement();
+    const figureId = Constant.MAIDR_FIGURE + maidrId;
+    const articleId = Constant.MAIDR_ARTICLE + maidrId;
+    const breakId = Constant.MAIDR_BR + maidrId;
+    this.figureElement =
+      document.getElementById(figureId) ?? this.createFigureElement(figureId);
+    this.articleElement =
+      document.getElementById(articleId) ??
+      this.createArticleElement(articleId);
+    this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
 
-    this.textDiv = this.createTextContainer();
-    this.notificationDiv = this.createNotificationContainer();
-
-    this.brailleDiv = this.createBrailleContainer();
-    this.brailleInput = this.createBrailleInput();
+    const textId = Constant.TEXT_CONTAINER + maidrId;
+    const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
+    const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
+    const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
+    this.textDiv =
+      document.getElementById(textId) ?? this.createTextContainer(textId);
+    this.notificationDiv =
+      document.getElementById(notificationId) ??
+      this.createNotificationContainer(notificationId);
+    this.brailleDiv =
+      document.getElementById(brailleId) ??
+      this.createBrailleContainer(brailleId);
+    this.brailleInput =
+      (document.getElementById(brailleInputId) as HTMLInputElement) ??
+      this.createBrailleInput(brailleInputId);
   }
 
   public destroy(): void {
-    /*
-     * The construction of the wrapper elements and supporting DIVs is an onLoad operation instead of an onFocus operation.
-     * Hence individual HTML elements need not be destroyed when maidr is deactivated.
-     * Clear the messages shown in textDiv and notificationDiv to cleanse the display
-     */
-    this.notificationDiv!.innerHTML = Constant.EMPTY;
-    this.textDiv!.innerHTML = Constant.EMPTY;
+    if (this.brailleInput && this.onBlur) {
+      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
+    }
+    if (this.notificationDiv) {
+      this.notificationDiv.innerHTML = Constant.EMPTY;
+    }
+    if (this.textDiv) {
+      this.textDiv.innerHTML = Constant.EMPTY;
+    }
   }
 
-  private createMainArticleWrapper(): HTMLElement {
+  private createArticleElement(articleId: string): HTMLElement {
     // Create an article element that wraps the figure-wrapped SVG
     const mainArticleWrapper = document.createElement(Constant.ARTICLE);
-    mainArticleWrapper.id = Constant.MAIN_ARTICLE_ID;
+    mainArticleWrapper.id = articleId;
 
     // Wrap the figure-wrapped SVG within the article
-    this.plotFigureWrapper!.parentNode!.replaceChild(
+    this.figureElement!.parentNode!.replaceChild(
       mainArticleWrapper,
-      this.plotFigureWrapper!
+      this.figureElement!
     );
-    mainArticleWrapper.appendChild(this.plotFigureWrapper!);
+    mainArticleWrapper.appendChild(this.figureElement!);
 
     return mainArticleWrapper;
   }
 
-  private createPlotFigureWrapper(): HTMLElement {
+  private createFigureElement(figureId: string): HTMLElement {
     // Create a figure element that wraps the SVG
     const plotFigureWrapper = document.createElement(Constant.FIGURE);
-    plotFigureWrapper.id = Constant.PLOT_FIGURE_ID;
+    plotFigureWrapper.id = figureId;
     plotFigureWrapper.role = Constant.APPLICATION;
     plotFigureWrapper.tabIndex = 0;
 
@@ -71,35 +95,36 @@ export default class DisplayManager {
     return plotFigureWrapper;
   }
 
-  private createBreakElement(): HTMLElement {
+  private createBreakElement(breakId: string): HTMLElement {
     // Create a break element to use as a marker for div insertion
     const br = document.createElement(Constant.BR);
-    this.plotFigureWrapper!.insertAdjacentElement(Constant.AFTER_END, br);
+    br.id = breakId;
+    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, br);
 
     return br;
   }
 
-  private createTextContainer(): HTMLElement {
+  private createTextContainer(textId: string): HTMLElement {
     // Create a div to display plot information based on user traversal
     const textDiv = document.createElement(Constant.DIV);
-    textDiv.id = Constant.TEXT_CONTAINER_ID;
+    textDiv.id = textId;
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.plotFigureWrapper!.insertAdjacentElement(Constant.AFTER_END, textDiv);
+    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, textDiv);
 
     return textDiv;
   }
 
-  private createNotificationContainer(): HTMLElement {
+  private createNotificationContainer(notificationId: string): HTMLElement {
     // Create a div to display configuration changes to the user
     const notificationDiv = document.createElement(Constant.DIV);
-    notificationDiv.id = Constant.NOTIFICATION_CONTAINER_ID;
+    notificationDiv.id = notificationId;
     notificationDiv.classList.add(Constant.MB_3);
     notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.plotFigureWrapper!.insertAdjacentElement(
+    this.figureElement!.insertAdjacentElement(
       Constant.AFTER_END,
       notificationDiv
     );
@@ -107,36 +132,43 @@ export default class DisplayManager {
     return notificationDiv;
   }
 
-  private createBrailleContainer(): HTMLElement {
+  private createBrailleContainer(brailleId: string): HTMLElement {
     // Create a div to house the braille input
     const brailleDiv = document.createElement(Constant.DIV);
-    brailleDiv.id = Constant.BRAILLE_CONTAINER_ID;
+    brailleDiv.id = brailleId;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    /*
-     * When the focus shifts to braille input, we need to maintain some reference of the figure element.
-     * Hence, the braille container is now inserted as a child of the figure element.
-     * This helps in switching the focus back to the braille container's parent - which is technically the figure element
-     */
-
-    this.plotFigureWrapper!.insertBefore(
+    // Maintain the figure context by placing the braille as a child
+    this.figureElement!.insertBefore(
       brailleDiv,
-      this.plotFigureWrapper!.firstChild
+      this.figureElement!.firstChild
     );
 
     return brailleDiv;
   }
 
-  private createBrailleInput(): HTMLInputElement {
-    // Creeate a braille input element for displaying plot information in braille format
+  private createBrailleInput(brailleInputId: string): HTMLInputElement {
+    // Create a braille input element for displaying plot information in braille format
     const brailleInput = document.createElement(Constant.INPUT);
-    brailleInput.id = Constant.BRAILLE_INPUT_ID;
+    brailleInput.id = brailleInputId;
     brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
     brailleInput.ariaBrailleRoleDescription = Constant.EMPTY;
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
+    brailleInput.addEventListener(EventType.BLUR, this.onBlur!);
 
     this.brailleDiv!.appendChild(brailleInput);
 
     return brailleInput;
+  }
+
+  public toggleBrailleFocus(): void {
+    if (document.activeElement as HTMLInputElement === this.brailleInput && this.onBlur) {
+      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.figureElement?.focus();
+      this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
+    }
+    if (document.activeElement as HTMLElement === this.figureElement) {
+      this.brailleInput?.focus();
+    }
   }
 }

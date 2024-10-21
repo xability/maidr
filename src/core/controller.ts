@@ -31,6 +31,7 @@ export default class Controller {
       this.notification,
       this.plot.state,
       (index: number) => this.plot.moveToIndex(index),
+      () => this.display.toggleBrailleFocus(),
       this.display.brailleDiv,
       this.display.brailleInput
     );
