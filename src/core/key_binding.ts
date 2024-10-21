@@ -103,8 +103,8 @@ export default class KeyBinding {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       // Allow keybindings only for MAIDR braille input.
-      if (target.isContentEditable) {
-        return target.id === Constant.BRAILLE_INPUT;
+      if (target.id.includes(Constant.BRAILLE_INPUT)) {
+        return false;
       }
 
       // Allow keybindings for all other non-editable elements.
