@@ -32,7 +32,7 @@ function main(): void {
   const onBlur = (event: FocusEvent) => {
     const relatedTarget = event.relatedTarget as HTMLElement;
     if (figureElement?.contains(relatedTarget)) {
-      // Focus is moving within the figure, do not destroy
+      // Focus is moving within the figure, do not destroy.
       return;
     }
 

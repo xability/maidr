@@ -22,7 +22,6 @@ export default class Controller {
   private readonly plot: Plot;
 
   constructor(maidr: Maidr, display: DisplayManager) {
-    // Utilize the display object passed from the object initialization
     this.display = display;
     this.plot = PlotFactory.create(maidr);
 
