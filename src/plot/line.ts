@@ -6,7 +6,7 @@ export class LinePlot extends AbstractPlot {
   private readonly x: number[] | string[] = [];
   private readonly y: number[] | string[] = [];
 
-  private index = -1;
+  private index: number;
   private readonly values: number[] = [];
   private readonly brailleValues: string[] = [];
 
@@ -19,12 +19,12 @@ export class LinePlot extends AbstractPlot {
     this.index = -1;
 
     this.x = data.map(d => d.x);
-    this.y = data.map(d => d.y);
+    this.y = data.map(d => d.y).filter(e => typeof e === 'number');
+
+    this.values = this.y.filter(e => typeof e === 'number');
 
     this.min = Math.min(...this.values);
     this.max = Math.max(...this.values);
-
-    this.values = this.y.filter(e => typeof e === 'number');
 
     this.brailleValues = this.toBraille(this.values);
   }
@@ -45,9 +45,9 @@ export class LinePlot extends AbstractPlot {
 
   text(): TextState {
     return {
-      mainLabel: this.xAxis,
+      mainLabel: this.yAxis,
       mainValue: this.y[this.index],
-      crossLabel: this.yAxis,
+      crossLabel: this.xAxis,
       crossValue: this.x[this.index],
     };
   }
@@ -72,13 +72,11 @@ export class LinePlot extends AbstractPlot {
     throw new Error(`Move up not supported for ${this.type}`);
   }
 
-  protected toIndex(index: number): void {
-    this.index = index;
-  }
+  protected toIndex(index: number): void {}
 
   protected isWithinRange(index?: number): boolean {
     const idx = index ?? this.index;
-    return idx < 0 || idx >= this.values.length;
+    return idx > 0 || idx <= this.values.length;
   }
 
   private toBraille(values: number[]): string[] {
@@ -153,7 +151,6 @@ export class LinePlot extends AbstractPlot {
         braille.push('⠉');
       }
     }
-
     return braille;
   }
 }
