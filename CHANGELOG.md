@@ -1,3 +1,10 @@
+# [2.20.0](https://github.com/xability/maidr/compare/v2.19.1...v2.20.0) (2024-10-23)
+
+
+### Features
+
+* provide alt text for maidr plot before init ([#586](https://github.com/xability/maidr/issues/586)) ([749f262](https://github.com/xability/maidr/commit/749f26269d594d376225c6e35af156295bf7ad35))
+
 ## [2.19.1](https://github.com/xability/maidr/compare/v2.19.0...v2.19.1) (2024-10-17)
 
 
