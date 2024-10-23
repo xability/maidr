@@ -1,5 +1,5 @@
 import Constant from '../../util/constant';
-import {EventType} from "../../index";
+import {EventType} from '../../index';
 
 export default class DisplayManager {
   private readonly plot?: HTMLElement;
@@ -68,33 +68,43 @@ export default class DisplayManager {
     }
   }
 
+  public createMaidrInstruction(): void {
+    if (this.plot) {
+      this.plot.setAttribute(
+        Constant.ARIA_LABEL,
+        Constant.PLOT_ARIA_DESCRIPTION
+      );
+      this.plot.setAttribute(Constant.TITLE, Constant.PLOT_ARIA_DESCRIPTION);
+    }
+  }
+
   private createArticleElement(articleId: string): HTMLElement {
     // Create an article element that wraps the figure-wrapped SVG.
-    const mainArticleWrapper = document.createElement(Constant.ARTICLE);
-    mainArticleWrapper.id = articleId;
+    const mainArticle = document.createElement(Constant.ARTICLE);
+    mainArticle.id = articleId;
 
     // Wrap the figure-wrapped SVG within the article.
     this.figureElement!.parentNode!.replaceChild(
-      mainArticleWrapper,
+      mainArticle,
       this.figureElement!
     );
-    mainArticleWrapper.appendChild(this.figureElement!);
+    mainArticle.appendChild(this.figureElement!);
 
-    return mainArticleWrapper;
+    return mainArticle;
   }
 
   private createFigureElement(figureId: string): HTMLElement {
     // Create a figure element that wraps the SVG.
-    const plotFigureWrapper = document.createElement(Constant.FIGURE);
-    plotFigureWrapper.id = figureId;
-    plotFigureWrapper.role = Constant.APPLICATION;
-    plotFigureWrapper.tabIndex = 0;
+    const plotFigure = document.createElement(Constant.FIGURE);
+    plotFigure.id = figureId;
+    plotFigure.role = Constant.APPLICATION;
+    plotFigure.tabIndex = 0;
 
     // Wrap the SVG within the figure.
-    this.plot!.parentNode!.replaceChild(plotFigureWrapper, this.plot!);
-    plotFigureWrapper.appendChild(this.plot!);
+    this.plot!.parentNode!.replaceChild(plotFigure, this.plot!);
+    plotFigure.appendChild(this.plot!);
 
-    return plotFigureWrapper;
+    return plotFigure;
   }
 
   private createBreakElement(breakId: string): HTMLElement {
