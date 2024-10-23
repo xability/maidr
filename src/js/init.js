@@ -157,7 +157,7 @@ function InitMaidr(thisMaidr) {
         Array.isArray(singleMaidr.type) && singleMaidr.type.length > 1;
 
       // Construct the final announceText string
-      let announceText = `${plotTypeString} plot of ${title}: Use Arrows to navigate data points. ${
+      let announceText = `${plotTypeString} plot of ${title}: Click to activate. Use Arrows to navigate data points. ${
         isMultiLayered ? multiLayerInstruction : ' '
       }Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.`;
 
@@ -493,7 +493,7 @@ function CreateChartComponents(thisMaidr, chartOnly = false) {
       Array.isArray(thisMaidr.type) && thisMaidr.type.length > 1;
 
     // Construct the final announceText string
-    altText = `${plotTypeString} plot of ${title}: Use Arrows to navigate data points. ${
+    altText = `${plotTypeString} plot of ${title}: Click to activate. Use Arrows to navigate data points. ${
       isMultiLayered ? multiLayerInstruction : ' '
     }Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.`;
   }
