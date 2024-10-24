@@ -4,6 +4,7 @@ export default abstract class Constant {
   static readonly BR = 'br';
   static readonly DIV = 'div';
   static readonly FIGURE = 'figure';
+  static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
   static readonly P = 'p';
 
@@ -46,8 +47,4 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
-
-  // Descriptions.
-  static readonly PLOT_ARIA_DESCRIPTION =
-    'This is maidr plot. Click to activate. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Press H for Help.';
 }
