@@ -1,8 +1,8 @@
 import Constant from '../../util/constant';
 import {EventType} from '../../index';
+import {Maidr} from '../../model/grammar';
 
 export default class DisplayManager {
-  private readonly plotType: string;
   private readonly plot?: HTMLElement;
   private readonly onFocus?: () => void;
   private readonly onBlur?: (event: FocusEvent) => void;
@@ -18,10 +18,11 @@ export default class DisplayManager {
   public readonly brailleInput?: HTMLInputElement;
 
   constructor(
-    maidrId: string,
+    maidr: Maidr,
     onFocus: () => void,
     onBlur: (event: FocusEvent) => void
   ) {
+    const maidrId = maidr.id;
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
@@ -31,7 +32,7 @@ export default class DisplayManager {
     this.onFocus = onFocus;
     this.onBlur = onBlur;
 
-    this.createMaidrInstruction();
+    this.createMaidrInstruction(maidr.type);
 
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
@@ -75,15 +76,15 @@ export default class DisplayManager {
     }
   }
 
-  public createMaidrInstruction(): void {
+  public createMaidrInstruction(plotType: string): void {
     if (this.plot) {
-      const maidrInstruction =
-        'This is a maidr plot of type ' +
-        this.plotType +
-        ': Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.';
+      const maidrInstruction = `This is a maidr plot of type ${plotType}: Click to activate. 
+        Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
+        S for Sonification, and R for Review mode. Use H for Help.`;
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
       this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+      this.plot.tabIndex = 0;
     }
   }
 
@@ -106,8 +107,6 @@ export default class DisplayManager {
     // Create a figure element that wraps the SVG.
     const figureElement = document.createElement(Constant.FIGURE);
     figureElement.id = figureId;
-    figureElement.role = Constant.APPLICATION;
-    figureElement.tabIndex = 0;
 
     // Wrap the SVG within the figure.
     this.plot!.parentNode!.replaceChild(figureElement, this.plot!);
@@ -184,10 +183,10 @@ export default class DisplayManager {
       this.onBlur
     ) {
       this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.figureElement?.focus();
+      this.plot?.focus();
       this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
     }
-    if ((document.activeElement as HTMLElement) === this.figureElement) {
+    if ((document.activeElement as HTMLElement) === this.plot) {
       this.brailleInput?.focus();
     }
   }
