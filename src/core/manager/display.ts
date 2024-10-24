@@ -81,6 +81,7 @@ export default class DisplayManager {
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
       this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+      this.plot.tabIndex = 0;
     }
   }
 
@@ -103,8 +104,6 @@ export default class DisplayManager {
     // Create a figure element that wraps the SVG.
     const plotFigure = document.createElement(Constant.FIGURE);
     plotFigure.id = figureId;
-    plotFigure.role = Constant.APPLICATION;
-    plotFigure.tabIndex = 0;
 
     // Wrap the SVG within the figure.
     this.plot!.parentNode!.replaceChild(plotFigure, this.plot!);
@@ -179,12 +178,15 @@ export default class DisplayManager {
   }
 
   public toggleBrailleFocus(): void {
-    if (document.activeElement as HTMLInputElement === this.brailleInput && this.onBlur) {
+    if (
+      (document.activeElement as HTMLInputElement) === this.brailleInput &&
+      this.onBlur
+    ) {
       this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.figureElement?.focus();
+      this.plot?.focus();
       this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
     }
-    if (document.activeElement as HTMLElement === this.figureElement) {
+    if ((document.activeElement as HTMLElement) === this.plot) {
       this.brailleInput?.focus();
     }
   }
