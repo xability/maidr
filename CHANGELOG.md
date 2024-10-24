@@ -1,3 +1,10 @@
+# [2.21.0](https://github.com/xability/maidr/compare/v2.20.0...v2.21.0) (2024-10-24)
+
+
+### Features
+
+* add an instruction on how to activate maidr plot ([98237b4](https://github.com/xability/maidr/commit/98237b443caa4871bceb32079c45f436b25c9dc3))
+
 # [2.20.0](https://github.com/xability/maidr/compare/v2.19.1...v2.20.0) (2024-10-23)
 
 
