@@ -17,6 +17,7 @@ import {
 import {Plot} from '../plot/plot';
 import TextManager from './manager/text';
 import {ToggleAudio, ToggleBraille, ToggleText} from './command/toggle';
+import {ToggleHelpMenu} from './manager/help';
 
 enum Keymap {
   // Navigation
@@ -34,6 +35,9 @@ enum Keymap {
   DESCRIBE_X = 'l+x',
   DESCRIBE_Y = 'l+y',
   DESCRIBE_POINT = 'space',
+
+  // Support features
+  TOGGLE_HELP = 'h',
 }
 
 export default class KeyBinding {
@@ -93,7 +97,8 @@ export default class KeyBinding {
           this.braille,
           this.text
         );
-
+      case Keymap.TOGGLE_HELP:
+        return new ToggleHelpMenu();
       default:
         throw new Error(`Unsupported key: ${key}`);
     }

@@ -16,6 +16,10 @@ module.exports = {
         use: 'ts-loader', // Use ts-loader to transpile TypeScript files
         exclude: /node_modules/, // Exclude node_modules from transpilation
       },
+      {
+        test: /\.html$/,
+        use: 'html-loader',
+      },
     ],
   },
   devtool: 'source-map', // Enable source maps for debugging

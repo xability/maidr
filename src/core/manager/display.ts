@@ -1,4 +1,5 @@
 import Constant from '../../util/constant';
+import menuHtml from '../../static/help_menu.html';
 
 export default class DisplayManager {
   private readonly plot?: HTMLElement;
@@ -31,6 +32,8 @@ export default class DisplayManager {
 
     this.brailleDiv = this.createBrailleContainer();
     this.brailleInput = this.createBrailleInput();
+
+    this.createHelpMenu();
   }
 
   public destroy(): void {
@@ -119,5 +122,20 @@ export default class DisplayManager {
 
     this.brailleDiv!.appendChild(brailleInput);
     return brailleInput;
+  }
+
+  private createHelpMenu(): HTMLElement | null {
+    if (!menuHtml) {
+      return null;
+    }
+
+    const tempContainer = document.createElement(Constant.DIV);
+    tempContainer.innerHTML = menuHtml.trim();
+    const helpMenuElement = tempContainer.firstElementChild as HTMLElement;
+
+    if (this.plotDiv && helpMenuElement) {
+      this.plotDiv.insertAdjacentElement(Constant.AFTER_END, helpMenuElement);
+    }
+    return helpMenuElement;
   }
 }
