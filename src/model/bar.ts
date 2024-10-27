@@ -75,12 +75,12 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  // TODO: Implement 2D in bar plot to lock position and play null.
+  // TODO: Implement 2D in bar model to lock position and play null.
   protected up(): void {
     throw new Error(`Move up not supported for ${this.type}`);
   }
 
-  // TODO: Implement 2D in bar plot to lock position and play null.
+  // TODO: Implement 2D in bar model to lock position and play null.
   protected down(): void {
     throw new Error(`Move down not supported for ${this.type}`);
   }

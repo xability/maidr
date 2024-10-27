@@ -2,12 +2,12 @@ import AudioManager from './manager/audio';
 import {AutoplayManager} from "./manager/autoplay";
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
-import KeyBinding from './key_binding';
-import {Maidr} from '../plot/grammar';
+import ScopeManager from './manager/keymap';
 import NotificationManager from './manager/notification';
-import {Plot} from '../plot/plot';
-import {PlotFactory} from '../plot/factory';
 import TextManager from './manager/text';
+import {Plot} from '../model/plot';
+import {Maidr} from '../model/grammar';
+import {PlotFactory} from '../model/factory';
 
 export default class Controller {
   private readonly audio: AudioManager;
@@ -17,7 +17,7 @@ export default class Controller {
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
-  private readonly keyBinding: KeyBinding;
+  private readonly keyBinding: ScopeManager;
 
   private readonly plot: Plot;
 
@@ -42,15 +42,10 @@ export default class Controller {
       audio: this.audio,
       text: this.text,
       braille: this.braille,
+      autoplay: this.autoplay,
       plot: this.plot,
     };
-    this.keyBinding = new KeyBinding(
-      this.plot,
-      this.audio,
-      this.braille,
-      this.text,
-      this.autoplay
-    );
+    this.keyBinding = new ScopeManager(commandContext);
     this.keyBinding.register();
 
     this.plot.addObserver(this.audio);

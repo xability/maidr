@@ -1,6 +1,6 @@
+import {Observer} from '../observer';
 import NotificationManager from './notification';
-import {PlotState} from '../../plot/state';
-import {Observer} from "../interface";
+import {PlotState} from '../../model/state';
 
 type Range = {
   min: number;

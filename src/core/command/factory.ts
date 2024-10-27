@@ -1,12 +1,26 @@
-import AudioManager from "../manager/audio";
-import BrailleManager from "../manager/braille";
-import {Command, CommandContext} from "./command";
-import {DescribePointCommand, DescribeXCommand, DescribeYCommand} from "./describe";
-import {MoveDownCommand, MoveLeftCommand, MoveRightCommand, MoveUpCommand} from "./move";
-import {Plot} from "../../plot/plot";
-import {Keymap, Scope} from "../manager/keymap";
-import TextManager from "../manager/text";
-import {ToggleAudioCommand, ToggleBrailleCommand, SwitchScopeCommand, ToggleTextCommand} from "./toggle";
+import AudioManager from '../manager/audio';
+import BrailleManager from '../manager/braille';
+import {Command, CommandContext} from './command';
+import {
+  DescribePointCommand,
+  DescribeXCommand,
+  DescribeYCommand,
+} from './describe';
+import {
+  MoveDownCommand,
+  MoveLeftCommand,
+  MoveRightCommand,
+  MoveUpCommand,
+} from './move';
+import {Keys} from '../manager/keymap';
+import TextManager from '../manager/text';
+import {
+  ToggleAudioCommand,
+  ToggleBrailleCommand,
+  SwitchScopeCommand,
+  ToggleTextCommand,
+} from './toggle';
+import {Plot} from '../../model/plot';
 
 export class CommandFactory {
   private readonly plot: Plot;
@@ -21,7 +35,7 @@ export class CommandFactory {
     this.text = commandContext.text;
   }
 
-  create(command: keyof Keymap): Command {
+  create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
         return new MoveUpCommand(this.plot);
@@ -52,9 +66,9 @@ export class CommandFactory {
         );
 
       case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand(Scope.LABEL);
+        return new SwitchScopeCommand('LABEL');
       case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand(Scope.DEFAULT);
+        return new SwitchScopeCommand('DEFAULT');
 
       default:
         throw new Error(`Invalid command name: ${command}`);
