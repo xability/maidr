@@ -1,5 +1,5 @@
 import Constant from '../../util/constant';
-import {EventType} from "../../index";
+import {EventType} from '../../index';
 
 export default class DisplayManager {
   private readonly plot?: HTMLElement;
@@ -16,7 +16,11 @@ export default class DisplayManager {
   public readonly brailleDiv?: HTMLElement;
   public readonly brailleInput?: HTMLInputElement;
 
-  constructor(maidrId: string, onFocus: () => void, onBlur: (event: FocusEvent) => void) {
+  constructor(
+    maidrId: string,
+    onFocus: () => void,
+    onBlur: (event: FocusEvent) => void
+  ) {
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
@@ -35,7 +39,8 @@ export default class DisplayManager {
     this.articleElement =
       document.getElementById(articleId) ??
       this.createArticleElement(articleId);
-    this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
+    this.br =
+      document.getElementById(breakId) ?? this.createBreakElement(breakId);
 
     const textId = Constant.TEXT_CONTAINER + maidrId;
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
@@ -107,7 +112,7 @@ export default class DisplayManager {
   }
 
   private createTextContainer(textId: string): HTMLElement {
-    // Create a div to display plot information based on user traversal.
+    // Create a div to display model information based on user traversal.
     const textDiv = document.createElement(Constant.DIV);
     textDiv.id = textId;
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
@@ -150,7 +155,7 @@ export default class DisplayManager {
   }
 
   private createBrailleInput(brailleInputId: string): HTMLInputElement {
-    // Create a braille input element for displaying plot information in braille format.
+    // Create a braille input element for displaying model information in braille format.
     const brailleInput = document.createElement(Constant.INPUT);
     brailleInput.id = brailleInputId;
     brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
@@ -163,12 +168,15 @@ export default class DisplayManager {
   }
 
   public toggleBrailleFocus(): void {
-    if (document.activeElement as HTMLInputElement === this.brailleInput && this.onBlur) {
+    if (
+      (document.activeElement as HTMLInputElement) === this.brailleInput &&
+      this.onBlur
+    ) {
       this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
       this.figureElement?.focus();
       this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
     }
-    if (document.activeElement as HTMLElement === this.figureElement) {
+    if ((document.activeElement as HTMLElement) === this.figureElement) {
       this.brailleInput?.focus();
     }
   }

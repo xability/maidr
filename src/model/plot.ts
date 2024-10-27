@@ -1,6 +1,6 @@
 import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
-import {Observer, Subject} from '../core';
+import {Observer, Subject} from '../core/observer';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';

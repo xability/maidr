@@ -38,10 +38,12 @@ function main(): void {
 
     controller?.destroy();
     controller = null;
-  }
+  };
 
   const display = new DisplayManager(maidrId, onFocus, onBlur);
-  const figureElement = document.getElementById(Constant.MAIDR_FIGURE + maidrId);
+  const figureElement = document.getElementById(
+    Constant.MAIDR_FIGURE + maidrId
+  );
   let controller: Controller | null = null;
 
   figureElement?.addEventListener(EventType.FOCUS, onFocus);
