@@ -1,8 +1,8 @@
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
-import {Observer} from '../observer';
 import {PlotState} from '../../plot/state';
 import {EventType} from '../..';
+import {Observer} from "../interface";
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;

@@ -1,6 +1,6 @@
 import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
-import {Observer, Subject} from '../core/observer';
+import {Movable, Observable, Observer} from "../core/interface";
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
@@ -16,7 +16,7 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export interface Plot extends Subject {
+export interface Plot extends Movable, Observable {
   id: string;
   type: string;
 
@@ -25,12 +25,6 @@ export interface Plot extends Subject {
   yAxis: string;
 
   get state(): PlotState;
-
-  moveUp(): void;
-  moveRight(): void;
-  moveDown(): void;
-  moveLeft(): void;
-  moveToIndex(index: number): void;
 }
 
 export abstract class AbstractPlot implements Plot {
@@ -111,7 +105,8 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
-  protected abstract isWithinRange(index?: number): boolean;
+  public abstract isAtEnd(): boolean;
+  public abstract isWithinRange(index?: number): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;

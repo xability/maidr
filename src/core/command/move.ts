@@ -1,4 +1,4 @@
-import {Command} from './command';
+import Command from './command';
 import {Plot} from '../../plot/plot';
 
 export class MoveUpCommand implements Command {

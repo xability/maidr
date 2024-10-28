@@ -34,8 +34,12 @@ export class LinePlot extends AbstractPlot {
 
   protected toIndex(index: number): void {}
 
-  protected isWithinRange(index?: number): boolean {
+  public isWithinRange(index?: number): boolean {
     // TODO: Modify boundary conditions according to grammar of lineplot
     return this.index < 0 || this.index >= this.values.length;
+  }
+
+  public isAtEnd(): boolean {
+    return false;
   }
 }

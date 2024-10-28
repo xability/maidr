@@ -1,7 +1,12 @@
 import hotkeys from 'hotkeys-js';
 import AudioManager from './manager/audio';
+import {
+  AutoplayBackwardCommand,
+  AutoplayForwardCommand
+} from "./command/autoplay";
+import {AutoplayManager} from "./manager/autoplay";
 import BrailleManager from './manager/braille';
-import {Command, CommandContext} from './command/command';
+import Command from './command/command';
 import Constant from '../util/constant';
 import {
   DescribePointCommand,
@@ -25,6 +30,10 @@ enum Keymap {
   MOVE_RIGHT = 'right',
   MOVE_LEFT = 'left',
 
+  // Autoplay
+  AUTOPLAY_FORWARD = 'command+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left',
+
   // BTS
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
@@ -43,12 +52,20 @@ export default class KeyBinding {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly autoplay: AutoplayManager;
 
-  constructor(commandContext: CommandContext) {
-    this.plot = commandContext.plot;
-    this.audio = commandContext.audio;
-    this.braille = commandContext.braille;
-    this.text = commandContext.text;
+  constructor(
+    plot: Plot,
+    audio: AudioManager,
+    braille: BrailleManager,
+    text: TextManager,
+    autoplay: AutoplayManager,
+  ) {
+    this.plot = plot;
+    this.audio = audio;
+    this.braille = braille;
+    this.text = text;
+    this.autoplay = autoplay;
 
     this.bindings = this.createBindings();
   }
@@ -74,6 +91,11 @@ export default class KeyBinding {
         return new MoveRightCommand(this.plot);
       case Keymap.MOVE_LEFT:
         return new MoveLeftCommand(this.plot);
+
+      case Keymap.AUTOPLAY_FORWARD:
+        return new AutoplayForwardCommand(this.autoplay);
+      case Keymap.AUTOPLAY_BACKWARD:
+        return new AutoplayBackwardCommand(this.autoplay);
 
       case Keymap.TOGGLE_BRAILLE:
         return new ToggleBraille(this.braille);

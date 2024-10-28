@@ -1,4 +1,5 @@
 import AudioManager from './manager/audio';
+import {AutoplayManager} from "./manager/autoplay";
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
 import KeyBinding from './key_binding';
@@ -12,6 +13,7 @@ export default class Controller {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly autoplay: AutoplayManager;
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
@@ -25,7 +27,6 @@ export default class Controller {
 
     this.notification = new NotificationManager(this.display.notificationDiv);
     this.audio = new AudioManager(this.notification);
-    this.text = new TextManager(this.notification, this.display.textDiv);
     this.braille = new BrailleManager(
       this.notification,
       this.plot.state,
@@ -33,6 +34,8 @@ export default class Controller {
       this.display.brailleDiv,
       this.display.brailleInput
     );
+    this.text = new TextManager(this.notification, this.display.textDiv);
+    this.autoplay = new AutoplayManager(this.plot);
 
     const commandContext = {
       audio: this.audio,
@@ -40,7 +43,13 @@ export default class Controller {
       braille: this.braille,
       plot: this.plot,
     };
-    this.keyBinding = new KeyBinding(commandContext);
+    this.keyBinding = new KeyBinding(
+      this.plot,
+      this.audio,
+      this.braille,
+      this.text,
+      this.autoplay
+    );
     this.keyBinding.register();
 
     this.plot.addObserver(this.audio);

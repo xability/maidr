@@ -97,7 +97,11 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  protected isWithinRange(index?: number): boolean {
+  public isAtEnd(): boolean {
+    return this.index === 0 || this.index === this.values.length - 1;
+  }
+
+  public isWithinRange(index?: number): boolean {
     const idx = index ?? this.index;
     return idx >= 0 && idx < this.values.length;
   }

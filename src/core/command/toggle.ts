@@ -1,7 +1,7 @@
+import AudioManager from "../manager/audio";
 import BrailleManager from '../manager/braille';
-import {Command} from './command';
+import Command from './command';
 import TextManager from '../manager/text';
-import AudioManager from '../manager/audio';
 
 export class ToggleBraille implements Command {
   private readonly braille: BrailleManager;
