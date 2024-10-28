@@ -1,5 +1,5 @@
 import AudioManager from '../manager/audio';
-import { AutoplayManager } from "../manager/autoplay";
+import {AutoplayManager} from '../manager/autoplay';
 import TextManager from '../manager/text';
 import BrailleManager from '../manager/braille';
 import {Plot} from '../../model/plot';

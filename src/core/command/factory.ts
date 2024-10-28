@@ -1,5 +1,7 @@
 import AudioManager from '../manager/audio';
+import {AutoplayManager} from '../manager/autoplay';
 import BrailleManager from '../manager/braille';
+import {AutoplayBackwardCommand, AutoplayForwardCommand} from './autoplay';
 import {Command, CommandContext} from './command';
 import {
   DescribePointCommand,
@@ -27,12 +29,14 @@ export class CommandFactory {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly autoplay: AutoplayManager;
 
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+    this.autoplay = commandContext.autoplay;
   }
 
   create(command: Keys): Command {
@@ -69,6 +73,11 @@ export class CommandFactory {
         return new SwitchScopeCommand('LABEL');
       case 'ACTIVATE_DEFAULT_SCOPE':
         return new SwitchScopeCommand('DEFAULT');
+
+      case 'AUTOPLAY_FORWARD':
+        return new AutoplayForwardCommand(this.autoplay);
+      case 'AUTOPLAY_BACKWARD':
+        return new AutoplayBackwardCommand(this.autoplay);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

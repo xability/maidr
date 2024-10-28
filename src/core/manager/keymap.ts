@@ -6,6 +6,10 @@ import {CommandContext} from '../command/command';
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
+  // Autoplay
+  AUTOPLAY_FORWARD = 'command+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left',
+
   // Navigation
   MOVE_UP = 'up',
   MOVE_DOWN = 'down',

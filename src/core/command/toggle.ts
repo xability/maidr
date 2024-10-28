@@ -1,5 +1,5 @@
 import hotkeys from 'hotkeys-js';
-import AudioManager from "../manager/audio";
+import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
 import TextManager from '../manager/text';

@@ -1,4 +1,4 @@
-import {Observer} from '../observer';
+import {Observer} from '../interface';
 import NotificationManager from './notification';
 import {PlotState} from '../../model/state';
 
