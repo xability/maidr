@@ -18,69 +18,42 @@ function main(): void {
   }
 
   const maidrId = window.maidr.id;
-  const maidrContainer = document.getElementById(maidrId);
-  if (!maidrContainer) {
+  const plot = document.getElementById(maidrId);
+  if (!plot) {
     return;
   }
 
   const onFocus = () => {
     {
-      if (!controller) {
-        controller = new Controller(window.maidr, display);
+      if (controller) {
+        return;
       }
-      const target = document.getElementById(maidrId);
-      if (target) {
-        target.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      }
+
+      controller = new Controller(window.maidr, display);
     }
   };
   const onBlur = (event: FocusEvent) => {
     const relatedTarget = event.relatedTarget as HTMLElement;
-    if (isSibling(maidrContainer, relatedTarget)) {
-      // Focus is moving to sibling of plot, do nothing
+    if (figureElement?.contains(relatedTarget)) {
+      // Focus is moving within the figure, do not destroy.
       return;
     }
-    maidrContainer.setAttribute(Constant.ROLE, Constant.IMAGE);
+
     controller?.destroy();
     controller = null;
   };
 
-  const onClickOrKeydown = (event: MouseEvent | KeyboardEvent) => {
-    if (event instanceof KeyboardEvent && event.key !== ' ') {
-      return;
-    }
-    if (!controller) {
-      controller = new Controller(window.maidr, display);
-    }
-    const target = document.getElementById(maidrId);
-    if (target) {
-      target.setAttribute(Constant.ROLE, Constant.APPLICATION);
-    }
-    if (event instanceof KeyboardEvent) {
-      event.preventDefault();
-    }
-  };
-
   const display = new DisplayManager(window.maidr, onFocus, onBlur);
-  const figureElement = document.getElementById(maidrId);
+  const figureElement = document.getElementById(
+    Constant.MAIDR_FIGURE + maidrId
+  );
   let controller: Controller | null = null;
 
   figureElement?.addEventListener(EventType.FOCUS, onFocus);
+  figureElement?.addEventListener(EventType.CLICK, onFocus); // Support screen reader.
   figureElement?.addEventListener(EventType.BLUR, onBlur);
-  figureElement?.addEventListener(EventType.CLICK, onClickOrKeydown);
 }
 
-const isSibling = (
-  element: HTMLElement | null,
-  relatedTarget: HTMLElement | null
-): boolean => {
-  if (!element || !relatedTarget) {
-    return false;
-  }
-
-  const parent = element.parentNode;
-  return !!parent && parent.contains(relatedTarget) && parent !== relatedTarget;
-};
 // These methods have not been used as of now and hence commenting them out for clarity
 
 /*
