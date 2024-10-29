@@ -100,7 +100,7 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  // TODO: Implement 2D in bar plot to lock position and play null.
+  // TODO: Implement 2D in bar model to lock position and play null.
   protected up(): void {
     console.log(this.crossIndex, this.y.length);
     if (this.crossIndex < this.y.length) {
@@ -109,7 +109,7 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  // TODO: Implement 2D in bar plot to lock position and play null.
+  // TODO: Implement 2D in bar model to lock position and play null.
   protected down(): void {
     if (this.crossIndex > 0) {
       this.crossIndex -= 1;

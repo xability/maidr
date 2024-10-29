@@ -1,5 +1,6 @@
 import Controller from './core/controller';
-import {Maidr} from './plot/grammar';
+import DisplayManager from './core/manager/display';
+import Constant from './util/constant';
 
 export enum EventType {
   BLUR = 'blur',
@@ -8,26 +9,50 @@ export enum EventType {
   SELECTION_CHANGE = 'selectionchange',
 }
 
-document.addEventListener(EventType.DOM_LOADED, test);
+document.addEventListener(EventType.DOM_LOADED, main);
 
-function test(): void {
+function main(): void {
   if (!window.maidr) {
     return;
   }
 
   const maidrId = window.maidr.id;
   const maidrContainer = document.getElementById(maidrId);
-  maidrContainer?.setAttribute('tabindex', '0');
-  maidrContainer?.addEventListener(EventType.FOCUS, event =>
-    onTestFocus(event)
+  if (!maidrContainer) {
+    return;
+  }
+
+  const onFocus = () => {
+    {
+      if (!controller) {
+        controller = new Controller(window.maidr, display);
+      }
+    }
+  };
+  const onBlur = (event: FocusEvent) => {
+    const relatedTarget = event.relatedTarget as HTMLElement;
+    if (figureElement?.contains(relatedTarget)) {
+      // Focus is moving within the figure, do not destroy.
+      return;
+    }
+
+    controller?.destroy();
+    controller = null;
+  };
+
+  const display = new DisplayManager(maidrId, onFocus, onBlur);
+  const figureElement = document.getElementById(
+    Constant.MAIDR_FIGURE + maidrId
   );
+  let controller: Controller | null = null;
+
+  figureElement?.addEventListener(EventType.FOCUS, onFocus);
+  figureElement?.addEventListener(EventType.BLUR, onBlur);
 }
 
-function onTestFocus(event: FocusEvent): void {
-  const maidrContainer = event.currentTarget as HTMLElement;
-  init(maidrContainer, window.maidr);
-}
+// These methods have not been used as of now and hence commenting them out for clarity
 
+/*
 function main(): void {
   const plotContainers = Array.from(
     document.querySelectorAll<HTMLElement>('svg[maidr-container]')
@@ -56,10 +81,4 @@ function onFigureFocus(event: FocusEvent) {
     throw new Error('Error parsing MAIDR data');
   }
 }
-
-function init(container: HTMLElement, maidr: Maidr) {
-  const control = new Controller(maidr);
-  container.addEventListener(EventType.BLUR, () => control.destroy(), {
-    once: true,
-  });
-}
+*/
