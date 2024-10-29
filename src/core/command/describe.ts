@@ -1,7 +1,7 @@
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
-import {Plot} from '../../plot/plot';
+import {Plot} from '../../model/plot';
 import TextManager from '../manager/text';
 
 abstract class DescribeCommand implements Command {

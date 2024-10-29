@@ -1,8 +1,8 @@
 import Constant from '../../util/constant';
+import {EventType} from '../../index';
 import NotificationManager from './notification';
 import {Observer} from '../observer';
-import {PlotState} from '../../plot/state';
-import {EventType} from '../..';
+import {PlotState} from '../../model/state';
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;
@@ -12,11 +12,13 @@ export default class BrailleManager implements Observer {
   private readonly brailleInput?: HTMLInputElement;
 
   private readonly selectionChangeHandler?: (event: Event) => void;
+  private readonly toggleFocus?: () => void;
 
   constructor(
     notification: NotificationManager,
     state: PlotState,
     moveToIndex: (index: number) => void,
+    toggleFocus: () => void,
     brailleDiv?: HTMLElement,
     brailleInput?: HTMLInputElement
   ) {
@@ -38,6 +40,7 @@ export default class BrailleManager implements Observer {
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
+    this.toggleFocus = toggleFocus;
 
     this.setBraille(state);
   }
@@ -71,11 +74,12 @@ export default class BrailleManager implements Observer {
     if (this.enabled) {
       // Show the Braille input and focus on it when enabled.
       this.brailleDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleInput?.focus();
     } else {
       // Remove the focus and then hide the Braille input.
-      this.brailleInput?.blur();
       this.brailleDiv?.classList.add(Constant.HIDDEN);
+    }
+    if (this.toggleFocus) {
+      this.toggleFocus();
     }
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
@@ -84,10 +88,14 @@ export default class BrailleManager implements Observer {
 
   public destroy(): void {
     if (this.brailleInput && this.selectionChangeHandler) {
-      this.brailleInput?.removeEventListener(
+      this.brailleInput.removeEventListener(
         EventType.SELECTION_CHANGE,
         this.selectionChangeHandler
       );
+      this.brailleInput.value = Constant.EMPTY;
+    }
+    if (this.brailleDiv) {
+      this.brailleDiv.classList.add(Constant.HIDDEN);
     }
   }
 }
