@@ -1,54 +1,46 @@
-import {Command} from '../command/command';
+import {Observer} from '../observer';
 import Constant from '../../util/constant';
 
-export class ToggleReview implements Command {
+export default class ReviewManager implements Observer {
   private enabled: boolean;
   private reviewDiv?: HTMLElement;
+  private textDiv?: HTMLElement;
 
-  // Review object takes an HTML reference to reviewDiv and maintains a boolean flag
-  constructor() {
+  private readonly toggleFocus?: () => void;
+
+  constructor(
+    toggleFocus: () => void,
+    reviewDiv?: HTMLElement,
+    textDiv?: HTMLElement
+  ) {
     this.enabled = false;
-    this.reviewDiv = document.getElementById(Constant.REVIEW_CONTAINER_ID) as
-      | HTMLElement
-      | undefined;
+    this.reviewDiv = reviewDiv;
+    this.textDiv = textDiv;
+    this.toggleFocus = toggleFocus;
   }
 
-  public execute(): void {
+  public toggle(): void {
     this.enabled = !this.enabled;
-    this.updateReviewDiv();
+    this.enabled ? this.update() : this.hideReviewDiv();
+    if (this.toggleFocus) {
+      this.toggleFocus();
+    }
   }
 
-  private updateReviewDiv(): void {
+  public update(): void {
     if (!this.reviewDiv) return;
-
-    if (this.enabled) {
-      this.showReviewDiv();
-    } else {
-      this.hideReviewDiv();
-    }
+    this.reviewDiv.classList.remove(Constant.HIDDEN);
+    const textDivInfo = this.getTextDivInfo();
+    this.reviewDiv.innerHTML = textDivInfo;
   }
 
-  // showReviewDiv() and hideReviewDiv() are used to show and hide the reviewDiv element based on the status of the enabled flag
-  private showReviewDiv(): void {
-    this.reviewDiv?.classList.remove(Constant.HIDDEN);
-    const textDiv = this.reviewDiv?.parentNode?.querySelector(
-      `#${Constant.TEXT_CONTAINER_ID}`
-    ) as HTMLElement | null;
-    const textDivInfo = textDiv?.innerHTML || Constant.EMPTY;
-    // Text from infoDiv is added to reviewDiv
-    if (this.reviewDiv) {
-      this.reviewDiv.innerHTML = textDivInfo;
-    }
-    // Focus is set to reviewDiv from figure wrapper
-    this.reviewDiv?.focus();
+  private getTextDivInfo(): string {
+    const textDiv = this.textDiv?.innerHTML;
+    return textDiv ?? Constant.EMPTY;
   }
 
   private hideReviewDiv(): void {
     this.reviewDiv?.classList.add(Constant.HIDDEN);
-    if (this.reviewDiv) {
-      this.reviewDiv.innerHTML = Constant.EMPTY;
-    }
-    // Focus is set back to the figure wrapper
-    (this.reviewDiv?.parentNode as HTMLElement)?.focus();
+    this.reviewDiv!.innerHTML = Constant.EMPTY;
   }
 }

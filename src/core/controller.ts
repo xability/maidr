@@ -2,6 +2,7 @@ import AudioManager from './manager/audio';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
 import KeymapManager from './manager/keymap';
+import ReviewManager from './manager/review';
 import NotificationManager from './manager/notification';
 import TextManager from './manager/text';
 import {Plot} from '../model/plot';
@@ -16,6 +17,7 @@ export default class Controller {
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
   private readonly keymap: KeymapManager;
+  private readonly review: ReviewManager;
 
   private readonly plot: Plot;
 
@@ -34,12 +36,17 @@ export default class Controller {
       this.display.brailleDiv,
       this.display.brailleInput
     );
-
+    this.review = new ReviewManager(
+      () => this.display.toggleReviewFocus(),
+      this.display.reviewDiv,
+      this.display.textDiv
+    );
     const commandContext = {
       audio: this.audio,
       text: this.text,
       braille: this.braille,
       plot: this.plot,
+      review: this.review,
     };
     this.keymap = new KeymapManager(commandContext);
     this.keymap.register();

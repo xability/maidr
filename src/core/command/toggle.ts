@@ -2,6 +2,7 @@ import hotkeys from 'hotkeys-js';
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
+import ReviewManager from '../manager/review';
 import TextManager from '../manager/text';
 import {Scope} from '../manager/keymap';
 
@@ -38,6 +39,18 @@ export class ToggleAudioCommand implements Command {
 
   public execute(): void {
     this.audio.toggle();
+  }
+}
+
+export class ToggleReviewCommand implements Command {
+  private readonly review: ReviewManager;
+
+  constructor(review: ReviewManager) {
+    this.review = review;
+  }
+
+  public execute(): void {
+    this.review.toggle();
   }
 }
 

@@ -14,11 +14,13 @@ import {
 } from './move';
 import {Keys} from '../manager/keymap';
 import TextManager from '../manager/text';
+import ReviewManager from '../manager/review';
 import {
   ToggleAudioCommand,
   ToggleBrailleCommand,
   SwitchScopeCommand,
   ToggleTextCommand,
+  ToggleReviewCommand,
 } from './toggle';
 import {Plot} from '../../model/plot';
 
@@ -27,12 +29,14 @@ export class CommandFactory {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly review: ReviewManager;
 
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+    this.review = commandContext.review;
   }
 
   create(command: Keys): Command {
@@ -52,6 +56,8 @@ export class CommandFactory {
         return new ToggleBrailleCommand(this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
+      case 'TOGGLE_REVIEW':
+        return new ToggleReviewCommand(this.review);
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);

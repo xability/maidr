@@ -48,6 +48,7 @@ export default class DisplayManager {
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
+    const reviewId = Constant.REVIEW_CONTAINER + maidrId;
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =
@@ -59,30 +60,26 @@ export default class DisplayManager {
     this.brailleInput =
       (document.getElementById(brailleInputId) as HTMLInputElement) ??
       this.createBrailleInput(brailleInputId);
+    this.reviewDiv =
+      (document.getElementById(reviewId) as HTMLElement) ??
+      this.createReviewContainer(reviewId);
 
     this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
+    this.reviewDiv.addEventListener(EventType.BLUR, this.onBlur);
   }
 
   public destroy(): void {
     if (this.brailleInput && this.onBlur) {
       this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
     }
-    this.mainDiv?.remove();
-    this.br?.remove();
-    this.plotDiv?.remove();
-
-    this.textDiv?.remove();
-    this.notificationDiv?.remove();
-
-    this.brailleInput?.remove();
-    this.brailleDiv?.remove();
-
-    this.reviewDiv?.remove();
     if (this.notificationDiv) {
       this.notificationDiv.innerHTML = Constant.EMPTY;
     }
     if (this.textDiv) {
       this.textDiv.innerHTML = Constant.EMPTY;
+    }
+    if (this.reviewDiv) {
+      this.reviewDiv.innerHTML = Constant.EMPTY;
     }
   }
 
@@ -194,12 +191,25 @@ export default class DisplayManager {
     }
   }
 
-  private createReviewContainer(): HTMLElement {
+  private createReviewContainer(reviewId: string): HTMLElement {
     const reviewDiv = document.createElement(Constant.DIV);
-    reviewDiv.id = Constant.REVIEW_CONTAINER_ID;
+    reviewDiv.id = reviewId;
     reviewDiv.classList.add(Constant.HIDDEN);
-
-    this.plotDiv!.insertAdjacentElement(Constant.AFTER_END, reviewDiv);
+    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, reviewDiv);
     return reviewDiv;
+  }
+
+  public toggleReviewFocus(): void {
+    if ((document.activeElement as HTMLElement) === this.figureElement) {
+      this.reviewDiv?.focus();
+    }
+    if (
+      (document.activeElement as HTMLElement) === this.reviewDiv &&
+      this.onBlur
+    ) {
+      this.reviewDiv.removeEventListener(EventType.BLUR, this.onBlur);
+      this.figureElement?.focus();
+      this.reviewDiv.addEventListener(EventType.BLUR, this.onBlur);
+    }
   }
 }
