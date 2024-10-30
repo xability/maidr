@@ -17,7 +17,7 @@ export default class DisplayManager {
   public readonly brailleInput?: HTMLInputElement;
 
   public readonly reviewDiv?: HTMLElement;
-
+  
   constructor(
     maidrId: string,
     onFocus: () => void,
@@ -49,6 +49,7 @@ export default class DisplayManager {
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
     const reviewId = Constant.REVIEW_CONTAINER + maidrId;
+
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =
@@ -104,11 +105,9 @@ export default class DisplayManager {
     plotFigureWrapper.id = figureId;
     plotFigureWrapper.role = Constant.APPLICATION;
     plotFigureWrapper.tabIndex = 0;
-
     // Wrap the SVG within the figure.
     this.plot!.parentNode!.replaceChild(plotFigureWrapper, this.plot!);
     plotFigureWrapper.appendChild(this.plot!);
-
     return plotFigureWrapper;
   }
 
