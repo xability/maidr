@@ -17,6 +17,8 @@ export default class DisplayManager {
   public readonly brailleDiv?: HTMLElement;
   public readonly brailleInput?: HTMLInputElement;
 
+  public readonly helpMenu?: HTMLElement;
+
   constructor(
     maidrId: string,
     onFocus: () => void,
@@ -47,6 +49,7 @@ export default class DisplayManager {
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
+    const helpMenuId = Constant.HELP_MENU + maidrId;
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =
@@ -58,7 +61,9 @@ export default class DisplayManager {
     this.brailleInput =
       (document.getElementById(brailleInputId) as HTMLInputElement) ??
       this.createBrailleInput(brailleInputId);
-
+    this.helpMenu =
+      (document.getElementById(helpMenuId) as HTMLInputElement) ??
+      this.createHelpMenu(helpMenuId);
     this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
   }
 
@@ -182,17 +187,20 @@ export default class DisplayManager {
     }
   }
 
-  private createHelpMenu(): HTMLElement | null {
+  private createHelpMenu(helpMenuId: string): HTMLElement | null {
     if (!menuHtml) {
       return null;
     }
-
     const tempContainer = document.createElement(Constant.DIV);
     tempContainer.innerHTML = menuHtml.trim();
     const helpMenuElement = tempContainer.firstElementChild as HTMLElement;
+    helpMenuElement.id = helpMenuId;
 
-    if (this.plotDiv && helpMenuElement) {
-      this.plotDiv.insertAdjacentElement(Constant.AFTER_END, helpMenuElement);
+    if (this.figureElement && helpMenuElement) {
+      this.figureElement.insertAdjacentElement(
+        Constant.AFTER_END,
+        helpMenuElement
+      );
     }
     return helpMenuElement;
   }

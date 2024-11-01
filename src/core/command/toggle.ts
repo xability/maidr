@@ -2,6 +2,7 @@ import hotkeys from 'hotkeys-js';
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
+import HelpManager from '../manager/help';
 import TextManager from '../manager/text';
 import {Scope} from '../manager/keymap';
 
@@ -50,5 +51,17 @@ export class SwitchScopeCommand implements Command {
 
   public execute() {
     hotkeys.setScope(this.scopeName);
+  }
+}
+
+export class ToggleHelpCommand implements Command {
+  private readonly help: HelpManager;
+
+  constructor(help: HelpManager) {
+    this.help = help;
+  }
+
+  public execute(): void {
+    this.help.toggle();
   }
 }

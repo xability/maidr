@@ -16,6 +16,9 @@ export enum DefaultKey {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+
+  // Features
+  TOGGLE_HELP = 'h',
 }
 
 export enum LabelKey {

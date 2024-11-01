@@ -1,25 +1,30 @@
-import {Command} from '../command/command';
 import Constant from '../../util/constant';
+import {Observer} from '../observer';
 
-export class ToggleHelpMenu implements Command {
+export default class HelpManager implements Observer {
   private enabled: boolean;
-  private helpMenu: HTMLElement;
-  constructor() {
+  private helpMenu?: HTMLElement;
+  constructor(helpMenu?: HTMLElement) {
     this.enabled = false;
-    this.helpMenu = document.getElementById(Constant.HELP_MENU_ID)!;
+    this.helpMenu = helpMenu;
+    console.log('Help menu is now ' + (this.enabled ? 'enabled' : 'disabled'));
   }
-  public execute(): void {
+  public toggle(): void {
     this.enabled = !this.enabled;
-    this.toggleHelpMenu();
+    console.log('Help menu is now ' + (this.enabled ? 'enabled' : 'disabled'));
+    this.update();
   }
 
-  private toggleHelpMenu(): void {
+  public update(): void {
     if (!this.helpMenu) {
+      console.error('Help menu not found');
       return;
     }
     if (this.enabled) {
+      console.log('Showing help menu');
       this.helpMenu.classList.remove(Constant.HIDDEN);
     } else {
+      console.log('Hiding help menu');
       this.helpMenu.classList.add(Constant.HIDDEN);
     }
   }

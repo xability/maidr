@@ -11,12 +11,12 @@ export default abstract class Constant {
   static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
   static readonly BRAILLE_INPUT = 'maidr-braille-input-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
-  static readonly HELP_MENU_ID = 'maidr-help-menu';
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
+  static readonly HELP_MENU = 'maidr-help-menu-';
 
   // HTML Classes.
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';

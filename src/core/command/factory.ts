@@ -1,5 +1,6 @@
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
+import HelpManager from '../manager/help';
 import {Command, CommandContext} from './command';
 import {
   DescribePointCommand,
@@ -19,6 +20,7 @@ import {
   ToggleBrailleCommand,
   SwitchScopeCommand,
   ToggleTextCommand,
+  ToggleHelpCommand,
 } from './toggle';
 import {Plot} from '../../model/plot';
 
@@ -27,12 +29,14 @@ export class CommandFactory {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly help: HelpManager;
 
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+    this.help = commandContext.help;
   }
 
   create(command: Keys): Command {
@@ -50,6 +54,8 @@ export class CommandFactory {
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
         return new ToggleBrailleCommand(this.braille);
+      case 'TOGGLE_HELP':
+        return new ToggleHelpCommand(this.help);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
 
@@ -64,7 +70,6 @@ export class CommandFactory {
           this.braille,
           this.text
         );
-
       case 'ACTIVATE_LABEL_SCOPE':
         return new SwitchScopeCommand('LABEL');
       case 'ACTIVATE_DEFAULT_SCOPE':

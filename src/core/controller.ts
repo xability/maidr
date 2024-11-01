@@ -7,11 +7,13 @@ import TextManager from './manager/text';
 import {Plot} from '../model/plot';
 import {Maidr} from '../model/grammar';
 import {PlotFactory} from '../model/factory';
+import HelpManager from './manager/help';
 
 export default class Controller {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly help: HelpManager;
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
@@ -34,12 +36,13 @@ export default class Controller {
       this.display.brailleDiv,
       this.display.brailleInput
     );
-
+    this.help = new HelpManager(this.display.helpMenu);
     const commandContext = {
       audio: this.audio,
       text: this.text,
       braille: this.braille,
       plot: this.plot,
+      help: this.help,
     };
     this.keymap = new KeymapManager(commandContext);
     this.keymap.register();
