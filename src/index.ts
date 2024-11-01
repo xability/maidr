@@ -1,6 +1,5 @@
 import Controller from './core/controller';
 import DisplayManager from './core/manager/display';
-import Constant from './util/constant';
 
 export enum EventType {
   BLUR = 'blur',
@@ -17,41 +16,33 @@ function main(): void {
     return;
   }
 
-  const maidrId = window.maidr.id;
+  const maidr = window.maidr;
+  const maidrId = maidr.id;
   const plot = document.getElementById(maidrId);
   if (!plot) {
     return;
   }
 
   const onFocus = () => {
-    {
-      if (controller) {
-        return;
-      }
-
-      controller = new Controller(window.maidr, display);
+    if (!controller) {
+      controller = new Controller(maidr, display);
     }
+    display.removeInstruction();
   };
   const onBlur = (event: FocusEvent) => {
-    const relatedTarget = event.relatedTarget as HTMLElement;
-    if (figureElement?.contains(relatedTarget)) {
-      // Focus is moving within the figure, do not destroy.
-      return;
+    if (display.shouldDestroy(event)) {
+      display.addInstruction();
+      controller?.destroy();
+      controller = null;
     }
-
-    controller?.destroy();
-    controller = null;
   };
 
-  const display = new DisplayManager(window.maidr, onFocus, onBlur);
-  const figureElement = document.getElementById(
-    Constant.MAIDR_FIGURE + maidrId
-  );
+  const display = new DisplayManager(maidr, onFocus, onBlur);
   let controller: Controller | null = null;
 
-  figureElement?.addEventListener(EventType.FOCUS, onFocus);
-  figureElement?.addEventListener(EventType.CLICK, onFocus); // Support screen reader.
-  figureElement?.addEventListener(EventType.BLUR, onBlur);
+  plot?.addEventListener(EventType.FOCUS, onFocus);
+  plot?.addEventListener(EventType.BLUR, onBlur);
+  plot?.addEventListener(EventType.CLICK, onFocus);
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity
