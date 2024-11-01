@@ -187,6 +187,15 @@ export default class DisplayManager {
     }
   }
 
+  private addCloseEventListener(element: HTMLElement, elementId: string): void {
+    const button = element.querySelector(elementId) as HTMLElement;
+    if (button) {
+      button.addEventListener('click', () => {
+        element.classList.add(Constant.HIDDEN);
+      });
+    }
+  }
+
   private createHelpMenu(helpMenuId: string): HTMLElement | null {
     if (!menuHtml) {
       return null;
@@ -202,6 +211,10 @@ export default class DisplayManager {
         helpMenuElement
       );
     }
+
+    this.addCloseEventListener(helpMenuElement, '#close_help_menu_header');
+    this.addCloseEventListener(helpMenuElement, '#close_help_menu_footer');
+
     return helpMenuElement;
   }
 }

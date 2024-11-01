@@ -7,11 +7,9 @@ export default class HelpManager implements Observer {
   constructor(helpMenu?: HTMLElement) {
     this.enabled = false;
     this.helpMenu = helpMenu;
-    console.log('Help menu is now ' + (this.enabled ? 'enabled' : 'disabled'));
   }
   public toggle(): void {
     this.enabled = !this.enabled;
-    console.log('Help menu is now ' + (this.enabled ? 'enabled' : 'disabled'));
     this.update();
   }
 
@@ -21,10 +19,8 @@ export default class HelpManager implements Observer {
       return;
     }
     if (this.enabled) {
-      console.log('Showing help menu');
       this.helpMenu.classList.remove(Constant.HIDDEN);
     } else {
-      console.log('Hiding help menu');
       this.helpMenu.classList.add(Constant.HIDDEN);
     }
   }
