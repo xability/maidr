@@ -1,12 +1,12 @@
 import AudioManager from './manager/audio';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
-import KeyBinding from './key_binding';
-import {Maidr} from '../plot/grammar';
+import KeymapManager from './manager/keymap';
 import NotificationManager from './manager/notification';
-import {Plot} from '../plot/plot';
-import {PlotFactory} from '../plot/factory';
 import TextManager from './manager/text';
+import {Plot} from '../model/plot';
+import {Maidr} from '../model/grammar';
+import {PlotFactory} from '../model/factory';
 
 export default class Controller {
   private readonly audio: AudioManager;
@@ -15,12 +15,12 @@ export default class Controller {
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
-  private readonly keyBinding: KeyBinding;
+  private readonly keymap: KeymapManager;
 
   private readonly plot: Plot;
 
-  constructor(maidr: Maidr) {
-    this.display = new DisplayManager(maidr.id);
+  constructor(maidr: Maidr, display: DisplayManager) {
+    this.display = display;
     this.plot = PlotFactory.create(maidr);
 
     this.notification = new NotificationManager(this.display.notificationDiv);
@@ -30,6 +30,7 @@ export default class Controller {
       this.notification,
       this.plot.state,
       (index: number) => this.plot.moveToIndex(index),
+      () => this.display.toggleBrailleFocus(),
       this.display.brailleDiv,
       this.display.brailleInput
     );
@@ -40,8 +41,8 @@ export default class Controller {
       braille: this.braille,
       plot: this.plot,
     };
-    this.keyBinding = new KeyBinding(commandContext);
-    this.keyBinding.register();
+    this.keymap = new KeymapManager(commandContext);
+    this.keymap.register();
 
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
@@ -53,7 +54,7 @@ export default class Controller {
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
-    this.keyBinding.unregister();
+    this.keymap.unregister();
     this.braille.destroy();
     this.audio.destroy();
     this.display.destroy();

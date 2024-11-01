@@ -1,7 +1,7 @@
 import AudioManager from '../manager/audio';
-import BrailleManager from '../manager/braille';
-import {Plot} from '../../plot/plot';
 import TextManager from '../manager/text';
+import BrailleManager from '../manager/braille';
+import {Plot} from '../../model/plot';
 
 export interface Command {
   execute(event?: Event): void;
