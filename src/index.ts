@@ -1,6 +1,5 @@
 import Controller from './core/controller';
 import DisplayManager from './core/manager/display';
-import Constant from './util/constant';
 
 export enum EventType {
   BLUR = 'blur',
@@ -17,70 +16,35 @@ function main(): void {
     return;
   }
 
-  const maidrId = window.maidr.id;
-  const maidrContainer = document.getElementById(maidrId);
-  if (!maidrContainer) {
+  const maidr = window.maidr;
+  const maidrId = maidr.id;
+  const plot = document.getElementById(maidrId);
+  if (!plot) {
     return;
   }
 
   const onFocus = () => {
-    {
-      if (!controller) {
-        controller = new Controller(window.maidr, display);
-      }
-      const target = document.getElementById(maidrId);
-      if (target) {
-        target.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      }
+    if (!controller) {
+      controller = new Controller(maidr, display);
     }
+    display.removeInstruction();
   };
   const onBlur = (event: FocusEvent) => {
-    const relatedTarget = event.relatedTarget as HTMLElement;
-    if (isSibling(maidrContainer, relatedTarget)) {
-      // Focus is moving to sibling of plot, do nothing
-      return;
-    }
-    maidrContainer.setAttribute(Constant.ROLE, Constant.IMAGE);
-    controller?.destroy();
-    controller = null;
-  };
-
-  const onClickOrKeydown = (event: MouseEvent | KeyboardEvent) => {
-    if (event instanceof KeyboardEvent && event.key !== ' ') {
-      return;
-    }
-    if (!controller) {
-      controller = new Controller(window.maidr, display);
-    }
-    const target = document.getElementById(maidrId);
-    if (target) {
-      target.setAttribute(Constant.ROLE, Constant.APPLICATION);
-    }
-    if (event instanceof KeyboardEvent) {
-      event.preventDefault();
+    if (display.shouldDestroy(event)) {
+      display.addInstruction();
+      controller?.destroy();
+      controller = null;
     }
   };
 
-  const display = new DisplayManager(window.maidr, onFocus, onBlur);
-  const figureElement = document.getElementById(maidrId);
+  const display = new DisplayManager(maidr, onFocus, onBlur);
   let controller: Controller | null = null;
 
-  figureElement?.addEventListener(EventType.FOCUS, onFocus);
-  figureElement?.addEventListener(EventType.BLUR, onBlur);
-  figureElement?.addEventListener(EventType.CLICK, onClickOrKeydown);
+  plot?.addEventListener(EventType.FOCUS, onFocus);
+  plot?.addEventListener(EventType.BLUR, onBlur);
+  plot?.addEventListener(EventType.CLICK, onFocus);
 }
 
-const isSibling = (
-  element: HTMLElement | null,
-  relatedTarget: HTMLElement | null
-): boolean => {
-  if (!element || !relatedTarget) {
-    return false;
-  }
-
-  const parent = element.parentNode;
-  return !!parent && parent.contains(relatedTarget) && parent !== relatedTarget;
-};
 // These methods have not been used as of now and hence commenting them out for clarity
 
 /*

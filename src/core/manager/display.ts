@@ -3,7 +3,9 @@ import {EventType} from '../../index';
 import {Maidr} from '../../model/grammar';
 
 export default class DisplayManager {
+  private readonly maidr: Maidr;
   private readonly plot?: HTMLElement;
+
   private readonly onFocus?: () => void;
   private readonly onBlur?: (event: FocusEvent) => void;
 
@@ -22,17 +24,20 @@ export default class DisplayManager {
     onFocus: () => void,
     onBlur: (event: FocusEvent) => void
   ) {
-    const maidrId = maidr.id;
+    this.maidr = maidr;
+    const maidrId = this.maidr.id;
+
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
       return;
     }
+
     this.plot = plot;
+    this.addInstruction();
+
     this.onFocus = onFocus;
     this.onBlur = onBlur;
-
-    this.createMaidrInstruction(maidr.type);
 
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
@@ -65,9 +70,6 @@ export default class DisplayManager {
   }
 
   public destroy(): void {
-    if (this.brailleInput && this.onBlur) {
-      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
-    }
     if (this.notificationDiv) {
       this.notificationDiv.innerHTML = Constant.EMPTY;
     }
@@ -76,15 +78,29 @@ export default class DisplayManager {
     }
   }
 
-  public createMaidrInstruction(plotType: string): void {
+  public shouldDestroy(event: FocusEvent): boolean {
+    const target = event.relatedTarget as HTMLElement;
+    return !this.figureElement?.contains(target);
+  }
+
+  public addInstruction(): void {
     if (this.plot) {
-      const maidrInstruction = `This is a maidr plot of type ${plotType}: Click to activate. 
+      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}: Click to activate.
         Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
         S for Sonification, and R for Review mode. Use H for Help.`;
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
       this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
       this.plot.tabIndex = 0;
+    }
+  }
+
+  public removeInstruction(): void {
+    if (this.plot) {
+      this.plot.removeAttribute(Constant.ARIA_LABEL);
+      this.plot.removeAttribute(Constant.TITLE);
+      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+      this.plot.tabIndex = -1;
     }
   }
 
@@ -125,7 +141,7 @@ export default class DisplayManager {
   }
 
   private createTextContainer(textId: string): HTMLElement {
-    // Create a div to display model information based on user traversal.
+    // Create a div to display plot information based on user traversal.
     const textDiv = document.createElement(Constant.DIV);
     textDiv.id = textId;
     textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
@@ -165,7 +181,7 @@ export default class DisplayManager {
   }
 
   private createBrailleInput(brailleInputId: string): HTMLInputElement {
-    // Create a braille input element for displaying model information in braille format.
+    // Create a braille input element for displaying plot information in braille format.
     const brailleInput = document.createElement(Constant.INPUT);
     brailleInput.id = brailleInputId;
     brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
@@ -173,7 +189,6 @@ export default class DisplayManager {
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
 
     this.brailleDiv!.appendChild(brailleInput);
-
     return brailleInput;
   }
 
