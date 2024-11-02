@@ -4,6 +4,7 @@ export default abstract class Constant {
   static readonly BR = 'br';
   static readonly DIV = 'div';
   static readonly FIGURE = 'figure';
+  static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
   static readonly P = 'p';
 
@@ -21,9 +22,11 @@ export default abstract class Constant {
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
 
   // HTML attributes.
-  static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';
+  static readonly ARIA_LABEL = 'aria-label';
+  static readonly ARIA_LIVE = 'aria-live';
   static readonly ROLE = 'role';
+  static readonly TITLE = 'title';
 
   // HTML positions.
   static readonly AFTER_BEGIN = 'afterbegin';
@@ -44,8 +47,4 @@ export default abstract class Constant {
   static readonly SPACE = ' ';
   static readonly COMMA = ', ';
   static readonly THROUGH = ' through ';
-
-  // Hotkeys Scopes
-  static readonly HOTKEYS_SCOPE_DEFAULT = 'all';
-  static readonly HOTKEYS_SCOPE_LABEL = 'label';
 }

@@ -1,4 +1,4 @@
-import {PlotState} from "../model/state";
+import {PlotState} from '../model/state';
 
 export interface Observer {
   update(state: PlotState): void;
