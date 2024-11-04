@@ -31,7 +31,7 @@ export enum LabelKey {
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
-};
+} as const;
 
 export type Scope = keyof typeof scopedKeymap;
 export type Keymap = {
