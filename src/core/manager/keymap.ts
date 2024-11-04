@@ -7,8 +7,8 @@ export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
   // Autoplay
-  AUTOPLAY_FORWARD = 'command+shift+right',
-  AUTOPLAY_BACKWARD = 'command+shift+left',
+  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
 
   // Navigation
   MOVE_UP = 'up',
@@ -34,7 +34,7 @@ export enum LabelKey {
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
-};
+} as const;
 
 export type Scope = keyof typeof scopedKeymap;
 export type Keymap = {

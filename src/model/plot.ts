@@ -71,8 +71,12 @@ export abstract class AbstractPlot implements Plot {
   }
 
   public get state(): PlotState {
+    if (!this.isWithinRange()) {
+      return { empty: true };
+    }
+
     return {
-      empty: !this.isWithinRange(),
+      empty: false,
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
@@ -105,7 +109,6 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
-  public abstract isAtEnd(): boolean;
   public abstract isWithinRange(index?: number): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;

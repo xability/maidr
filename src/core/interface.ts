@@ -24,6 +24,4 @@ export interface Movable {
   moveToIndex(index: number): void;
 
   isWithinRange(index?: number): boolean;
-
-  isAtEnd(): boolean;
 }
