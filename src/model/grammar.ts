@@ -1,28 +1,24 @@
-export type FillData = {
-  label?: string;
-  level?: number[];
-};
 export interface Maidr {
   id: string;
   type: string;
-  subtype?: string;
   selector?: string;
   title?: string;
   orientation?: string;
   axes?: {
     x?: string;
     y?: string;
-    fill?: FillData;
+    fill?: string;
   };
-  data: BarData | LineData;
+  data: BarPoint[][] | LinePoint[][];
 }
 
-export type BarData = {
-  x: string[] | number[][];
-  y: string[] | number[][];
+export type BarPoint = {
+  x: string | number;
+  y: number | string;
+  fill?: string;
 };
 
-export type LineData = [
+export type LinePoint = [
   {
     x: number;
     y: number;

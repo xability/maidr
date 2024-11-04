@@ -1,9 +1,13 @@
-export type PlotState = {
-  empty: boolean;
+export type PlotState = EmptyState | {
+  empty: false;
   audio: AudioState;
   braille: BrailleState;
   text: TextState;
 };
+
+export type EmptyState = {
+  empty: true;
+}
 
 export type AudioState = {
   min: number;
@@ -26,7 +30,7 @@ export type TextState = {
   crossLabel: string;
   crossValue: number | number[] | string;
   fillLabel?: string;
-  fillValue?: number;
+  fillValue?: string;
   section?: string;
   min?: number;
   max?: number;

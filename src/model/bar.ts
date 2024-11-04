@@ -1,62 +1,38 @@
 import {AbstractPlot, Orientation} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
-import {BarData, FillData, Maidr} from './grammar';
+import {BarPoint, Maidr} from './grammar';
+
+const DEFAULT_FILL_AXIS = 'Fill';
 
 export class BarPlot extends AbstractPlot {
-  private readonly x: string[] | number[][];
-  private readonly y: string[] | number[][];
+  private readonly points: BarPoint[][];
+  private readonly fill: string;
 
-  private min = 0;
-  private max = 0;
+  private row: number;
+  private col: number;
 
-  private index: number;
-  private crossIndex: number;
+  private readonly min: number;
+  private readonly max: number;
 
-  private values: number[] = [];
-  private brailleValues: string[] = [];
-
-  private fillData?: FillData;
+  private readonly values: number[][];
+  private readonly brailleValues: string[][];
 
   constructor(maidr: Maidr) {
     super(maidr);
 
-    const data = maidr.data as BarData;
-    this.fillData = maidr.axes?.fill;
+    this.points = maidr.data as BarPoint[][];
+    this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
 
-    if (
-      (maidr.subtype === 'stacked' &&
-        this.orientation === Orientation.VERTICAL &&
-        data.x.length !== data.y[0].length) ||
-      (this.orientation === Orientation.HORIZONTAL &&
-        data.x[0].length !== data.y.length)
-    ) {
-      throw new Error(
-        `len(x): ${data.x.length} and len(y): ${data.y.length} do not match`
-      );
-    }
+    this.row = 0;
+    this.col = -1;
 
-    this.index = -1;
-    this.crossIndex = 0;
-
-    this.x = data.x;
-    this.y = data.y;
-
-    this.init();
-  }
-
-  protected init(): void {
-    if (this.orientation === Orientation.VERTICAL) {
-      this.values = (this.y[this.crossIndex] as number[]).filter(
-        e => typeof e === 'number'
-      );
-    } else {
-      this.values = (this.x[this.crossIndex] as number[]).filter(
-        e => typeof e === 'number'
-      );
-    }
-
-    this.min = Math.min(...this.values);
-    this.max = Math.max(...this.values);
+    this.values = this.points.map(row => row.map(
+      point => this.orientation === Orientation.VERTICAL
+        ? Number(point.y)
+        : Number(point.x)
+    ));
+    this.min = Math.min(...this.values.flat());
+    this.max = Math.max(...this.values.flat());
 
     this.brailleValues = this.toBraille(this.values);
   }
@@ -65,16 +41,18 @@ export class BarPlot extends AbstractPlot {
     return {
       min: this.min,
       max: this.max,
-      size: this.values.length,
-      index: this.index,
-      value: this.values[this.index],
+      size: this.orientation === Orientation.VERTICAL
+        ? this.values[this.row].length
+        : this.values.length,
+      index: this.col,
+      value: this.values[this.row][this.col],
     };
   }
 
   protected braille(): BrailleState {
     return {
-      values: this.brailleValues,
-      index: this.index,
+      values: this.brailleValues[this.row],
+      index: this.col,
     };
   }
 
@@ -82,63 +60,67 @@ export class BarPlot extends AbstractPlot {
     if (this.orientation === Orientation.VERTICAL) {
       return {
         mainLabel: this.yAxis,
-        mainValue: this.y[this.crossIndex][this.index],
+        mainValue: this.points[this.row][this.col].y,
         crossLabel: this.xAxis,
-        crossValue: this.x[this.index],
-        fillLabel: this.fillData?.label,
-        fillValue: this.fillData?.level?.[this.crossIndex],
+        crossValue: this.points[this.row][this.col].x,
+        ...(this.points[this.row][this.col].fill
+          ? {
+            fillLabel: this.fill,
+            fillValue: this.points[this.row][this.col].fill,
+          }
+          : {}),
       };
     } else {
       return {
         mainLabel: this.xAxis,
-        mainValue: this.x[this.crossIndex][this.index],
+        mainValue: this.points[this.col][this.row].x,
         crossLabel: this.yAxis,
-        crossValue: this.y[this.index],
-        fillLabel: this.fillData?.label,
-        fillValue: this.fillData?.level?.[this.crossIndex],
+        crossValue: this.points[this.col][this.row].y,
+        ...(this.points[this.col][this.row].fill
+          ? {
+            fillLabel: this.fill,
+            fillValue: this.points[this.col][this.row].fill,
+          }
+          : {}),
       };
     }
   }
 
-  // TODO: Implement 2D in bar model to lock position and play null.
   protected up(): void {
-    console.log(this.crossIndex, this.y.length);
-    if (this.crossIndex < this.y.length) {
-      this.crossIndex += 1;
-      this.init();
+    if (this.row < this.values.length) {
+      this.row += 1;
     }
   }
 
-  // TODO: Implement 2D in bar model to lock position and play null.
   protected down(): void {
-    if (this.crossIndex > 0) {
-      this.crossIndex -= 1;
-      this.init();
+    if (this.row > 0) {
+      this.row -= 1;
     }
   }
 
   protected left(): void {
-    if (this.index > -1) {
-      this.index -= 1;
+    if (this.col > -1) {
+      this.col -= 1;
     }
   }
 
   protected right(): void {
-    if (this.index < this.values.length) {
-      this.index += 1;
+    if (this.col < this.values[this.row].length) {
+      this.col += 1;
     }
   }
 
   protected isWithinRange(index?: number): boolean {
-    const idx = index ?? this.index;
-    return idx >= 0 && idx < this.values.length;
+    const idx = index ?? this.col;
+    return this.row >= 0 && this.row < this.values.length
+      && idx >= 0 && idx < this.values[this.row].length;
   }
 
   protected toIndex(index: number): void {
-    this.index = index;
+    this.col = index;
   }
 
-  private toBraille(data: number[]): string[] {
+  private toBraille(data: number[][]): string[][] {
     const braille = [];
 
     const range = (this.max - this.min) / 4;
@@ -146,15 +128,19 @@ export class BarPlot extends AbstractPlot {
     const medium = low + range;
     const high = medium + range;
 
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] <= low) {
-        braille.push('⣀');
-      } else if (data[i] <= medium) {
-        braille.push('⠤');
-      } else if (data[i] <= high) {
-        braille.push('⠒');
-      } else {
-        braille.push('⠉');
+    for (let row = 0; row < data.length; row++) {
+      braille.push(new Array<string>());
+
+      for (let col = 0; col < data[row].length; col++) {
+        if (data[row][col] <= low) {
+          braille[row].push('⣀');
+        } else if (data[row][col] <= medium) {
+          braille[row].push('⠤');
+        } else if (data[row][col] <= high) {
+          braille[row].push('⠒');
+        } else {
+          braille[row].push('⠉');
+        }
       }
     }
 

@@ -34,7 +34,7 @@ export default class BrailleManager implements Observer {
 
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
-      moveToIndex(this.brailleInput?.selectionStart || 0);
+      moveToIndex(this.brailleInput!.selectionStart || this.brailleInput!.size);
     };
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
@@ -46,15 +46,15 @@ export default class BrailleManager implements Observer {
   }
 
   private setBraille(state: PlotState): void {
-    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
-
-    // Show the braille caret only if available.
-    if (!state.empty) {
-      this.brailleInput!.setSelectionRange(
-        state.braille.index,
-        state.braille.index
-      );
+    if (state.empty) {
+      return;
     }
+
+    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
+    this.brailleInput!.setSelectionRange(
+      state.braille.index,
+      state.braille.index
+    );
   }
 
   public update(state: PlotState): void {
