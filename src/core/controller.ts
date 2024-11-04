@@ -37,9 +37,12 @@ export default class Controller {
       this.display.brailleInput
     );
     this.review = new ReviewManager(
-      () => this.display.toggleReviewFocus(),
+      () => {
+        this.display.toggleReviewFocus();
+      },
       this.display.reviewDiv,
-      this.display.textDiv
+      this.display.textDiv,
+      this.display.reviewInput
     );
     const commandContext = {
       audio: this.audio,

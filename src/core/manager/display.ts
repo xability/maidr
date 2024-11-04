@@ -20,7 +20,7 @@ export default class DisplayManager {
   public readonly brailleInput?: HTMLInputElement;
 
   public readonly reviewDiv?: HTMLElement;
-  
+  public readonly reviewInput?: HTMLInputElement;
   constructor(
     maidr: Maidr,
     onFocus: () => void,
@@ -57,7 +57,7 @@ export default class DisplayManager {
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
     const reviewId = Constant.REVIEW_CONTAINER + maidrId;
-
+    const reviewInputId = Constant.REVIEW_INPUT + maidrId;
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =
@@ -72,9 +72,12 @@ export default class DisplayManager {
     this.reviewDiv =
       (document.getElementById(reviewId) as HTMLElement) ??
       this.createReviewContainer(reviewId);
+    this.reviewInput =
+      (document.getElementById(reviewInputId) as HTMLInputElement) ??
+      this.createReviewInput(reviewInputId);
 
     this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
-    this.reviewDiv.addEventListener(EventType.BLUR, this.onBlur);
+    this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
   }
 
   public destroy(): void {
@@ -225,17 +228,25 @@ export default class DisplayManager {
     return reviewDiv;
   }
 
+  private createReviewInput(reviewInputId: string): HTMLInputElement {
+    const reviewInput = document.createElement(Constant.INPUT);
+    reviewInput.id = reviewInputId;
+    reviewInput.readOnly = true;
+    this.reviewDiv!.appendChild(reviewInput);
+    return reviewInput;
+  }
+
   public toggleReviewFocus(): void {
-    if ((document.activeElement as HTMLElement) === this.figureElement) {
-      this.reviewDiv?.focus();
-    }
     if (
-      (document.activeElement as HTMLElement) === this.reviewDiv &&
+      (document.activeElement as HTMLElement) === this.reviewInput &&
       this.onBlur
     ) {
-      this.reviewDiv.removeEventListener(EventType.BLUR, this.onBlur);
+      this.reviewInput?.removeEventListener(EventType.BLUR, this.onBlur);
       this.figureElement?.focus();
-      this.reviewDiv.addEventListener(EventType.BLUR, this.onBlur);
+      this.reviewInput?.addEventListener(EventType.BLUR, this.onBlur);
+    }
+    if ((document.activeElement as HTMLElement) === this.plot) {
+      this.reviewInput?.focus();
     }
   }
 }
