@@ -16,6 +16,8 @@ export enum DefaultKey {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+
+  DESCRIBE_POINT = 'space',
 }
 
 export enum LabelKey {
@@ -24,7 +26,6 @@ export enum LabelKey {
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
-  DESCRIBE_POINT = 'space',
 }
 
 const scopedKeymap = {
