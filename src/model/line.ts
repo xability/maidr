@@ -1,6 +1,7 @@
 import {Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
+import {MovableDirection} from '../core/interface';
 
 // TODO: Just placeholder code. Need to be implemented.
 export class LinePlot extends AbstractPlot {
@@ -40,6 +41,13 @@ export class LinePlot extends AbstractPlot {
   }
 
   public isAtEnd(): boolean {
+    return false;
+  }
+
+  isMovable(target: number | MovableDirection): boolean;
+  isMovable(index: number): boolean;
+  isMovable(direction: MovableDirection): boolean;
+  isMovable(target: number | MovableDirection): boolean {
     return false;
   }
 }

@@ -1,5 +1,6 @@
-import {AutoplayManager, AutoplayDirection} from '../manager/autoplay';
+import {AutoplayManager} from '../manager/autoplay';
 import {Command} from './command';
+import {MovableDirection} from '../interface';
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayManager;
@@ -9,7 +10,7 @@ export class AutoplayUpwardCommand implements Command {
   }
 
   execute(): void {
-    this.autoplay.start(AutoplayDirection.UPWARD);
+    this.autoplay.start(MovableDirection.UPWARD);
   }
 }
 
@@ -21,7 +22,7 @@ export class AutoplayDownwardCommand implements Command {
   }
 
   execute(): void {
-    this.autoplay.start(AutoplayDirection.DOWNWARD);
+    this.autoplay.start(MovableDirection.DOWNWARD);
   }
 }
 
@@ -33,7 +34,7 @@ export class AutoplayForwardCommand implements Command {
   }
 
   execute(): void {
-    this.autoplay.start(AutoplayDirection.FORWARD);
+    this.autoplay.start(MovableDirection.FORWARD);
   }
 }
 
@@ -45,6 +46,6 @@ export class AutoplayBackwardCommand implements Command {
   }
 
   execute(): void {
-    this.autoplay.start(AutoplayDirection.BACKWARD);
+    this.autoplay.start(MovableDirection.BACKWARD);
   }
 }

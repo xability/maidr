@@ -1,6 +1,11 @@
 import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
-import {Movable, Observable, Observer} from '../core/interface';
+import {
+  Movable,
+  MovableDirection,
+  Observable,
+  Observer,
+} from '../core/interface';
 
 const DEFAULT_TILE = 'MAIDR Plot';
 const DEFAULT_X_AXIS = 'X';
@@ -29,6 +34,7 @@ export interface Plot extends Movable, Observable {
 
 export abstract class AbstractPlot implements Plot {
   private observers: Observer[];
+  protected isOutOfBounds: boolean;
 
   public readonly id: string;
   public readonly type: string;
@@ -37,10 +43,9 @@ export abstract class AbstractPlot implements Plot {
   public readonly xAxis: string;
   public readonly yAxis: string;
 
-  protected readonly orientation: Orientation;
-
   protected constructor(maidr: Maidr) {
     this.observers = [];
+    this.isOutOfBounds = true;
 
     this.id = maidr.id;
     this.type = maidr.type;
@@ -48,11 +53,6 @@ export abstract class AbstractPlot implements Plot {
 
     this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
-
-    this.orientation =
-      maidr.orientation === Orientation.HORIZONTAL
-        ? Orientation.HORIZONTAL
-        : Orientation.VERTICAL;
   }
 
   public addObserver(observer: Observer): void {
@@ -71,8 +71,8 @@ export abstract class AbstractPlot implements Plot {
   }
 
   public get state(): PlotState {
-    if (!this.isWithinRange()) {
-      return { empty: true };
+    if (this.isOutOfBounds) {
+      return {empty: true};
     }
 
     return {
@@ -103,13 +103,14 @@ export abstract class AbstractPlot implements Plot {
   }
 
   public moveToIndex(index: number): void {
-    if (this.isWithinRange(index)) {
+    if (this.isMovable(index)) {
       this.toIndex(index);
       this.notifyObservers();
     }
   }
 
-  public abstract isWithinRange(index?: number): boolean;
+  public abstract isMovable(target: number | MovableDirection): boolean;
+
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;

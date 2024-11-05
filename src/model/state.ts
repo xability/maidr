@@ -1,13 +1,15 @@
-export type PlotState = EmptyState | {
-  empty: false;
-  audio: AudioState;
-  braille: BrailleState;
-  text: TextState;
-};
+export type PlotState =
+  | EmptyState
+  | {
+      empty: false;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+    };
 
 export type EmptyState = {
   empty: true;
-}
+};
 
 export type AudioState = {
   min: number;

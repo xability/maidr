@@ -1,11 +1,13 @@
 import {AbstractPlot, Orientation} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
 import {BarPoint, Maidr} from './grammar';
+import {MovableDirection} from '../core/interface';
 
 const DEFAULT_FILL_AXIS = 'Fill';
 
 export class BarPlot extends AbstractPlot {
   private readonly points: BarPoint[][];
+  private readonly orientation: Orientation;
   private readonly fill: string;
 
   private row: number;
@@ -21,16 +23,22 @@ export class BarPlot extends AbstractPlot {
     super(maidr);
 
     this.points = maidr.data as BarPoint[][];
+    this.orientation =
+      maidr.orientation === Orientation.HORIZONTAL
+        ? Orientation.HORIZONTAL
+        : Orientation.VERTICAL;
     this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
 
     this.row = 0;
     this.col = -1;
 
-    this.values = this.points.map(row => row.map(
-      point => this.orientation === Orientation.VERTICAL
-        ? Number(point.y)
-        : Number(point.x)
-    ));
+    this.values = this.points.map(row =>
+      row.map(point =>
+        this.orientation === Orientation.VERTICAL
+          ? Number(point.y)
+          : Number(point.x)
+      )
+    );
     this.min = Math.min(...this.values.flat());
     this.max = Math.max(...this.values.flat());
 
@@ -41,9 +49,10 @@ export class BarPlot extends AbstractPlot {
     return {
       min: this.min,
       max: this.max,
-      size: this.orientation === Orientation.VERTICAL
-        ? this.values[this.row].length
-        : this.values.length,
+      size:
+        this.orientation === Orientation.VERTICAL
+          ? this.values[this.row].length
+          : this.values.length,
       index: this.col,
       value: this.values[this.row][this.col],
     };
@@ -65,9 +74,9 @@ export class BarPlot extends AbstractPlot {
         crossValue: this.points[this.row][this.col].x,
         ...(this.points[this.row][this.col].fill
           ? {
-            fillLabel: this.fill,
-            fillValue: this.points[this.row][this.col].fill,
-          }
+              fillLabel: this.fill,
+              fillValue: this.points[this.row][this.col].fill,
+            }
           : {}),
       };
     } else {
@@ -78,42 +87,72 @@ export class BarPlot extends AbstractPlot {
         crossValue: this.points[this.col][this.row].y,
         ...(this.points[this.col][this.row].fill
           ? {
-            fillLabel: this.fill,
-            fillValue: this.points[this.col][this.row].fill,
-          }
+              fillLabel: this.fill,
+              fillValue: this.points[this.col][this.row].fill,
+            }
           : {}),
       };
     }
   }
 
   protected up(): void {
-    if (this.row < this.values.length) {
+    if (this.row < this.values.length - 1) {
       this.row += 1;
+      this.isOutOfBounds = false;
+    } else {
+      this.isOutOfBounds = true;
     }
   }
 
   protected down(): void {
     if (this.row > 0) {
       this.row -= 1;
+      this.isOutOfBounds = false;
+    } else {
+      this.isOutOfBounds = true;
     }
   }
 
   protected left(): void {
-    if (this.col > -1) {
+    if (this.col > 0) {
       this.col -= 1;
+      this.isOutOfBounds = false;
+    } else {
+      this.isOutOfBounds = true;
     }
   }
 
   protected right(): void {
-    if (this.col < this.values[this.row].length) {
+    if (this.col < this.values[this.row].length - 1) {
       this.col += 1;
+      this.isOutOfBounds = false;
+    } else {
+      this.isOutOfBounds = true;
     }
   }
 
-  public isWithinRange(index?: number): boolean {
-    const idx = index ?? this.col;
-    return this.row >= 0 && this.row < this.values.length
-      && idx >= 0 && idx < this.values[this.row].length;
+  public isMovable(target: number | MovableDirection): boolean {
+    switch (target) {
+      case MovableDirection.UPWARD:
+        return this.row > 0;
+
+      case MovableDirection.DOWNWARD:
+        return this.row < this.values.length - 1;
+
+      case MovableDirection.FORWARD:
+        return this.col < this.values[this.row].length - 1;
+
+      case MovableDirection.BACKWARD:
+        return this.col > 0;
+
+      default:
+        return (
+          this.row >= 0 &&
+          this.row < this.values.length &&
+          target >= 0 &&
+          target < this.values[this.row].length
+        );
+    }
   }
 
   protected toIndex(index: number): void {

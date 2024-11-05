@@ -1,16 +1,9 @@
-import {Movable} from '../interface';
-
-export enum AutoplayDirection {
-  UPWARD,
-  DOWNWARD,
-  FORWARD,
-  BACKWARD,
-}
+import {MovableDirection, Movable} from '../interface';
 
 export class AutoplayManager {
   private playId?: NodeJS.Timeout | null;
   private rate: number;
-  private currentDirection?: AutoplayDirection;
+  private currentDirection?: MovableDirection;
 
   private readonly movable: Movable;
 
@@ -19,12 +12,12 @@ export class AutoplayManager {
     this.rate = 250;
   }
 
-  public start(direction: AutoplayDirection): void {
+  public start(direction: MovableDirection): void {
     stop();
     this.currentDirection = direction;
     const move = this.getMove(direction);
     this.playId = setInterval(() => {
-      if (this.movable.isWithinRange()) {
+      if (this.movable.isMovable(direction)) {
         move();
       } else {
         this.stop();
@@ -32,18 +25,18 @@ export class AutoplayManager {
     }, this.rate);
   }
 
-  private getMove(direction: AutoplayDirection): () => void {
+  private getMove(direction: MovableDirection): () => void {
     switch (direction) {
-      case AutoplayDirection.UPWARD:
+      case MovableDirection.UPWARD:
         return () => this.movable.moveUp();
 
-      case AutoplayDirection.DOWNWARD:
+      case MovableDirection.DOWNWARD:
         return () => this.movable.moveDown();
 
-      case AutoplayDirection.FORWARD:
+      case MovableDirection.FORWARD:
         return () => this.movable.moveRight();
 
-      case AutoplayDirection.BACKWARD:
+      case MovableDirection.BACKWARD:
         return () => this.movable.moveLeft();
     }
   }

@@ -23,5 +23,14 @@ export interface Movable {
 
   moveToIndex(index: number): void;
 
-  isWithinRange(index?: number): boolean;
+  isMovable(index: number): boolean;
+
+  isMovable(direction: MovableDirection): boolean;
+}
+
+export enum MovableDirection {
+  UPWARD,
+  DOWNWARD,
+  FORWARD,
+  BACKWARD,
 }
