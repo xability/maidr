@@ -45,7 +45,7 @@ export abstract class AbstractPlot implements Plot {
 
   protected constructor(maidr: Maidr) {
     this.observers = [];
-    this.isOutOfBounds = true;
+    this.isOutOfBounds = false;
 
     this.id = maidr.id;
     this.type = maidr.type;

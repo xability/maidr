@@ -30,7 +30,7 @@ export class BarPlot extends AbstractPlot {
     this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
 
     this.row = 0;
-    this.col = -1;
+    this.col = 0;
 
     this.values = this.points.map(row =>
       row.map(point =>

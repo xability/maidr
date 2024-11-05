@@ -29,8 +29,8 @@ export interface Movable {
 }
 
 export enum MovableDirection {
-  UPWARD,
-  DOWNWARD,
-  FORWARD,
-  BACKWARD,
+  UPWARD = 'up',
+  DOWNWARD = 'down',
+  FORWARD = 'right',
+  BACKWARD = 'left',
 }
