@@ -1,7 +1,13 @@
 import AudioManager from '../manager/audio';
 import {AutoplayManager} from '../manager/autoplay';
 import BrailleManager from '../manager/braille';
-import {AutoplayBackwardCommand, AutoplayForwardCommand} from './autoplay';
+import {
+  AutoplayBackwardCommand,
+  AutoplayDownwardCommand,
+  AutoplayForwardCommand,
+  AutoplayUpwardCommand,
+  StopAutoplayCommand
+} from './autoplay';
 import {Command, CommandContext} from './command';
 import {
   DescribePointCommand,
@@ -74,10 +80,16 @@ export class CommandFactory {
       case 'ACTIVATE_DEFAULT_SCOPE':
         return new SwitchScopeCommand('DEFAULT');
 
+      case 'AUTOPLAY_UPWARD':
+        return new AutoplayUpwardCommand(this.autoplay);
+      case 'AUTOPLAY_DOWNWARD':
+        return new AutoplayDownwardCommand(this.autoplay);
       case 'AUTOPLAY_FORWARD':
         return new AutoplayForwardCommand(this.autoplay);
       case 'AUTOPLAY_BACKWARD':
         return new AutoplayBackwardCommand(this.autoplay);
+      case 'STOP_AUTOPLAY':
+        return new StopAutoplayCommand(this.autoplay);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

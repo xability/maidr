@@ -9,7 +9,7 @@ export class AutoplayUpwardCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  execute(): void {
+  public execute(): void {
     this.autoplay.start(MovableDirection.UPWARD);
   }
 }
@@ -21,7 +21,7 @@ export class AutoplayDownwardCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  execute(): void {
+  public execute(): void {
     this.autoplay.start(MovableDirection.DOWNWARD);
   }
 }
@@ -33,7 +33,7 @@ export class AutoplayForwardCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  execute(): void {
+  public execute(): void {
     this.autoplay.start(MovableDirection.FORWARD);
   }
 }
@@ -45,7 +45,20 @@ export class AutoplayBackwardCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  execute(): void {
+  public execute(): void {
     this.autoplay.start(MovableDirection.BACKWARD);
+  }
+}
+
+export class StopAutoplayCommand implements Command {
+  private readonly autoplay: AutoplayManager;
+
+  constructor(autoplay: AutoplayManager) {
+    this.autoplay = autoplay;
+  }
+
+  public execute() {
+    console.log("Stop");
+    this.autoplay.stop();
   }
 }

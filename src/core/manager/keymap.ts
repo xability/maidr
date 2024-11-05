@@ -7,8 +7,11 @@ export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
   // Autoplay
+  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
+  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  STOP_AUTOPLAY = 'space',
 
   // Navigation
   MOVE_UP = 'up',
