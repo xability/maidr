@@ -45,6 +45,15 @@ export default class BrailleManager implements Observer {
     this.setBraille(state);
   }
 
+  public destroy(): void {
+    if (this.brailleInput && this.selectionChangeHandler) {
+      this.brailleInput.removeEventListener(
+        EventType.SELECTION_CHANGE,
+        this.selectionChangeHandler
+      );
+    }
+  }
+
   private setBraille(state: PlotState): void {
     if (state.empty) {
       return;
@@ -84,18 +93,5 @@ export default class BrailleManager implements Observer {
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
-  }
-
-  public destroy(): void {
-    if (this.brailleInput && this.selectionChangeHandler) {
-      this.brailleInput.removeEventListener(
-        EventType.SELECTION_CHANGE,
-        this.selectionChangeHandler
-      );
-      this.brailleInput.value = Constant.EMPTY;
-    }
-    if (this.brailleDiv) {
-      this.brailleDiv.classList.add(Constant.HIDDEN);
-    }
   }
 }

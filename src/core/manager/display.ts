@@ -70,6 +70,12 @@ export default class DisplayManager {
   }
 
   public destroy(): void {
+    if (this.brailleInput) {
+      this.brailleInput.value = Constant.EMPTY;
+    }
+    if (this.brailleDiv) {
+      this.brailleDiv.classList.add(Constant.HIDDEN);
+    }
     if (this.notificationDiv) {
       this.notificationDiv.innerHTML = Constant.EMPTY;
     }

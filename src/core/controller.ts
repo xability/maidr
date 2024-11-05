@@ -1,5 +1,5 @@
 import AudioManager from './manager/audio';
-import {AutoplayManager} from './manager/autoplay';
+import AutoplayManager from './manager/autoplay';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
 import KeymapManager from './manager/keymap';
@@ -38,14 +38,13 @@ export default class Controller {
     this.text = new TextManager(this.notification, this.display.textDiv);
     this.autoplay = new AutoplayManager(this.plot);
 
-    const commandContext = {
+    this.keymap = new KeymapManager({
+      plot: this.plot,
       audio: this.audio,
       text: this.text,
       braille: this.braille,
       autoplay: this.autoplay,
-      plot: this.plot,
-    };
-    this.keymap = new KeymapManager(commandContext);
+    });
     this.keymap.register();
 
     this.plot.addObserver(this.audio);

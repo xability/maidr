@@ -1,6 +1,6 @@
 import {MovableDirection, Movable} from '../interface';
 
-export class AutoplayManager {
+export default class AutoplayManager {
   private playId?: NodeJS.Timeout | null;
   private rate: number;
   private currentDirection?: MovableDirection;

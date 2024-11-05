@@ -1,18 +1,21 @@
 import AudioManager from '../manager/audio';
-import {AutoplayManager} from '../manager/autoplay';
+import AutoplayManager from '../manager/autoplay';
 import BrailleManager from '../manager/braille';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
   AutoplayForwardCommand,
   AutoplayUpwardCommand,
-  StopAutoplayCommand
+  StopAutoplayCommand,
 } from './autoplay';
 import {Command, CommandContext} from './command';
 import {
+  DescribeCaptionCommand,
   DescribePointCommand,
   DescribeXCommand,
   DescribeYCommand,
+  DescribeSubtitleCommand,
+  DescribeTitleCommand,
 } from './describe';
 import {
   MoveDownCommand,
@@ -74,6 +77,12 @@ export class CommandFactory {
           this.braille,
           this.text
         );
+      case 'DESCRIBE_TITLE':
+        return new DescribeTitleCommand(this.plot, this.text);
+      case 'DESCRIBE_SUBTITLE':
+        return new DescribeSubtitleCommand(this.plot, this.text);
+      case 'DESCRIBE_CAPTION':
+        return new DescribeCaptionCommand(this.plot, this.text);
 
       case 'ACTIVATE_LABEL_SCOPE':
         return new SwitchScopeCommand('LABEL');

@@ -11,7 +11,6 @@ export enum DefaultKey {
   AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
-  STOP_AUTOPLAY = 'space',
 
   // Navigation
   MOVE_UP = 'up',
@@ -23,6 +22,9 @@ export enum DefaultKey {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+
+  // Description
+  DESCRIBE_POINT = 'space',
 }
 
 export enum LabelKey {
@@ -31,7 +33,9 @@ export enum LabelKey {
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
-  DESCRIBE_POINT = 'space',
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_SUBTITLE = 's',
+  DESCRIBE_CAPTION = 'c',
 }
 
 const scopedKeymap = {

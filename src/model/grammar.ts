@@ -3,6 +3,8 @@ export interface Maidr {
   type: string;
   selector?: string;
   title?: string;
+  subtitle?: string;
+  caption?: string;
   orientation?: string;
   axes?: {
     x?: string;

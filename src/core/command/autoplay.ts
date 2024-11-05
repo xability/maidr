@@ -1,4 +1,4 @@
-import {AutoplayManager} from '../manager/autoplay';
+import AutoplayManager from '../manager/autoplay';
 import {Command} from './command';
 import {MovableDirection} from '../interface';
 
@@ -58,7 +58,7 @@ export class StopAutoplayCommand implements Command {
   }
 
   public execute() {
-    console.log("Stop");
+    console.log('Stop');
     this.autoplay.stop();
   }
 }

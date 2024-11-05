@@ -8,6 +8,8 @@ import {
 } from '../core/interface';
 
 const DEFAULT_TILE = 'MAIDR Plot';
+const DEFAULT_SUBTITLE = 'unavailable';
+const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 
@@ -28,6 +30,8 @@ export interface Plot extends Movable, Observable {
   title: string;
   xAxis: string;
   yAxis: string;
+  subtitle: string;
+  caption: string;
 
   get state(): PlotState;
 }
@@ -38,7 +42,10 @@ export abstract class AbstractPlot implements Plot {
 
   public readonly id: string;
   public readonly type: string;
+
   public readonly title: string;
+  public readonly subtitle: string;
+  public readonly caption: string;
 
   public readonly xAxis: string;
   public readonly yAxis: string;
@@ -49,7 +56,10 @@ export abstract class AbstractPlot implements Plot {
 
     this.id = maidr.id;
     this.type = maidr.type;
+
     this.title = maidr.title ?? DEFAULT_TILE;
+    this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
+    this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
