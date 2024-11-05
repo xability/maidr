@@ -31,10 +31,11 @@ import {
   SwitchScopeCommand,
   ToggleTextCommand,
 } from './toggle';
-import {Plot} from '../../model/plot';
+
+import {Plottable} from "../interface";
 
 export class CommandFactory {
-  private readonly plot: Plot;
+  private readonly plot: Plottable;
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;

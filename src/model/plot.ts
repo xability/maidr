@@ -1,13 +1,8 @@
 import {AudioState, BrailleState, PlotState, TextState} from './state';
 import {Maidr} from './grammar';
-import {
-  Movable,
-  MovableDirection,
-  Observable,
-  Observer,
-} from '../core/interface';
+import {MovableDirection, Observer, Plottable,} from '../core/interface';
 
-const DEFAULT_TILE = 'MAIDR Plot';
+const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
@@ -23,20 +18,7 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export interface Plot extends Movable, Observable {
-  id: string;
-  type: string;
-
-  title: string;
-  xAxis: string;
-  yAxis: string;
-  subtitle: string;
-  caption: string;
-
-  get state(): PlotState;
-}
-
-export abstract class AbstractPlot implements Plot {
+export abstract class AbstractPlot implements Plottable {
   private observers: Observer[];
   protected isOutOfBounds: boolean;
 
@@ -50,6 +32,9 @@ export abstract class AbstractPlot implements Plot {
   public readonly xAxis: string;
   public readonly yAxis: string;
 
+  protected row: number;
+  protected col: number;
+
   protected constructor(maidr: Maidr) {
     this.observers = [];
     this.isOutOfBounds = false;
@@ -57,12 +42,15 @@ export abstract class AbstractPlot implements Plot {
     this.id = maidr.id;
     this.type = maidr.type;
 
-    this.title = maidr.title ?? DEFAULT_TILE;
+    this.title = maidr.title ?? DEFAULT_TITLE;
     this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
+
+    this.row = 0;
+    this.col = 0;
   }
 
   public addObserver(observer: Observer): void {
@@ -73,11 +61,17 @@ export abstract class AbstractPlot implements Plot {
     this.observers = this.observers.filter(obs => obs !== observer);
   }
 
-  public notifyObservers(): void {
+  public notifyStateUpdate(): void {
     const currentState = this.state;
     for (const observer of this.observers) {
       observer.update(currentState);
     }
+  }
+
+  protected notifyOutOfBounds(): void {
+    this.isOutOfBounds = true;
+    this.notifyStateUpdate();
+    this.isOutOfBounds = false;
   }
 
   public get state(): PlotState {
@@ -94,28 +88,45 @@ export abstract class AbstractPlot implements Plot {
   }
 
   public moveUp(): void {
-    this.up();
-    this.notifyObservers();
+    if (this.isMovable(MovableDirection.UPWARD)) {
+      this.row += 1;
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
   }
+
   public moveDown(): void {
-    this.down();
-    this.notifyObservers();
+    if (this.isMovable(MovableDirection.DOWNWARD)) {
+      this.row -= 1;
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
   }
 
   public moveLeft(): void {
-    this.left();
-    this.notifyObservers();
+    if (this.isMovable(MovableDirection.BACKWARD)) {
+      this.col -= 1;
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
   }
 
   public moveRight(): void {
-    this.right();
-    this.notifyObservers();
+    if (this.isMovable(MovableDirection.FORWARD)) {
+      this.col += 1;
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
   }
 
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
-      this.toIndex(index);
-      this.notifyObservers();
+      this.col = index;
+      this.notifyStateUpdate();
     }
   }
 
@@ -124,10 +135,4 @@ export abstract class AbstractPlot implements Plot {
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;
-
-  protected abstract up(): void;
-  protected abstract down(): void;
-  protected abstract left(): void;
-  protected abstract right(): void;
-  protected abstract toIndex(index: number): void;
 }

@@ -9,7 +9,7 @@ export interface Observable {
 
   removeObserver(observer: Observer): void;
 
-  notifyObservers(): void;
+  notifyStateUpdate(): void;
 }
 
 export interface Movable {
@@ -33,4 +33,17 @@ export enum MovableDirection {
   DOWNWARD = 'down',
   FORWARD = 'right',
   BACKWARD = 'left',
+}
+
+export interface Plottable extends Movable, Observable {
+  id: string;
+  type: string;
+
+  title: string;
+  xAxis: string;
+  yAxis: string;
+  subtitle: string;
+  caption: string;
+
+  get state(): PlotState;
 }

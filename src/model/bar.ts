@@ -10,9 +10,6 @@ export class BarPlot extends AbstractPlot {
   private readonly orientation: Orientation;
   private readonly fill: string;
 
-  private row: number;
-  private col: number;
-
   private readonly min: number;
   private readonly max: number;
 
@@ -28,9 +25,6 @@ export class BarPlot extends AbstractPlot {
         ? Orientation.HORIZONTAL
         : Orientation.VERTICAL;
     this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.row = 0;
-    this.col = 0;
 
     this.values = this.points.map(row =>
       row.map(point =>
@@ -95,42 +89,6 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
-  protected up(): void {
-    if (this.row < this.values.length - 1) {
-      this.row += 1;
-      this.isOutOfBounds = false;
-    } else {
-      this.isOutOfBounds = true;
-    }
-  }
-
-  protected down(): void {
-    if (this.row > 0) {
-      this.row -= 1;
-      this.isOutOfBounds = false;
-    } else {
-      this.isOutOfBounds = true;
-    }
-  }
-
-  protected left(): void {
-    if (this.col > 0) {
-      this.col -= 1;
-      this.isOutOfBounds = false;
-    } else {
-      this.isOutOfBounds = true;
-    }
-  }
-
-  protected right(): void {
-    if (this.col < this.values[this.row].length - 1) {
-      this.col += 1;
-      this.isOutOfBounds = false;
-    } else {
-      this.isOutOfBounds = true;
-    }
-  }
-
   public isMovable(target: number | MovableDirection): boolean {
     switch (target) {
       case MovableDirection.UPWARD:
@@ -153,10 +111,6 @@ export class BarPlot extends AbstractPlot {
           target < this.values[this.row].length
         );
     }
-  }
-
-  protected toIndex(index: number): void {
-    this.col = index;
   }
 
   private toBraille(data: number[][]): string[][] {

@@ -1,14 +1,14 @@
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
-import {Plot} from '../../model/plot';
 import TextManager from '../manager/text';
+import {Plottable} from "../interface";
 
 abstract class DescribeCommand implements Command {
-  protected readonly plot: Plot;
+  protected readonly plot: Plottable;
   protected readonly text: TextManager;
 
-  protected constructor(plot: Plot, text: TextManager) {
+  protected constructor(plot: Plottable, text: TextManager) {
     this.plot = plot;
     this.text = text;
   }
@@ -17,7 +17,7 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  constructor(plot: Plottable, text: TextManager) {
     super(plot, text);
   }
 
@@ -28,7 +28,7 @@ export class DescribeXCommand extends DescribeCommand {
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  constructor(plot: Plottable, text: TextManager) {
     super(plot, text);
   }
 
@@ -39,7 +39,7 @@ export class DescribeYCommand extends DescribeCommand {
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  constructor(plot: Plottable, text: TextManager) {
     super(plot, text);
   }
 
@@ -50,7 +50,7 @@ export class DescribeTitleCommand extends DescribeCommand {
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  constructor(plot: Plottable, text: TextManager) {
     super(plot, text);
   }
 
@@ -60,7 +60,7 @@ export class DescribeSubtitleCommand extends DescribeCommand {
   }
 }
 export class DescribeCaptionCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  constructor(plot: Plottable, text: TextManager) {
     super(plot, text);
   }
 
@@ -74,7 +74,7 @@ export class DescribePointCommand extends DescribeCommand {
   private readonly braille: BrailleManager;
 
   constructor(
-    plot: Plot,
+    plot: Plottable,
     audio: AudioManager,
     braille: BrailleManager,
     text: TextManager

@@ -5,21 +5,21 @@ import DisplayManager from './manager/display';
 import KeymapManager from './manager/keymap';
 import NotificationManager from './manager/notification';
 import TextManager from './manager/text';
-import {Plot} from '../model/plot';
 import {Maidr} from '../model/grammar';
 import {PlotFactory} from '../model/factory';
+import {Plottable} from "./interface";
 
 export default class Controller {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
-  private readonly autoplay: AutoplayManager;
 
+  private readonly autoplay: AutoplayManager;
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
   private readonly keymap: KeymapManager;
 
-  private readonly plot: Plot;
+  private readonly plot: Plottable;
 
   constructor(maidr: Maidr, display: DisplayManager) {
     this.display = display;
