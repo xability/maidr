@@ -26,6 +26,9 @@ export enum LabelKey {
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_SUBTITLE = 's',
+  DESCRIBE_CAPTION = 'c',
 }
 
 const scopedKeymap = {

@@ -38,6 +38,37 @@ export class DescribeYCommand extends DescribeCommand {
   }
 }
 
+export class DescribeTitleCommand extends DescribeCommand {
+  constructor(plot: Plot, text: TextManager) {
+    super(plot, text);
+  }
+
+  public execute(): void {
+    const message = `Title is ${this.plot.title}`;
+    this.text.update(message);
+  }
+}
+
+export class DescribeSubtitleCommand extends DescribeCommand {
+  constructor(plot: Plot, text: TextManager) {
+    super(plot, text);
+  }
+
+  public execute(): void {
+    const message = `Subtitle is ${this.plot.subtitle}`;
+    this.text.update(message);
+  }
+}
+export class DescribeCaptionCommand extends DescribeCommand {
+  constructor(plot: Plot, text: TextManager) {
+    super(plot, text);
+  }
+
+  public execute(): void {
+    const message = `Caption is ${this.plot.caption}`;
+    this.text.update(message);
+  }
+}
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
