@@ -6,7 +6,6 @@ export interface Observer {
 
 export interface Observable {
   addObserver(observer: Observer): void;
-
   removeObserver(observer: Observer): void;
 
   notifyStateUpdate(): void;
@@ -14,17 +13,12 @@ export interface Observable {
 
 export interface Movable {
   moveUp(): void;
-
   moveDown(): void;
-
   moveLeft(): void;
-
   moveRight(): void;
-
   moveToIndex(index: number): void;
 
   isMovable(index: number): boolean;
-
   isMovable(direction: MovableDirection): boolean;
 }
 
@@ -40,10 +34,11 @@ export interface Plottable extends Movable, Observable {
   type: string;
 
   title: string;
-  xAxis: string;
-  yAxis: string;
   subtitle: string;
   caption: string;
+
+  xAxis: string;
+  yAxis: string;
 
   get state(): PlotState;
 }

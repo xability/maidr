@@ -1,5 +1,5 @@
 import {AbstractPlot, Orientation} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
+import {AudioState, AutoplayState, BrailleState, TextState} from './state';
 import {BarPoint, Maidr} from './grammar';
 import {MovableDirection} from '../core/interface';
 
@@ -87,6 +87,12 @@ export class BarPlot extends AbstractPlot {
           : {}),
       };
     }
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      plotDuration: this.values[this.row].length,
+    };
   }
 
   public isMovable(target: number | MovableDirection): boolean {

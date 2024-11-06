@@ -195,7 +195,6 @@ export default class DisplayManager {
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
 
     this.brailleDiv!.appendChild(brailleInput);
-
     return brailleInput;
   }
 

@@ -61,3 +61,39 @@ export class StopAutoplayCommand implements Command {
     this.autoplay.stop();
   }
 }
+
+export class SpeedUpAutoplayCommand implements Command {
+  private readonly autoplay: AutoplayManager;
+
+  constructor(autoplay: AutoplayManager) {
+    this.autoplay = autoplay;
+  }
+
+  public execute() {
+    this.autoplay.speedUp();
+  }
+}
+
+export class SpeedDownAutoplayCommand implements Command {
+  private readonly autoplay: AutoplayManager;
+
+  constructor(autoplay: AutoplayManager) {
+    this.autoplay = autoplay;
+  }
+
+  public execute() {
+    this.autoplay.speedDown();
+  }
+}
+
+export class ResetAutoplaySpeedCommand implements Command {
+  private readonly autoplay: AutoplayManager;
+
+  constructor(autoplay: AutoplayManager) {
+    this.autoplay = autoplay;
+  }
+
+  public execute() {
+    this.autoplay.resetSpeed();
+  }
+}

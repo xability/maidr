@@ -5,6 +5,7 @@ export type PlotState =
       audio: AudioState;
       braille: BrailleState;
       text: TextState;
+      autoplay: AutoplayState;
     };
 
 export type EmptyState = {
@@ -36,4 +37,8 @@ export type TextState = {
   section?: string;
   min?: number;
   max?: number;
+};
+
+export type AutoplayState = {
+  plotDuration: number;
 };

@@ -1,6 +1,6 @@
 import {Maidr} from './grammar';
 import {AbstractPlot} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
+import {AudioState, AutoplayState, BrailleState, TextState} from './state';
 import {MovableDirection} from '../core/interface';
 
 // TODO: Just placeholder code. Need to be implemented.
@@ -25,28 +25,10 @@ export class LinePlot extends AbstractPlot {
     return {crossLabel: '', crossValue: 0, mainLabel: '', mainValue: 0};
   }
 
-  protected down(): void {}
-
-  protected left(): void {}
-
-  protected right(): void {}
-
-  protected up(): void {}
-
-  protected toIndex(index: number): void {}
-
-  public isWithinRange(index?: number): boolean {
-    // TODO: Modify boundary conditions according to grammar of lineplot
-    return this.index < 0 || this.index >= this.values.length;
+  autoplay(): AutoplayState {
+    return {plotDuration: 0};
   }
 
-  public isAtEnd(): boolean {
-    return false;
-  }
-
-  isMovable(target: number | MovableDirection): boolean;
-  isMovable(index: number): boolean;
-  isMovable(direction: MovableDirection): boolean;
   isMovable(target: number | MovableDirection): boolean {
     return false;
   }

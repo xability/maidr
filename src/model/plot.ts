@@ -1,6 +1,12 @@
-import {AudioState, BrailleState, PlotState, TextState} from './state';
+import {
+  AudioState,
+  AutoplayState,
+  BrailleState,
+  PlotState,
+  TextState,
+} from './state';
 import {Maidr} from './grammar';
-import {MovableDirection, Observer, Plottable,} from '../core/interface';
+import {MovableDirection, Observer, Plottable} from '../core/interface';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -84,6 +90,7 @@ export abstract class AbstractPlot implements Plottable {
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
+      autoplay: this.autoplay(),
     };
   }
 
@@ -135,4 +142,5 @@ export abstract class AbstractPlot implements Plottable {
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;
+  protected abstract autoplay(): AutoplayState;
 }

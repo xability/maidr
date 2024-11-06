@@ -3,11 +3,11 @@ import AutoplayManager from './manager/autoplay';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
 import KeymapManager from './manager/keymap';
-import NotificationManager from './manager/notification';
-import TextManager from './manager/text';
 import {Maidr} from '../model/grammar';
+import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
-import {Plottable} from "./interface";
+import {Plottable} from './interface';
+import TextManager from './manager/text';
 
 export default class Controller {
   private readonly audio: AudioManager;
@@ -36,7 +36,11 @@ export default class Controller {
       this.display.brailleInput
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
-    this.autoplay = new AutoplayManager(this.plot);
+    this.autoplay = new AutoplayManager(
+      this.notification,
+      this.plot,
+      this.plot.state
+    );
 
     this.keymap = new KeymapManager({
       plot: this.plot,

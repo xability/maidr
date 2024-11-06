@@ -1,13 +1,16 @@
 import AudioManager from '../manager/audio';
 import AutoplayManager from '../manager/autoplay';
-import BrailleManager from '../manager/braille';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
   AutoplayForwardCommand,
   AutoplayUpwardCommand,
+  ResetAutoplaySpeedCommand,
+  SpeedDownAutoplayCommand,
+  SpeedUpAutoplayCommand,
   StopAutoplayCommand,
 } from './autoplay';
+import BrailleManager from '../manager/braille';
 import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
@@ -17,13 +20,14 @@ import {
   DescribeSubtitleCommand,
   DescribeTitleCommand,
 } from './describe';
+import {Keys} from '../manager/keymap';
 import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
   MoveUpCommand,
 } from './move';
-import {Keys} from '../manager/keymap';
+import {Plottable} from '../interface';
 import TextManager from '../manager/text';
 import {
   ToggleAudioCommand,
@@ -31,8 +35,6 @@ import {
   SwitchScopeCommand,
   ToggleTextCommand,
 } from './toggle';
-
-import {Plottable} from "../interface";
 
 export class CommandFactory {
   private readonly plot: Plottable;
@@ -100,6 +102,12 @@ export class CommandFactory {
         return new AutoplayBackwardCommand(this.autoplay);
       case 'STOP_AUTOPLAY':
         return new StopAutoplayCommand(this.autoplay);
+      case 'SPEED_UP_AUTOPLAY':
+        return new SpeedUpAutoplayCommand(this.autoplay);
+      case 'SPEED_DOWN_AUTOPLAY':
+        return new SpeedDownAutoplayCommand(this.autoplay);
+      case 'RESET_AUTOPLAY_SPEED':
+        return new ResetAutoplaySpeedCommand(this.autoplay);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

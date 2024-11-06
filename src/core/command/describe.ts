@@ -1,8 +1,8 @@
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
+import {Plottable} from '../interface';
 import TextManager from '../manager/text';
-import {Plottable} from "../interface";
 
 abstract class DescribeCommand implements Command {
   protected readonly plot: Plottable;
