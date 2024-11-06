@@ -7,14 +7,14 @@ const DEFAULT_FILL_AXIS = 'Fill';
 
 export class BarPlot extends AbstractPlot {
   private readonly points: BarPoint[][];
+  private readonly values: number[][];
+  private readonly brailleValues: string[][];
+
   private readonly orientation: Orientation;
   private readonly fill: string;
 
   private readonly min: number;
   private readonly max: number;
-
-  private readonly values: number[][];
-  private readonly brailleValues: string[][];
 
   constructor(maidr: Maidr) {
     super(maidr);
@@ -60,33 +60,28 @@ export class BarPlot extends AbstractPlot {
   }
 
   protected text(): TextState {
-    if (this.orientation === Orientation.VERTICAL) {
-      return {
-        mainLabel: this.yAxis,
-        mainValue: this.points[this.row][this.col].y,
-        crossLabel: this.xAxis,
-        crossValue: this.points[this.row][this.col].x,
-        ...(this.points[this.row][this.col].fill
-          ? {
-              fillLabel: this.fill,
-              fillValue: this.points[this.row][this.col].fill,
-            }
-          : {}),
-      };
-    } else {
-      return {
-        mainLabel: this.xAxis,
-        mainValue: this.points[this.col][this.row].x,
-        crossLabel: this.yAxis,
-        crossValue: this.points[this.col][this.row].y,
-        ...(this.points[this.col][this.row].fill
-          ? {
-              fillLabel: this.fill,
-              fillValue: this.points[this.col][this.row].fill,
-            }
-          : {}),
-      };
-    }
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const point = isVertical
+      ? this.points[this.row][this.col]
+      : this.points[this.col][this.row];
+
+    const mainLabel = isVertical ? this.xAxis : this.yAxis;
+    const mainValue = isVertical ? point.x : point.y;
+
+    const crossLabel = isVertical ? this.yAxis : this.xAxis;
+    const crossValue = isVertical ? point.y : point.x;
+
+    const fillData = point.fill
+      ? {fillLabel: this.fill, fillValue: point.fill}
+      : {};
+
+    return {
+      mainLabel,
+      mainValue,
+      crossLabel,
+      crossValue,
+      ...fillData,
+    };
   }
 
   protected autoplay(): AutoplayState {

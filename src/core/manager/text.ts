@@ -21,7 +21,7 @@ export default class TextManager implements Observer {
       return;
     }
 
-    this.mode = TextMode.TERSE;
+    this.mode = TextMode.VERBOSE;
     this.textDiv = textDiv;
   }
 
