@@ -86,7 +86,7 @@ export class BarPlot extends AbstractPlot {
 
   protected autoplay(): AutoplayState {
     return {
-      plotDuration: this.values[this.row].length,
+      duration: this.values[this.row].length,
     };
   }
 

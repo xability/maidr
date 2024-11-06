@@ -5,29 +5,27 @@ import {MovableDirection} from '../core/interface';
 
 export class LinePlot extends AbstractPlot {
   private readonly points: LinePoint[][];
+  private readonly brailleValues: string[][];
 
   private readonly min: number[];
   private readonly max: number[];
-
-  private readonly values: number[][];
-  private readonly brailleValues: string[][];
 
   constructor(maidr: Maidr) {
     super(maidr);
 
     this.points = maidr.data as LinePoint[][];
 
-    this.values = this.points.map(row => row.map(point => Number(point.y)));
-    this.min = this.values.map(row => Math.min(...row));
-    this.max = this.values.map(row => Math.max(...row));
+    const values = this.points.map(row => row.map(point => Number(point.y)));
+    this.min = values.map(row => Math.min(...row));
+    this.max = values.map(row => Math.max(...row));
 
-    this.brailleValues = this.toBraille(this.values);
+    this.brailleValues = this.toBraille(values);
   }
 
   public moveUp(): void {
     if (this.isMovable(MovableDirection.UPWARD)) {
       this.row += 1;
-      this.col = this.getColOnVerticalNavigation();
+      this.col = Math.min(this.col, this.points[this.row].length - 1);
       this.notifyStateUpdate();
     } else {
       this.notifyOutOfBounds();
@@ -37,27 +35,21 @@ export class LinePlot extends AbstractPlot {
   public moveDown(): void {
     if (this.isMovable(MovableDirection.DOWNWARD)) {
       this.row -= 1;
-      this.col = this.getColOnVerticalNavigation();
+      this.col = Math.min(this.col, this.points[this.row].length - 1);
       this.notifyStateUpdate();
     } else {
       this.notifyOutOfBounds();
     }
   }
 
-  private getColOnVerticalNavigation(): number {
-    const colLength = this.points[this.row].length - 1;
-    return this.col > colLength ? colLength : this.col;
-  }
-
-  public moveToIndex(index: number): void {
-    if (this.isMovable(index)) {
-      this.col = index;
-      this.notifyStateUpdate();
-    }
-  }
-
   protected audio(): AudioState {
-    return {index: 0, max: 0, min: 0, size: 0, value: 0};
+    return {
+      min: this.min[this.row],
+      max: this.max[this.row],
+      size: this.points[this.row].length,
+      index: this.col,
+      value: this.points[this.row][this.col].y,
+    };
   }
 
   protected braille(): BrailleState {
@@ -69,16 +61,16 @@ export class LinePlot extends AbstractPlot {
 
   protected text(): TextState {
     return {
-      mainLabel: this.yAxis,
-      mainValue: this.points[this.row][this.col].y,
-      crossLabel: this.xAxis,
-      crossValue: this.points[this.row][this.col].x,
+      mainLabel: this.xAxis,
+      mainValue: this.points[this.row][this.col].x,
+      crossLabel: this.yAxis,
+      crossValue: this.points[this.row][this.col].y,
     };
   }
 
   protected autoplay(): AutoplayState {
     return {
-      plotDuration: this.points.length,
+      duration: this.points[this.row].length,
     };
   }
 
