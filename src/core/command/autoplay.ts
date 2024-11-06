@@ -58,7 +58,6 @@ export class StopAutoplayCommand implements Command {
   }
 
   public execute() {
-    console.log('Stop');
     this.autoplay.stop();
   }
 }

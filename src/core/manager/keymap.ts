@@ -11,6 +11,7 @@ export enum DefaultKey {
   AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  STOP_AUTOPLAY = 'command, ctrl',
 
   // Navigation
   MOVE_UP = 'up',
@@ -77,6 +78,17 @@ export default class KeymapManager {
         string,
       ][]) {
         const command = this.commandFactory.create(commandName);
+
+        // https://github.com/jaywcjlove/hotkeys-js/issues/172
+        // Need to remove once the issue is resolved.
+        if (commandName === 'STOP_AUTOPLAY') {
+          hotkeys('*', 'DEFAULT', (event: KeyboardEvent): void => {
+            if (hotkeys.command || hotkeys.ctrl) {
+              command.execute(event);
+            }
+          });
+        }
+
         hotkeys(key, {scope: scope}, (event: KeyboardEvent): void => {
           event.preventDefault();
           command.execute(event);
