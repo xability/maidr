@@ -20,9 +20,7 @@ export type BarPoint = {
   fill?: string;
 };
 
-export type LinePoint = [
-  {
-    x: number;
-    y: number;
-  },
-];
+export type LinePoint = {
+  x: number;
+  y: number;
+};
