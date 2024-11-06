@@ -10,7 +10,7 @@ export interface Maidr {
     x?: string;
     y?: string;
   };
-  data: BarData | LineData;
+  data: BarData | LineData | ScatterData;
 }
 
 export type BarData =
@@ -29,3 +29,8 @@ export type LineData = [
     y: number;
   },
 ];
+
+export type ScatterData = {
+  x: number[];
+  y: number[];
+};

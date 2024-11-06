@@ -11,6 +11,7 @@ const DEFAULT_Y_AXIS = 'Y';
 export enum PlotType {
   BAR = 'bar',
   LINE = 'line',
+  POINT = 'point',
 }
 
 export enum Orientation {
