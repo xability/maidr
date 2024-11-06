@@ -14,7 +14,7 @@ export default class AutoplayManager implements Observer {
   private readonly maxSpeed: number = 500;
 
   private rate: number = this.defaultSpeed;
-  private readonly totalDuration: number = 2000;
+  private readonly totalDuration: number = 4000;
   private readonly interval: number = 20;
 
   constructor(
