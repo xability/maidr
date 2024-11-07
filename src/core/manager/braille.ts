@@ -1,7 +1,7 @@
 import Constant from '../../util/constant';
 import {EventType} from '../../index';
 import NotificationManager from './notification';
-import {Observer} from '../observer';
+import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
 export default class BrailleManager implements Observer {
@@ -34,7 +34,7 @@ export default class BrailleManager implements Observer {
 
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
-      moveToIndex(this.brailleInput?.selectionStart || 0);
+      moveToIndex(this.brailleInput!.selectionStart || -1);
     };
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
@@ -45,16 +45,25 @@ export default class BrailleManager implements Observer {
     this.setBraille(state);
   }
 
-  private setBraille(state: PlotState): void {
-    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
-
-    // Show the braille caret only if available.
-    if (!state.empty) {
-      this.brailleInput!.setSelectionRange(
-        state.braille.index,
-        state.braille.index
+  public destroy(): void {
+    if (this.brailleInput && this.selectionChangeHandler) {
+      this.brailleInput.removeEventListener(
+        EventType.SELECTION_CHANGE,
+        this.selectionChangeHandler
       );
     }
+  }
+
+  private setBraille(state: PlotState): void {
+    if (state.empty) {
+      return;
+    }
+
+    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
+    this.brailleInput!.setSelectionRange(
+      state.braille.index,
+      state.braille.index
+    );
   }
 
   public update(state: PlotState): void {
@@ -84,18 +93,5 @@ export default class BrailleManager implements Observer {
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
-  }
-
-  public destroy(): void {
-    if (this.brailleInput && this.selectionChangeHandler) {
-      this.brailleInput.removeEventListener(
-        EventType.SELECTION_CHANGE,
-        this.selectionChangeHandler
-      );
-      this.brailleInput.value = Constant.EMPTY;
-    }
-    if (this.brailleDiv) {
-      this.brailleDiv.classList.add(Constant.HIDDEN);
-    }
   }
 }

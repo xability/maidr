@@ -1,33 +1,36 @@
 import AudioManager from './manager/audio';
+import AutoplayManager from './manager/autoplay';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
 import KeymapManager from './manager/keymap';
-import ReviewManager from './manager/review';
-import NotificationManager from './manager/notification';
-import TextManager from './manager/text';
-import {Plot} from '../model/plot';
 import {Maidr} from '../model/grammar';
+import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
+import {Plot} from './interface';
+import ReviewManager from './manager/review';
+import TextManager from './manager/text';
 
 export default class Controller {
-  private readonly audio: AudioManager;
-  private readonly braille: BrailleManager;
-  private readonly text: TextManager;
+  private readonly plot: Plot;
 
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
-  private readonly keymap: KeymapManager;
+
+  private readonly audio: AudioManager;
+  private readonly braille: BrailleManager;
+  private readonly text: TextManager;
   private readonly review: ReviewManager;
 
-  private readonly plot: Plot;
+  private readonly autoplay: AutoplayManager;
+  private readonly keymap: KeymapManager;
 
   constructor(maidr: Maidr, display: DisplayManager) {
-    this.display = display;
     this.plot = PlotFactory.create(maidr);
 
+    this.display = display;
     this.notification = new NotificationManager(this.display.notificationDiv);
+
     this.audio = new AudioManager(this.notification);
-    this.text = new TextManager(this.notification, this.display.textDiv);
     this.braille = new BrailleManager(
       this.notification,
       this.plot.state,
@@ -36,6 +39,7 @@ export default class Controller {
       this.display.brailleDiv,
       this.display.brailleInput
     );
+    this.text = new TextManager(this.notification, this.display.textDiv);
     this.review = new ReviewManager(
       () => {
         this.display.toggleReviewFocus();
@@ -44,14 +48,20 @@ export default class Controller {
       this.display.textDiv,
       this.display.reviewInput
     );
-    const commandContext = {
-      audio: this.audio,
-      text: this.text,
-      braille: this.braille,
+
+    this.autoplay = new AutoplayManager(
+      this.notification,
+      this.plot,
+      this.plot.state
+    );
+    this.keymap = new KeymapManager({
       plot: this.plot,
+      audio: this.audio,
+      braille: this.braille,
+      text: this.text,
       review: this.review,
-    };
-    this.keymap = new KeymapManager(commandContext);
+      autoplay: this.autoplay,
+    });
     this.keymap.register();
 
     this.plot.addObserver(this.audio);
@@ -65,8 +75,11 @@ export default class Controller {
     this.plot.removeObserver(this.audio);
 
     this.keymap.unregister();
+    this.autoplay.destroy();
+
     this.braille.destroy();
     this.audio.destroy();
+
     this.display.destroy();
   }
 }

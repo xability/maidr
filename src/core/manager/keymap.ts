@@ -6,6 +6,16 @@ import {CommandContext} from '../command/command';
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
+  // Autoplay
+  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
+  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
+  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  STOP_AUTOPLAY = 'command, ctrl',
+  SPEED_UP_AUTOPLAY = '.',
+  SPEED_DOWN_AUTOPLAY = ',',
+  RESET_AUTOPLAY_SPEED = '/',
+
   // Navigation
   MOVE_UP = 'up',
   MOVE_DOWN = 'down',
@@ -17,6 +27,9 @@ export enum DefaultKey {
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
+
+  // Description
+  DESCRIBE_POINT = 'space',
 }
 
 export enum LabelKey {
@@ -25,7 +38,9 @@ export enum LabelKey {
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
-  DESCRIBE_POINT = 'space',
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_SUBTITLE = 's',
+  DESCRIBE_CAPTION = 'c',
 }
 
 const scopedKeymap = {
@@ -67,6 +82,17 @@ export default class KeymapManager {
         string,
       ][]) {
         const command = this.commandFactory.create(commandName);
+
+        // https://github.com/jaywcjlove/hotkeys-js/issues/172
+        // Need to remove once the issue is resolved.
+        if (commandName === 'STOP_AUTOPLAY') {
+          hotkeys('*', 'DEFAULT', (event: KeyboardEvent): void => {
+            if (hotkeys.command || hotkeys.ctrl) {
+              command.execute(event);
+            }
+          });
+        }
+
         hotkeys(key, {scope: scope}, (event: KeyboardEvent): void => {
           event.preventDefault();
           command.execute(event);
