@@ -34,6 +34,10 @@ export interface Plot extends Subject {
   moveRight(): void;
   moveDown(): void;
   moveLeft(): void;
+  moveBottommost(): void;
+  moveLeftmost(): void;
+  moveRightmost(): void;
+  moveTopmost(): void;
   moveToIndex(index: number): void;
 }
 
@@ -121,6 +125,26 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
+  public moveBottommost(): void {
+    this.extremeBottom();
+    this.notifyObservers();
+  }
+
+  public moveLeftmost(): void {
+    this.extremeLeft();
+    this.notifyObservers();
+  }
+
+  public moveRightmost(): void {
+    this.extremeRight();
+    this.notifyObservers();
+  }
+
+  public moveTopmost(): void {
+    this.extremeTop();
+    this.notifyObservers();
+  }
+
   protected abstract isWithinRange(index?: number): boolean;
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
@@ -130,5 +154,9 @@ export abstract class AbstractPlot implements Plot {
   protected abstract down(): void;
   protected abstract left(): void;
   protected abstract right(): void;
+  protected abstract extremeBottom(): void;
+  protected abstract extremeLeft(): void;
+  protected abstract extremeRight(): void;
+  protected abstract extremeTop(): void;
   protected abstract toIndex(index: number): void;
 }

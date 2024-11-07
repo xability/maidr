@@ -18,6 +18,12 @@ export enum DefaultKey {
   TOGGLE_AUDIO = 's',
 
   DESCRIBE_POINT = 'space',
+
+  // Move to Extreme Points
+  MOVE_BOTTOMMOST_POINT = 'command+down, ctrl+down',
+  MOVE_LEFTMOST_POINT = 'command+left, ctrl+left',
+  MOVE_RIGHTMOST_POINT = 'command+right, ctrl+right',
+  MOVE_TOPMOST_POINT = 'command+up, ctrl+up',
 }
 
 export enum LabelKey {

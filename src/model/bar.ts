@@ -97,6 +97,22 @@ export class BarPlot extends AbstractPlot {
     }
   }
 
+  protected extremeLeft(): void {
+    this.index = 0;
+  }
+
+  protected extremeRight(): void {
+    this.index = this.values.length - 1;
+  }
+
+  protected extremeTop(): void {
+    throw new Error(`Move up not supported for ${this.type}`);
+  }
+
+  protected extremeBottom(): void {
+    throw new Error(`Move down not supported for ${this.type}`);
+  }
+
   protected isWithinRange(index?: number): boolean {
     const idx = index ?? this.index;
     return idx >= 0 && idx < this.values.length;

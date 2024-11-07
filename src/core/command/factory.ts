@@ -10,6 +10,10 @@ import {
   DescribeTitleCommand,
 } from './describe';
 import {
+  MoveBottommostCommand,
+  MoveLeftmostCommand,
+  MoveRightmostCommand,
+  MoveTopmostCommand,
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -73,6 +77,15 @@ export class CommandFactory {
         return new DescribeSubtitleCommand(this.plot, this.text);
       case 'DESCRIBE_CAPTION':
         return new DescribeCaptionCommand(this.plot, this.text);
+
+      case 'MOVE_BOTTOMMOST_POINT':
+        return new MoveBottommostCommand(this.plot);
+      case 'MOVE_LEFTMOST_POINT':
+        return new MoveLeftmostCommand(this.plot);
+      case 'MOVE_RIGHTMOST_POINT':
+        return new MoveRightmostCommand(this.plot);
+      case 'MOVE_TOPMOST_POINT':
+        return new MoveTopmostCommand(this.plot);
 
       case 'ACTIVATE_LABEL_SCOPE':
         return new SwitchScopeCommand('LABEL');

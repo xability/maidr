@@ -48,3 +48,50 @@ export class MoveRightCommand implements Command {
     this.plot.moveRight();
   }
 }
+
+export class MoveTopmostCommand implements Command {
+  private readonly plot: Plot;
+
+  constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveTopmost();
+  }
+}
+
+export class MoveBottommostCommand implements Command {
+  private readonly plot: Plot;
+
+  constructor(plot: Plot) {
+    this.plot = plot;
+  }
+  public execute(): void {
+    this.plot.moveBottommost();
+  }
+}
+
+export class MoveLeftmostCommand implements Command {
+  private readonly plot: Plot;
+
+  constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveLeftmost();
+  }
+}
+
+export class MoveRightmostCommand implements Command {
+  private readonly plot: Plot;
+
+  constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveRightmost();
+  }
+}

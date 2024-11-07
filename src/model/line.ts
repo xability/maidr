@@ -32,6 +32,14 @@ export class LinePlot extends AbstractPlot {
 
   protected up(): void {}
 
+  protected extremeLeft(): void {}
+
+  protected extremeRight(): void {}
+
+  protected extremeTop(): void {}
+
+  protected extremeBottom(): void {}
+
   protected toIndex(index: number): void {}
 
   protected isWithinRange(index?: number): boolean {
