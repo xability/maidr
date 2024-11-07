@@ -34,7 +34,7 @@ export default class BrailleManager implements Observer {
 
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
-      moveToIndex(this.brailleInput!.selectionStart || 0);
+      moveToIndex(this.brailleInput!.selectionStart || -1);
     };
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
