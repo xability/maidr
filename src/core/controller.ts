@@ -41,11 +41,9 @@ export default class Controller {
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
     this.review = new ReviewManager(
-      () => {
-        this.display.toggleReviewFocus();
-      },
+      () => this.display.toggleReviewFocus(),
+      () => this.display.textDiv?.innerHTML,
       this.display.reviewDiv,
-      this.display.textDiv,
       this.display.reviewInput
     );
 
