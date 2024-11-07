@@ -29,7 +29,7 @@ export enum MovableDirection {
   BACKWARD = 'left',
 }
 
-export interface Plottable extends Movable, Observable {
+export interface Plot extends Movable, Observable {
   id: string;
   type: string;
 

@@ -1,7 +1,7 @@
 import AudioManager from '../manager/audio';
 import AutoplayManager from '../manager/autoplay';
 import BrailleManager from '../manager/braille';
-import {Plottable} from '../interface';
+import {Plot} from '../interface';
 import TextManager from '../manager/text';
 
 export interface Command {
@@ -9,7 +9,7 @@ export interface Command {
 }
 
 export type CommandContext = {
-  plot: Plottable;
+  plot: Plot;
   audio: AudioManager;
   text: TextManager;
   braille: BrailleManager;

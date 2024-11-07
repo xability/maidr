@@ -1,10 +1,10 @@
 import {Command} from './command';
-import {Plottable} from '../interface';
+import {Plot} from '../interface';
 
 export class MoveUpCommand implements Command {
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
 
-  constructor(plot: Plottable) {
+  constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -14,9 +14,9 @@ export class MoveUpCommand implements Command {
 }
 
 export class MoveDownCommand implements Command {
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
 
-  constructor(plot: Plottable) {
+  constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -26,9 +26,9 @@ export class MoveDownCommand implements Command {
 }
 
 export class MoveLeftCommand implements Command {
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
 
-  constructor(plot: Plottable) {
+  constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -38,9 +38,9 @@ export class MoveLeftCommand implements Command {
 }
 
 export class MoveRightCommand implements Command {
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
 
-  constructor(plot: Plottable) {
+  constructor(plot: Plot) {
     this.plot = plot;
   }
 

@@ -27,7 +27,7 @@ import {
   MoveRightCommand,
   MoveUpCommand,
 } from './move';
-import {Plottable} from '../interface';
+import {Plot} from '../interface';
 import TextManager from '../manager/text';
 import {
   ToggleAudioCommand,
@@ -37,7 +37,7 @@ import {
 } from './toggle';
 
 export class CommandFactory {
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;

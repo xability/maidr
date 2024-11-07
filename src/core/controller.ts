@@ -6,7 +6,7 @@ import KeymapManager from './manager/keymap';
 import {Maidr} from '../model/grammar';
 import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
-import {Plottable} from './interface';
+import {Plot} from './interface';
 import TextManager from './manager/text';
 
 export default class Controller {
@@ -19,7 +19,7 @@ export default class Controller {
   private readonly notification: NotificationManager;
   private readonly keymap: KeymapManager;
 
-  private readonly plot: Plottable;
+  private readonly plot: Plot;
 
   constructor(maidr: Maidr, display: DisplayManager) {
     this.display = display;

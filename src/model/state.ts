@@ -40,5 +40,5 @@ export type TextState = {
 };
 
 export type AutoplayState = {
-  plotDuration: number;
+  duration: number;
 };

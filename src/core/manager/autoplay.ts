@@ -1,21 +1,21 @@
-import {MovableDirection, Movable} from '../interface';
+import {MovableDirection, Movable, Observer} from '../interface';
 import NotificationManager from './notification';
 import {PlotState} from '../../model/state';
 
-export default class AutoplayManager {
+export default class AutoplayManager implements Observer {
   private readonly notification: NotificationManager;
   private readonly movable: Movable;
 
   private playId?: NodeJS.Timeout | null;
   private currentDirection?: MovableDirection;
 
-  private rate: number;
-  private readonly totalDuration: number = 2000;
-  private readonly interval: number = 20;
-
-  private readonly defaultSpeed: number = 250;
-  private readonly minSpeed: number = 50;
+  private defaultSpeed: number = 250;
+  private minSpeed: number = 50;
   private readonly maxSpeed: number = 500;
+
+  private rate: number = this.defaultSpeed;
+  private readonly totalDuration: number = 4000;
+  private readonly interval: number = 20;
 
   constructor(
     notification: NotificationManager,
@@ -24,17 +24,29 @@ export default class AutoplayManager {
   ) {
     this.notification = notification;
     this.movable = movable;
+    this.setAutoplayRate(state);
+  }
 
+  private setAutoplayRate(state: PlotState): void {
     this.rate = state.empty
       ? this.defaultSpeed
-      : Math.ceil(this.totalDuration / state.autoplay.plotDuration);
+      : Math.ceil(this.totalDuration / state.autoplay.duration);
 
     this.defaultSpeed = this.rate;
     this.minSpeed = Math.min(this.minSpeed, this.rate);
   }
 
+  public update(state: PlotState) {
+    if (state.empty) {
+      return;
+    }
+
+    this.stop();
+    this.setAutoplayRate(state);
+  }
+
   public start(direction: MovableDirection): void {
-    stop();
+    this.stop();
     this.currentDirection = direction;
 
     const move = this.getMove(direction);
