@@ -1,11 +1,12 @@
 import AudioManager from './manager/audio';
+import AutoplayManager from './manager/autoplay';
 import BrailleManager from './manager/braille';
 import DisplayManager from './manager/display';
-import KeyBinding from './key_binding';
-import {Maidr} from '../plot/grammar';
+import KeymapManager from './manager/keymap';
+import {Maidr} from '../model/grammar';
 import NotificationManager from './manager/notification';
-import {Plot} from '../plot/plot';
-import {PlotFactory} from '../plot/factory';
+import {PlotFactory} from '../model/factory';
+import {Plottable} from './interface';
 import TextManager from './manager/text';
 
 export default class Controller {
@@ -13,35 +14,42 @@ export default class Controller {
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
 
+  private readonly autoplay: AutoplayManager;
   private readonly display: DisplayManager;
   private readonly notification: NotificationManager;
-  private readonly keyBinding: KeyBinding;
+  private readonly keymap: KeymapManager;
 
-  private readonly plot: Plot;
+  private readonly plot: Plottable;
 
-  constructor(maidr: Maidr) {
-    this.display = new DisplayManager(maidr.id);
+  constructor(maidr: Maidr, display: DisplayManager) {
+    this.display = display;
     this.plot = PlotFactory.create(maidr);
 
     this.notification = new NotificationManager(this.display.notificationDiv);
     this.audio = new AudioManager(this.notification);
-    this.text = new TextManager(this.notification, this.display.textDiv);
     this.braille = new BrailleManager(
       this.notification,
       this.plot.state,
       (index: number) => this.plot.moveToIndex(index),
+      () => this.display.toggleBrailleFocus(),
       this.display.brailleDiv,
       this.display.brailleInput
     );
+    this.text = new TextManager(this.notification, this.display.textDiv);
+    this.autoplay = new AutoplayManager(
+      this.notification,
+      this.plot,
+      this.plot.state
+    );
 
-    const commandContext = {
+    this.keymap = new KeymapManager({
+      plot: this.plot,
       audio: this.audio,
       text: this.text,
       braille: this.braille,
-      plot: this.plot,
-    };
-    this.keyBinding = new KeyBinding(commandContext);
-    this.keyBinding.register();
+      autoplay: this.autoplay,
+    });
+    this.keymap.register();
 
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
@@ -53,7 +61,7 @@ export default class Controller {
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
-    this.keyBinding.unregister();
+    this.keymap.unregister();
     this.braille.destroy();
     this.audio.destroy();
     this.display.destroy();

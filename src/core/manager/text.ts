@@ -1,7 +1,7 @@
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
-import {Observer} from '../observer';
-import {PlotState} from '../../plot/state';
+import {Observer} from '../interface';
+import {PlotState} from '../../model/state';
 
 enum TextMode {
   OFF = 'off',
@@ -21,7 +21,7 @@ export default class TextManager implements Observer {
       return;
     }
 
-    this.mode = TextMode.TERSE;
+    this.mode = TextMode.VERBOSE;
     this.textDiv = textDiv;
   }
 

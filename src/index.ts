@@ -1,33 +1,53 @@
 import Controller from './core/controller';
-import {Maidr} from './plot/grammar';
+import DisplayManager from './core/manager/display';
 
 export enum EventType {
   BLUR = 'blur',
+  CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
   SELECTION_CHANGE = 'selectionchange',
 }
 
-document.addEventListener(EventType.DOM_LOADED, test);
+document.addEventListener(EventType.DOM_LOADED, main);
 
-function test(): void {
+function main(): void {
   if (!window.maidr) {
     return;
   }
 
-  const maidrId = window.maidr.id;
-  const maidrContainer = document.getElementById(maidrId);
-  maidrContainer?.setAttribute('tabindex', '0');
-  maidrContainer?.addEventListener(EventType.FOCUS, event =>
-    onTestFocus(event)
-  );
+  const maidr = window.maidr;
+  const maidrId = maidr.id;
+  const plot = document.getElementById(maidrId);
+  if (!plot) {
+    return;
+  }
+
+  const onFocus = () => {
+    if (!controller) {
+      controller = new Controller(maidr, display);
+    }
+    display.removeInstruction();
+  };
+  const onBlur = (event: FocusEvent) => {
+    if (display.shouldDestroy(event)) {
+      display.addInstruction();
+      controller?.destroy();
+      controller = null;
+    }
+  };
+
+  const display = new DisplayManager(maidr, onFocus, onBlur);
+  let controller: Controller | null = null;
+
+  plot?.addEventListener(EventType.FOCUS, onFocus);
+  plot?.addEventListener(EventType.BLUR, onBlur);
+  plot?.addEventListener(EventType.CLICK, onFocus);
 }
 
-function onTestFocus(event: FocusEvent): void {
-  const maidrContainer = event.currentTarget as HTMLElement;
-  init(maidrContainer, window.maidr);
-}
+// These methods have not been used as of now and hence commenting them out for clarity
 
+/*
 function main(): void {
   const plotContainers = Array.from(
     document.querySelectorAll<HTMLElement>('svg[maidr-container]')
@@ -56,10 +76,4 @@ function onFigureFocus(event: FocusEvent) {
     throw new Error('Error parsing MAIDR data');
   }
 }
-
-function init(container: HTMLElement, maidr: Maidr) {
-  const control = new Controller(maidr);
-  container.addEventListener(EventType.BLUR, () => control.destroy(), {
-    once: true,
-  });
-}
+*/

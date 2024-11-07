@@ -1,26 +1,32 @@
 export default abstract class Constant {
   // HTML elements.
+  static readonly ARTICLE = 'article';
   static readonly BR = 'br';
   static readonly DIV = 'div';
+  static readonly FIGURE = 'figure';
+  static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
   static readonly P = 'p';
 
   // HTML IDs.
-  static readonly BRAILLE_CONTAINER_ID = 'maidr-braille-container';
-  static readonly BRAILLE_INPUT_ID = 'maidr-braille-input';
+  static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
+  static readonly BRAILLE_INPUT = 'maidr-braille-input-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
-  static readonly MAIN_CONTAINER_ID = 'maidr-main-container';
-  static readonly NOTIFICATION_CONTAINER_ID = 'maidr-notification-container';
-  static readonly PLOT_CONTAINER_ID = 'maidr-plot-container';
-  static readonly TEXT_CONTAINER_ID = 'maidr-info-container';
+  static readonly MAIDR_ARTICLE = 'maidr-article-';
+  static readonly MAIDR_BR = 'maidr-br-';
+  static readonly MAIDR_FIGURE = 'maidr-figure-';
+  static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
+  static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
 
   // HTML attributes.
-  static readonly ARIA_LIVE = 'aria-live';
   static readonly ARIA_ATOMIC = 'aria-atomic';
+  static readonly ARIA_LABEL = 'aria-label';
+  static readonly ARIA_LIVE = 'aria-live';
   static readonly ROLE = 'role';
+  static readonly TITLE = 'title';
 
   // HTML positions.
   static readonly AFTER_BEGIN = 'afterbegin';

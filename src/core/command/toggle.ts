@@ -1,9 +1,11 @@
+import hotkeys from 'hotkeys-js';
+import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
 import TextManager from '../manager/text';
-import AudioManager from '../manager/audio';
+import {Scope} from '../manager/keymap';
 
-export class ToggleBraille implements Command {
+export class ToggleBrailleCommand implements Command {
   private readonly braille: BrailleManager;
 
   constructor(braille: BrailleManager) {
@@ -15,7 +17,7 @@ export class ToggleBraille implements Command {
   }
 }
 
-export class ToggleText implements Command {
+export class ToggleTextCommand implements Command {
   private readonly text: TextManager;
 
   constructor(text: TextManager) {
@@ -27,7 +29,7 @@ export class ToggleText implements Command {
   }
 }
 
-export class ToggleAudio implements Command {
+export class ToggleAudioCommand implements Command {
   private readonly audio: AudioManager;
 
   constructor(audio: AudioManager) {
@@ -36,5 +38,17 @@ export class ToggleAudio implements Command {
 
   public execute(): void {
     this.audio.toggle();
+  }
+}
+
+export class SwitchScopeCommand implements Command {
+  private readonly scopeName: Scope;
+
+  constructor(scopeName: Scope) {
+    this.scopeName = scopeName;
+  }
+
+  public execute() {
+    hotkeys.setScope(this.scopeName);
   }
 }

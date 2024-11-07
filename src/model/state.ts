@@ -1,8 +1,15 @@
-export type PlotState = {
-  empty: boolean;
-  audio: AudioState;
-  braille: BrailleState;
-  text: TextState;
+export type PlotState =
+  | EmptyState
+  | {
+      empty: false;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+    };
+
+export type EmptyState = {
+  empty: true;
 };
 
 export type AudioState = {
@@ -26,8 +33,12 @@ export type TextState = {
   crossLabel: string;
   crossValue: number | number[] | string;
   fillLabel?: string;
-  fillValue?: number;
+  fillValue?: string;
   section?: string;
   min?: number;
   max?: number;
+};
+
+export type AutoplayState = {
+  duration: number;
 };
