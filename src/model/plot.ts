@@ -6,7 +6,7 @@ import {
   TextState,
 } from './state';
 import {Maidr} from './grammar';
-import {MovableDirection, Observer, Plottable} from '../core/interface';
+import {MovableDirection, Observer, Plot} from '../core/interface';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -24,7 +24,7 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export abstract class AbstractPlot implements Plottable {
+export abstract class AbstractPlot implements Plot {
   private observers: Observer[];
   protected isOutOfBounds: boolean;
 
