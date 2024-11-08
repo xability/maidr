@@ -10,22 +10,24 @@ import {Plot} from './interface';
 import TextManager from './manager/text';
 
 export default class Controller {
+  private readonly plot: Plot;
+
+  private readonly display: DisplayManager;
+  private readonly notification: NotificationManager;
+
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
 
   private readonly autoplay: AutoplayManager;
-  private readonly display: DisplayManager;
-  private readonly notification: NotificationManager;
   private readonly keymap: KeymapManager;
 
-  private readonly plot: Plot;
-
   constructor(maidr: Maidr, display: DisplayManager) {
-    this.display = display;
     this.plot = PlotFactory.create(maidr);
 
+    this.display = display;
     this.notification = new NotificationManager(this.display.notificationDiv);
+
     this.audio = new AudioManager(this.notification);
     this.braille = new BrailleManager(
       this.notification,
@@ -36,17 +38,17 @@ export default class Controller {
       this.display.brailleInput
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
+
     this.autoplay = new AutoplayManager(
       this.notification,
       this.plot,
       this.plot.state
     );
-
     this.keymap = new KeymapManager({
       plot: this.plot,
       audio: this.audio,
-      text: this.text,
       braille: this.braille,
+      text: this.text,
       autoplay: this.autoplay,
     });
     this.keymap.register();
@@ -62,8 +64,11 @@ export default class Controller {
     this.plot.removeObserver(this.audio);
 
     this.keymap.unregister();
+    this.autoplay.destroy();
+
     this.braille.destroy();
     this.audio.destroy();
+
     this.display.destroy();
   }
 }

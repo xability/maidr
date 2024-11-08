@@ -10,8 +10,10 @@ export interface Command {
 
 export type CommandContext = {
   plot: Plot;
+
   audio: AudioManager;
-  text: TextManager;
   braille: BrailleManager;
+  text: TextManager;
+
   autoplay: AutoplayManager;
 };

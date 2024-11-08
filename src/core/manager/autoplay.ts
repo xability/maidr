@@ -7,7 +7,7 @@ export default class AutoplayManager implements Observer {
   private readonly movable: Movable;
 
   private playId?: NodeJS.Timeout | null;
-  private currentDirection?: MovableDirection;
+  private currentDirection?: MovableDirection | null;
 
   private defaultSpeed: number = 250;
   private minSpeed: number = 50;
@@ -25,6 +25,10 @@ export default class AutoplayManager implements Observer {
     this.notification = notification;
     this.movable = movable;
     this.setAutoplayRate(state);
+  }
+
+  public destroy() {
+    this.stop();
   }
 
   private setAutoplayRate(state: PlotState): void {
@@ -62,8 +66,10 @@ export default class AutoplayManager implements Observer {
   public stop(): void {
     if (this.playId) {
       clearInterval(this.playId);
-      this.playId = null;
     }
+
+    this.playId = null;
+    this.currentDirection = null;
   }
 
   private restart(): void {

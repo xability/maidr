@@ -38,16 +38,20 @@ import {
 
 export class CommandFactory {
   private readonly plot: Plot;
+
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+
   private readonly autoplay: AutoplayManager;
 
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
+
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+
     this.autoplay = commandContext.autoplay;
   }
 
