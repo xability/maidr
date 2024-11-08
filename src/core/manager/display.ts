@@ -203,46 +203,37 @@ export default class DisplayManager {
     return brailleInput;
   }
 
-  public toggleBrailleFocus(): void {
-    if (this.brailleInput) {
-      this.toggleInputFocus(this.brailleInput);
-    }
-  }
-
   private createReviewContainer(reviewId: string): HTMLElement {
     const reviewDiv = document.createElement(Constant.DIV);
     reviewDiv.id = reviewId;
     reviewDiv.classList.add(Constant.HIDDEN);
 
-    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, reviewDiv);
+    this.figureElement!.appendChild(reviewDiv);
     return reviewDiv;
   }
 
   private createReviewInput(reviewInputId: string): HTMLInputElement {
     const reviewInput = document.createElement(Constant.INPUT);
     reviewInput.id = reviewInputId;
-    reviewInput.readOnly = true;
+    reviewInput.type = Constant.TEXT;
+    reviewInput.autocomplete = Constant.OFF;
+    reviewInput.size = 50;
 
     this.reviewDiv!.appendChild(reviewInput);
     return reviewInput;
   }
 
-  public toggleReviewFocus(): void {
-    if (this.reviewInput) {
-      this.toggleInputFocus(this.reviewInput);
-    }
-  }
-
-  private toggleInputFocus(inputElement: HTMLInputElement): void {
+  public toggleInputFocus(inputElement: HTMLInputElement): void {
     if (
       (document.activeElement as HTMLInputElement) === inputElement &&
       this.onBlur
     ) {
       inputElement.removeEventListener(EventType.BLUR, this.onBlur);
       this.plot?.focus();
+      inputElement?.parentElement?.classList.add(Constant.HIDDEN);
       inputElement.addEventListener(EventType.BLUR, this.onBlur);
-    }
-    if ((document.activeElement as HTMLElement) === this.plot) {
+    } else if ((document.activeElement as HTMLElement) === this.plot) {
+      inputElement?.parentElement?.classList.remove(Constant.HIDDEN);
       inputElement?.focus();
     }
   }

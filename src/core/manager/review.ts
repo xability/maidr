@@ -1,41 +1,53 @@
-import Constant from '../../util/constant';
+import DisplayManager from './display';
+import NotificationManager from './notification';
+import TextManager from './text';
+import {Observer} from "../interface";
+import {PlotState} from "../../model/state";
 
-export default class ReviewManager {
+export default class ReviewManager implements Observer {
   private enabled: boolean;
 
-  private readonly textInfo?: () => string
-  private readonly toggleFocus?: () => void;
+  private readonly notification: NotificationManager;
+  private readonly display: DisplayManager;
+  private readonly text: TextManager
 
-  private readonly reviewDiv?: HTMLElement;
   private readonly reviewInput?: HTMLInputElement;
 
   constructor(
-    toggleFocus: () => void,
-    textInfo?: () => string,
-    reviewDiv?: HTMLElement,
-    reviewInput?: HTMLInputElement
+    notification: NotificationManager,
+    display: DisplayManager,
+    text: TextManager
   ) {
     this.enabled = false;
 
-    this.textInfo = textInfo;
-    this.toggleFocus = toggleFocus;
+    this.notification = notification;
+    this.display = display;
+    this.text = text;
 
-    this.reviewDiv = reviewDiv;
-    this.reviewInput = reviewInput;
+    if (!display.reviewInput) {
+      return;
+    }
+
+    this.reviewInput = display.reviewInput;
+  }
+
+  public update(state: PlotState): void {
+    if (!this.enabled || state.empty) {
+      return;
+    }
+
+    this.reviewInput!.value = "Test";
   }
 
   public toggle(): void {
+    if (!this.reviewInput) {
+      return;
+    }
+
     this.enabled = !this.enabled;
+    this.display.toggleInputFocus(this.reviewInput);
 
-    if (this.enabled && this.reviewInput) {
-      this.reviewDiv?.classList.remove(Constant.HIDDEN);
-      this.reviewInput.value = this.textInfo ? this.textInfo() : Constant.EMPTY;
-    } else {
-      this.reviewDiv?.classList.add(Constant.HIDDEN);
-    }
-
-    if (this.toggleFocus) {
-      this.toggleFocus();
-    }
+    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
+    this.notification.notify(message);
   }
 }

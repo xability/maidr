@@ -7,12 +7,11 @@ import DisplayManager from './display';
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;
+
   private readonly notification: NotificationManager;
   private readonly display: DisplayManager;
 
-  private readonly brailleDiv?: HTMLElement;
   private readonly brailleInput?: HTMLInputElement;
-
   private readonly selectionChangeHandler?: (event: Event) => void;
 
   constructor(
@@ -22,14 +21,14 @@ export default class BrailleManager implements Observer {
     state: PlotState
   ) {
     this.enabled = false;
+
     this.notification = notification;
     this.display = display;
 
-    if (!display.brailleDiv || !display.brailleInput) {
+    if (!display.brailleInput) {
       return;
     }
 
-    this.brailleDiv = display.brailleDiv;
     this.brailleInput = display.brailleInput;
 
     this.selectionChangeHandler = (event: Event) => {
@@ -77,8 +76,12 @@ export default class BrailleManager implements Observer {
   }
 
   public toggle(): void {
+    if (!this.brailleInput) {
+      return;
+    }
+
     this.enabled = !this.enabled;
-    this.display.toggleBrailleFocus();
+    this.display.toggleInputFocus(this.brailleInput);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
