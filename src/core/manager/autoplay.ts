@@ -1,57 +1,50 @@
-import {MovableDirection, Movable, Observer} from '../interface';
+import {Movable, MovableDirection} from '../interface';
 import NotificationManager from './notification';
 import {PlotState} from '../../model/state';
+import TextManager from './text';
 
-export default class AutoplayManager implements Observer {
+export default class AutoplayManager {
   private readonly notification: NotificationManager;
+  private readonly text: TextManager;
   private readonly movable: Movable;
 
   private playId?: NodeJS.Timeout | null;
   private currentDirection?: MovableDirection | null;
 
-  private defaultSpeed: number = 250;
-  private minSpeed: number = 50;
-  private readonly maxSpeed: number = 500;
+  private defaultSpeed = 250;
+  private minSpeed = 50;
+  private readonly maxSpeed = 500;
 
-  private rate: number = this.defaultSpeed;
-  private readonly totalDuration: number = 4000;
-  private readonly interval: number = 20;
+  private rate = this.defaultSpeed;
+  private readonly totalDuration = 4000;
+  private readonly interval = 20;
 
   constructor(
     notification: NotificationManager,
-    movable: Movable,
-    state: PlotState
+    text: TextManager,
+    movable: Movable
   ) {
     this.notification = notification;
+    this.text = text;
     this.movable = movable;
-    this.setAutoplayRate(state);
   }
 
   public destroy() {
     this.stop();
-    this.currentDirection = null;
   }
 
-  private setAutoplayRate(state: PlotState): void {
-    this.rate = state.empty
-      ? this.defaultSpeed
-      : Math.ceil(this.totalDuration / state.autoplay.duration);
+  public start(direction: MovableDirection, state?: PlotState): void {
+    this.stop();
 
-    this.defaultSpeed = this.rate;
-    this.minSpeed = Math.min(this.minSpeed, this.rate);
-  }
-
-  public update(state: PlotState) {
-    if (state.empty) {
-      return;
+    if (state) {
+      this.rate = state.empty
+        ? this.defaultSpeed
+        : Math.ceil(this.totalDuration / state.autoplay[direction]);
+      this.defaultSpeed = this.rate;
+      this.minSpeed = Math.min(this.minSpeed, this.rate);
     }
 
-    this.stop();
-    this.setAutoplayRate(state);
-  }
-
-  public start(direction: MovableDirection): void {
-    this.stop();
+    this.text.mute();
     this.currentDirection = direction;
 
     const move = this.getMove(direction);
@@ -67,8 +60,11 @@ export default class AutoplayManager implements Observer {
   public stop(): void {
     if (this.playId) {
       clearInterval(this.playId);
-      this.playId = null;
     }
+
+    this.playId = null;
+    this.currentDirection = null;
+    this.text.unmute();
   }
 
   private restart(): void {

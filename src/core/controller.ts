@@ -33,11 +33,9 @@ export default class Controller {
     this.audio = new AudioManager(this.notification);
     this.braille = new BrailleManager(
       this.notification,
-      this.plot.state,
-      (index: number) => this.plot.moveToIndex(index),
-      () => this.display.toggleBrailleFocus(),
-      this.display.brailleDiv,
-      this.display.brailleInput
+      this.display,
+      this.plot,
+      this.plot.state
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
     this.review = new ReviewManager(
@@ -49,9 +47,10 @@ export default class Controller {
 
     this.autoplay = new AutoplayManager(
       this.notification,
-      this.plot,
-      this.plot.state
+      this.text,
+      this.plot
     );
+
     this.keymap = new KeymapManager({
       plot: this.plot,
       audio: this.audio,

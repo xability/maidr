@@ -56,6 +56,7 @@ export type Keys = keyof Keymap[Scope];
 
 export default class KeymapManager {
   private readonly commandFactory: CommandFactory;
+
   constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }

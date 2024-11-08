@@ -103,13 +103,13 @@ export class CommandFactory {
         return new SwitchScopeCommand('DEFAULT');
 
       case 'AUTOPLAY_UPWARD':
-        return new AutoplayUpwardCommand(this.autoplay);
+        return new AutoplayUpwardCommand(this.autoplay, this.plot);
       case 'AUTOPLAY_DOWNWARD':
-        return new AutoplayDownwardCommand(this.autoplay);
+        return new AutoplayDownwardCommand(this.autoplay, this.plot);
       case 'AUTOPLAY_FORWARD':
-        return new AutoplayForwardCommand(this.autoplay);
+        return new AutoplayForwardCommand(this.autoplay, this.plot);
       case 'AUTOPLAY_BACKWARD':
-        return new AutoplayBackwardCommand(this.autoplay);
+        return new AutoplayBackwardCommand(this.autoplay, this.plot);
       case 'STOP_AUTOPLAY':
         return new StopAutoplayCommand(this.autoplay);
       case 'SPEED_UP_AUTOPLAY':
