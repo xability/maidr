@@ -70,7 +70,10 @@ export class LinePlot extends AbstractPlot {
 
   protected autoplay(): AutoplayState {
     return {
-      duration: this.points[this.row].length,
+      UPWARD: this.points.length,
+      DOWNWARD: this.points.length,
+      FORWARD: this.points[this.row].length,
+      BACKWARD: this.points[this.row].length,
     };
   }
 

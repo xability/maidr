@@ -23,10 +23,10 @@ export interface Movable {
 }
 
 export enum MovableDirection {
-  UPWARD = 'up',
-  DOWNWARD = 'down',
-  FORWARD = 'right',
-  BACKWARD = 'left',
+  UPWARD = 'UPWARD',
+  DOWNWARD = 'DOWNWARD',
+  FORWARD = 'FORWARD',
+  BACKWARD = 'BACKWARD',
 }
 
 export interface Plot extends Movable, Observable {

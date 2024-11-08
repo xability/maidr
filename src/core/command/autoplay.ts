@@ -1,52 +1,60 @@
 import AutoplayManager from '../manager/autoplay';
 import {Command} from './command';
-import {MovableDirection} from '../interface';
+import {MovableDirection, Plot} from '../interface';
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayManager;
+  private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager) {
+  constructor(autoplay: AutoplayManager, plot: Plot) {
     this.autoplay = autoplay;
+    this.plot = plot;
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.UPWARD);
+    this.autoplay.start(MovableDirection.UPWARD, this.plot.state);
   }
 }
 
 export class AutoplayDownwardCommand implements Command {
   private readonly autoplay: AutoplayManager;
+  private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager) {
+  constructor(autoplay: AutoplayManager, plot: Plot) {
     this.autoplay = autoplay;
+    this.plot = plot;
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.DOWNWARD);
+    this.autoplay.start(MovableDirection.DOWNWARD, this.plot.state);
   }
 }
 
 export class AutoplayForwardCommand implements Command {
   private readonly autoplay: AutoplayManager;
+  private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager) {
+  constructor(autoplay: AutoplayManager, plot: Plot) {
     this.autoplay = autoplay;
+    this.plot = plot;
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.FORWARD);
+    this.autoplay.start(MovableDirection.FORWARD, this.plot.state);
   }
 }
 
 export class AutoplayBackwardCommand implements Command {
   private readonly autoplay: AutoplayManager;
+  private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager) {
+  constructor(autoplay: AutoplayManager, plot: Plot) {
     this.autoplay = autoplay;
+    this.plot = plot;
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.BACKWARD);
+    this.autoplay.start(MovableDirection.BACKWARD, this.plot.state);
   }
 }
 

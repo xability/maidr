@@ -1,3 +1,5 @@
+import {MovableDirection} from '../core/interface';
+
 export type PlotState =
   | EmptyState
   | {
@@ -40,5 +42,5 @@ export type TextState = {
 };
 
 export type AutoplayState = {
-  duration: number;
+  [key in MovableDirection]: number;
 };
