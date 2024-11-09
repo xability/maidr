@@ -28,6 +28,7 @@ function main(): void {
       controller = new Controller(maidr, display);
     }
     display.removeInstruction();
+    display.notifyInstruction();
   };
   const onBlur = (event: FocusEvent) => {
     if (display.shouldDestroy(event)) {

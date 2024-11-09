@@ -85,7 +85,7 @@ export default class DisplayManager {
 
   public addInstruction(): void {
     if (this.plot) {
-      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}: Click to activate.
+      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}.
         Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
         S for Sonification, and R for Review mode. Use H for Help.`;
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
@@ -101,6 +101,18 @@ export default class DisplayManager {
       this.plot.removeAttribute(Constant.TITLE);
       this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
       this.plot.tabIndex = -1;
+    }
+  }
+
+  public notifyInstruction(): void {
+    if (this.notificationDiv) {
+      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}.
+        Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
+        S for Sonification, and R for Review mode. Use H for Help.`;
+      const paragraph = document.createElement(Constant.P);
+      paragraph.innerHTML = maidrInstruction;
+      this.notificationDiv.innerHTML = Constant.EMPTY;
+      this.notificationDiv.append(paragraph);
     }
   }
 
