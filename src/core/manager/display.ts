@@ -83,11 +83,16 @@ export default class DisplayManager {
     return !this.figureElement?.contains(target);
   }
 
-  public addInstruction(): void {
-    if (this.plot) {
-      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}: Click to activate.
+  private getInstructionText(includeClickPrompt: boolean = false): string {
+    const baseText = `This is a maidr plot of type ${this.maidr.type}${includeClickPrompt ? ': Click to activate' : ''}.
         Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
         S for Sonification, and R for Review mode. Use H for Help.`;
+    return baseText;
+  }
+
+  public addInstruction(): void {
+    if (this.plot) {
+      const maidrInstruction = this.getInstructionText(true);
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
       this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
@@ -106,11 +111,8 @@ export default class DisplayManager {
 
   public notifyInstruction(): void {
     if (this.notificationDiv) {
-      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}.
-        Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
-        S for Sonification, and R for Review mode. Use H for Help.`;
       const paragraph = document.createElement(Constant.P);
-      paragraph.innerHTML = maidrInstruction;
+      paragraph.innerHTML = this.getInstructionText();
       this.notificationDiv.innerHTML = Constant.EMPTY;
       this.notificationDiv.append(paragraph);
     }
