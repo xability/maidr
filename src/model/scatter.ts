@@ -1,11 +1,6 @@
 import {AbstractPlot} from './plot';
 import {AudioState, BrailleState, TextState} from './state';
-import {Maidr, ScatterData} from './grammar';
-
-interface DataPoint {
-  x: number;
-  y: number[];
-}
+import {Maidr, ScatterData, ScatterDataRaw} from './grammar';
 
 export class ScatterPlot extends AbstractPlot {
   private readonly x: number[] = [];
@@ -18,19 +13,16 @@ export class ScatterPlot extends AbstractPlot {
   private readonly values: number[];
   private readonly brailleValues: string[];
 
-  private readonly scatterData: DataPoint[];
+  private readonly scatterData: ScatterData[];
 
   constructor(maidr: Maidr) {
     super(maidr);
 
-    const data = maidr.data as ScatterData;
+    const data = maidr.data as ScatterDataRaw;
 
-    this.scatterData = this.prepareScatterData(data);
+    this.scatterData = this.transformScatterData(data);
 
-    for (const dataPoint of this.scatterData) {
-      this.x.push(dataPoint.x);
-      this.y.push(dataPoint.y);
-    }
+    this.prepareScatterData();
 
     this.values = this.x;
     this.index = -1;
@@ -40,31 +32,31 @@ export class ScatterPlot extends AbstractPlot {
     this.brailleValues = this.toBraille();
   }
 
-  private prepareScatterData(data: ScatterData): DataPoint[] {
-    const scatterGroupedData: {[key: number]: number[]} = {};
+  private transformScatterData(data: ScatterDataRaw): ScatterData[] {
+    const scatterData: ScatterData[] = [];
 
     for (let i = 0; i < data.x.length; i++) {
-      const xValue = data.x[i];
-      const yValue = data.y[i];
+      const x = data.x[i];
+      const y = data.y[i];
 
-      if (!scatterGroupedData[xValue]) {
-        scatterGroupedData[xValue] = [];
+      if (
+        scatterData.length > 0 &&
+        scatterData[scatterData.length - 1].x === x
+      ) {
+        scatterData[scatterData.length - 1].y.push(y);
+      } else {
+        scatterData.push({x, y: [y]});
       }
-      scatterGroupedData[xValue].push(yValue);
     }
 
-    const scatterPreparedData: DataPoint[] = [];
+    return scatterData;
+  }
 
-    for (const xValue in scatterGroupedData) {
-      scatterPreparedData.push({
-        x: parseFloat(xValue),
-        y: scatterGroupedData[xValue],
-      });
+  private prepareScatterData(): void {
+    for (const dataPoint of this.scatterData) {
+      this.x.push(dataPoint.x);
+      this.y.push(dataPoint.y);
     }
-
-    scatterPreparedData.sort((a, b) => a.x - b.x);
-
-    return scatterPreparedData;
   }
 
   protected audio(): AudioState {
