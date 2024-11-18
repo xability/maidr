@@ -10,6 +10,7 @@ const DEFAULT_Y_AXIS = 'Y';
 
 export enum PlotType {
   BAR = 'bar',
+  HISTOGRAM = 'hist',
   LINE = 'line',
 }
 

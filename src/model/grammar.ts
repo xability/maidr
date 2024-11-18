@@ -10,7 +10,7 @@ export interface Maidr {
     x?: string;
     y?: string;
   };
-  data: BarData | LineData;
+  data: BarData | LineData | HistogramData;
 }
 
 export type BarData =
@@ -29,3 +29,12 @@ export type LineData = [
     y: number;
   },
 ];
+
+export type HistogramData = {
+  x: number;
+  xmin: number;
+  xmax: number;
+  y: number;
+  ymin: number;
+  ymax: number;
+}[];

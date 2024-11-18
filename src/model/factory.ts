@@ -1,4 +1,5 @@
 import {BarPlot} from './bar';
+import {HistogramPlot} from './histogram';
 import {Maidr} from './grammar';
 import {LinePlot} from './line';
 import {Plot, PlotType} from './plot';
@@ -11,6 +12,9 @@ export abstract class PlotFactory {
 
       case PlotType.LINE:
         return new LinePlot(maidr);
+
+      case PlotType.HISTOGRAM:
+        return new HistogramPlot(maidr);
 
       default:
         throw new Error(`Invalid plot type: ${maidr.type}`);

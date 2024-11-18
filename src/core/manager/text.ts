@@ -83,7 +83,6 @@ export default class TextManager implements Observer {
     if (text) {
       const paragraph = document.createElement(Constant.P);
       paragraph.innerHTML = text;
-
       this.textDiv.innerHTML = Constant.EMPTY;
       this.textDiv.append(paragraph);
     }
