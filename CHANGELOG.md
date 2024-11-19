@@ -1,3 +1,11 @@
+# [2.22.0](https://github.com/xability/maidr/compare/v2.21.0...v2.22.0) (2024-11-19)
+
+
+### Features
+
+* add email authentication in help menu and added LLM APIs ([#590](https://github.com/xability/maidr/issues/590)) ([0c1223a](https://github.com/xability/maidr/commit/0c1223ac05b392fe71ef6aabd88cb47800318f90))
+* save data on azure server ([#589](https://github.com/xability/maidr/issues/589)) ([c1765fb](https://github.com/xability/maidr/commit/c1765fbf016df6a72875a613f41af4c0e12d5f70))
+
 # [2.21.0](https://github.com/xability/maidr/compare/v2.20.0...v2.21.0) (2024-10-24)
 
 
