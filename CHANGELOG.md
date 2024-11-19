@@ -1,3 +1,10 @@
+## [2.22.1](https://github.com/xability/maidr/compare/v2.22.0...v2.22.1) (2024-11-19)
+
+
+### Bug Fixes
+
+* add aria-label to email input for accessibility ([#593](https://github.com/xability/maidr/issues/593)) ([d8e2b75](https://github.com/xability/maidr/commit/d8e2b750a5b28e5f43820a8f5e4a3658aa3bb6f9))
+
 # [2.22.0](https://github.com/xability/maidr/compare/v2.21.0...v2.22.0) (2024-11-19)
 
 
