@@ -4,8 +4,10 @@ import {HistogramData, Maidr} from './grammar';
 
 export class HistogramPlot extends AbstractPlot {
   private readonly x: number[];
+  private readonly xmax: number[];
+  private readonly xmin: number[];
   private readonly y: number[];
-  private HistogramData: HistogramData;
+
   private index: number;
 
   private readonly max: number;
@@ -18,29 +20,19 @@ export class HistogramPlot extends AbstractPlot {
 
     const data = maidr.data as HistogramData;
 
-    this.HistogramData = this.extractHistogramData(data);
-
     this.index = -1;
 
-    this.x = this.HistogramData.map(item => item.x);
-    this.y = this.HistogramData.map(item => item.y);
+    this.x = data.map(item => item.x);
+    this.y = data.map(item => item.y);
+    this.xmin = data.map(item => item.xmin);
+    this.xmax = data.map(item => item.xmax);
 
-    this.max = Math.max(...this.HistogramData.map(item => item.y));
-    this.min = Math.min(...this.HistogramData.map(item => item.y));
+    this.max = Math.max(...data.map(item => item.y));
+    this.min = Math.min(...data.map(item => item.y));
+
     this.values = data.map(item => item.y);
 
     this.brailleValues = this.toBraille(this.values);
-  }
-
-  private extractHistogramData(data: HistogramData): HistogramData {
-    return data.map(item => ({
-      x: item.x,
-      xmin: item.xmin,
-      xmax: item.xmax,
-      y: item.y,
-      ymin: item.ymin,
-      ymax: item.ymax,
-    }));
   }
 
   protected audio(): AudioState {
@@ -57,8 +49,8 @@ export class HistogramPlot extends AbstractPlot {
     return {
       mainLabel: this.xAxis,
       mainValue: this.x[this.index],
-      min: this.getXMin(),
-      max: this.getXMax(),
+      min: this.xmin[this.index],
+      max: this.xmax[this.index],
       crossLabel: this.yAxis,
       crossValue: this.y[this.index],
     };
@@ -121,31 +113,5 @@ export class HistogramPlot extends AbstractPlot {
     }
 
     return braille;
-  }
-
-  private getXMin(): number {
-    if (
-      this.HistogramData &&
-      this.index >= 0 &&
-      this.index < this.HistogramData.length
-    ) {
-      const currentItem = this.HistogramData[this.index];
-      return currentItem.xmin;
-    } else {
-      return 0;
-    }
-  }
-
-  private getXMax(): number {
-    if (
-      this.HistogramData &&
-      this.index >= 0 &&
-      this.index < this.HistogramData.length
-    ) {
-      const currentItem = this.HistogramData[this.index];
-      return currentItem.xmax;
-    } else {
-      return 0;
-    }
   }
 }
