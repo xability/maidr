@@ -1,3 +1,12 @@
+interface AxesDetails {
+  label: string;
+  level: string[];
+}
+
+interface Axes {
+  x: string | AxesDetails;
+  y: string | AxesDetails;
+}
 export interface Maidr {
   id: string;
   type: string;
@@ -6,11 +15,8 @@ export interface Maidr {
   subtitle?: string;
   caption?: string;
   orientation?: string;
-  axes?: {
-    x?: string;
-    y?: string;
-  };
-  data: BarData | LineData;
+  axes?: Axes;
+  data: BarData | LineData | HeatMapData;
 }
 
 export type BarData =
@@ -29,3 +35,5 @@ export type LineData = [
     y: number;
   },
 ];
+
+export type HeatMapData = [[number]];

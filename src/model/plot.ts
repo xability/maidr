@@ -11,6 +11,7 @@ const DEFAULT_Y_AXIS = 'Y';
 export enum PlotType {
   BAR = 'bar',
   LINE = 'line',
+  HEAT = 'heat',
 }
 
 export enum Orientation {
@@ -50,6 +51,9 @@ export abstract class AbstractPlot implements Plot {
   public readonly xAxis: string;
   public readonly yAxis: string;
 
+  public readonly xAxisLevels?: string[];
+  public readonly yAxisLevels?: string[];
+
   protected readonly orientation: Orientation;
 
   protected constructor(maidr: Maidr) {
@@ -62,8 +66,25 @@ export abstract class AbstractPlot implements Plot {
     this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
-    this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
-    this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
+    if (maidr.axes) {
+      if (typeof maidr.axes.x === 'string') {
+        this.xAxis = maidr.axes.x;
+        this.xAxisLevels = undefined;
+      } else {
+        this.xAxis = maidr.axes.x.label;
+        this.xAxisLevels = maidr.axes.x.level;
+      }
+      if (typeof maidr.axes.y === 'string') {
+        this.yAxis = maidr.axes.y;
+        this.yAxisLevels = undefined;
+      } else {
+        this.yAxis = maidr.axes.y.label;
+        this.yAxisLevels = maidr.axes.y.level;
+      }
+    } else {
+      this.xAxis = DEFAULT_X_AXIS;
+      this.yAxis = DEFAULT_Y_AXIS;
+    }
 
     this.orientation =
       maidr.orientation === Orientation.HORIZONTAL
