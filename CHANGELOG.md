@@ -1,3 +1,10 @@
+## [2.23.6](https://github.com/xability/maidr/compare/v2.23.5...v2.23.6) (2024-11-22)
+
+
+### Bug Fixes
+
+* change email input type to text and trim value before verification ([#605](https://github.com/xability/maidr/issues/605)) ([91dc913](https://github.com/xability/maidr/commit/91dc91362ef06f2da2807b83c6cb551ae1aad2b6))
+
 ## [2.23.5](https://github.com/xability/maidr/compare/v2.23.4...v2.23.5) (2024-11-22)
 
 
