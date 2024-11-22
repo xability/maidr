@@ -1,3 +1,10 @@
+# [2.24.0](https://github.com/xability/maidr/compare/v2.23.6...v2.24.0) (2024-11-22)
+
+
+### Features
+
+* store email authentication key in constants after successful AP… ([#606](https://github.com/xability/maidr/issues/606)) ([ef50c0a](https://github.com/xability/maidr/commit/ef50c0a68091f50176209d7e752758d858e75ad1))
+
 ## [2.23.6](https://github.com/xability/maidr/compare/v2.23.5...v2.23.6) (2024-11-22)
 
 
