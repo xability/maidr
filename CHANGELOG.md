@@ -1,3 +1,10 @@
+## [2.23.1](https://github.com/xability/maidr/compare/v2.23.0...v2.23.1) (2024-11-22)
+
+
+### Bug Fixes
+
+* address feedback for llm verification ([#600](https://github.com/xability/maidr/issues/600)) ([38768f4](https://github.com/xability/maidr/commit/38768f4609c73d7ce311c6ead8d19ba4c486d755))
+
 # [2.23.0](https://github.com/xability/maidr/compare/v2.22.1...v2.23.0) (2024-11-21)
 
 
