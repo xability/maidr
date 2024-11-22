@@ -1,3 +1,10 @@
+## [2.23.4](https://github.com/xability/maidr/compare/v2.23.3...v2.23.4) (2024-11-22)
+
+
+### Bug Fixes
+
+* enhance LLM model visibility and improve event listener cleanup ([#603](https://github.com/xability/maidr/issues/603)) ([3ff2da0](https://github.com/xability/maidr/commit/3ff2da012cbc8cfa2e980bd0d644893144ac1771))
+
 ## [2.23.3](https://github.com/xability/maidr/compare/v2.23.2...v2.23.3) (2024-11-22)
 
 
