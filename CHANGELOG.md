@@ -1,3 +1,10 @@
+## [2.23.5](https://github.com/xability/maidr/compare/v2.23.4...v2.23.5) (2024-11-22)
+
+
+### Bug Fixes
+
+* update authentication logic for LLM prompts to prioritize emailA… ([#604](https://github.com/xability/maidr/issues/604)) ([c60f5ca](https://github.com/xability/maidr/commit/c60f5caaea0fadc365d97fdca5b07386a5dda25a))
+
 ## [2.23.4](https://github.com/xability/maidr/compare/v2.23.3...v2.23.4) (2024-11-22)
 
 
