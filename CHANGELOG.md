@@ -1,3 +1,10 @@
+## [2.23.3](https://github.com/xability/maidr/compare/v2.23.2...v2.23.3) (2024-11-22)
+
+
+### Bug Fixes
+
+* update delete email key visibility logic in Menu class ([#602](https://github.com/xability/maidr/issues/602)) ([bfd5524](https://github.com/xability/maidr/commit/bfd55243718c391404cef82ad05e766702ecf5d9))
+
 ## [2.23.2](https://github.com/xability/maidr/compare/v2.23.1...v2.23.2) (2024-11-22)
 
 
