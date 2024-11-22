@@ -1,3 +1,10 @@
+## [2.23.2](https://github.com/xability/maidr/compare/v2.23.1...v2.23.2) (2024-11-22)
+
+
+### Bug Fixes
+
+* update API base URL and add email key delete button functionality ([#601](https://github.com/xability/maidr/issues/601)) ([407ecfc](https://github.com/xability/maidr/commit/407ecfc369bccf681865256d61660261e9a59829))
+
 ## [2.23.1](https://github.com/xability/maidr/compare/v2.23.0...v2.23.1) (2024-11-22)
 
 
