@@ -1437,6 +1437,9 @@ class Menu {
 
     if (constants.emailAuthKey && constants.clientToken) {
       console.log('email auth key and client token found');
+      for (let model in constants.LLMModels) {
+        document.getElementById(`LLM_model_${model}`).checked = true;
+      }
       this.DisableLLMAPIKeys();
     } else {
       for (let model in constants.LLMModels) {
@@ -1894,6 +1897,11 @@ class ChatLLM {
         document.getElementById('delete_email_key').style = 'display: none';
         constants.clientToken = '';
         document.getElementById('verify').classList.remove('hidden');
+        for (let model in constants.LLMModels) {
+          document
+            .getElementById(`${model}_auth_key_container`)
+            .classList.remove('hidden');
+        }
       },
     ]);
     constants.events.push([
