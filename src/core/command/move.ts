@@ -1,5 +1,5 @@
 import {Command} from './command';
-import {Plot} from '../../model/plot';
+import {Plot} from '../interface';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;

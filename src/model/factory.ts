@@ -1,7 +1,8 @@
 import {BarPlot} from './bar';
-import {Maidr} from './grammar';
 import {LinePlot} from './line';
-import {Plot, PlotType} from './plot';
+import {Maidr} from './grammar';
+import {PlotType} from './plot';
+import {Plot} from '../core/interface';
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {
