@@ -1,15 +1,19 @@
 import AudioManager from '../manager/audio';
-import TextManager from '../manager/text';
+import AutoplayManager from '../manager/autoplay';
 import BrailleManager from '../manager/braille';
-import {Plot} from '../../model/plot';
+import {Plot} from '../interface';
+import TextManager from '../manager/text';
 
 export interface Command {
   execute(event?: Event): void;
 }
 
 export type CommandContext = {
-  audio: AudioManager;
-  text: TextManager;
-  braille: BrailleManager;
   plot: Plot;
+
+  audio: AudioManager;
+  braille: BrailleManager;
+  text: TextManager;
+
+  autoplay: AutoplayManager;
 };

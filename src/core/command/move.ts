@@ -1,5 +1,5 @@
 import {Command} from './command';
-import {Plot} from '../../model/plot';
+import {MovableDirection, Plot} from '../interface';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
@@ -9,7 +9,7 @@ export class MoveUpCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveUp();
+    this.plot.moveOnce(MovableDirection.UPWARD);
   }
 }
 
@@ -21,7 +21,7 @@ export class MoveDownCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveDown();
+    this.plot.moveOnce(MovableDirection.DOWNWARD);
   }
 }
 
@@ -33,7 +33,7 @@ export class MoveLeftCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveLeft();
+    this.plot.moveOnce(MovableDirection.BACKWARD);
   }
 }
 
@@ -45,11 +45,11 @@ export class MoveRightCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveRight();
+    this.plot.moveOnce(MovableDirection.FORWARD);
   }
 }
 
-export class MoveTopmostCommand implements Command {
+export class MoveToTopExtremeCommand implements Command {
   private readonly plot: Plot;
 
   constructor(plot: Plot) {
@@ -57,34 +57,22 @@ export class MoveTopmostCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveTopmost();
+    this.plot.moveToExtreme(MovableDirection.UPWARD);
   }
 }
 
-export class MoveBottommostCommand implements Command {
+export class MoveToBottomExtremeCommand implements Command {
   private readonly plot: Plot;
 
   constructor(plot: Plot) {
     this.plot = plot;
   }
   public execute(): void {
-    this.plot.moveBottommost();
+    this.plot.moveToExtreme(MovableDirection.DOWNWARD);
   }
 }
 
-export class MoveLeftmostCommand implements Command {
-  private readonly plot: Plot;
-
-  constructor(plot: Plot) {
-    this.plot = plot;
-  }
-
-  public execute(): void {
-    this.plot.moveLeftmost();
-  }
-}
-
-export class MoveRightmostCommand implements Command {
+export class MoveToLeftExtremeCommand implements Command {
   private readonly plot: Plot;
 
   constructor(plot: Plot) {
@@ -92,6 +80,18 @@ export class MoveRightmostCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveRightmost();
+    this.plot.moveToExtreme(MovableDirection.BACKWARD);
+  }
+}
+
+export class MoveToRightExtremeCommand implements Command {
+  private readonly plot: Plot;
+
+  constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveToExtreme(MovableDirection.FORWARD);
   }
 }
