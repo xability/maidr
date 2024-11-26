@@ -94,36 +94,16 @@ export abstract class AbstractPlot implements Plot {
     };
   }
 
-  public moveUp(): void {
-    if (this.isMovable(MovableDirection.UPWARD)) {
-      this.row += 1;
-      this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
-    }
-  }
+  public moveOnce(direction: MovableDirection): void {
+    const movement = {
+      UPWARD: () => (this.row += 1),
+      DOWNWARD: () => (this.row -= 1),
+      FORWARD: () => (this.col += 1),
+      BACKWARD: () => (this.col -= 1),
+    };
 
-  public moveDown(): void {
-    if (this.isMovable(MovableDirection.DOWNWARD)) {
-      this.row -= 1;
-      this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
-    }
-  }
-
-  public moveLeft(): void {
-    if (this.isMovable(MovableDirection.BACKWARD)) {
-      this.col -= 1;
-      this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
-    }
-  }
-
-  public moveRight(): void {
-    if (this.isMovable(MovableDirection.FORWARD)) {
-      this.col += 1;
+    if (this.isMovable(direction)) {
+      movement[direction]();
       this.notifyStateUpdate();
     } else {
       this.notifyOutOfBounds();
@@ -137,6 +117,7 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
+  public abstract moveToExtreme(direction: MovableDirection): void;
   public abstract isMovable(target: number | MovableDirection): boolean;
 
   protected abstract audio(): AudioState;

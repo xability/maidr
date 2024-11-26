@@ -8,14 +8,15 @@ export default class AutoplayManager {
   private readonly text: TextManager;
   private readonly movable: Movable;
 
-  private playId?: NodeJS.Timeout | null;
-  private currentDirection?: MovableDirection | null;
+  private playId?: NodeJS.Timeout | null = null;
+  private currentDirection?: MovableDirection | null = null;
 
+  private userSpeed: number | null = null;
   private defaultSpeed = 250;
   private minSpeed = 50;
   private readonly maxSpeed = 500;
 
-  private rate = this.defaultSpeed;
+  private autoplayRate = this.defaultSpeed;
   private readonly totalDuration = 4000;
   private readonly interval = 20;
 
@@ -35,26 +36,18 @@ export default class AutoplayManager {
 
   public start(direction: MovableDirection, state?: PlotState): void {
     this.stop();
-
-    if (state) {
-      this.rate = state.empty
-        ? this.defaultSpeed
-        : Math.ceil(this.totalDuration / state.autoplay[direction]);
-      this.defaultSpeed = this.rate;
-      this.minSpeed = Math.min(this.minSpeed, this.rate);
-    }
-
     this.text.mute();
+
+    this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
 
-    const move = this.getMove(direction);
     this.playId = setInterval(() => {
       if (this.movable.isMovable(direction)) {
-        move();
+        this.movable.moveOnce(direction);
       } else {
         this.stop();
       }
-    }, this.rate);
+    }, this.autoplayRate);
   }
 
   public stop(): void {
@@ -78,8 +71,10 @@ export default class AutoplayManager {
   }
 
   public speedUp(): void {
-    if (this.rate - this.interval > this.minSpeed) {
-      this.rate -= this.interval;
+    const newSpeed = this.userSpeed ?? this.autoplayRate;
+    if (newSpeed - this.interval > this.minSpeed) {
+      this.userSpeed = newSpeed - this.interval;
+      this.autoplayRate = this.userSpeed;
       this.restart();
       this.notification.notify('Speed up');
     } else {
@@ -88,8 +83,10 @@ export default class AutoplayManager {
   }
 
   public speedDown(): void {
-    if (this.rate + this.interval <= this.maxSpeed) {
-      this.rate += this.interval;
+    const newSpeed = this.userSpeed ?? this.autoplayRate;
+    if (newSpeed + this.interval <= this.maxSpeed) {
+      this.userSpeed = newSpeed + this.interval;
+      this.autoplayRate = this.userSpeed;
       this.restart();
       this.notification.notify('Speed down');
     } else {
@@ -98,24 +95,29 @@ export default class AutoplayManager {
   }
 
   public resetSpeed(): void {
-    this.rate = this.defaultSpeed;
+    this.userSpeed = null;
+    this.autoplayRate = this.defaultSpeed;
     this.restart();
     this.notification.notify('Reset speed');
   }
 
-  private getMove(direction: MovableDirection): () => void {
-    switch (direction) {
-      case MovableDirection.UPWARD:
-        return () => this.movable.moveUp();
-
-      case MovableDirection.DOWNWARD:
-        return () => this.movable.moveDown();
-
-      case MovableDirection.FORWARD:
-        return () => this.movable.moveRight();
-
-      case MovableDirection.BACKWARD:
-        return () => this.movable.moveLeft();
+  private getAutoplayRate(
+    direction: MovableDirection,
+    state?: PlotState
+  ): number {
+    if (this.userSpeed !== null) {
+      return this.userSpeed;
     }
+
+    if (state && !state.empty) {
+      const calculatedRate = Math.ceil(
+        this.totalDuration / state.autoplay[direction]
+      );
+      this.defaultSpeed = calculatedRate;
+      this.minSpeed = Math.min(this.minSpeed, calculatedRate);
+      return calculatedRate;
+    }
+
+    return this.defaultSpeed;
   }
 }

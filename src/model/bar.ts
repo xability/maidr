@@ -93,6 +93,18 @@ export class BarPlot extends AbstractPlot {
     };
   }
 
+  public moveToExtreme(direction: MovableDirection) {
+    const movement = {
+      UPWARD: () => (this.row = 0),
+      DOWNWARD: () => (this.row = this.values.length - 1),
+      FORWARD: () => (this.col = this.values[this.row].length - 1),
+      BACKWARD: () => (this.col = 0),
+    };
+
+    movement[direction]();
+    this.notifyStateUpdate();
+  }
+
   public isMovable(target: number | MovableDirection): boolean {
     switch (target) {
       case MovableDirection.UPWARD:

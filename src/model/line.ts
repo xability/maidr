@@ -22,26 +22,6 @@ export class LinePlot extends AbstractPlot {
     this.brailleValues = this.toBraille(values);
   }
 
-  public moveUp(): void {
-    if (this.isMovable(MovableDirection.UPWARD)) {
-      this.row += 1;
-      this.col = Math.min(this.col, this.points[this.row].length - 1);
-      this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
-    }
-  }
-
-  public moveDown(): void {
-    if (this.isMovable(MovableDirection.DOWNWARD)) {
-      this.row -= 1;
-      this.col = Math.min(this.col, this.points[this.row].length - 1);
-      this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
-    }
-  }
-
   protected audio(): AudioState {
     return {
       min: this.min[this.row],
@@ -75,6 +55,18 @@ export class LinePlot extends AbstractPlot {
       FORWARD: this.points[this.row].length,
       BACKWARD: this.points[this.row].length,
     };
+  }
+
+  public moveToExtreme(direction: MovableDirection): void {
+    const movement = {
+      UPWARD: () => (this.row = 0),
+      DOWNWARD: () => (this.row = this.points.length - 1),
+      FORWARD: () => (this.col = this.points[this.row].length - 1),
+      BACKWARD: () => (this.col = 0),
+    };
+
+    movement[direction]();
+    this.notifyStateUpdate();
   }
 
   public isMovable(target: number | MovableDirection): boolean {

@@ -1,15 +1,15 @@
 import DisplayManager from './display';
 import NotificationManager from './notification';
 import TextManager from './text';
-import {Observer} from "../interface";
-import {PlotState} from "../../model/state";
+import {Observer} from '../interface';
+import {PlotState} from '../../model/state';
 
 export default class ReviewManager implements Observer {
   private enabled: boolean;
 
   private readonly notification: NotificationManager;
   private readonly display: DisplayManager;
-  private readonly text: TextManager
+  private readonly text: TextManager;
 
   private readonly reviewInput?: HTMLInputElement;
 
@@ -36,7 +36,7 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.reviewInput!.value = "Test";
+    this.reviewInput!.value = 'Test';
   }
 
   public toggle(): void {

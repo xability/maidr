@@ -25,7 +25,7 @@ export default class BrailleManager implements Observer {
     this.notification = notification;
     this.display = display;
 
-    if (!display.brailleInput) {
+    if (!display.brailleDiv || !display.brailleInput) {
       return;
     }
 

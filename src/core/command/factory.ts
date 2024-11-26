@@ -26,6 +26,10 @@ import {
   MoveLeftCommand,
   MoveRightCommand,
   MoveUpCommand,
+  MoveToBottomExtremeCommand,
+  MoveToLeftExtremeCommand,
+  MoveToRightExtremeCommand,
+  MoveToTopExtremeCommand,
 } from './move';
 import {Plot} from '../interface';
 import TextManager from '../manager/text';
@@ -69,6 +73,15 @@ export class CommandFactory {
         return new MoveLeftCommand(this.plot);
       case 'MOVE_RIGHT':
         return new MoveRightCommand(this.plot);
+
+      case 'MOVE_TO_TOP_EXTREME':
+        return new MoveToTopExtremeCommand(this.plot);
+      case 'MOVE_TO_BOTTOM_EXTREME':
+        return new MoveToBottomExtremeCommand(this.plot);
+      case 'MOVE_TO_LEFT_EXTREME':
+        return new MoveToLeftExtremeCommand(this.plot);
+      case 'MOVE_TO_RIGHT_EXTREME':
+        return new MoveToRightExtremeCommand(this.plot);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);

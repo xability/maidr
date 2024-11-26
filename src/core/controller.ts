@@ -38,11 +38,7 @@ export default class Controller {
       this.plot.state
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
-    this.review = new ReviewManager(
-      this.notification,
-      this.display,
-      this.text
-    );
+    this.review = new ReviewManager(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayManager(
       this.notification,
