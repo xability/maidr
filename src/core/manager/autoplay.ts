@@ -41,10 +41,9 @@ export default class AutoplayManager {
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
 
-    const move = this.getMove(direction);
     this.playId = setInterval(() => {
       if (this.movable.isMovable(direction)) {
-        move();
+        this.movable.moveOnce(direction);
       } else {
         this.stop();
       }
@@ -100,22 +99,6 @@ export default class AutoplayManager {
     this.autoplayRate = this.defaultSpeed;
     this.restart();
     this.notification.notify('Reset speed');
-  }
-
-  private getMove(direction: MovableDirection): () => void {
-    switch (direction) {
-      case MovableDirection.UPWARD:
-        return () => this.movable.moveUp();
-
-      case MovableDirection.DOWNWARD:
-        return () => this.movable.moveDown();
-
-      case MovableDirection.FORWARD:
-        return () => this.movable.moveRight();
-
-      case MovableDirection.BACKWARD:
-        return () => this.movable.moveLeft();
-    }
   }
 
   private getAutoplayRate(

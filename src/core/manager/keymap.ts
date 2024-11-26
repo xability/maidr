@@ -11,6 +11,7 @@ export enum DefaultKey {
   AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+
   STOP_AUTOPLAY = 'command, ctrl',
   SPEED_UP_AUTOPLAY = '.',
   SPEED_DOWN_AUTOPLAY = ',',
@@ -21,6 +22,11 @@ export enum DefaultKey {
   MOVE_DOWN = 'down',
   MOVE_RIGHT = 'right',
   MOVE_LEFT = 'left',
+
+  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
+  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
+  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
+  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
 
   // BTS
   TOGGLE_BRAILLE = 'b',

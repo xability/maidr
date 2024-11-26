@@ -12,10 +12,8 @@ export interface Observable {
 }
 
 export interface Movable {
-  moveUp(): void;
-  moveDown(): void;
-  moveLeft(): void;
-  moveRight(): void;
+  moveOnce(direction: MovableDirection): void;
+  moveToExtreme(direction: MovableDirection): void;
   moveToIndex(index: number): void;
 
   isMovable(index: number): boolean;
