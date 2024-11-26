@@ -70,6 +70,15 @@ export class CommandFactory {
       case 'MOVE_RIGHT':
         return new MoveRightCommand(this.plot);
 
+      case 'MOVE_TO_TOP_EXTREME':
+        return new MoveToTopExtremeCommand(this.plot);
+      case 'MOVE_TO_BOTTOM_EXTREME':
+        return new MoveToBottomExtremeCommand(this.plot);
+      case 'MOVE_TO_LEFT_EXTREME':
+        return new MoveToLeftExtremeCommand(this.plot);
+      case 'MOVE_TO_RIGHT_EXTREME':
+        return new MoveToRightExtremeCommand(this.plot);
+
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
@@ -94,15 +103,6 @@ export class CommandFactory {
         return new DescribeSubtitleCommand(this.plot, this.text);
       case 'DESCRIBE_CAPTION':
         return new DescribeCaptionCommand(this.plot, this.text);
-
-      case 'MOVE_BOTTOMMOST_POINT':
-        return new MoveToBottomExtremeCommand(this.plot);
-      case 'MOVE_LEFTMOST_POINT':
-        return new MoveToLeftExtremeCommand(this.plot);
-      case 'MOVE_RIGHTMOST_POINT':
-        return new MoveToRightExtremeCommand(this.plot);
-      case 'MOVE_TOPMOST_POINT':
-        return new MoveToTopExtremeCommand(this.plot);
 
       case 'ACTIVATE_LABEL_SCOPE':
         return new SwitchScopeCommand('LABEL');
