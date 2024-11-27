@@ -41,7 +41,8 @@ export default class ReviewManager implements Observer {
         !isArrowKey &&
         !(isModifierKey && isArrowKey) &&
         !(isModifierKey && event.key === 'a') &&
-        !(isModifierKey && event.key === 'c')
+        !(isModifierKey && event.key === 'c') &&
+        !(event.key === 'Tab')
       ) {
         event.preventDefault();
       }
