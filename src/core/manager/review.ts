@@ -1,50 +1,92 @@
-import {Observer} from '../observer';
-import Constant from '../../util/constant';
+import hotkeys from 'hotkeys-js';
+import DisplayManager from './display';
+import {EventType} from '../../index';
+import NotificationManager from './notification';
+import {Observer} from '../interface';
+import {PlotState} from '../../model/state';
+import TextManager from './text';
 
 export default class ReviewManager implements Observer {
   private enabled: boolean;
-  private reviewDiv?: HTMLElement;
-  private textDiv?: HTMLElement;
-  private reviewInput?: HTMLInputElement;
 
-  private readonly toggleFocus?: () => void;
+  private readonly notification: NotificationManager;
+  private readonly display: DisplayManager;
+  private readonly text: TextManager;
+
+  private readonly reviewInput?: HTMLInputElement;
+  private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
   constructor(
-    toggleFocus: () => void,
-    reviewDiv?: HTMLElement,
-    textDiv?: HTMLElement,
-    reviewInput?: HTMLInputElement
+    notification: NotificationManager,
+    display: DisplayManager,
+    text: TextManager,
+    state: PlotState
   ) {
     this.enabled = false;
-    this.reviewDiv = reviewDiv;
-    this.textDiv = textDiv;
-    this.toggleFocus = toggleFocus;
-    this.reviewInput = reviewInput;
+
+    this.notification = notification;
+    this.display = display;
+    this.text = text;
+
+    if (!display.reviewInput) {
+      return;
+    }
+
+    this.reviewKeyHandler = (event: KeyboardEvent) => {
+      const isArrowKey = event.key.startsWith('Arrow');
+      const isModifierKey = event.ctrlKey || event.metaKey || event.shiftKey;
+
+      // Allow only arrow keys, shift + arrow keys, ctrl + a and ctrl + c.
+      if (
+        !isArrowKey &&
+        !(isModifierKey && isArrowKey) &&
+        !(isModifierKey && event.key === 'a') &&
+        !(isModifierKey && event.key === 'c')
+      ) {
+        event.preventDefault();
+      }
+    };
+    this.reviewInput = display.reviewInput;
+    this.reviewInput.addEventListener(
+      EventType.KEY_DOWN,
+      this.reviewKeyHandler
+    );
+
+    this.reviewInput.value = this.text.format(state);
   }
 
-  public toggle(): void {
-    this.enabled = !this.enabled;
-    this.enabled ? this.update() : this.hideReviewDiv();
-    if (this.toggleFocus) {
-      this.toggleFocus();
+  public destroy(): void {
+    if (this.reviewInput && this.reviewKeyHandler) {
+      this.reviewInput.removeEventListener(
+        EventType.KEY_DOWN,
+        this.reviewKeyHandler
+      );
     }
   }
 
-  public update(): void {
-    if (!this.reviewDiv) return;
-    this.reviewDiv.classList.remove(Constant.HIDDEN);
-    const textDivInfo = this.getTextDivInfo();
-    this.reviewInput!.value = textDivInfo;
+  public update(state: PlotState): void {
+    if (!this.enabled || state.empty) {
+      return;
+    }
+
+    this.reviewInput!.value = this.text.format(state);
   }
 
-  private getTextDivInfo(): string {
-    let textDivInfo = this.textDiv?.innerHTML;
-    textDivInfo = textDivInfo?.replace(/<\/?p>/g, '').trim();
-    return textDivInfo ?? Constant.EMPTY;
-  }
+  public toggle(): void {
+    if (!this.reviewInput) {
+      return;
+    }
 
-  private hideReviewDiv(): void {
-    this.reviewDiv?.classList.add(Constant.HIDDEN);
-    this.reviewInput!.value = Constant.EMPTY;
+    if (this.enabled) {
+      this.enabled = false;
+      hotkeys.setScope('DEFAULT');
+    } else {
+      this.enabled = true;
+      hotkeys.setScope('REVIEW');
+    }
+    this.display.toggleInputFocus(this.reviewInput);
+
+    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
+    this.notification.notify(message);
   }
 }

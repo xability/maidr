@@ -6,6 +6,7 @@ export enum EventType {
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
+  KEY_DOWN = 'keydown',
   SELECTION_CHANGE = 'selectionchange',
 }
 

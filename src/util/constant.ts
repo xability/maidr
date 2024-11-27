@@ -39,14 +39,16 @@ export default abstract class Constant {
   // Attribute values.
   static readonly APPLICATION = 'application';
   static readonly ASSERTIVE = 'assertive';
+  static readonly COMMA = ', ';
+  static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
+  static readonly OFF = 'off';
+  static readonly SPACE = ' ';
+  static readonly TEXT = 'text';
+  static readonly THROUGH = ' through ';
   static readonly TRUE = 'true';
   static readonly X = 'x';
   static readonly Y = 'y';
-  static readonly EMPTY = '';
-  static readonly SPACE = ' ';
-  static readonly COMMA = ', ';
-  static readonly THROUGH = ' through ';
 }

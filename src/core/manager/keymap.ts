@@ -6,17 +6,36 @@ import {CommandContext} from '../command/command';
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
+  // Autoplay
+  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
+  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
+  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+
+  STOP_AUTOPLAY = 'command, ctrl',
+  SPEED_UP_AUTOPLAY = '.',
+  SPEED_DOWN_AUTOPLAY = ',',
+  RESET_AUTOPLAY_SPEED = '/',
+
   // Navigation
   MOVE_UP = 'up',
   MOVE_DOWN = 'down',
   MOVE_RIGHT = 'right',
   MOVE_LEFT = 'left',
 
-  // BTS
+  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
+  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
+  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
+  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+
+  // Modes
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
+
+  // Description
+  DESCRIBE_POINT = 'space',
 }
 
 export enum LabelKey {
@@ -25,12 +44,19 @@ export enum LabelKey {
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
-  DESCRIBE_POINT = 'space',
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_SUBTITLE = 's',
+  DESCRIBE_CAPTION = 'c',
+}
+
+export enum ReviewKey {
+  TOGGLE_REVIEW = 'r',
 }
 
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
+  REVIEW: ReviewKey,
 } as const;
 
 export type Scope = keyof typeof scopedKeymap;
@@ -41,6 +67,7 @@ export type Keys = keyof Keymap[Scope];
 
 export default class KeymapManager {
   private readonly commandFactory: CommandFactory;
+
   constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }
@@ -49,8 +76,11 @@ export default class KeymapManager {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       // Allow keybindings only for MAIDR braille input.
-      if (target.isContentEditable) {
-        return target.id.startsWith(Constant.BRAILLE_INPUT);
+      if (target.tagName.toLowerCase() === Constant.INPUT) {
+        return (
+          target.id.startsWith(Constant.BRAILLE_INPUT) ||
+          target.id.startsWith(Constant.REVIEW_INPUT)
+        );
       }
 
       // Allow keybindings for all other non-editable elements.
@@ -67,6 +97,17 @@ export default class KeymapManager {
         string,
       ][]) {
         const command = this.commandFactory.create(commandName);
+
+        // https://github.com/jaywcjlove/hotkeys-js/issues/172
+        // Need to remove once the issue is resolved.
+        if (commandName === 'STOP_AUTOPLAY') {
+          hotkeys('*', 'DEFAULT', (event: KeyboardEvent): void => {
+            if (hotkeys.command || hotkeys.ctrl) {
+              command.execute(event);
+            }
+          });
+        }
+
         hotkeys(key, {scope: scope}, (event: KeyboardEvent): void => {
           event.preventDefault();
           command.execute(event);

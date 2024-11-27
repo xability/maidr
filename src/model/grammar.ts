@@ -3,27 +3,24 @@ export interface Maidr {
   type: string;
   selector?: string;
   title?: string;
+  subtitle?: string;
+  caption?: string;
   orientation?: string;
   axes?: {
     x?: string;
     y?: string;
+    fill?: string;
   };
-  data: BarData | LineData;
+  data: BarPoint[][] | LinePoint[][];
 }
 
-export type BarData =
-  | {
-      x: number[] | string[];
-      y: number[];
-    }
-  | {
-      x: number[];
-      y: number[] | string[];
-    };
+export type BarPoint = {
+  x: string | number;
+  y: number | string;
+  fill?: string;
+};
 
-export type LineData = [
-  {
-    x: number;
-    y: number;
-  },
-];
+export type LinePoint = {
+  x: number;
+  y: number;
+};
