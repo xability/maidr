@@ -28,7 +28,7 @@ export enum DefaultKey {
   MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
   MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
 
-  // BTS
+  // Modes
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
@@ -49,9 +49,14 @@ export enum LabelKey {
   DESCRIBE_CAPTION = 'c',
 }
 
+export enum ReviewKey {
+  TOGGLE_REVIEW = 'r',
+}
+
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
+  REVIEW: ReviewKey,
 } as const;
 
 export type Scope = keyof typeof scopedKeymap;
@@ -71,8 +76,11 @@ export default class KeymapManager {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       // Allow keybindings only for MAIDR braille input.
-      if (target.isContentEditable) {
-        return target.id.startsWith(Constant.BRAILLE_INPUT);
+      if (target.tagName.toLowerCase() === Constant.INPUT) {
+        return (
+          target.id.startsWith(Constant.BRAILLE_INPUT) ||
+          target.id.startsWith(Constant.REVIEW_INPUT)
+        );
       }
 
       // Allow keybindings for all other non-editable elements.

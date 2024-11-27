@@ -1,9 +1,9 @@
 import Constant from '../../util/constant';
+import DisplayManager from './display';
 import {EventType} from '../../index';
 import NotificationManager from './notification';
 import {Movable, Observer} from '../interface';
 import {PlotState} from '../../model/state';
-import DisplayManager from './display';
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;
@@ -29,12 +29,11 @@ export default class BrailleManager implements Observer {
       return;
     }
 
-    this.brailleInput = display.brailleInput;
-
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
       movable.moveToIndex(this.brailleInput!.selectionStart || -1);
     };
+    this.brailleInput = display.brailleInput;
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler

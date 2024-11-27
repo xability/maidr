@@ -1,8 +1,10 @@
+import hotkeys from 'hotkeys-js';
 import DisplayManager from './display';
+import {EventType} from '../../index';
 import NotificationManager from './notification';
-import TextManager from './text';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import TextManager from './text';
 
 export default class ReviewManager implements Observer {
   private enabled: boolean;
@@ -12,11 +14,13 @@ export default class ReviewManager implements Observer {
   private readonly text: TextManager;
 
   private readonly reviewInput?: HTMLInputElement;
+  private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
   constructor(
     notification: NotificationManager,
     display: DisplayManager,
-    text: TextManager
+    text: TextManager,
+    state: PlotState
   ) {
     this.enabled = false;
 
@@ -28,7 +32,36 @@ export default class ReviewManager implements Observer {
       return;
     }
 
+    this.reviewKeyHandler = (event: KeyboardEvent) => {
+      const isArrowKey = event.key.startsWith('Arrow');
+      const isModifierKey = event.ctrlKey || event.metaKey || event.shiftKey;
+
+      // Allow only arrow keys, shift + arrow keys, ctrl + a and ctrl + c.
+      if (
+        !isArrowKey &&
+        !(isModifierKey && isArrowKey) &&
+        !(isModifierKey && event.key === 'a') &&
+        !(isModifierKey && event.key === 'c')
+      ) {
+        event.preventDefault();
+      }
+    };
     this.reviewInput = display.reviewInput;
+    this.reviewInput.addEventListener(
+      EventType.KEY_DOWN,
+      this.reviewKeyHandler
+    );
+
+    this.reviewInput.value = this.text.format(state);
+  }
+
+  public destroy(): void {
+    if (this.reviewInput && this.reviewKeyHandler) {
+      this.reviewInput.removeEventListener(
+        EventType.KEY_DOWN,
+        this.reviewKeyHandler
+      );
+    }
   }
 
   public update(state: PlotState): void {
@@ -36,7 +69,7 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.reviewInput!.value = 'Test';
+    this.reviewInput!.value = this.text.format(state);
   }
 
   public toggle(): void {
@@ -44,7 +77,13 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.enabled = !this.enabled;
+    if (this.enabled) {
+      this.enabled = false;
+      hotkeys.setScope('DEFAULT');
+    } else {
+      this.enabled = true;
+      hotkeys.setScope('REVIEW');
+    }
     this.display.toggleInputFocus(this.reviewInput);
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;

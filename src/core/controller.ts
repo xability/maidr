@@ -38,14 +38,18 @@ export default class Controller {
       this.plot.state
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
-    this.review = new ReviewManager(this.notification, this.display, this.text);
+    this.review = new ReviewManager(
+      this.notification,
+      this.display,
+      this.text,
+      this.plot.state
+    );
 
     this.autoplay = new AutoplayManager(
       this.notification,
       this.text,
       this.plot
     );
-
     this.keymap = new KeymapManager({
       plot: this.plot,
       audio: this.audio,
@@ -69,6 +73,7 @@ export default class Controller {
     this.keymap.unregister();
     this.autoplay.destroy();
 
+    this.review.destroy();
     this.braille.destroy();
     this.audio.destroy();
 
