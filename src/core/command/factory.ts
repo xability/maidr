@@ -73,7 +73,6 @@ export class CommandFactory {
         return new MoveLeftCommand(this.plot);
       case 'MOVE_RIGHT':
         return new MoveRightCommand(this.plot);
-
       case 'MOVE_TO_TOP_EXTREME':
         return new MoveToTopExtremeCommand(this.plot);
       case 'MOVE_TO_BOTTOM_EXTREME':
@@ -123,7 +122,6 @@ export class CommandFactory {
         return new AutoplayForwardCommand(this.autoplay, this.plot);
       case 'AUTOPLAY_BACKWARD':
         return new AutoplayBackwardCommand(this.autoplay, this.plot);
-
       case 'STOP_AUTOPLAY':
         return new StopAutoplayCommand(this.autoplay);
       case 'SPEED_UP_AUTOPLAY':
