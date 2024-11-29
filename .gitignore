@@ -211,3 +211,6 @@ dist
 
 # HTML Linter prevention
 .hintrc
+
+# Mac OS
+.DS_Store

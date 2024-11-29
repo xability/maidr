@@ -32,19 +32,20 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.reviewKeyHandler = (event: KeyboardEvent) => {
-      const isArrowKey = event.key.startsWith('Arrow');
-      const isModifierKey = event.ctrlKey || event.metaKey || event.shiftKey;
+    this.reviewKeyHandler = (e: KeyboardEvent) => {
+      const isNavigationKey =
+        e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
+      const isCtrlKey = e.ctrlKey || e.metaKey;
+      const isModifierKey = isCtrlKey || e.shiftKey;
 
-      // Allow only arrow keys, shift + arrow keys, ctrl + a and ctrl + c.
       if (
-        !isArrowKey &&
-        !(isModifierKey && isArrowKey) &&
-        !(isModifierKey && event.key === 'a') &&
-        !(isModifierKey && event.key === 'c') &&
-        !(event.key === 'Tab')
+        !isNavigationKey &&
+        !(isModifierKey && isNavigationKey) &&
+        !(isCtrlKey && e.key === 'a') &&
+        !(isCtrlKey && e.key === 'c') &&
+        !(e.key === 'Tab')
       ) {
-        event.preventDefault();
+        e.preventDefault();
       }
     };
     this.reviewInput = display.reviewInput;
