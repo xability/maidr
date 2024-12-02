@@ -95,7 +95,10 @@ export default class DisplayManager {
       this.textDiv.innerHTML = Constant.EMPTY;
     }
     if (this.reviewDiv) {
-      this.reviewDiv.innerHTML = Constant.EMPTY;
+      this.reviewDiv.classList.add(Constant.HIDDEN);
+    }
+    if (this.reviewInput) {
+      this.reviewInput.value = Constant.EMPTY;
     }
   }
 

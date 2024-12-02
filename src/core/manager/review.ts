@@ -32,6 +32,8 @@ export default class ReviewManager implements Observer {
       return;
     }
 
+    // Prevent default behavior for all keys except navigation keys, Home, End, Control,a, c and Tab keys.
+    // Build review container if r is prepared and switch focus to review container
     this.reviewKeyHandler = (e: KeyboardEvent) => {
       const isNavigationKey =
         e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
