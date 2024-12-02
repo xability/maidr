@@ -2271,8 +2271,7 @@ class ChatLLM {
       if (data.text()) {
         text = data.text();
         chatLLM.DisplayChatMessage(LLMName, text);
-      }
-      if (data.error) {
+      } else if (data.error) {
         chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
         chatLLM.WaitingSound(false);
       }
@@ -2281,7 +2280,7 @@ class ChatLLM {
     // if we're tracking, log the data
     if (constants.canTrack) {
       let chatHist = chatLLM.CopyChatHistory();
-      tracker.SetData('ChatHistory', chatHist);
+      tracker.SetData('ChatHistory', { chatHistory: chatHist });
     }
   }
 
