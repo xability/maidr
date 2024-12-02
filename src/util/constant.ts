@@ -16,9 +16,9 @@ export default abstract class Constant {
   static readonly MAIDR_BR = 'maidr-br-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
-  static readonly TEXT_CONTAINER = 'maidr-info-container-';
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
   static readonly REVIEW_INPUT = 'maidr-review-input-';
+  static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.
   static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
