@@ -2271,8 +2271,7 @@ class ChatLLM {
       if (data.text()) {
         text = data.text();
         chatLLM.DisplayChatMessage(LLMName, text);
-      }
-      if (data.error) {
+      } else if (data.error) {
         chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
         chatLLM.WaitingSound(false);
       }
@@ -2281,7 +2280,7 @@ class ChatLLM {
     // if we're tracking, log the data
     if (constants.canTrack) {
       let chatHist = chatLLM.CopyChatHistory();
-      tracker.SetData('ChatHistory', chatHist);
+      tracker.SetData('ChatHistory', { chatHistory: chatHist });
     }
   }
 
@@ -3659,9 +3658,20 @@ class LogError {
  */
 class Audio {
   constructor() {
-    this.AudioContext = window['AudioContext'] || window['webkitAudioContext'];
-    this.audioContext = new AudioContext();
-    this.compressor = this.compressorSetup(this.audioContext);
+    this.fixAudioContext();
+  }
+
+  fixAudioContext() {
+    if (!this.audioContext) {
+      this.AudioContext =
+        window['AudioContext'] || window['webkitAudioContext'];
+      this.audioContext = new AudioContext();
+      this.compressor = this.compressorSetup(this.audioContext);
+    } else if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().then(() => {
+        console.log('AudioContext resumed');
+      });
+    }
   }
 
   /**
@@ -4407,6 +4417,10 @@ class Display {
         constants.sonifMode = 'off';
         this.announceText(resources.GetString('son_off'));
       }
+    }
+
+    if (constants.sonifMode != 'off') {
+      audio.fixAudioContext();
     }
   }
 
@@ -9019,15 +9033,19 @@ class Control {
           // we lock the selection while we're changing stuff so it doesn't loop
           constants.lockSelection = true;
 
-          // exception: don't let users click the seperator char
+          // exception: don't let users click the seperator char, so make them click just before
           let seperatorPositions = constants.brailleInput.value
             .split('')
             .reduce((positions, char, index) => {
               if (char === '⠳') positions.push(index);
               return positions;
             }, []);
+          console.log('seperatorPositions', seperatorPositions);
+          console.log('pos', pos);
           if (seperatorPositions.includes(pos)) {
-            return;
+            if (pos > 0) {
+              pos += -1;
+            }
           }
 
           // we're using braille cursor, update the selection from what was clicked
