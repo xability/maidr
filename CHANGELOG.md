@@ -1,3 +1,11 @@
+## [2.24.1](https://github.com/xability/maidr/compare/v2.24.0...v2.24.1) (2024-12-03)
+
+
+### Bug Fixes
+
+* clicking seperator on heatmap no longer crashes the app ([#610](https://github.com/xability/maidr/issues/610)) ([7197d98](https://github.com/xability/maidr/commit/7197d9896162a268765417d42583fe2d6fcd8132))
+* workaround for firefox not playing nice with audiocontext ([#609](https://github.com/xability/maidr/issues/609)) ([dc59817](https://github.com/xability/maidr/commit/dc59817597099a25ad3303a25b1dc6de5863a057))
+
 # [2.24.0](https://github.com/xability/maidr/compare/v2.23.6...v2.24.0) (2024-11-22)
 
 
