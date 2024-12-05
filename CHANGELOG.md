@@ -1,3 +1,11 @@
+## [2.25.1](https://github.com/xability/maidr/compare/v2.25.0...v2.25.1) (2024-12-05)
+
+
+### Bug Fixes
+
+* don't copy chat hist for tracking ([#617](https://github.com/xability/maidr/issues/617)) ([f1c2c87](https://github.com/xability/maidr/commit/f1c2c87d062c739411a045656f70f9c6e85d66da))
+* fixed LLM beep queue for verified method ([#616](https://github.com/xability/maidr/issues/616)) ([148360f](https://github.com/xability/maidr/commit/148360f1c309d09376d37377e158788c4bd8f27e))
+
 # [2.25.0](https://github.com/xability/maidr/compare/v2.24.1...v2.25.0) (2024-12-05)
 
 
