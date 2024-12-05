@@ -1222,7 +1222,7 @@ class Menu {
           document
             .getElementById('gemini_multi_container')
             .classList.add('hidden');
-          document.getElementById('openai_multi').checked = true;
+          document.getElementById('openai_multi').checked = true; // refactor note: this hidden checkbox stuff is stupid and should be removed. We're sorta replacing with the visible checkboxes.
           document.getElementById('gemini_multi').checked = false;
         } else if (e.target.value == 'gemini') {
           document
@@ -1566,8 +1566,12 @@ class Menu {
     });
 
     constants.LLMPreferences = document.getElementById('LLM_preferences').value;
-    constants.LLMOpenAiMulti = document.getElementById('openai_multi').checked;
-    constants.LLMGeminiMulti = document.getElementById('gemini_multi').checked;
+    constants.LLMOpenAiMulti =
+      document.getElementById('LLM_model_openai').checked;
+    constants.LLMGeminiMulti =
+      document.getElementById('LLM_model_gemini').checked;
+    constants.LLMClaudeMulti =
+      document.getElementById('LLM_model_claude').checked;
     constants.autoInitLLM = document.getElementById('init_llm_on_load').checked;
 
     // aria
@@ -1797,6 +1801,7 @@ class ChatLLM {
     this.firstMulti = true;
     this.firstOpen = true;
     this.shown = false;
+    this.awaitingNumChats = 0;
     this.CreateComponent();
     this.SetEvents();
     if (constants.autoInitLLM) {
@@ -2005,7 +2010,7 @@ class ChatLLM {
    *
    * @param {Event|undefined} e - The event that triggered the copy action. If undefined, the entire chat history is copied.
    */
-  CopyChatHistory(e) {
+  CopyChatHistory(e, actuallyCopy = true) {
     let text = '';
     let notificationText = '';
     if (typeof e == 'undefined') {
@@ -2067,10 +2072,12 @@ class ChatLLM {
         }
       }
 
-      try {
-        navigator.clipboard.writeText(markdown); // note: this fails if you're on the inspector. That's fine as it'll never happen to real users
-      } catch (err) {
-        console.error('Failed to copy: ', err);
+      if (actuallyCopy) {
+        try {
+          navigator.clipboard.writeText(markdown); // note: this fails if you're on the inspector. That's fine as it'll never happen to real users
+        } catch (err) {
+          console.error('Failed to copy: ', err);
+        }
       }
       return markdown;
     }
@@ -2204,7 +2211,7 @@ class ChatLLM {
     let inprogressFreq = freq * 2;
 
     if (onoff) {
-      // if turning on, clear old intervals and timeouts
+      // if turning on clear old intervals and timeouts
       if (constants.waitingInterval) {
         // destroy old waiting sound
         clearInterval(constants.waitingInterval);
@@ -2253,6 +2260,9 @@ class ChatLLM {
           constants.waitingQueue++;
         }
         if (constants.LLMOpenAiMulti) {
+          constants.waitingQueue++;
+        }
+        if (constants.LLMClaudeMulti) {
           constants.waitingQueue++;
         }
       }
@@ -2335,7 +2345,7 @@ class ChatLLM {
 
     // if we're tracking, log the data
     if (constants.canTrack) {
-      let chatHist = chatLLM.CopyChatHistory();
+      let chatHist = chatLLM.CopyChatHistory(undefined, false);
       let data = {};
       data.chatHistory = chatHist;
       if (constants.emailAuthKey) data.username = constants.emailAuthKey;
@@ -3256,7 +3266,7 @@ class Tracker {
    * @param {Object} data - The data to be saved.
    */
   async SaveTrackerData(data) {
-    console.log('about to save data', data);
+    //console.log('about to save data', data);
     if (this.isLocal) {
       localStorage.setItem(constants.project_id, JSON.stringify(data));
     } else {
@@ -3275,7 +3285,7 @@ class Tracker {
         }
 
         const result = await response.json();
-        console.log('Data saved successfully:', result);
+        //console.log('Data saved successfully:', result);
         return result;
       } catch (error) {
         console.error('Error saving data:', error);
