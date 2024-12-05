@@ -1,3 +1,16 @@
+# [2.25.0](https://github.com/xability/maidr/compare/v2.24.1...v2.25.0) (2024-12-05)
+
+
+### Bug Fixes
+
+* add username to chat history tracking ([#611](https://github.com/xability/maidr/issues/611)) ([932c050](https://github.com/xability/maidr/commit/932c05048f7ec87e20e9da3a681b26f8b3bc6a46))
+
+
+### Features
+
+* added base64 to initial base64 tracker data send ([#615](https://github.com/xability/maidr/issues/615)) ([b2a1767](https://github.com/xability/maidr/commit/b2a1767ff591b5731cf2a56e8fc4e6a4007a0c9f))
+* alert user that chat has been copied via aria-live ([#614](https://github.com/xability/maidr/issues/614)) ([326d4bf](https://github.com/xability/maidr/commit/326d4bf218359fcae36f616a90f88ad146b69e90))
+
 ## [2.24.1](https://github.com/xability/maidr/compare/v2.24.0...v2.24.1) (2024-12-03)
 
 
