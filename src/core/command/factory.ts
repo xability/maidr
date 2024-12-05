@@ -1,4 +1,15 @@
 import AudioManager from '../manager/audio';
+import AutoplayManager from '../manager/autoplay';
+import {
+  AutoplayBackwardCommand,
+  AutoplayDownwardCommand,
+  AutoplayForwardCommand,
+  AutoplayUpwardCommand,
+  ResetAutoplaySpeedCommand,
+  SpeedDownAutoplayCommand,
+  SpeedUpAutoplayCommand,
+  StopAutoplayCommand,
+} from './autoplay';
 import BrailleManager from '../manager/braille';
 import {Command, CommandContext} from './command';
 import {
@@ -9,13 +20,18 @@ import {
   DescribeSubtitleCommand,
   DescribeTitleCommand,
 } from './describe';
+import {Keys} from '../manager/keymap';
 import {
+  MoveToBottomExtremeCommand,
+  MoveToLeftExtremeCommand,
+  MoveToRightExtremeCommand,
+  MoveToTopExtremeCommand,
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
   MoveUpCommand,
 } from './move';
-import {Keys} from '../manager/keymap';
+import {Plot} from '../interface';
 import TextManager from '../manager/text';
 import {
   ToggleAudioCommand,
@@ -23,19 +39,24 @@ import {
   SwitchScopeCommand,
   ToggleTextCommand,
 } from './toggle';
-import {Plot} from '../../model/plot';
 
 export class CommandFactory {
   private readonly plot: Plot;
+
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
 
+  private readonly autoplay: AutoplayManager;
+
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
+
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+
+    this.autoplay = commandContext.autoplay;
   }
 
   create(command: Keys): Command {
@@ -48,6 +69,15 @@ export class CommandFactory {
         return new MoveLeftCommand(this.plot);
       case 'MOVE_RIGHT':
         return new MoveRightCommand(this.plot);
+
+      case 'MOVE_TO_TOP_EXTREME':
+        return new MoveToTopExtremeCommand(this.plot);
+      case 'MOVE_TO_BOTTOM_EXTREME':
+        return new MoveToBottomExtremeCommand(this.plot);
+      case 'MOVE_TO_LEFT_EXTREME':
+        return new MoveToLeftExtremeCommand(this.plot);
+      case 'MOVE_TO_RIGHT_EXTREME':
+        return new MoveToRightExtremeCommand(this.plot);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
@@ -78,6 +108,23 @@ export class CommandFactory {
         return new SwitchScopeCommand('LABEL');
       case 'ACTIVATE_DEFAULT_SCOPE':
         return new SwitchScopeCommand('DEFAULT');
+
+      case 'AUTOPLAY_UPWARD':
+        return new AutoplayUpwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_DOWNWARD':
+        return new AutoplayDownwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_FORWARD':
+        return new AutoplayForwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_BACKWARD':
+        return new AutoplayBackwardCommand(this.autoplay, this.plot);
+      case 'STOP_AUTOPLAY':
+        return new StopAutoplayCommand(this.autoplay);
+      case 'SPEED_UP_AUTOPLAY':
+        return new SpeedUpAutoplayCommand(this.autoplay);
+      case 'SPEED_DOWN_AUTOPLAY':
+        return new SpeedDownAutoplayCommand(this.autoplay);
+      case 'RESET_AUTOPLAY_SPEED':
+        return new ResetAutoplaySpeedCommand(this.autoplay);
 
       default:
         throw new Error(`Invalid command name: ${command}`);
