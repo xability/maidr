@@ -1,11 +1,9 @@
 import {AbstractPlot} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
-import {Maidr, ScatterData, ScatterDataRaw} from './grammar';
+import {AudioState, AutoplayState, BrailleState, TextState} from './state';
+import {Maidr, ScatterData, ScatterDataTransformed} from './grammar';
+import {MovableDirection} from '../core/interface';
 
 export class ScatterPlot extends AbstractPlot {
-  private readonly x: number[] = [];
-  private readonly y: number[][] = [];
-
   private readonly min: number;
   private readonly max: number;
 
@@ -13,18 +11,15 @@ export class ScatterPlot extends AbstractPlot {
   private readonly values: number[];
   private readonly brailleValues: string[];
 
-  private readonly scatterData: ScatterData[];
+  private readonly scatterData: ScatterDataTransformed[];
 
   constructor(maidr: Maidr) {
     super(maidr);
 
-    const data = maidr.data as ScatterDataRaw;
+    const data = maidr.data as ScatterData[];
 
     this.scatterData = this.transformScatterData(data);
-
-    this.prepareScatterData();
-
-    this.values = this.x;
+    this.values = data.map(point => point.x);
     this.index = -1;
     this.min = Math.min(...this.values);
     this.max = Math.max(...this.values);
@@ -32,31 +27,19 @@ export class ScatterPlot extends AbstractPlot {
     this.brailleValues = this.toBraille();
   }
 
-  private transformScatterData(data: ScatterDataRaw): ScatterData[] {
-    const scatterData: ScatterData[] = [];
+  private transformScatterData(data: ScatterData[]): ScatterDataTransformed[] {
+    const scatterData: ScatterDataTransformed[] = [];
 
-    for (let i = 0; i < data.x.length; i++) {
-      const x = data.x[i];
-      const y = data.y[i];
-
-      if (
-        scatterData.length > 0 &&
-        scatterData[scatterData.length - 1].x === x
-      ) {
-        scatterData[scatterData.length - 1].y.push(y);
+    data.forEach(point => {
+      const existingRow = scatterData.find(row => row[0] === point.x);
+      if (existingRow) {
+        existingRow[1].push(point.y);
       } else {
-        scatterData.push({x, y: [y]});
+        scatterData.push([point.x, [point.y]]);
       }
-    }
+    });
 
     return scatterData;
-  }
-
-  private prepareScatterData(): void {
-    for (const dataPoint of this.scatterData) {
-      this.x.push(dataPoint.x);
-      this.y.push(dataPoint.y);
-    }
   }
 
   protected audio(): AudioState {
@@ -79,33 +62,58 @@ export class ScatterPlot extends AbstractPlot {
   protected text(): TextState {
     return {
       mainLabel: this.xAxis,
-      mainValue: this.x[this.index],
+      mainValue: this.values[this.index],
       crossLabel: this.yAxis,
-      crossValue: this.y[this.index],
+      crossValue:
+        this.scatterData.find(row => row[0] === this.values[this.index])?.[1] ||
+        [],
     };
   }
 
-  protected up(): void {
-    throw new Error(`Move up not supported for ${this.type}`);
-  }
+  public isMovable(target: number | MovableDirection): boolean {
+    switch (target) {
+      case MovableDirection.UPWARD:
+        throw new Error('Upward movement is not supported on this plot.');
 
-  protected down(): void {
-    throw new Error(`Move down not supported for ${this.type}`);
-  }
+      case MovableDirection.DOWNWARD:
+        throw new Error('Downward movement is not supported on this plot.');
 
-  protected left(): void {
-    if (this.index > -1) {
-      console.log(this.index);
-      this.index -= 1;
+      case MovableDirection.FORWARD:
+        return this.index < this.values.length - 1;
+
+      case MovableDirection.BACKWARD:
+        return this.index > 0;
+
+      default:
+        return (
+          this.index >= 0 &&
+          this.index < this.values.length &&
+          target >= 0 &&
+          target < this.values.length
+        );
     }
   }
 
-  protected right(): void {
-    if (this.index < this.values.length) {
-      this.index += 1;
-    }
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.values.length,
+      DOWNWARD: this.values.length,
+      FORWARD: this.values.length,
+      BACKWARD: this.values.length,
+    };
   }
 
+  public moveToExtreme(direction: MovableDirection) {
+    const movement = {
+      UPWARD: () => (this.row = 0),
+      DOWNWARD: () => (this.row = this.values.length - 1),
+      FORWARD: () => (this.col = this.values.length - 1),
+      BACKWARD: () => (this.col = 0),
+    };
+
+    movement[direction]();
+    this.notifyStateUpdate();
+  }
   protected isWithinRange(index?: number): boolean {
     const idx = index ?? this.index;
     return idx >= 0 && idx < this.values.length;

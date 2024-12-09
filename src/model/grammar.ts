@@ -11,7 +11,7 @@ export interface Maidr {
     y?: string;
     fill?: string;
   };
-  data: BarData | LineData | ScatterData[][];
+  data: BarPoint[][] | LinePoint[][] | ScatterData[];
 }
 
 export type BarPoint = {
@@ -27,8 +27,10 @@ export type LinePoint = {
 
 export type ScatterData = {
   x: number;
-  y: number[];
+  y: number;
 };
+
+export type ScatterDataTransformed = [number, number[]];
 
 export type ScatterDataRaw = {
   x: number[];
