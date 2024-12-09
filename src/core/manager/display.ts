@@ -6,8 +6,9 @@ export default class DisplayManager {
   private readonly maidr: Maidr;
   private readonly plot?: HTMLElement;
 
-  private readonly onFocus?: () => void;
-  private readonly onBlur?: (event: FocusEvent) => void;
+  private readonly onFocus: () => void;
+  private readonly onBlur: (event: FocusEvent) => void;
+  private prevActiveElement: HTMLElement | HTMLInputElement | null;
 
   private readonly articleElement?: HTMLElement;
   private readonly figureElement?: HTMLElement;
@@ -30,6 +31,10 @@ export default class DisplayManager {
     this.maidr = maidr;
     const maidrId = this.maidr.id;
 
+    this.onFocus = onFocus;
+    this.onBlur = onBlur;
+    this.prevActiveElement = null;
+
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
@@ -38,9 +43,6 @@ export default class DisplayManager {
 
     this.plot = plot;
     this.addInstruction();
-
-    this.onFocus = onFocus;
-    this.onBlur = onBlur;
 
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
@@ -88,17 +90,20 @@ export default class DisplayManager {
     if (this.brailleDiv) {
       this.brailleDiv.classList.add(Constant.HIDDEN);
     }
+    if (this.reviewInput) {
+      this.reviewInput.value = Constant.EMPTY;
+    }
+    if (this.reviewDiv) {
+      this.reviewDiv.classList.add(Constant.HIDDEN);
+    }
     if (this.notificationDiv) {
       this.notificationDiv.innerHTML = Constant.EMPTY;
     }
     if (this.textDiv) {
       this.textDiv.innerHTML = Constant.EMPTY;
     }
-    if (this.reviewDiv) {
-      this.reviewDiv.classList.add(Constant.HIDDEN);
-    }
-    if (this.reviewInput) {
-      this.reviewInput.value = Constant.EMPTY;
+    if (this.prevActiveElement) {
+      this.prevActiveElement = null;
     }
   }
 
@@ -226,18 +231,67 @@ export default class DisplayManager {
     return reviewInput;
   }
 
-  public toggleInputFocus(inputElement: HTMLInputElement): void {
-    if (
-      (document.activeElement as HTMLInputElement) === inputElement &&
+  public toggleBrailleFocus(): void {
+    if ((document.activeElement as HTMLElement) === this.plot) {
+      this.brailleDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleInput?.focus();
+      this.prevActiveElement = this.plot;
+    } else if (
+      (document.activeElement as HTMLInputElement) === this.reviewInput &&
       this.onBlur
     ) {
-      inputElement.removeEventListener(EventType.BLUR, this.onBlur);
+      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.brailleDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleInput?.focus();
+      this.prevActiveElement = this.reviewInput;
+      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
+      this.reviewDiv?.classList.add(Constant.HIDDEN);
+    } else if (
+      (document.activeElement as HTMLInputElement) === this.brailleInput &&
+      this.onBlur
+    ) {
+      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
       this.plot?.focus();
-      inputElement?.parentElement?.classList.add(Constant.HIDDEN);
-      inputElement.addEventListener(EventType.BLUR, this.onBlur);
-    } else if ((document.activeElement as HTMLElement) === this.plot) {
-      inputElement?.parentElement?.classList.remove(Constant.HIDDEN);
-      inputElement?.focus();
+      this.prevActiveElement = null;
+      this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
+      this.brailleDiv?.classList.add(Constant.HIDDEN);
+    }
+  }
+
+  public toggleReviewFocus(): void {
+    if ((document.activeElement as HTMLElement) === this.plot) {
+      this.reviewDiv?.classList.remove(Constant.HIDDEN);
+      this.reviewInput?.focus();
+      this.prevActiveElement = this.plot;
+    } else if (
+      (document.activeElement as HTMLInputElement) === this.brailleInput &&
+      this.onBlur
+    ) {
+      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.reviewDiv?.classList.remove(Constant.HIDDEN);
+      this.reviewInput?.focus();
+      this.prevActiveElement = this.brailleInput;
+      this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
+    } else if (
+      this.prevActiveElement === this.brailleInput &&
+      (document.activeElement as HTMLInputElement) === this.reviewInput &&
+      this.onBlur
+    ) {
+      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.brailleDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleInput?.focus();
+      this.prevActiveElement = this.reviewInput;
+      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
+      this.reviewDiv?.classList.add(Constant.HIDDEN);
+    } else if (
+      (document.activeElement as HTMLInputElement) === this.reviewInput &&
+      this.onBlur
+    ) {
+      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.plot?.focus();
+      this.prevActiveElement = null;
+      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
+      this.reviewDiv?.classList.add(Constant.HIDDEN);
     }
   }
 }

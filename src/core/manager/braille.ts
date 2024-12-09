@@ -75,12 +75,8 @@ export default class BrailleManager implements Observer {
   }
 
   public toggle(): void {
-    if (!this.brailleInput) {
-      return;
-    }
-
     this.enabled = !this.enabled;
-    this.display.toggleInputFocus(this.brailleInput);
+    this.display.toggleBrailleFocus();
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

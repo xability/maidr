@@ -77,10 +77,6 @@ export default class ReviewManager implements Observer {
   }
 
   public toggle(): void {
-    if (!this.reviewInput) {
-      return;
-    }
-
     if (this.enabled) {
       this.enabled = false;
       hotkeys.setScope('DEFAULT');
@@ -88,7 +84,7 @@ export default class ReviewManager implements Observer {
       this.enabled = true;
       hotkeys.setScope('REVIEW');
     }
-    this.display.toggleInputFocus(this.reviewInput);
+    this.display.toggleReviewFocus();
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

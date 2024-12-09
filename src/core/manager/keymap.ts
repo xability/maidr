@@ -50,6 +50,8 @@ export enum LabelKey {
 }
 
 export enum ReviewKey {
+  // Modes
+  TOGGLE_BRAILLE = 'b',
   TOGGLE_REVIEW = 'r',
 }
 
