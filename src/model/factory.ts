@@ -1,4 +1,5 @@
 import {BarPlot} from './bar';
+import {Heatmap} from './heatmap';
 import {LinePlot} from './line';
 import {Maidr} from './grammar';
 import {PlotType} from './plot';
@@ -9,6 +10,9 @@ export abstract class PlotFactory {
     switch (maidr.type) {
       case PlotType.BAR:
         return new BarPlot(maidr);
+
+      case PlotType.HEATMAP:
+        return new Heatmap(maidr);
 
       case PlotType.LINE:
         return new LinePlot(maidr);

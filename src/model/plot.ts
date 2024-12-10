@@ -13,10 +13,12 @@ const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
+const DEFAULT_FILL_AXIS = 'Fill';
 
 export enum PlotType {
   BAR = 'bar',
   LINE = 'line',
+  HEATMAP = 'heat',
 }
 
 export enum Orientation {
@@ -37,6 +39,7 @@ export abstract class AbstractPlot implements Plot {
 
   public readonly xAxis: string;
   public readonly yAxis: string;
+  protected readonly fill: string;
 
   protected row: number;
   protected col: number;
@@ -54,6 +57,7 @@ export abstract class AbstractPlot implements Plot {
 
     this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
+    this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
 
     this.row = 0;
     this.col = 0;
@@ -96,8 +100,8 @@ export abstract class AbstractPlot implements Plot {
 
   public moveOnce(direction: MovableDirection): void {
     const movement = {
-      UPWARD: () => (this.row += 1),
-      DOWNWARD: () => (this.row -= 1),
+      UPWARD: () => (this.row -= 1),
+      DOWNWARD: () => (this.row += 1),
       FORWARD: () => (this.col += 1),
       BACKWARD: () => (this.col -= 1),
     };

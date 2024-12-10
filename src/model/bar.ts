@@ -3,15 +3,12 @@ import {AudioState, AutoplayState, BrailleState, TextState} from './state';
 import {BarPoint, Maidr} from './grammar';
 import {MovableDirection} from '../core/interface';
 
-const DEFAULT_FILL_AXIS = 'Fill';
-
 export class BarPlot extends AbstractPlot {
   private readonly points: BarPoint[][];
   private readonly values: number[][];
   private readonly brailleValues: string[][];
 
   private readonly orientation: Orientation;
-  private readonly fill: string;
 
   private readonly min: number;
   private readonly max: number;
@@ -24,7 +21,6 @@ export class BarPlot extends AbstractPlot {
       maidr.orientation === Orientation.HORIZONTAL
         ? Orientation.HORIZONTAL
         : Orientation.VERTICAL;
-    this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
 
     this.values = this.points.map(row =>
       row.map(point =>
