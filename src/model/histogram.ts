@@ -1,114 +1,166 @@
 import {AbstractPlot} from './plot';
-import {AudioState, TextState, BrailleState} from './state';
+import {AudioState, AutoplayState, TextState, BrailleState} from './state';
 import {HistogramData, Maidr} from './grammar';
+import {MovableDirection} from '../core/interface';
 
 export class HistogramPlot extends AbstractPlot {
-  private readonly x: number[];
-  private readonly xmax: number[];
-  private readonly xmin: number[];
-  private readonly y: number[];
-
+  private readonly bars: HistogramData[][];
   private index: number;
 
-  private readonly max: number;
-  private readonly min: number;
+  private readonly max: number[];
+  private readonly min: number[];
 
-  private readonly values: number[];
-  private readonly brailleValues: string[];
+  private readonly brailleValues: string[][];
   constructor(maidr: Maidr) {
     super(maidr);
 
-    const data = maidr.data as HistogramData;
+    this.bars = maidr.data as HistogramData[][];
 
     this.index = -1;
 
-    this.x = data.map(item => item.x);
-    this.y = data.map(item => item.y);
-    this.xmin = data.map(item => item.xmin);
-    this.xmax = data.map(item => item.xmax);
+    const values = this.bars.map(row => row.map(point => Number(point.y)));
 
-    this.max = Math.max(...data.map(item => item.y));
-    this.min = Math.min(...data.map(item => item.y));
+    this.min = values.map(row => Math.min(...row));
+    this.max = values.map(row => Math.max(...row));
 
-    this.values = data.map(item => item.y);
-
-    this.brailleValues = this.toBraille(this.values);
+    this.brailleValues = this.toBraille(values);
   }
 
   protected audio(): AudioState {
     return {
-      min: this.min,
-      max: this.max,
-      size: this.values.length,
+      min: this.min[this.row],
+      max: this.max[this.row],
+      size: this.bars[this.row].length,
       index: this.index,
-      value: this.values[this.index],
+      value: this.bars[this.row][this.col].y,
     };
   }
 
   protected text(): TextState {
     return {
       mainLabel: this.xAxis,
-      mainValue: this.x[this.index],
-      min: this.xmin[this.index],
-      max: this.xmax[this.index],
+      mainValue: this.bars[this.row][this.col].x,
+      min: this.bars[this.row][this.col].xmin,
+      max: this.bars[this.row][this.col].xmax,
       crossLabel: this.yAxis,
-      crossValue: this.y[this.index],
+      crossValue: this.bars[this.row][this.col].y,
     };
   }
 
   protected braille(): BrailleState {
     return {
-      values: this.brailleValues,
+      values: this.brailleValues[this.row],
       index: this.index,
     };
   }
 
-  protected down(): void {
-    throw new Error(`Move down not supported for ${this.type}`);
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.bars.length,
+      DOWNWARD: this.bars.length,
+      FORWARD: this.bars[this.row].length,
+      BACKWARD: this.bars[this.row].length,
+    };
   }
 
-  protected left(): void {
-    if (this.index > -1) {
-      this.index -= 1;
+  public moveToExtreme(direction: MovableDirection): void {
+    const movement = {
+      UPWARD: () => (this.row = 0),
+      DOWNWARD: () => (this.row = this.bars.length - 1),
+      FORWARD: () => (this.col = this.bars[this.row].length - 1),
+      BACKWARD: () => (this.col = 0),
+    };
+
+    movement[direction]();
+    this.notifyStateUpdate();
+  }
+
+  public isMovable(target: number | MovableDirection): boolean {
+    switch (target) {
+      case MovableDirection.UPWARD:
+        return this.row > 0;
+
+      case MovableDirection.DOWNWARD:
+        return this.row < this.bars.length - 1;
+
+      case MovableDirection.FORWARD:
+        return this.col < this.bars[this.row].length - 1;
+
+      case MovableDirection.BACKWARD:
+        return this.col > 0;
+
+      default:
+        return (
+          this.row >= 0 &&
+          this.row < this.bars.length &&
+          target >= 0 &&
+          target < this.bars[this.row].length
+        );
     }
   }
 
-  protected right(): void {
-    if (this.index < this.values.length) {
-      this.index += 1;
-    }
-  }
-
-  protected up(): void {
-    throw new Error(`Move up not supported for ${this.type}`);
-  }
-
-  protected isWithinRange(index?: number): boolean {
-    const idx = index ?? this.index;
-    return idx >= 0 && idx < this.values.length;
-  }
-
-  protected toIndex(index: number): void {
-    this.index = index;
-  }
-
-  private toBraille(data: number[]): string[] {
+  private toBraille(data: number[][]): string[][] {
     const braille = [];
 
-    const range = (this.max - this.min) / 4;
-    const low = this.min + range;
-    const medium = low + range;
-    const high = medium + range;
+    for (let row = 0; row < data.length; row++) {
+      braille.push(new Array<string>());
 
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] <= low) {
-        braille.push('⣀');
-      } else if (data[i] <= medium) {
-        braille.push('⠤');
-      } else if (data[i] <= high) {
-        braille.push('⠒');
-      } else {
-        braille.push('⠉');
+      const range = (this.max[row] - this.min[row]) / 4;
+      const low = this.min[row] + range;
+      const medium = low + range;
+      const mediumHigh = medium + range;
+      const high = medium + range;
+
+      for (let col = 0; col < data[row].length; col++) {
+        if (data[row][col] <= low && col - 1 >= 0 && data[row][col - 1] > low) {
+          if (data[row][col - 1] <= medium) {
+            braille[row].push('⢄');
+          } else if (data[row][col - 1] <= mediumHigh) {
+            braille[row].push('⢆');
+          } else if (data[row][col - 1] > mediumHigh) {
+            braille[row].push('⢇');
+          }
+        } else if (data[row][col] <= low) {
+          braille[row].push('⣀');
+        } else if (col - 1 >= 0 && data[row][col - 1] <= low) {
+          if (data[row][col] <= medium) {
+            braille[row].push('⡠');
+          } else if (data[row][col] <= mediumHigh) {
+            braille[row].push('⡰');
+          } else if (data[row][col] > mediumHigh) {
+            braille[row].push('⡸');
+          }
+        } else if (
+          data[row][col] <= medium &&
+          col - 1 >= 0 &&
+          data[row][col - 1] > medium
+        ) {
+          if (data[row][col - 1] <= mediumHigh) {
+            braille[row].push('⠢');
+          } else if (data[row][col - 1] > mediumHigh) {
+            braille[row].push('⠣');
+          }
+        } else if (data[row][col] <= medium) {
+          braille[row].push('⠤');
+        } else if (col - 1 >= 0 && data[row][col - 1] <= medium) {
+          if (data[row][col] <= mediumHigh) {
+            braille[row].push('⠔');
+          } else if (data[row][col] > mediumHigh) {
+            braille[row].push('⠜');
+          }
+        } else if (
+          data[row][col] <= mediumHigh &&
+          col - 1 >= 0 &&
+          data[row][col - 1] > mediumHigh
+        ) {
+          braille[row].push('⠑');
+        } else if (data[row][col] <= mediumHigh) {
+          braille[row].push('⠒');
+        } else if (col - 1 >= 0 && data[row][col - 1] <= mediumHigh) {
+          braille[row].push('⠊');
+        } else if (data[row][col] <= high) {
+          braille[row].push('⠉');
+        }
       }
     }
 
