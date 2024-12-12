@@ -9,32 +9,24 @@ export interface Maidr {
   axes?: {
     x?: string;
     y?: string;
+    fill?: string;
   };
-  data: BarData | LineData | HistogramData;
+  data: BarPoint[][] | LinePoint[][] | HeatmapData;
 }
 
-export type BarData =
-  | {
-      x: number[] | string[];
-      y: number[];
-    }
-  | {
-      x: number[];
-      y: number[] | string[];
-    };
+export type BarPoint = {
+  x: string | number;
+  y: number | string;
+  fill?: string;
+};
 
-export type LineData = [
-  {
-    x: number;
-    y: number;
-  },
-];
-
-export type HistogramData = {
+export type LinePoint = {
   x: number;
-  xmin: number;
-  xmax: number;
   y: number;
-  ymin: number;
-  ymax: number;
-}[];
+};
+
+export type HeatmapData = {
+  x: string[];
+  y: string[];
+  points: number[][];
+};

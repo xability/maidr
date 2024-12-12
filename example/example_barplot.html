@@ -5,16 +5,9 @@
     <title>maidr Example</title>
     <link
             rel="stylesheet"
-            href="src/css/styles.css"
+            href="../src/css/styles.css"
     />
-    <!--        <script type="module" src="dist/constants.js"></script>-->
-    <!--        <script type="module" src="dist/audio.js"></script>-->
-    <!--        <script type="module" src="dist/display.js"></script>-->
-    <!--        <script type="module" src="dist/barplot.js"></script>-->
-    <!--        <script type="module" src="dist/controls.js"></script>-->
-    <!--        <script type="module" src="dist/init.js"></script>-->
-    <!--        <script type="module" src="dist/maidr.js"></script>-->
-    <script src="dist/bundle.js"></script>
+    <script src="../dist/bundle.js"></script>
 </head>
 <body>
     <svg id="bar" xmlns:xlink="http://www.w3.org/1999/xlink" width="720pt" height="432pt" viewBox="0 0 720 432"
@@ -940,20 +933,24 @@
           "x": "Day",
           "y": "Count"
         },
-        "data": {
-          "x": [
-            "Sat",
-            "Sun",
-            "Thur",
-            "Fri"
-          ],
-          "y": [
-            87,
-            76,
-            62,
-            19
-          ]
-        }
+        "data": [[
+          {
+            "x": "Sat",
+            "y": 87
+          },
+          {
+            "x": "Sun",
+            "y": 76
+          },
+          {
+            "x": "Thur",
+            "y": 62
+          },
+          {
+            "x": "Fri",
+            "y": 19
+          }
+        ]]
       };
     </script>
 </body>

@@ -1,6 +1,6 @@
 import Constant from '../../util/constant';
 import NotificationManager from './notification';
-import {Observer} from '../observer';
+import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
 enum TextMode {
@@ -21,7 +21,7 @@ export default class TextManager implements Observer {
       return;
     }
 
-    this.mode = TextMode.TERSE;
+    this.mode = TextMode.VERBOSE;
     this.textDiv = textDiv;
   }
 
@@ -111,5 +111,15 @@ export default class TextManager implements Observer {
 
     const message = `Text mode is ${this.mode}`;
     this.notification.notify(message);
+  }
+
+  public mute(): void {
+    this.textDiv?.removeAttribute(Constant.ARIA_LIVE);
+    this.textDiv?.removeAttribute(Constant.ARIA_ATOMIC);
+  }
+
+  public unmute(): void {
+    this.textDiv?.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
+    this.textDiv?.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
   }
 }

@@ -1,5 +1,5 @@
-import {Observer} from '../observer';
 import NotificationManager from './notification';
+import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
 type Range = {

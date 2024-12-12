@@ -1,7 +1,7 @@
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
-import {Plot} from '../../model/plot';
+import {Plot} from '../interface';
 import TextManager from '../manager/text';
 
 abstract class DescribeCommand implements Command {
@@ -84,7 +84,7 @@ export class DescribePointCommand extends DescribeCommand {
     this.braille = braille;
   }
 
-  execute(): void {
+  public execute(): void {
     this.audio.update(this.plot.state);
     this.braille.update(this.plot.state);
     this.text.update(this.plot.state);
