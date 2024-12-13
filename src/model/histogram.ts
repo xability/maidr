@@ -1,46 +1,33 @@
 import {AbstractPlot} from './plot';
-import {AudioState, AutoplayState, TextState, BrailleState} from './state';
-import {HistogramData, Maidr} from './grammar';
-import {MovableDirection} from '../core/interface';
+import {AudioState, TextState, BrailleState} from './state';
+import {HistogramPoint, Maidr} from './grammar';
 
 export class HistogramPlot extends AbstractPlot {
-  private readonly points: HistogramData[][];
-
-  private readonly max: number[];
-  private readonly min: number[];
-
+  private readonly points: HistogramPoint[];
   private readonly brailleValues: string[][];
+
+  private readonly max: number;
+  private readonly min: number;
+
   constructor(maidr: Maidr) {
     super(maidr);
 
-    this.points = maidr.data as HistogramData[][];
+    this.points = maidr.data as HistogramPoint[];
+    this.values = [this.points.map(point => point.y)];
 
-    const values = this.points.map(row => row.map(point => Number(point.y)));
+    this.min = Math.min(...this.values.flat());
+    this.max = Math.max(...this.values.flat());
 
-    this.min = values.map(row => Math.min(...row));
-    this.max = values.map(row => Math.max(...row));
-
-    this.brailleValues = this.toBraille(values);
+    this.brailleValues = this.toBraille(this.values);
   }
 
   protected audio(): AudioState {
     return {
-      min: this.min[this.row],
-      max: this.max[this.row],
-      size: this.points[this.row].length,
+      min: this.min,
+      max: this.max,
+      size: this.points.length,
       index: this.col,
-      value: this.points[this.row][this.col].y,
-    };
-  }
-
-  protected text(): TextState {
-    return {
-      mainLabel: this.xAxis,
-      mainValue: this.points[this.row][this.col].x,
-      min: this.min[this.row],
-      max: this.max[this.row],
-      crossLabel: this.yAxis,
-      crossValue: this.points[this.row][this.col].y,
+      value: this.points[this.col].y,
     };
   }
 
@@ -51,56 +38,22 @@ export class HistogramPlot extends AbstractPlot {
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected text(): TextState {
     return {
-      UPWARD: this.points.length,
-      DOWNWARD: this.points.length,
-      FORWARD: this.points[this.row].length,
-      BACKWARD: this.points[this.row].length,
+      mainLabel: this.xAxis,
+      mainValue: this.points[this.col].x,
+      min: this.points[this.col].xmin,
+      max: this.points[this.col].xmax,
+      crossLabel: this.yAxis,
+      crossValue: this.points[this.col].y,
     };
-  }
-
-  public moveToExtreme(direction: MovableDirection): void {
-    const movement = {
-      UPWARD: () => (this.row = 0),
-      DOWNWARD: () => (this.row = this.points.length - 1),
-      FORWARD: () => (this.col = this.points[this.row].length - 1),
-      BACKWARD: () => (this.col = 0),
-    };
-
-    movement[direction]();
-    this.notifyStateUpdate();
-  }
-
-  public isMovable(target: number | MovableDirection): boolean {
-    switch (target) {
-      case MovableDirection.UPWARD:
-        return this.row > 0;
-
-      case MovableDirection.DOWNWARD:
-        return this.row < this.points.length - 1;
-
-      case MovableDirection.FORWARD:
-        return this.col < this.points[this.row].length - 1;
-
-      case MovableDirection.BACKWARD:
-        return this.col > 0;
-
-      default:
-        return (
-          this.row >= 0 &&
-          this.row < this.points.length &&
-          target >= 0 &&
-          target < this.points[this.row].length
-        );
-    }
   }
 
   private toBraille(data: number[][]): string[][] {
     const braille = [];
 
-    const range = (this.max[0] - this.min[0]) / 4;
-    const low = this.min[0] + range;
+    const range = (this.max - this.min) / 4;
+    const low = this.min + range;
     const medium = low + range;
     const high = medium + range;
 

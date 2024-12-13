@@ -11,7 +11,7 @@ export interface Maidr {
     y?: string;
     fill?: string;
   };
-  data: BarPoint[][] | LinePoint[][] | HeatmapData | HistogramData[][];
+  data: BarPoint[][] | LinePoint[][] | HeatmapData | HistogramPoint[];
 }
 
 export type BarPoint = {
@@ -31,7 +31,7 @@ export type HeatmapData = {
   points: number[][];
 };
 
-export type HistogramData = {
+export type HistogramPoint = {
   x: number;
   y: number;
   xmin: number;

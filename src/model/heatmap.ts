@@ -1,7 +1,6 @@
 import {AbstractPlot} from './plot';
-import {AudioState, AutoplayState, BrailleState, TextState} from './state';
+import {AudioState, BrailleState, TextState} from './state';
 import {HeatmapData, Maidr} from './grammar';
-import {MovableDirection} from '../core/interface';
 
 export class Heatmap extends AbstractPlot {
   private readonly x: string[];
@@ -53,51 +52,6 @@ export class Heatmap extends AbstractPlot {
       fillLabel: this.fill,
       fillValue: String(this.points[this.row][this.col]),
     };
-  }
-
-  protected autoplay(): AutoplayState {
-    return {
-      UPWARD: this.points.length,
-      DOWNWARD: this.points.length,
-      FORWARD: this.points[this.row].length,
-      BACKWARD: this.points[this.row].length,
-    };
-  }
-
-  public moveToExtreme(direction: MovableDirection) {
-    const movement = {
-      UPWARD: () => (this.row = 0),
-      DOWNWARD: () => (this.row = this.points.length - 1),
-      FORWARD: () => (this.col = this.points[this.row].length - 1),
-      BACKWARD: () => (this.col = 0),
-    };
-
-    movement[direction]();
-    this.notifyStateUpdate();
-  }
-
-  public isMovable(target: number | MovableDirection): boolean {
-    switch (target) {
-      case MovableDirection.UPWARD:
-        return this.row > 0;
-
-      case MovableDirection.DOWNWARD:
-        return this.row < this.points.length - 1;
-
-      case MovableDirection.FORWARD:
-        return this.col < this.points[this.row].length - 1;
-
-      case MovableDirection.BACKWARD:
-        return this.col > 0;
-
-      default:
-        return (
-          this.row >= 0 &&
-          this.row < this.points.length &&
-          target >= 0 &&
-          target < this.points[this.row].length
-        );
-    }
   }
 
   private toBraille(data: number[][]): string[][] {

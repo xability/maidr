@@ -42,6 +42,7 @@ export abstract class AbstractPlot implements Plot {
   public readonly yAxis: string;
   protected readonly fill: string;
 
+  protected values: number[][];
   protected row: number;
   protected col: number;
 
@@ -62,6 +63,7 @@ export abstract class AbstractPlot implements Plot {
 
     this.row = 0;
     this.col = 0;
+    this.values = [];
   }
 
   public addObserver(observer: Observer): void {
@@ -115,6 +117,18 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
+  public moveToExtreme(direction: MovableDirection): void {
+    const movement = {
+      UPWARD: () => (this.row = 0),
+      DOWNWARD: () => (this.row = this.values.length - 1),
+      FORWARD: () => (this.col = this.values[this.row].length - 1),
+      BACKWARD: () => (this.col = 0),
+    };
+
+    movement[direction]();
+    this.notifyStateUpdate();
+  }
+
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
       this.col = index;
@@ -122,11 +136,40 @@ export abstract class AbstractPlot implements Plot {
     }
   }
 
-  public abstract moveToExtreme(direction: MovableDirection): void;
-  public abstract isMovable(target: number | MovableDirection): boolean;
+  public isMovable(target: number | MovableDirection): boolean {
+    switch (target) {
+      case MovableDirection.UPWARD:
+        return this.row > 0;
+
+      case MovableDirection.DOWNWARD:
+        return this.row < this.values.length - 1;
+
+      case MovableDirection.FORWARD:
+        return this.col < this.values[this.row].length - 1;
+
+      case MovableDirection.BACKWARD:
+        return this.col > 0;
+
+      default:
+        return (
+          this.row >= 0 &&
+          this.row < this.values.length &&
+          target >= 0 &&
+          target < this.values[this.row].length
+        );
+    }
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.values.length,
+      DOWNWARD: this.values.length,
+      FORWARD: this.values[this.row].length,
+      BACKWARD: this.values[this.row].length,
+    };
+  }
 
   protected abstract audio(): AudioState;
   protected abstract braille(): BrailleState;
   protected abstract text(): TextState;
-  protected abstract autoplay(): AutoplayState;
 }
