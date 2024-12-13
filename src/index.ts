@@ -7,6 +7,7 @@ export enum EventType {
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
   SELECTION_CHANGE = 'selectionchange',
+  KEY_DOWN = 'keydown',
 }
 
 document.addEventListener(EventType.DOM_LOADED, main);

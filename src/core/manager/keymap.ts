@@ -32,6 +32,7 @@ export enum DefaultKey {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+  TOGGLE_REVIEW = 'r',
 
   // Description
   DESCRIBE_POINT = 'space',

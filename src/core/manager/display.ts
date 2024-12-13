@@ -17,7 +17,7 @@ export default class DisplayManager {
   public readonly notificationDiv?: HTMLElement;
 
   public readonly brailleDiv?: HTMLElement;
-  public readonly brailleInput?: HTMLInputElement;
+  public readonly brailleInput?: HTMLTextAreaElement;
 
   constructor(
     maidr: Maidr,
@@ -63,7 +63,7 @@ export default class DisplayManager {
       document.getElementById(brailleId) ??
       this.createBrailleContainer(brailleId);
     this.brailleInput =
-      (document.getElementById(brailleInputId) as HTMLInputElement) ??
+      (document.getElementById(brailleInputId) as HTMLTextAreaElement) ??
       this.createBrailleInput(brailleInputId);
 
     this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
@@ -177,10 +177,10 @@ export default class DisplayManager {
     return brailleDiv;
   }
 
-  private createBrailleInput(brailleInputId: string): HTMLInputElement {
-    const brailleInput = document.createElement(Constant.INPUT);
+  private createBrailleInput(brailleInputId: string): HTMLTextAreaElement {
+    const brailleInput = document.createElement(Constant.TEXTAREA);
     brailleInput.id = brailleInputId;
-    brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
+    // brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
     brailleInput.ariaBrailleRoleDescription = Constant.EMPTY;
     brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
 
@@ -190,7 +190,7 @@ export default class DisplayManager {
 
   public toggleBrailleFocus(): void {
     if (
-      (document.activeElement as HTMLInputElement) === this.brailleInput &&
+      (document.activeElement as HTMLTextAreaElement) === this.brailleInput &&
       this.onBlur
     ) {
       this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);

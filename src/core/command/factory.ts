@@ -38,7 +38,9 @@ import {
   ToggleBrailleCommand,
   SwitchScopeCommand,
   ToggleTextCommand,
+  ToggleReviewCommand,
 } from './toggle';
+import ReviewManager from '../manager/review';
 
 export class CommandFactory {
   private readonly plot: Plot;
@@ -48,6 +50,7 @@ export class CommandFactory {
   private readonly text: TextManager;
 
   private readonly autoplay: AutoplayManager;
+  private readonly review: ReviewManager;
 
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
@@ -57,6 +60,7 @@ export class CommandFactory {
     this.text = commandContext.text;
 
     this.autoplay = commandContext.autoplay;
+    this.review = commandContext.review;
   }
 
   create(command: Keys): Command {
@@ -85,6 +89,9 @@ export class CommandFactory {
         return new ToggleBrailleCommand(this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
+
+      case 'TOGGLE_REVIEW':
+        return new ToggleReviewCommand(this.review);
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);

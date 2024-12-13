@@ -4,6 +4,7 @@ import BrailleManager from '../manager/braille';
 import {Command} from './command';
 import TextManager from '../manager/text';
 import {Scope} from '../manager/keymap';
+import ReviewManager from '../manager/review';
 
 export class ToggleBrailleCommand implements Command {
   private readonly braille: BrailleManager;
@@ -50,5 +51,17 @@ export class SwitchScopeCommand implements Command {
 
   public execute() {
     hotkeys.setScope(this.scopeName);
+  }
+}
+
+export class ToggleReviewCommand implements Command {
+  private readonly review: ReviewManager;
+
+  constructor(review: ReviewManager) {
+    this.review = review;
+  }
+
+  public execute(): void {
+    this.review.toggle();
   }
 }

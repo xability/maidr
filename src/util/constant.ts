@@ -6,6 +6,7 @@ export default abstract class Constant {
   static readonly FIGURE = 'figure';
   static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
+  static readonly TEXTAREA = 'textarea';
   static readonly P = 'p';
 
   // HTML IDs.

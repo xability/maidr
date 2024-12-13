@@ -11,7 +11,7 @@ export default class BrailleManager implements Observer {
   private readonly display: DisplayManager;
 
   private readonly brailleDiv?: HTMLElement;
-  private readonly brailleInput?: HTMLInputElement;
+  private readonly brailleInput?: HTMLTextAreaElement;
 
   private readonly selectionChangeHandler?: (event: Event) => void;
 
