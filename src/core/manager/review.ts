@@ -115,5 +115,9 @@ export default class ReviewManager implements Observer {
       this.reviewInput.value =
         this.reviewInput.value + '\n' + this.text.format(state);
     }
+    this.reviewInput.setSelectionRange(
+      state.braille.index,
+      state.braille.index
+    );
   }
 }

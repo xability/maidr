@@ -72,6 +72,7 @@ export default class BrailleManager implements Observer {
     } else {
       this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
     }
+    console.log(state, state.braille.index);
     this.brailleInput!.setSelectionRange(
       state.braille.index,
       state.braille.index
