@@ -39,7 +39,12 @@ export default class Controller {
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
 
-    this.review = new ReviewManager();
+    this.review = new ReviewManager(
+      this.notification,
+      this.display,
+      this.text,
+      this.plot
+    );
 
     this.autoplay = new AutoplayManager(
       this.notification,
@@ -59,6 +64,7 @@ export default class Controller {
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
     this.plot.addObserver(this.text);
+    this.plot.addObserver(this.review);
   }
 
   public destroy(): void {

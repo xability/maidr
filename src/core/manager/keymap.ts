@@ -48,10 +48,18 @@ export enum LabelKey {
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
 }
+export enum ReviewKey {
+  MOVE_UP = 'up',
+  MOVE_RIGHT = 'right',
+  MOVE_LEFT = 'left',
+  TOGGLE_REVIEW = 'r',
+  TOGGLE_BRAILLE = 'b',
+}
 
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
+  REVIEW: ReviewKey,
 } as const;
 
 export type Scope = keyof typeof scopedKeymap;

@@ -123,4 +123,50 @@ export default class TextManager implements Observer {
     this.textDiv?.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     this.textDiv?.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
   }
+
+  public format(state: PlotState): string {
+    if (!state || state.empty) {
+      return 'No info to display';
+    } else if (this.mode === TextMode.VERBOSE) {
+      // TODO: Format for segmented and boxplot.
+      const verbose = [];
+      // Format main-axis values.
+      verbose.push(state.text.mainLabel, Constant.IS);
+
+      // Format for histogram.
+      if (state.text.min && state.text.max) {
+        verbose.push(state.text.min, Constant.THROUGH, state.text.max);
+      } else {
+        verbose.push(state.text.mainValue);
+      }
+
+      // Format cross-axis values.
+      verbose.push(
+        Constant.COMMA,
+        state.text.crossLabel,
+        Constant.IS,
+        state.text.crossValue
+      );
+
+      // Format for heatmap.
+      if (state.text.fillValue) {
+        verbose.push(
+          Constant.COMMA,
+          state.text.fillLabel,
+          Constant.IS,
+          state.text.fillValue
+        );
+      }
+
+      return verbose.join(Constant.EMPTY);
+    } else {
+      // TODO: Format for segmented and boxplot.
+      const terse = [
+        state.text.mainValue,
+        Constant.COMMA,
+        state.text.crossValue,
+      ];
+      return terse.join(Constant.EMPTY);
+    }
+  }
 }

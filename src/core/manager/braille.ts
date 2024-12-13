@@ -15,6 +15,8 @@ export default class BrailleManager implements Observer {
 
   private readonly selectionChangeHandler?: (event: Event) => void;
 
+  private readonly plotState: PlotState;
+
   constructor(
     notification: NotificationManager,
     display: DisplayManager,
@@ -24,13 +26,14 @@ export default class BrailleManager implements Observer {
     this.enabled = false;
     this.notification = notification;
     this.display = display;
+    this.plotState = state;
 
-    if (!display.brailleDiv || !display.brailleInput) {
+    if (!display.brailleReviewDiv || !display.brailleReviewTextArea) {
       return;
     }
 
-    this.brailleDiv = display.brailleDiv;
-    this.brailleInput = display.brailleInput;
+    this.brailleDiv = display.brailleReviewDiv;
+    this.brailleInput = display.brailleReviewTextArea;
 
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
@@ -40,8 +43,9 @@ export default class BrailleManager implements Observer {
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
-
-    this.setBraille(state);
+    if (this.enabled) {
+      this.setBraille(state);
+    }
   }
 
   public destroy(): void {
@@ -57,8 +61,17 @@ export default class BrailleManager implements Observer {
     if (state.empty) {
       return;
     }
-
-    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
+    if (!this.brailleInput) {
+      return;
+    }
+    const brailleReviewInputSplit = this.brailleInput?.value.split('\n') || [];
+    if (brailleReviewInputSplit.length > 1) {
+      brailleReviewInputSplit[this.display.brailleLinesStart] =
+        state.braille.values.join(Constant.EMPTY);
+      this.brailleInput.value = brailleReviewInputSplit.join('\n');
+    } else {
+      this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
+    }
     this.brailleInput!.setSelectionRange(
       state.braille.index,
       state.braille.index
@@ -78,9 +91,20 @@ export default class BrailleManager implements Observer {
 
   public toggle(): void {
     this.enabled = !this.enabled;
-    this.display.toggleBrailleFocus();
 
+    if (this.enabled) {
+      this.setBraille(this.plotState);
+    } else {
+      const brailleReviewInputSplit = this.brailleInput!.value.split('\n');
+      if (brailleReviewInputSplit.length > 1) {
+        this.brailleInput!.value =
+          '\n' + brailleReviewInputSplit[this.display.reviewLineStart];
+      } else {
+        this.brailleInput!.value = '';
+      }
+    }
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
+    this.display.toggleBrailleReviewFocus();
   }
 }
