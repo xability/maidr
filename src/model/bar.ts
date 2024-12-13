@@ -1,11 +1,9 @@
 import {AbstractPlot, Orientation} from './plot';
-import {AudioState, AutoplayState, BrailleState, TextState} from './state';
+import {AudioState, BrailleState, TextState} from './state';
 import {BarPoint, Maidr} from './grammar';
-import {MovableDirection} from '../core/interface';
 
 export class BarPlot extends AbstractPlot {
   private readonly points: BarPoint[][];
-  private readonly values: number[][];
   private readonly brailleValues: string[][];
 
   private readonly orientation: Orientation;
@@ -78,51 +76,6 @@ export class BarPlot extends AbstractPlot {
       crossValue,
       ...fillData,
     };
-  }
-
-  protected autoplay(): AutoplayState {
-    return {
-      UPWARD: this.values.length,
-      DOWNWARD: this.values.length,
-      FORWARD: this.values[this.row].length,
-      BACKWARD: this.values[this.row].length,
-    };
-  }
-
-  public moveToExtreme(direction: MovableDirection) {
-    const movement = {
-      UPWARD: () => (this.row = 0),
-      DOWNWARD: () => (this.row = this.values.length - 1),
-      FORWARD: () => (this.col = this.values[this.row].length - 1),
-      BACKWARD: () => (this.col = 0),
-    };
-
-    movement[direction]();
-    this.notifyStateUpdate();
-  }
-
-  public isMovable(target: number | MovableDirection): boolean {
-    switch (target) {
-      case MovableDirection.UPWARD:
-        return this.row > 0;
-
-      case MovableDirection.DOWNWARD:
-        return this.row < this.values.length - 1;
-
-      case MovableDirection.FORWARD:
-        return this.col < this.values[this.row].length - 1;
-
-      case MovableDirection.BACKWARD:
-        return this.col > 0;
-
-      default:
-        return (
-          this.row >= 0 &&
-          this.row < this.values.length &&
-          target >= 0 &&
-          target < this.values[this.row].length
-        );
-    }
   }
 
   private toBraille(data: number[][]): string[][] {

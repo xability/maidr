@@ -1,29 +1,24 @@
 import {AbstractPlot} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
-import {HeatmapData, Maidr} from './grammar';
+import {AudioState, TextState, BrailleState} from './state';
+import {HistogramPoint, Maidr} from './grammar';
 
-export class Heatmap extends AbstractPlot {
-  private readonly x: string[];
-  private readonly y: string[];
-
-  private readonly points: number[][];
+export class HistogramPlot extends AbstractPlot {
+  private readonly points: HistogramPoint[];
   private readonly brailleValues: string[][];
 
-  private readonly min: number;
   private readonly max: number;
+  private readonly min: number;
 
   constructor(maidr: Maidr) {
     super(maidr);
 
-    const data = maidr.data as HeatmapData;
-    this.x = data.x;
-    this.y = data.y;
+    this.points = maidr.data as HistogramPoint[];
+    this.values = [this.points.map(point => point.y)];
 
-    this.points = data.points;
-    this.min = Math.min(...this.points.flat());
-    this.max = Math.max(...this.points.flat());
+    this.min = Math.min(...this.values.flat());
+    this.max = Math.max(...this.values.flat());
 
-    this.brailleValues = this.toBraille(this.points);
+    this.brailleValues = this.toBraille(this.values);
   }
 
   protected audio(): AudioState {
@@ -32,7 +27,7 @@ export class Heatmap extends AbstractPlot {
       max: this.max,
       size: this.points.length,
       index: this.col,
-      value: this.points[this.row][this.col],
+      value: this.points[this.col].y,
     };
   }
 
@@ -46,30 +41,31 @@ export class Heatmap extends AbstractPlot {
   protected text(): TextState {
     return {
       mainLabel: this.xAxis,
-      mainValue: this.x[this.col],
+      mainValue: this.points[this.col].x,
+      min: this.points[this.col].xmin,
+      max: this.points[this.col].xmax,
       crossLabel: this.yAxis,
-      crossValue: this.y[this.row],
-      fillLabel: this.fill,
-      fillValue: String(this.points[this.row][this.col]),
+      crossValue: this.points[this.col].y,
     };
   }
 
   private toBraille(data: number[][]): string[][] {
     const braille = [];
 
-    const range = (this.max - this.min) / 3;
+    const range = (this.max - this.min) / 4;
     const low = this.min + range;
     const medium = low + range;
+    const high = medium + range;
 
     for (let row = 0; row < data.length; row++) {
       braille.push(new Array<string>());
 
       for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === 0) {
-          braille[row].push(' ');
-        } else if (data[row][col] <= low) {
-          braille[row].push('⠤');
+        if (data[row][col] <= low) {
+          braille[row].push('⣀');
         } else if (data[row][col] <= medium) {
+          braille[row].push('⠤');
+        } else if (data[row][col] <= high) {
           braille[row].push('⠒');
         } else {
           braille[row].push('⠉');

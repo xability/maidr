@@ -211,3 +211,6 @@ dist
 
 # HTML Linter prevention
 .hintrc
+
+# vscode dev environment settings
+.vscode
