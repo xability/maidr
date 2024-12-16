@@ -2,6 +2,12 @@ import Constant from '../../util/constant';
 import {EventType} from '../../index';
 import {Maidr} from '../../model/grammar';
 
+export enum ActiveFocus {
+  NONE = 'none',
+  BRAILLE = 'braille',
+  REVIEW = 'review',
+}
+
 export default class DisplayManager {
   private readonly maidr: Maidr;
   private readonly plot?: HTMLElement;
@@ -21,6 +27,8 @@ export default class DisplayManager {
 
   public readonly brailleLinesStart = 0;
   public readonly reviewLineStart = 1;
+
+  public lastActiveFocus = ActiveFocus.NONE;
 
   constructor(
     maidr: Maidr,
@@ -56,7 +64,7 @@ export default class DisplayManager {
     const textId = Constant.TEXT_CONTAINER + maidrId;
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
-    const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
+    const brailleInputId = Constant.BRAILLE_REVIEW_INPUT + maidrId;
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =

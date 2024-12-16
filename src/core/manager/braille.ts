@@ -3,7 +3,8 @@ import {EventType} from '../../index';
 import NotificationManager from './notification';
 import {Movable, Observer} from '../interface';
 import {PlotState} from '../../model/state';
-import DisplayManager from './display';
+import DisplayManager, {ActiveFocus} from './display';
+import hotkeys from 'hotkeys-js';
 
 export default class BrailleManager implements Observer {
   private enabled: boolean;
@@ -36,8 +37,10 @@ export default class BrailleManager implements Observer {
     this.brailleInput = display.brailleReviewTextArea;
 
     this.selectionChangeHandler = (event: Event) => {
-      event.preventDefault();
-      movable.moveToIndex(this.brailleInput!.selectionStart || -1);
+      if (this.display.lastActiveFocus === ActiveFocus.BRAILLE) {
+        event.preventDefault();
+        movable.moveToIndex(this.brailleInput!.selectionStart || -1);
+      }
     };
     this.brailleInput.addEventListener(
       EventType.SELECTION_CHANGE,
@@ -72,7 +75,6 @@ export default class BrailleManager implements Observer {
     } else {
       this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
     }
-    console.log(state, state.braille.index);
     this.brailleInput!.setSelectionRange(
       state.braille.index,
       state.braille.index
@@ -94,7 +96,9 @@ export default class BrailleManager implements Observer {
     this.enabled = !this.enabled;
 
     if (this.enabled) {
+      hotkeys.setScope('DEFAULT');
       this.setBraille(this.plotState);
+      this.display.lastActiveFocus = ActiveFocus.BRAILLE;
     } else {
       const brailleReviewInputSplit = this.brailleInput!.value.split('\n');
       if (brailleReviewInputSplit.length > 1) {
@@ -102,6 +106,9 @@ export default class BrailleManager implements Observer {
           '\n' + brailleReviewInputSplit[this.display.reviewLineStart];
       } else {
         this.brailleInput!.value = '';
+      }
+      if (this.display.lastActiveFocus === ActiveFocus.BRAILLE) {
+        this.display.lastActiveFocus = ActiveFocus.NONE;
       }
     }
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;

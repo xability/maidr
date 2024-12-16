@@ -49,9 +49,9 @@ export enum LabelKey {
   DESCRIBE_CAPTION = 'c',
 }
 export enum ReviewKey {
-  MOVE_UP = 'up',
-  MOVE_RIGHT = 'right',
-  MOVE_LEFT = 'left',
+  // MOVE_UP = 'up',
+  // MOVE_RIGHT = 'review-right',
+  // MOVE_LEFT = 'review-left',
   TOGGLE_REVIEW = 'r',
   TOGGLE_BRAILLE = 'b',
 }
@@ -80,7 +80,7 @@ export default class KeymapManager {
       const target = event.target as HTMLElement;
       // Allow keybindings only for MAIDR braille input.
       if (target.isContentEditable) {
-        return target.id.startsWith(Constant.BRAILLE_INPUT);
+        return target.id.startsWith(Constant.BRAILLE_REVIEW_INPUT);
       }
 
       // Allow keybindings for all other non-editable elements.

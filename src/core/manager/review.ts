@@ -2,7 +2,7 @@ import hotkeys from 'hotkeys-js';
 import {EventType} from '../..';
 import {PlotState} from '../../model/state';
 import {Observer, Plot} from '../interface';
-import DisplayManager from './display';
+import DisplayManager, {ActiveFocus} from './display';
 import NotificationManager from './notification';
 import TextManager from './text';
 
@@ -32,27 +32,29 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    // this.reviewKeyHandler = (e: KeyboardEvent) => {
-    //   const isNavigationKey =
-    //     e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
-    //   const isCtrlKey = e.ctrlKey || e.metaKey;
-    //   const isModifierKey = isCtrlKey || e.shiftKey;
-
-    //   if (
-    //     !isNavigationKey &&
-    //     !(isModifierKey && isNavigationKey) &&
-    //     !(isCtrlKey && e.key === 'a') &&
-    //     !(isCtrlKey && e.key === 'c') &&
-    //     !(e.key === 'Tab')
-    //   ) {
-    //     e.preventDefault();
-    //   }
-    // };
     this.reviewInput = display.brailleReviewTextArea;
-    // this.reviewInput.addEventListener(
-    //   EventType.KEY_DOWN,
-    //   this.reviewKeyHandler
-    // );
+
+    this.reviewKeyHandler = (e: KeyboardEvent) => {
+      const isNavigationKey =
+        e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
+      const isCtrlKey = e.ctrlKey || e.metaKey;
+      const isModifierKey = isCtrlKey || e.shiftKey;
+      if (
+        !isNavigationKey &&
+        !(isModifierKey && isNavigationKey) &&
+        !(isCtrlKey && e.key === 'a') &&
+        !(isCtrlKey && e.key === 'c') &&
+        !(e.key === 'Tab')
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    this.reviewInput.addEventListener(
+      EventType.KEY_DOWN,
+      this.reviewKeyHandler
+    );
+
     if (this.enabled) {
       this.reviewInput.value =
         this.reviewInput.value + '\n' + this.text.format(plot.state);
@@ -67,8 +69,6 @@ export default class ReviewManager implements Observer {
     }
   }
   toggle() {
-    console.log('Toggle Review Method', this.enabled, this.reviewInput);
-
     if (!this.reviewInput) {
       return;
     }
@@ -83,8 +83,12 @@ export default class ReviewManager implements Observer {
       } else {
         this.reviewInput.value = '';
       }
+      if (this.display.lastActiveFocus === ActiveFocus.REVIEW) {
+        this.display.lastActiveFocus = ActiveFocus.NONE;
+      }
     } else {
       this.enabled = true;
+      this.display.lastActiveFocus = ActiveFocus.REVIEW;
       hotkeys.setScope('REVIEW');
       this.update(this.plot.state);
     }
@@ -106,7 +110,6 @@ export default class ReviewManager implements Observer {
       if (brailleReviewInputSplitArray.length > 1) {
         brailleReviewInputSplitArray[this.display.reviewLineStart] =
           this.text.format(state);
-        console.log(brailleReviewInputSplitArray);
         this.reviewInput.value = brailleReviewInputSplitArray.join('\n');
       } else {
         this.reviewInput.value = this.text.format(state);
@@ -115,9 +118,15 @@ export default class ReviewManager implements Observer {
       this.reviewInput.value =
         this.reviewInput.value + '\n' + this.text.format(state);
     }
-    this.reviewInput.setSelectionRange(
-      state.braille.index,
-      state.braille.index
-    );
+    if (this.display.lastActiveFocus === ActiveFocus.REVIEW) {
+      const lastNewlineIndex = this.reviewInput.value.lastIndexOf('\n');
+      const caretPosition = lastNewlineIndex + 1; // Start position of the last line
+      this.reviewInput.setSelectionRange(caretPosition, caretPosition);
+    } else if (this.display.lastActiveFocus === ActiveFocus.BRAILLE) {
+      this.reviewInput.setSelectionRange(
+        state.braille.index,
+        state.braille.index
+      );
+    }
   }
 }
