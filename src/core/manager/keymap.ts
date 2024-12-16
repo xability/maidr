@@ -49,9 +49,6 @@ export enum LabelKey {
   DESCRIBE_CAPTION = 'c',
 }
 export enum ReviewKey {
-  // MOVE_UP = 'up',
-  // MOVE_RIGHT = 'review-right',
-  // MOVE_LEFT = 'review-left',
   TOGGLE_REVIEW = 'r',
   TOGGLE_BRAILLE = 'b',
 }

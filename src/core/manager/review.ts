@@ -48,6 +48,21 @@ export default class ReviewManager implements Observer {
       ) {
         e.preventDefault();
       }
+      if (
+        isNavigationKey &&
+        this.reviewInput &&
+        this.display.lastActiveFocus === ActiveFocus.REVIEW
+      ) {
+        const caretPosition = this.reviewInput.selectionStart;
+        const lastNewlineIndex = this.reviewInput.value.lastIndexOf('\n');
+        const lastLineStart = lastNewlineIndex + 1;
+
+        if (caretPosition < lastLineStart) {
+          // Move caret back to the start of the last line
+          this.reviewInput.setSelectionRange(lastLineStart, lastLineStart);
+          e.preventDefault();
+        }
+      }
     };
 
     this.reviewInput.addEventListener(
