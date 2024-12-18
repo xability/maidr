@@ -1492,7 +1492,7 @@ class Menu {
     }
 
     if (constants.emailAuthKey && constants.clientToken) {
-      console.log('email auth key and client token found');
+      //console.log('email auth key and client token found');
       for (let model in constants.LLMModels) {
         document.getElementById(`LLM_model_${model}`).checked = true;
       }
@@ -2731,7 +2731,7 @@ class ChatLLM {
       const API_KEY = constants.geminiAuthKey;
       const genAI = new GoogleGenerativeAI(API_KEY);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-pro-latest',
+        model: 'gemini-2.0-flash-exp',
       }); // old model was 'gemini-pro-vision'
 
       // Create the prompt
@@ -8615,7 +8615,8 @@ class Control {
     this.InitChartClass();
     this.SetBTSControls();
     this.SetPrefixControls();
-    this.SetControls();
+    this.SetKeyControls();
+    this.SetMouseControls();
   }
 
   /**
@@ -8879,6 +8880,197 @@ class Control {
   }
 
   /**
+   * Sets up event listeners for mouse controls
+   * If you're on a chart, and within 24px of a point, set your position there and update the chart
+   * If you're near multiple, figure it out.
+   * This requires the selector to be set in the maidr object.
+   * @returns {void}
+   */
+  SetMouseControls() {
+    // to set this up, we run the event at the document level, and then deal with what we've hovered on in individual chart types
+    // for bar hist stacked, we check if we've hovered on an element of the selector
+    // for box line, we use coordinates and find the closest point
+    if ('selector' in singleMaidr) {
+      let selectorElems = document.querySelectorAll(singleMaidr.selector);
+      if (selectorElems.length > 0) {
+        constants.events.push([
+          document,
+          'mousemove',
+          function (e) {
+            if (constants.chartType == 'bar' || constants.chartType == 'hist') {
+              // check if we've hit a selector
+              if (e.target.matches(singleMaidr.selector)) {
+                let index = Array.from(selectorElems).indexOf(e.target);
+                if (index != position.x) {
+                  position.x = index;
+                  control.UpdateAll();
+                }
+              }
+            } else if (constants.chartType == 'box') {
+              // here follows a nasty function where we use bounding boxes from the highlight feature compare to our hover coords
+              let closestDistance = Infinity;
+              let closestIndex = -1;
+              let clickX = e.clientX;
+              let clickY = e.clientY;
+              let expandedBox = null;
+              let padding = 15;
+              const chartBounds = constants.chart.getBoundingClientRect();
+
+              // Iterate through plot.plotBounds using regular loops
+              for (
+                let groupIndex = 0;
+                groupIndex < plot.plotBounds.length;
+                groupIndex++
+              ) {
+                const group = plot.plotBounds[groupIndex];
+
+                for (let boxIndex = 0; boxIndex < group.length; boxIndex++) {
+                  const box = group[boxIndex];
+
+                  if (
+                    box.top === undefined ||
+                    box.left === undefined ||
+                    box.bottom === undefined ||
+                    box.right === undefined
+                  ) {
+                    continue; // Skip invalid boxes
+                  }
+                  // Expand the bounding box by 15px
+                  let expandedBoxAdjustedCoords = {
+                    x: box.left - padding - chartBounds.left,
+                    y: box.top - padding - chartBounds.top,
+                    width: box.width + padding * 2,
+                    height: box.height + padding * 2,
+                  };
+                  expandedBox = {
+                    top: expandedBoxAdjustedCoords.y,
+                    left: expandedBoxAdjustedCoords.x,
+                    bottom:
+                      expandedBoxAdjustedCoords.y +
+                      expandedBoxAdjustedCoords.height,
+                    right:
+                      expandedBoxAdjustedCoords.x +
+                      expandedBoxAdjustedCoords.width,
+                  };
+                  // Calculate the center of the bounding box
+                  const centerX = (expandedBox.left + expandedBox.right) / 2;
+                  const centerY = (expandedBox.top + expandedBox.bottom) / 2;
+
+                  // Calculate the Euclidean distance
+                  const distance = Math.sqrt(
+                    (centerX - clickX) ** 2 + (centerY - clickY) ** 2
+                  );
+
+                  //console.log( 'clicked coords: (', clickX, ', ', clickY, ') | box coords: (', centerX, ', ', centerY, ') | distance: ', distance, 'array index: [', groupIndex, ',', boxIndex, ']');
+
+                  // Update the closest box if this one is nearer, and is inside the bounding box
+                  if (distance < closestDistance) {
+                    if (
+                      clickX >= expandedBox.left &&
+                      clickX <= expandedBox.right &&
+                      clickY >= expandedBox.top &&
+                      clickY <= expandedBox.bottom
+                    ) {
+                      closestDistance = distance;
+                      closestIndex = [groupIndex, boxIndex];
+                    }
+                  }
+                }
+              }
+
+              // did we get one?
+              if (closestDistance < Infinity) {
+                //console.log('found a box, index', closestIndex);
+                if (constants.plotOrientation == 'horz') {
+                  if (
+                    position.x != closestIndex[0] ||
+                    position.y != closestIndex[1]
+                  ) {
+                    position.x = closestIndex[1];
+                    position.y = closestIndex[0];
+                    control.UpdateAll();
+                  }
+                } else {
+                  if (
+                    position.x != closestIndex[0] ||
+                    position.y != closestIndex[1]
+                  ) {
+                    position.x = closestIndex[0];
+                    position.y = closestIndex[1];
+                    control.UpdateAll();
+                  }
+                }
+              }
+            } else if (constants.chartType == 'heat') {
+              // check if we've hit a selector
+              let index = Array.from(selectorElems).indexOf(e.target);
+              if (
+                position.x != Math.floor(index / plot.num_rows) ||
+                position.y != plot.num_rows - (index % plot.num_rows) - 1
+              ) {
+                position.x = Math.floor(index / plot.num_rows);
+                position.y = plot.num_rows - (index % plot.num_rows) - 1;
+                control.UpdateAll();
+              }
+            } else if (constants.chartType == 'line') {
+              // compare coordinates and get the point we're closest to, if we're within 24px
+              let chartBounds = constants.chart.getBoundingClientRect();
+              let scaleX =
+                constants.chart.viewBox.baseVal.width / chartBounds.width;
+              let scaleY =
+                constants.chart.viewBox.baseVal.height / chartBounds.height;
+
+              let closestDistance = Infinity;
+              let closestIndex = -1;
+              let clickX = (e.clientX - chartBounds.left) * scaleX;
+              let clickY = (e.clientY - chartBounds.top) * scaleY;
+              let pointX, pointY;
+              for (let i = 0; i < plot.chartLineX.length; i++) {
+                pointX = plot.chartLineX[i] - chartBounds.left;
+                pointY = plot.chartLineY[i] - chartBounds.top;
+                let distance = Math.sqrt(
+                  (pointX - clickX) ** 2 + (pointY - clickY) ** 2
+                );
+                //console.log( 'distance', distance, 'given clicked coords (', clickX, ', ', clickY, ') and target coords (', pointX, ', ', pointY, ')');
+                if (distance < closestDistance) {
+                  closestDistance = distance;
+                  closestIndex = i;
+                }
+              }
+              if (closestDistance < 24) {
+                if (position.x != closestIndex) {
+                  position.x = closestIndex;
+                  control.UpdateAll();
+                }
+              }
+            } else if (
+              constants.chartType == 'stacked_bar' ||
+              constants.chartType == 'stacked_normalized_bar' ||
+              constants.chartType == 'dodged_bar'
+            ) {
+              // check if we've hit a selector
+              if (e.target.matches(singleMaidr.selector)) {
+                outerLoop: for (let i = 0; i < plot.elements.length; i++) {
+                  for (let j = 0; j < plot.elements[i].length; j++) {
+                    if (plot.elements[i][j] == e.target) {
+                      if (position.x != i || position.y != j) {
+                        position.x = i;
+                        position.y = j;
+                        control.UpdateAll();
+                      }
+                      break outerLoop;
+                    }
+                  }
+                }
+              }
+            }
+          },
+        ]);
+      }
+    }
+  }
+
+  /**
    * Sets up event listeners for main controls
    *  - Arrow keys: basic motion
    *  - Shift + Arrow keys: Autoplay outward
@@ -8890,7 +9082,7 @@ class Control {
    *
    * @returns {void}
    */
-  async SetControls() {
+  async SetKeyControls() {
     constants.events.push([
       document,
       'keydown',
