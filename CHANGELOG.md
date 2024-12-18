@@ -1,3 +1,11 @@
+# [2.26.0](https://github.com/xability/maidr/compare/v2.25.1...v2.26.0) (2024-12-18)
+
+
+### Features
+
+* mouse or finger hover functionality ([#620](https://github.com/xability/maidr/issues/620)) ([6e77fdc](https://github.com/xability/maidr/commit/6e77fdca353aafca54ae987600d2fa19607f0285))
+* update generative model to gemini-2.0-flash-exp ([#619](https://github.com/xability/maidr/issues/619)) ([1d9f648](https://github.com/xability/maidr/commit/1d9f648e4feab887ebb1993cf6955e5fea90602d))
+
 ## [2.25.1](https://github.com/xability/maidr/compare/v2.25.0...v2.25.1) (2024-12-05)
 
 
