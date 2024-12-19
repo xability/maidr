@@ -5,6 +5,7 @@ import {HistogramPlot} from './histogram';
 import {Maidr} from './grammar';
 import {PlotType} from './plot';
 import {Plot} from '../core/interface';
+import {BoxPlot} from './boxplot';
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {
@@ -20,6 +21,9 @@ export abstract class PlotFactory {
 
       case PlotType.HISTOGRAM:
         return new HistogramPlot(maidr);
+
+      case PlotType.BOXPLOT:
+        return new BoxPlot(maidr);
 
       default:
         throw new Error(`Invalid plot type: ${maidr.type}`);

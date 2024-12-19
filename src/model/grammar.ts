@@ -10,8 +10,14 @@ export interface Maidr {
     x?: string;
     y?: string;
     fill?: string;
+    level?: string[];
   };
-  data: BarPoint[][] | LinePoint[][] | HeatmapData | HistogramPoint[];
+  data:
+    | BarPoint[][]
+    | LinePoint[][]
+    | HeatmapData
+    | HistogramPoint[]
+    | BoxPoint[][];
 }
 
 export type BarPoint = {
@@ -38,4 +44,14 @@ export type HistogramPoint = {
   xmax: number;
   ymin: number;
   ymax: number;
+};
+
+export type BoxPoint = {
+  lower_outlier: number[];
+  min: number;
+  q1: number;
+  q2: number;
+  q3: number;
+  max: number;
+  upper_outlier: number[];
 };

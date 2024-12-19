@@ -20,6 +20,7 @@ export enum PlotType {
   HISTOGRAM = 'hist',
   LINE = 'line',
   HEATMAP = 'heat',
+  BOXPLOT = 'box',
 }
 
 export enum Orientation {
