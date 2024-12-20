@@ -413,6 +413,28 @@ To learn more about the theoretical background and user study results, we recomm
 }
 ```
 
+3. [MAIDR Meets AI: Exploring Multimodal LLM-Based Data Visualization Interpretation by and with Blind and Low-Vision Users](https://dl.acm.org/doi/10.1145/3663548.3675660):
+
+```tex
+@inproceedings{seoMAIDRMeetsAI2024,
+  title      = {{{MAIDR Meets AI}}: {{Exploring Multimodal LLM-Based Data Visualization Interpretation}} by and with {{Blind}} and {{Low-Vision Users}}},
+  shorttitle = {{{MAIDR Meets AI}}},
+  booktitle  = {Proceedings of the 26th {{International ACM SIGACCESS Conference}} on {{Computers}} and {{Accessibility}}},
+  author     = {Seo, JooYoung and Kamath, Sanchita S. and Zeidieh, Aziz and Venkatesh, Saairam and McCurry, Sean},
+  date       = {2024-10-27},
+  series     = {{{ASSETS}} '24},
+  pages      = {1--31},
+  publisher  = {Association for Computing Machinery},
+  location   = {New York, NY, USA},
+  doi        = {10.1145/3663548.3675660},
+  url        = {https://dl.acm.org/doi/10.1145/3663548.3675660},
+  urldate    = {2024-12-19},
+  abstract   = {This paper investigates how blind and low-vision (BLV) users interact with multimodal large language models (LLMs) to interpret data visualizations. Building upon our previous work on the multimodal access and interactive data representation (MAIDR) framework, our mixed-visual-ability team co-designed maidrAI, an LLM extension providing multiple AI responses to users’ visual queries. To explore generative AI-based data representation, we conducted user studies with 8 BLV participants, tasking them with interpreting box plots using our system. We examined how participants personalize LLMs through prompt engineering, their preferences for data visualization descriptions, and strategies for verifying LLM responses. Our findings highlight three dimensions affecting BLV users’ decision-making process: modal preference, LLM customization, and multimodal data representation. This research contributes to designing more accessible data visualization tools for BLV users and advances the understanding of inclusive generative AI applications.},
+  isbn       = {979-8-4007-0677-6}
+}
+```
+
+
 ## License
 
 This project is licensed under the GPL 3 License.
