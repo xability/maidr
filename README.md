@@ -367,7 +367,7 @@ maidr is available via a restful API. Learn more about the usage at [maidr-api](
 
 We currently provide the following binders, all of which can be found at each separate repo:
 
-- [x] Python binder for matplotlib and seaborn: [py_maidr](https://github.com/xability/py_maidr).
+- [x] Python binder for matplotlib and seaborn: [py_maidr](https://github.com/xability/py-maidr).
 
 - [ ] R binder for ggplot2: [r_maidr](https://github.com/xability/r_maidr).
 
