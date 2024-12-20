@@ -1,3 +1,11 @@
+## [2.26.1](https://github.com/xability/maidr/compare/v2.26.0...v2.26.1) (2024-12-20)
+
+
+### Bug Fixes
+
+* improvement for touch devices ([#621](https://github.com/xability/maidr/issues/621)) ([e608277](https://github.com/xability/maidr/commit/e6082773f982b46b9c4d7b1a4a56e2ed4131c7bf))
+* missing text in line verbose mode ([#622](https://github.com/xability/maidr/issues/622)) ([99a6c57](https://github.com/xability/maidr/commit/99a6c57aceaaa418aa2edd679c34e334f5447b6a))
+
 # [2.26.0](https://github.com/xability/maidr/compare/v2.25.1...v2.26.0) (2024-12-18)
 
 
