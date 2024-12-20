@@ -4812,7 +4812,7 @@ class Display {
       }
       verboseText += plot.pointValuesX[position.x] + ', ';
       if (plot.plotLegend) {
-        plot.plotLegend.y + ' is ';
+        verboseText += plot.plotLegend.y + ' is ';
       }
       verboseText += plot.pointValuesY[position.x];
 
@@ -8894,8 +8894,8 @@ class Control {
       let selectorElems = document.querySelectorAll(singleMaidr.selector);
       if (selectorElems.length > 0) {
         constants.events.push([
-          document,
-          'mousemove',
+          constants.chart,
+          ['mousemove', 'touchmove'],
           function (e) {
             if (constants.chartType == 'bar' || constants.chartType == 'hist') {
               // check if we've hit a selector
@@ -9004,13 +9004,15 @@ class Control {
             } else if (constants.chartType == 'heat') {
               // check if we've hit a selector
               let index = Array.from(selectorElems).indexOf(e.target);
-              if (
-                position.x != Math.floor(index / plot.num_rows) ||
-                position.y != plot.num_rows - (index % plot.num_rows) - 1
-              ) {
-                position.x = Math.floor(index / plot.num_rows);
-                position.y = plot.num_rows - (index % plot.num_rows) - 1;
-                control.UpdateAll();
+              if (index != -1) {
+                if (
+                  position.x != Math.floor(index / plot.num_rows) ||
+                  position.y != plot.num_rows - (index % plot.num_rows) - 1
+                ) {
+                  position.x = Math.floor(index / plot.num_rows);
+                  position.y = plot.num_rows - (index % plot.num_rows) - 1;
+                  control.UpdateAll();
+                }
               }
             } else if (constants.chartType == 'line') {
               // compare coordinates and get the point we're closest to, if we're within 24px
@@ -12134,17 +12136,37 @@ function SetEvents() {
   // add all events
   for (let i = 0; i < constants.events.length; i++) {
     if (Array.isArray(constants.events[i][0])) {
+      // sometimes we have multiple elements to apply the same event to in the [i][0] spot
       for (let j = 0; j < constants.events[i][0].length; j++) {
-        constants.events[i][0][j]?.addEventListener(
+        // and sometimes we have multiple event types in [i][1]
+        if (Array.isArray(constants.events[i][1])) {
+          for (let k = 0; k < constants.events[i][1].length; k++) {
+            constants.events[i][0][j]?.addEventListener(
+              constants.events[i][1][k],
+              constants.events[i][2]
+            );
+          }
+        } else {
+          constants.events[i][0][j]?.addEventListener(
+            constants.events[i][1],
+            constants.events[i][2]
+          );
+        }
+      }
+    } else {
+      if (Array.isArray(constants.events[i][1])) {
+        for (let j = 0; j < constants.events[i][1].length; j++) {
+          constants.events[i][0]?.addEventListener(
+            constants.events[i][1][j],
+            constants.events[i][2]
+          );
+        }
+      } else {
+        constants.events[i][0]?.addEventListener(
           constants.events[i][1],
           constants.events[i][2]
         );
       }
-    } else {
-      constants.events[i][0]?.addEventListener(
-        constants.events[i][1],
-        constants.events[i][2]
-      );
     }
   }
   // add all post load events
