@@ -13,21 +13,30 @@
     "posttest": "npm run lint"
   },
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.26.3",
+    "@babel/preset-typescript": "^7.26.0",
     "@types/node": "^22.2.0",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "babel-loader": "^9.2.1",
     "esbuild": "^0.23.0",
     "esbuild-plugin-tsc": "^0.4.0",
+    "gts": "^5.3.1",
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "tsup": "^8.2.4",
-    "typescript": "^5.5.4",
+    "typescript": "^5.7.2",
     "webpack": "^5.93.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4",
-    "gts": "^5.3.1"
+    "webpack-dev-server": "^5.0.4"
   },
   "dependencies": {
     "gts": "^5.3.1",
     "hotkeys-js": "^3.13.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "zod": "^3.23.8"
   }
 }

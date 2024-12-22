@@ -7,12 +7,12 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'), // Output directory
   },
   resolve: {
-    extensions: ['.ts', '.js'], // Resolve TypeScript and JavaScript files
+    extensions: ['.ts', '.js', '.tsx'], // Resolve TypeScript and JavaScript files
   },
   module: {
     rules: [
       {
-        test: /\.ts$/, // Apply this rule to .ts files
+        test: /\.(ts|tsx)$/, // Apply this rule to .ts and .tsx files
         use: 'ts-loader', // Use ts-loader to transpile TypeScript files
         exclude: /node_modules/, // Exclude node_modules from transpilation
       },

@@ -39,6 +39,8 @@ import {
   SwitchScopeCommand,
   ToggleTextCommand,
 } from './toggle';
+import {HelpMenuCommand} from './frontend';
+import FrontendManager from '../manager/frontend';
 
 export class CommandFactory {
   private readonly plot: Plot;
@@ -49,6 +51,8 @@ export class CommandFactory {
 
   private readonly autoplay: AutoplayManager;
 
+  private readonly frontend: FrontendManager;
+
   constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
 
@@ -57,6 +61,7 @@ export class CommandFactory {
     this.text = commandContext.text;
 
     this.autoplay = commandContext.autoplay;
+    this.frontend = commandContext.frontend;
   }
 
   create(command: Keys): Command {
@@ -125,7 +130,8 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplay);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplay);
-
+      case 'HELP_MENU':
+        return new HelpMenuCommand(this.frontend);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

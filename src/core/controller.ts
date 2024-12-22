@@ -8,6 +8,7 @@ import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
 import {Plot} from './interface';
 import TextManager from './manager/text';
+import FrontendManager from './manager/frontend';
 
 export default class Controller {
   private readonly plot: Plot;
@@ -21,6 +22,7 @@ export default class Controller {
 
   private readonly autoplay: AutoplayManager;
   private readonly keymap: KeymapManager;
+  public readonly frontend: FrontendManager;
 
   constructor(maidr: Maidr, display: DisplayManager) {
     this.plot = PlotFactory.create(maidr);
@@ -42,12 +44,16 @@ export default class Controller {
       this.text,
       this.plot
     );
+
+    this.frontend = new FrontendManager();
+
     this.keymap = new KeymapManager({
       plot: this.plot,
       audio: this.audio,
       braille: this.braille,
       text: this.text,
       autoplay: this.autoplay,
+      frontend: this.frontend,
     });
     this.keymap.register();
 

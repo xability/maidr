@@ -1,5 +1,8 @@
+import React from 'react';
 import Controller from './core/controller';
 import DisplayManager from './core/manager/display';
+import ReactMicroFrontend from './pages';
+import {createRoot} from 'react-dom/client';
 
 export enum EventType {
   BLUR = 'blur',
@@ -27,6 +30,18 @@ function main(): void {
     if (!controller) {
       controller = new Controller(maidr, display);
     }
+    const rootDiv = document.createElement('div');
+    rootDiv.id = 'root';
+    document.body.appendChild(rootDiv);
+
+    if (rootDiv) {
+      const root = createRoot(rootDiv);
+      root.render(
+        React.createElement(ReactMicroFrontend, {
+          frontendManager: controller.frontend,
+        })
+      );
+    }
     display.removeInstruction();
   };
   const onBlur = (event: FocusEvent) => {
@@ -42,7 +57,6 @@ function main(): void {
 
   plot?.addEventListener(EventType.FOCUS, onFocus);
   plot?.addEventListener(EventType.BLUR, onBlur);
-  plot?.addEventListener(EventType.CLICK, onFocus);
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity
