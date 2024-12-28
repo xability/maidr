@@ -655,6 +655,13 @@ class Constants {
   clientToken = null;
 
   /**
+   * Mark and recall vars. Used to store the current mark and recall state of the chart.
+   * @type {Array<number>}
+   * @default Array(10).fill(null)
+   */
+  mark = Array(10).fill(null);
+
+  /**
    * Stops the autoplay if it is currently running.
    *
    * @return {void}
@@ -2179,9 +2186,9 @@ class ChatLLM {
         img = await constants.ConvertSVGtoJPG(singleMaidr.id, 'gemini');
       }
       if (constants.emailAuthKey) {
-        chatLLM.GeminiPromptAPI(text, img);
+        chatLLM.GeminiPromptRemote(text, img);
       } else {
-        chatLLM.GeminiPrompt(text, img);
+        chatLLM.GeminiPromptLocal(text, img);
       }
     }
 
@@ -2304,10 +2311,10 @@ class ChatLLM {
 
     if (model == 'openai') {
       text = data.choices[0].message.content;
-      let i = this.requestJson.messages.length;
-      this.requestJson.messages[i] = {};
-      this.requestJson.messages[i].role = 'assistant';
-      this.requestJson.messages[i].content = text;
+      let i = this.requestJsonOpenAI.messages.length;
+      this.requestJsonOpenAI.messages[i] = {};
+      this.requestJsonOpenAI.messages[i].role = 'assistant';
+      this.requestJsonOpenAI.messages[i].content = text;
 
       if (data.error) {
         chatLLM.DisplayChatMessage(LLMName, 'Error processing request.', true);
@@ -2318,6 +2325,12 @@ class ChatLLM {
     } else if (model == 'gemini') {
       if (data.text()) {
         text = data.text();
+        if (this.requestJsonGemini.contents.length > 2) {
+          let i = this.requestJsonGemini.contents.length;
+          this.requestJsonGemini.contents[i] = {};
+          this.requestJsonGemini.contents[i].role = 'model';
+          this.requestJsonGemini.contents[i].content = text;
+        }
         chatLLM.DisplayChatMessage(LLMName, text);
       } else {
         if (!data.error) {
@@ -2360,7 +2373,7 @@ class ChatLLM {
    */
   fakeLLMResponseData() {
     let responseText = {};
-    if (this.requestJson.messages.length > 2) {
+    if (this.requestJsonOpenAI.messages.length > 2) {
       // subsequent responses
       responseText = {
         id: 'chatcmpl-8Y44iRCRrohYbAqm8rfBbJqTUADC7',
@@ -2567,32 +2580,32 @@ class ChatLLM {
     let backupMessage =
       'Describe ' + singleMaidr.type + ' charts to a blind person';
     // headers and sys message
-    if (!this.requestJson) {
-      this.requestJson = {};
-      //this.requestJson.model = 'gpt-4-vision-preview';
-      this.requestJson.model = 'gpt-4o-2024-11-20';
-      this.requestJson.max_tokens = constants.LLMmaxResponseTokens; // note: if this is too short (tested with less than 200), the response gets cut off
+    if (!this.requestJsonOpenAI) {
+      this.requestJsonOpenAI = {};
+      //this.requestJsonOpenAI.model = 'gpt-4-vision-preview';
+      this.requestJsonOpenAI.model = 'gpt-4o-2024-11-20';
+      this.requestJsonOpenAI.max_tokens = constants.LLMmaxResponseTokens; // note: if this is too short (tested with less than 200), the response gets cut off
 
       // sys message
-      this.requestJson.messages = [];
-      this.requestJson.messages[0] = {};
-      this.requestJson.messages[0].role = 'system';
-      this.requestJson.messages[0].content = sysMessage;
+      this.requestJsonOpenAI.messages = [];
+      this.requestJsonOpenAI.messages[0] = {};
+      this.requestJsonOpenAI.messages[0].role = 'system';
+      this.requestJsonOpenAI.messages[0].content = sysMessage;
       if (constants.LLMPreferences) {
-        this.requestJson.messages[1] = {};
-        this.requestJson.messages[1].role = 'system';
-        this.requestJson.messages[1].content = constants.LLMPreferences;
+        this.requestJsonOpenAI.messages[1] = {};
+        this.requestJsonOpenAI.messages[1].role = 'system';
+        this.requestJsonOpenAI.messages[1].content = constants.LLMPreferences;
       }
     }
 
     // user message
     // if we have an image (first time only), send the image and the text, otherwise just the text
-    let i = this.requestJson.messages.length;
-    this.requestJson.messages[i] = {};
-    this.requestJson.messages[i].role = 'user';
+    let i = this.requestJsonOpenAI.messages.length;
+    this.requestJsonOpenAI.messages[i] = {};
+    this.requestJsonOpenAI.messages[i].role = 'user';
     if (img) {
       // first message, include the img
-      this.requestJson.messages[i].content = [
+      this.requestJsonOpenAI.messages[i].content = [
         {
           type: 'text',
           text: text,
@@ -2604,10 +2617,10 @@ class ChatLLM {
       ];
     } else {
       // just the text
-      this.requestJson.messages[i].content = text;
+      this.requestJsonOpenAI.messages[i].content = text;
     }
 
-    return this.requestJson;
+    return this.requestJsonOpenAI;
   }
 
   GeminiJson(text, img = null) {
@@ -2672,7 +2685,7 @@ class ChatLLM {
     return payload;
   }
 
-  async GeminiPromptAPI(text, imgBase64 = null) {
+  async GeminiPromptRemote(text, imgBase64 = null) {
     let url = constants.baseURL + 'gemini' + constants.code;
 
     // Create the prompt
@@ -2689,7 +2702,20 @@ class ChatLLM {
     }
     constants.LLMImage = imgBase64;
 
-    let requestJson = chatLLM.GeminiJson(prompt, imgBase64);
+    if (!this.requestJsonGemini) {
+      // this is our first message, do the full construction
+      this.requestJsonGemini = chatLLM.GeminiJson(prompt, imgBase64);
+    } else {
+      // subsequent messages, just add the new user message
+      let i = this.requestJsonGemini.contents.length;
+      this.requestJsonGemini.contents[i] = {};
+      this.requestJsonGemini.contents[i].role = 'user';
+      this.requestJsonGemini.contents[i].parts = [
+        {
+          text: text,
+        },
+      ];
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -2697,7 +2723,7 @@ class ChatLLM {
         'Content-Type': 'application/json',
         Authentication: constants.emailAuthKey + ' ' + constants.clientToken,
       },
-      body: JSON.stringify(requestJson),
+      body: JSON.stringify(this.requestJsonGemini),
     });
     if (response.ok) {
       const responseJson = await response.json();
@@ -2713,7 +2739,7 @@ class ChatLLM {
     }
   }
 
-  async GeminiPrompt(text, imgBase64 = null) {
+  async GeminiPromptLocal(text, imgBase64 = null) {
     // https://ai.google.dev/docs/gemini_api_overview#node.js
     try {
       // Save the image for next time
@@ -2735,21 +2761,24 @@ class ChatLLM {
       }); // old model was 'gemini-pro-vision'
 
       // Create the prompt
-      let prompt = constants.LLMSystemMessage;
-      if (constants.LLMPreferences) {
-        prompt += constants.LLMPreferences;
+      if (!this.requestJsonGemini) {
+        // this is our first message, do the full construction
+        this.requestJsonGemini = chatLLM.GeminiJson(prompt, imgBase64);
+      } else {
+        // subsequent messages, just add the new user message
+        let i = this.requestJsonGemini.contents.length;
+        this.requestJsonGemini.contents[i] = {};
+        this.requestJsonGemini.contents[i].role = 'user';
+        this.requestJsonGemini.contents[i].parts = [
+          {
+            text: text,
+          },
+        ];
       }
-      prompt += '\n\n' + text; // Use the text parameter as the prompt
-      const image = {
-        inlineData: {
-          data: imgBase64, // Use the base64 image string
-          mimeType: 'image/png', // Or the appropriate mime type of your image
-        },
-      };
 
       // Generate the content
       //console.log('LLM request: ', prompt, image);
-      const result = await model.generateContent([prompt, image]);
+      const result = await model.generateContent(this.requestJsonGemini);
       //console.log(result.response.text());
 
       // Process the response
@@ -2757,7 +2786,7 @@ class ChatLLM {
     } catch (error) {
       chatLLM.WaitingSound(false);
       chatLLM.DisplayChatMessage('Gemini', 'Error processing request.', true);
-      console.error('Error in GeminiPrompt:', error);
+      console.error('Error in GeminiPromptLocal:', error);
       throw error; // Rethrow the error for further handling if necessary
     }
   }
@@ -2822,7 +2851,7 @@ class ChatLLM {
     document.getElementById('chatLLM_chat_history').innerHTML = '';
 
     // reset the data
-    this.requestJson = null;
+    this.requestJsonOpenAI = null;
     this.firstTime = true;
 
     // and start over, if enabled, or window is open
@@ -9085,8 +9114,10 @@ class Control {
    * @returns {void}
    */
   async SetKeyControls() {
+    // home / end: first / last element
+    // not available in review mode
     constants.events.push([
-      document,
+      [constants.chart, constants.brailleInput],
       'keydown',
       function (e) {
         // ctrl/cmd: stop autoplay
@@ -9131,6 +9162,44 @@ class Control {
             control.UpdateAllBraille();
           }
         }
+      },
+    ]);
+
+    // mark and recall
+    // mark with M + # (0-9), recall with m + # (0-9)
+    // available in chart and braille, not review
+    let lastKeytime = 0;
+    let lastKey = null;
+    constants.events.push([
+      [constants.chart, constants.brailleInput],
+      'keydown',
+      function (e) {
+        // setup
+        const now = new Date().getTime();
+        const key = e.key;
+
+        // check for keypress within threshold
+        if (now - lastKeytime < constants.keypressInterval) {
+          // mark with M
+          if (lastKey == 'M' && /[0-9]/.test(key)) {
+            const markIndex = parseInt(key, 10);
+            constants.mark[markIndex] = JSON.parse(JSON.stringify(position)); // deep copy
+            display.announceText('Marked position ' + markIndex);
+          }
+
+          // recall with m
+          if (lastKey == 'm' && /[0-9]/.test(key)) {
+            const recallIndex = parseInt(key, 10);
+            if (constants.mark[recallIndex]) {
+              position = constants.mark[recallIndex];
+              control.UpdateAll();
+            }
+          }
+        }
+
+        // update last key and time
+        lastKey = key;
+        lastKeytime = now;
       },
     ]);
 
