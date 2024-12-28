@@ -1,3 +1,16 @@
+# [2.27.0](https://github.com/xability/maidr/compare/v2.26.1...v2.27.0) (2024-12-28)
+
+
+### Bug Fixes
+
+* prevented ctrl home and end in review mode ([#625](https://github.com/xability/maidr/issues/625)) ([631c469](https://github.com/xability/maidr/commit/631c4694fed2fc2b24e2589996f69cbf5047ae67))
+
+
+### Features
+
+* conversation chaining support for gemini ([#624](https://github.com/xability/maidr/issues/624)) ([7a4875a](https://github.com/xability/maidr/commit/7a4875afefb10390bb5093b8fe66b9b02d961bbc))
+* mark and recall a point ([#626](https://github.com/xability/maidr/issues/626)) ([a96ddd2](https://github.com/xability/maidr/commit/a96ddd2ec8db0f4715803bdd472e9473c27c49c0))
+
 ## [2.26.1](https://github.com/xability/maidr/compare/v2.26.0...v2.26.1) (2024-12-20)
 
 
