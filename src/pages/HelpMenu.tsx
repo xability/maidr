@@ -108,6 +108,9 @@ export const HelpMenu: React.FC = () => {
           <Button onClick={handleClose} color="primary">
             Close
           </Button>
+          <Button onClick={handleClose} variant="contained" color="primary">
+            Save & Close
+          </Button>
         </DialogActions>
       </Dialog>
     </div>
