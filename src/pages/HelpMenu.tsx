@@ -74,8 +74,16 @@ export const HelpMenu: React.FC = () => {
               <Table aria-label="simple table">
                 <TableHead>
                   <TableRow>
-                    <TableCell align="left">Function</TableCell>
-                    <TableCell align="left">Key</TableCell>
+                    <TableCell align="left">
+                      <Typography variant="body1" fontWeight="bold">
+                        Function
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="left">
+                      <Typography variant="body1" fontWeight="bold">
+                        Key
+                      </Typography>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
