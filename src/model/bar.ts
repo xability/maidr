@@ -1,11 +1,9 @@
 import {AbstractPlot, Orientation} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
+import {AudioState, TextState} from './state';
 import {BarPoint, Maidr} from './grammar';
 
 export class BarPlot extends AbstractPlot {
-  private readonly points: BarPoint[][];
-  private readonly brailleValues: string[][];
-
+  private readonly points: BarPoint[];
   private readonly orientation: Orientation;
 
   private readonly min: number;
@@ -14,19 +12,19 @@ export class BarPlot extends AbstractPlot {
   constructor(maidr: Maidr) {
     super(maidr);
 
-    this.points = maidr.data as BarPoint[][];
+    this.points = maidr.data as BarPoint[];
     this.orientation =
       maidr.orientation === Orientation.HORIZONTAL
         ? Orientation.HORIZONTAL
         : Orientation.VERTICAL;
 
-    this.values = this.points.map(row =>
-      row.map(point =>
+    this.values = [
+      this.points.map(point =>
         this.orientation === Orientation.VERTICAL
           ? Number(point.y)
           : Number(point.x)
-      )
-    );
+      ),
+    ];
     this.min = Math.min(...this.values.flat());
     this.max = Math.max(...this.values.flat());
 
@@ -34,71 +32,69 @@ export class BarPlot extends AbstractPlot {
   }
 
   protected audio(): AudioState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const size = isVertical ? this.values[this.row].length : this.values.length;
+    const index = isVertical ? this.col : this.row;
+    const value = isVertical
+      ? this.values[this.row][this.col]
+      : this.values[this.col][this.row];
+
     return {
       min: this.min,
       max: this.max,
-      size:
-        this.orientation === Orientation.VERTICAL
-          ? this.values[this.row].length
-          : this.values.length,
-      index: this.col,
-      value: this.values[this.row][this.col],
-    };
-  }
-
-  protected braille(): BrailleState {
-    return {
-      values: this.brailleValues[this.row],
-      index: this.col,
+      size: size,
+      index: index,
+      value: value,
     };
   }
 
   protected text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const point = isVertical
-      ? this.points[this.row][this.col]
-      : this.points[this.col][this.row];
+    const point = isVertical ? this.points[this.col] : this.points[this.row];
 
     const mainLabel = isVertical ? this.xAxis : this.yAxis;
     const mainValue = isVertical ? point.x : point.y;
-
+    s;
     const crossLabel = isVertical ? this.yAxis : this.xAxis;
     const crossValue = isVertical ? point.y : point.x;
-
-    const fillData = point.fill
-      ? {fillLabel: this.fill, fillValue: point.fill}
-      : {};
 
     return {
       mainLabel,
       mainValue,
       crossLabel,
       crossValue,
-      ...fillData,
     };
   }
 
-  private toBraille(data: number[][]): string[][] {
+  protected toBraille(data: number[][]): string[][] {
     const braille = [];
 
-    const range = (this.max - this.min) / 4;
-    const low = this.min + range;
+    for (let row = 0; row < data.length; row++) {
+      braille.push(this.createBraille(data[row], this.min, this.max));
+    }
+
+    return braille;
+  }
+
+  protected createBraille(data: number[], min: number, max: number): string[] {
+    const braille = new Array<string>();
+
+    const range = (max - min) / 4;
+    const low = min + range;
     const medium = low + range;
     const high = medium + range;
 
-    for (let row = 0; row < data.length; row++) {
-      braille.push(new Array<string>());
-
-      for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] <= low) {
-          braille[row].push('⣀');
-        } else if (data[row][col] <= medium) {
-          braille[row].push('⠤');
-        } else if (data[row][col] <= high) {
-          braille[row].push('⠒');
-        } else {
-          braille[row].push('⠉');
-        }
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] === 0) {
+        braille.push(' ');
+      } else if (data[i] <= low) {
+        braille.push('⣀');
+      } else if (data[i] <= medium) {
+        braille.push('⠤');
+      } else if (data[i] <= high) {
+        braille.push('⠒');
+      } else {
+        braille.push('⠉');
       }
     }
 
