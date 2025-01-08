@@ -39,4 +39,5 @@ export interface Plot extends Movable, Observable {
   yAxis: string;
 
   get state(): PlotState;
+  get hasMultiPoints(): boolean;
 }
