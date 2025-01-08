@@ -1,3 +1,5 @@
+import {Orientation} from './plot';
+
 export interface Maidr {
   id: string;
   type: string;
@@ -5,24 +7,23 @@ export interface Maidr {
   title?: string;
   subtitle?: string;
   caption?: string;
-  orientation?: string;
+  orientation?: Orientation;
   axes?: {
     x?: string;
     y?: string;
     fill?: string;
   };
-  data: BarPoint[][] | LinePoint[][] | HeatmapData | HistogramPoint[];
+  data:
+    | BarPoint[]
+    | HeatmapData
+    | HistogramPoint[]
+    | LinePoint[][]
+    | SegmentedPoint[][];
 }
 
 export type BarPoint = {
   x: string | number;
   y: number | string;
-  fill?: string;
-};
-
-export type LinePoint = {
-  x: number;
-  y: number;
 };
 
 export type HeatmapData = {
@@ -31,11 +32,18 @@ export type HeatmapData = {
   points: number[][];
 };
 
-export type HistogramPoint = {
-  x: number;
-  y: number;
+export type HistogramPoint = BarPoint & {
   xmin: number;
   xmax: number;
   ymin: number;
   ymax: number;
+};
+
+export type LinePoint = {
+  x: number;
+  y: number;
+};
+
+export type SegmentedPoint = BarPoint & {
+  fill: string;
 };
