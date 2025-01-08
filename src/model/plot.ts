@@ -193,26 +193,30 @@ export abstract class AbstractPlot implements Plot {
 }
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot {
-  protected readonly points: T[] | T[][];
+  protected readonly points: T[][];
   protected readonly orientation: Orientation;
 
   protected readonly min: number[];
   protected readonly max: number[];
 
-  protected constructor(maidr: Maidr, points: T[] | T[][]) {
+  protected constructor(maidr: Maidr, points: T[][]) {
     super(maidr);
 
     this.points = points;
     this.orientation = maidr.orientation ?? Orientation.VERTICAL;
 
-    this.values = this.toValues(points);
+    this.values = points.map(row =>
+      row.map(point =>
+        this.orientation === Orientation.VERTICAL
+          ? Number(point.y)
+          : Number(point.x)
+      )
+    );
     this.min = this.values.map(row => Math.min(...row));
     this.max = this.values.map(row => Math.max(...row));
 
     this.brailleValues = this.toBraille(this.values);
   }
-
-  protected abstract toValues(points: T[] | T[][]): number[][];
 
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
@@ -233,7 +237,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot {
 
   protected text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const point = isVertical ? this.points[this.col] : this.points[this.row];
+    const point = this.points[this.row][this.col];
 
     const mainLabel = isVertical ? this.xAxis : this.yAxis;
     const mainValue = isVertical ? point.x : point.y;

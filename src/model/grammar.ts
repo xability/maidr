@@ -18,7 +18,7 @@ export interface Maidr {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
-    | SegmentPoint[][];
+    | SegmentedPoint[][];
 }
 
 export type BarPoint = {
@@ -44,6 +44,6 @@ export type LinePoint = {
   y: number;
 };
 
-export type SegmentPoint = BarPoint & {
+export type SegmentedPoint = BarPoint & {
   fill: string;
 };
