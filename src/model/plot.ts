@@ -17,6 +17,7 @@ const DEFAULT_FILL_AXIS = 'Fill';
 
 export enum PlotType {
   BAR = 'bar',
+  BOX = 'box',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
@@ -30,7 +31,7 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export abstract class AbstractPlot implements Plot {
+export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
   protected isOutOfBounds: boolean;
 
@@ -45,7 +46,7 @@ export abstract class AbstractPlot implements Plot {
   public readonly yAxis: string;
   protected readonly fill: string;
 
-  protected values: number[][];
+  protected values: T[][];
   protected brailleValues: string[][];
 
   protected row: number;
@@ -193,7 +194,9 @@ export abstract class AbstractPlot implements Plot {
   }
 }
 
-export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot {
+export abstract class AbstractBarPlot<
+  T extends BarPoint,
+> extends AbstractPlot<number> {
   protected readonly points: T[][];
   protected readonly orientation: Orientation;
 

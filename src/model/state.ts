@@ -18,7 +18,7 @@ export type AudioState = {
   min: number;
   max: number;
   size: number;
-  value: number;
+  value: number | number[];
   index: number;
   count?: number;
   volume?: number;

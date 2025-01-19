@@ -15,6 +15,7 @@ export interface Maidr {
   };
   data:
     | BarPoint[]
+    | BoxPoint[]
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
@@ -26,6 +27,17 @@ export interface BarPoint {
   y: number | string;
 }
 
+export interface BoxPoint {
+  fill: string;
+  lowerOutliers: number[];
+  min: number;
+  q1: number;
+  q2: number;
+  q3: number;
+  max: number;
+  upperOutliers: number[];
+}
+
 export interface HeatmapData {
   x: string[];
   y: string[];
@@ -33,10 +45,10 @@ export interface HeatmapData {
 }
 
 export interface HistogramPoint extends BarPoint {
-  xmin: number;
-  xmax: number;
-  ymin: number;
-  ymax: number;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
 }
 
 export interface LinePoint {

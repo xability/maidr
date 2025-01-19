@@ -39,6 +39,7 @@ export abstract class Constant {
 
   // Attribute values.
   static readonly APPLICATION = 'application';
+  static readonly ARE = ' are ';
   static readonly ASSERTIVE = 'assertive';
   static readonly COMMA = ', ';
   static readonly EMPTY = '';

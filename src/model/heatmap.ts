@@ -2,7 +2,7 @@ import {HeatmapData, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
 
-export class Heatmap extends AbstractPlot {
+export class Heatmap extends AbstractPlot<number> {
   private readonly x: string[];
   private readonly y: string[];
 

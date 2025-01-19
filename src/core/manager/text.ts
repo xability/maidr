@@ -29,7 +29,6 @@ export class TextManager implements Observer {
     if (!state || state.empty) {
       return 'No info to display';
     } else if (this.mode === TextMode.VERBOSE) {
-      // TODO: Format for segmented and boxplot.
       const verbose = [];
       // Format main-axis values.
       verbose.push(state.text.mainLabel, Constant.IS);
@@ -41,13 +40,28 @@ export class TextManager implements Observer {
         verbose.push(state.text.mainValue);
       }
 
+      // Format cross-axis label.
+      verbose.push(Constant.COMMA, state.text.crossLabel);
+
+      // Format for boxplot.
+      if (state.text.section !== undefined) {
+        verbose.push(Constant.COMMA);
+
+        if (Array.isArray(state.text.crossValue)) {
+          verbose.push(state.text.crossValue.length, Constant.SPACE);
+        }
+
+        verbose.push(state.text.section);
+      }
+
       // Format cross-axis values.
-      verbose.push(
-        Constant.COMMA,
-        state.text.crossLabel,
-        Constant.IS,
-        state.text.crossValue
-      );
+      if (!Array.isArray(state.text.crossValue)) {
+        verbose.push(Constant.IS, state.text.crossValue);
+      } else if (state.text.crossValue.length > 1) {
+        verbose.push(Constant.ARE, state.text.crossValue.join(Constant.COMMA));
+      } else if (state.text.crossValue.length > 0) {
+        verbose.push(Constant.IS, state.text.crossValue.join(Constant.COMMA));
+      }
 
       // Format for heatmap.
       if (state.text.fillValue !== undefined) {
@@ -61,12 +75,29 @@ export class TextManager implements Observer {
 
       return verbose.join(Constant.EMPTY);
     } else {
-      // TODO: Format for segmented and boxplot.
-      const terse = [
-        state.text.mainValue,
-        Constant.COMMA,
-        state.text.crossValue,
-      ];
+      const terse = [];
+      terse.push(state.text.mainValue, Constant.COMMA);
+
+      // Format for boxplot.
+      if (state.text.section !== undefined) {
+        if (Array.isArray(state.text.crossValue)) {
+          terse.push(state.text.crossValue.length, Constant.SPACE);
+        }
+        terse.push(state.text.section);
+      }
+
+      if (state.text.fillValue !== undefined) {
+        terse.push(state.text.fillValue, Constant.COMMA);
+      }
+
+      if (!Array.isArray(state.text.crossValue)) {
+        terse.push(Constant.IS, state.text.crossValue);
+      } else if (state.text.crossValue.length > 1) {
+        terse.push(Constant.ARE, state.text.crossValue.join(Constant.COMMA));
+      } else if (state.text.crossValue.length > 0) {
+        terse.push(Constant.IS, state.text.crossValue.join(Constant.COMMA));
+      }
+
       return terse.join(Constant.EMPTY);
     }
   }

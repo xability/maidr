@@ -11,8 +11,8 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
-    const min = isVertical ? point.xmin : point.ymin;
-    const max = isVertical ? point.xmax : point.ymax;
+    const min = isVertical ? point.xMin : point.yMin;
+    const max = isVertical ? point.xMax : point.yMax;
 
     return {
       ...super.text(),

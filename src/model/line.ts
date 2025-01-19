@@ -2,7 +2,7 @@ import {LinePoint, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
 
-export class LinePlot extends AbstractPlot {
+export class LinePlot extends AbstractPlot<number> {
   private readonly points: LinePoint[][];
 
   private readonly min: number[];
