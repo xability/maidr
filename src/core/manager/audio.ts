@@ -80,7 +80,7 @@ export class AudioManager implements Observer {
     }
 
     this.stop();
-    // TODO: Handle point and boxplot.
+    // TODO: Handle point.
     const audio = state.audio;
 
     if (Array.isArray(audio.value)) {
@@ -92,25 +92,18 @@ export class AudioManager implements Observer {
 
       let currentIndex = 0;
       const playNext = () => {
-        if (currentIndex >= values.length) {
+        if (currentIndex < values.length) {
+          this.playTone(audio, values[currentIndex], currentIndex++);
+          this.timeoutId = setTimeout(playNext, 50);
+        } else {
           this.stop();
-          return;
         }
-
-        const value = values[currentIndex];
-        this.playTone(audio, value, currentIndex);
-        currentIndex++;
-
-        this.timeoutId = setTimeout(playNext, 50);
       };
 
       playNext();
     } else {
-      if (audio.value === 0) {
-        this.playZero();
-      } else {
-        this.playTone(audio, audio.value as number, audio.index);
-      }
+      const value = audio.value as number;
+      value === 0 ? this.playZero() : this.playTone(audio, value, audio.index);
     }
   }
 

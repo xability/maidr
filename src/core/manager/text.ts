@@ -47,9 +47,8 @@ export class TextManager implements Observer {
       if (state.text.section !== undefined) {
         verbose.push(Constant.COMMA);
 
-        if (Array.isArray(state.text.crossValue)) {
+        Array.isArray(state.text.crossValue) &&
           verbose.push(state.text.crossValue.length, Constant.SPACE);
-        }
 
         verbose.push(state.text.section);
       }
@@ -80,16 +79,17 @@ export class TextManager implements Observer {
 
       // Format for boxplot.
       if (state.text.section !== undefined) {
-        if (Array.isArray(state.text.crossValue)) {
+        Array.isArray(state.text.crossValue) &&
           terse.push(state.text.crossValue.length, Constant.SPACE);
-        }
         terse.push(state.text.section);
       }
 
+      // Format for heatmap and segmented plots.
       if (state.text.fillValue !== undefined) {
         terse.push(state.text.fillValue, Constant.COMMA);
       }
 
+      // Format for cross axis values.
       if (!Array.isArray(state.text.crossValue)) {
         terse.push(Constant.IS, state.text.crossValue);
       } else if (state.text.crossValue.length > 1) {

@@ -17,7 +17,6 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   private readonly orientation: Orientation;
 
   private readonly sections: string[];
-  private readonly flattenedValues: number[][];
   private readonly brailleCursor: number[][];
 
   private readonly min: number;
@@ -40,29 +39,33 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       point.upperOutliers,
     ]);
 
-    this.flattenedValues = this.values.map(row =>
+    const flattenedValues = this.values.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell]))
     );
-    this.min = Math.min(...this.flattenedValues.flat());
-    this.max = Math.max(...this.flattenedValues.flat());
+    this.min = Math.min(...flattenedValues.flat());
+    this.max = Math.max(...flattenedValues.flat());
 
     const {braille, cursorMap} = this.toBraille(this.values);
     this.brailleValues = braille;
     this.brailleCursor = cursorMap;
 
-    this.row =
-      this.orientation === Orientation.HORIZONTAL
-        ? this.values.length - 1
-        : this.row;
+    this.row = this.values.length - 1;
   }
 
   protected audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    const value = isHorizontal
+      ? this.values[this.row][this.col]
+      : this.values[this.col][this.row];
+    const index = isHorizontal ? this.col : this.row;
+
     return {
       min: this.min,
       max: this.max,
       size: this.sections.length,
-      index: this.col,
-      value: this.values[this.row][this.col],
+      index: index,
+      value: value,
     };
   }
 
@@ -78,16 +81,20 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
     const mainLabel = isHorizontal ? this.yAxis : this.xAxis;
-    const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
     const section = isHorizontal
       ? this.sections[this.col]
       : this.sections[this.row];
+
+    const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
+    const crossValue = isHorizontal
+      ? this.values[this.row][this.col]
+      : this.values[this.col][this.row];
 
     return {
       mainLabel: mainLabel,
       mainValue: point.fill,
       crossLabel: crossLabel,
-      crossValue: this.values[this.row][this.col],
+      crossValue: crossValue,
       section: section,
     };
   }
