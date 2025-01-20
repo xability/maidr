@@ -1,3 +1,10 @@
+## [2.27.1](https://github.com/xability/maidr/compare/v2.27.0...v2.27.1) (2025-01-20)
+
+
+### Bug Fixes
+
+* mark no longer loses place after first recall ([#628](https://github.com/xability/maidr/issues/628)) ([54e4f9c](https://github.com/xability/maidr/commit/54e4f9cb3b6bf6dcfade9b6af2db0a9156df4938))
+
 # [2.27.0](https://github.com/xability/maidr/compare/v2.26.1...v2.27.0) (2024-12-28)
 
 
