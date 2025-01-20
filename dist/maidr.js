@@ -9191,7 +9191,9 @@ class Control {
           if (lastKey == 'm' && /[0-9]/.test(key)) {
             const recallIndex = parseInt(key, 10);
             if (constants.mark[recallIndex]) {
-              position = constants.mark[recallIndex];
+              position = JSON.parse(
+                JSON.stringify(constants.mark[recallIndex])
+              ); // deep copy
               control.UpdateAll();
             }
           }
