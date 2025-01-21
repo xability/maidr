@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {DefaultKey} from '../core/manager/keymap';
-import HelpMenu from './HelpMenu';
+import {HelpMenu} from './HelpMenu';
+import {LLMDialog} from './LLMDialog';
 import FrontendManager from '../core/manager/frontend';
 
 interface ReactMicroFrontendProps {
@@ -22,6 +22,8 @@ const ReactMicroFrontend: React.FC<
     switch (key) {
       case 'HELP_MENU':
         return <HelpMenu />;
+      case 'LLM_DIALOG':
+        return <LLMDialog />;
     }
     return <></>;
   };

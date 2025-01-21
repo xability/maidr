@@ -39,7 +39,7 @@ import {
   SwitchScopeCommand,
   ToggleTextCommand,
 } from './toggle';
-import {HelpMenuCommand} from './frontend';
+import {HelpMenuCommand, LLMDialogCommand} from './frontend';
 import FrontendManager from '../manager/frontend';
 
 export class CommandFactory {
@@ -132,6 +132,8 @@ export class CommandFactory {
         return new ResetAutoplaySpeedCommand(this.autoplay);
       case 'HELP_MENU':
         return new HelpMenuCommand(this.frontend);
+      case 'LLM_DIALOG':
+        return new LLMDialogCommand(this.frontend);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

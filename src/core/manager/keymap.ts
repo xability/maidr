@@ -37,6 +37,7 @@ export enum DefaultKey {
   DESCRIBE_POINT = 'space',
 
   HELP_MENU = 'h',
+  LLM_DIALOG = 'option+shift+/, alt+shift+/',
 }
 
 export enum LabelKey {
