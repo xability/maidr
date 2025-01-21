@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {DefaultKey} from '../core/manager/keymap';
 import HelpMenu from './HelpMenu';
+import {GlobalSearch} from './GlobalSearch';
 import FrontendManager from '../core/manager/frontend';
 
 interface ReactMicroFrontendProps {
@@ -18,10 +18,16 @@ const ReactMicroFrontend: React.FC<
     });
   }, []);
 
+  const executeShortcut = (key: string) => {
+    frontendManager.frontendManager.executeShortcut(key);
+  };
+
   const renderComponent = (key: string | null) => {
     switch (key) {
       case 'HELP_MENU':
         return <HelpMenu />;
+      case 'GLOBAL_SEARCH':
+        return <GlobalSearch executeShortcut={executeShortcut} />;
     }
     return <></>;
   };

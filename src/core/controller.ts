@@ -44,7 +44,6 @@ export default class Controller {
       this.text,
       this.plot
     );
-
     this.frontend = new FrontendManager();
 
     this.keymap = new KeymapManager({

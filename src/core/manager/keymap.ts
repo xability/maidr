@@ -1,7 +1,7 @@
 import hotkeys from 'hotkeys-js';
 import Constant from '../../util/constant';
 import {CommandFactory} from '../command/factory';
-import {CommandContext} from '../command/command';
+import {Command, CommandContext} from '../command/command';
 
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
@@ -36,7 +36,8 @@ export enum DefaultKey {
   // Description
   DESCRIBE_POINT = 'space',
 
-  HELP_MENU = 'h',
+  HELP_MENU = 'command+/,ctrl+/',
+  GLOBAL_SEARCH = 'options+/,alt+/',
 }
 
 export enum LabelKey {
@@ -63,8 +64,10 @@ export type Keys = keyof Keymap[Scope];
 
 export default class KeymapManager {
   private readonly commandFactory: CommandFactory;
+  private readonly commandContext: CommandContext;
 
   constructor(commandContext: CommandContext) {
+    this.commandContext = commandContext;
     this.commandFactory = new CommandFactory(commandContext);
   }
 
@@ -80,6 +83,8 @@ export default class KeymapManager {
       return true;
     };
 
+    const keyMaps: {[key: string]: Command} = {};
+
     // Register all bindings.
     for (const [scope, keymap] of Object.entries(scopedKeymap) as [
       Scope,
@@ -90,6 +95,7 @@ export default class KeymapManager {
         string,
       ][]) {
         const command = this.commandFactory.create(commandName);
+        keyMaps[commandName] = command;
 
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
@@ -107,6 +113,7 @@ export default class KeymapManager {
         });
       }
     }
+    this.commandContext.frontend.setKeyMap(keyMaps);
 
     // Set the initial scope.
     hotkeys.setScope('DEFAULT');

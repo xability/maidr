@@ -12,3 +12,15 @@ export class HelpMenuCommand implements Command {
     this.frontendManager.execute('HELP_MENU');
   }
 }
+
+export class GlobalSearchCommand implements Command {
+  private readonly frontendManager: FrontendManager;
+
+  constructor(frontendManager: FrontendManager) {
+    this.frontendManager = frontendManager;
+  }
+
+  public execute(): void {
+    this.frontendManager.execute('GLOBAL_SEARCH');
+  }
+}
