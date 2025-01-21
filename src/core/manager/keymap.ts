@@ -36,7 +36,7 @@ export enum DefaultKey {
   // Description
   DESCRIBE_POINT = 'space',
 
-  HELP_MENU = 'h',
+  HELP_MENU = 'command+/,ctrl+/',
 }
 
 export enum LabelKey {
