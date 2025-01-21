@@ -25,10 +25,11 @@ export type AudioState = {
 };
 
 export type BrailleState = {
+  empty: false;
   values: string[][];
   row: number;
   col: number;
-};
+} | EmptyState;
 
 export type TextState = {
   mainLabel: string;

@@ -1,9 +1,9 @@
-import {Plot} from '../interface';
-import {AudioManager} from '../manager/audio';
-import {AutoplayManager} from '../manager/autoplay';
-import {BrailleManager} from '../manager/braille';
-import {ReviewManager} from '../manager/review';
-import {TextManager} from '../manager/text';
+import {Plot} from "../../model/plot";
+import {AudioService} from '../service/audio';
+import {AutoplayService} from '../service/autoplay';
+import {BrailleService} from '../service/braille';
+import {ReviewService} from '../service/review';
+import {TextService} from '../service/text';
 
 export interface Command {
   execute(event?: Event): void;
@@ -12,10 +12,10 @@ export interface Command {
 export type CommandContext = {
   plot: Plot;
 
-  audio: AudioManager;
-  braille: BrailleManager;
-  text: TextManager;
-  review: ReviewManager;
+  audio: AudioService;
+  braille: BrailleService;
+  text: TextService;
+  review: ReviewService;
 
-  autoplay: AutoplayManager;
+  autoplay: AutoplayService;
 };

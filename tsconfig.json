@@ -16,13 +16,6 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-
-    "baseUrl": "./src",
-    "paths": {
-      "@core/*": ["core/*"],
-      "@model/*": ["model/*"],
-      "@util/*": ["util/*"]
-    }
   },
 
   // Webpack Typescript

@@ -46,7 +46,7 @@ export class Heatmap extends AbstractPlot<number> {
   }
 
   private toBraille(data: number[][]): string[][] {
-    const braille = [];
+    const braille = new Array<Array<string>>();
 
     const range = (this.max - this.min) / 3;
     const low = this.min + range;

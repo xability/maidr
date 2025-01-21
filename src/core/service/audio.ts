@@ -1,6 +1,6 @@
-import {AudioState, PlotState} from '../../model/state';
-import {NotificationManager} from './notification';
+import {PlotState} from '../../model/state';
 import {Observer} from '../interface';
+import {NotificationService} from './notification';
 
 type Range = {
   min: number;
@@ -18,19 +18,19 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioManager implements Observer {
+export class AudioService implements Observer {
   private mode: AudioMode;
   private timeoutId?: NodeJS.Timeout | null = null;
   private readonly isCombinedAudio: boolean;
 
   private volume: number;
-  private readonly notification: NotificationManager;
+  private readonly notification: NotificationService;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
   public constructor(
-    notification: NotificationManager,
+    notification: NotificationService,
     isCombinedAudio: boolean
   ) {
     this.isCombinedAudio = isCombinedAudio;
@@ -82,7 +82,8 @@ export class AudioManager implements Observer {
     this.stop();
     // TODO: Handle point.
     const audio = state.audio;
-
+    this.stop();
+    // TODO: Handle point.
     if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
@@ -93,7 +94,7 @@ export class AudioManager implements Observer {
       let currentIndex = 0;
       const playNext = () => {
         if (currentIndex < values.length) {
-          this.playTone(audio, values[currentIndex], currentIndex++);
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
           this.timeoutId = setTimeout(playNext, 50);
         } else {
           this.stop();
@@ -103,20 +104,26 @@ export class AudioManager implements Observer {
       playNext();
     } else {
       const value = audio.value as number;
-      value === 0 ? this.playZero() : this.playTone(audio, value, audio.index);
+      if (value === 0) {
+        this.playZero();
+      } else {
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+      }
     }
   }
 
   private playTone(
-    audio: AudioState,
+    minFrequency: number,
+    maxFrequency: number,
     rawFrequency: number,
+    panningSize: number,
     rawPanning: number
   ): void {
-    const fromFreq = {min: audio.min, max: audio.max};
+    const fromFreq = {min: minFrequency, max: maxFrequency};
     const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
-    const fromPanning = {min: 0, max: audio.size};
+    const fromPanning = {min: 0, max: panningSize};
     const toPanning = {min: -1, max: 1};
     const panning = this.interpolate(rawPanning, fromPanning, toPanning);
 

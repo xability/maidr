@@ -1,11 +1,10 @@
-import {Plot} from '../core/interface';
 import {BarPlot} from './bar';
 import {BoxPlot} from './box';
 import {Maidr} from './grammar';
 import {Heatmap} from './heatmap';
 import {Histogram} from './histogram';
 import {LinePlot} from './line';
-import {PlotType} from './plot';
+import {Plot, PlotType} from "./plot";
 import {SegmentedPlot} from './segmented';
 
 export abstract class PlotFactory {

@@ -40,7 +40,7 @@ export class LinePlot extends AbstractPlot<number> {
   }
 
   private toBraille(data: number[][]): string[][] {
-    const braille = [];
+    const braille = new Array<Array<string>>();
 
     for (let row = 0; row < data.length; row++) {
       braille.push(new Array<string>());

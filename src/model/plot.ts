@@ -1,4 +1,4 @@
-import {MovableDirection, Observer, Plot} from '../core/interface';
+import {Movable, MovableDirection, Observable, Observer} from '../core/interface';
 import {BarPoint, Maidr} from './grammar';
 import {
   AudioState,
@@ -29,6 +29,22 @@ export enum PlotType {
 export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
+}
+
+export interface Plot extends Movable, Observable {
+  id: string;
+  type: string;
+
+  title: string;
+  subtitle: string;
+  caption: string;
+
+  xAxis: string;
+  yAxis: string;
+
+  get state(): PlotState;
+
+  get hasMultiPoints(): boolean;
 }
 
 export abstract class AbstractPlot<T> implements Plot {
@@ -97,6 +113,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   protected braille(): BrailleState {
     return {
+      empty: false,
       values: this.brailleValues,
       row: this.row,
       col: this.col,
