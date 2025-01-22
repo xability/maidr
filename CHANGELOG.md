@@ -1,3 +1,15 @@
+# [2.28.0](https://github.com/xability/maidr/compare/v2.27.1...v2.28.0) (2025-01-22)
+
+
+### Bug Fixes
+
+* scatter points not clearing properly ([#630](https://github.com/xability/maidr/issues/630)) ([2e78cc3](https://github.com/xability/maidr/commit/2e78cc341fb02fc018816bdd3e9416bd984a6fb6))
+
+
+### Features
+
+* goto feature; hit g to open a menu with locations to go to ([#629](https://github.com/xability/maidr/issues/629)) ([7e3711f](https://github.com/xability/maidr/commit/7e3711f26ad111f9fe54395c56836e38407439fa))
+
 ## [2.27.1](https://github.com/xability/maidr/compare/v2.27.0...v2.27.1) (2025-01-20)
 
 
