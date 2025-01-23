@@ -10,16 +10,26 @@ type Range = {
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 
+enum AudioMode {
+  OFF = 'off',
+  SEPARATE = 'on',
+  COMBINED = 'combined',
+}
+
 export default class AudioManager implements Observer {
-  private enabled: boolean;
+  private mode: AudioMode;
+  private readonly isCombinedAudio: boolean;
+
   private volume: number;
   private readonly notification: NotificationManager;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  constructor(notification: NotificationManager) {
-    this.enabled = true;
+  constructor(notification: NotificationManager, isCombinedAudio: boolean) {
+    this.isCombinedAudio = isCombinedAudio;
+    this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
+
     this.volume = 0.5;
     this.notification = notification;
 
@@ -53,7 +63,7 @@ export default class AudioManager implements Observer {
 
   public update(state: PlotState): void {
     // Play audio only if turned on.
-    if (!this.enabled) {
+    if (this.mode === AudioMode.OFF) {
       return;
     }
 
@@ -148,9 +158,26 @@ export default class AudioManager implements Observer {
   }
 
   public toggle() {
-    this.enabled = !this.enabled;
+    switch (this.mode) {
+      case AudioMode.OFF:
+        this.mode = this.isCombinedAudio
+          ? AudioMode.COMBINED
+          : AudioMode.SEPARATE;
+        break;
 
-    const message = `Sound is ${this.enabled ? 'on' : 'off'}`;
+      case AudioMode.SEPARATE:
+        this.mode = AudioMode.OFF;
+        break;
+
+      case AudioMode.COMBINED:
+        this.mode = AudioMode.SEPARATE;
+    }
+
+    const mode =
+      this.isCombinedAudio && this.mode === AudioMode.SEPARATE
+        ? 'separate'
+        : this.mode;
+    const message = `Sound is ${mode}`;
     this.notification.notify(message);
   }
 

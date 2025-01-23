@@ -255,6 +255,9 @@ export default class DisplayManager {
       this.prevActiveElement = null;
       this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
       this.brailleDiv?.classList.add(Constant.HIDDEN);
+    } else if ((document.activeElement as HTMLElement) === this.plot) {
+      this.brailleDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleInput?.focus();
     }
   }
 

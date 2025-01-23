@@ -30,7 +30,7 @@ export default class Controller {
     this.display = display;
     this.notification = new NotificationManager(this.display.notificationDiv);
 
-    this.audio = new AudioManager(this.notification);
+    this.audio = new AudioManager(this.notification, this.plot.hasMultiPoints);
     this.braille = new BrailleManager(
       this.notification,
       this.display,

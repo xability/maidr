@@ -35,7 +35,7 @@ export default class TextManager implements Observer {
       verbose.push(state.text.mainLabel, Constant.IS);
 
       // Format for histogram.
-      if (state.text.min && state.text.max) {
+      if (state.text.min !== undefined && state.text.max !== undefined) {
         verbose.push(state.text.min, Constant.THROUGH, state.text.max);
       } else {
         verbose.push(state.text.mainValue);
@@ -50,7 +50,7 @@ export default class TextManager implements Observer {
       );
 
       // Format for heatmap.
-      if (state.text.fillValue) {
+      if (state.text.fillValue !== undefined) {
         verbose.push(
           Constant.COMMA,
           state.text.fillLabel,
@@ -89,7 +89,6 @@ export default class TextManager implements Observer {
     if (text) {
       const paragraph = document.createElement(Constant.P);
       paragraph.innerHTML = text;
-
       this.textDiv.innerHTML = Constant.EMPTY;
       this.textDiv.append(paragraph);
     }
@@ -98,15 +97,15 @@ export default class TextManager implements Observer {
   public toggle(): void {
     switch (this.mode) {
       case TextMode.OFF:
-        this.mode = TextMode.TERSE;
-        break;
-
-      case TextMode.TERSE:
         this.mode = TextMode.VERBOSE;
         break;
 
-      case TextMode.VERBOSE:
+      case TextMode.TERSE:
         this.mode = TextMode.OFF;
+        break;
+
+      case TextMode.VERBOSE:
+        this.mode = TextMode.TERSE;
         break;
     }
 
