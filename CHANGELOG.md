@@ -1,3 +1,10 @@
+## [2.28.1](https://github.com/xability/maidr/compare/v2.28.0...v2.28.1) (2025-01-27)
+
+
+### Bug Fixes
+
+* updated ui and click event fix for goto menu ([#632](https://github.com/xability/maidr/issues/632)) ([cb1dd75](https://github.com/xability/maidr/commit/cb1dd75024d4c1d770f0ce8959029c66ec54ed63))
+
 # [2.28.0](https://github.com/xability/maidr/compare/v2.27.1...v2.28.0) (2025-01-22)
 
 
