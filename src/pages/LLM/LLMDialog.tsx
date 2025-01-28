@@ -16,6 +16,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import {useLLM} from './LLMProvider';
 import {LLM, Message} from '../types/LLMTypes';
+import {useConfiguration} from '../Configuration/ConfigurationProvider';
 
 const InputContainer = styled(Box)({
   padding: '20px',
@@ -71,6 +72,7 @@ export const LLMDialog: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   // const [isLoading, setIsLoading] = useState(false);
   const {sendMessage} = useLLM();
+  const {config} = useConfiguration();
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
 
@@ -108,23 +110,26 @@ export const LLMDialog: React.FC = () => {
     ];
     setMessages(newMessages);
     if (newMessage.trim()) {
-      sendMessage(LLM.Gemini, newMessage).then(response => {
-        if (response) {
-          const currentTime = new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          setMessages([
-            ...newMessages,
-            {
-              id: newMessages.length + 1,
-              text: response,
-              isUser: false,
-              timestamp: currentTime,
-            },
-          ]);
+      sendMessage(LLM.OpenAI, newMessage, false, config.openAIAPIKey).then(
+        response => {
+          console.log(response);
+          if (response) {
+            const currentTime = new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            setMessages([
+              ...newMessages,
+              {
+                id: newMessages.length + 1,
+                text: response,
+                isUser: false,
+                timestamp: currentTime,
+              },
+            ]);
+          }
         }
-      });
+      );
 
       setNewMessage('');
     }

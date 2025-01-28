@@ -1,5 +1,5 @@
 export enum LLM {
-  GPT4o = 'openai',
+  OpenAI = 'openai',
   Claude = 'claude',
   Gemini = 'gemini',
 }
