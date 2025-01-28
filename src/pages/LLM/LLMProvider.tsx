@@ -4,6 +4,8 @@ import {
   formatGeminiRequest,
   formatGeminiResponse,
 } from '../utils/llm/GeminiAIUtils';
+import {APIHandler} from '../utils/api/APIHandlers';
+import {useConfiguration} from '../Configuration/ConfigurationProvider';
 
 interface LLMContextProps {
   currentLLM: string;
@@ -18,25 +20,17 @@ export const LLMProvider: React.FC<{
   maidrJson: string;
   image: string;
 }> = ({children, maidrJson, image}) => {
-  const [currentLLM, setCurrentLLM] = useState<LLM>(LLM.GPT4o);
+  const [currentLLM, setCurrentLLM] = useState<LLM>(LLM.Gemini);
+  const {config, setConfig} = useConfiguration();
 
   const sendMessage = async (
     llm: LLM,
     message: string
   ): Promise<string | null> => {
     try {
-      console.log(maidrJson, image);
-      const response = await fetch(
-        `https://maidr-service.azurewebsites.net/api/${llm}?code=I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authentication:
-              'dakshp2@illinois.edu fWW8eWtYzjXiZa13veLMAIEbROtGEcS3',
-          },
-          body: formatRequest(message, maidrJson, image, llm),
-        }
+      const response = await APIHandler.post(
+        `${llm}`,
+        formatRequest(message, maidrJson, image, llm)
       );
 
       const responseData = await response.json();

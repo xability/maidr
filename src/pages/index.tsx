@@ -4,6 +4,7 @@ import {LLMDialog} from './LLM/LLMDialog';
 import FrontendManager from '../core/manager/frontend';
 import {LLMProvider} from './LLM/LLMProvider';
 import {ConfigurationDialog} from './Configuration/ConfigurationDialog';
+import {ConfigurationProvider} from './Configuration/ConfigurationProvider';
 
 interface ReactMicroFrontendProps {
   frontendManager: FrontendManager;
@@ -39,7 +40,13 @@ const ReactMicroFrontend: React.FC<
     return <></>;
   };
 
-  return <div>{renderComponent(component)}</div>;
+  return (
+    <div>
+      <ConfigurationProvider>
+        {renderComponent(component)}
+      </ConfigurationProvider>
+    </div>
+  );
 };
 
 export default ReactMicroFrontend;

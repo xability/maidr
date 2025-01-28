@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {
   Box,
   Button,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -10,27 +11,38 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import {useConfiguration} from './ConfigurationProvider';
+import {APIHandler} from '../utils/api/APIHandlers';
 
 export const ConfigurationDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
-  const [config, setConfig] = useState({
-    gemini: false,
-    openai: false,
-    claude: false,
+  const [currentConfig, setCurrentConfig] = useState({
+    models: {
+      gemini: false,
+      openai: false,
+      claude: false,
+    },
   });
+  const [email, setEmail] = useState('');
+  const {config, setConfig, verifyEmail} = useConfiguration();
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailDisabled, setEmailDisabled] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {name, checked} = e.target;
-    const selectedCount = Object.values(config).filter(value => value).length;
+    const selectedCount = Object.values(currentConfig.models).filter(
+      value => value
+    ).length;
 
     if (checked && selectedCount >= 2) {
       alert('You can select up to 2 models only.');
       return;
     }
+    const models = {...currentConfig.models, [name]: checked};
 
-    setConfig(prevConfig => ({
+    setCurrentConfig(prevConfig => ({
       ...prevConfig,
-      [name]: checked,
+      models,
     }));
   };
 
@@ -39,7 +51,33 @@ export const ConfigurationDialog: React.FC = () => {
   };
 
   const handleSave = () => {
+    setConfig(currentConfig);
     setOpen(false);
+  };
+
+  const handleVerify = () => {
+    setIsLoading(true);
+    setEmailDisabled(true);
+    verifyEmail(email).then(async response => {
+      if (response.status === 200) {
+        const responseData = await response.json();
+        config.clientToken = responseData.client_token;
+        const headers = APIHandler.headers;
+        headers.Authorization = `${email} ${responseData.client_token}`;
+        APIHandler.setHeaders(headers);
+        setIsLoading(false);
+        alert(responseData.message);
+      } else {
+        setIsLoading(false);
+        setEmailDisabled(false);
+        alert('Email verification failed');
+      }
+    });
+  };
+
+  const handleClearEmail = () => {
+    setEmailDisabled(false);
+    setEmail('');
   };
 
   return (
@@ -55,7 +93,7 @@ export const ConfigurationDialog: React.FC = () => {
           <FormControlLabel
             control={
               <Switch
-                checked={config.gemini}
+                checked={currentConfig.models.gemini}
                 onChange={handleChange}
                 name="gemini"
               />
@@ -65,7 +103,7 @@ export const ConfigurationDialog: React.FC = () => {
           <FormControlLabel
             control={
               <Switch
-                checked={config.openai}
+                checked={currentConfig.models.openai}
                 onChange={handleChange}
                 name="openai"
               />
@@ -75,7 +113,7 @@ export const ConfigurationDialog: React.FC = () => {
           <FormControlLabel
             control={
               <Switch
-                checked={config.claude}
+                checked={currentConfig.models.claude}
                 onChange={handleChange}
                 name="claude"
               />
@@ -89,13 +127,41 @@ export const ConfigurationDialog: React.FC = () => {
           gap={2}
           style={{paddingInline: '25px', paddingBottom: '25px'}}
         >
-          <TextField
-            placeholder="Email Authentication"
-            variant="outlined"
-            fullWidth
-            size="small"
-          />
-          {config.openai && (
+          <Box display="flex" flexDirection="row" gap={2}>
+            <TextField
+              placeholder="Email Authentication"
+              variant="outlined"
+              fullWidth
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              size="small"
+              disabled={emailDisabled}
+            />
+            {isLoading && (
+              <Typography>
+                <CircularProgress />
+              </Typography>
+            )}
+            {!isLoading &&
+              (!emailDisabled ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleVerify}
+                >
+                  Verify
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={handleClearEmail}
+                >
+                  Clear
+                </Button>
+              ))}
+          </Box>
+          {currentConfig.models.openai && (
             <TextField
               placeholder="OpenAI API Key"
               variant="outlined"
@@ -103,7 +169,7 @@ export const ConfigurationDialog: React.FC = () => {
               size="small"
             />
           )}
-          {config.gemini && (
+          {currentConfig.models.gemini && (
             <TextField
               placeholder="Gemini API Key"
               variant="outlined"
@@ -111,7 +177,7 @@ export const ConfigurationDialog: React.FC = () => {
               size="small"
             />
           )}
-          {config.claude && (
+          {currentConfig.models.claude && (
             <TextField
               placeholder="Claude API Key"
               variant="outlined"
