@@ -1,7 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import {HelpMenu} from './HelpMenu';
-import {LLMDialog} from './LLMDialog';
+import {LLMDialog} from './LLM/LLMDialog';
 import FrontendManager from '../core/manager/frontend';
+import {LLMProvider} from './LLM/LLMProvider';
+import {ConfigurationDialog} from './Configuration/ConfigurationDialog';
 
 interface ReactMicroFrontendProps {
   frontendManager: FrontendManager;
@@ -23,7 +25,16 @@ const ReactMicroFrontend: React.FC<
       case 'HELP_MENU':
         return <HelpMenu />;
       case 'LLM_DIALOG':
-        return <LLMDialog />;
+        return (
+          <LLMProvider
+            maidrJson={frontendManager.frontendManager.maidrJson}
+            image={frontendManager.frontendManager.image}
+          >
+            <LLMDialog />
+          </LLMProvider>
+        );
+      case 'CONFIGURATION_DIALOG':
+        return <ConfigurationDialog />;
     }
     return <></>;
   };

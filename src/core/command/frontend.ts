@@ -24,3 +24,15 @@ export class LLMDialogCommand implements Command {
     this.frontendManager.execute('LLM_DIALOG');
   }
 }
+
+export class ConfigurationDialogCommand implements Command {
+  private readonly frontendManager: FrontendManager;
+
+  constructor(frontendManager: FrontendManager) {
+    this.frontendManager = frontendManager;
+  }
+
+  public execute(): void {
+    this.frontendManager.execute('CONFIGURATION_DIALOG');
+  }
+}

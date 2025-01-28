@@ -14,6 +14,8 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import {useLLM} from './LLMProvider';
+import {LLM, Message} from '../types/LLMTypes';
 
 const InputContainer = styled(Box)({
   padding: '20px',
@@ -62,31 +64,13 @@ const MessageContent = styled(Paper)<MessageBubbleProps>(({isUser}) => ({
   },
 }));
 
-const dummyMessages = [
-  {
-    id: 1,
-    text: 'Hey! How are you doing?',
-    isUser: false,
-    timestamp: '10:00 AM',
-  },
-  {
-    id: 2,
-    text: "I'm doing great! Thanks for asking. How about you?",
-    isUser: true,
-    timestamp: '10:02 AM',
-  },
-  {
-    id: 3,
-    text: "I'm good too! Just working on some new projects.",
-    isUser: false,
-    timestamp: '10:05 AM',
-  },
-];
-
 export const LLMDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
-  const [messages, setMessages] = useState(dummyMessages);
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  // const [isLoading, setIsLoading] = useState(false);
+  const {sendMessage} = useLLM();
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
 
@@ -109,27 +93,46 @@ export const LLMDialog: React.FC = () => {
   };
 
   const handleSendMessage = () => {
+    const currentTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const newMessages = [
+      ...messages,
+      {
+        id: messages.length + 1,
+        text: newMessage,
+        isUser: true,
+        timestamp: currentTime,
+      },
+    ];
+    setMessages(newMessages);
     if (newMessage.trim()) {
-      const currentTime = new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
+      sendMessage(LLM.Gemini, newMessage).then(response => {
+        if (response) {
+          const currentTime = new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          setMessages([
+            ...newMessages,
+            {
+              id: newMessages.length + 1,
+              text: response,
+              isUser: false,
+              timestamp: currentTime,
+            },
+          ]);
+        }
       });
-      setMessages([
-        ...messages,
-        {
-          id: messages.length + 1,
-          text: newMessage,
-          isUser: true,
-          timestamp: currentTime,
-        },
-      ]);
+
       setNewMessage('');
     }
   };
 
   const handleKeyPress = (e: {
     key: string;
-    shiftKey: any;
+    shiftKey: unknown;
     preventDefault: () => void;
   }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -143,6 +146,20 @@ export const LLMDialog: React.FC = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <Container>
           <MessagesContainer>
+            {messages.length === 0 && (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                width="100%"
+                height="100%"
+              >
+                <SmartToyIcon fontSize="large" style={{marginInline: '20px'}} />
+                <Typography variant="h4" fontWeight={300} color="textSecondary">
+                  What can I help with?
+                </Typography>
+              </Box>
+            )}
             {messages.map(message => (
               <MessageBubble key={message.id} isUser={message.isUser}>
                 <Avatar
@@ -177,16 +194,17 @@ export const LLMDialog: React.FC = () => {
                 maxRows={4}
                 value={newMessage}
                 onChange={e => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Type a message..."
                 variant="outlined"
                 size="small"
                 sx={{backgroundColor: '#fff'}}
                 aria-label="Message input field"
                 inputRef={textFieldRef}
+                autoFocus
               />
               <IconButton
-                // onClick={handleSendMessage}
+                onClick={handleSendMessage}
                 color="primary"
                 aria-label="Send message"
                 sx={{

@@ -38,6 +38,7 @@ export enum DefaultKey {
 
   HELP_MENU = 'h',
   LLM_DIALOG = 'option+shift+/, alt+shift+/',
+  CONFIGURATION_DIALOG = 'option+shift+., alt+shift+.',
 }
 
 export enum LabelKey {
