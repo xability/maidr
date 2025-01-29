@@ -32,6 +32,7 @@ export enum DefaultKey {
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+  TOGGLE_REVIEW = 'r',
 
   // Description
   DESCRIBE_POINT = 'space',
@@ -47,10 +48,15 @@ export enum LabelKey {
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
 }
+export enum ReviewKey {
+  TOGGLE_REVIEW = 'r',
+  TOGGLE_BRAILLE = 'b',
+}
 
 const scopedKeymap = {
   DEFAULT: DefaultKey,
   LABEL: LabelKey,
+  REVIEW: ReviewKey,
 } as const;
 
 export type Scope = keyof typeof scopedKeymap;
@@ -71,7 +77,7 @@ export default class KeymapManager {
       const target = event.target as HTMLElement;
       // Allow keybindings only for MAIDR braille input.
       if (target.isContentEditable) {
-        return target.id.startsWith(Constant.BRAILLE_INPUT);
+        return target.id.startsWith(Constant.BRAILLE_REVIEW_INPUT);
       }
 
       // Allow keybindings for all other non-editable elements.

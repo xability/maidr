@@ -8,6 +8,7 @@ import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
 import {Plot} from './interface';
 import TextManager from './manager/text';
+import ReviewManager from './manager/review';
 
 export default class Controller {
   private readonly plot: Plot;
@@ -21,6 +22,7 @@ export default class Controller {
 
   private readonly autoplay: AutoplayManager;
   private readonly keymap: KeymapManager;
+  private readonly review: ReviewManager;
 
   constructor(maidr: Maidr, display: DisplayManager) {
     this.plot = PlotFactory.create(maidr);
@@ -37,6 +39,13 @@ export default class Controller {
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
 
+    this.review = new ReviewManager(
+      this.notification,
+      this.display,
+      this.text,
+      this.plot
+    );
+
     this.autoplay = new AutoplayManager(
       this.notification,
       this.text,
@@ -48,12 +57,14 @@ export default class Controller {
       braille: this.braille,
       text: this.text,
       autoplay: this.autoplay,
+      review: this.review,
     });
     this.keymap.register();
 
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
     this.plot.addObserver(this.text);
+    this.plot.addObserver(this.review);
   }
 
   public destroy(): void {
@@ -66,7 +77,7 @@ export default class Controller {
 
     this.braille.destroy();
     this.audio.destroy();
-
+    this.review.destroy();
     this.display.destroy();
   }
 }

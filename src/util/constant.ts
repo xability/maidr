@@ -6,11 +6,12 @@ export default abstract class Constant {
   static readonly FIGURE = 'figure';
   static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
+  static readonly TEXTAREA = 'textarea';
   static readonly P = 'p';
 
   // HTML IDs.
   static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
-  static readonly BRAILLE_INPUT = 'maidr-braille-input-';
+  static readonly BRAILLE_REVIEW_INPUT = 'maidr-braille-review-input-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
