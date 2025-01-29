@@ -6,7 +6,7 @@
     "start": "webpack serve --open",
     "lint": "eslint '**/*.ts'",
     "clean": "gts clean",
-    "commitlint": "ts-node --project tsconfig.json ./node_modules/.bin/commitlint",
+    "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "compile": "tsc",
     "fix": "gts fix",
     "prepare": "husky",
