@@ -14,5 +14,6 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "commitlint.config.ts",
   ]
 }
