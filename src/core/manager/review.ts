@@ -1,4 +1,5 @@
 import hotkeys from 'hotkeys-js';
+import Constant from '../../util/constant';
 import DisplayManager from './display';
 import {EventType} from '../../index';
 import NotificationManager from './notification';
@@ -13,14 +14,13 @@ export default class ReviewManager implements Observer {
   private readonly display: DisplayManager;
   private readonly text: TextManager;
 
-  private readonly reviewInput?: HTMLInputElement;
+  private readonly reviewTextArea?: HTMLTextAreaElement;
   private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
   constructor(
     notification: NotificationManager,
     display: DisplayManager,
-    text: TextManager,
-    state: PlotState
+    text: TextManager
   ) {
     this.enabled = false;
 
@@ -28,7 +28,7 @@ export default class ReviewManager implements Observer {
     this.display = display;
     this.text = text;
 
-    if (!display.reviewInput) {
+    if (!display.brailleAndReviewTextArea) {
       return;
     }
 
@@ -50,18 +50,16 @@ export default class ReviewManager implements Observer {
         e.preventDefault();
       }
     };
-    this.reviewInput = display.reviewInput;
-    this.reviewInput.addEventListener(
+    this.reviewTextArea = display.brailleAndReviewTextArea;
+    this.reviewTextArea.addEventListener(
       EventType.KEY_DOWN,
       this.reviewKeyHandler
     );
-
-    this.reviewInput.value = this.text.format(state);
   }
 
   public destroy(): void {
-    if (this.reviewInput && this.reviewKeyHandler) {
-      this.reviewInput.removeEventListener(
+    if (this.reviewTextArea && this.reviewKeyHandler) {
+      this.reviewTextArea.removeEventListener(
         EventType.KEY_DOWN,
         this.reviewKeyHandler
       );
@@ -73,18 +71,25 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.reviewInput!.value = this.text.format(state);
+    const existingText = this.reviewTextArea!.value.split(Constant.NEW_LINE);
+    if (existingText.length === 0) {
+      this.reviewTextArea!.value = this.text.formatText(state);
+    } else {
+      existingText[state.braille.row] = this.text.formatText(state);
+      this.reviewTextArea!.value = existingText.join(Constant.EMPTY);
+    }
   }
 
-  public toggle(): void {
+  public toggle(state: PlotState): void {
     if (this.enabled) {
       this.enabled = false;
       hotkeys.setScope('DEFAULT');
     } else {
       this.enabled = true;
+      this.update(state);
       hotkeys.setScope('REVIEW');
     }
-    this.display.toggleReviewFocus();
+    this.display.toggleTextAreaFocus();
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

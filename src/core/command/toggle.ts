@@ -2,19 +2,22 @@ import hotkeys from 'hotkeys-js';
 import AudioManager from '../manager/audio';
 import BrailleManager from '../manager/braille';
 import {Command} from './command';
+import {Plot} from '../interface';
 import ReviewManager from '../manager/review';
 import TextManager from '../manager/text';
 import {Scope} from '../manager/keymap';
 
 export class ToggleBrailleCommand implements Command {
+  private readonly plot: Plot;
   private readonly braille: BrailleManager;
 
-  constructor(braille: BrailleManager) {
+  constructor(plot: Plot, braille: BrailleManager) {
+    this.plot = plot;
     this.braille = braille;
   }
 
   public execute(): void {
-    this.braille.toggle();
+    this.braille.toggle(this.plot.state);
   }
 }
 
@@ -43,14 +46,16 @@ export class ToggleAudioCommand implements Command {
 }
 
 export class ToggleReviewCommand implements Command {
+  private readonly plot: Plot;
   private readonly review: ReviewManager;
 
-  constructor(review: ReviewManager) {
+  constructor(plot: Plot, review: ReviewManager) {
+    this.plot = plot;
     this.review = review;
   }
 
   public execute(): void {
-    this.review.toggle();
+    this.review.toggle(this.plot.state);
   }
 }
 

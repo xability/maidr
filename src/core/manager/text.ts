@@ -25,7 +25,7 @@ export default class TextManager implements Observer {
     this.textDiv = textDiv;
   }
 
-  public format(state: PlotState): string {
+  public formatText(state: PlotState): string {
     if (!state || state.empty) {
       return 'No info to display';
     } else if (this.mode === TextMode.VERBOSE) {
@@ -82,7 +82,7 @@ export default class TextManager implements Observer {
     if (typeof state === 'string') {
       text = state;
     } else {
-      text = this.format(state);
+      text = this.formatText(state);
     }
 
     // Display the text.

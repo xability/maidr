@@ -7,21 +7,22 @@ export default abstract class Constant {
   static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
   static readonly P = 'p';
+  static readonly TEXT_AREA = 'textarea';
 
   // HTML IDs.
-  static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
-  static readonly BRAILLE_INPUT = 'maidr-braille-input-';
+  static readonly BRAILLE_AND_REVIEW_CONTAINER =
+    'maidr-braille-review-container-';
+  static readonly BRAILLE_AND_REVIEW_TEXT_AREA =
+    'maidr-braille-review-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
-  static readonly REVIEW_CONTAINER = 'maidr-review-container-';
-  static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.
-  static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
+  static readonly BRAILLE_AND_REVIEW_CLASS = 'maidr-braille-review-';
 
   // HTML attributes.
   static readonly ARIA_ATOMIC = 'aria-atomic';
@@ -44,6 +45,7 @@ export default abstract class Constant {
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
+  static readonly NEW_LINE = '\n';
   static readonly OFF = 'off';
   static readonly SPACE = ' ';
   static readonly TEXT = 'text';

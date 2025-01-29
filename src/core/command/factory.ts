@@ -85,11 +85,11 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.braille);
+        return new ToggleBrailleCommand(this.plot, this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.review);
+        return new ToggleReviewCommand(this.plot, this.review);
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);

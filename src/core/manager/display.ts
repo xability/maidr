@@ -8,7 +8,6 @@ export default class DisplayManager {
 
   private readonly onFocus: () => void;
   private readonly onBlur: (event: FocusEvent) => void;
-  private prevActiveElement: HTMLElement | HTMLInputElement | null;
 
   private readonly articleElement?: HTMLElement;
   private readonly figureElement?: HTMLElement;
@@ -17,11 +16,8 @@ export default class DisplayManager {
   public readonly textDiv?: HTMLElement;
   public readonly notificationDiv?: HTMLElement;
 
-  public readonly brailleDiv?: HTMLElement;
-  public readonly brailleInput?: HTMLInputElement;
-
-  public readonly reviewDiv?: HTMLElement;
-  public readonly reviewInput?: HTMLInputElement;
+  public readonly brailleAndReviewDiv?: HTMLElement;
+  public readonly brailleAndReviewTextArea?: HTMLTextAreaElement;
 
   constructor(
     maidr: Maidr,
@@ -33,7 +29,6 @@ export default class DisplayManager {
 
     this.onFocus = onFocus;
     this.onBlur = onBlur;
-    this.prevActiveElement = null;
 
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
@@ -57,53 +52,38 @@ export default class DisplayManager {
 
     const textId = Constant.TEXT_CONTAINER + maidrId;
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
-    const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
-    const brailleInputId = Constant.BRAILLE_INPUT + maidrId;
-    const reviewId = Constant.REVIEW_CONTAINER + maidrId;
-    const reviewInputId = Constant.REVIEW_INPUT + maidrId;
+    const brailleAndReviewId = Constant.BRAILLE_AND_REVIEW_CONTAINER + maidrId;
+    const brailleAndReviewTextAreaId =
+      Constant.BRAILLE_AND_REVIEW_TEXT_AREA + maidrId;
     this.textDiv =
       document.getElementById(textId) ?? this.createTextContainer(textId);
     this.notificationDiv =
       document.getElementById(notificationId) ??
       this.createNotificationContainer(notificationId);
-    this.brailleDiv =
-      document.getElementById(brailleId) ??
-      this.createBrailleContainer(brailleId);
-    this.brailleInput =
-      (document.getElementById(brailleInputId) as HTMLInputElement) ??
-      this.createBrailleInput(brailleInputId);
-    this.reviewDiv =
-      (document.getElementById(reviewId) as HTMLElement) ??
-      this.createReviewContainer(reviewId);
-    this.reviewInput =
-      (document.getElementById(reviewInputId) as HTMLInputElement) ??
-      this.createReviewInput(reviewInputId);
+    this.brailleAndReviewDiv =
+      document.getElementById(brailleAndReviewId) ??
+      this.createBrailleAndReviewContainer(brailleAndReviewId);
+    this.brailleAndReviewTextArea =
+      (document.getElementById(
+        brailleAndReviewTextAreaId
+      ) as HTMLTextAreaElement) ??
+      this.createBrailleAndReviewTextArea(brailleAndReviewTextAreaId);
 
-    this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
-    this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
+    this.brailleAndReviewTextArea.addEventListener(EventType.BLUR, this.onBlur);
   }
 
   public destroy(): void {
-    if (this.brailleInput) {
-      this.brailleInput.value = Constant.EMPTY;
+    if (this.brailleAndReviewTextArea) {
+      this.brailleAndReviewTextArea.value = Constant.EMPTY;
     }
-    if (this.brailleDiv) {
-      this.brailleDiv.classList.add(Constant.HIDDEN);
-    }
-    if (this.reviewInput) {
-      this.reviewInput.value = Constant.EMPTY;
-    }
-    if (this.reviewDiv) {
-      this.reviewDiv.classList.add(Constant.HIDDEN);
+    if (this.brailleAndReviewDiv) {
+      this.brailleAndReviewDiv.classList.add(Constant.HIDDEN);
     }
     if (this.notificationDiv) {
       this.notificationDiv.innerHTML = Constant.EMPTY;
     }
     if (this.textDiv) {
       this.textDiv.innerHTML = Constant.EMPTY;
-    }
-    if (this.prevActiveElement) {
-      this.prevActiveElement = null;
     }
   }
 
@@ -188,113 +168,49 @@ export default class DisplayManager {
     return notificationDiv;
   }
 
-  private createBrailleContainer(brailleId: string): HTMLElement {
-    const brailleDiv = document.createElement(Constant.DIV);
-    brailleDiv.id = brailleId;
-    brailleDiv.classList.add(Constant.HIDDEN);
+  private createBrailleAndReviewContainer(brailleId: string): HTMLElement {
+    const brailleAndReviewDiv = document.createElement(Constant.DIV);
+    brailleAndReviewDiv.id = brailleId;
+    brailleAndReviewDiv.classList.add(Constant.HIDDEN);
 
     this.figureElement!.insertBefore(
-      brailleDiv,
+      brailleAndReviewDiv,
       this.figureElement!.firstChild
     );
-    return brailleDiv;
+    return brailleAndReviewDiv;
   }
 
-  private createBrailleInput(brailleInputId: string): HTMLInputElement {
-    const brailleInput = document.createElement(Constant.INPUT);
-    brailleInput.id = brailleInputId;
-    brailleInput.size = Constant.BRAILLE_INPUT_LENGTH;
-    brailleInput.ariaBrailleRoleDescription = Constant.EMPTY;
-    brailleInput.classList.add(Constant.BRAILLE_INPUT_CLASS);
+  private createBrailleAndReviewTextArea(
+    brailleAndReviewTextAreaId: string
+  ): HTMLTextAreaElement {
+    const brailleAndReviewTextArea = document.createElement(Constant.TEXT_AREA);
+    brailleAndReviewTextArea.id = brailleAndReviewTextAreaId;
+    brailleAndReviewTextArea.ariaBrailleRoleDescription = Constant.EMPTY;
+    brailleAndReviewTextArea.classList.add(Constant.BRAILLE_AND_REVIEW_CLASS);
 
-    this.brailleDiv!.appendChild(brailleInput);
-    return brailleInput;
+    this.brailleAndReviewDiv!.appendChild(brailleAndReviewTextArea);
+    return brailleAndReviewTextArea;
   }
 
-  private createReviewContainer(reviewId: string): HTMLElement {
-    const reviewDiv = document.createElement(Constant.DIV);
-    reviewDiv.id = reviewId;
-    reviewDiv.classList.add(Constant.HIDDEN);
-
-    this.figureElement!.appendChild(reviewDiv);
-    return reviewDiv;
-  }
-
-  private createReviewInput(reviewInputId: string): HTMLInputElement {
-    const reviewInput = document.createElement(Constant.INPUT);
-    reviewInput.id = reviewInputId;
-    reviewInput.type = Constant.TEXT;
-    reviewInput.autocomplete = Constant.OFF;
-    reviewInput.size = 50;
-
-    this.reviewDiv!.appendChild(reviewInput);
-    return reviewInput;
-  }
-
-  public toggleBrailleFocus(): void {
-    if ((document.activeElement as HTMLElement) === this.plot) {
-      this.brailleDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleInput?.focus();
-      this.prevActiveElement = this.plot;
-    } else if (
-      (document.activeElement as HTMLInputElement) === this.reviewInput &&
+  public toggleTextAreaFocus(): void {
+    if (
+      (document.activeElement as HTMLTextAreaElement) ===
+        this.brailleAndReviewTextArea &&
       this.onBlur
     ) {
-      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.brailleDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleInput?.focus();
-      this.prevActiveElement = this.reviewInput;
-      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
-      this.reviewDiv?.classList.add(Constant.HIDDEN);
-    } else if (
-      (document.activeElement as HTMLInputElement) === this.brailleInput &&
-      this.onBlur
-    ) {
-      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
+      this.brailleAndReviewTextArea.removeEventListener(
+        EventType.BLUR,
+        this.onBlur
+      );
       this.plot?.focus();
-      this.prevActiveElement = null;
-      this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
-      this.brailleDiv?.classList.add(Constant.HIDDEN);
+      this.brailleAndReviewTextArea.addEventListener(
+        EventType.BLUR,
+        this.onBlur
+      );
+      this.brailleAndReviewDiv?.classList.add(Constant.HIDDEN);
     } else if ((document.activeElement as HTMLElement) === this.plot) {
-      this.brailleDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleInput?.focus();
-    }
-  }
-
-  public toggleReviewFocus(): void {
-    if ((document.activeElement as HTMLElement) === this.plot) {
-      this.reviewDiv?.classList.remove(Constant.HIDDEN);
-      this.reviewInput?.focus();
-      this.prevActiveElement = this.plot;
-    } else if (
-      (document.activeElement as HTMLInputElement) === this.brailleInput &&
-      this.onBlur
-    ) {
-      this.brailleInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.reviewDiv?.classList.remove(Constant.HIDDEN);
-      this.reviewInput?.focus();
-      this.prevActiveElement = this.brailleInput;
-      this.brailleInput.addEventListener(EventType.BLUR, this.onBlur);
-    } else if (
-      this.prevActiveElement === this.brailleInput &&
-      (document.activeElement as HTMLInputElement) === this.reviewInput &&
-      this.onBlur
-    ) {
-      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.brailleDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleInput?.focus();
-      this.prevActiveElement = this.reviewInput;
-      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
-      this.reviewDiv?.classList.add(Constant.HIDDEN);
-    } else if (
-      (document.activeElement as HTMLInputElement) === this.reviewInput &&
-      this.onBlur
-    ) {
-      this.reviewInput.removeEventListener(EventType.BLUR, this.onBlur);
-      this.plot?.focus();
-      this.prevActiveElement = null;
-      this.reviewInput.addEventListener(EventType.BLUR, this.onBlur);
-      this.reviewDiv?.classList.add(Constant.HIDDEN);
+      this.brailleAndReviewDiv?.classList.remove(Constant.HIDDEN);
+      this.brailleAndReviewTextArea?.focus();
     }
   }
 }

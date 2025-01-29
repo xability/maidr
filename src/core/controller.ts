@@ -34,16 +34,10 @@ export default class Controller {
     this.braille = new BrailleManager(
       this.notification,
       this.display,
-      this.plot,
-      this.plot.state
+      this.plot
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
-    this.review = new ReviewManager(
-      this.notification,
-      this.display,
-      this.text,
-      this.plot.state
-    );
+    this.review = new ReviewManager(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayManager(
       this.notification,

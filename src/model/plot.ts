@@ -96,8 +96,9 @@ export abstract class AbstractPlot implements Plot {
 
   protected braille(): BrailleState {
     return {
-      values: this.brailleValues[this.row],
-      index: this.col,
+      values: this.brailleValues,
+      row: this.row,
+      col: this.col,
     };
   }
 

@@ -77,12 +77,9 @@ export default class KeymapManager {
   public register(): void {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      // Allow keybindings only for MAIDR braille input.
-      if (target.tagName.toLowerCase() === Constant.INPUT) {
-        return (
-          target.id.startsWith(Constant.BRAILLE_INPUT) ||
-          target.id.startsWith(Constant.REVIEW_INPUT)
-        );
+      // Allow keybindings only for MAIDR braille and review text area.
+      if (target.tagName.toLowerCase() === Constant.TEXT_AREA) {
+        return target.id.startsWith(Constant.BRAILLE_AND_REVIEW_TEXT_AREA);
       }
 
       // Allow keybindings for all other non-editable elements.
