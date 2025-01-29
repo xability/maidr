@@ -1,4 +1,4 @@
-import {UserConfig} from '@commitlint/types';
+import { UserConfig } from '@commitlint/types';
 
 const Configuration: UserConfig = {
   extends: ['@commitlint/config-conventional'],
