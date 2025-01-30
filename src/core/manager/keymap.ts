@@ -1,5 +1,5 @@
 import hotkeys from 'hotkeys-js';
-import Constant from '../../util/constant';
+import {Constant} from '../../util/constant';
 import {CommandFactory} from '../command/factory';
 import {CommandContext} from '../command/command';
 
@@ -72,10 +72,10 @@ export type Keymap = {
 };
 export type Keys = keyof Keymap[Scope];
 
-export default class KeymapManager {
+export class KeymapManager {
   private readonly commandFactory: CommandFactory;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }
 

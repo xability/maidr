@@ -1,11 +1,11 @@
-import Constant from '../../util/constant';
-import DisplayManager from './display';
+import {Constant} from '../../util/constant';
+import {DisplayManager} from './display';
 import {EventType} from '../../index';
-import NotificationManager from './notification';
+import {NotificationManager} from './notification';
 import {Movable, Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
-export default class BrailleManager implements Observer {
+export class BrailleManager implements Observer {
   private enabled: boolean;
 
   private readonly notification: NotificationManager;
@@ -14,7 +14,7 @@ export default class BrailleManager implements Observer {
   private readonly brailleTextArea?: HTMLTextAreaElement;
   private readonly selectionChangeHandler?: (event: Event) => void;
 
-  constructor(
+  public constructor(
     notification: NotificationManager,
     display: DisplayManager,
     movable: Movable
@@ -75,13 +75,10 @@ export default class BrailleManager implements Observer {
     if (!this.enabled) {
       this.enabled = true;
       this.update(state);
-    } else if (this.brailleTextArea) {
-      this.brailleTextArea.value = Constant.EMPTY;
-      this.enabled = false;
     } else {
       this.enabled = false;
     }
-    this.display.toggleTextAreaFocus();
+    this.display.toggleBrailleFocus();
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

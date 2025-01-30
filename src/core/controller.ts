@@ -1,16 +1,16 @@
-import AudioManager from './manager/audio';
-import AutoplayManager from './manager/autoplay';
-import BrailleManager from './manager/braille';
-import DisplayManager from './manager/display';
-import KeymapManager from './manager/keymap';
+import {AudioManager} from './manager/audio';
+import {AutoplayManager} from './manager/autoplay';
+import {BrailleManager} from './manager/braille';
+import {DisplayManager} from './manager/display';
+import {KeymapManager} from './manager/keymap';
 import {Maidr} from '../model/grammar';
-import NotificationManager from './manager/notification';
+import {NotificationManager} from './manager/notification';
 import {PlotFactory} from '../model/factory';
 import {Plot} from './interface';
-import ReviewManager from './manager/review';
-import TextManager from './manager/text';
+import {ReviewManager} from './manager/review';
+import {TextManager} from './manager/text';
 
-export default class Controller {
+export class Controller {
   private readonly plot: Plot;
 
   private readonly display: DisplayManager;
@@ -24,7 +24,7 @@ export default class Controller {
   private readonly autoplay: AutoplayManager;
   private readonly keymap: KeymapManager;
 
-  constructor(maidr: Maidr, display: DisplayManager) {
+  public constructor(maidr: Maidr, display: DisplayManager) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;

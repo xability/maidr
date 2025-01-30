@@ -1,5 +1,5 @@
-import Constant from '../../util/constant';
-import NotificationManager from './notification';
+import {Constant} from '../../util/constant';
+import {NotificationManager} from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
@@ -9,12 +9,12 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export default class TextManager implements Observer {
+export class TextManager implements Observer {
   private mode: TextMode;
   private readonly notification: NotificationManager;
   private readonly textDiv!: HTMLElement;
 
-  constructor(notification: NotificationManager, textDiv?: HTMLElement) {
+  public constructor(notification: NotificationManager, textDiv?: HTMLElement) {
     this.notification = notification;
     if (!textDiv) {
       this.mode = TextMode.OFF;

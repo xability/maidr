@@ -1,4 +1,4 @@
-import NotificationManager from './notification';
+import {NotificationManager} from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
@@ -16,7 +16,7 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export default class AudioManager implements Observer {
+export class AudioManager implements Observer {
   private mode: AudioMode;
   private readonly isCombinedAudio: boolean;
 
@@ -26,7 +26,10 @@ export default class AudioManager implements Observer {
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  constructor(notification: NotificationManager, isCombinedAudio: boolean) {
+  public constructor(
+    notification: NotificationManager,
+    isCombinedAudio: boolean
+  ) {
     this.isCombinedAudio = isCombinedAudio;
     this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
 

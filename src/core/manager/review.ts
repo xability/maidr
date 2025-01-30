@@ -1,14 +1,14 @@
 import hotkeys from 'hotkeys-js';
-import Constant from '../../util/constant';
-import DisplayManager from './display';
+import {Constant} from '../../util/constant';
+import {DisplayManager} from './display';
 import {EventType} from '../../index';
-import NotificationManager from './notification';
+import {NotificationManager} from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 import {Scope} from './keymap';
-import TextManager from './text';
+import {TextManager} from './text';
 
-export default class ReviewManager implements Observer {
+export class ReviewManager implements Observer {
   private enabled: boolean;
 
   private readonly notification: NotificationManager;
@@ -18,7 +18,7 @@ export default class ReviewManager implements Observer {
   private readonly reviewTextArea?: HTMLTextAreaElement;
   private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
-  constructor(
+  public constructor(
     notification: NotificationManager,
     display: DisplayManager,
     text: TextManager
@@ -95,7 +95,7 @@ export default class ReviewManager implements Observer {
       this.update(state);
       hotkeys.setScope(Scope.REVIEW);
     }
-    this.display.toggleTextAreaFocus();
+    this.display.toggleReviewFocus();
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

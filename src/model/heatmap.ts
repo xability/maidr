@@ -9,7 +9,7 @@ export class Heatmap extends AbstractPlot {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr);
 
     const data = maidr.data as HeatmapData;

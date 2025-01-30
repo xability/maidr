@@ -8,7 +8,7 @@ export class LinePlot extends AbstractPlot {
   private readonly min: number[];
   private readonly max: number[];
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr);
 
     this.points = maidr.data as LinePoint[][];

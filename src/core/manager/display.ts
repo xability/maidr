@@ -1,13 +1,20 @@
-import Constant from '../../util/constant';
+import {Constant} from '../../util/constant';
 import {EventType} from '../../index';
 import {Maidr} from '../../model/grammar';
 
-export default class DisplayManager {
+enum FocusMode {
+  BRAILLE,
+  NONE,
+  REVIEW,
+}
+
+export class DisplayManager {
   private readonly maidr: Maidr;
   private readonly plot?: HTMLElement;
 
   private readonly onFocus: () => void;
   private readonly onBlur: (event: FocusEvent) => void;
+  private prevFocusMode: FocusMode;
 
   private readonly articleElement?: HTMLElement;
   private readonly figureElement?: HTMLElement;
@@ -19,7 +26,7 @@ export default class DisplayManager {
   public readonly brailleAndReviewDiv?: HTMLElement;
   public readonly brailleAndReviewTextArea?: HTMLTextAreaElement;
 
-  constructor(
+  public constructor(
     maidr: Maidr,
     onFocus: () => void,
     onBlur: (event: FocusEvent) => void
@@ -29,6 +36,7 @@ export default class DisplayManager {
 
     this.onFocus = onFocus;
     this.onBlur = onBlur;
+    this.prevFocusMode = FocusMode.NONE;
 
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
@@ -185,32 +193,65 @@ export default class DisplayManager {
   ): HTMLTextAreaElement {
     const brailleAndReviewTextArea = document.createElement(Constant.TEXT_AREA);
     brailleAndReviewTextArea.id = brailleAndReviewTextAreaId;
-    brailleAndReviewTextArea.ariaBrailleRoleDescription = Constant.EMPTY;
     brailleAndReviewTextArea.classList.add(Constant.BRAILLE_AND_REVIEW_CLASS);
 
     this.brailleAndReviewDiv!.appendChild(brailleAndReviewTextArea);
     return brailleAndReviewTextArea;
   }
 
-  public toggleTextAreaFocus(): void {
-    if (
-      (document.activeElement as HTMLTextAreaElement) ===
-        this.brailleAndReviewTextArea &&
-      this.onBlur
-    ) {
-      this.brailleAndReviewTextArea.removeEventListener(
-        EventType.BLUR,
-        this.onBlur
-      );
-      this.plot?.focus();
-      this.brailleAndReviewTextArea.addEventListener(
-        EventType.BLUR,
-        this.onBlur
-      );
-      this.brailleAndReviewDiv?.classList.add(Constant.HIDDEN);
-    } else if ((document.activeElement as HTMLElement) === this.plot) {
-      this.brailleAndReviewDiv?.classList.remove(Constant.HIDDEN);
-      this.brailleAndReviewTextArea?.focus();
+  public toggleReviewFocus(): void {
+    if (!this.brailleAndReviewTextArea) {
+      return;
+    }
+
+    switch (this.prevFocusMode) {
+      case FocusMode.NONE:
+        this.brailleAndReviewDiv?.classList.remove(Constant.HIDDEN);
+        this.brailleAndReviewTextArea?.focus();
+        this.prevFocusMode = FocusMode.REVIEW;
+        break;
+
+      case FocusMode.REVIEW:
+        this.brailleAndReviewTextArea.removeEventListener(
+          EventType.BLUR,
+          this.onBlur
+        );
+        this.plot?.focus();
+        this.brailleAndReviewTextArea.addEventListener(
+          EventType.BLUR,
+          this.onBlur
+        );
+        this.brailleAndReviewDiv?.classList.add(Constant.HIDDEN);
+        this.prevFocusMode = FocusMode.NONE;
+        break;
+    }
+  }
+
+  public toggleBrailleFocus(): void {
+    if (!this.brailleAndReviewTextArea) {
+      return;
+    }
+
+    switch (this.prevFocusMode) {
+      case FocusMode.BRAILLE:
+        this.brailleAndReviewTextArea.removeEventListener(
+          EventType.BLUR,
+          this.onBlur
+        );
+        this.plot?.focus();
+        this.brailleAndReviewTextArea.addEventListener(
+          EventType.BLUR,
+          this.onBlur
+        );
+        this.brailleAndReviewDiv?.classList.add(Constant.HIDDEN);
+        this.prevFocusMode = FocusMode.NONE;
+        break;
+
+      case FocusMode.NONE:
+        this.brailleAndReviewDiv?.classList.remove(Constant.HIDDEN);
+        this.brailleAndReviewTextArea?.focus();
+        this.prevFocusMode = FocusMode.BRAILLE;
+        break;
     }
   }
 }

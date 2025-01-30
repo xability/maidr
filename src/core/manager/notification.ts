@@ -1,10 +1,10 @@
-import Constant from '../../util/constant';
+import {Constant} from '../../util/constant';
 
-export default class NotificationManager {
+export class NotificationManager {
   private readonly enabled: boolean;
   private readonly notificationDiv?: HTMLElement;
 
-  constructor(notificationDiv?: HTMLElement) {
+  public constructor(notificationDiv?: HTMLElement) {
     if (!notificationDiv) {
       this.enabled = false;
       return;

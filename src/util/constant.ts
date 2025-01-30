@@ -1,4 +1,4 @@
-export default abstract class Constant {
+export abstract class Constant {
   // HTML elements.
   static readonly ARTICLE = 'article';
   static readonly BR = 'br';
