@@ -12,6 +12,7 @@
     "prepare": "husky",
     "pretest": "npm run compile",
     "posttest": "npm run lint || true",
+    "posttest": "npm run lint || true", 
     "test": "echo \"No tests specified\" && exit 0"
   },
   "devDependencies": {
