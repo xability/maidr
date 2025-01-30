@@ -60,3 +60,7 @@ export const makeOpenAIRequest = async (
     return Promise.reject(new Error('Error making API call'));
   }
 };
+
+export const formatOpenAIResponse = (response: any) => {
+  return response.choices[0].message.content;
+};

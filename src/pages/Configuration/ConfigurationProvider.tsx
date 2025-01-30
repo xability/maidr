@@ -33,6 +33,7 @@ export const ConfigurationProvider: React.FC<{children: ReactNode}> = ({
     geminiAPIKey: '',
     claudeAPIKey: '',
     clientToken: '',
+    email: '',
   });
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
@@ -41,6 +42,12 @@ export const ConfigurationProvider: React.FC<{children: ReactNode}> = ({
     if (savedConfig) {
       const currentConfig = JSON.parse(savedConfig);
       setConfig(currentConfig);
+
+      if (currentConfig.clientToken) {
+        const headers = APIHandler.headers;
+        headers.Authentication = `${currentConfig.email} ${currentConfig.clientToken}`;
+        APIHandler.setHeaders(headers);
+      }
     }
     setIsConfigLoaded(true);
   }, []);

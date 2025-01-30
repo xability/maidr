@@ -52,3 +52,27 @@ export const formatGeminiRequest = (
 export const formatGeminiResponse = (response: any) => {
   return response.candidates[0].content.parts[0].text;
 };
+
+export const makeGeminiRequest = (
+  payload: BodyInit,
+  apiKey: string
+): Promise<Response> => {
+  const apiUrl =
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' +
+    apiKey;
+
+  try {
+    const response = fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: payload,
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error making API call:', error);
+    return Promise.reject(new Error('Error making API call'));
+  }
+};

@@ -27,11 +27,13 @@ export const ConfigurationDialog: React.FC = () => {
     geminiAPIKey: '',
     claudeAPIKey: '',
     clientToken: '',
+    email: '',
   });
   const [email, setEmail] = useState('');
   const {config, setConfigurations, verifyEmail} = useConfiguration();
   const [isLoading, setIsLoading] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
+  const [hideAPIKeys, setHideAPIKeys] = useState(false);
   const [openAIKey, setOpenAIKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [claudeKey, setClaudeKey] = useState('');
@@ -45,6 +47,11 @@ export const ConfigurationDialog: React.FC = () => {
       setOpenAIKey(currentConfig.openAIAPIKey);
       setGeminiKey(currentConfig.geminiAPIKey);
       setClaudeKey(currentConfig.claudeAPIKey);
+      setEmail(currentConfig.email);
+      if (currentConfig.clientToken) {
+        setEmailDisabled(true);
+        setHideAPIKeys(true);
+      }
     }
     setIsConfigLoaded(true);
   }, []);
@@ -85,10 +92,13 @@ export const ConfigurationDialog: React.FC = () => {
     verifyEmail(email).then(async response => {
       if (response.status === 200) {
         const responseData = await response.json();
-        config.clientToken = responseData.client_token;
+        currentConfig.clientToken = responseData.client_token;
+        currentConfig.email = email;
+
         const headers = APIHandler.headers;
-        headers.Authorization = `${email} ${responseData.client_token}`;
+        headers.Authentication = `${email} ${responseData.client_token}`;
         APIHandler.setHeaders(headers);
+
         setIsLoading(false);
         alert(responseData.message);
       } else {
@@ -101,7 +111,11 @@ export const ConfigurationDialog: React.FC = () => {
 
   const handleClearEmail = () => {
     setEmailDisabled(false);
+    currentConfig.email = '';
+    currentConfig.clientToken = '';
     setEmail('');
+    setHideAPIKeys(false);
+    setConfigurations(currentConfig);
   };
 
   return (
@@ -198,7 +212,8 @@ export const ConfigurationDialog: React.FC = () => {
                     </Button>
                   ))}
               </Box>
-              {currentConfig.models.openai && (
+
+              {!hideAPIKeys && currentConfig.models.openai && (
                 <TextField
                   placeholder="OpenAI API Key"
                   variant="outlined"
@@ -209,7 +224,7 @@ export const ConfigurationDialog: React.FC = () => {
                   onChange={e => setOpenAIKey(e.target.value)}
                 />
               )}
-              {currentConfig.models.gemini && (
+              {!hideAPIKeys && currentConfig.models.gemini && (
                 <TextField
                   placeholder="Gemini API Key"
                   variant="outlined"
@@ -220,7 +235,7 @@ export const ConfigurationDialog: React.FC = () => {
                   onChange={e => setGeminiKey(e.target.value)}
                 />
               )}
-              {currentConfig.models.claude && (
+              {!hideAPIKeys && currentConfig.models.claude && (
                 <TextField
                   placeholder="Claude API Key"
                   variant="outlined"

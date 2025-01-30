@@ -3,8 +3,17 @@ import {LLM} from '../types/LLMTypes';
 import {
   formatGeminiRequest,
   formatGeminiResponse,
+  makeGeminiRequest,
 } from '../utils/llm/GeminiAIUtils';
-import {formatOpenAIRequest, makeOpenAIRequest} from '../utils/llm/OpenAIUtils';
+import {
+  formatOpenAIRequest,
+  formatOpenAIResponse,
+  makeOpenAIRequest,
+} from '../utils/llm/OpenAIUtils';
+import {
+  formatClaudeRequest,
+  formatClaudeResponse,
+} from '../utils/llm/ClaudeAIUtils';
 import {APIHandler} from '../utils/api/APIHandlers';
 
 interface LLMContextProps {
@@ -34,6 +43,7 @@ export const LLMProvider: React.FC<{
     apiKey = ''
   ): Promise<string | null> => {
     try {
+      console.log(isServer);
       if (isServer) {
         const response = await APIHandler.post(
           `${llm}`,
@@ -80,8 +90,10 @@ const formatResponse = (response: any, llm: LLM) => {
     return formatGeminiResponse(response);
   }
   if (llm === LLM.OpenAI) {
-    console.log(response);
-    return response.choices[0].message.content;
+    return formatOpenAIResponse(response);
+  }
+  if (llm === LLM.Claude) {
+    return formatClaudeResponse(response);
   }
   return '';
 };
@@ -99,7 +111,7 @@ const formatRequest = (
     return formatOpenAIRequest(message, maidrJson, image, '');
   }
   if (llm === LLM.Claude) {
-    return JSON.stringify({});
+    return formatClaudeRequest(message, maidrJson, image, '');
   }
   return JSON.stringify({});
 };
@@ -110,8 +122,8 @@ const makeAIModelRequest = async (
   apiKey: string
 ): Promise<Response | null> => {
   switch (llm) {
-    // case LLM.Gemini:
-    //   return makeGeminiRequest(message);
+    case LLM.Gemini:
+      return makeGeminiRequest(payload, apiKey);
     case LLM.OpenAI:
       return makeOpenAIRequest(payload, apiKey);
     // case LLM.Claude:

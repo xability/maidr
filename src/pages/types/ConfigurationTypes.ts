@@ -8,4 +8,5 @@ export interface Configuration {
   geminiAPIKey: string;
   claudeAPIKey: string;
   clientToken: string;
+  email: string;
 }
