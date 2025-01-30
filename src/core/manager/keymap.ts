@@ -82,13 +82,16 @@ export class KeymapManager {
   public register(): void {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      // Allow keybindings only for MAIDR braille and review text area.
-      if (target.tagName.toLowerCase() === Constant.TEXT_AREA) {
-        return target.id.startsWith(Constant.BRAILLE_AND_REVIEW_TEXT_AREA);
+      if (target.tagName.toLowerCase() === Constant.INPUT) {
+        // Allow keybindings for MAIDR review input.
+        return target.id.startsWith(Constant.REVIEW_INPUT);
+      } else if (target.tagName.toLowerCase() === Constant.TEXT_AREA) {
+        // Allow keybindings only for MAIDR braille text area.
+        return target.id.startsWith(Constant.BRAILLE_TEXT_AREA);
+      } else {
+        // Allow keybindings for all other non-editable elements.
+        return true;
       }
-
-      // Allow keybindings for all other non-editable elements.
-      return true;
     };
 
     // Register all bindings.

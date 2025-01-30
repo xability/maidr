@@ -10,15 +10,15 @@ export abstract class Constant {
   static readonly TEXT_AREA = 'textarea';
 
   // HTML IDs.
-  static readonly BRAILLE_AND_REVIEW_CONTAINER =
-    'maidr-braille-review-container-';
-  static readonly BRAILLE_AND_REVIEW_TEXT_AREA =
-    'maidr-braille-review-textarea-';
+  static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
+  static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
+  static readonly REVIEW_CONTAINER = 'maidr-review-container-';
+  static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.

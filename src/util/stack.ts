@@ -17,6 +17,16 @@ export class Stack<T> {
     return this.items[this.items.length - 1];
   }
 
+  public remove(element: T, deleteCount = 1): boolean {
+    const index = this.items.lastIndexOf(element);
+    if (index !== -1) {
+      this.items.splice(index, deleteCount);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   public isEmpty(): boolean {
     return this.items.length === 0;
   }

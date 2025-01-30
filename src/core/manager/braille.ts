@@ -24,7 +24,7 @@ export class BrailleManager implements Observer {
     this.notification = notification;
     this.display = display;
 
-    if (!display.brailleAndReviewDiv || !display.brailleAndReviewTextArea) {
+    if (!display.brailleDiv || !display.brailleTextArea) {
       return;
     }
 
@@ -34,7 +34,7 @@ export class BrailleManager implements Observer {
         movable.moveToIndex(this.brailleTextArea!.selectionStart || -1);
       }
     };
-    this.brailleTextArea = display.brailleAndReviewTextArea;
+    this.brailleTextArea = display.brailleTextArea;
     this.brailleTextArea.addEventListener(
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
@@ -61,14 +61,10 @@ export class BrailleManager implements Observer {
 
     const index =
       state.braille.values
+        .map(row => row.join(Constant.EMPTY).length + 1)
         .slice(0, state.braille.row)
-        .reduce((acc, row) => acc + row.join(Constant.EMPTY).length + 1, 0) +
-      state.braille.col;
+        .reduce((acc, length) => acc + length, 0) + state.braille.col;
     this.brailleTextArea!.setSelectionRange(index, index);
-
-    // Scroll to the current caret position.
-    // Focus will be lost when disabled.
-    this.brailleTextArea!.focus();
   }
 
   public toggle(state: PlotState): void {
