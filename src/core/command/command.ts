@@ -1,9 +1,9 @@
-import AudioManager from '../manager/audio';
-import AutoplayManager from '../manager/autoplay';
-import BrailleManager from '../manager/braille';
+import {AudioManager} from '../manager/audio';
+import {AutoplayManager} from '../manager/autoplay';
+import {BrailleManager} from '../manager/braille';
 import {Plot} from '../interface';
-import ReviewManager from '../manager/review';
-import TextManager from '../manager/text';
+import {ReviewManager} from '../manager/review';
+import {TextManager} from '../manager/text';
 
 export interface Command {
   execute(event?: Event): void;

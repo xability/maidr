@@ -1,5 +1,5 @@
-import Constant from '../../util/constant';
-import NotificationManager from './notification';
+import {Constant} from '../../util/constant';
+import {NotificationManager} from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
 
@@ -9,12 +9,12 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export default class TextManager implements Observer {
+export class TextManager implements Observer {
   private mode: TextMode;
   private readonly notification: NotificationManager;
   private readonly textDiv!: HTMLElement;
 
-  constructor(notification: NotificationManager, textDiv?: HTMLElement) {
+  public constructor(notification: NotificationManager, textDiv?: HTMLElement) {
     this.notification = notification;
     if (!textDiv) {
       this.mode = TextMode.OFF;
@@ -25,7 +25,7 @@ export default class TextManager implements Observer {
     this.textDiv = textDiv;
   }
 
-  public format(state: PlotState): string {
+  public formatText(state: PlotState): string {
     if (!state || state.empty) {
       return 'No info to display';
     } else if (this.mode === TextMode.VERBOSE) {
@@ -35,7 +35,7 @@ export default class TextManager implements Observer {
       verbose.push(state.text.mainLabel, Constant.IS);
 
       // Format for histogram.
-      if (state.text.min && state.text.max) {
+      if (state.text.min !== undefined && state.text.max !== undefined) {
         verbose.push(state.text.min, Constant.THROUGH, state.text.max);
       } else {
         verbose.push(state.text.mainValue);
@@ -50,7 +50,7 @@ export default class TextManager implements Observer {
       );
 
       // Format for heatmap.
-      if (state.text.fillValue) {
+      if (state.text.fillValue !== undefined) {
         verbose.push(
           Constant.COMMA,
           state.text.fillLabel,
@@ -82,14 +82,13 @@ export default class TextManager implements Observer {
     if (typeof state === 'string') {
       text = state;
     } else {
-      text = this.format(state);
+      text = this.formatText(state);
     }
 
     // Display the text.
     if (text) {
       const paragraph = document.createElement(Constant.P);
       paragraph.innerHTML = text;
-
       this.textDiv.innerHTML = Constant.EMPTY;
       this.textDiv.append(paragraph);
     }
@@ -98,15 +97,15 @@ export default class TextManager implements Observer {
   public toggle(): void {
     switch (this.mode) {
       case TextMode.OFF:
-        this.mode = TextMode.TERSE;
-        break;
-
-      case TextMode.TERSE:
         this.mode = TextMode.VERBOSE;
         break;
 
-      case TextMode.VERBOSE:
+      case TextMode.TERSE:
         this.mode = TextMode.OFF;
+        break;
+
+      case TextMode.VERBOSE:
+        this.mode = TextMode.TERSE;
         break;
     }
 

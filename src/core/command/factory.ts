@@ -1,5 +1,5 @@
-import AudioManager from '../manager/audio';
-import AutoplayManager from '../manager/autoplay';
+import {AudioManager} from '../manager/audio';
+import {AutoplayManager} from '../manager/autoplay';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -10,36 +10,36 @@ import {
   SpeedUpAutoplayCommand,
   StopAutoplayCommand,
 } from './autoplay';
-import BrailleManager from '../manager/braille';
+import {BrailleManager} from '../manager/braille';
 import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
   DescribePointCommand,
-  DescribeXCommand,
-  DescribeYCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
+  DescribeXCommand,
+  DescribeYCommand,
 } from './describe';
-import {Keys} from '../manager/keymap';
+import {Keys, Scope} from '../manager/keymap';
 import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
-  MoveUpCommand,
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
   MoveToRightExtremeCommand,
   MoveToTopExtremeCommand,
+  MoveUpCommand,
 } from './move';
 import {Plot} from '../interface';
-import TextManager from '../manager/text';
-import ReviewManager from '../manager/review';
+import {TextManager} from '../manager/text';
+import {ReviewManager} from '../manager/review';
 import {
+  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
-  SwitchScopeCommand,
-  ToggleTextCommand,
   ToggleReviewCommand,
+  ToggleTextCommand,
 } from './toggle';
 
 export class CommandFactory {
@@ -52,7 +52,7 @@ export class CommandFactory {
 
   private readonly autoplay: AutoplayManager;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
 
     this.audio = commandContext.audio;
@@ -63,7 +63,7 @@ export class CommandFactory {
     this.autoplay = commandContext.autoplay;
   }
 
-  create(command: Keys): Command {
+  public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
         return new MoveUpCommand(this.plot);
@@ -85,11 +85,11 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.braille);
+        return new ToggleBrailleCommand(this.plot, this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.review);
+        return new ToggleReviewCommand(this.plot, this.review);
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);
@@ -110,9 +110,9 @@ export class CommandFactory {
         return new DescribeCaptionCommand(this.plot, this.text);
 
       case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand('LABEL');
+        return new SwitchScopeCommand(Scope.LABEL);
       case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand('DEFAULT');
+        return new SwitchScopeCommand(Scope.DEFAULT);
 
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.autoplay, this.plot);

@@ -1,4 +1,4 @@
-export default abstract class Constant {
+export abstract class Constant {
   // HTML elements.
   static readonly ARTICLE = 'article';
   static readonly BR = 'br';
@@ -7,10 +7,11 @@ export default abstract class Constant {
   static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
   static readonly P = 'p';
+  static readonly TEXT_AREA = 'textarea';
 
   // HTML IDs.
   static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
-  static readonly BRAILLE_INPUT = 'maidr-braille-input-';
+  static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
@@ -21,7 +22,7 @@ export default abstract class Constant {
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
 
   // HTML Classes.
-  static readonly BRAILLE_INPUT_CLASS = 'maidr-braille-input';
+  static readonly BRAILLE_AND_REVIEW_CLASS = 'maidr-braille-review-';
 
   // HTML attributes.
   static readonly ARIA_ATOMIC = 'aria-atomic';
@@ -44,6 +45,7 @@ export default abstract class Constant {
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MB_3 = 'mb-3';
+  static readonly NEW_LINE = '\n';
   static readonly OFF = 'off';
   static readonly SPACE = ' ';
   static readonly TEXT = 'text';

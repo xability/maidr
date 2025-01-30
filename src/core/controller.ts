@@ -1,16 +1,16 @@
-import AudioManager from './manager/audio';
-import AutoplayManager from './manager/autoplay';
-import BrailleManager from './manager/braille';
-import DisplayManager from './manager/display';
-import KeymapManager from './manager/keymap';
+import {AudioManager} from './manager/audio';
+import {AutoplayManager} from './manager/autoplay';
+import {BrailleManager} from './manager/braille';
+import {DisplayManager} from './manager/display';
+import {KeymapManager} from './manager/keymap';
 import {Maidr} from '../model/grammar';
-import NotificationManager from './manager/notification';
+import {NotificationManager} from './manager/notification';
 import {PlotFactory} from '../model/factory';
 import {Plot} from './interface';
-import ReviewManager from './manager/review';
-import TextManager from './manager/text';
+import {ReviewManager} from './manager/review';
+import {TextManager} from './manager/text';
 
-export default class Controller {
+export class Controller {
   private readonly plot: Plot;
 
   private readonly display: DisplayManager;
@@ -24,26 +24,20 @@ export default class Controller {
   private readonly autoplay: AutoplayManager;
   private readonly keymap: KeymapManager;
 
-  constructor(maidr: Maidr, display: DisplayManager) {
+  public constructor(maidr: Maidr, display: DisplayManager) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
     this.notification = new NotificationManager(this.display.notificationDiv);
 
-    this.audio = new AudioManager(this.notification);
+    this.audio = new AudioManager(this.notification, this.plot.hasMultiPoints);
     this.braille = new BrailleManager(
       this.notification,
       this.display,
-      this.plot,
-      this.plot.state
+      this.plot
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
-    this.review = new ReviewManager(
-      this.notification,
-      this.display,
-      this.text,
-      this.plot.state
-    );
+    this.review = new ReviewManager(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayManager(
       this.notification,

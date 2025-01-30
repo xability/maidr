@@ -1,12 +1,13 @@
 import hotkeys from 'hotkeys-js';
-import DisplayManager from './display';
+import {DisplayManager} from './display';
 import {EventType} from '../../index';
-import NotificationManager from './notification';
+import {NotificationManager} from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
-import TextManager from './text';
+import {Scope} from './keymap';
+import {TextManager} from './text';
 
-export default class ReviewManager implements Observer {
+export class ReviewManager implements Observer {
   private enabled: boolean;
 
   private readonly notification: NotificationManager;
@@ -16,11 +17,10 @@ export default class ReviewManager implements Observer {
   private readonly reviewInput?: HTMLInputElement;
   private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
-  constructor(
+  public constructor(
     notification: NotificationManager,
     display: DisplayManager,
-    text: TextManager,
-    state: PlotState
+    text: TextManager
   ) {
     this.enabled = false;
 
@@ -32,8 +32,6 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    // Prevent default behavior for all keys except navigation keys, Home, End, Control,a, c and Tab keys.
-    // Build review container if r is prepared and switch focus to review container
     this.reviewKeyHandler = (e: KeyboardEvent) => {
       const isNavigationKey =
         e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
@@ -41,11 +39,11 @@ export default class ReviewManager implements Observer {
       const isModifierKey = isCtrlKey || e.shiftKey;
 
       if (
-        !isNavigationKey &&
-        !(isModifierKey && isNavigationKey) &&
-        !(isCtrlKey && e.key === 'a') &&
-        !(isCtrlKey && e.key === 'c') &&
-        !(e.key === 'Tab')
+        !isNavigationKey && // Navigate next character with Arrow keys.
+        !(isModifierKey && isNavigationKey) && // Navigate to Start and End.
+        !(isCtrlKey && e.key === 'a') && // Select text.
+        !(isCtrlKey && e.key === 'c') && // Copy text.
+        !(e.key === 'Tab') // Allow blur after focussed.
       ) {
         e.preventDefault();
       }
@@ -55,8 +53,6 @@ export default class ReviewManager implements Observer {
       EventType.KEY_DOWN,
       this.reviewKeyHandler
     );
-
-    this.reviewInput.value = this.text.format(state);
   }
 
   public destroy(): void {
@@ -73,22 +69,19 @@ export default class ReviewManager implements Observer {
       return;
     }
 
-    this.reviewInput!.value = this.text.format(state);
+    this.reviewInput!.value = this.text.formatText(state);
   }
 
-  public toggle(): void {
-    if (!this.reviewInput) {
-      return;
-    }
-
+  public toggle(state: PlotState): void {
     if (this.enabled) {
       this.enabled = false;
-      hotkeys.setScope('DEFAULT');
+      hotkeys.setScope(Scope.DEFAULT);
     } else {
       this.enabled = true;
-      hotkeys.setScope('REVIEW');
+      this.update(state);
+      hotkeys.setScope(Scope.REVIEW);
     }
-    this.display.toggleInputFocus(this.reviewInput);
+    this.display.toggleReviewFocus();
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

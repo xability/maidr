@@ -1,5 +1,5 @@
-import Controller from './core/controller';
-import DisplayManager from './core/manager/display';
+import {Controller} from './core/controller';
+import {DisplayManager} from './core/manager/display';
 
 export enum EventType {
   BLUR = 'blur',

@@ -1,9 +1,9 @@
 import {Movable, MovableDirection} from '../interface';
-import NotificationManager from './notification';
+import {NotificationManager} from './notification';
 import {PlotState} from '../../model/state';
-import TextManager from './text';
+import {TextManager} from './text';
 
-export default class AutoplayManager {
+export class AutoplayManager {
   private readonly notification: NotificationManager;
   private readonly text: TextManager;
   private readonly movable: Movable;
@@ -20,7 +20,7 @@ export default class AutoplayManager {
   private readonly totalDuration = 4000;
   private readonly interval = 20;
 
-  constructor(
+  public constructor(
     notification: NotificationManager,
     text: TextManager,
     movable: Movable

@@ -1,27 +1,30 @@
 import hotkeys from 'hotkeys-js';
-import AudioManager from '../manager/audio';
-import BrailleManager from '../manager/braille';
+import {AudioManager} from '../manager/audio';
+import {BrailleManager} from '../manager/braille';
 import {Command} from './command';
-import ReviewManager from '../manager/review';
-import TextManager from '../manager/text';
+import {Plot} from '../interface';
+import {ReviewManager} from '../manager/review';
+import {TextManager} from '../manager/text';
 import {Scope} from '../manager/keymap';
 
 export class ToggleBrailleCommand implements Command {
+  private readonly plot: Plot;
   private readonly braille: BrailleManager;
 
-  constructor(braille: BrailleManager) {
+  public constructor(plot: Plot, braille: BrailleManager) {
+    this.plot = plot;
     this.braille = braille;
   }
 
   public execute(): void {
-    this.braille.toggle();
+    this.braille.toggle(this.plot.state);
   }
 }
 
 export class ToggleTextCommand implements Command {
   private readonly text: TextManager;
 
-  constructor(text: TextManager) {
+  public constructor(text: TextManager) {
     this.text = text;
   }
 
@@ -33,7 +36,7 @@ export class ToggleTextCommand implements Command {
 export class ToggleAudioCommand implements Command {
   private readonly audio: AudioManager;
 
-  constructor(audio: AudioManager) {
+  public constructor(audio: AudioManager) {
     this.audio = audio;
   }
 
@@ -43,21 +46,23 @@ export class ToggleAudioCommand implements Command {
 }
 
 export class ToggleReviewCommand implements Command {
+  private readonly plot: Plot;
   private readonly review: ReviewManager;
 
-  constructor(review: ReviewManager) {
+  public constructor(plot: Plot, review: ReviewManager) {
+    this.plot = plot;
     this.review = review;
   }
 
   public execute(): void {
-    this.review.toggle();
+    this.review.toggle(this.plot.state);
   }
 }
 
 export class SwitchScopeCommand implements Command {
   private readonly scopeName: Scope;
 
-  constructor(scopeName: Scope) {
+  public constructor(scopeName: Scope) {
     this.scopeName = scopeName;
   }
 

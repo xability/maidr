@@ -1,5 +1,5 @@
 import hotkeys from 'hotkeys-js';
-import Constant from '../../util/constant';
+import {Constant} from '../../util/constant';
 import {CommandFactory} from '../command/factory';
 import {CommandContext} from '../command/command';
 
@@ -50,41 +50,48 @@ export enum LabelKey {
 }
 
 export enum ReviewKey {
+  // Modes
+  TOGGLE_BRAILLE = 'b',
   TOGGLE_REVIEW = 'r',
 }
 
+export enum Scope {
+  DEFAULT = 'DEFAULT',
+  LABEL = 'LABEL',
+  REVIEW = 'REVIEW',
+}
+
 const scopedKeymap = {
-  DEFAULT: DefaultKey,
-  LABEL: LabelKey,
-  REVIEW: ReviewKey,
+  [Scope.DEFAULT]: DefaultKey,
+  [Scope.LABEL]: LabelKey,
+  [Scope.REVIEW]: ReviewKey,
 } as const;
 
-export type Scope = keyof typeof scopedKeymap;
 export type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
 export type Keys = keyof Keymap[Scope];
 
-export default class KeymapManager {
+export class KeymapManager {
   private readonly commandFactory: CommandFactory;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }
 
   public register(): void {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      // Allow keybindings only for MAIDR braille input.
       if (target.tagName.toLowerCase() === Constant.INPUT) {
-        return (
-          target.id.startsWith(Constant.BRAILLE_INPUT) ||
-          target.id.startsWith(Constant.REVIEW_INPUT)
-        );
+        // Allow keybindings for MAIDR review input.
+        return target.id.startsWith(Constant.REVIEW_INPUT);
+      } else if (target.tagName.toLowerCase() === Constant.TEXT_AREA) {
+        // Allow keybindings only for MAIDR braille text area.
+        return target.id.startsWith(Constant.BRAILLE_TEXT_AREA);
+      } else {
+        // Allow keybindings for all other non-editable elements.
+        return true;
       }
-
-      // Allow keybindings for all other non-editable elements.
-      return true;
     };
 
     // Register all bindings.
@@ -116,7 +123,7 @@ export default class KeymapManager {
     }
 
     // Set the initial scope.
-    hotkeys.setScope('DEFAULT');
+    hotkeys.setScope(Scope.DEFAULT);
   }
 
   public unregister(): void {
