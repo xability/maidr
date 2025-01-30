@@ -5,6 +5,7 @@ import {EventType} from '../../index';
 import NotificationManager from './notification';
 import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Scope} from './keymap';
 import TextManager from './text';
 
 export default class ReviewManager implements Observer {
@@ -77,17 +78,22 @@ export default class ReviewManager implements Observer {
     } else {
       existingText[state.braille.row] = this.text.formatText(state);
       this.reviewTextArea!.value = existingText.join(Constant.EMPTY);
+
+      const index = state.braille.values
+        .slice(0, state.braille.row)
+        .reduce((acc, row) => acc + row.join(Constant.EMPTY).length + 1, 0);
+      this.reviewTextArea!.setSelectionRange(index, index);
     }
   }
 
   public toggle(state: PlotState): void {
     if (this.enabled) {
       this.enabled = false;
-      hotkeys.setScope('DEFAULT');
+      hotkeys.setScope(Scope.DEFAULT);
     } else {
       this.enabled = true;
       this.update(state);
-      hotkeys.setScope('REVIEW');
+      hotkeys.setScope(Scope.REVIEW);
     }
     this.display.toggleTextAreaFocus();
 

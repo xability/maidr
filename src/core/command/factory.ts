@@ -15,31 +15,31 @@ import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
   DescribePointCommand,
-  DescribeXCommand,
-  DescribeYCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
+  DescribeXCommand,
+  DescribeYCommand,
 } from './describe';
-import {Keys} from '../manager/keymap';
+import {Keys, Scope} from '../manager/keymap';
 import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
-  MoveUpCommand,
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
   MoveToRightExtremeCommand,
   MoveToTopExtremeCommand,
+  MoveUpCommand,
 } from './move';
 import {Plot} from '../interface';
 import TextManager from '../manager/text';
 import ReviewManager from '../manager/review';
 import {
+  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
-  SwitchScopeCommand,
-  ToggleTextCommand,
   ToggleReviewCommand,
+  ToggleTextCommand,
 } from './toggle';
 
 export class CommandFactory {
@@ -110,9 +110,9 @@ export class CommandFactory {
         return new DescribeCaptionCommand(this.plot, this.text);
 
       case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand('LABEL');
+        return new SwitchScopeCommand(Scope.LABEL);
       case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand('DEFAULT');
+        return new SwitchScopeCommand(Scope.DEFAULT);
 
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.autoplay, this.plot);

@@ -55,13 +55,18 @@ export enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
+export enum Scope {
+  DEFAULT = 'DEFAULT',
+  LABEL = 'LABEL',
+  REVIEW = 'REVIEW',
+}
+
 const scopedKeymap = {
-  DEFAULT: DefaultKey,
-  LABEL: LabelKey,
-  REVIEW: ReviewKey,
+  [Scope.DEFAULT]: DefaultKey,
+  [Scope.LABEL]: LabelKey,
+  [Scope.REVIEW]: ReviewKey,
 } as const;
 
-export type Scope = keyof typeof scopedKeymap;
 export type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
@@ -115,7 +120,7 @@ export default class KeymapManager {
     }
 
     // Set the initial scope.
-    hotkeys.setScope('DEFAULT');
+    hotkeys.setScope(Scope.DEFAULT);
   }
 
   public unregister(): void {
