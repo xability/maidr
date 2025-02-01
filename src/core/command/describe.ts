@@ -1,14 +1,14 @@
-import {Plot} from '../interface';
-import {AudioManager} from '../manager/audio';
-import {BrailleManager} from '../manager/braille';
-import {TextManager} from '../manager/text';
+import {Plot} from '../../model/plot';
+import {AudioService} from '../service/audio';
+import {BrailleService} from '../service/braille';
+import {TextService} from '../service/text';
 import {Command} from './command';
 
 abstract class DescribeCommand implements Command {
   protected readonly plot: Plot;
-  protected readonly text: TextManager;
+  protected readonly text: TextService;
 
-  protected constructor(plot: Plot, text: TextManager) {
+  protected constructor(plot: Plot, text: TextService) {
     this.plot = plot;
     this.text = text;
   }
@@ -17,7 +17,7 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextService) {
     super(plot, text);
   }
 
@@ -28,7 +28,7 @@ export class DescribeXCommand extends DescribeCommand {
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextService) {
     super(plot, text);
   }
 
@@ -39,7 +39,7 @@ export class DescribeYCommand extends DescribeCommand {
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextService) {
     super(plot, text);
   }
 
@@ -50,7 +50,7 @@ export class DescribeTitleCommand extends DescribeCommand {
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextService) {
     super(plot, text);
   }
 
@@ -61,7 +61,7 @@ export class DescribeSubtitleCommand extends DescribeCommand {
 }
 
 export class DescribeCaptionCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextService) {
     super(plot, text);
   }
 
@@ -72,14 +72,14 @@ export class DescribeCaptionCommand extends DescribeCommand {
 }
 
 export class DescribePointCommand extends DescribeCommand {
-  private readonly audio: AudioManager;
-  private readonly braille: BrailleManager;
+  private readonly audio: AudioService;
+  private readonly braille: BrailleService;
 
   public constructor(
     plot: Plot,
-    audio: AudioManager,
-    braille: BrailleManager,
-    text: TextManager
+    audio: AudioService,
+    braille: BrailleService,
+    text: TextService
   ) {
     super(plot, text);
     this.audio = audio;

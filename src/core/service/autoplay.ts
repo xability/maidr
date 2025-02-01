@@ -1,11 +1,11 @@
 import {PlotState} from '../../model/state';
 import {Movable, MovableDirection} from '../interface';
-import {NotificationManager} from './notification';
-import {TextManager} from './text';
+import {NotificationService} from './notification';
+import {TextService} from './text';
 
-export class AutoplayManager {
-  private readonly notification: NotificationManager;
-  private readonly text: TextManager;
+export class AutoplayService {
+  private readonly notification: NotificationService;
+  private readonly text: TextService;
   private readonly movable: Movable;
 
   private playId?: NodeJS.Timeout | null = null;
@@ -21,8 +21,8 @@ export class AutoplayManager {
   private readonly interval = 20;
 
   public constructor(
-    notification: NotificationManager,
-    text: TextManager,
+    notification: NotificationService,
+    text: TextService,
     movable: Movable
   ) {
     this.notification = notification;

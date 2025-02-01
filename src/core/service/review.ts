@@ -3,25 +3,25 @@ import hotkeys from 'hotkeys-js';
 import {EventType} from '../../index';
 import {PlotState} from '../../model/state';
 import {Observer} from '../interface';
-import {DisplayManager} from './display';
+import {DisplayService} from './display';
 import {Scope} from './keymap';
-import {NotificationManager} from './notification';
-import {TextManager} from './text';
+import {NotificationService} from './notification';
+import {TextService} from './text';
 
-export class ReviewManager implements Observer {
+export class ReviewService implements Observer {
   private enabled: boolean;
 
-  private readonly notification: NotificationManager;
-  private readonly display: DisplayManager;
-  private readonly text: TextManager;
+  private readonly notification: NotificationService;
+  private readonly display: DisplayService;
+  private readonly text: TextService;
 
   private readonly reviewInput?: HTMLInputElement;
   private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
 
   public constructor(
-    notification: NotificationManager,
-    display: DisplayManager,
-    text: TextManager
+    notification: NotificationService,
+    display: DisplayService,
+    text: TextService
   ) {
     this.enabled = false;
 

@@ -2,6 +2,10 @@ import {Maidr, SegmentedPoint} from './grammar';
 import {AbstractBarPlot, Orientation} from './plot';
 import {TextState} from './state';
 
+const SUM = 'Sum';
+const LEVEL = 'Level';
+const UNDEFINED = 'undefined';
+
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   private readonly globalMin: number;
   private readonly globalMax: number;
@@ -27,12 +31,12 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
           ? {
               x: this.points[0][i].x,
               y: sum,
-              fill: 'Sum',
+              fill: SUM,
             }
           : {
               x: sum,
               y: this.points[0][i].y,
-              fill: 'Sum',
+              fill: SUM,
             };
       summaryPoints.push(point);
     }
@@ -51,8 +55,8 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
 
   protected text(): TextState {
     const fillData = {
-      fillLabel: 'Level',
-      fillValue: this.points[this.row][this.col].fill ?? 'undefined',
+      fillLabel: LEVEL,
+      fillValue: this.points[this.row][this.col].fill ?? UNDEFINED,
     };
 
     return {

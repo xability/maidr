@@ -1,4 +1,5 @@
-import {MovableDirection, Plot} from '../interface';
+import {Plot} from "../../model/plot";
+import {MovableDirection} from '../interface';
 import {Command} from './command';
 
 export class MoveUpCommand implements Command {

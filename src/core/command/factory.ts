@@ -1,10 +1,10 @@
-import {Plot} from '../interface';
-import {AudioManager} from '../manager/audio';
-import {AutoplayManager} from '../manager/autoplay';
-import {BrailleManager} from '../manager/braille';
-import {Keys, Scope} from '../manager/keymap';
-import {ReviewManager} from '../manager/review';
-import {TextManager} from '../manager/text';
+import {Plot} from "../../model/plot";
+import {AudioService} from '../service/audio';
+import {AutoplayService} from '../service/autoplay';
+import {BrailleService} from '../service/braille';
+import {Keys, Scope} from '../service/keymap';
+import {ReviewService} from '../service/review';
+import {TextService} from '../service/text';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -45,12 +45,12 @@ import {
 export class CommandFactory {
   private readonly plot: Plot;
 
-  private readonly audio: AudioManager;
-  private readonly braille: BrailleManager;
-  private readonly text: TextManager;
-  private readonly review: ReviewManager;
+  private readonly audio: AudioService;
+  private readonly braille: BrailleService;
+  private readonly text: TextService;
+  private readonly review: ReviewService;
 
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
 
   public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
