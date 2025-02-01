@@ -1,9 +1,9 @@
-import {EventType} from '../../index';
-import {PlotState} from '../../model/state';
-import {Constant} from '../../util/constant';
-import {Movable, Observer} from '../interface';
-import {DisplayService} from './display';
-import {NotificationService} from './notification';
+import { EventType } from "../../index";
+import { PlotState } from "../../model/state";
+import { Constant } from "../../util/constant";
+import { Movable, Observer } from "../interface";
+import { DisplayService } from "./display";
+import { NotificationService } from "./notification";
 
 export class BrailleService implements Observer {
   private readonly notification: NotificationService;
@@ -17,7 +17,7 @@ export class BrailleService implements Observer {
   public constructor(
     notification: NotificationService,
     display: DisplayService,
-    movable: Movable
+    movable: Movable,
   ) {
     this.notification = notification;
     this.display = display;
@@ -36,7 +36,7 @@ export class BrailleService implements Observer {
     this.brailleTextArea = display.brailleTextArea;
     this.brailleTextArea.addEventListener(
       EventType.SELECTION_CHANGE,
-      this.selectionChangeHandler
+      this.selectionChangeHandler,
     );
   }
 
@@ -44,7 +44,7 @@ export class BrailleService implements Observer {
     if (this.brailleTextArea && this.selectionChangeHandler) {
       this.brailleTextArea.removeEventListener(
         EventType.SELECTION_CHANGE,
-        this.selectionChangeHandler
+        this.selectionChangeHandler,
       );
     }
   }
@@ -56,12 +56,12 @@ export class BrailleService implements Observer {
 
     const braille = state.braille;
     this.brailleTextArea!.value = braille.values
-      .map(row => row.join(Constant.EMPTY))
+      .map((row) => row.join(Constant.EMPTY))
       .join(Constant.NEW_LINE);
 
     const index =
       braille.values
-        .map(row => row.join(Constant.EMPTY).length + 1)
+        .map((row) => row.join(Constant.EMPTY).length + 1)
         .slice(0, braille.row)
         .reduce((acc, length) => acc + length, 0) + braille.col;
     this.brailleTextArea!.setSelectionRange(index, index);
@@ -69,7 +69,7 @@ export class BrailleService implements Observer {
 
   public toggle(state: PlotState): void {
     if (state.empty || state.braille.empty) {
-      const notSupported = 'Braille is not supported';
+      const notSupported = "Braille is not supported";
       this.notification.notify(notSupported);
       return;
     }
@@ -82,7 +82,7 @@ export class BrailleService implements Observer {
     }
     this.display.toggleBrailleFocus();
 
-    const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
+    const message = `Braille is ${this.enabled ? "on" : "off"}`;
     this.notification.notify(message);
   }
 }

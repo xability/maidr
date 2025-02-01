@@ -1,12 +1,12 @@
-import {PlotState, TextState} from '../../model/state';
-import {Constant} from '../../util/constant';
-import {Observer} from '../interface';
-import {NotificationService} from './notification';
+import { PlotState, TextState } from "../../model/state";
+import { Constant } from "../../util/constant";
+import { Observer } from "../interface";
+import { NotificationService } from "./notification";
 
 enum TextMode {
-  OFF = 'off',
-  TERSE = 'terse',
-  VERBOSE = 'verbose',
+  OFF = "off",
+  TERSE = "terse",
+  VERBOSE = "verbose",
 }
 
 export class TextService implements Observer {
@@ -28,7 +28,7 @@ export class TextService implements Observer {
 
   public formatText(state: PlotState): string {
     if (!state || state.empty) {
-      return 'No info to display';
+      return "No info to display";
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseText(state.text);
     } else {
@@ -78,7 +78,7 @@ export class TextService implements Observer {
         Constant.COMMA,
         state.fillLabel,
         Constant.IS,
-        state.fillValue
+        state.fillValue,
       );
     }
 
@@ -123,7 +123,7 @@ export class TextService implements Observer {
 
     // Format the text based on the display mode.
     let text;
-    if (typeof state === 'string') {
+    if (typeof state === "string") {
       text = state;
     } else {
       text = this.formatText(state);
