@@ -1,10 +1,10 @@
-import {Command} from './command';
 import {MovableDirection, Plot} from '../interface';
+import {Command} from './command';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -16,7 +16,7 @@ export class MoveUpCommand implements Command {
 export class MoveDownCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -28,7 +28,7 @@ export class MoveDownCommand implements Command {
 export class MoveLeftCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -40,7 +40,7 @@ export class MoveLeftCommand implements Command {
 export class MoveRightCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -52,7 +52,7 @@ export class MoveRightCommand implements Command {
 export class MoveToTopExtremeCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -64,7 +64,7 @@ export class MoveToTopExtremeCommand implements Command {
 export class MoveToBottomExtremeCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
   public execute(): void {
@@ -75,7 +75,7 @@ export class MoveToBottomExtremeCommand implements Command {
 export class MoveToLeftExtremeCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
@@ -87,7 +87,7 @@ export class MoveToLeftExtremeCommand implements Command {
 export class MoveToRightExtremeCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 

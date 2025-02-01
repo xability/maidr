@@ -212,5 +212,5 @@ dist
 # HTML Linter prevention
 .hintrc
 
-# vscode dev environment settings
-.vscode
+# Mac OS
+.DS_Store

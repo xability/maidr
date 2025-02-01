@@ -1,3 +1,5 @@
+import {MovableDirection, Observer, Plot} from '../core/interface';
+import {BarPoint, Maidr} from './grammar';
 import {
   AudioState,
   AutoplayState,
@@ -5,8 +7,6 @@ import {
   PlotState,
   TextState,
 } from './state';
-import {BarPoint, Maidr} from './grammar';
-import {MovableDirection, Observer, Plot} from '../core/interface';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -96,8 +96,9 @@ export abstract class AbstractPlot implements Plot {
 
   protected braille(): BrailleState {
     return {
-      values: this.brailleValues[this.row],
-      index: this.col,
+      values: this.brailleValues,
+      row: this.row,
+      col: this.col,
     };
   }
 

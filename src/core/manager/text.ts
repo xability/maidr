@@ -1,7 +1,7 @@
-import Constant from '../../util/constant';
-import NotificationManager from './notification';
-import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Constant} from '../../util/constant';
+import {Observer} from '../interface';
+import {NotificationManager} from './notification';
 
 enum TextMode {
   OFF = 'off',
@@ -9,12 +9,12 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export default class TextManager implements Observer {
+export class TextManager implements Observer {
   private mode: TextMode;
   private readonly notification: NotificationManager;
   private readonly textDiv!: HTMLElement;
 
-  constructor(notification: NotificationManager, textDiv?: HTMLElement) {
+  public constructor(notification: NotificationManager, textDiv?: HTMLElement) {
     this.notification = notification;
     if (!textDiv) {
       this.mode = TextMode.OFF;
@@ -25,18 +25,9 @@ export default class TextManager implements Observer {
     this.textDiv = textDiv;
   }
 
-  public update(state: string | PlotState): void {
-    // Show text only if turned on.
-    if (this.mode === TextMode.OFF) {
-      return;
-    }
-
-    // Format the text based on the display mode.
-    let text;
-    if (typeof state === 'string') {
-      text = state;
-    } else if (!state || state.empty) {
-      text = 'No info to display';
+  public formatText(state: PlotState): string {
+    if (!state || state.empty) {
+      return 'No info to display';
     } else if (this.mode === TextMode.VERBOSE) {
       // TODO: Format for segmented and boxplot.
       const verbose = [];
@@ -68,7 +59,7 @@ export default class TextManager implements Observer {
         );
       }
 
-      text = verbose.join(Constant.EMPTY);
+      return verbose.join(Constant.EMPTY);
     } else {
       // TODO: Format for segmented and boxplot.
       const terse = [
@@ -76,7 +67,22 @@ export default class TextManager implements Observer {
         Constant.COMMA,
         state.text.crossValue,
       ];
-      text = terse.join(Constant.EMPTY);
+      return terse.join(Constant.EMPTY);
+    }
+  }
+
+  public update(state: string | PlotState): void {
+    // Show text only if turned on.
+    if (this.mode === TextMode.OFF) {
+      return;
+    }
+
+    // Format the text based on the display mode.
+    let text;
+    if (typeof state === 'string') {
+      text = state;
+    } else {
+      text = this.formatText(state);
     }
 
     // Display the text.

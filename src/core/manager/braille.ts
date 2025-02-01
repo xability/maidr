@@ -1,68 +1,53 @@
-import Constant from '../../util/constant';
 import {EventType} from '../../index';
-import NotificationManager from './notification';
-import {Movable, Observer} from '../interface';
 import {PlotState} from '../../model/state';
-import DisplayManager from './display';
+import {Constant} from '../../util/constant';
+import {Movable, Observer} from '../interface';
+import {DisplayManager} from './display';
+import {NotificationManager} from './notification';
 
-export default class BrailleManager implements Observer {
+export class BrailleManager implements Observer {
   private enabled: boolean;
+
   private readonly notification: NotificationManager;
   private readonly display: DisplayManager;
 
-  private readonly brailleDiv?: HTMLElement;
-  private readonly brailleInput?: HTMLInputElement;
-
+  private readonly brailleTextArea?: HTMLTextAreaElement;
   private readonly selectionChangeHandler?: (event: Event) => void;
 
-  constructor(
+  public constructor(
     notification: NotificationManager,
     display: DisplayManager,
-    movable: Movable,
-    state: PlotState
+    movable: Movable
   ) {
     this.enabled = false;
+
     this.notification = notification;
     this.display = display;
 
-    if (!display.brailleDiv || !display.brailleInput) {
+    if (!display.brailleDiv || !display.brailleTextArea) {
       return;
     }
 
-    this.brailleDiv = display.brailleDiv;
-    this.brailleInput = display.brailleInput;
-
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
-      movable.moveToIndex(this.brailleInput!.selectionStart || -1);
+      if (this.enabled) {
+        movable.moveToIndex(this.brailleTextArea!.selectionStart || -1);
+      }
     };
-    this.brailleInput.addEventListener(
+    this.brailleTextArea = display.brailleTextArea;
+    this.brailleTextArea.addEventListener(
       EventType.SELECTION_CHANGE,
       this.selectionChangeHandler
     );
-
-    this.setBraille(state);
   }
 
   public destroy(): void {
-    if (this.brailleInput && this.selectionChangeHandler) {
-      this.brailleInput.removeEventListener(
+    if (this.brailleTextArea && this.selectionChangeHandler) {
+      this.brailleTextArea.removeEventListener(
         EventType.SELECTION_CHANGE,
         this.selectionChangeHandler
       );
     }
-  }
-
-  private setBraille(state: PlotState): void {
-    if (state.empty) {
-      return;
-    }
-
-    this.brailleInput!.value = state.braille.values.join(Constant.EMPTY);
-    this.brailleInput!.setSelectionRange(
-      state.braille.index,
-      state.braille.index
-    );
   }
 
   public update(state: PlotState): void {
@@ -70,14 +55,25 @@ export default class BrailleManager implements Observer {
       return;
     }
 
-    this.setBraille(state);
-    // Scroll to the current caret position.
-    // Focus will be lost when disabled.
-    this.brailleInput!.focus();
+    this.brailleTextArea!.value = state.braille.values
+      .map(row => row.join(Constant.EMPTY))
+      .join(Constant.NEW_LINE);
+
+    const index =
+      state.braille.values
+        .map(row => row.join(Constant.EMPTY).length + 1)
+        .slice(0, state.braille.row)
+        .reduce((acc, length) => acc + length, 0) + state.braille.col;
+    this.brailleTextArea!.setSelectionRange(index, index);
   }
 
-  public toggle(): void {
-    this.enabled = !this.enabled;
+  public toggle(state: PlotState): void {
+    if (!this.enabled) {
+      this.enabled = true;
+      this.update(state);
+    } else {
+      this.enabled = false;
+    }
     this.display.toggleBrailleFocus();
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
