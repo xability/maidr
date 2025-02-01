@@ -120,7 +120,7 @@ export class DisplayManager {
   public addInstruction(): void {
     if (this.plot) {
       const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}: Click to activate.
-        Use Arrows to navigate data points. Toggle B for Braille, T for Text, 
+        Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode. Use H for Help.`;
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
