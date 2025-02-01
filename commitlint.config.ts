@@ -1,31 +1,10 @@
-import {UserConfig} from '@commitlint/types';
+import conventional from '@commitlint/config-conventional';
+import { UserConfig } from '@commitlint/types';
 
-const Configuration: UserConfig = {
+const config: UserConfig = {
   extends: ['@commitlint/config-conventional'],
-  rules: {
-    'type-enum': [
-      2,
-      'always',
-      [
-        'build',
-        'chore',
-        'ci',
-        'docs',
-        'feat',
-        'fix',
-        'perf',
-        'refactor',
-        'revert',
-        'style',
-        'test',
-      ],
-    ],
-    'subject-case': [
-      0,
-      'never',
-      ['sentence-case', 'start-case', 'pascal-case', 'upper-case'],
-    ],
-  },
+  rules: conventional.rules,
+  helpUrl: 'https://github.com/conventional-changelog/commitlint/#what-is-commitlint',
 };
 
-export default Configuration;
+export default config;

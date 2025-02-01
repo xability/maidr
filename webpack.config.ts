@@ -1,13 +1,14 @@
-const path = require('path');
+import path from 'path';
+import { Configuration } from 'webpack';
 
-module.exports = {
-  entry: './src/index.ts', // Entry point of your application
+const config: Configuration = {
+  entry: './src/index.ts', // Entry point of MAIDR application
   output: {
     filename: 'bundle.js', // Output file
     path: path.resolve(__dirname, 'dist'), // Output directory
   },
   resolve: {
-    extensions: ['.ts', '.js'], // Resolve TypeScript and JavaScript files
+    extensions: ['.ts'], // Resolve TypeScript files
   },
   module: {
     rules: [
@@ -21,3 +22,5 @@ module.exports = {
   devtool: 'source-map', // Enable source maps for debugging
   mode: 'development', // Set the mode (development or production)
 };
+
+export default config;
