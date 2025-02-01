@@ -73,7 +73,7 @@ export type Keymap = {
 };
 export type Keys = keyof Keymap[Scope];
 
-export class KeymapManager {
+export class KeymapService {
   private readonly commandFactory: CommandFactory;
 
   public constructor(commandContext: CommandContext) {

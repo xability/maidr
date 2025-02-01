@@ -1,4 +1,4 @@
-import {MovableDirection, Observer, Plot} from '../core/interface';
+import {Movable, MovableDirection, Observable, Observer} from '../core/interface';
 import {BarPoint, Maidr} from './grammar';
 import {
   AudioState,
@@ -17,6 +17,7 @@ const DEFAULT_FILL_AXIS = 'Fill';
 
 export enum PlotType {
   BAR = 'bar',
+  BOX = 'box',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
@@ -30,7 +31,23 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export abstract class AbstractPlot implements Plot {
+export interface Plot extends Movable, Observable {
+  id: string;
+  type: string;
+
+  title: string;
+  subtitle: string;
+  caption: string;
+
+  xAxis: string;
+  yAxis: string;
+
+  get state(): PlotState;
+
+  get hasMultiPoints(): boolean;
+}
+
+export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
   protected isOutOfBounds: boolean;
 
@@ -45,7 +62,7 @@ export abstract class AbstractPlot implements Plot {
   public readonly yAxis: string;
   protected readonly fill: string;
 
-  protected values: number[][];
+  protected values: T[][];
   protected brailleValues: string[][];
 
   protected row: number;
@@ -96,6 +113,7 @@ export abstract class AbstractPlot implements Plot {
 
   protected braille(): BrailleState {
     return {
+      empty: false,
       values: this.brailleValues,
       row: this.row,
       col: this.col,
@@ -193,7 +211,9 @@ export abstract class AbstractPlot implements Plot {
   }
 }
 
-export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot {
+export abstract class AbstractBarPlot<
+  T extends BarPoint,
+> extends AbstractPlot<number> {
   protected readonly points: T[][];
   protected readonly orientation: Orientation;
 

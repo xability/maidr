@@ -2,7 +2,7 @@ import {HeatmapData, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
 
-export class Heatmap extends AbstractPlot {
+export class Heatmap extends AbstractPlot<number> {
   private readonly x: string[];
   private readonly y: string[];
 
@@ -46,7 +46,7 @@ export class Heatmap extends AbstractPlot {
   }
 
   private toBraille(data: number[][]): string[][] {
-    const braille = [];
+    const braille = new Array<Array<string>>();
 
     const range = (this.max - this.min) / 3;
     const low = this.min + range;
