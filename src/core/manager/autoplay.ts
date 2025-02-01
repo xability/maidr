@@ -1,6 +1,6 @@
+import {PlotState} from '../../model/state';
 import {Movable, MovableDirection} from '../interface';
 import {NotificationManager} from './notification';
-import {PlotState} from '../../model/state';
 import {TextManager} from './text';
 
 export class AutoplayManager {

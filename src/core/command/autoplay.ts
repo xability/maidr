@@ -1,6 +1,6 @@
+import {MovableDirection, Plot} from '../interface';
 import {AutoplayManager} from '../manager/autoplay';
 import {Command} from './command';
-import {MovableDirection, Plot} from '../interface';
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayManager;

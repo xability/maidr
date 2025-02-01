@@ -1,12 +1,12 @@
+import {PlotFactory} from '../model/factory';
+import {Maidr} from '../model/grammar';
+import {Plot} from './interface';
 import {AudioManager} from './manager/audio';
 import {AutoplayManager} from './manager/autoplay';
 import {BrailleManager} from './manager/braille';
 import {DisplayManager} from './manager/display';
 import {KeymapManager} from './manager/keymap';
-import {Maidr} from '../model/grammar';
 import {NotificationManager} from './manager/notification';
-import {PlotFactory} from '../model/factory';
-import {Plot} from './interface';
 import {ReviewManager} from './manager/review';
 import {TextManager} from './manager/text';
 

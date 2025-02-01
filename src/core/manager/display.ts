@@ -1,6 +1,6 @@
-import {Constant} from '../../util/constant';
 import {EventType} from '../../index';
 import {Maidr} from '../../model/grammar';
+import {Constant} from '../../util/constant';
 import {Stack} from '../../util/stack';
 
 enum FocusMode {

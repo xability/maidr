@@ -1,6 +1,6 @@
+import {LinePoint, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
-import {LinePoint, Maidr} from './grammar';
 
 export class LinePlot extends AbstractPlot {
   private readonly points: LinePoint[][];

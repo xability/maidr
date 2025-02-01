@@ -1,7 +1,7 @@
+import {Plot} from '../interface';
 import {AudioManager} from '../manager/audio';
 import {AutoplayManager} from '../manager/autoplay';
 import {BrailleManager} from '../manager/braille';
-import {Plot} from '../interface';
 import {ReviewManager} from '../manager/review';
 import {TextManager} from '../manager/text';
 

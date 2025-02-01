@@ -1,7 +1,7 @@
-import {Constant} from '../../util/constant';
-import {NotificationManager} from './notification';
-import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Constant} from '../../util/constant';
+import {Observer} from '../interface';
+import {NotificationManager} from './notification';
 
 enum TextMode {
   OFF = 'off',

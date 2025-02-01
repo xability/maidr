@@ -1,7 +1,8 @@
 import hotkeys from 'hotkeys-js';
+
 import {Constant} from '../../util/constant';
-import {CommandFactory} from '../command/factory';
 import {CommandContext} from '../command/command';
+import {CommandFactory} from '../command/factory';
 
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',

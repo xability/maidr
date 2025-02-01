@@ -1,8 +1,8 @@
+import {Plot} from '../interface';
 import {AudioManager} from '../manager/audio';
 import {BrailleManager} from '../manager/braille';
-import {Command} from './command';
-import {Plot} from '../interface';
 import {TextManager} from '../manager/text';
+import {Command} from './command';
 
 abstract class DescribeCommand implements Command {
   protected readonly plot: Plot;
@@ -59,6 +59,7 @@ export class DescribeSubtitleCommand extends DescribeCommand {
     this.text.update(message);
   }
 }
+
 export class DescribeCaptionCommand extends DescribeCommand {
   public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
@@ -69,6 +70,7 @@ export class DescribeCaptionCommand extends DescribeCommand {
     this.text.update(message);
   }
 }
+
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;

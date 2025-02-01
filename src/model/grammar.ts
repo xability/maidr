@@ -21,29 +21,29 @@ export interface Maidr {
     | SegmentedPoint[][];
 }
 
-export type BarPoint = {
+export interface BarPoint {
   x: string | number;
   y: number | string;
-};
+}
 
-export type HeatmapData = {
+export interface HeatmapData {
   x: string[];
   y: string[];
   points: number[][];
-};
+}
 
-export type HistogramPoint = BarPoint & {
+export interface HistogramPoint extends BarPoint {
   xmin: number;
   xmax: number;
   ymin: number;
   ymax: number;
-};
+}
 
-export type LinePoint = {
+export interface LinePoint {
   x: number;
   y: number;
-};
+}
 
-export type SegmentedPoint = BarPoint & {
+export interface SegmentedPoint extends BarPoint {
   fill: string;
-};
+}

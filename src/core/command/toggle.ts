@@ -1,11 +1,12 @@
 import hotkeys from 'hotkeys-js';
+
+import {Plot} from '../interface';
 import {AudioManager} from '../manager/audio';
 import {BrailleManager} from '../manager/braille';
-import {Command} from './command';
-import {Plot} from '../interface';
+import {Scope} from '../manager/keymap';
 import {ReviewManager} from '../manager/review';
 import {TextManager} from '../manager/text';
-import {Scope} from '../manager/keymap';
+import {Command} from './command';
 
 export class ToggleBrailleCommand implements Command {
   private readonly plot: Plot;

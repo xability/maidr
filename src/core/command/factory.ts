@@ -1,5 +1,10 @@
+import {Plot} from '../interface';
 import {AudioManager} from '../manager/audio';
 import {AutoplayManager} from '../manager/autoplay';
+import {BrailleManager} from '../manager/braille';
+import {Keys, Scope} from '../manager/keymap';
+import {ReviewManager} from '../manager/review';
+import {TextManager} from '../manager/text';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -10,7 +15,6 @@ import {
   SpeedUpAutoplayCommand,
   StopAutoplayCommand,
 } from './autoplay';
-import {BrailleManager} from '../manager/braille';
 import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
@@ -20,7 +24,6 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
-import {Keys, Scope} from '../manager/keymap';
 import {
   MoveDownCommand,
   MoveLeftCommand,
@@ -31,9 +34,6 @@ import {
   MoveToTopExtremeCommand,
   MoveUpCommand,
 } from './move';
-import {Plot} from '../interface';
-import {TextManager} from '../manager/text';
-import {ReviewManager} from '../manager/review';
 import {
   SwitchScopeCommand,
   ToggleAudioCommand,

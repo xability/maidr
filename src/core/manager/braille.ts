@@ -1,9 +1,9 @@
-import {Constant} from '../../util/constant';
-import {DisplayManager} from './display';
 import {EventType} from '../../index';
-import {NotificationManager} from './notification';
-import {Movable, Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Constant} from '../../util/constant';
+import {Movable, Observer} from '../interface';
+import {DisplayManager} from './display';
+import {NotificationManager} from './notification';
 
 export class BrailleManager implements Observer {
   private enabled: boolean;

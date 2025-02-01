@@ -1,5 +1,5 @@
-import {AbstractBarPlot, Orientation} from './plot';
 import {Maidr, SegmentedPoint} from './grammar';
+import {AbstractBarPlot, Orientation} from './plot';
 import {TextState} from './state';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {

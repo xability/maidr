@@ -1,5 +1,5 @@
-import {Command} from './command';
 import {MovableDirection, Plot} from '../interface';
+import {Command} from './command';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;

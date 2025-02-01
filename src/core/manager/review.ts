@@ -1,10 +1,11 @@
 import hotkeys from 'hotkeys-js';
-import {DisplayManager} from './display';
+
 import {EventType} from '../../index';
-import {NotificationManager} from './notification';
-import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Observer} from '../interface';
+import {DisplayManager} from './display';
 import {Scope} from './keymap';
+import {NotificationManager} from './notification';
 import {TextManager} from './text';
 
 export class ReviewManager implements Observer {
