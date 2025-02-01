@@ -1,11 +1,12 @@
-import Controller from './core/controller';
-import DisplayManager from './core/manager/display';
+import {Controller} from './core/controller';
+import {DisplayManager} from './core/manager/display';
 
 export enum EventType {
   BLUR = 'blur',
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
+  KEY_DOWN = 'keydown',
   SELECTION_CHANGE = 'selectionchange',
 }
 

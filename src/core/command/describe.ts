@@ -1,8 +1,8 @@
-import AudioManager from '../manager/audio';
-import BrailleManager from '../manager/braille';
-import {Command} from './command';
 import {Plot} from '../interface';
-import TextManager from '../manager/text';
+import {AudioManager} from '../manager/audio';
+import {BrailleManager} from '../manager/braille';
+import {TextManager} from '../manager/text';
+import {Command} from './command';
 
 abstract class DescribeCommand implements Command {
   protected readonly plot: Plot;
@@ -17,7 +17,7 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
   }
 
@@ -28,7 +28,7 @@ export class DescribeXCommand extends DescribeCommand {
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
   }
 
@@ -39,7 +39,7 @@ export class DescribeYCommand extends DescribeCommand {
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
   }
 
@@ -50,7 +50,7 @@ export class DescribeTitleCommand extends DescribeCommand {
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
   }
 
@@ -59,8 +59,9 @@ export class DescribeSubtitleCommand extends DescribeCommand {
     this.text.update(message);
   }
 }
+
 export class DescribeCaptionCommand extends DescribeCommand {
-  constructor(plot: Plot, text: TextManager) {
+  public constructor(plot: Plot, text: TextManager) {
     super(plot, text);
   }
 
@@ -69,11 +70,12 @@ export class DescribeCaptionCommand extends DescribeCommand {
     this.text.update(message);
   }
 }
+
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
 
-  constructor(
+  public constructor(
     plot: Plot,
     audio: AudioManager,
     braille: BrailleManager,

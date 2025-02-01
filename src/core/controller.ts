@@ -1,15 +1,16 @@
-import AudioManager from './manager/audio';
-import AutoplayManager from './manager/autoplay';
-import BrailleManager from './manager/braille';
-import DisplayManager from './manager/display';
-import KeymapManager from './manager/keymap';
-import {Maidr} from '../model/grammar';
-import NotificationManager from './manager/notification';
 import {PlotFactory} from '../model/factory';
+import {Maidr} from '../model/grammar';
 import {Plot} from './interface';
-import TextManager from './manager/text';
+import {AudioManager} from './manager/audio';
+import {AutoplayManager} from './manager/autoplay';
+import {BrailleManager} from './manager/braille';
+import {DisplayManager} from './manager/display';
+import {KeymapManager} from './manager/keymap';
+import {NotificationManager} from './manager/notification';
+import {ReviewManager} from './manager/review';
+import {TextManager} from './manager/text';
 
-export default class Controller {
+export class Controller {
   private readonly plot: Plot;
 
   private readonly display: DisplayManager;
@@ -18,11 +19,12 @@ export default class Controller {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly review: ReviewManager;
 
   private readonly autoplay: AutoplayManager;
   private readonly keymap: KeymapManager;
 
-  constructor(maidr: Maidr, display: DisplayManager) {
+  public constructor(maidr: Maidr, display: DisplayManager) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
@@ -32,10 +34,10 @@ export default class Controller {
     this.braille = new BrailleManager(
       this.notification,
       this.display,
-      this.plot,
-      this.plot.state
+      this.plot
     );
     this.text = new TextManager(this.notification, this.display.textDiv);
+    this.review = new ReviewManager(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayManager(
       this.notification,
@@ -47,6 +49,7 @@ export default class Controller {
       audio: this.audio,
       braille: this.braille,
       text: this.text,
+      review: this.review,
       autoplay: this.autoplay,
     });
     this.keymap.register();
@@ -64,6 +67,7 @@ export default class Controller {
     this.keymap.unregister();
     this.autoplay.destroy();
 
+    this.review.destroy();
     this.braille.destroy();
     this.audio.destroy();
 
