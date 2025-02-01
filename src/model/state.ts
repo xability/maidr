@@ -25,8 +25,9 @@ export type AudioState = {
 };
 
 export type BrailleState = {
-  index: number;
-  values: string[];
+  values: string[][];
+  row: number;
+  col: number;
 };
 
 export type TextState = {

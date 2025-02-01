@@ -1,6 +1,6 @@
+import {LinePoint, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
-import {LinePoint, Maidr} from './grammar';
 
 export class LinePlot extends AbstractPlot {
   private readonly points: LinePoint[][];
@@ -8,7 +8,7 @@ export class LinePlot extends AbstractPlot {
   private readonly min: number[];
   private readonly max: number[];
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr);
 
     this.points = maidr.data as LinePoint[][];

@@ -1,12 +1,12 @@
-import {AbstractBarPlot, Orientation} from './plot';
 import {Maidr, SegmentedPoint} from './grammar';
+import {AbstractBarPlot, Orientation} from './plot';
 import {TextState} from './state';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   private readonly globalMin: number;
   private readonly globalMax: number;
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr, maidr.data as SegmentedPoint[][]);
 
     this.globalMin = Math.min(...this.values.flat());

@@ -1,5 +1,10 @@
-import AudioManager from '../manager/audio';
-import AutoplayManager from '../manager/autoplay';
+import { Plot } from "../interface";
+import { AudioManager } from "../manager/audio";
+import { AutoplayManager } from "../manager/autoplay";
+import { BrailleManager } from "../manager/braille";
+import { Keys, Scope } from "../manager/keymap";
+import { ReviewManager } from "../manager/review";
+import { TextManager } from "../manager/text";
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -9,42 +14,39 @@ import {
   SpeedDownAutoplayCommand,
   SpeedUpAutoplayCommand,
   StopAutoplayCommand,
-} from './autoplay';
-import BrailleManager from '../manager/braille';
-import {Command, CommandContext} from './command';
+} from "./autoplay";
+import { Command, CommandContext } from "./command";
 import {
   DescribeCaptionCommand,
   DescribePointCommand,
-  DescribeXCommand,
-  DescribeYCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
-} from './describe';
-import {Keys} from '../manager/keymap';
+  DescribeXCommand,
+  DescribeYCommand,
+} from "./describe";
 import {
+  MoveDownCommand,
+  MoveLeftCommand,
+  MoveRightCommand,
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
   MoveToRightExtremeCommand,
   MoveToTopExtremeCommand,
-  MoveDownCommand,
-  MoveLeftCommand,
-  MoveRightCommand,
   MoveUpCommand,
-} from './move';
-import {Plot} from '../interface';
-import TextManager from '../manager/text';
+} from "./move";
 import {
+  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
-  SwitchScopeCommand,
+  ToggleReviewCommand,
   ToggleTextCommand,
-} from './toggle';
+} from "./toggle";
 import {
   ConfigurationDialogCommand,
   HelpMenuCommand,
   LLMDialogCommand,
-} from './frontend';
-import FrontendManager from '../manager/frontend';
+} from "./frontend";
+import FrontendManager from "../manager/frontend";
 
 export class CommandFactory {
   private readonly plot: Plot;
@@ -52,93 +54,96 @@ export class CommandFactory {
   private readonly audio: AudioManager;
   private readonly braille: BrailleManager;
   private readonly text: TextManager;
+  private readonly review: ReviewManager;
 
   private readonly autoplay: AutoplayManager;
 
   private readonly frontend: FrontendManager;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
 
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+    this.review = commandContext.review;
 
     this.autoplay = commandContext.autoplay;
     this.frontend = commandContext.frontend;
   }
 
-  create(command: Keys): Command {
+  public create(command: Keys): Command {
     switch (command) {
-      case 'MOVE_UP':
+      case "MOVE_UP":
         return new MoveUpCommand(this.plot);
-      case 'MOVE_DOWN':
+      case "MOVE_DOWN":
         return new MoveDownCommand(this.plot);
-      case 'MOVE_LEFT':
+      case "MOVE_LEFT":
         return new MoveLeftCommand(this.plot);
-      case 'MOVE_RIGHT':
+      case "MOVE_RIGHT":
         return new MoveRightCommand(this.plot);
-
-      case 'MOVE_TO_TOP_EXTREME':
+      case "MOVE_TO_TOP_EXTREME":
         return new MoveToTopExtremeCommand(this.plot);
-      case 'MOVE_TO_BOTTOM_EXTREME':
+      case "MOVE_TO_BOTTOM_EXTREME":
         return new MoveToBottomExtremeCommand(this.plot);
-      case 'MOVE_TO_LEFT_EXTREME':
+      case "MOVE_TO_LEFT_EXTREME":
         return new MoveToLeftExtremeCommand(this.plot);
-      case 'MOVE_TO_RIGHT_EXTREME':
+      case "MOVE_TO_RIGHT_EXTREME":
         return new MoveToRightExtremeCommand(this.plot);
 
-      case 'TOGGLE_AUDIO':
+      case "TOGGLE_AUDIO":
         return new ToggleAudioCommand(this.audio);
-      case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.braille);
-      case 'TOGGLE_TEXT':
+      case "TOGGLE_BRAILLE":
+        return new ToggleBrailleCommand(this.plot, this.braille);
+      case "TOGGLE_TEXT":
         return new ToggleTextCommand(this.text);
+      case "TOGGLE_REVIEW":
+        return new ToggleReviewCommand(this.plot, this.review);
 
-      case 'DESCRIBE_X':
+      case "DESCRIBE_X":
         return new DescribeXCommand(this.plot, this.text);
-      case 'DESCRIBE_Y':
+      case "DESCRIBE_Y":
         return new DescribeYCommand(this.plot, this.text);
-      case 'DESCRIBE_POINT':
+      case "DESCRIBE_POINT":
         return new DescribePointCommand(
           this.plot,
           this.audio,
           this.braille,
-          this.text
+          this.text,
         );
-      case 'DESCRIBE_TITLE':
+      case "DESCRIBE_TITLE":
         return new DescribeTitleCommand(this.plot, this.text);
-      case 'DESCRIBE_SUBTITLE':
+      case "DESCRIBE_SUBTITLE":
         return new DescribeSubtitleCommand(this.plot, this.text);
-      case 'DESCRIBE_CAPTION':
+      case "DESCRIBE_CAPTION":
         return new DescribeCaptionCommand(this.plot, this.text);
 
-      case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand('LABEL');
-      case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand('DEFAULT');
+      case "ACTIVATE_LABEL_SCOPE":
+        return new SwitchScopeCommand(Scope.LABEL);
+      case "ACTIVATE_DEFAULT_SCOPE":
+        return new SwitchScopeCommand(Scope.DEFAULT);
 
-      case 'AUTOPLAY_UPWARD':
+      case "AUTOPLAY_UPWARD":
         return new AutoplayUpwardCommand(this.autoplay, this.plot);
-      case 'AUTOPLAY_DOWNWARD':
+      case "AUTOPLAY_DOWNWARD":
         return new AutoplayDownwardCommand(this.autoplay, this.plot);
-      case 'AUTOPLAY_FORWARD':
+      case "AUTOPLAY_FORWARD":
         return new AutoplayForwardCommand(this.autoplay, this.plot);
-      case 'AUTOPLAY_BACKWARD':
+      case "AUTOPLAY_BACKWARD":
         return new AutoplayBackwardCommand(this.autoplay, this.plot);
-      case 'STOP_AUTOPLAY':
+      case "STOP_AUTOPLAY":
         return new StopAutoplayCommand(this.autoplay);
-      case 'SPEED_UP_AUTOPLAY':
+      case "SPEED_UP_AUTOPLAY":
         return new SpeedUpAutoplayCommand(this.autoplay);
-      case 'SPEED_DOWN_AUTOPLAY':
+      case "SPEED_DOWN_AUTOPLAY":
         return new SpeedDownAutoplayCommand(this.autoplay);
-      case 'RESET_AUTOPLAY_SPEED':
+      case "RESET_AUTOPLAY_SPEED":
         return new ResetAutoplaySpeedCommand(this.autoplay);
-      case 'HELP_MENU':
+      case "HELP_MENU":
         return new HelpMenuCommand(this.frontend);
-      case 'LLM_DIALOG':
+      case "LLM_DIALOG":
         return new LLMDialogCommand(this.frontend);
-      case 'CONFIGURATION_DIALOG':
+      case "CONFIGURATION_DIALOG":
         return new ConfigurationDialogCommand(this.frontend);
       default:
         throw new Error(`Invalid command name: ${command}`);

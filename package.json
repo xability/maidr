@@ -3,16 +3,14 @@
   "version": "1.0.0",
   "scripts": {
     "build": "webpack",
-    "start": "webpack serve --open",
     "lint": "eslint '**/*.ts'",
-    "clean": "gts clean",
+    "lint:fix": "eslint '**/*.ts' --fix",
+    "clean": "rm -rf dist",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "compile": "tsc",
-    "fix": "gts fix",
     "prepare": "husky",
     "pretest": "npm run compile",
     "posttest": "npm run lint || true",
-    "posttest": "npm run lint || true", 
     "test": "echo \"No tests specified\" && exit 0"
   },
   "devDependencies": {
@@ -26,14 +24,19 @@
     "esbuild-plugin-tsc": "^0.4.0",
     "eslint": "^8.57.1",
     "gts": "^5.3.1",
+    "@eslint/js": "^9.19.0",
+    "@types/eslint": "^9.6.1",
+    "@types/webpack": "^5.28.5",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "husky": "^9.1.7",
-    "ts-loader": "^9.5.1",
+    "prettier": "^3.4.2",
+    "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
-    "tsup": "^8.2.4",
     "typescript": "^5.7.3",
-    "webpack": "^5.93.0",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4"
+    "typescript-eslint": "^8.22.0",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

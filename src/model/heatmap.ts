@@ -1,6 +1,6 @@
+import {HeatmapData, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
-import {HeatmapData, Maidr} from './grammar';
 
 export class Heatmap extends AbstractPlot {
   private readonly x: string[];
@@ -9,7 +9,7 @@ export class Heatmap extends AbstractPlot {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr);
 
     const data = maidr.data as HeatmapData;
