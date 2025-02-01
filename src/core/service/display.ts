@@ -1,7 +1,7 @@
-import {EventType} from '../../index';
-import {Maidr} from '../../model/grammar';
-import {Constant} from '../../util/constant';
-import {Stack} from '../../util/stack';
+import { EventType } from "../../index";
+import { Maidr } from "../../model/grammar";
+import { Constant } from "../../util/constant";
+import { Stack } from "../../util/stack";
 
 enum FocusMode {
   BRAILLE,
@@ -33,7 +33,7 @@ export class DisplayService {
   public constructor(
     maidr: Maidr,
     onFocus: () => void,
-    onBlur: (event: FocusEvent) => void
+    onBlur: (event: FocusEvent) => void,
   ) {
     this.maidr = maidr;
     this.onFocus = onFocus;
@@ -45,7 +45,7 @@ export class DisplayService {
     const maidrId = this.maidr.id;
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
-      console.error('Plot container not found');
+      console.error("Plot container not found");
       return;
     }
 
@@ -118,7 +118,7 @@ export class DisplayService {
 
   public getInstruction(includeClickPrompt: boolean): string {
     return `This is a maidr plot of type: ${this.maidr.type}.
-        ${includeClickPrompt ? 'Click to activate.' : Constant.EMPTY}
+        ${includeClickPrompt ? "Click to activate." : Constant.EMPTY}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode. Use H for Help.`;
   }
@@ -148,7 +148,7 @@ export class DisplayService {
 
     this.figureElement!.parentNode!.replaceChild(
       articleElement,
-      this.figureElement!
+      this.figureElement!,
     );
     articleElement.appendChild(this.figureElement!);
 
@@ -192,7 +192,7 @@ export class DisplayService {
 
     this.figureElement!.insertAdjacentElement(
       Constant.AFTER_END,
-      notificationDiv
+      notificationDiv,
     );
     return notificationDiv;
   }
@@ -204,13 +204,13 @@ export class DisplayService {
 
     this.figureElement!.insertBefore(
       brailleDiv,
-      this.figureElement!.firstChild
+      this.figureElement!.firstChild,
     );
     return brailleDiv;
   }
 
   private createBrailleTextArea(
-    brailleAndReviewTextAreaId: string
+    brailleAndReviewTextAreaId: string,
   ): HTMLTextAreaElement {
     const brailleTextArea = document.createElement(Constant.TEXT_AREA);
     brailleTextArea.id = brailleAndReviewTextAreaId;
@@ -291,14 +291,14 @@ export class DisplayService {
         if (activeElement) {
           activeElement.removeEventListener(
             EventType.BLUR,
-            this.onBlur as EventListener
+            this.onBlur as EventListener,
           );
         }
         this.plot?.focus();
         if (activeElement) {
           activeElement.addEventListener(
             EventType.BLUR,
-            this.onBlur as EventListener
+            this.onBlur as EventListener,
           );
         }
         activeDiv?.classList.add(Constant.HIDDEN);

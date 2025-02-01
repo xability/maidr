@@ -1,12 +1,12 @@
-import hotkeys from 'hotkeys-js';
+import hotkeys from "hotkeys-js";
 
-import {EventType} from '../../index';
-import {PlotState} from '../../model/state';
-import {Observer} from '../interface';
-import {DisplayService} from './display';
-import {Scope} from './keymap';
-import {NotificationService} from './notification';
-import {TextService} from './text';
+import { EventType } from "../../index";
+import { PlotState } from "../../model/state";
+import { Observer } from "../interface";
+import { DisplayService } from "./display";
+import { Scope } from "./keymap";
+import { NotificationService } from "./notification";
+import { TextService } from "./text";
 
 export class ReviewService implements Observer {
   private readonly notification: NotificationService;
@@ -21,7 +21,7 @@ export class ReviewService implements Observer {
   public constructor(
     notification: NotificationService,
     display: DisplayService,
-    text: TextService
+    text: TextService,
   ) {
     this.notification = notification;
     this.display = display;
@@ -34,16 +34,16 @@ export class ReviewService implements Observer {
 
     this.reviewKeyHandler = (e: KeyboardEvent) => {
       const isNavigationKey =
-        e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
+        e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End";
       const isCtrlKey = e.ctrlKey || e.metaKey;
       const isModifierKey = isCtrlKey || e.shiftKey;
 
       if (
         !isNavigationKey && // Navigate next character with Arrow keys.
         !(isModifierKey && isNavigationKey) && // Navigate to Start and End.
-        !(isCtrlKey && e.key === 'a') && // Select text.
-        !(isCtrlKey && e.key === 'c') && // Copy text.
-        !(e.key === 'Tab') // Allow blur after focussed.
+        !(isCtrlKey && e.key === "a") && // Select text.
+        !(isCtrlKey && e.key === "c") && // Copy text.
+        !(e.key === "Tab") // Allow blur after focussed.
       ) {
         e.preventDefault();
       }
@@ -51,7 +51,7 @@ export class ReviewService implements Observer {
     this.reviewInput = display.reviewInput;
     this.reviewInput.addEventListener(
       EventType.KEY_DOWN,
-      this.reviewKeyHandler
+      this.reviewKeyHandler,
     );
   }
 
@@ -59,7 +59,7 @@ export class ReviewService implements Observer {
     if (this.reviewInput && this.reviewKeyHandler) {
       this.reviewInput.removeEventListener(
         EventType.KEY_DOWN,
-        this.reviewKeyHandler
+        this.reviewKeyHandler,
       );
     }
   }
@@ -83,7 +83,7 @@ export class ReviewService implements Observer {
     }
     this.display.toggleReviewFocus();
 
-    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
+    const message = `Review is ${this.enabled ? "on" : "off"}`;
     this.notification.notify(message);
   }
 }

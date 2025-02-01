@@ -1,11 +1,11 @@
-import {BarPlot} from './bar';
-import {BoxPlot} from './box';
-import {Maidr} from './grammar';
-import {Heatmap} from './heatmap';
-import {Histogram} from './histogram';
-import {LinePlot} from './line';
-import {Plot, PlotType} from "./plot";
-import {SegmentedPlot} from './segmented';
+import { BarPlot } from "./bar";
+import { BoxPlot } from "./box";
+import { Maidr } from "./grammar";
+import { Heatmap } from "./heatmap";
+import { Histogram } from "./histogram";
+import { LinePlot } from "./line";
+import { Plot, PlotType } from "./plot";
+import { SegmentedPlot } from "./segmented";
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {

@@ -1,69 +1,69 @@
-import hotkeys from 'hotkeys-js';
+import hotkeys from "hotkeys-js";
 
-import {Constant} from '../../util/constant';
-import {CommandContext} from '../command/command';
-import {CommandFactory} from '../command/factory';
+import { Constant } from "../../util/constant";
+import { CommandContext } from "../command/command";
+import { CommandFactory } from "../command/factory";
 
 export enum DefaultKey {
-  ACTIVATE_LABEL_SCOPE = 'l',
+  ACTIVATE_LABEL_SCOPE = "l",
 
   // Autoplay
-  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
-  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
-  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
-  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  AUTOPLAY_UPWARD = "command+shift+up, ctrl+shift+up",
+  AUTOPLAY_DOWNWARD = "command+shift+down, ctrl+shift+down",
+  AUTOPLAY_FORWARD = "command+shift+right, ctrl+shift+right",
+  AUTOPLAY_BACKWARD = "command+shift+left, ctrl+shift+left",
 
-  STOP_AUTOPLAY = 'command, ctrl',
-  SPEED_UP_AUTOPLAY = '.',
-  SPEED_DOWN_AUTOPLAY = ',',
-  RESET_AUTOPLAY_SPEED = '/',
+  STOP_AUTOPLAY = "command, ctrl",
+  SPEED_UP_AUTOPLAY = ".",
+  SPEED_DOWN_AUTOPLAY = ",",
+  RESET_AUTOPLAY_SPEED = "/",
 
   // Navigation
-  MOVE_UP = 'up',
-  MOVE_DOWN = 'down',
-  MOVE_RIGHT = 'right',
-  MOVE_LEFT = 'left',
+  MOVE_UP = "up",
+  MOVE_DOWN = "down",
+  MOVE_RIGHT = "right",
+  MOVE_LEFT = "left",
 
-  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
-  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
-  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
-  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+  MOVE_TO_TOP_EXTREME = "command+up, ctrl+up",
+  MOVE_TO_BOTTOM_EXTREME = "command+down, ctrl+down",
+  MOVE_TO_LEFT_EXTREME = "command+left, ctrl+left",
+  MOVE_TO_RIGHT_EXTREME = "command+right, ctrl+right",
 
   // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_TEXT = 't',
-  TOGGLE_AUDIO = 's',
-  TOGGLE_REVIEW = 'r',
+  TOGGLE_BRAILLE = "b",
+  TOGGLE_TEXT = "t",
+  TOGGLE_AUDIO = "s",
+  TOGGLE_REVIEW = "r",
 
   // Description
-  DESCRIBE_POINT = 'space',
+  DESCRIBE_POINT = "space",
 
-  HELP_MENU = 'h',
-  LLM_DIALOG = 'option+shift+/, alt+shift+/',
-  CONFIGURATION_DIALOG = 'option+., alt+.',
+  HELP_MENU = "h",
+  LLM_DIALOG = "option+shift+/, alt+shift+/",
+  CONFIGURATION_DIALOG = "option+., alt+.",
 }
 
 export enum LabelKey {
-  ACTIVATE_DEFAULT_SCOPE = 'esc',
+  ACTIVATE_DEFAULT_SCOPE = "esc",
 
   // Description
-  DESCRIBE_X = 'x',
-  DESCRIBE_Y = 'y',
-  DESCRIBE_TITLE = 't',
-  DESCRIBE_SUBTITLE = 's',
-  DESCRIBE_CAPTION = 'c',
+  DESCRIBE_X = "x",
+  DESCRIBE_Y = "y",
+  DESCRIBE_TITLE = "t",
+  DESCRIBE_SUBTITLE = "s",
+  DESCRIBE_CAPTION = "c",
 }
 
 export enum ReviewKey {
   // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_REVIEW = 'r',
+  TOGGLE_BRAILLE = "b",
+  TOGGLE_REVIEW = "r",
 }
 
 export enum Scope {
-  DEFAULT = 'DEFAULT',
-  LABEL = 'LABEL',
-  REVIEW = 'REVIEW',
+  DEFAULT = "DEFAULT",
+  LABEL = "LABEL",
+  REVIEW = "REVIEW",
 }
 
 const scopedKeymap = {
@@ -112,15 +112,15 @@ export class KeymapService {
 
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
-        if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', 'DEFAULT', (event: KeyboardEvent): void => {
+        if (commandName === "STOP_AUTOPLAY") {
+          hotkeys("*", "DEFAULT", (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               command.execute(event);
             }
           });
         }
 
-        hotkeys(key, {scope: scope}, (event: KeyboardEvent): void => {
+        hotkeys(key, { scope: scope }, (event: KeyboardEvent): void => {
           event.preventDefault();
           command.execute(event);
         });

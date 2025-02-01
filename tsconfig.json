@@ -2,7 +2,6 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "CommonJS",
-
     "outDir": "build",
     "lib": ["es2021", "dom"],
     "jsx": "react-jsx",
@@ -12,13 +11,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": ".",
-
     "allowJs": false,
     "noImplicitAny": true,
-
     "resolveJsonModule": true,
     "sourceMap": true,
     "allowSyntheticDefaultImports": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@core/*": ["core/*"],
+      "@model/*": ["model/*"],
+      "@util/*": ["util/*"]
+    }
   },
 
   // Webpack Typescript

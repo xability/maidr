@@ -1,7 +1,7 @@
-import {Plot} from "../../model/plot";
-import {MovableDirection} from '../interface';
-import {AutoplayService} from '../service/autoplay';
-import {Command} from './command';
+import { Plot } from "../../model/plot";
+import { MovableDirection } from "../interface";
+import { AutoplayService } from "../service/autoplay";
+import { Command } from "./command";
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayService;

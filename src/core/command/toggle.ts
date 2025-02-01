@@ -1,12 +1,12 @@
-import hotkeys from 'hotkeys-js';
+import hotkeys from "hotkeys-js";
 
-import {Plot} from "../../model/plot";
-import {AudioService} from '../service/audio';
-import {BrailleService} from '../service/braille';
-import {Scope} from '../service/keymap';
-import {ReviewService} from '../service/review';
-import {TextService} from '../service/text';
-import {Command} from './command';
+import { Plot } from "../../model/plot";
+import { AudioService } from "../service/audio";
+import { BrailleService } from "../service/braille";
+import { Scope } from "../service/keymap";
+import { ReviewService } from "../service/review";
+import { TextService } from "../service/text";
+import { Command } from "./command";
 
 export class ToggleBrailleCommand implements Command {
   private readonly plot: Plot;

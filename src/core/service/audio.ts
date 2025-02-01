@@ -1,6 +1,6 @@
-import {PlotState} from '../../model/state';
-import {Observer} from '../interface';
-import {NotificationService} from './notification';
+import { PlotState } from "../../model/state";
+import { Observer } from "../interface";
+import { NotificationService } from "./notification";
 
 type Range = {
   min: number;
@@ -15,9 +15,9 @@ const DEFAULT_DURATION = 0.3;
 const DEFAULT_VOLUME = 0.5;
 
 enum AudioMode {
-  OFF = 'off',
-  SEPARATE = 'on',
-  COMBINED = 'combined',
+  OFF = "off",
+  SEPARATE = "on",
+  COMBINED = "combined",
 }
 
 export class AudioService implements Observer {
@@ -33,7 +33,7 @@ export class AudioService implements Observer {
 
   public constructor(
     notification: NotificationService,
-    isCombinedAudio: boolean
+    isCombinedAudio: boolean,
   ) {
     this.notification = notification;
 
@@ -47,7 +47,7 @@ export class AudioService implements Observer {
 
   public destroy(): void {
     this.stop();
-    if (this.audioContext.state !== 'closed') {
+    if (this.audioContext.state !== "closed") {
       this.compressor.disconnect();
       this.audioContext.close().finally();
     }
@@ -96,7 +96,13 @@ export class AudioService implements Observer {
       let currentIndex = 0;
       const playNext = () => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.playTone(
+            audio.min,
+            audio.max,
+            values[currentIndex],
+            audio.size,
+            currentIndex++,
+          );
           this.timeoutId = setTimeout(playNext, 50);
         } else {
           this.stop();
@@ -119,14 +125,14 @@ export class AudioService implements Observer {
     maxFrequency: number,
     rawFrequency: number,
     panningSize: number,
-    rawPanning: number
+    rawPanning: number,
   ): void {
-    const fromFreq = {min: minFrequency, max: maxFrequency};
-    const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
+    const fromFreq = { min: minFrequency, max: maxFrequency };
+    const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
-    const fromPanning = {min: 0, max: panningSize};
-    const toPanning = {min: -1, max: 1};
+    const fromPanning = { min: 0, max: panningSize };
+    const toPanning = { min: -1, max: 1 };
     const panning = this.interpolate(rawPanning, fromPanning, toPanning);
 
     this.playOscillator(frequency, panning);
@@ -135,7 +141,7 @@ export class AudioService implements Observer {
   private playOscillator(
     frequency: number,
     panning: number,
-    wave: OscillatorType = 'sine'
+    wave: OscillatorType = "sine",
   ) {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
@@ -166,7 +172,7 @@ export class AudioService implements Observer {
 
     // Coordinate the audio slightly in front of the listener.
     const pannerNode = new PannerNode(this.audioContext, {
-      distanceModel: 'linear',
+      distanceModel: "linear",
       positionX: 0.0,
       positionY: 0.0,
       positionZ: 0.0,
@@ -197,14 +203,14 @@ export class AudioService implements Observer {
         oscillator.stop();
         oscillator.disconnect();
       },
-      duration * 1e3 * 2
+      duration * 1e3 * 2,
     );
   }
 
   private playZero(): void {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
-    const wave = 'triangle';
+    const wave = "triangle";
 
     this.playOscillator(frequency, panning, wave);
   }
@@ -237,7 +243,7 @@ export class AudioService implements Observer {
 
     const mode =
       this.isCombinedAudio && this.mode === AudioMode.SEPARATE
-        ? 'separate'
+        ? "separate"
         : this.mode;
     const message = `Sound is ${mode}`;
     this.notification.notify(message);

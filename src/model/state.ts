@@ -1,4 +1,4 @@
-import {MovableDirection} from '../core/interface';
+import { MovableDirection } from "../core/interface";
 
 export type PlotState =
   | EmptyState
@@ -24,12 +24,14 @@ export type AudioState = {
   volume?: number;
 };
 
-export type BrailleState = {
-  empty: false;
-  values: string[][];
-  row: number;
-  col: number;
-} | EmptyState;
+export type BrailleState =
+  | {
+      empty: false;
+      values: string[][];
+      row: number;
+      col: number;
+    }
+  | EmptyState;
 
 export type TextState = {
   mainLabel: string;

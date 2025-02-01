@@ -1,7 +1,7 @@
-import {PlotState} from '../../model/state';
-import {Movable, MovableDirection} from '../interface';
-import {NotificationService} from './notification';
-import {TextService} from './text';
+import { PlotState } from "../../model/state";
+import { Movable, MovableDirection } from "../interface";
+import { NotificationService } from "./notification";
+import { TextService } from "./text";
 
 export class AutoplayService {
   private readonly notification: NotificationService;
@@ -23,7 +23,7 @@ export class AutoplayService {
   public constructor(
     notification: NotificationService,
     text: TextService,
-    movable: Movable
+    movable: Movable,
   ) {
     this.notification = notification;
     this.text = text;
@@ -76,9 +76,9 @@ export class AutoplayService {
       this.userSpeed = newSpeed - this.interval;
       this.autoplayRate = this.userSpeed;
       this.restart();
-      this.notification.notify('Speed up');
+      this.notification.notify("Speed up");
     } else {
-      this.notification.notify('Max speed');
+      this.notification.notify("Max speed");
     }
   }
 
@@ -88,9 +88,9 @@ export class AutoplayService {
       this.userSpeed = newSpeed + this.interval;
       this.autoplayRate = this.userSpeed;
       this.restart();
-      this.notification.notify('Speed down');
+      this.notification.notify("Speed down");
     } else {
-      this.notification.notify('Min speed');
+      this.notification.notify("Min speed");
     }
   }
 
@@ -98,12 +98,12 @@ export class AutoplayService {
     this.userSpeed = null;
     this.autoplayRate = this.defaultSpeed;
     this.restart();
-    this.notification.notify('Reset speed');
+    this.notification.notify("Reset speed");
   }
 
   private getAutoplayRate(
     direction: MovableDirection,
-    state?: PlotState
+    state?: PlotState,
   ): number {
     if (this.userSpeed !== null) {
       return this.userSpeed;
@@ -111,7 +111,7 @@ export class AutoplayService {
 
     if (state && !state.empty) {
       const calculatedRate = Math.ceil(
-        this.totalDuration / state.autoplay[direction]
+        this.totalDuration / state.autoplay[direction],
       );
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);

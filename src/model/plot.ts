@@ -1,34 +1,39 @@
-import {Movable, MovableDirection, Observable, Observer} from '../core/interface';
-import {BarPoint, Maidr} from './grammar';
+import {
+  Movable,
+  MovableDirection,
+  Observable,
+  Observer,
+} from "../core/interface";
+import { BarPoint, Maidr } from "./grammar";
 import {
   AudioState,
   AutoplayState,
   BrailleState,
   PlotState,
   TextState,
-} from './state';
+} from "./state";
 
-const DEFAULT_TITLE = 'MAIDR Plot';
-const DEFAULT_SUBTITLE = 'unavailable';
-const DEFAULT_CAPTION = 'unavailable';
-const DEFAULT_X_AXIS = 'X';
-const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'Fill';
+const DEFAULT_TITLE = "MAIDR Plot";
+const DEFAULT_SUBTITLE = "unavailable";
+const DEFAULT_CAPTION = "unavailable";
+const DEFAULT_X_AXIS = "X";
+const DEFAULT_Y_AXIS = "Y";
+const DEFAULT_FILL_AXIS = "Fill";
 
 export enum PlotType {
-  BAR = 'bar',
-  BOX = 'box',
-  DODGED = 'dodged_bar',
-  HEATMAP = 'heat',
-  HISTOGRAM = 'hist',
-  LINE = 'line',
-  NORMALIZED = 'stacked_normalized_bar',
-  STACKED = 'stacked_bar',
+  BAR = "bar",
+  BOX = "box",
+  DODGED = "dodged_bar",
+  HEATMAP = "heat",
+  HISTOGRAM = "hist",
+  LINE = "line",
+  NORMALIZED = "stacked_normalized_bar",
+  STACKED = "stacked_bar",
 }
 
 export enum Orientation {
-  VERTICAL = 'vert',
-  HORIZONTAL = 'horz',
+  VERTICAL = "vert",
+  HORIZONTAL = "horz",
 }
 
 export interface Plot extends Movable, Observable {
@@ -95,7 +100,7 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 
   public removeObserver(observer: Observer): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -122,7 +127,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public get state(): PlotState {
     if (this.isOutOfBounds) {
-      return {empty: true};
+      return { empty: true };
     }
 
     return {
@@ -226,15 +231,15 @@ export abstract class AbstractBarPlot<
     this.points = points;
     this.orientation = maidr.orientation ?? Orientation.VERTICAL;
 
-    this.values = points.map(row =>
-      row.map(point =>
+    this.values = points.map((row) =>
+      row.map((point) =>
         this.orientation === Orientation.VERTICAL
           ? Number(point.y)
-          : Number(point.x)
-      )
+          : Number(point.x),
+      ),
     );
-    this.min = this.values.map(row => Math.min(...row));
-    this.max = this.values.map(row => Math.max(...row));
+    this.min = this.values.map((row) => Math.min(...row));
+    this.max = this.values.map((row) => Math.max(...row));
 
     this.brailleValues = this.toBraille(this.values);
   }
@@ -276,7 +281,7 @@ export abstract class AbstractBarPlot<
 
   protected toBraille(data: number[][]): string[][] {
     return data.map((row, index) =>
-      this.createBraille(row, this.min[index], this.max[index])
+      this.createBraille(row, this.min[index], this.max[index]),
     );
   }
 
@@ -290,15 +295,15 @@ export abstract class AbstractBarPlot<
 
     for (let i = 0; i < data.length; i++) {
       if (data[i] === 0) {
-        braille.push(' ');
+        braille.push(" ");
       } else if (data[i] <= low) {
-        braille.push('⣀');
+        braille.push("⣀");
       } else if (data[i] <= medium) {
-        braille.push('⠤');
+        braille.push("⠤");
       } else if (data[i] <= high) {
-        braille.push('⠒');
+        braille.push("⠒");
       } else {
-        braille.push('⠉');
+        braille.push("⠉");
       }
     }
 
