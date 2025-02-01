@@ -2,7 +2,7 @@ import {LinePoint, Maidr} from './grammar';
 import {AbstractPlot} from './plot';
 import {AudioState, TextState} from './state';
 
-export class LinePlot extends AbstractPlot {
+export class LinePlot extends AbstractPlot<number> {
   private readonly points: LinePoint[][];
 
   private readonly min: number[];
@@ -40,7 +40,7 @@ export class LinePlot extends AbstractPlot {
   }
 
   private toBraille(data: number[][]): string[][] {
-    const braille = [];
+    const braille = new Array<Array<string>>();
 
     for (let row = 0; row < data.length; row++) {
       braille.push(new Array<string>());

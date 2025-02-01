@@ -1,4 +1,4 @@
-import {PlotState} from '../model/state';
+import { PlotState } from "../model/state";
 
 export interface Observer {
   update(state: PlotState): void;
@@ -21,23 +21,8 @@ export interface Movable {
 }
 
 export enum MovableDirection {
-  UPWARD = 'UPWARD',
-  DOWNWARD = 'DOWNWARD',
-  FORWARD = 'FORWARD',
-  BACKWARD = 'BACKWARD',
-}
-
-export interface Plot extends Movable, Observable {
-  id: string;
-  type: string;
-
-  title: string;
-  subtitle: string;
-  caption: string;
-
-  xAxis: string;
-  yAxis: string;
-
-  get state(): PlotState;
-  get hasMultiPoints(): boolean;
+  UPWARD = "UPWARD",
+  DOWNWARD = "DOWNWARD",
+  FORWARD = "FORWARD",
+  BACKWARD = "BACKWARD",
 }

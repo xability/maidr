@@ -1,8 +1,8 @@
 import React from "react";
 import ReactMicroFrontend from "./pages";
 import { createRoot } from "react-dom/client";
-import { Controller } from "@core/controller";
-import { DisplayManager } from "@core/manager/display";
+import { DisplayService } from "./core/service/display";
+import { Controller } from "./core/controller";
 
 export enum EventType {
   BLUR = "blur",
@@ -53,7 +53,7 @@ function main(): void {
     }
   };
 
-  const display = new DisplayManager(maidr, onFocus, onBlur);
+  const display = new DisplayService(maidr, onFocus, onBlur);
   let controller: Controller | null = null;
 
   plot?.addEventListener(EventType.FOCUS, onFocus);

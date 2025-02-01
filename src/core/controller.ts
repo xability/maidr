@@ -1,55 +1,54 @@
 import { PlotFactory } from "../model/factory";
 import { Maidr } from "../model/grammar";
-import { Plot } from "./interface";
-import FrontendManager from "./manager/frontend";
-import { AudioManager } from "./manager/audio";
-import { AutoplayManager } from "./manager/autoplay";
-import { BrailleManager } from "./manager/braille";
-import { DisplayManager } from "./manager/display";
-import { KeymapManager } from "./manager/keymap";
-import { NotificationManager } from "./manager/notification";
-import { ReviewManager } from "./manager/review";
-import { TextManager } from "./manager/text";
+import { Plot } from "../model/plot";
+import { AudioService } from "./service/audio";
+import { AutoplayService } from "./service/autoplay";
+import { BrailleService } from "./service/braille";
+import { DisplayService } from "./service/display";
+import FrontendManager from "./service/frontend";
+import { KeymapService } from "./service/keymap";
+import { NotificationService } from "./service/notification";
+import { ReviewService } from "./service/review";
+import { TextService } from "./service/text";
 
 export class Controller {
   private readonly plot: Plot;
 
-  private readonly display: DisplayManager;
-  private readonly notification: NotificationManager;
+  private readonly display: DisplayService;
+  private readonly notification: NotificationService;
 
-  private readonly audio: AudioManager;
-  private readonly braille: BrailleManager;
-  private readonly text: TextManager;
-  private readonly review: ReviewManager;
+  private readonly audio: AudioService;
+  private readonly braille: BrailleService;
+  private readonly text: TextService;
+  private readonly review: ReviewService;
 
-  private readonly autoplay: AutoplayManager;
-  private readonly keymap: KeymapManager;
   public readonly frontend: FrontendManager;
+  private readonly autoplay: AutoplayService;
+  private readonly keymap: KeymapService;
 
-  public constructor(maidr: Maidr, display: DisplayManager) {
+  public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
-    this.notification = new NotificationManager(this.display.notificationDiv);
+    this.notification = new NotificationService(this.display.notificationDiv);
 
-    this.audio = new AudioManager(this.notification, this.plot.hasMultiPoints);
-    this.braille = new BrailleManager(
+    this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
+    this.braille = new BrailleService(
       this.notification,
       this.display,
       this.plot,
     );
-    this.text = new TextManager(this.notification, this.display.textDiv);
-    this.review = new ReviewManager(this.notification, this.display, this.text);
+    this.text = new TextService(this.notification, this.display.textDiv);
+    this.review = new ReviewService(this.notification, this.display, this.text);
 
-    this.autoplay = new AutoplayManager(
+    this.autoplay = new AutoplayService(
       this.notification,
       this.text,
       this.plot,
     );
-
     this.frontend = new FrontendManager(maidr);
 
-    this.keymap = new KeymapManager({
+    this.keymap = new KeymapService({
       plot: this.plot,
       audio: this.audio,
       braille: this.braille,

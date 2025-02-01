@@ -1,6 +1,6 @@
 import {Constant} from '../../util/constant';
 
-export class NotificationManager {
+export class NotificationService {
   private readonly enabled: boolean;
   private readonly notificationDiv?: HTMLElement;
 

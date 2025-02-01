@@ -1,14 +1,14 @@
-import {Maidr} from '../../model/grammar';
-import {convertSVGtoBase64} from '../../util/image';
+import { Maidr } from "../../model/grammar";
+import { convertSVGtoBase64 } from "../../util/image";
 
 export default class FrontendManager {
   public execute: (key: string) => void = () => {};
-  public maidrJson = '';
-  public image = '';
+  public maidrJson = "";
+  public image = "";
 
   constructor(maidr: Maidr) {
     this.maidrJson = JSON.stringify(maidr);
-    this.setImage(maidr.id);
+    void this.setImage(maidr.id);
   }
 
   private async setImage(id: string): Promise<void> {

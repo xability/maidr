@@ -9,7 +9,7 @@ enum FocusMode {
   REVIEW,
 }
 
-export class DisplayManager {
+export class DisplayService {
   private readonly maidr: Maidr;
   private readonly plot?: HTMLElement;
 

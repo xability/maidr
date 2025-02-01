@@ -2,21 +2,21 @@ import {EventType} from '../../index';
 import {PlotState} from '../../model/state';
 import {Constant} from '../../util/constant';
 import {Movable, Observer} from '../interface';
-import {DisplayManager} from './display';
-import {NotificationManager} from './notification';
+import {DisplayService} from './display';
+import {NotificationService} from './notification';
 
-export class BrailleManager implements Observer {
+export class BrailleService implements Observer {
   private enabled: boolean;
 
-  private readonly notification: NotificationManager;
-  private readonly display: DisplayManager;
+  private readonly notification: NotificationService;
+  private readonly display: DisplayService;
 
   private readonly brailleTextArea?: HTMLTextAreaElement;
   private readonly selectionChangeHandler?: (event: Event) => void;
 
   public constructor(
-    notification: NotificationManager,
-    display: DisplayManager,
+    notification: NotificationService,
+    display: DisplayService,
     movable: Movable
   ) {
     this.enabled = false;
@@ -51,23 +51,30 @@ export class BrailleManager implements Observer {
   }
 
   public update(state: PlotState): void {
-    if (!this.enabled || state.empty) {
+    if (!this.enabled || state.empty || state.braille.empty) {
       return;
     }
 
-    this.brailleTextArea!.value = state.braille.values
+    const braille = state.braille;
+    this.brailleTextArea!.value = braille.values
       .map(row => row.join(Constant.EMPTY))
       .join(Constant.NEW_LINE);
 
     const index =
-      state.braille.values
+      braille.values
         .map(row => row.join(Constant.EMPTY).length + 1)
-        .slice(0, state.braille.row)
-        .reduce((acc, length) => acc + length, 0) + state.braille.col;
+        .slice(0, braille.row)
+        .reduce((acc, length) => acc + length, 0) + braille.col;
     this.brailleTextArea!.setSelectionRange(index, index);
   }
 
   public toggle(state: PlotState): void {
+    if (state.empty || state.braille.empty) {
+      const notSupported = 'Braille is not supported';
+      this.notification.notify(notSupported);
+      return;
+    }
+
     if (!this.enabled) {
       this.enabled = true;
       this.update(state);
