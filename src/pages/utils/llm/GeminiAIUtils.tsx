@@ -12,8 +12,9 @@ export const formatGeminiRequest = (
   message: string,
   maidrJson: string,
   image: string,
-  currentPositionText: string
-) => {
+  currentPositionText: string,
+  customInstruction: string
+): string => {
   return JSON.stringify({
     generationConfig: {},
     safetySettings: [],
@@ -31,7 +32,10 @@ export const formatGeminiRequest = (
         parts: [
           {
             text:
-              'You are a helpful assistant describing the chart to a blind person. \n\nDescribe this chart to a blind person who has a basic understanding of statistical charts. Here is a chart in image format and raw data in json format: ' +
+              'You are a helpful assistant describing the chart to a blind person.' +
+              '\n' +
+              customInstruction +
+              '\n\nDescribe this chart to a blind person who has a basic understanding of statistical charts. Here is a chart in image format and raw data in json format: ' +
               maidrJson,
           },
           {

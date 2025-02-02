@@ -17,6 +17,15 @@ import {Configuration, SendEmailResponse} from '../types/ConfigurationTypes';
 
 export const ConfigurationDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailDisabled, setEmailDisabled] = useState(false);
+  const [hideAPIKeys, setHideAPIKeys] = useState(false);
+  const [openAIKey, setOpenAIKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [claudeKey, setClaudeKey] = useState('');
+  const [customInstruction, setCustomInstruction] = useState('');
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<Configuration>({
     models: {
       gemini: false,
@@ -28,16 +37,10 @@ export const ConfigurationDialog: React.FC = () => {
     claudeAPIKey: '',
     clientToken: '',
     email: '',
+    customInstructionForLLM: '',
   });
-  const [email, setEmail] = useState('');
+
   const {setConfigurations, verifyEmail} = useConfiguration();
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailDisabled, setEmailDisabled] = useState(false);
-  const [hideAPIKeys, setHideAPIKeys] = useState(false);
-  const [openAIKey, setOpenAIKey] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [claudeKey, setClaudeKey] = useState('');
-  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('config');
@@ -48,6 +51,7 @@ export const ConfigurationDialog: React.FC = () => {
       setGeminiKey(currentConfig.geminiAPIKey);
       setClaudeKey(currentConfig.claudeAPIKey);
       setEmail(currentConfig.email);
+      setCustomInstruction(currentConfig.customInstructionForLLM);
       if (currentConfig.clientToken) {
         setEmailDisabled(true);
         setHideAPIKeys(true);
@@ -82,6 +86,7 @@ export const ConfigurationDialog: React.FC = () => {
     currentConfig.openAIAPIKey = openAIKey;
     currentConfig.geminiAPIKey = geminiKey;
     currentConfig.claudeAPIKey = claudeKey;
+    currentConfig.customInstructionForLLM = customInstruction;
     setConfigurations(currentConfig);
     setOpen(false);
   };
@@ -262,6 +267,8 @@ export const ConfigurationDialog: React.FC = () => {
                 rows={4}
                 variant="outlined"
                 fullWidth
+                value={customInstruction}
+                onChange={e => setCustomInstruction(e.target.value)}
               />
             </Container>
             <DialogActions>

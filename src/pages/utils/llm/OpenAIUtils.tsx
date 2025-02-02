@@ -10,8 +10,9 @@ export const formatOpenAIRequest = (
   message: string,
   maidrJson: string,
   image: string,
-  currentPositionText: string
-) => {
+  currentPositionText: string,
+  customInstruction: string
+): string => {
   return JSON.stringify({
     model: 'gpt-4o-2024-11-20',
     max_tokens: 1000,
@@ -27,7 +28,10 @@ export const formatOpenAIRequest = (
           {
             type: 'text',
             text:
-              'Describe this chart to a blind person who has a basic understanding of statistical charts. Here is a chart in image format and raw data in json format: \n' +
+              'Describe this chart to a blind person who has a basic understanding of statistical charts.' +
+              '\n' +
+              customInstruction +
+              '\nHere is a chart in image format and raw data in json format: \n' +
               maidrJson +
               '\nAlso currently this point is selected: ' +
               currentPositionText +

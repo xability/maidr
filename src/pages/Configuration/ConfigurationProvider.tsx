@@ -34,6 +34,7 @@ export const ConfigurationProvider: React.FC<{children: ReactNode}> = ({
     claudeAPIKey: '',
     clientToken: '',
     email: '',
+    customInstructionForLLM: '',
   });
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 

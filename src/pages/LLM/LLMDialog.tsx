@@ -77,6 +77,7 @@ export const LLMDialog: React.FC = () => {
             model,
             newMessage,
             config.clientToken !== '' ? true : false,
+            config.customInstructionForLLM,
             getAPIKeyFromConfiguration(model, config)
           )
             .then(response => {

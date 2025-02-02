@@ -9,6 +9,7 @@ export interface Configuration {
   claudeAPIKey: string;
   clientToken: string;
   email: string;
+  customInstructionForLLM: string;
 }
 
 export interface SendEmailResponse {

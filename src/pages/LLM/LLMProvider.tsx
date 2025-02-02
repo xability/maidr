@@ -25,8 +25,9 @@ interface LLMContextProps {
   sendMessage: (
     llm: LLM,
     message: string,
-    isServer?: boolean,
-    apiKey?: string
+    isServer: boolean,
+    customInstruction: string,
+    apiKey: string
   ) => Promise<string | null>;
 }
 
@@ -43,6 +44,7 @@ export const LLMProvider: React.FC<{
     llm: LLM,
     message: string,
     isServer = false,
+    customInstruction = '',
     apiKey = ''
   ): Promise<string | null> => {
     try {
@@ -50,13 +52,13 @@ export const LLMProvider: React.FC<{
       if (isServer) {
         const response = await APIHandler.post(
           `${llm}`,
-          formatRequest(message, maidrJson, image, llm)
+          formatRequest(message, maidrJson, image, customInstruction, llm)
         );
         responseData = (await response.json()) as LLMResponse;
       } else {
         const response = await makeAIModelRequest(
           llm,
-          formatRequest(message, maidrJson, image, llm),
+          formatRequest(message, maidrJson, image, customInstruction, llm),
           apiKey
         );
         responseData = (await response?.json()) as LLMResponse;
@@ -102,16 +104,35 @@ const formatRequest = (
   message: string,
   maidrJson: string,
   image: string,
+  customInstruction: string,
   llm: LLM
 ): BodyInit => {
   if (llm === LLM.Gemini) {
-    return formatGeminiRequest(message, maidrJson, image, '');
+    return formatGeminiRequest(
+      message,
+      maidrJson,
+      image,
+      '',
+      customInstruction
+    );
   }
   if (llm === LLM.OpenAI) {
-    return formatOpenAIRequest(message, maidrJson, image, '');
+    return formatOpenAIRequest(
+      message,
+      maidrJson,
+      image,
+      '',
+      customInstruction
+    );
   }
   if (llm === LLM.Claude) {
-    return formatClaudeRequest(message, maidrJson, image, '');
+    return formatClaudeRequest(
+      message,
+      maidrJson,
+      image,
+      '',
+      customInstruction
+    );
   }
   return JSON.stringify({});
 };
