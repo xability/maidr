@@ -5,9 +5,7 @@ import {
   Container,
   Dialog,
   IconButton,
-  Paper,
   Stack,
-  styled,
   TextField,
   Typography,
 } from '@mui/material';
@@ -22,64 +20,22 @@ import {
   stringToLLMEnum,
 } from '../types/LLMTypes';
 import {useConfiguration} from '../Configuration/ConfigurationProvider';
-
-const InputContainer = styled(Box)({
-  padding: '20px',
-  borderTop: '1px solid rgba(0, 0, 0, 0.1)',
-});
-
-const MessagesContainer = styled(Box)({
-  flex: 1,
-  padding: '20px',
-  '&::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: '#f1f1f1',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: '#888',
-    borderRadius: '3px',
-  },
-  height: '500px',
-  overflowY: 'auto',
-});
-
-interface MessageBubbleProps {
-  isUser: boolean;
-}
-
-const MessageBubble = styled(Box)<MessageBubbleProps>(({isUser}) => ({
-  display: 'flex',
-  alignItems: 'flex-start',
-  marginBottom: '16px',
-  flexDirection: isUser ? 'row-reverse' : 'row',
-}));
-
-const MessageContent = styled(Paper)<MessageBubbleProps>(({isUser}) => ({
-  padding: '12px 16px',
-  borderRadius: '16px',
-  maxWidth: '70%',
-  marginLeft: isUser ? 0 : '12px',
-  marginRight: isUser ? '12px' : 0,
-  backgroundColor: isUser ? '#2196f3' : '#f5f5f5',
-  color: isUser ? '#fff' : '#000',
-  transition: 'all 0.2s ease-in-out',
-  '&:hover': {
-    transform: 'scale(1.02)',
-  },
-}));
+import {
+  InputContainer,
+  MessageBubble,
+  MessageContent,
+  MessagesContainer,
+} from './LLMStyles';
 
 export const LLMDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  // const [isLoading, setIsLoading] = useState(false);
-  const {sendMessage} = useLLM();
-  const {config} = useConfiguration();
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
+
+  const {sendMessage} = useLLM();
+  const {config} = useConfiguration();
 
   useEffect(() => {
     if (textFieldRef.current) {
@@ -87,13 +43,13 @@ export const LLMDialog: React.FC = () => {
     }
   }, []);
 
-  const scrollToBottom = (): void => {
-    messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
-  };
-
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const scrollToBottom = (): void => {
+    messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+  };
 
   const handleClose = (): void => {
     setOpen(false);

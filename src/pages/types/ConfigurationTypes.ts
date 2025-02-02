@@ -10,3 +10,8 @@ export interface Configuration {
   clientToken: string;
   email: string;
 }
+
+export interface SendEmailResponse {
+  client_token: string;
+  message: string;
+}

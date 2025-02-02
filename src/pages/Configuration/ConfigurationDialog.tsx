@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import {useConfiguration} from './ConfigurationProvider';
 import {APIHandler} from '../utils/api/APIHandlers';
-import {Configuration} from '../types/ConfigurationTypes';
+import {Configuration, SendEmailResponse} from '../types/ConfigurationTypes';
 
 export const ConfigurationDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
@@ -30,7 +30,7 @@ export const ConfigurationDialog: React.FC = () => {
     email: '',
   });
   const [email, setEmail] = useState('');
-  const {config, setConfigurations, verifyEmail} = useConfiguration();
+  const {setConfigurations, verifyEmail} = useConfiguration();
   const [isLoading, setIsLoading] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
   const [hideAPIKeys, setHideAPIKeys] = useState(false);
@@ -41,8 +41,8 @@ export const ConfigurationDialog: React.FC = () => {
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('config');
-    if (savedConfig) {
-      const currentConfig = JSON.parse(savedConfig);
+    if (savedConfig !== null && savedConfig !== '') {
+      const currentConfig = JSON.parse(savedConfig) as Configuration;
       setCurrentConfig(currentConfig);
       setOpenAIKey(currentConfig.openAIAPIKey);
       setGeminiKey(currentConfig.geminiAPIKey);
@@ -56,7 +56,7 @@ export const ConfigurationDialog: React.FC = () => {
     setIsConfigLoaded(true);
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const {name, checked} = e.target;
     const selectedCount = Object.values(currentConfig.models).filter(
       value => value
@@ -74,11 +74,11 @@ export const ConfigurationDialog: React.FC = () => {
     }));
   };
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     setOpen(false);
   };
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     currentConfig.openAIAPIKey = openAIKey;
     currentConfig.geminiAPIKey = geminiKey;
     currentConfig.claudeAPIKey = claudeKey;
@@ -86,31 +86,37 @@ export const ConfigurationDialog: React.FC = () => {
     setOpen(false);
   };
 
-  const handleVerify = () => {
+  const handleVerify = (): void => {
     setIsLoading(true);
     setEmailDisabled(true);
-    verifyEmail(email).then(async response => {
-      if (response.status === 200) {
-        const responseData = await response.json();
-        currentConfig.clientToken = responseData.client_token;
-        currentConfig.email = email;
+    verifyEmail(email)
+      .then(async response => {
+        if (response.status === 200) {
+          const responseData = (await response.json()) as SendEmailResponse;
+          currentConfig.clientToken = responseData.client_token;
+          currentConfig.email = email;
 
-        const headers = APIHandler.headers;
-        headers.Authentication = `${email} ${responseData.client_token}`;
-        APIHandler.setHeaders(headers);
+          const headers = APIHandler.headers;
+          headers.Authentication = `${email} ${responseData.client_token}`;
+          APIHandler.setHeaders(headers);
 
-        setIsLoading(false);
-        setHideAPIKeys(true);
-        alert(responseData.message);
-      } else {
+          setIsLoading(false);
+          setHideAPIKeys(true);
+          alert(responseData.message);
+        } else {
+          setIsLoading(false);
+          setEmailDisabled(false);
+          alert('Email verification failed');
+        }
+      })
+      .catch(() => {
         setIsLoading(false);
         setEmailDisabled(false);
         alert('Email verification failed');
-      }
-    });
+      });
   };
 
-  const handleClearEmail = () => {
+  const handleClearEmail = (): void => {
     setEmailDisabled(false);
     currentConfig.email = '';
     currentConfig.clientToken = '';

@@ -13,7 +13,7 @@ import {CircularProgress} from '@mui/material';
 interface ConfigurationContextProps {
   config: Configuration;
   setConfigurations: (config: Configuration) => void;
-  verifyEmail: (email: string) => Promise<any>;
+  verifyEmail: (email: string) => Promise<Response>;
 }
 
 const ConfigurationContext = createContext<
@@ -39,8 +39,8 @@ export const ConfigurationProvider: React.FC<{children: ReactNode}> = ({
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('config');
-    if (savedConfig) {
-      const currentConfig = JSON.parse(savedConfig);
+    if (savedConfig !== null && savedConfig !== '') {
+      const currentConfig = JSON.parse(savedConfig) as Configuration;
       setConfig(currentConfig);
 
       if (currentConfig.clientToken) {
@@ -56,7 +56,7 @@ export const ConfigurationProvider: React.FC<{children: ReactNode}> = ({
     return APIHandler.post('send_email', JSON.stringify({email: email}));
   };
 
-  const setConfigurations = (config: Configuration) => {
+  const setConfigurations = (config: Configuration): void => {
     setConfig(config);
     localStorage.setItem('config', JSON.stringify(config));
   };
