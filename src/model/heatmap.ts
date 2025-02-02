@@ -1,45 +1,36 @@
-import {AbstractPlot} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
 import {HeatmapData, Maidr} from './grammar';
+import {AbstractPlot} from './plot';
+import {AudioState, TextState} from './state';
 
-export class Heatmap extends AbstractPlot {
+export class Heatmap extends AbstractPlot<number> {
   private readonly x: string[];
   private readonly y: string[];
-
-  private readonly points: number[][];
-  private readonly brailleValues: string[][];
 
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: Maidr) {
+  public constructor(maidr: Maidr) {
     super(maidr);
 
     const data = maidr.data as HeatmapData;
     this.x = data.x;
     this.y = data.y;
 
-    this.points = data.points;
-    this.min = Math.min(...this.points.flat());
-    this.max = Math.max(...this.points.flat());
+    this.values = data.points;
+    this.min = Math.min(...this.values.flat());
+    this.max = Math.max(...this.values.flat());
 
-    this.brailleValues = this.toBraille(this.points);
+    this.row = this.values.length - 1;
+    this.brailleValues = this.toBraille(this.values);
   }
 
   protected audio(): AudioState {
     return {
       min: this.min,
       max: this.max,
-      size: this.points.length,
+      size: this.values.length,
       index: this.col,
-      value: this.points[this.row][this.col],
-    };
-  }
-
-  protected braille(): BrailleState {
-    return {
-      values: this.brailleValues[this.row],
-      index: this.col,
+      value: this.values[this.row][this.col],
     };
   }
 
@@ -50,12 +41,12 @@ export class Heatmap extends AbstractPlot {
       crossLabel: this.yAxis,
       crossValue: this.y[this.row],
       fillLabel: this.fill,
-      fillValue: String(this.points[this.row][this.col]),
+      fillValue: String(this.values[this.row][this.col]),
     };
   }
 
   private toBraille(data: number[][]): string[][] {
-    const braille = [];
+    const braille = new Array<Array<string>>();
 
     const range = (this.max - this.min) / 3;
     const low = this.min + range;

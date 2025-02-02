@@ -1,12 +1,13 @@
-import AutoplayManager from '../manager/autoplay';
+import {Plot} from "../../model/plot";
+import {MovableDirection} from '../interface';
+import {AutoplayService} from '../service/autoplay';
 import {Command} from './command';
-import {MovableDirection, Plot} from '../interface';
 
 export class AutoplayUpwardCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
   private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager, plot: Plot) {
+  public constructor(autoplay: AutoplayService, plot: Plot) {
     this.autoplay = autoplay;
     this.plot = plot;
   }
@@ -17,10 +18,10 @@ export class AutoplayUpwardCommand implements Command {
 }
 
 export class AutoplayDownwardCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
   private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager, plot: Plot) {
+  public constructor(autoplay: AutoplayService, plot: Plot) {
     this.autoplay = autoplay;
     this.plot = plot;
   }
@@ -31,10 +32,10 @@ export class AutoplayDownwardCommand implements Command {
 }
 
 export class AutoplayForwardCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
   private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager, plot: Plot) {
+  public constructor(autoplay: AutoplayService, plot: Plot) {
     this.autoplay = autoplay;
     this.plot = plot;
   }
@@ -45,10 +46,10 @@ export class AutoplayForwardCommand implements Command {
 }
 
 export class AutoplayBackwardCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
   private readonly plot: Plot;
 
-  constructor(autoplay: AutoplayManager, plot: Plot) {
+  public constructor(autoplay: AutoplayService, plot: Plot) {
     this.autoplay = autoplay;
     this.plot = plot;
   }
@@ -59,9 +60,9 @@ export class AutoplayBackwardCommand implements Command {
 }
 
 export class StopAutoplayCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
 
-  constructor(autoplay: AutoplayManager) {
+  public constructor(autoplay: AutoplayService) {
     this.autoplay = autoplay;
   }
 
@@ -71,9 +72,9 @@ export class StopAutoplayCommand implements Command {
 }
 
 export class SpeedUpAutoplayCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
 
-  constructor(autoplay: AutoplayManager) {
+  public constructor(autoplay: AutoplayService) {
     this.autoplay = autoplay;
   }
 
@@ -83,9 +84,9 @@ export class SpeedUpAutoplayCommand implements Command {
 }
 
 export class SpeedDownAutoplayCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
 
-  constructor(autoplay: AutoplayManager) {
+  public constructor(autoplay: AutoplayService) {
     this.autoplay = autoplay;
   }
 
@@ -95,9 +96,9 @@ export class SpeedDownAutoplayCommand implements Command {
 }
 
 export class ResetAutoplaySpeedCommand implements Command {
-  private readonly autoplay: AutoplayManager;
+  private readonly autoplay: AutoplayService;
 
-  constructor(autoplay: AutoplayManager) {
+  public constructor(autoplay: AutoplayService) {
     this.autoplay = autoplay;
   }
 

@@ -1,15 +1,16 @@
-import React from 'react';
-import Controller from './core/controller';
-import DisplayManager from './core/manager/display';
-import ReactMicroFrontend from './pages';
-import {createRoot} from 'react-dom/client';
+import React from "react";
+import ReactMicroFrontend from "./pages";
+import { createRoot } from "react-dom/client";
+import { Controller } from "./core/controller";
+import { DisplayService } from "./core/service/display";
 
 export enum EventType {
-  BLUR = 'blur',
-  CLICK = 'click',
-  DOM_LOADED = 'DOMContentLoaded',
-  FOCUS = 'focus',
-  SELECTION_CHANGE = 'selectionchange',
+  BLUR = "blur",
+  CLICK = "click",
+  DOM_LOADED = "DOMContentLoaded",
+  FOCUS = "focus",
+  KEY_DOWN = "keydown",
+  SELECTION_CHANGE = "selectionchange",
 }
 
 document.addEventListener(EventType.DOM_LOADED, main);
@@ -30,8 +31,8 @@ function main(): void {
     if (!controller) {
       controller = new Controller(maidr, display);
     }
-    const rootDiv = document.createElement('div');
-    rootDiv.id = 'root';
+    const rootDiv = document.createElement("div");
+    rootDiv.id = "root";
     document.body.appendChild(rootDiv);
 
     if (rootDiv) {
@@ -39,7 +40,7 @@ function main(): void {
       root.render(
         React.createElement(ReactMicroFrontend, {
           frontendManager: controller.frontend,
-        })
+        }),
       );
     }
     display.removeInstruction();
@@ -52,7 +53,7 @@ function main(): void {
     }
   };
 
-  const display = new DisplayManager(maidr, onFocus, onBlur);
+  const display = new DisplayService(maidr, onFocus, onBlur);
   let controller: Controller | null = null;
 
   plot?.addEventListener(EventType.FOCUS, onFocus);

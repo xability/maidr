@@ -1,7 +1,8 @@
 import hotkeys from 'hotkeys-js';
-import Constant from '../../util/constant';
-import {CommandFactory} from '../command/factory';
+
+import {Constant} from '../../util/constant';
 import {CommandContext} from '../command/command';
+import {CommandFactory} from '../command/factory';
 
 export enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
@@ -28,10 +29,11 @@ export enum DefaultKey {
   MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
   MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
 
-  // BTS
+  // Modes
   TOGGLE_BRAILLE = 'b',
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
+  TOGGLE_REVIEW = 'r',
 
   // Description
   DESCRIBE_POINT = 'space',
@@ -50,34 +52,49 @@ export enum LabelKey {
   DESCRIBE_CAPTION = 'c',
 }
 
+export enum ReviewKey {
+  // Modes
+  TOGGLE_BRAILLE = 'b',
+  TOGGLE_REVIEW = 'r',
+}
+
+export enum Scope {
+  DEFAULT = 'DEFAULT',
+  LABEL = 'LABEL',
+  REVIEW = 'REVIEW',
+}
+
 const scopedKeymap = {
-  DEFAULT: DefaultKey,
-  LABEL: LabelKey,
+  [Scope.DEFAULT]: DefaultKey,
+  [Scope.LABEL]: LabelKey,
+  [Scope.REVIEW]: ReviewKey,
 } as const;
 
-export type Scope = keyof typeof scopedKeymap;
 export type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
 export type Keys = keyof Keymap[Scope];
 
-export default class KeymapManager {
+export class KeymapService {
   private readonly commandFactory: CommandFactory;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }
 
   public register(): void {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      // Allow keybindings only for MAIDR braille input.
-      if (target.isContentEditable) {
-        return target.id.startsWith(Constant.BRAILLE_INPUT);
+      if (target.tagName.toLowerCase() === Constant.INPUT) {
+        // Allow keybindings for MAIDR review input.
+        return target.id.startsWith(Constant.REVIEW_INPUT);
+      } else if (target.tagName.toLowerCase() === Constant.TEXT_AREA) {
+        // Allow keybindings only for MAIDR braille text area.
+        return target.id.startsWith(Constant.BRAILLE_TEXT_AREA);
+      } else {
+        // Allow keybindings for all other non-editable elements.
+        return true;
       }
-
-      // Allow keybindings for all other non-editable elements.
-      return true;
     };
 
     // Register all bindings.
@@ -109,7 +126,7 @@ export default class KeymapManager {
     }
 
     // Set the initial scope.
-    hotkeys.setScope('DEFAULT');
+    hotkeys.setScope(Scope.DEFAULT);
   }
 
   public unregister(): void {

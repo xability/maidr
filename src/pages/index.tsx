@@ -1,15 +1,14 @@
-import React, {useEffect, useState} from 'react';
-import {DefaultKey} from '../core/manager/keymap';
-import HelpMenu from './HelpMenu';
-import FrontendManager from '../core/manager/frontend';
+import React, { useEffect, useState } from "react";
+import HelpMenu from "./HelpMenu";
+import FrontendManager from "../core/service/frontend";
 
 interface ReactMicroFrontendProps {
   frontendManager: FrontendManager;
 }
 
-const ReactMicroFrontend: React.FC<
-  ReactMicroFrontendProps
-> = frontendManager => {
+const ReactMicroFrontend: React.FC<ReactMicroFrontendProps> = (
+  frontendManager,
+) => {
   const [component, setComponent] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,7 +19,7 @@ const ReactMicroFrontend: React.FC<
 
   const renderComponent = (key: string | null) => {
     switch (key) {
-      case 'HELP_MENU':
+      case "HELP_MENU":
         return <HelpMenu />;
     }
     return <></>;

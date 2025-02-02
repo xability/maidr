@@ -1,6 +1,6 @@
-import NotificationManager from './notification';
-import {Observer} from '../interface';
 import {PlotState} from '../../model/state';
+import {Observer} from '../interface';
+import {NotificationService} from './notification';
 
 type Range = {
   min: number;
@@ -9,25 +9,44 @@ type Range = {
 
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
+const NULL_FREQUENCY = 100;
 
-export default class AudioManager implements Observer {
-  private enabled: boolean;
+const DEFAULT_DURATION = 0.3;
+const DEFAULT_VOLUME = 0.5;
+
+enum AudioMode {
+  OFF = 'off',
+  SEPARATE = 'on',
+  COMBINED = 'combined',
+}
+
+export class AudioService implements Observer {
+  private readonly notification: NotificationService;
+
   private volume: number;
-  private readonly notification: NotificationManager;
+  private mode: AudioMode;
+  private timeoutId?: NodeJS.Timeout | null = null;
+  private readonly isCombinedAudio: boolean;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  constructor(notification: NotificationManager) {
-    this.enabled = true;
-    this.volume = 0.5;
+  public constructor(
+    notification: NotificationService,
+    isCombinedAudio: boolean
+  ) {
     this.notification = notification;
+
+    this.isCombinedAudio = isCombinedAudio;
+    this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
+    this.volume = DEFAULT_VOLUME;
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
 
   public destroy(): void {
+    this.stop();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       this.audioContext.close().finally();
@@ -53,7 +72,7 @@ export default class AudioManager implements Observer {
 
   public update(state: PlotState): void {
     // Play audio only if turned on.
-    if (!this.enabled) {
+    if (this.mode === AudioMode.OFF) {
       return;
     }
 
@@ -62,23 +81,68 @@ export default class AudioManager implements Observer {
       return;
     }
 
-    // TODO: Handle point, segmented, and boxplot.
+    this.stop();
+    // TODO: Handle point.
     const audio = state.audio;
+    this.stop();
+    // TODO: Handle point.
+    if (Array.isArray(audio.value)) {
+      const values = audio.value as number[];
+      if (values.length === 0) {
+        this.playZero();
+        return;
+      }
 
-    const fromFreq = {min: audio.min, max: audio.max};
+      let currentIndex = 0;
+      const playNext = () => {
+        if (currentIndex < values.length) {
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.timeoutId = setTimeout(playNext, 50);
+        } else {
+          this.stop();
+        }
+      };
+
+      playNext();
+    } else {
+      const value = audio.value as number;
+      if (value === 0) {
+        this.playZero();
+      } else {
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+      }
+    }
+  }
+
+  private playTone(
+    minFrequency: number,
+    maxFrequency: number,
+    rawFrequency: number,
+    panningSize: number,
+    rawPanning: number
+  ): void {
+    const fromFreq = {min: minFrequency, max: maxFrequency};
     const toFreq = {min: MIN_FREQUENCY, max: MAX_FREQUENCY};
-    const frequency = this.interpolate(audio.value, fromFreq, toFreq);
+    const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
-    const fromPanning = {min: 0, max: audio.size};
+    const fromPanning = {min: 0, max: panningSize};
     const toPanning = {min: -1, max: 1};
-    const panning = this.interpolate(audio.index, fromPanning, toPanning);
+    const panning = this.interpolate(rawPanning, fromPanning, toPanning);
 
+    this.playOscillator(frequency, panning);
+  }
+
+  private playOscillator(
+    frequency: number,
+    panning: number,
+    wave: OscillatorType = 'sine'
+  ) {
+    const duration = DEFAULT_DURATION;
     const volume = this.volume;
-    const duration = 0.3;
 
     // Start with a constant tone.
     const oscillator = this.audioContext.createOscillator();
-    oscillator.type = 'sine';
+    oscillator.type = wave;
     oscillator.frequency.value = frequency;
     oscillator.start();
 
@@ -124,7 +188,7 @@ export default class AudioManager implements Observer {
     pannerNode.connect(this.compressor);
 
     // Clean up after the audio stops.
-    setTimeout(
+    this.timeoutId = setTimeout(
       () => {
         pannerNode.disconnect();
         stereoPannerNode.disconnect();
@@ -135,6 +199,14 @@ export default class AudioManager implements Observer {
       },
       duration * 1e3 * 2
     );
+  }
+
+  private playZero(): void {
+    const frequency = NULL_FREQUENCY;
+    const panning = 0;
+    const wave = 'triangle';
+
+    this.playOscillator(frequency, panning, wave);
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
@@ -148,10 +220,34 @@ export default class AudioManager implements Observer {
   }
 
   public toggle() {
-    this.enabled = !this.enabled;
+    switch (this.mode) {
+      case AudioMode.OFF:
+        this.mode = this.isCombinedAudio
+          ? AudioMode.COMBINED
+          : AudioMode.SEPARATE;
+        break;
 
-    const message = `Sound is ${this.enabled ? 'on' : 'off'}`;
+      case AudioMode.SEPARATE:
+        this.mode = AudioMode.OFF;
+        break;
+
+      case AudioMode.COMBINED:
+        this.mode = AudioMode.SEPARATE;
+    }
+
+    const mode =
+      this.isCombinedAudio && this.mode === AudioMode.SEPARATE
+        ? 'separate'
+        : this.mode;
+    const message = `Sound is ${mode}`;
     this.notification.notify(message);
+  }
+
+  private stop(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
   }
 
   public updateVolume(volume: number): void {
