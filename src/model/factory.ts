@@ -1,7 +1,11 @@
 import {BarPlot} from './bar';
+import {BoxPlot} from './box';
 import {Maidr} from './grammar';
+import {Heatmap} from './heatmap';
+import {Histogram} from './histogram';
 import {LinePlot} from './line';
-import {Plot, PlotType} from './plot';
+import {Plot, PlotType} from "./plot";
+import {SegmentedPlot} from './segmented';
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {
@@ -9,8 +13,22 @@ export abstract class PlotFactory {
       case PlotType.BAR:
         return new BarPlot(maidr);
 
+      case PlotType.BOX:
+        return new BoxPlot(maidr);
+
+      case PlotType.HEATMAP:
+        return new Heatmap(maidr);
+
+      case PlotType.HISTOGRAM:
+        return new Histogram(maidr);
+
       case PlotType.LINE:
         return new LinePlot(maidr);
+
+      case PlotType.DODGED:
+      case PlotType.NORMALIZED:
+      case PlotType.STACKED:
+        return new SegmentedPlot(maidr);
 
       default:
         throw new Error(`Invalid plot type: ${maidr.type}`);

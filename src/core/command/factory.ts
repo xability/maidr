@@ -1,44 +1,69 @@
-import AudioManager from '../manager/audio';
-import BrailleManager from '../manager/braille';
+import {Plot} from "../../model/plot";
+import {AudioService} from '../service/audio';
+import {AutoplayService} from '../service/autoplay';
+import {BrailleService} from '../service/braille';
+import {Keys, Scope} from '../service/keymap';
+import {ReviewService} from '../service/review';
+import {TextService} from '../service/text';
+import {
+  AutoplayBackwardCommand,
+  AutoplayDownwardCommand,
+  AutoplayForwardCommand,
+  AutoplayUpwardCommand,
+  ResetAutoplaySpeedCommand,
+  SpeedDownAutoplayCommand,
+  SpeedUpAutoplayCommand,
+  StopAutoplayCommand,
+} from './autoplay';
 import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
   DescribePointCommand,
-  DescribeXCommand,
-  DescribeYCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
+  DescribeXCommand,
+  DescribeYCommand,
 } from './describe';
 import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
+  MoveToBottomExtremeCommand,
+  MoveToLeftExtremeCommand,
+  MoveToRightExtremeCommand,
+  MoveToTopExtremeCommand,
   MoveUpCommand,
 } from './move';
-import {Keys} from '../manager/keymap';
-import TextManager from '../manager/text';
 import {
+  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
-  SwitchScopeCommand,
+  ToggleReviewCommand,
   ToggleTextCommand,
 } from './toggle';
-import {Plot} from '../../model/plot';
 
 export class CommandFactory {
   private readonly plot: Plot;
-  private readonly audio: AudioManager;
-  private readonly braille: BrailleManager;
-  private readonly text: TextManager;
 
-  constructor(commandContext: CommandContext) {
+  private readonly audio: AudioService;
+  private readonly braille: BrailleService;
+  private readonly text: TextService;
+  private readonly review: ReviewService;
+
+  private readonly autoplay: AutoplayService;
+
+  public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
+
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
     this.text = commandContext.text;
+    this.review = commandContext.review;
+
+    this.autoplay = commandContext.autoplay;
   }
 
-  create(command: Keys): Command {
+  public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
         return new MoveUpCommand(this.plot);
@@ -48,13 +73,23 @@ export class CommandFactory {
         return new MoveLeftCommand(this.plot);
       case 'MOVE_RIGHT':
         return new MoveRightCommand(this.plot);
+      case 'MOVE_TO_TOP_EXTREME':
+        return new MoveToTopExtremeCommand(this.plot);
+      case 'MOVE_TO_BOTTOM_EXTREME':
+        return new MoveToBottomExtremeCommand(this.plot);
+      case 'MOVE_TO_LEFT_EXTREME':
+        return new MoveToLeftExtremeCommand(this.plot);
+      case 'MOVE_TO_RIGHT_EXTREME':
+        return new MoveToRightExtremeCommand(this.plot);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.braille);
+        return new ToggleBrailleCommand(this.plot, this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
+      case 'TOGGLE_REVIEW':
+        return new ToggleReviewCommand(this.plot, this.review);
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);
@@ -75,9 +110,26 @@ export class CommandFactory {
         return new DescribeCaptionCommand(this.plot, this.text);
 
       case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand('LABEL');
+        return new SwitchScopeCommand(Scope.LABEL);
       case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand('DEFAULT');
+        return new SwitchScopeCommand(Scope.DEFAULT);
+
+      case 'AUTOPLAY_UPWARD':
+        return new AutoplayUpwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_DOWNWARD':
+        return new AutoplayDownwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_FORWARD':
+        return new AutoplayForwardCommand(this.autoplay, this.plot);
+      case 'AUTOPLAY_BACKWARD':
+        return new AutoplayBackwardCommand(this.autoplay, this.plot);
+      case 'STOP_AUTOPLAY':
+        return new StopAutoplayCommand(this.autoplay);
+      case 'SPEED_UP_AUTOPLAY':
+        return new SpeedUpAutoplayCommand(this.autoplay);
+      case 'SPEED_DOWN_AUTOPLAY':
+        return new SpeedDownAutoplayCommand(this.autoplay);
+      case 'RESET_AUTOPLAY_SPEED':
+        return new ResetAutoplaySpeedCommand(this.autoplay);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

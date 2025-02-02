@@ -1,11 +1,12 @@
-import Controller from './core/controller';
-import DisplayManager from './core/manager/display';
+import {Controller} from './core/controller';
+import {DisplayService} from './core/service/display';
 
 export enum EventType {
   BLUR = 'blur',
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS = 'focus',
+  KEY_DOWN = 'keydown',
   SELECTION_CHANGE = 'selectionchange',
 }
 
@@ -28,7 +29,6 @@ function main(): void {
       controller = new Controller(maidr, display);
     }
     display.removeInstruction();
-    display.notifyInstruction();
   };
   const onBlur = (event: FocusEvent) => {
     if (display.shouldDestroy(event)) {
@@ -38,7 +38,7 @@ function main(): void {
     }
   };
 
-  const display = new DisplayManager(maidr, onFocus, onBlur);
+  const display = new DisplayService(maidr, onFocus, onBlur);
   let controller: Controller | null = null;
 
   plot?.addEventListener(EventType.FOCUS, onFocus);

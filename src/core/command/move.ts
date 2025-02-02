@@ -1,50 +1,98 @@
+import {Plot} from "../../model/plot";
+import {MovableDirection} from '../interface';
 import {Command} from './command';
-import {Plot} from '../../model/plot';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
   public execute(): void {
-    this.plot.moveUp();
+    this.plot.moveOnce(MovableDirection.UPWARD);
   }
 }
 
 export class MoveDownCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
   public execute(): void {
-    this.plot.moveDown();
+    this.plot.moveOnce(MovableDirection.DOWNWARD);
   }
 }
 
 export class MoveLeftCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
   public execute(): void {
-    this.plot.moveLeft();
+    this.plot.moveOnce(MovableDirection.BACKWARD);
   }
 }
 
 export class MoveRightCommand implements Command {
   private readonly plot: Plot;
 
-  constructor(plot: Plot) {
+  public constructor(plot: Plot) {
     this.plot = plot;
   }
 
   public execute(): void {
-    this.plot.moveRight();
+    this.plot.moveOnce(MovableDirection.FORWARD);
+  }
+}
+
+export class MoveToTopExtremeCommand implements Command {
+  private readonly plot: Plot;
+
+  public constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveToExtreme(MovableDirection.UPWARD);
+  }
+}
+
+export class MoveToBottomExtremeCommand implements Command {
+  private readonly plot: Plot;
+
+  public constructor(plot: Plot) {
+    this.plot = plot;
+  }
+  public execute(): void {
+    this.plot.moveToExtreme(MovableDirection.DOWNWARD);
+  }
+}
+
+export class MoveToLeftExtremeCommand implements Command {
+  private readonly plot: Plot;
+
+  public constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveToExtreme(MovableDirection.BACKWARD);
+  }
+}
+
+export class MoveToRightExtremeCommand implements Command {
+  private readonly plot: Plot;
+
+  public constructor(plot: Plot) {
+    this.plot = plot;
+  }
+
+  public execute(): void {
+    this.plot.moveToExtreme(MovableDirection.FORWARD);
   }
 }
