@@ -1,3 +1,6 @@
+export interface ClaudeResponse {
+  content: {text: string}[];
+}
 export const formatClaudeRequest = (
   message: string,
   maidrJson: string,
@@ -36,6 +39,9 @@ export const formatClaudeRequest = (
   });
 };
 
-export const formatClaudeResponse = (response: any) => {
-  return response.content[0].text;
+export const formatClaudeResponse = (response: ClaudeResponse): string => {
+  if (response.content.length > 0) {
+    return response.content[0].text;
+  }
+  throw new Error('Invalid response format');
 };

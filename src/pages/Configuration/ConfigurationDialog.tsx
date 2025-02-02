@@ -100,6 +100,7 @@ export const ConfigurationDialog: React.FC = () => {
         APIHandler.setHeaders(headers);
 
         setIsLoading(false);
+        setHideAPIKeys(true);
         alert(responseData.message);
       } else {
         setIsLoading(false);

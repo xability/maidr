@@ -1,3 +1,11 @@
+export interface OpenAIResponse {
+  choices: {
+    message: {
+      content: string;
+    };
+  }[];
+}
+
 export const formatOpenAIRequest = (
   message: string,
   maidrJson: string,
@@ -61,6 +69,9 @@ export const makeOpenAIRequest = async (
   }
 };
 
-export const formatOpenAIResponse = (response: any) => {
-  return response.choices[0].message.content;
+export const formatOpenAIResponse = (response: OpenAIResponse): string => {
+  if (response.choices.length > 0) {
+    return response.choices[0].message.content;
+  }
+  throw new Error('Invalid response format');
 };

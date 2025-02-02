@@ -1,3 +1,13 @@
+export interface GeminiResponse {
+  candidates: {
+    content: {
+      parts: {
+        text: string;
+      }[];
+    };
+  }[];
+}
+
 export const formatGeminiRequest = (
   message: string,
   maidrJson: string,
@@ -48,9 +58,11 @@ export const formatGeminiRequest = (
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const formatGeminiResponse = (response: any) => {
-  return response.candidates[0].content.parts[0].text;
+export const formatGeminiResponse = (response: GeminiResponse): string => {
+  if (response.candidates.length > 0) {
+    return response.candidates[0].content.parts[0].text;
+  }
+  throw new Error('Invalid response format');
 };
 
 export const makeGeminiRequest = (

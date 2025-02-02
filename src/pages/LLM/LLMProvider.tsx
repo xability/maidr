@@ -1,16 +1,19 @@
 import React, {createContext, useContext, useState} from 'react';
-import {LLM} from '../types/LLMTypes';
+import {LLM, LLMResponse} from '../types/LLMTypes';
 import {
   formatGeminiRequest,
   formatGeminiResponse,
+  GeminiResponse,
   makeGeminiRequest,
 } from '../utils/llm/GeminiAIUtils';
 import {
   formatOpenAIRequest,
   formatOpenAIResponse,
   makeOpenAIRequest,
+  OpenAIResponse,
 } from '../utils/llm/OpenAIUtils';
 import {
+  ClaudeResponse,
   formatClaudeRequest,
   formatClaudeResponse,
 } from '../utils/llm/ClaudeAIUtils';
@@ -43,24 +46,21 @@ export const LLMProvider: React.FC<{
     apiKey = ''
   ): Promise<string | null> => {
     try {
-      console.log(isServer);
+      let responseData: LLMResponse;
       if (isServer) {
         const response = await APIHandler.post(
           `${llm}`,
           formatRequest(message, maidrJson, image, llm)
         );
-
-        const responseData = await response.json();
-        const formattedResponse = formatResponse(responseData, llm);
-        return formattedResponse;
+        responseData = (await response.json()) as LLMResponse;
+      } else {
+        const response = await makeAIModelRequest(
+          llm,
+          formatRequest(message, maidrJson, image, llm),
+          apiKey
+        );
+        responseData = (await response?.json()) as LLMResponse;
       }
-
-      const response = await makeAIModelRequest(
-        llm,
-        formatRequest(message, maidrJson, image, llm),
-        apiKey
-      );
-      const responseData = await response?.json();
       const formattedResponse = formatResponse(responseData, llm);
       return formattedResponse;
     } catch (error) {
@@ -76,7 +76,7 @@ export const LLMProvider: React.FC<{
   );
 };
 
-export const useLLM = () => {
+export const useLLM = (): LLMContextProps => {
   const context = useContext(LLMContext);
   if (!context) {
     throw new Error('useLLM must be used within an LLMProvider');
@@ -85,15 +85,15 @@ export const useLLM = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const formatResponse = (response: any, llm: LLM) => {
+const formatResponse = (response: LLMResponse, llm: LLM): string => {
   if (llm === LLM.Gemini) {
-    return formatGeminiResponse(response);
+    return formatGeminiResponse(response as GeminiResponse);
   }
   if (llm === LLM.OpenAI) {
-    return formatOpenAIResponse(response);
+    return formatOpenAIResponse(response as OpenAIResponse);
   }
   if (llm === LLM.Claude) {
-    return formatClaudeResponse(response);
+    return formatClaudeResponse(response as ClaudeResponse);
   }
   return '';
 };
