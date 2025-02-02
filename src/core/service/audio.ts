@@ -10,7 +10,9 @@ type Range = {
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
+
 const DEFAULT_DURATION = 0.3;
+const DEFAULT_VOLUME = 0.5;
 
 enum AudioMode {
   OFF = 'off',
@@ -19,12 +21,12 @@ enum AudioMode {
 }
 
 export class AudioService implements Observer {
+  private readonly notification: NotificationService;
+
+  private volume: number;
   private mode: AudioMode;
   private timeoutId?: NodeJS.Timeout | null = null;
   private readonly isCombinedAudio: boolean;
-
-  private volume: number;
-  private readonly notification: NotificationService;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
@@ -33,11 +35,11 @@ export class AudioService implements Observer {
     notification: NotificationService,
     isCombinedAudio: boolean
   ) {
+    this.notification = notification;
+
     this.isCombinedAudio = isCombinedAudio;
     this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
-
-    this.volume = 0.5;
-    this.notification = notification;
+    this.volume = DEFAULT_VOLUME;
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();

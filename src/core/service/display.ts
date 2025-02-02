@@ -36,14 +36,13 @@ export class DisplayService {
     onBlur: (event: FocusEvent) => void
   ) {
     this.maidr = maidr;
-    const maidrId = this.maidr.id;
-
     this.onFocus = onFocus;
     this.onBlur = onBlur;
 
     this.focusStack = new Stack<FocusMode>();
     this.focusStack.push(FocusMode.PLOT);
 
+    const maidrId = this.maidr.id;
     const plot = document.getElementById(maidrId);
     if (!plot || !plot.parentNode) {
       console.error('Plot container not found');
@@ -117,11 +116,16 @@ export class DisplayService {
     return !this.figureElement?.contains(target);
   }
 
-  public addInstruction(): void {
-    if (this.plot) {
-      const maidrInstruction = `This is a maidr plot of type ${this.maidr.type}: Click to activate.
+  public getInstruction(includeClickPrompt: boolean): string {
+    return `This is a maidr plot of type: ${this.maidr.type}.
+        ${includeClickPrompt ? 'Click to activate.' : Constant.EMPTY}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode. Use H for Help.`;
+  }
+
+  public addInstruction(): void {
+    if (this.plot) {
+      const maidrInstruction = this.getInstruction(true);
       this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
       this.plot.setAttribute(Constant.TITLE, maidrInstruction);
       this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);

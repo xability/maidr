@@ -6,10 +6,10 @@ import {DisplayService} from './display';
 import {NotificationService} from './notification';
 
 export class BrailleService implements Observer {
-  private enabled: boolean;
-
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
+
+  private enabled: boolean;
 
   private readonly brailleTextArea?: HTMLTextAreaElement;
   private readonly selectionChangeHandler?: (event: Event) => void;
@@ -19,11 +19,10 @@ export class BrailleService implements Observer {
     display: DisplayService,
     movable: Movable
   ) {
-    this.enabled = false;
-
     this.notification = notification;
     this.display = display;
 
+    this.enabled = false;
     if (!display.brailleDiv || !display.brailleTextArea) {
       return;
     }
