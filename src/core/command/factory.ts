@@ -56,7 +56,7 @@ export class CommandFactory {
 
   private readonly frontend: FrontendManager;
 
-  constructor(commandContext: CommandContext) {
+  public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
 
     this.audio = commandContext.audio;

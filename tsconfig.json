@@ -18,6 +18,8 @@
 
     "resolveJsonModule": true,
     "sourceMap": true,
+
+
     "allowSyntheticDefaultImports": true,
   },
 
