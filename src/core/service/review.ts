@@ -9,11 +9,11 @@ import {NotificationService} from './notification';
 import {TextService} from './text';
 
 export class ReviewService implements Observer {
-  private enabled: boolean;
-
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
   private readonly text: TextService;
+
+  private enabled: boolean;
 
   private readonly reviewInput?: HTMLInputElement;
   private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
@@ -23,12 +23,11 @@ export class ReviewService implements Observer {
     display: DisplayService,
     text: TextService
   ) {
-    this.enabled = false;
-
     this.notification = notification;
     this.display = display;
     this.text = text;
 
+    this.enabled = false;
     if (!display.reviewInput) {
       return;
     }
