@@ -10,8 +10,9 @@ enum TextMode {
 }
 
 export class TextService implements Observer {
-  private mode: TextMode;
   private readonly notification: NotificationService;
+
+  private mode: TextMode;
   private readonly textDiv!: HTMLElement;
 
   public constructor(notification: NotificationService, textDiv?: HTMLElement) {

@@ -28,7 +28,7 @@ export class Controller {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
-    this.notification = new NotificationService(this.display.notificationDiv);
+    this.notification = new NotificationService(this.display);
 
     this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
     this.braille = new BrailleService(
