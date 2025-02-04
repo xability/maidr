@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import HelpMenu from "./HelpMenu";
-import FrontendManager from "../core/service/frontend";
+import FrontendService from "../core/service/frontend";
 
 interface ReactMicroFrontendProps {
-  frontendManager: FrontendManager;
+  frontendManager: FrontendService;
 }
 
 const ReactMicroFrontend: React.FC<ReactMicroFrontendProps> = (

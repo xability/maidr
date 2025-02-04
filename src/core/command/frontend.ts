@@ -1,10 +1,10 @@
-import FrontendManager from "../service/frontend";
+import FrontendService from "../service/frontend";
 import { Command } from "./command";
 
 export class HelpMenuCommand implements Command {
-  private readonly frontendManager: FrontendManager;
+  private readonly frontendManager: FrontendService;
 
-  constructor(frontendManager: FrontendManager) {
+  constructor(frontendManager: FrontendService) {
     this.frontendManager = frontendManager;
   }
 

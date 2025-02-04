@@ -2,7 +2,7 @@ import { Plot } from "../../model/plot";
 import { AudioService } from "../service/audio";
 import { AutoplayService } from "../service/autoplay";
 import { BrailleService } from "../service/braille";
-import FrontendManager from "../service/frontend";
+import FrontendService from "../service/frontend";
 import { ReviewService } from "../service/review";
 import { TextService } from "../service/text";
 
@@ -18,6 +18,6 @@ export type CommandContext = {
   text: TextService;
   review: ReviewService;
 
-  frontend: FrontendManager;
+  frontend: FrontendService;
   autoplay: AutoplayService;
 };
