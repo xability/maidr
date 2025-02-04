@@ -1,3 +1,10 @@
+## [2.28.2](https://github.com/xability/maidr/compare/v2.28.1...v2.28.2) (2025-02-04)
+
+
+### Bug Fixes
+
+* corrected controls to M1 m1 and j1 ([#633](https://github.com/xability/maidr/issues/633)) ([760d4f0](https://github.com/xability/maidr/commit/760d4f09fb1c7fc5e7db05d48274f63f000a4263))
+
 ## [2.28.1](https://github.com/xability/maidr/compare/v2.28.0...v2.28.1) (2025-01-27)
 
 
