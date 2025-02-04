@@ -5,7 +5,7 @@ import { AudioService } from "./service/audio";
 import { AutoplayService } from "./service/autoplay";
 import { BrailleService } from "./service/braille";
 import { DisplayService } from "./service/display";
-import FrontendManager from "./service/frontend";
+import FrontendService from "./service/frontend";
 import { KeymapService } from "./service/keymap";
 import { NotificationService } from "./service/notification";
 import { ReviewService } from "./service/review";
@@ -22,7 +22,7 @@ export class Controller {
   private readonly text: TextService;
   private readonly review: ReviewService;
 
-  public readonly frontend: FrontendManager;
+  public readonly frontend: FrontendService;
   private readonly autoplay: AutoplayService;
   private readonly keymap: KeymapService;
 
@@ -46,7 +46,8 @@ export class Controller {
       this.text,
       this.plot,
     );
-    this.frontend = new FrontendManager(maidr);
+
+    this.frontend = new FrontendService(maidr);
 
     this.keymap = new KeymapService({
       plot: this.plot,

@@ -1,8 +1,9 @@
 import React from "react";
-import ReactMicroFrontend from "./pages";
 import { createRoot } from "react-dom/client";
-import { DisplayService } from "./core/service/display";
+
 import { Controller } from "./core/controller";
+import { DisplayService } from "./core/service/display";
+import ReactMicroFrontend from "./pages";
 
 export enum EventType {
   BLUR = "blur",

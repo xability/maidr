@@ -1,7 +1,7 @@
 import { Maidr } from "../../model/grammar";
 import { convertSVGtoBase64 } from "../../util/image";
 
-export default class FrontendManager {
+export default class FrontendService {
   public execute: (key: string) => void = () => {};
   public maidrJson = "";
   public image = "";

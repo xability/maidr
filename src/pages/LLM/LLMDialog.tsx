@@ -1,4 +1,6 @@
-import React, {useEffect, useRef, useState} from 'react';
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import SendIcon from "@mui/icons-material/Send";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import {
   Avatar,
   Box,
@@ -8,34 +10,33 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import {useLLM} from './LLMProvider';
+} from "@mui/material";
+import React, { useEffect, useRef, useState } from "react";
+
+import { useConfiguration } from "../Configuration/ConfigurationProvider";
 import {
   getAPIKeyFromConfiguration,
   Message,
   modelStringToPrettyString,
   stringToLLMEnum,
-} from '../types/LLMTypes';
-import {useConfiguration} from '../Configuration/ConfigurationProvider';
+} from "../types/LLMTypes";
+import { useLLM } from "./LLMProvider";
 import {
   InputContainer,
   MessageBubble,
   MessageContent,
   MessagesContainer,
-} from './LLMStyles';
+} from "./LLMStyles";
 
 export const LLMDialog: React.FC = () => {
   const [open, setOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
 
-  const {sendMessage} = useLLM();
-  const {config} = useConfiguration();
+  const { sendMessage } = useLLM();
+  const { config } = useConfiguration();
 
   useEffect(() => {
     if (textFieldRef.current) {
@@ -48,7 +49,7 @@ export const LLMDialog: React.FC = () => {
   }, [messages]);
 
   const scrollToBottom = (): void => {
-    messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const handleClose = (): void => {
@@ -58,8 +59,8 @@ export const LLMDialog: React.FC = () => {
   const handleSendMessage = (): void => {
     const models = config.models;
     const currentTime = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: "2-digit",
+      minute: "2-digit",
     });
     const userMessage = {
       id: messages.length + 1,
@@ -76,19 +77,19 @@ export const LLMDialog: React.FC = () => {
           sendMessage(
             model,
             newMessage,
-            config.clientToken !== '' ? true : false,
+            config.clientToken !== "" ? true : false,
             config.customInstructionForLLM,
-            getAPIKeyFromConfiguration(model, config)
+            getAPIKeyFromConfiguration(model, config),
           )
-            .then(response => {
+            .then((response) => {
               if (
                 response !== null &&
                 response !== undefined &&
-                response.trim() !== ''
+                response.trim() !== ""
               ) {
                 const currentTime = new Date().toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
+                  hour: "2-digit",
+                  minute: "2-digit",
                 });
                 const responseMessagae = {
                   id: messages.length + 1,
@@ -103,13 +104,13 @@ export const LLMDialog: React.FC = () => {
                 ]);
               }
             })
-            .catch(error => {
-              alert('Error sending message: ' + error);
+            .catch((error) => {
+              alert("Error sending message: " + error);
             });
         }
       }
     }
-    setNewMessage('');
+    setNewMessage("");
   };
 
   const handleKeyPress = (e: {
@@ -117,7 +118,7 @@ export const LLMDialog: React.FC = () => {
     shiftKey: boolean;
     preventDefault: () => void;
   }): void => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -136,16 +137,19 @@ export const LLMDialog: React.FC = () => {
                 width="100%"
                 height="100%"
               >
-                <SmartToyIcon fontSize="large" style={{marginInline: '20px'}} />
+                <SmartToyIcon
+                  fontSize="large"
+                  style={{ marginInline: "20px" }}
+                />
                 <Typography variant="h4" fontWeight={300} color="textSecondary">
                   What can I help with?
                 </Typography>
               </Box>
             )}
-            {messages.map(message => (
+            {messages.map((message) => (
               <MessageBubble key={message.id} isUser={message.isUser}>
                 <Avatar
-                  alt={message.isUser ? 'User' : 'Contact'}
+                  alt={message.isUser ? "User" : "Contact"}
                   sx={{
                     width: 40,
                     height: 40,
@@ -157,7 +161,7 @@ export const LLMDialog: React.FC = () => {
                   {!message.isUser && (
                     <Typography variant="h6" component="div">
                       {modelStringToPrettyString(
-                        message.model ?? 'Unknown Model'
+                        message.model ?? "Unknown Model",
                       )}
                     </Typography>
                   )}
@@ -166,7 +170,7 @@ export const LLMDialog: React.FC = () => {
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{opacity: 0.7, mt: 0.5, display: 'block'}}
+                    sx={{ opacity: 0.7, mt: 0.5, display: "block" }}
                   >
                     {message.timestamp}
                   </Typography>
@@ -182,12 +186,12 @@ export const LLMDialog: React.FC = () => {
                 multiline
                 maxRows={4}
                 value={newMessage}
-                onChange={e => setNewMessage(e.target.value)}
+                onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Type a message..."
                 variant="outlined"
                 size="small"
-                sx={{backgroundColor: '#fff'}}
+                sx={{ backgroundColor: "#fff" }}
                 aria-label="Message input field"
                 inputRef={textFieldRef}
                 autoFocus
@@ -197,11 +201,11 @@ export const LLMDialog: React.FC = () => {
                 color="primary"
                 aria-label="Send message"
                 sx={{
-                  backgroundColor: '#2196f3',
-                  color: '#fff',
-                  height: '40px',
-                  '&:hover': {
-                    backgroundColor: '#1976d2',
+                  backgroundColor: "#2196f3",
+                  color: "#fff",
+                  height: "40px",
+                  "&:hover": {
+                    backgroundColor: "#1976d2",
                   },
                 }}
               >

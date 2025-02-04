@@ -2,6 +2,7 @@ import { Plot } from "../../model/plot";
 import { AudioService } from "../service/audio";
 import { AutoplayService } from "../service/autoplay";
 import { BrailleService } from "../service/braille";
+import FrontendService from "../service/frontend";
 import { Keys, Scope } from "../service/keymap";
 import { ReviewService } from "../service/review";
 import { TextService } from "../service/text";
@@ -25,6 +26,11 @@ import {
   DescribeYCommand,
 } from "./describe";
 import {
+  ConfigurationDialogCommand,
+  HelpMenuCommand,
+  LLMDialogCommand,
+} from "./frontend";
+import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -41,12 +47,6 @@ import {
   ToggleReviewCommand,
   ToggleTextCommand,
 } from "./toggle";
-import {
-  ConfigurationDialogCommand,
-  HelpMenuCommand,
-  LLMDialogCommand,
-} from "./frontend";
-import FrontendManager from "../service/frontend";
 
 export class CommandFactory {
   private readonly plot: Plot;
@@ -58,7 +58,7 @@ export class CommandFactory {
 
   private readonly autoplay: AutoplayService;
 
-  private readonly frontend: FrontendManager;
+  private readonly frontend: FrontendService;
 
   public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;

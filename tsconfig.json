@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "CommonJS",
+
     "outDir": "build",
     "lib": ["es2021", "dom"],
     "jsx": "react-jsx",
@@ -21,7 +22,8 @@
       "@core/*": ["core/*"],
       "@model/*": ["model/*"],
       "@util/*": ["util/*"]
-    }
+    },
+    "types": ["cypress", "node"]
   },
 
   // Webpack Typescript
@@ -34,6 +36,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "cypress/**/*.ts"
   ],
 
   "exclude": [

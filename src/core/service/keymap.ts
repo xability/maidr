@@ -38,7 +38,7 @@ export enum DefaultKey {
   // Description
   DESCRIBE_POINT = "space",
 
-  HELP_MENU = "h",
+  HELP_MENU = "command+/,ctrl+/",
   LLM_DIALOG = "option+shift+/, alt+shift+/",
   CONFIGURATION_DIALOG = "option+., alt+.",
 }
