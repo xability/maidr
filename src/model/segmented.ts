@@ -1,21 +1,14 @@
-import {Maidr, SegmentedPoint} from './grammar';
-import {AbstractBarPlot, Orientation} from './plot';
-import {TextState} from './state';
+import type { Maidr, SegmentedPoint } from './grammar';
+import type { TextState } from './state';
+import { AbstractBarPlot, Orientation } from './plot';
 
 const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
-  private readonly globalMin: number;
-  private readonly globalMax: number;
-
   public constructor(maidr: Maidr) {
     super(maidr, maidr.data as SegmentedPoint[][]);
-
-    this.globalMin = Math.min(...this.values.flat());
-    this.globalMax = Math.max(...this.values.flat());
-
     this.createSummaryLevel();
   }
 
@@ -26,8 +19,8 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
       const sum = this.values.reduce((sum, row) => sum + row[i], 0);
       summaryValues.push(sum);
 
-      const point =
-        this.orientation === Orientation.VERTICAL
+      const point
+        = this.orientation === Orientation.VERTICAL
           ? {
               x: this.points[0][i].x,
               y: sum,
@@ -49,7 +42,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     this.max.push(summaryMax);
 
     this.brailleValues.push(
-      this.createBraille(summaryValues, summaryMin, summaryMax)
+      this.createBraille(summaryValues, summaryMin, summaryMax),
     );
   }
 

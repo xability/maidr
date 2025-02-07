@@ -1,6 +1,6 @@
-import {HeatmapData, Maidr} from './grammar';
-import {AbstractPlot} from './plot';
-import {AudioState, TextState} from './state';
+import type { HeatmapData, Maidr } from './grammar';
+import type { AudioState, TextState } from './state';
+import { AbstractPlot } from './plot';
 
 export class Heatmap extends AbstractPlot<number> {
   private readonly x: string[];

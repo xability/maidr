@@ -1,16 +1,16 @@
-import {PlotFactory} from '../model/factory';
-import {Maidr} from '../model/grammar';
-import {Plot} from "../model/plot";
-import {AudioService} from './service/audio';
-import {AutoplayService} from './service/autoplay';
-import {BrailleService} from './service/braille';
-import {DisplayService} from './service/display';
-import {KeymapService} from './service/keymap';
-import {NotificationService} from './service/notification';
-import {ReviewService} from './service/review';
-import {TextService} from './service/text';
+import type { Maidr } from '../model/grammar';
+import type { Plot } from '../model/plot';
+import type { DisplayService } from './display';
+import { PlotFactory } from '../model/factory';
+import { AudioService } from './audio';
+import { AutoplayService } from './autoplay';
+import { BrailleService } from './braille';
+import { KeybindingService } from './keybinding';
+import { NotificationService } from './notification';
+import { ReviewService } from './review';
+import { TextService } from './text';
 
-export class Controller {
+export class ControllerService {
   private readonly plot: Plot;
 
   private readonly display: DisplayService;
@@ -22,7 +22,7 @@ export class Controller {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
-  private readonly keymap: KeymapService;
+  private readonly keybinding: KeybindingService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
@@ -34,7 +34,7 @@ export class Controller {
     this.braille = new BrailleService(
       this.notification,
       this.display,
-      this.plot
+      this.plot,
     );
     this.text = new TextService(this.notification, this.display.textDiv);
     this.review = new ReviewService(this.notification, this.display, this.text);
@@ -42,9 +42,9 @@ export class Controller {
     this.autoplay = new AutoplayService(
       this.notification,
       this.text,
-      this.plot
+      this.plot,
     );
-    this.keymap = new KeymapService({
+    this.keybinding = new KeybindingService({
       plot: this.plot,
       audio: this.audio,
       braille: this.braille,
@@ -52,7 +52,7 @@ export class Controller {
       review: this.review,
       autoplay: this.autoplay,
     });
-    this.keymap.register();
+    this.keybinding.register();
 
     this.plot.addObserver(this.audio);
     this.plot.addObserver(this.braille);
@@ -64,7 +64,7 @@ export class Controller {
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
-    this.keymap.unregister();
+    this.keybinding.unregister();
     this.autoplay.destroy();
 
     this.review.destroy();

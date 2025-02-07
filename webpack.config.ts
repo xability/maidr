@@ -1,19 +1,28 @@
-import path from 'path';
-import { Configuration } from 'webpack';
+import type { Configuration } from 'webpack';
+import path from 'node:path';
 
 const config: Configuration = {
   entry: './src/index.ts', // Entry point of MAIDR application
   output: {
-    filename: 'bundle.js', // Output file
+    filename: 'maidr.js', // Output file
     path: path.resolve(__dirname, 'dist'), // Output directory
+    clean: true, // Remove `dist` before building
   },
   resolve: {
-    extensions: ['.ts'], // Resolve TypeScript files
+    extensions: ['.ts', '.tsx'], // Resolve TypeScript files
+    alias: {
+      '@command': path.resolve(__dirname, 'src/command'),
+      '@model': path.resolve(__dirname, 'src/model'),
+      '@redux': path.resolve(__dirname, 'src/redux'),
+      '@service': path.resolve(__dirname, 'src/service'),
+      '@ui': path.resolve(__dirname, 'src/ui'),
+      '@util': path.resolve(__dirname, 'src/util'),
+    },
   },
   module: {
     rules: [
       {
-        test: /\.ts$/, // Apply this rule to .ts files
+        test: /\.(ts|tsx)$/, // Apply this rule to .ts and .tsx files
         use: 'ts-loader', // Use ts-loader to transpile TypeScript files
         exclude: /node_modules/, // Exclude node_modules from transpilation
       },

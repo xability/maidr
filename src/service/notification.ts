@@ -1,5 +1,5 @@
-import {Constant} from '../../util/constant';
-import {DisplayService} from './display';
+import type { DisplayService } from './display';
+import { Constant } from '@util/constant';
 
 export class NotificationService {
   private readonly enabled: boolean;

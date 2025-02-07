@@ -1,7 +1,7 @@
-import {PlotState, TextState} from '../../model/state';
-import {Constant} from '../../util/constant';
-import {Observer} from '../interface';
-import {NotificationService} from './notification';
+import type { Observer } from '@model/interface';
+import type { PlotState, TextState } from '@model/state';
+import type { NotificationService } from './notification';
+import { Constant } from '@util/constant';
 
 enum TextMode {
   OFF = 'off',
@@ -78,7 +78,7 @@ export class TextService implements Observer {
         Constant.COMMA,
         state.fillLabel,
         Constant.IS,
-        state.fillValue
+        state.fillValue,
       );
     }
 

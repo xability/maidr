@@ -1,36 +1,51 @@
-import {PlotState} from '../../model/state';
-import {Movable, MovableDirection} from '../interface';
-import {NotificationService} from './notification';
-import {TextService} from './text';
+import type { Movable, MovableDirection } from '@model/interface';
+import type { PlotState } from '@model/state';
+import type { NotificationService } from './notification';
+import type { TextService } from './text';
+
+const DEFAULT_SPEED = 250;
+const MIN_SPEED = 50;
+const MAX_SPEED = 500;
+
+const TOTAL_DURATION = 4000;
+const DEFAULT_INTERVAL = 20;
 
 export class AutoplayService {
   private readonly notification: NotificationService;
   private readonly text: TextService;
   private readonly movable: Movable;
 
-  private playId?: NodeJS.Timeout | null = null;
-  private currentDirection?: MovableDirection | null = null;
+  private playId: NodeJS.Timeout | null;
+  private currentDirection: MovableDirection | null;
 
-  private userSpeed: number | null = null;
-  private defaultSpeed = 250;
-  private minSpeed = 50;
-  private readonly maxSpeed = 500;
+  private userSpeed: number | null;
+  private defaultSpeed: number;
+  private minSpeed: number;
+  private readonly maxSpeed: number;
 
-  private autoplayRate = this.defaultSpeed;
-  private readonly totalDuration = 4000;
-  private readonly interval = 20;
+  private autoplayRate: number;
+  private readonly totalDuration: number;
+  private readonly interval: number;
 
-  public constructor(
-    notification: NotificationService,
-    text: TextService,
-    movable: Movable
-  ) {
+  public constructor(notification: NotificationService, text: TextService, movable: Movable) {
     this.notification = notification;
     this.text = text;
     this.movable = movable;
+
+    this.playId = null;
+    this.currentDirection = null;
+
+    this.userSpeed = null;
+    this.defaultSpeed = DEFAULT_SPEED;
+    this.minSpeed = MIN_SPEED;
+    this.maxSpeed = MAX_SPEED;
+
+    this.autoplayRate = this.defaultSpeed;
+    this.totalDuration = TOTAL_DURATION;
+    this.interval = DEFAULT_INTERVAL;
   }
 
-  public destroy() {
+  public destroy(): void {
     this.stop();
   }
 
@@ -103,7 +118,7 @@ export class AutoplayService {
 
   private getAutoplayRate(
     direction: MovableDirection,
-    state?: PlotState
+    state?: PlotState,
   ): number {
     if (this.userSpeed !== null) {
       return this.userSpeed;
@@ -111,7 +126,7 @@ export class AutoplayService {
 
     if (state && !state.empty) {
       const calculatedRate = Math.ceil(
-        this.totalDuration / state.autoplay[direction]
+        this.totalDuration / state.autoplay[direction],
       );
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);

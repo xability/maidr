@@ -1,12 +1,11 @@
+import type { Plot } from '@model/plot';
+import type { AudioService } from '@service/audio';
+import type { BrailleService } from '@service/braille';
+import type { Scope } from '@service/keybinding';
+import type { ReviewService } from '@service/review';
+import type { TextService } from '@service/text';
+import type { Command } from './command';
 import hotkeys from 'hotkeys-js';
-
-import {Plot} from "../../model/plot";
-import {AudioService} from '../service/audio';
-import {BrailleService} from '../service/braille';
-import {Scope} from '../service/keymap';
-import {ReviewService} from '../service/review';
-import {TextService} from '../service/text';
-import {Command} from './command';
 
 export class ToggleBrailleCommand implements Command {
   private readonly plot: Plot;
@@ -67,7 +66,7 @@ export class SwitchScopeCommand implements Command {
     this.scopeName = scopeName;
   }
 
-  public execute() {
+  public execute(): void {
     hotkeys.setScope(this.scopeName);
   }
 }
