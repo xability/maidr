@@ -34,8 +34,16 @@ enum DefaultKey {
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
 
+  // UI
+  TOGGLE_HELP = 'h',
+
   // Description
   DESCRIBE_POINT = 'space',
+}
+
+enum HelpKey {
+  // UI
+  TOGGLE_HELP = 'h, esc',
 }
 
 enum LabelKey {
@@ -47,6 +55,9 @@ enum LabelKey {
   DESCRIBE_TITLE = 't',
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
+
+  // UI
+  TOGGLE_HELP = 'h',
 }
 
 enum ReviewKey {
@@ -57,12 +68,14 @@ enum ReviewKey {
 
 export enum Scope {
   DEFAULT = 'DEFAULT',
+  HELP = 'HELP',
   LABEL = 'LABEL',
   REVIEW = 'REVIEW',
 }
 
 const scopedKeymap = {
   [Scope.DEFAULT]: DefaultKey,
+  [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
 } as const;

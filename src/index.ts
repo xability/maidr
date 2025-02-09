@@ -1,6 +1,7 @@
 import { EventType } from '@model/interface';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
+import { renderMaidrApp } from '@ui/App';
 
 document.addEventListener(EventType.DOM_LOADED, main);
 
@@ -45,6 +46,8 @@ function main(): void {
   plot?.addEventListener(EventType.FOCUS, onFocus);
   plot?.addEventListener(EventType.BLUR, onBlur);
   plot?.addEventListener(EventType.CLICK, onFocus);
+
+  renderMaidrApp(maidrId, display.reactDiv);
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity

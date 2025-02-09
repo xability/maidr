@@ -15,6 +15,7 @@ export abstract class Constant {
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_BR = 'maidr-br-';
+  static readonly MAIDR_CONTAINER = 'maidr-container-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
