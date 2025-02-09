@@ -6,6 +6,7 @@ import { Stack } from '@util/stack';
 
 enum FocusMode {
   BRAILLE,
+  HELP,
   PLOT,
   REVIEW,
 }
@@ -18,6 +19,7 @@ export class DisplayService {
   private readonly onBlur: (event: FocusEvent) => void;
   private readonly focusStack: Stack<FocusMode>;
 
+  public readonly reactDiv?: HTMLElement;
   private readonly articleElement?: HTMLElement;
   private readonly figureElement?: HTMLElement;
   private readonly br?: HTMLElement;
@@ -53,9 +55,11 @@ export class DisplayService {
     this.plot = plot;
     this.addInstruction();
 
+    const reactId = Constant.MAIDR_CONTAINER;
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
     const breakId = Constant.MAIDR_BR + maidrId;
+    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.figureElement = document.getElementById(figureId) ?? this.createFigureElement(figureId);
     this.articleElement = document.getElementById(articleId) ?? this.createArticleElement(articleId);
     this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
@@ -135,6 +139,14 @@ export class DisplayService {
       this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
       this.plot.tabIndex = -1;
     }
+  }
+
+  private createReactContainer(reactId: string): HTMLElement {
+    const reactDiv = document.createElement(Constant.DIV);
+    reactDiv.id = reactId;
+
+    document.body.appendChild(reactDiv);
+    return reactDiv;
   }
 
   private createArticleElement(articleId: string): HTMLElement {
@@ -223,21 +235,28 @@ export class DisplayService {
   }
 
   public toggleReviewFocus(): void {
-    if (!this.focusStack.remove(FocusMode.REVIEW)) {
+    if (!this.focusStack.pop(FocusMode.REVIEW)) {
       this.focusStack.push(FocusMode.REVIEW);
     }
     this.updateFocus(this.focusStack.peek());
   }
 
   public toggleBrailleFocus(): void {
-    if (!this.focusStack.remove(FocusMode.BRAILLE)) {
+    if (!this.focusStack.pop(FocusMode.BRAILLE)) {
       this.focusStack.push(FocusMode.BRAILLE);
     }
     this.updateFocus(this.focusStack.peek());
   }
 
+  public toggleHelpFocus(): void {
+    if (!this.focusStack.pop(FocusMode.HELP)) {
+      this.focusStack.push(FocusMode.HELP);
+    }
+    this.updateFocus(this.focusStack.peek());
+  }
+
   private updateFocus(newFocus: FocusMode = FocusMode.PLOT): void {
-    let activeElement: HTMLInputElement | HTMLTextAreaElement | undefined;
+    let activeElement: HTMLElement | HTMLInputElement | HTMLTextAreaElement | undefined;
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
       activeElement = this.reviewInput;
@@ -248,7 +267,7 @@ export class DisplayService {
       activeElement = this.brailleTextArea;
       activeDiv = this.brailleDiv;
     } else {
-      activeElement = undefined;
+      activeElement = (document.activeElement) as HTMLElement;
       activeDiv = undefined;
     }
 
@@ -267,6 +286,23 @@ export class DisplayService {
         }
         this.reviewDiv?.classList.remove(Constant.HIDDEN);
         this.reviewInput?.focus();
+        break;
+
+      case FocusMode.HELP:
+        if (activeElement) {
+          activeElement.removeEventListener(
+            EventType.BLUR,
+            this.onBlur as EventListener,
+          );
+        }
+        this.reactDiv?.focus();
+        if (activeElement) {
+          activeElement.addEventListener(
+            EventType.BLUR,
+            this.onBlur as EventListener,
+          );
+        }
+        activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
       case FocusMode.PLOT:
