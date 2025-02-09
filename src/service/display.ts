@@ -1,7 +1,6 @@
 import type { Maidr } from '@model/grammar';
 import { EventType } from '@model/interface';
 import { Constant } from '@util/constant';
-
 import { Stack } from '@util/stack';
 
 enum FocusMode {
@@ -19,10 +18,11 @@ export class DisplayService {
   private readonly onBlur: (event: FocusEvent) => void;
   private readonly focusStack: Stack<FocusMode>;
 
-  public readonly reactDiv?: HTMLElement;
   private readonly articleElement?: HTMLElement;
   private readonly figureElement?: HTMLElement;
+
   private readonly br?: HTMLElement;
+  public readonly reactDiv?: HTMLElement;
 
   public readonly textDiv?: HTMLElement;
   public readonly notificationDiv?: HTMLElement;
@@ -55,14 +55,15 @@ export class DisplayService {
     this.plot = plot;
     this.addInstruction();
 
-    const reactId = Constant.MAIDR_CONTAINER;
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
-    const breakId = Constant.MAIDR_BR + maidrId;
-    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.figureElement = document.getElementById(figureId) ?? this.createFigureElement(figureId);
     this.articleElement = document.getElementById(articleId) ?? this.createArticleElement(articleId);
+
+    const breakId = Constant.MAIDR_BR + maidrId;
+    const reactId = Constant.MAIDR_CONTAINER + maidrId;
     this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
+    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
 
     const textId = Constant.TEXT_CONTAINER + maidrId;
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
@@ -145,7 +146,7 @@ export class DisplayService {
     const reactDiv = document.createElement(Constant.DIV);
     reactDiv.id = reactId;
 
-    document.body.appendChild(reactDiv);
+    this.figureElement!.appendChild(reactDiv);
     return reactDiv;
   }
 
