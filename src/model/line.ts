@@ -1,6 +1,6 @@
-import {LinePoint, Maidr} from './grammar';
-import {AbstractPlot} from './plot';
-import {AudioState, TextState} from './state';
+import type { LinePoint, Maidr } from './grammar';
+import type { AudioState, TextState } from './state';
+import { AbstractPlot } from './plot';
 
 export class LinePlot extends AbstractPlot<number> {
   private readonly points: LinePoint[][];
@@ -71,9 +71,9 @@ export class LinePlot extends AbstractPlot<number> {
             braille[row].push('⡸');
           }
         } else if (
-          data[row][col] <= medium &&
-          col - 1 >= 0 &&
-          data[row][col - 1] > medium
+          data[row][col] <= medium
+          && col - 1 >= 0
+          && data[row][col - 1] > medium
         ) {
           if (data[row][col - 1] <= mediumHigh) {
             braille[row].push('⠢');
@@ -89,9 +89,9 @@ export class LinePlot extends AbstractPlot<number> {
             braille[row].push('⠜');
           }
         } else if (
-          data[row][col] <= mediumHigh &&
-          col - 1 >= 0 &&
-          data[row][col - 1] > mediumHigh
+          data[row][col] <= mediumHigh
+          && col - 1 >= 0
+          && data[row][col - 1] > mediumHigh
         ) {
           braille[row].push('⠑');
         } else if (data[row][col] <= mediumHigh) {

@@ -1,8 +1,8 @@
-import {Plot} from '../../model/plot';
-import {AudioService} from '../service/audio';
-import {BrailleService} from '../service/braille';
-import {TextService} from '../service/text';
-import {Command} from './command';
+import type { Plot } from '@model/plot';
+import type { AudioService } from '@service/audio';
+import type { BrailleService } from '@service/braille';
+import type { TextService } from '@service/text';
+import type { Command } from './command';
 
 abstract class DescribeCommand implements Command {
   protected readonly plot: Plot;
@@ -79,7 +79,7 @@ export class DescribePointCommand extends DescribeCommand {
     plot: Plot,
     audio: AudioService,
     braille: BrailleService,
-    text: TextService
+    text: TextService,
   ) {
     super(plot, text);
     this.audio = audio;

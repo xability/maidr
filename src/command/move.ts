@@ -1,6 +1,6 @@
-import {Plot} from "../../model/plot";
-import {MovableDirection} from '../interface';
-import {Command} from './command';
+import type { Plot } from '@model/plot';
+import type { Command } from './command';
+import { MovableDirection } from '@model/interface';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
@@ -68,6 +68,7 @@ export class MoveToBottomExtremeCommand implements Command {
   public constructor(plot: Plot) {
     this.plot = plot;
   }
+
   public execute(): void {
     this.plot.moveToExtreme(MovableDirection.DOWNWARD);
   }

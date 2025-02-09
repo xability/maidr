@@ -1,12 +1,11 @@
+import type { Observer } from '@model/interface';
+import type { PlotState } from '@model/state';
+import type { DisplayService } from './display';
+import type { NotificationService } from './notification';
+import type { TextService } from './text';
+import { EventType } from '@model/interface';
 import hotkeys from 'hotkeys-js';
-
-import {EventType} from '../../index';
-import {PlotState} from '../../model/state';
-import {Observer} from '../interface';
-import {DisplayService} from './display';
-import {Scope} from './keymap';
-import {NotificationService} from './notification';
-import {TextService} from './text';
+import { Scope } from './keybinding';
 
 export class ReviewService implements Observer {
   private readonly notification: NotificationService;
@@ -21,7 +20,7 @@ export class ReviewService implements Observer {
   public constructor(
     notification: NotificationService,
     display: DisplayService,
-    text: TextService
+    text: TextService,
   ) {
     this.notification = notification;
     this.display = display;
@@ -33,34 +32,28 @@ export class ReviewService implements Observer {
     }
 
     this.reviewKeyHandler = (e: KeyboardEvent) => {
-      const isNavigationKey =
-        e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
+      const isNavigationKey
+        = e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
       const isCtrlKey = e.ctrlKey || e.metaKey;
       const isModifierKey = isCtrlKey || e.shiftKey;
 
       if (
-        !isNavigationKey && // Navigate next character with Arrow keys.
-        !(isModifierKey && isNavigationKey) && // Navigate to Start and End.
-        !(isCtrlKey && e.key === 'a') && // Select text.
-        !(isCtrlKey && e.key === 'c') && // Copy text.
-        !(e.key === 'Tab') // Allow blur after focussed.
+        !isNavigationKey // Navigate next character with Arrow keys.
+        && !(isModifierKey && isNavigationKey) // Navigate to Start and End.
+        && !(isCtrlKey && e.key === 'a') // Select text.
+        && !(isCtrlKey && e.key === 'c') // Copy text.
+        && !(e.key === 'Tab') // Allow blur after focussed.
       ) {
         e.preventDefault();
       }
     };
     this.reviewInput = display.reviewInput;
-    this.reviewInput.addEventListener(
-      EventType.KEY_DOWN,
-      this.reviewKeyHandler
-    );
+    this.reviewInput.addEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
   }
 
   public destroy(): void {
     if (this.reviewInput && this.reviewKeyHandler) {
-      this.reviewInput.removeEventListener(
-        EventType.KEY_DOWN,
-        this.reviewKeyHandler
-      );
+      this.reviewInput.removeEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
     }
   }
 

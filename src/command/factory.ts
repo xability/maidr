@@ -1,10 +1,12 @@
-import {Plot} from "../../model/plot";
-import {AudioService} from '../service/audio';
-import {AutoplayService} from '../service/autoplay';
-import {BrailleService} from '../service/braille';
-import {Keys, Scope} from '../service/keymap';
-import {ReviewService} from '../service/review';
-import {TextService} from '../service/text';
+import type { Plot } from '@model/plot';
+import type { AudioService } from '@service/audio';
+import type { AutoplayService } from '@service/autoplay';
+import type { BrailleService } from '@service/braille';
+import type { Keys } from '@service/keybinding';
+import type { ReviewService } from '@service/review';
+import type { TextService } from '@service/text';
+import type { Command, CommandContext } from './command';
+import { Scope } from '@service/keybinding';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -15,7 +17,6 @@ import {
   SpeedUpAutoplayCommand,
   StopAutoplayCommand,
 } from './autoplay';
-import {Command, CommandContext} from './command';
 import {
   DescribeCaptionCommand,
   DescribePointCommand,
@@ -96,12 +97,7 @@ export class CommandFactory {
       case 'DESCRIBE_Y':
         return new DescribeYCommand(this.plot, this.text);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(
-          this.plot,
-          this.audio,
-          this.braille,
-          this.text
-        );
+        return new DescribePointCommand(this.plot, this.audio, this.braille, this.text);
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.plot, this.text);
       case 'DESCRIBE_SUBTITLE':

@@ -1,10 +1,9 @@
+import type { CommandContext } from '@command/command';
+import { CommandFactory } from '@command/factory';
+import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
 
-import {Constant} from '../../util/constant';
-import {CommandContext} from '../command/command';
-import {CommandFactory} from '../command/factory';
-
-export enum DefaultKey {
+enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
   // Autoplay
@@ -39,7 +38,7 @@ export enum DefaultKey {
   DESCRIBE_POINT = 'space',
 }
 
-export enum LabelKey {
+enum LabelKey {
   ACTIVATE_DEFAULT_SCOPE = 'esc',
 
   // Description
@@ -50,7 +49,7 @@ export enum LabelKey {
   DESCRIBE_CAPTION = 'c',
 }
 
-export enum ReviewKey {
+enum ReviewKey {
   // Modes
   TOGGLE_BRAILLE = 'b',
   TOGGLE_REVIEW = 'r',
@@ -68,12 +67,12 @@ const scopedKeymap = {
   [Scope.REVIEW]: ReviewKey,
 } as const;
 
-export type Keymap = {
+type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
 export type Keys = keyof Keymap[Scope];
 
-export class KeymapService {
+export class KeybindingService {
   private readonly commandFactory: CommandFactory;
 
   public constructor(commandContext: CommandContext) {
@@ -116,7 +115,7 @@ export class KeymapService {
           });
         }
 
-        hotkeys(key, {scope: scope}, (event: KeyboardEvent): void => {
+        hotkeys(key, { scope }, (event: KeyboardEvent): void => {
           event.preventDefault();
           command.execute(event);
         });

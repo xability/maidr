@@ -1,20 +1,20 @@
-import {MovableDirection} from '../core/interface';
+import type { MovableDirection } from './interface';
 
 export type PlotState =
   | EmptyState
   | {
-      empty: false;
-      audio: AudioState;
-      braille: BrailleState;
-      text: TextState;
-      autoplay: AutoplayState;
-    };
+    empty: false;
+    audio: AudioState;
+    braille: BrailleState;
+    text: TextState;
+    autoplay: AutoplayState;
+  };
 
-export type EmptyState = {
+export interface EmptyState {
   empty: true;
-};
+}
 
-export type AudioState = {
+export interface AudioState {
   min: number;
   max: number;
   size: number;
@@ -22,16 +22,18 @@ export type AudioState = {
   index: number;
   count?: number;
   volume?: number;
-};
+}
 
-export type BrailleState = {
-  empty: false;
-  values: string[][];
-  row: number;
-  col: number;
-} | EmptyState;
+export type BrailleState =
+  | EmptyState
+  | {
+    empty: false;
+    values: string[][];
+    row: number;
+    col: number;
+  };
 
-export type TextState = {
+export interface TextState {
   mainLabel: string;
   mainValue: number | string;
   crossLabel: string;
@@ -41,7 +43,7 @@ export type TextState = {
   section?: string;
   min?: number;
   max?: number;
-};
+}
 
 export type AutoplayState = {
   [key in MovableDirection]: number;

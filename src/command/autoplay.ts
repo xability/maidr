@@ -1,7 +1,7 @@
-import {Plot} from "../../model/plot";
-import {MovableDirection} from '../interface';
-import {AutoplayService} from '../service/autoplay';
-import {Command} from './command';
+import type { Plot } from '@model/plot';
+import type { AutoplayService } from '@service/autoplay';
+import type { Command } from './command';
+import { MovableDirection } from '@model/interface';
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayService;
@@ -66,7 +66,7 @@ export class StopAutoplayCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  public execute() {
+  public execute(): void {
     this.autoplay.stop();
   }
 }
@@ -78,7 +78,7 @@ export class SpeedUpAutoplayCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  public execute() {
+  public execute(): void {
     this.autoplay.speedUp();
   }
 }
@@ -90,7 +90,7 @@ export class SpeedDownAutoplayCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  public execute() {
+  public execute(): void {
     this.autoplay.speedDown();
   }
 }
@@ -102,7 +102,7 @@ export class ResetAutoplaySpeedCommand implements Command {
     this.autoplay = autoplay;
   }
 
-  public execute() {
+  public execute(): void {
     this.autoplay.resetSpeed();
   }
 }

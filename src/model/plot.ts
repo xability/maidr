@@ -1,12 +1,7 @@
-import {Movable, MovableDirection, Observable, Observer} from '../core/interface';
-import {BarPoint, Maidr} from './grammar';
-import {
-  AudioState,
-  AutoplayState,
-  BrailleState,
-  PlotState,
-  TextState,
-} from './state';
+import type { BarPoint, Maidr } from './grammar';
+import type { Movable, Observable, Observer } from './interface';
+import type { AudioState, AutoplayState, BrailleState, PlotState, TextState } from './state';
+import { MovableDirection } from './interface';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -122,7 +117,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public get state(): PlotState {
     if (this.isOutOfBounds) {
-      return {empty: true};
+      return { empty: true };
     }
 
     return {
@@ -185,10 +180,10 @@ export abstract class AbstractPlot<T> implements Plot {
 
       default:
         return (
-          this.row >= 0 &&
-          this.row < this.values.length &&
-          target >= 0 &&
-          target < this.values[this.row].length
+          this.row >= 0
+          && this.row < this.values.length
+          && target >= 0
+          && target < this.values[this.row].length
         );
     }
   }
@@ -230,8 +225,8 @@ export abstract class AbstractBarPlot<
       row.map(point =>
         this.orientation === Orientation.VERTICAL
           ? Number(point.y)
-          : Number(point.x)
-      )
+          : Number(point.x),
+      ),
     );
     this.min = this.values.map(row => Math.min(...row));
     this.max = this.values.map(row => Math.max(...row));
@@ -276,7 +271,7 @@ export abstract class AbstractBarPlot<
 
   protected toBraille(data: number[][]): string[][] {
     return data.map((row, index) =>
-      this.createBraille(row, this.min[index], this.max[index])
+      this.createBraille(row, this.min[index], this.max[index]),
     );
   }
 

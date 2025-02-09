@@ -1,5 +1,5 @@
-import {BarPoint, Maidr} from './grammar';
-import {AbstractBarPlot} from './plot';
+import type { BarPoint, Maidr } from './grammar';
+import { AbstractBarPlot } from './plot';
 
 export class BarPlot extends AbstractBarPlot<BarPoint> {
   public constructor(maidr: Maidr) {

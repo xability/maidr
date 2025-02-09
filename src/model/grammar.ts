@@ -1,4 +1,4 @@
-import {Orientation} from './plot';
+import type { Orientation } from './plot';
 
 export interface Maidr {
   id: string;

@@ -1,64 +1,63 @@
+import type { Maidr } from '@model/grammar';
+import { TestConstants } from '../../util/constant';
 import 'cypress-real-events/support';
-
-import { Maidr } from "../../../src/model/grammar";
-import { TestConstants } from "../../util/constant";
 
 describe('Bar Plot', () => {
   let maidrData: Maidr;
 
   before(() => {
-      // Visit the file and extract the maidr data before all tests
-      cy.visit('examples/barplot.html');
-      cy.window().then((window) => {
-        maidrData = window.maidr;
+    // Visit the file and extract the maidr data before all tests
+    cy.visit('examples/barplot.html');
+    cy.window().then((window) => {
+      maidrData = window.maidr;
     });
   });
 
   beforeEach(() => {
-      // Visit the file before each test
-      cy.visit('examples/barplot.html');
-  })
+    // Visit the file before each test
+    cy.visit('examples/barplot.html');
+  });
   it('should load the barplot with maidr data', () => {
-      cy.get(TestConstants.SVG + TestConstants.HASH +TestConstants.BAR_ID).should('exist');
+    cy.get(TestConstants.SVG + TestConstants.HASH + TestConstants.BAR_ID).should('exist');
   });
 
   it('should activate maidr on click', () => {
-      cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-      cy.wait(TestConstants.ONE_MILLISECOND);
-      cy.focused().should(TestConstants.HAVE_ATTR, TestConstants.HTML_ID, TestConstants.BAR_ID);
+    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
+    cy.wait(TestConstants.ONE_MILLISECOND);
+    cy.focused().should(TestConstants.HAVE_ATTR, TestConstants.HTML_ID, TestConstants.BAR_ID);
   });
 
   it('should display instruction text', () => {
-      cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-      const maidr_instruction = cy.get(`#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`);
-      maidr_instruction.invoke('text').then((text) => {
-        const normalizedText = text.replace(/\s+/g, ' ').trim();
-        expect(normalizedText).to.equal(TestConstants.INSTRUCTION_TEXT);
-      });
+    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
+    const maidr_instruction = cy.get(`#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`);
+    maidr_instruction.invoke('text').then((text) => {
+      const normalizedText = text.replace(/\s+/g, ' ').trim();
+      expect(normalizedText).to.equal(TestConstants.INSTRUCTION_TEXT);
+    });
   });
 
   it('should be able to move from left to right', () => {
-      cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-      if (Array.isArray(maidrData.data)) {
-        const numBars = maidrData.data.length;
-        for (let i = 0; i < numBars; i++) {
-          cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-        }
+    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
+    if (Array.isArray(maidrData.data)) {
+      const numBars = maidrData.data.length;
+      for (let i = 0; i < numBars; i++) {
+        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
       }
+    }
   });
 
   it('should be able to move from right to left', () => {
-      cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-      if (Array.isArray(maidrData.data)) {
-        const numBars = maidrData.data.length;
-        for (let i = 0; i < numBars; i++) {
-          cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-        }
-        for (let i = numBars - 1; i >= 0; i--) {
-          cy.realPress(TestConstants.LEFT_ARROW_KEY);
-          cy.wait(TestConstants.ONE_MILLISECOND);
-        }
+    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
+    if (Array.isArray(maidrData.data)) {
+      const numBars = maidrData.data.length;
+      for (let i = 0; i < numBars; i++) {
+        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
       }
+      for (let i = numBars - 1; i >= 0; i--) {
+        cy.realPress(TestConstants.LEFT_ARROW_KEY);
+        cy.wait(TestConstants.ONE_MILLISECOND);
+      }
+    }
   });
 
   it('toggle text mode', () => {
@@ -134,12 +133,13 @@ describe('Bar Plot', () => {
     cy.get(`#${TestConstants.MAIDR_INFO_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
       .invoke(TestConstants.INVOKE_TEXT)
       .then((text) => {
-          const pointData = text;
-          cy.realPress(TestConstants.SPACE_KEY);
-          cy.get(`#${TestConstants.MAIDR_INFO_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
-            .invoke(TestConstants.INVOKE_TEXT) .then((text) => {
-              expect(text).to.equal(pointData);
-            })
+        const pointData = text;
+        cy.realPress(TestConstants.SPACE_KEY);
+        cy.get(`#${TestConstants.MAIDR_INFO_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
+          .invoke(TestConstants.INVOKE_TEXT)
+          .then((text) => {
+            expect(text).to.equal(pointData);
+          });
       });
     // TODO: Add validation for replaying the same point
   });
@@ -174,7 +174,7 @@ describe('Bar Plot', () => {
     cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
     if (Array.isArray(maidrData.data)) {
       const numBars = maidrData.data.length;
-      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY,TestConstants.RIGHT_ARROW_KEY]);
+      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.RIGHT_ARROW_KEY]);
       cy.wait(numBars * TestConstants.ONE_SECOND);
     }
   });
@@ -186,9 +186,8 @@ describe('Bar Plot', () => {
       for (let i = 0; i < numBars; i++) {
         cy.realPress(TestConstants.RIGHT_ARROW_KEY);
       }
-      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY,TestConstants.LEFT_ARROW_KEY]);
+      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.LEFT_ARROW_KEY]);
       cy.wait(numBars * TestConstants.ONE_SECOND);
     }
   });
-
 });

@@ -1,14 +1,6 @@
-import {Controller} from './core/controller';
-import {DisplayService} from './core/service/display';
-
-export enum EventType {
-  BLUR = 'blur',
-  CLICK = 'click',
-  DOM_LOADED = 'DOMContentLoaded',
-  FOCUS = 'focus',
-  KEY_DOWN = 'keydown',
-  SELECTION_CHANGE = 'selectionchange',
-}
+import { EventType } from '@model/interface';
+import { ControllerService } from '@service/controller';
+import { DisplayService } from '@service/display';
 
 document.addEventListener(EventType.DOM_LOADED, main);
 
@@ -24,22 +16,31 @@ function main(): void {
     return;
   }
 
-  const onFocus = () => {
-    if (!controller) {
-      controller = new Controller(maidr, display);
+  let controller: ControllerService | null = null;
+  let display: DisplayService | null = null;
+
+  const onBlur = (event: FocusEvent): void => {
+    if (!display || !display.shouldDestroy(event)) {
+      return;
     }
-    display.removeInstruction();
+
+    display.addInstruction();
+    controller?.destroy();
+    controller = null;
   };
-  const onBlur = (event: FocusEvent) => {
-    if (display.shouldDestroy(event)) {
-      display.addInstruction();
-      controller?.destroy();
-      controller = null;
+  const onFocus = (): void => {
+    if (!display) {
+      return;
+    } else {
+      display.removeInstruction();
+    }
+
+    if (!controller) {
+      controller = new ControllerService(maidr, display);
     }
   };
 
-  const display = new DisplayService(maidr, onFocus, onBlur);
-  let controller: Controller | null = null;
+  display = new DisplayService(maidr, onFocus, onBlur);
 
   plot?.addEventListener(EventType.FOCUS, onFocus);
   plot?.addEventListener(EventType.BLUR, onBlur);

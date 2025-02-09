@@ -1,6 +1,6 @@
-import {BoxPoint, Maidr} from './grammar';
-import {AbstractPlot, Orientation} from './plot';
-import {AudioState, BrailleState, TextState} from './state';
+import type { BoxPoint, Maidr } from './grammar';
+import type { AudioState, BrailleState, TextState } from './state';
+import { AbstractPlot, Orientation } from './plot';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -39,7 +39,7 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
     ]);
 
     const flattenedValues = this.values.map(row =>
-      row.flatMap(cell => (Array.isArray(cell) ? cell : [cell]))
+      row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
     this.min = Math.min(...flattenedValues.flat());
     this.max = Math.max(...flattenedValues.flat());
@@ -59,8 +59,8 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       min: this.min,
       max: this.max,
       size: this.sections.length,
-      index: index,
-      value: value,
+      index,
+      value,
     };
   }
 
@@ -85,11 +85,11 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       : this.values[this.col][this.row];
 
     return {
-      mainLabel: mainLabel,
+      mainLabel,
       mainValue: point.fill,
-      crossLabel: crossLabel,
-      crossValue: crossValue,
-      section: section,
+      crossLabel,
+      crossValue,
+      section,
     };
   }
 }

@@ -1,10 +1,9 @@
-import { defineConfig } from "cypress";
+import { defineConfig } from 'cypress';
 
-export default defineConfig({
+const config: ReturnType<typeof defineConfig> = defineConfig({
   e2e: {
-    setupNodeEvents(on, config) {
-      // implement node event listeners here
-    },
-    baseUrl: "http://localhost:8080",
+    baseUrl: 'http://localhost:8080',
   },
 });
+
+export default config;

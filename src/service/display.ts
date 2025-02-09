@@ -1,7 +1,8 @@
-import {EventType} from '../../index';
-import {Maidr} from '../../model/grammar';
-import {Constant} from '../../util/constant';
-import {Stack} from '../../util/stack';
+import type { Maidr } from '@model/grammar';
+import { EventType } from '@model/interface';
+import { Constant } from '@util/constant';
+
+import { Stack } from '@util/stack';
 
 enum FocusMode {
   BRAILLE,
@@ -33,7 +34,7 @@ export class DisplayService {
   public constructor(
     maidr: Maidr,
     onFocus: () => void,
-    onBlur: (event: FocusEvent) => void
+    onBlur: (event: FocusEvent) => void,
   ) {
     this.maidr = maidr;
     this.onFocus = onFocus;
@@ -55,37 +56,31 @@ export class DisplayService {
     const figureId = Constant.MAIDR_FIGURE + maidrId;
     const articleId = Constant.MAIDR_ARTICLE + maidrId;
     const breakId = Constant.MAIDR_BR + maidrId;
-    this.figureElement =
-      document.getElementById(figureId) ?? this.createFigureElement(figureId);
-    this.articleElement =
-      document.getElementById(articleId) ??
-      this.createArticleElement(articleId);
-    this.br =
-      document.getElementById(breakId) ?? this.createBreakElement(breakId);
+    this.figureElement = document.getElementById(figureId) ?? this.createFigureElement(figureId);
+    this.articleElement = document.getElementById(articleId) ?? this.createArticleElement(articleId);
+    this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
 
     const textId = Constant.TEXT_CONTAINER + maidrId;
     const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
+    this.textDiv = document.getElementById(textId) ?? this.createTextContainer(textId);
+    this.notificationDiv = document.getElementById(notificationId)
+      ?? this.createNotificationContainer(notificationId);
+
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleTextAreaId = Constant.BRAILLE_TEXT_AREA + maidrId;
+    this.brailleDiv = document.getElementById(brailleId) ?? this.createBrailleContainer(brailleId);
+    this.brailleTextArea
+      = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
+        ?? this.createBrailleTextArea(brailleTextAreaId);
+
     const reviewId = Constant.REVIEW_CONTAINER + maidrId;
     const reviewInputId = Constant.REVIEW_INPUT + maidrId;
-    this.textDiv =
-      document.getElementById(textId) ?? this.createTextContainer(textId);
-    this.notificationDiv =
-      document.getElementById(notificationId) ??
-      this.createNotificationContainer(notificationId);
-    this.brailleDiv =
-      document.getElementById(brailleId) ??
-      this.createBrailleContainer(brailleId);
-    this.brailleTextArea =
-      (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement) ??
-      this.createBrailleTextArea(brailleTextAreaId);
-    this.reviewDiv =
-      (document.getElementById(reviewId) as HTMLElement) ??
-      this.createReviewContainer(reviewId);
-    this.reviewInput =
-      (document.getElementById(reviewInputId) as HTMLInputElement) ??
-      this.createReviewInput(reviewInputId);
+    this.reviewDiv
+      = (document.getElementById(reviewId) as HTMLElement)
+        ?? this.createReviewContainer(reviewId);
+    this.reviewInput
+      = (document.getElementById(reviewInputId) as HTMLInputElement)
+        ?? this.createReviewInput(reviewInputId);
 
     this.brailleTextArea.addEventListener(EventType.BLUR, this.onBlur);
   }
@@ -146,12 +141,8 @@ export class DisplayService {
     const articleElement = document.createElement(Constant.ARTICLE);
     articleElement.id = articleId;
 
-    this.figureElement!.parentNode!.replaceChild(
-      articleElement,
-      this.figureElement!
-    );
+    this.figureElement!.parentNode!.replaceChild(articleElement, this.figureElement!);
     articleElement.appendChild(this.figureElement!);
-
     return articleElement;
   }
 
@@ -161,7 +152,6 @@ export class DisplayService {
 
     this.plot!.parentNode!.replaceChild(figureElement, this.plot!);
     figureElement.appendChild(this.plot!);
-
     return figureElement;
   }
 
@@ -190,10 +180,7 @@ export class DisplayService {
     notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
     notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
 
-    this.figureElement!.insertAdjacentElement(
-      Constant.AFTER_END,
-      notificationDiv
-    );
+    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
     return notificationDiv;
   }
 
@@ -202,16 +189,11 @@ export class DisplayService {
     brailleDiv.id = brailleId;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    this.figureElement!.insertBefore(
-      brailleDiv,
-      this.figureElement!.firstChild
-    );
+    this.figureElement!.insertBefore(brailleDiv, this.figureElement!.firstChild);
     return brailleDiv;
   }
 
-  private createBrailleTextArea(
-    brailleAndReviewTextAreaId: string
-  ): HTMLTextAreaElement {
+  private createBrailleTextArea(brailleAndReviewTextAreaId: string): HTMLTextAreaElement {
     const brailleTextArea = document.createElement(Constant.TEXT_AREA);
     brailleTextArea.id = brailleAndReviewTextAreaId;
     brailleTextArea.classList.add(Constant.BRAILLE_AND_REVIEW_CLASS);
@@ -291,14 +273,14 @@ export class DisplayService {
         if (activeElement) {
           activeElement.removeEventListener(
             EventType.BLUR,
-            this.onBlur as EventListener
+            this.onBlur as EventListener,
           );
         }
         this.plot?.focus();
         if (activeElement) {
           activeElement.addEventListener(
             EventType.BLUR,
-            this.onBlur as EventListener
+            this.onBlur as EventListener,
           );
         }
         activeDiv?.classList.add(Constant.HIDDEN);

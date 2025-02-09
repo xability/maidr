@@ -1,41 +1,29 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+
+    "baseUrl": "./src",
     "module": "CommonJS",
+    "paths": {
+      "@command/*": ["command/*"],
+      "@model/*": ["model/*"],
+      "@redux/*": ["redux/*"],
+      "@service/*": ["service/*"],
+      "@ui/*": ["ui/*"],
+      "@util/*": ["util/*"]
+    },
 
-    "outDir": "build",
-    "rootDir": ".",
-
-    "strict": true,
+    "resolveJsonModule": true,
     "allowJs": false,
-    "forceConsistentCasingInFileNames": true,
+    "strict": true,
     "noImplicitAny": true,
 
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
+    "noEmit": false,
     "sourceMap": true,
-    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-
-    "types": ["cypress", "node"]
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
   },
 
-  // Webpack Typescript
-  "ts-node": {
-    "compilerOptions": {
-      "module": "CommonJS"
-    }
-  },
-
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "cypress/**/*.ts"
-  ],
-
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build"
-  ]
+  "exclude": ["node_modules", "dist"]
 }

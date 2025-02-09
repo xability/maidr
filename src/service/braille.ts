@@ -1,9 +1,9 @@
-import {EventType} from '../../index';
-import {PlotState} from '../../model/state';
-import {Constant} from '../../util/constant';
-import {Movable, Observer} from '../interface';
-import {DisplayService} from './display';
-import {NotificationService} from './notification';
+import type { Movable, Observer } from '@model/interface';
+import type { PlotState } from '@model/state';
+import type { DisplayService } from './display';
+import type { NotificationService } from './notification';
+import { EventType } from '@model/interface';
+import { Constant } from '@util/constant';
 
 export class BrailleService implements Observer {
   private readonly notification: NotificationService;
@@ -17,7 +17,7 @@ export class BrailleService implements Observer {
   public constructor(
     notification: NotificationService,
     display: DisplayService,
-    movable: Movable
+    movable: Movable,
   ) {
     this.notification = notification;
     this.display = display;
@@ -36,7 +36,7 @@ export class BrailleService implements Observer {
     this.brailleTextArea = display.brailleTextArea;
     this.brailleTextArea.addEventListener(
       EventType.SELECTION_CHANGE,
-      this.selectionChangeHandler
+      this.selectionChangeHandler,
     );
   }
 
@@ -44,7 +44,7 @@ export class BrailleService implements Observer {
     if (this.brailleTextArea && this.selectionChangeHandler) {
       this.brailleTextArea.removeEventListener(
         EventType.SELECTION_CHANGE,
-        this.selectionChangeHandler
+        this.selectionChangeHandler,
       );
     }
   }
@@ -59,11 +59,10 @@ export class BrailleService implements Observer {
       .map(row => row.join(Constant.EMPTY))
       .join(Constant.NEW_LINE);
 
-    const index =
-      braille.values
-        .map(row => row.join(Constant.EMPTY).length + 1)
-        .slice(0, braille.row)
-        .reduce((acc, length) => acc + length, 0) + braille.col;
+    const index = braille.col + braille.values
+      .map(row => row.join(Constant.EMPTY).length + 1)
+      .slice(0, braille.row)
+      .reduce((acc, length) => acc + length, 0);
     this.brailleTextArea!.setSelectionRange(index, index);
   }
 
