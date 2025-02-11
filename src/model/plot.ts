@@ -81,8 +81,9 @@ export abstract class AbstractPlot<T> implements Plot {
     this.values = [];
     this.brailleValues = [];
 
+    this.isOutOfBounds = true;
     this.row = 0;
-    this.col = 0;
+    this.col = -1;
   }
 
   public addObserver(observer: Observer): void {
@@ -138,6 +139,7 @@ export abstract class AbstractPlot<T> implements Plot {
     };
 
     if (this.isMovable(direction)) {
+      this.isOutOfBounds = false;
       movement[direction]();
       this.notifyStateUpdate();
     } else {
