@@ -34,6 +34,9 @@ enum DefaultKey {
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
 
+  // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
+
   // Description
   DESCRIBE_POINT = 'space',
 }

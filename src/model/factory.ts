@@ -5,8 +5,20 @@ import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LinePlot } from './line';
-import { PlotType } from './plot';
+import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
+
+enum PlotType {
+  BAR = 'bar',
+  BOX = 'box',
+  DODGED = 'dodged_bar',
+  HEATMAP = 'heat',
+  HISTOGRAM = 'hist',
+  LINE = 'line',
+  NORMALIZED = 'stacked_normalized_bar',
+  SCATTER = 'point',
+  STACKED = 'stacked_bar',
+}
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {
@@ -25,6 +37,9 @@ export abstract class PlotFactory {
 
       case PlotType.LINE:
         return new LinePlot(maidr);
+
+      case PlotType.SCATTER:
+        return new ScatterPlot(maidr);
 
       case PlotType.DODGED:
       case PlotType.NORMALIZED:

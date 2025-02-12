@@ -74,7 +74,7 @@ export class BrailleService implements Observer {
     }
 
     if (state.braille.empty) {
-      const notSupported = 'Braille is not supported';
+      const notSupported = `Braille is not supported for plot type: ${state.braille.type}`;
       this.notification.notify(notSupported);
       return;
     }

@@ -2,6 +2,7 @@ import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
 
@@ -17,5 +18,6 @@ export interface CommandContext {
   text: TextService;
   review: ReviewService;
 
+  notification: NotificationService;
   autoplay: AutoplayService;
 }

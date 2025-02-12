@@ -10,17 +10,6 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'Fill';
 
-export enum PlotType {
-  BAR = 'bar',
-  BOX = 'box',
-  DODGED = 'dodged_bar',
-  HEATMAP = 'heat',
-  HISTOGRAM = 'hist',
-  LINE = 'line',
-  NORMALIZED = 'stacked_normalized_bar',
-  STACKED = 'stacked_bar',
-}
-
 export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
@@ -118,7 +107,10 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public get state(): PlotState {
     if (this.isOutOfBounds) {
-      return { empty: true };
+      return {
+        empty: true,
+        type: this.type,
+      };
     }
 
     return {
@@ -208,9 +200,7 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 }
 
-export abstract class AbstractBarPlot<
-  T extends BarPoint,
-> extends AbstractPlot<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot<number> {
   protected readonly points: T[][];
   protected readonly orientation: Orientation;
 

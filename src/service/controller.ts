@@ -1,7 +1,7 @@
-import type { Maidr } from '../model/grammar';
-import type { Plot } from '../model/plot';
+import type { Maidr } from '@model/grammar';
+import type { Plot } from '@model/plot';
 import type { DisplayService } from './display';
-import { PlotFactory } from '../model/factory';
+import { PlotFactory } from '@model/factory';
 import { AudioService } from './audio';
 import { AutoplayService } from './autoplay';
 import { BrailleService } from './braille';
@@ -50,6 +50,7 @@ export class ControllerService {
       braille: this.braille,
       text: this.text,
       review: this.review,
+      notification: this.notification,
       autoplay: this.autoplay,
     });
     this.keybinding.register();

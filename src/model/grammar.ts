@@ -19,6 +19,7 @@ export interface Maidr {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | ScatterSeries[]
     | SegmentedPoint[][];
 }
 
@@ -54,6 +55,14 @@ export interface HistogramPoint extends BarPoint {
 export interface LinePoint {
   x: number;
   y: number;
+}
+
+export interface ScatterSeries {
+  fill?: string;
+  points: {
+    x: number;
+    y: number;
+  }[];
 }
 
 export interface SegmentedPoint extends BarPoint {
