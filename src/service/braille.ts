@@ -67,7 +67,13 @@ export class BrailleService implements Observer {
   }
 
   public toggle(state: PlotState): void {
-    if (state.empty || state.braille.empty) {
+    if (state.empty) {
+      const noInfo = 'No info for braille';
+      this.notification.notify(noInfo);
+      return;
+    }
+
+    if (state.braille.empty) {
       const notSupported = 'Braille is not supported';
       this.notification.notify(notSupported);
       return;

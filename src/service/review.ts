@@ -66,6 +66,12 @@ export class ReviewService implements Observer {
   }
 
   public toggle(state: PlotState): void {
+    if (state.empty) {
+      const noInfo = 'No info for review';
+      this.notification.notify(noInfo);
+      return;
+    }
+
     if (this.enabled) {
       this.enabled = false;
       hotkeys.setScope(Scope.DEFAULT);
