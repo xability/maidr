@@ -29,7 +29,13 @@ const HelpMenu: React.FC = () => {
   };
 
   return (
-    <Dialog open={enabled} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={enabled}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      disablePortal
+    >
       <DialogTitle>Help Dialog</DialogTitle>
       <DialogContent>
         <DialogContentText>
@@ -72,7 +78,7 @@ const HelpMenu: React.FC = () => {
           Close
         </Button>
         <Button onClick={handleClose} variant="contained" color="primary">
-          Save & Close
+          Save &amp; Close
         </Button>
       </DialogActions>
     </Dialog>
