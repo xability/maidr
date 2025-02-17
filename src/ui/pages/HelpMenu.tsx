@@ -38,7 +38,7 @@ const HelpMenu: React.FC = () => {
     >
       <DialogTitle>Help Dialog</DialogTitle>
       <DialogContent>
-        <DialogContentText>
+        <DialogContentText component="div">
           <Typography variant="h6" gutterBottom>
             Keyboard Shortcuts
           </Typography>
