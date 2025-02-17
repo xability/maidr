@@ -34,7 +34,7 @@ enum DefaultKey {
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
 
-  // UI
+  // Misc
   TOGGLE_HELP = 'h',
 
   // Description
@@ -42,7 +42,7 @@ enum DefaultKey {
 }
 
 enum HelpKey {
-  // UI
+  // Misc
   TOGGLE_HELP = 'h, esc',
 }
 

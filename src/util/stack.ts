@@ -9,15 +9,15 @@ export class Stack<T> {
     this.items.push(item);
   }
 
+  public pop(): T | undefined {
+    return this.items.pop();
+  }
+
   public peek(): T | undefined {
     return this.items[this.items.length - 1];
   }
 
-  public pop(element?: T, deleteCount: number = 1): boolean {
-    if (element === undefined) {
-      return !!this.items.pop();
-    }
-
+  public removeLast(element: T, deleteCount = 1): boolean {
     const index = this.items.lastIndexOf(element);
     if (index !== -1) {
       this.items.splice(index, deleteCount);
