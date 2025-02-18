@@ -14,6 +14,7 @@ export abstract class TestConstants {
 
   // Plot Type IDs
   static readonly BAR_ID = 'bar';
+  static readonly HISTOGRAM_ID = 'hist1';
 
   // Maidr IDs
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-notification-container-';
