@@ -20,7 +20,7 @@ export class Heatmap extends AbstractPlot<number> {
     this.min = Math.min(...this.values.flat());
     this.max = Math.max(...this.values.flat());
 
-    this.row = this.values.length - 1;
+    this.row = this.values.length;
     this.brailleValues = this.toBraille(this.values);
   }
 
