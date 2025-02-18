@@ -1,6 +1,6 @@
 import type { HelpMenuItem } from '@redux/helpMenuSlice';
 import type { DisplayService } from '@service/display';
-import { loadHelpMenu, toggleHelpMenu } from '@redux/helpMenuSlice';
+import { loadHelpMenu } from '@redux/helpMenuSlice';
 import { store } from '@redux/store';
 import { Scope } from '@service/keybinding';
 import hotkeys from 'hotkeys-js';
@@ -8,10 +8,22 @@ import hotkeys from 'hotkeys-js';
 export class HelpService {
   private readonly display: DisplayService;
 
+  private enabled: boolean;
+  private readonly unsubscribe: () => void;
   private readonly menuItems: HelpMenuItem[];
 
   public constructor(display: DisplayService) {
     this.display = display;
+
+    this.enabled = store.getState().helpMenu.enabled;
+    this.unsubscribe = store.subscribe(() => {
+      const enabled = store.getState().helpMenu.enabled;
+      if (this.enabled !== enabled) {
+        this.enabled = enabled;
+        this.toggle();
+      }
+    });
+
     this.menuItems = [
       { description: 'Move around plot', key: 'arrow key' },
       { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: 'command + arrow key' },
@@ -39,15 +51,16 @@ export class HelpService {
     store.dispatch(loadHelpMenu(this.menuItems));
   }
 
+  public destroy(): void {
+    this.unsubscribe();
+  }
+
   public toggle(): void {
-    const enabled = store.getState().helpMenu.enabled;
-    if (enabled) {
+    this.display.toggleHelpFocus();
+    if (this.enabled) {
       hotkeys.setScope(Scope.HELP);
     } else {
       hotkeys.setScope(Scope.DEFAULT);
     }
-
-    this.display.toggleHelpFocus();
-    store.dispatch(toggleHelpMenu());
   }
 }

@@ -74,11 +74,8 @@ const HelpMenu: React.FC = () => {
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="primary">
-          Close
-        </Button>
         <Button onClick={handleClose} variant="contained" color="primary">
-          Save &amp; Close
+          Close
         </Button>
       </DialogActions>
     </Dialog>

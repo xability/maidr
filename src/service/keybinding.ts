@@ -43,7 +43,7 @@ enum DefaultKey {
 
 enum HelpKey {
   // Misc
-  TOGGLE_HELP = 'h, esc',
+  TOGGLE_HELP = 'esc',
 }
 
 enum LabelKey {

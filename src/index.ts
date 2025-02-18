@@ -1,7 +1,8 @@
+import type { Maidr } from '@model/grammar';
 import { EventType } from '@model/interface';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
-import { renderMaidrApp } from '@ui/App';
+import { Constant } from '@util/constant';
 
 document.addEventListener(EventType.DOM_LOADED, main);
 
@@ -17,6 +18,7 @@ function main(): void {
     return;
   }
 
+  let maidrRoot: HTMLElement | null = null;
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
 
@@ -25,29 +27,50 @@ function main(): void {
       return;
     }
 
-    display.addInstruction();
+    console.error('destroy');
     controller?.destroy();
     controller = null;
+    display = null;
   };
   const onFocus = (): void => {
-    if (!display) {
+    if (!maidrRoot) {
       return;
-    } else {
-      display.removeInstruction();
     }
 
+    if (!display) {
+      display = new DisplayService(maidr, maidrRoot);
+    }
     if (!controller) {
       controller = new ControllerService(maidr, display);
     }
   };
 
-  display = new DisplayService(maidr, onFocus, onBlur);
+  maidrRoot = initMaidr(maidr, plot, onFocus, onBlur);
+  // display = new DisplayService(maidr, maidrRoot);
+}
 
-  plot?.addEventListener(EventType.FOCUS, onFocus);
-  plot?.addEventListener(EventType.BLUR, onBlur);
-  plot?.addEventListener(EventType.CLICK, onFocus);
+function initMaidr(
+  maidr: Maidr,
+  plot: HTMLElement,
+  onFocus: () => void,
+  onBlur: (event: FocusEvent) => void,
+): HTMLElement {
+  const figureElement = document.createElement(Constant.FIGURE);
+  figureElement.id = Constant.MAIDR_FIGURE + maidr.id;
+  plot.parentNode!.replaceChild(figureElement, plot);
+  figureElement.appendChild(plot);
 
-  renderMaidrApp(maidrId, display.reactDiv);
+  const articleElement = document.createElement(Constant.ARTICLE);
+  articleElement.id = Constant.MAIDR_ARTICLE + maidr.id;
+  articleElement.tabIndex = 0;
+  figureElement.parentNode!.replaceChild(articleElement, figureElement);
+  articleElement.appendChild(figureElement);
+
+  articleElement.addEventListener(EventType.FOCUS_IN, onFocus);
+  articleElement.addEventListener(EventType.CLICK, onFocus);
+  articleElement.addEventListener(EventType.FOCUS_OUT, onBlur);
+
+  return articleElement;
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity
