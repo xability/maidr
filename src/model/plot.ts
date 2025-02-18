@@ -96,7 +96,7 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 
   public removeObserver(observer: Observer): void {
-    this.observers = this.observers.filter((obs) => obs !== observer);
+    this.observers = this.observers.filter(obs => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -143,25 +143,29 @@ export abstract class AbstractPlot<T> implements Plot {
       UPWARD: () => {
         this.row += 1;
         this.row = this.values.length - 1;
-        if (this.col < 0) this.col = 0;
+        if (this.col < 0)
+          this.col = 0;
         if (this.col > this.values[this.row]?.length - 1)
           this.col = this.values[this.row].length - 1;
       },
       DOWNWARD: () => {
         this.row -= 1;
-        if (this.col < 0) this.col = 0;
+        if (this.col < 0)
+          this.col = 0;
         if (this.col > this.values[this.row]?.length - 1)
           this.col = this.values[this.row].length - 1;
       },
       FORWARD: () => {
         this.col += 1;
-        if (this.row < 0) this.row = 0;
+        if (this.row < 0)
+          this.row = 0;
         if (this.row > this.values.length - 1)
           this.row = this.values.length - 1;
       },
       BACKWARD: () => {
         this.col -= 1;
-        if (this.row < 0) this.row = 0;
+        if (this.row < 0)
+          this.row = 0;
         if (this.row > this.values.length - 1)
           this.row = this.values.length - 1;
       },
@@ -180,25 +184,29 @@ export abstract class AbstractPlot<T> implements Plot {
     const movement = {
       UPWARD: () => {
         this.row = this.values.length - 1;
-        if (this.col < 0) this.col = 0;
+        if (this.col < 0)
+          this.col = 0;
         if (this.col > this.values[this.row]?.length - 1)
           this.col = this.values[this.row].length - 1;
       },
       DOWNWARD: () => {
         this.row = 0;
-        if (this.col < 0) this.col = 0;
+        if (this.col < 0)
+          this.col = 0;
         if (this.col > this.values[this.row]?.length - 1)
           this.col = this.values[this.row].length - 1;
       },
       FORWARD: () => {
-        if (this.row < 0) this.row = 0;
+        if (this.row < 0)
+          this.row = 0;
         if (this.row > this.values.length - 1)
           this.row = this.values.length - 1;
         this.col = this.values[this.row].length - 1;
       },
       BACKWARD: () => {
         this.col = 0;
-        if (this.row < 0) this.row = 0;
+        if (this.row < 0)
+          this.row = 0;
         if (this.row > this.values.length - 1)
           this.row = this.values.length - 1;
       },
@@ -211,7 +219,8 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
-      if (this.row < 0) this.row = 0;
+      if (this.row < 0)
+        this.row = 0;
       this.col = index;
       this.isOutOfBounds = false;
       this.notifyStateUpdate();
@@ -229,9 +238,9 @@ export abstract class AbstractPlot<T> implements Plot {
       case MovableDirection.FORWARD:
         // we start charts at -1-1, so we need to not break on the first move
         return (
-          this.row === -1 ||
-          this.col === -1 ||
-          this.col < this.values[this.row].length - 1
+          this.row === -1
+          || this.col === -1
+          || this.col < this.values[this.row].length - 1
         );
 
       case MovableDirection.BACKWARD:
@@ -239,10 +248,10 @@ export abstract class AbstractPlot<T> implements Plot {
 
       default:
         return (
-          this.row >= 0 &&
-          this.row < this.values.length &&
-          target >= 0 &&
-          target < this.values[this.row].length
+          this.row >= 0
+          && this.row < this.values.length
+          && target >= 0
+          && target < this.values[this.row].length
         );
     }
   }
@@ -280,15 +289,15 @@ export abstract class AbstractBarPlot<
     this.points = points;
     this.orientation = maidr.orientation ?? Orientation.VERTICAL;
 
-    this.values = points.map((row) =>
-      row.map((point) =>
+    this.values = points.map(row =>
+      row.map(point =>
         this.orientation === Orientation.VERTICAL
           ? Number(point.y)
           : Number(point.x),
       ),
     );
-    this.min = this.values.map((row) => Math.min(...row));
-    this.max = this.values.map((row) => Math.max(...row));
+    this.min = this.values.map(row => Math.min(...row));
+    this.max = this.values.map(row => Math.max(...row));
 
     this.brailleValues = this.toBraille(this.values);
   }
