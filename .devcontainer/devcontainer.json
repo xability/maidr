@@ -13,7 +13,9 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "ms-vscode.vscode-typescript-tslint-plugin"
+        "ms-vscode.vscode-typescript-tslint-plugin",
+        "GitHub.copilot",
+        "GitHub.vscode-pull-request-github"
       ],
       "settings": {
         "typescript.tsdk": "/workspace/node_modules/typescript/lib",
@@ -24,7 +26,14 @@
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
-        }
+        },
+
+        // Copilot related settings
+        "github.copilot.chat.commitMessageGeneration.instructions": [
+          {
+            "text": "Use conventional commit message format."
+          }
+        ]
       }
     }
   },
