@@ -152,8 +152,5 @@ dist
 # Jetbrains
 .idea
 
-# VS Code
-.vscode
-
 # Cypress content
 cypress/screenshots/
