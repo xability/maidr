@@ -5,17 +5,32 @@ import { DisplayService } from '@service/display';
 document.addEventListener(EventType.DOM_LOADED, main);
 
 function main(): void {
-  if (!window.maidr) {
-    return;
-  }
+  // First check for elements with maidr attribute
+  const elements = document.querySelectorAll<HTMLElement>('[maidr]');
 
-  const maidr = window.maidr;
-  const maidrId = maidr.id;
-  const plot = document.getElementById(maidrId);
-  if (!plot) {
-    return;
-  }
+  elements.forEach((element) => {
+    const maidrAttr = element.getAttribute('maidr');
+    if (maidrAttr) {
+      try {
+        const maidr = JSON.parse(maidrAttr);
+        initMaidr(element, maidr);
+      } catch (error) {
+        console.error('Error parsing maidr attribute:', error);
+      }
+    }
+  });
 
+  // Fall back to window.maidr if no attribute found
+  if (elements.length === 0 && window.maidr) {
+    const maidrId = window.maidr.id;
+    const plot = document.getElementById(maidrId);
+    if (plot) {
+      initMaidr(plot, window.maidr);
+    }
+  }
+}
+
+function initMaidr(element: HTMLElement, maidr: any): void {
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
 
@@ -28,6 +43,7 @@ function main(): void {
     controller?.destroy();
     controller = null;
   };
+
   const onFocus = (): void => {
     if (!display) {
       return;
@@ -42,9 +58,14 @@ function main(): void {
 
   display = new DisplayService(maidr, onFocus, onBlur);
 
-  plot?.addEventListener(EventType.FOCUS, onFocus);
-  plot?.addEventListener(EventType.BLUR, onBlur);
-  plot?.addEventListener(EventType.CLICK, onFocus);
+  element.addEventListener(EventType.FOCUS, onFocus);
+  element.addEventListener(EventType.BLUR, onBlur);
+  element.addEventListener(EventType.CLICK, onFocus);
+
+  // Make the element focusable
+  if (!element.hasAttribute('tabindex')) {
+    element.setAttribute('tabindex', '0');
+  }
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity
