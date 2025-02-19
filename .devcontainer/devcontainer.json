@@ -13,7 +13,6 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "ms-vscode.vscode-typescript-tslint-plugin",
         "GitHub.copilot",
         "GitHub.vscode-pull-request-github"
       ],
