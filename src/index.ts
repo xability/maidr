@@ -38,7 +38,7 @@ function main(): void {
     }
 
     if (!display) {
-      display = new DisplayService(maidr, maidrRoot);
+      display = new DisplayService(maidr, maidrRoot, plot);
     }
     if (!controller) {
       controller = new ControllerService(maidr, display);
@@ -62,15 +62,15 @@ function initMaidr(
 
   const articleElement = document.createElement(Constant.ARTICLE);
   articleElement.id = Constant.MAIDR_ARTICLE + maidr.id;
-  articleElement.tabIndex = 0;
   figureElement.parentNode!.replaceChild(articleElement, figureElement);
   articleElement.appendChild(figureElement);
 
-  articleElement.addEventListener(EventType.FOCUS_IN, onFocus);
-  articleElement.addEventListener(EventType.CLICK, onFocus);
-  articleElement.addEventListener(EventType.FOCUS_OUT, onBlur);
+  plot.tabIndex = 0;
+  plot.addEventListener(EventType.FOCUS_IN, onFocus);
+  plot.addEventListener(EventType.CLICK, onFocus);
+  plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
-  return articleElement;
+  return figureElement;
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity

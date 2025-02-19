@@ -17,6 +17,8 @@ export class DisplayService {
   private readonly focusStack: Stack<FocusMode>;
 
   private readonly maidrRoot: HTMLElement;
+  private readonly plot: HTMLElement;
+
   private readonly reactDiv?: HTMLElement;
   private reactRoot: Root | null;
 
@@ -29,13 +31,14 @@ export class DisplayService {
   public readonly reviewDiv: HTMLElement;
   public readonly reviewInput: HTMLInputElement;
 
-  public constructor(maidr: Maidr, maidrRoot: HTMLElement) {
+  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.plotType = maidr.type;
     this.focusStack = new Stack<FocusMode>();
     this.focusStack.push(FocusMode.PLOT);
 
     const maidrId = maidr.id;
     this.maidrRoot = maidrRoot;
+    this.plot = plot;
 
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleTextAreaId = Constant.BRAILLE_TEXT_AREA + maidrId;
@@ -87,10 +90,6 @@ export class DisplayService {
 
   public shouldDestroy(event: FocusEvent): boolean {
     const target = event.relatedTarget as HTMLElement;
-    if (target === null) {
-      return false;
-    }
-
     return !this.maidrRoot?.contains(target);
   }
 
@@ -241,7 +240,7 @@ export class DisplayService {
         break;
 
       case FocusMode.PLOT:
-        this.maidrRoot.focus();
+        this.plot.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
     }
