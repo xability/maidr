@@ -154,3 +154,6 @@ dist
 
 # VS Code
 .vscode
+
+# Cypress content
+cypress/screenshots/
