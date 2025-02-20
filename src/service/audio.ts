@@ -231,6 +231,7 @@ export class AudioService implements Observer {
 
       case AudioMode.COMBINED:
         this.mode = AudioMode.SEPARATE;
+        break;
     }
 
     const mode

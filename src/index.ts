@@ -1,6 +1,9 @@
+import type { Maidr } from '@model/grammar';
 import { EventType } from '@model/interface';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
+import { ServiceLocator } from '@service/locator';
+import { Constant } from '@util/constant';
 
 document.addEventListener(EventType.DOM_LOADED, main);
 
@@ -16,35 +19,65 @@ function main(): void {
     return;
   }
 
+  let maidrRoot: HTMLElement | null = null;
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
+  const locator: ServiceLocator = ServiceLocator.instance;
 
   const onBlur = (event: FocusEvent): void => {
     if (!display || !display.shouldDestroy(event)) {
       return;
     }
 
-    display.addInstruction();
     controller?.destroy();
     controller = null;
+    display = null;
+
+    locator.setController(controller);
   };
   const onFocus = (): void => {
-    if (!display) {
+    if (!maidrRoot) {
       return;
-    } else {
-      display.removeInstruction();
     }
 
+    if (!display) {
+      display = new DisplayService(maidr, maidrRoot, plot);
+    }
     if (!controller) {
       controller = new ControllerService(maidr, display);
     }
+
+    locator.setController(controller);
   };
 
-  display = new DisplayService(maidr, onFocus, onBlur);
+  maidrRoot = initMaidr(maidr, plot, onFocus, onBlur);
+  (() => {
+    const display = new DisplayService(maidr, maidrRoot, plot);
+    display.destroy();
+  })();
+}
 
-  plot?.addEventListener(EventType.FOCUS, onFocus);
-  plot?.addEventListener(EventType.BLUR, onBlur);
-  plot?.addEventListener(EventType.CLICK, onFocus);
+function initMaidr(
+  maidr: Maidr,
+  plot: HTMLElement,
+  onFocus: () => void,
+  onBlur: (event: FocusEvent) => void,
+): HTMLElement {
+  const figureElement = document.createElement(Constant.FIGURE);
+  figureElement.id = Constant.MAIDR_FIGURE + maidr.id;
+  plot.parentNode!.replaceChild(figureElement, plot);
+  figureElement.appendChild(plot);
+
+  const articleElement = document.createElement(Constant.ARTICLE);
+  articleElement.id = Constant.MAIDR_ARTICLE + maidr.id;
+  figureElement.parentNode!.replaceChild(articleElement, figureElement);
+  articleElement.appendChild(figureElement);
+
+  plot.addEventListener(EventType.FOCUS_IN, onFocus);
+  plot.addEventListener(EventType.CLICK, onFocus);
+  plot.addEventListener(EventType.FOCUS_OUT, onBlur);
+
+  return figureElement;
 }
 
 // These methods have not been used as of now and hence commenting them out for clarity

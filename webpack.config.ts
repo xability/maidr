@@ -9,7 +9,7 @@ const config: Configuration = {
     clean: true, // Remove `dist` before building
   },
   resolve: {
-    extensions: ['.ts', '.tsx'], // Resolve TypeScript files
+    extensions: ['.ts', '.js', '.tsx'], // Resolve TypeScript and JavaScript files
     alias: {
       '@command': path.resolve(__dirname, 'src/command'),
       '@model': path.resolve(__dirname, 'src/model'),

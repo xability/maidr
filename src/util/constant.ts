@@ -1,7 +1,6 @@
 export abstract class Constant {
   // HTML elements.
   static readonly ARTICLE = 'article';
-  static readonly BR = 'br';
   static readonly DIV = 'div';
   static readonly FIGURE = 'figure';
   static readonly IMAGE = 'img';
@@ -14,7 +13,7 @@ export abstract class Constant {
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
-  static readonly MAIDR_BR = 'maidr-br-';
+  static readonly MAIDR_CONTAINER = 'maidr-react-container-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
@@ -30,12 +29,6 @@ export abstract class Constant {
   static readonly ARIA_LIVE = 'aria-live';
   static readonly ROLE = 'role';
   static readonly TITLE = 'title';
-
-  // HTML positions.
-  static readonly AFTER_BEGIN = 'afterbegin';
-  static readonly AFTER_END = 'afterend';
-  static readonly BEFORE_BEGIN = 'beforebegin';
-  static readonly BEFORE_END = 'beforeend';
 
   // Attribute values.
   static readonly APPLICATION = 'application';
