@@ -81,7 +81,7 @@ export class DisplayService {
     this.reviewDiv.remove();
 
     this.textDiv.remove();
-    this.notificationDiv.innerHTML = Constant.EMPTY;
+    this.notificationDiv.remove();
 
     this.reactRoot?.unmount();
     this.reactRoot = null;
