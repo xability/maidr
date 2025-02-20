@@ -24,7 +24,7 @@ export class ControllerService {
 
   private readonly autoplay: AutoplayService;
   private readonly keybinding: KeybindingService;
-  private readonly help: HelpService;
+  public readonly help: HelpService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
@@ -54,6 +54,7 @@ export class ControllerService {
       text: this.text,
       review: this.review,
       autoplay: this.autoplay,
+      help: this.help,
     });
     this.keybinding.register();
 
@@ -67,7 +68,6 @@ export class ControllerService {
     this.plot.removeObserver(this.braille);
     this.plot.removeObserver(this.audio);
 
-    this.help.destroy();
     this.keybinding.unregister();
     this.autoplay.destroy();
 

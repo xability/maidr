@@ -100,7 +100,7 @@ export class DisplayService {
         S for Sonification, and R for Review mode. Use H for Help.`;
   }
 
-  private addInstruction(): void {
+  public addInstruction(): void {
     const maidrInstruction = this.getInstruction(true);
     this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
     this.plot.setAttribute(Constant.TITLE, maidrInstruction);

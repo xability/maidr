@@ -2,6 +2,7 @@ import type { Maidr } from '@model/grammar';
 import { EventType } from '@model/interface';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
+import { ServiceLocator } from '@service/locator';
 import { Constant } from '@util/constant';
 
 document.addEventListener(EventType.DOM_LOADED, main);
@@ -21,16 +22,18 @@ function main(): void {
   let maidrRoot: HTMLElement | null = null;
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
+  const locator: ServiceLocator = ServiceLocator.instance;
 
   const onBlur = (event: FocusEvent): void => {
     if (!display || !display.shouldDestroy(event)) {
       return;
     }
 
-    console.error('destroy');
     controller?.destroy();
     controller = null;
     display = null;
+
+    locator.setController(controller);
   };
   const onFocus = (): void => {
     if (!maidrRoot) {
@@ -43,10 +46,13 @@ function main(): void {
     if (!controller) {
       controller = new ControllerService(maidr, display);
     }
+
+    locator.setController(controller);
   };
 
   maidrRoot = initMaidr(maidr, plot, onFocus, onBlur);
-  // display = new DisplayService(maidr, maidrRoot);
+  display = new DisplayService(maidr, maidrRoot, plot);
+  display.addInstruction();
 }
 
 function initMaidr(
@@ -65,7 +71,6 @@ function initMaidr(
   figureElement.parentNode!.replaceChild(articleElement, figureElement);
   articleElement.appendChild(figureElement);
 
-  plot.tabIndex = 0;
   plot.addEventListener(EventType.FOCUS_IN, onFocus);
   plot.addEventListener(EventType.CLICK, onFocus);
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
