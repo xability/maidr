@@ -102,15 +102,17 @@ export class DisplayService {
 
   private addInstruction(): void {
     const maidrInstruction = this.getInstruction(true);
-    this.maidrRoot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
-    this.maidrRoot.setAttribute(Constant.TITLE, maidrInstruction);
-    this.maidrRoot.setAttribute(Constant.ROLE, Constant.IMAGE);
+    this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
+    this.plot.setAttribute(Constant.TITLE, maidrInstruction);
+    this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+    this.plot.tabIndex = 0;
   }
 
   private removeInstruction(): void {
-    this.maidrRoot.removeAttribute(Constant.ARIA_LABEL);
-    this.maidrRoot.removeAttribute(Constant.TITLE);
-    this.maidrRoot.removeAttribute(Constant.ROLE);
+    this.plot.removeAttribute(Constant.ARIA_LABEL);
+    this.plot.removeAttribute(Constant.TITLE);
+    this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    this.plot.tabIndex = -1;
   }
 
   private createBrailleContainer(brailleId: string): HTMLElement {
@@ -202,34 +204,26 @@ export class DisplayService {
   }
 
   private updateFocus(newFocus: FocusMode = FocusMode.PLOT): void {
-    let activeElement: HTMLElement | HTMLInputElement | HTMLTextAreaElement | undefined;
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
-      activeElement = this.reviewInput;
       activeDiv = this.reviewDiv;
     } else if (
       (document.activeElement as HTMLTextAreaElement) === this.brailleTextArea
     ) {
-      activeElement = this.brailleTextArea;
       activeDiv = this.brailleDiv;
     } else {
-      activeElement = (document.activeElement) as HTMLElement;
       activeDiv = undefined;
     }
 
     switch (newFocus) {
       case FocusMode.BRAILLE:
-        if (activeElement === this.reviewInput) {
-          activeDiv?.classList.add(Constant.HIDDEN);
-        }
+        activeDiv?.classList.add(Constant.HIDDEN);
         this.brailleDiv?.classList.remove(Constant.HIDDEN);
         this.brailleTextArea?.focus();
         break;
 
       case FocusMode.REVIEW:
-        if (activeElement === this.brailleTextArea) {
-          activeDiv?.classList.add(Constant.HIDDEN);
-        }
+        activeDiv?.classList.add(Constant.HIDDEN);
         this.reviewDiv?.classList.remove(Constant.HIDDEN);
         this.reviewInput?.focus();
         break;
