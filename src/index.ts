@@ -51,8 +51,10 @@ function main(): void {
   };
 
   maidrRoot = initMaidr(maidr, plot, onFocus, onBlur);
-  display = new DisplayService(maidr, maidrRoot, plot);
-  display.addInstruction();
+  (() => {
+    const display = new DisplayService(maidr, maidrRoot, plot);
+    display.destroy();
+  })();
 }
 
 function initMaidr(
