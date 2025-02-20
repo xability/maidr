@@ -1,3 +1,10 @@
+## [2.29.1](https://github.com/xability/maidr/compare/v2.29.0...v2.29.1) (2025-02-20)
+
+
+### Bug Fixes
+
+* update maidr attribute to maidr-data for py-maidr to handle ([#636](https://github.com/xability/maidr/issues/636)) ([d21108c](https://github.com/xability/maidr/commit/d21108c9db63adf8bd5538bb6ac9f2c3b0214086))
+
 # [2.29.0](https://github.com/xability/maidr/compare/v2.28.2...v2.29.0) (2025-02-20)
 
 
