@@ -30,6 +30,7 @@ const HelpMenu: React.FC = () => {
 
   return (
     <Dialog
+      role="document"
       open={enabled}
       onClose={handleClose}
       maxWidth="md"
