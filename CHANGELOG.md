@@ -1,3 +1,10 @@
+# [2.29.0](https://github.com/xability/maidr/compare/v2.28.2...v2.29.0) (2025-02-20)
+
+
+### Features
+
+* support maidr object handling with an attribute to svg or img tag ([#634](https://github.com/xability/maidr/issues/634)) ([9c4071f](https://github.com/xability/maidr/commit/9c4071f84feab91d9f5d4e2eba9b9451bf28a614))
+
 ## [2.28.2](https://github.com/xability/maidr/compare/v2.28.1...v2.28.2) (2025-02-04)
 
 
