@@ -27,10 +27,10 @@ export enum MovableDirection {
 }
 
 export enum EventType {
-  BLUR = 'blur',
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
-  FOCUS = 'focus',
+  FOCUS_IN = 'focusin',
+  FOCUS_OUT = 'focusout',
   KEY_DOWN = 'keydown',
   SELECTION_CHANGE = 'selectionchange',
 }

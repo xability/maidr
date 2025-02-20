@@ -154,3 +154,6 @@ dist
 
 # VS Code
 .vscode
+
+# TODO: Remove this when moving to PROD
+package-lock.json

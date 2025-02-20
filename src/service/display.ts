@@ -1,70 +1,44 @@
 import type { Maidr } from '@model/grammar';
-import { EventType } from '@model/interface';
+import type { Root } from 'react-dom/client';
+import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
-
 import { Stack } from '@util/stack';
+import { createRoot } from 'react-dom/client';
 
 enum FocusMode {
   BRAILLE,
+  HELP,
   PLOT,
   REVIEW,
 }
 
 export class DisplayService {
-  private readonly maidr: Maidr;
-  private readonly plot?: HTMLElement;
-
-  private readonly onFocus: () => void;
-  private readonly onBlur: (event: FocusEvent) => void;
+  private readonly plotType: string;
   private readonly focusStack: Stack<FocusMode>;
 
-  private readonly articleElement?: HTMLElement;
-  private readonly figureElement?: HTMLElement;
-  private readonly br?: HTMLElement;
+  private readonly maidrRoot: HTMLElement;
+  private readonly plot: HTMLElement;
 
-  public readonly textDiv?: HTMLElement;
-  public readonly notificationDiv?: HTMLElement;
+  private readonly reactDiv?: HTMLElement;
+  private reactRoot: Root | null;
 
-  public readonly brailleDiv?: HTMLElement;
-  public readonly brailleTextArea?: HTMLTextAreaElement;
+  public readonly textDiv: HTMLElement;
+  public readonly notificationDiv: HTMLElement;
 
-  public readonly reviewDiv?: HTMLElement;
-  public readonly reviewInput?: HTMLInputElement;
+  public readonly brailleDiv: HTMLElement;
+  public readonly brailleTextArea: HTMLTextAreaElement;
 
-  public constructor(
-    maidr: Maidr,
-    onFocus: () => void,
-    onBlur: (event: FocusEvent) => void,
-  ) {
-    this.maidr = maidr;
-    this.onFocus = onFocus;
-    this.onBlur = onBlur;
+  public readonly reviewDiv: HTMLElement;
+  public readonly reviewInput: HTMLInputElement;
 
+  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
+    this.plotType = maidr.type;
     this.focusStack = new Stack<FocusMode>();
     this.focusStack.push(FocusMode.PLOT);
 
-    const maidrId = this.maidr.id;
-    const plot = document.getElementById(maidrId);
-    if (!plot || !plot.parentNode) {
-      console.error('Plot container not found');
-      return;
-    }
-
+    const maidrId = maidr.id;
+    this.maidrRoot = maidrRoot;
     this.plot = plot;
-    this.addInstruction();
-
-    const figureId = Constant.MAIDR_FIGURE + maidrId;
-    const articleId = Constant.MAIDR_ARTICLE + maidrId;
-    const breakId = Constant.MAIDR_BR + maidrId;
-    this.figureElement = document.getElementById(figureId) ?? this.createFigureElement(figureId);
-    this.articleElement = document.getElementById(articleId) ?? this.createArticleElement(articleId);
-    this.br = document.getElementById(breakId) ?? this.createBreakElement(breakId);
-
-    const textId = Constant.TEXT_CONTAINER + maidrId;
-    const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
-    this.textDiv = document.getElementById(textId) ?? this.createTextContainer(textId);
-    this.notificationDiv = document.getElementById(notificationId)
-      ?? this.createNotificationContainer(notificationId);
 
     const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
     const brailleTextAreaId = Constant.BRAILLE_TEXT_AREA + maidrId;
@@ -72,6 +46,9 @@ export class DisplayService {
     this.brailleTextArea
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
+
+    const textId = Constant.TEXT_CONTAINER + maidrId;
+    this.textDiv = document.getElementById(textId) ?? this.createTextContainer(textId);
 
     const reviewId = Constant.REVIEW_CONTAINER + maidrId;
     const reviewInputId = Constant.REVIEW_INPUT + maidrId;
@@ -82,106 +59,60 @@ export class DisplayService {
       = (document.getElementById(reviewInputId) as HTMLInputElement)
         ?? this.createReviewInput(reviewInputId);
 
-    this.brailleTextArea.addEventListener(EventType.BLUR, this.onBlur);
+    const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
+    this.notificationDiv = document.getElementById(notificationId)
+      ?? this.createNotificationContainer(notificationId);
+
+    const reactId = Constant.MAIDR_CONTAINER + maidrId;
+    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
+    this.reactRoot = createRoot(this.reactDiv);
+    this.reactRoot.render(MaidrApp);
+
+    this.removeInstruction();
   }
 
   public destroy(): void {
-    if (this.brailleTextArea) {
-      this.brailleTextArea.value = Constant.EMPTY;
-    }
-    if (this.brailleDiv) {
-      this.brailleDiv.classList.add(Constant.HIDDEN);
-    }
-    if (this.notificationDiv) {
-      this.notificationDiv.innerHTML = Constant.EMPTY;
-    }
-    if (this.reviewDiv) {
-      this.reviewDiv.classList.add(Constant.HIDDEN);
-    }
-    if (this.reviewInput) {
-      this.reviewInput.value = Constant.EMPTY;
-    }
-    if (this.textDiv) {
-      this.textDiv.innerHTML = Constant.EMPTY;
-    }
+    this.addInstruction();
+
+    this.brailleTextArea.remove();
+    this.brailleDiv.remove();
+
+    this.reviewInput.remove();
+    this.reviewDiv.remove();
+
+    this.textDiv.remove();
+    this.notificationDiv.remove();
+
+    this.reactRoot?.unmount();
+    this.reactRoot = null;
+    this.reactDiv?.remove();
   }
 
   public shouldDestroy(event: FocusEvent): boolean {
     const target = event.relatedTarget as HTMLElement;
-    return !this.figureElement?.contains(target);
+    return !this.maidrRoot?.contains(target);
   }
 
   public getInstruction(includeClickPrompt: boolean): string {
-    return `This is a maidr plot of type: ${this.maidr.type}.
+    return `This is a maidr plot of type: ${this.plotType}.
         ${includeClickPrompt ? 'Click to activate.' : Constant.EMPTY}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode. Use H for Help.`;
   }
 
   public addInstruction(): void {
-    if (this.plot) {
-      const maidrInstruction = this.getInstruction(true);
-      this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
-      this.plot.setAttribute(Constant.TITLE, maidrInstruction);
-      this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
-      this.plot.tabIndex = 0;
-    }
+    const maidrInstruction = this.getInstruction(true);
+    this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
+    this.plot.setAttribute(Constant.TITLE, maidrInstruction);
+    this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+    this.plot.tabIndex = 0;
   }
 
-  public removeInstruction(): void {
-    if (this.plot) {
-      this.plot.removeAttribute(Constant.ARIA_LABEL);
-      this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      this.plot.tabIndex = -1;
-    }
-  }
-
-  private createArticleElement(articleId: string): HTMLElement {
-    const articleElement = document.createElement(Constant.ARTICLE);
-    articleElement.id = articleId;
-
-    this.figureElement!.parentNode!.replaceChild(articleElement, this.figureElement!);
-    articleElement.appendChild(this.figureElement!);
-    return articleElement;
-  }
-
-  private createFigureElement(figureId: string): HTMLElement {
-    const figureElement = document.createElement(Constant.FIGURE);
-    figureElement.id = figureId;
-
-    this.plot!.parentNode!.replaceChild(figureElement, this.plot!);
-    figureElement.appendChild(this.plot!);
-    return figureElement;
-  }
-
-  private createBreakElement(breakId: string): HTMLElement {
-    const br = document.createElement(Constant.BR);
-    br.id = breakId;
-
-    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, br);
-    return br;
-  }
-
-  private createTextContainer(textId: string): HTMLElement {
-    const textDiv = document.createElement(Constant.DIV);
-    textDiv.id = textId;
-    textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
-
-    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, textDiv);
-    return textDiv;
-  }
-
-  private createNotificationContainer(notificationId: string): HTMLElement {
-    const notificationDiv = document.createElement(Constant.DIV);
-    notificationDiv.id = notificationId;
-    notificationDiv.classList.add(Constant.MB_3);
-    notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
-
-    this.figureElement!.insertAdjacentElement(Constant.AFTER_END, notificationDiv);
-    return notificationDiv;
+  private removeInstruction(): void {
+    this.plot.removeAttribute(Constant.ARIA_LABEL);
+    this.plot.removeAttribute(Constant.TITLE);
+    this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    this.plot.tabIndex = -1;
   }
 
   private createBrailleContainer(brailleId: string): HTMLElement {
@@ -189,7 +120,7 @@ export class DisplayService {
     brailleDiv.id = brailleId;
     brailleDiv.classList.add(Constant.HIDDEN);
 
-    this.figureElement!.insertBefore(brailleDiv, this.figureElement!.firstChild);
+    this.maidrRoot.appendChild(brailleDiv);
     return brailleDiv;
   }
 
@@ -198,8 +129,18 @@ export class DisplayService {
     brailleTextArea.id = brailleAndReviewTextAreaId;
     brailleTextArea.classList.add(Constant.BRAILLE_AND_REVIEW_CLASS);
 
-    this.brailleDiv!.appendChild(brailleTextArea);
+    this.brailleDiv.appendChild(brailleTextArea);
     return brailleTextArea;
+  }
+
+  private createTextContainer(textId: string): HTMLElement {
+    const textDiv = document.createElement(Constant.DIV);
+    textDiv.id = textId;
+    textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
+    textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
+
+    this.maidrRoot.appendChild(textDiv);
+    return textDiv;
   }
 
   private createReviewContainer(reviewId: string): HTMLElement {
@@ -207,7 +148,7 @@ export class DisplayService {
     reviewDiv.id = reviewId;
     reviewDiv.classList.add(Constant.HIDDEN);
 
-    this.figureElement!.appendChild(reviewDiv);
+    this.maidrRoot.appendChild(reviewDiv);
     return reviewDiv;
   }
 
@@ -218,71 +159,82 @@ export class DisplayService {
     reviewInput.autocomplete = Constant.OFF;
     reviewInput.size = 50;
 
-    this.reviewDiv!.appendChild(reviewInput);
+    this.reviewDiv.appendChild(reviewInput);
     return reviewInput;
   }
 
+  private createNotificationContainer(notificationId: string): HTMLElement {
+    const notificationDiv = document.createElement(Constant.DIV);
+    notificationDiv.id = notificationId;
+    notificationDiv.classList.add(Constant.MB_3);
+    notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
+    notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
+
+    this.maidrRoot.appendChild(notificationDiv);
+    return notificationDiv;
+  }
+
+  private createReactContainer(reactId: string): HTMLElement {
+    const reactDiv = document.createElement(Constant.DIV);
+    reactDiv.id = reactId;
+
+    this.maidrRoot.appendChild(reactDiv);
+    return reactDiv;
+  }
+
   public toggleReviewFocus(): void {
-    if (!this.focusStack.remove(FocusMode.REVIEW)) {
+    if (!this.focusStack.removeLast(FocusMode.REVIEW)) {
       this.focusStack.push(FocusMode.REVIEW);
     }
     this.updateFocus(this.focusStack.peek());
   }
 
   public toggleBrailleFocus(): void {
-    if (!this.focusStack.remove(FocusMode.BRAILLE)) {
+    if (!this.focusStack.removeLast(FocusMode.BRAILLE)) {
       this.focusStack.push(FocusMode.BRAILLE);
     }
     this.updateFocus(this.focusStack.peek());
   }
 
+  public toggleHelpFocus(): void {
+    if (!this.focusStack.removeLast(FocusMode.HELP)) {
+      this.focusStack.push(FocusMode.HELP);
+    }
+    this.updateFocus(this.focusStack.peek());
+  }
+
   private updateFocus(newFocus: FocusMode = FocusMode.PLOT): void {
-    let activeElement: HTMLInputElement | HTMLTextAreaElement | undefined;
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
-      activeElement = this.reviewInput;
       activeDiv = this.reviewDiv;
     } else if (
       (document.activeElement as HTMLTextAreaElement) === this.brailleTextArea
     ) {
-      activeElement = this.brailleTextArea;
       activeDiv = this.brailleDiv;
     } else {
-      activeElement = undefined;
       activeDiv = undefined;
     }
 
     switch (newFocus) {
       case FocusMode.BRAILLE:
-        if (activeElement === this.reviewInput) {
-          activeDiv?.classList.add(Constant.HIDDEN);
-        }
+        activeDiv?.classList.add(Constant.HIDDEN);
         this.brailleDiv?.classList.remove(Constant.HIDDEN);
         this.brailleTextArea?.focus();
         break;
 
       case FocusMode.REVIEW:
-        if (activeElement === this.brailleTextArea) {
-          activeDiv?.classList.add(Constant.HIDDEN);
-        }
+        activeDiv?.classList.add(Constant.HIDDEN);
         this.reviewDiv?.classList.remove(Constant.HIDDEN);
         this.reviewInput?.focus();
         break;
 
+      case FocusMode.HELP:
+        this.reactDiv?.focus();
+        activeDiv?.classList.add(Constant.HIDDEN);
+        break;
+
       case FocusMode.PLOT:
-        if (activeElement) {
-          activeElement.removeEventListener(
-            EventType.BLUR,
-            this.onBlur as EventListener,
-          );
-        }
-        this.plot?.focus();
-        if (activeElement) {
-          activeElement.addEventListener(
-            EventType.BLUR,
-            this.onBlur as EventListener,
-          );
-        }
+        this.plot.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
     }

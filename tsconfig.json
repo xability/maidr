@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "jsx": "react",
 
     "baseUrl": "./src",
     "module": "CommonJS",
