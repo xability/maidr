@@ -19,6 +19,7 @@
     "noImplicitAny": true,
 
     "noEmit": false,
+    "outDir": "./dist",
     "sourceMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

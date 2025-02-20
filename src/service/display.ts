@@ -112,7 +112,7 @@ export class DisplayService {
   }
 
   public getInstruction(includeClickPrompt: boolean): string {
-    return `This is a maidr plot of type: ${this.maidr.type}.
+    return `TEST This is a maidr plot of type: ${this.maidr.type}.
         ${includeClickPrompt ? 'Click to activate.' : Constant.EMPTY}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode. Use H for Help.`;
