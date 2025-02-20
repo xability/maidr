@@ -1,3 +1,4 @@
+import type { Maidr } from '@model/grammar';
 import { EventType } from '@model/interface';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
@@ -6,10 +7,10 @@ document.addEventListener(EventType.DOM_LOADED, main);
 
 function main(): void {
   // First check for elements with maidr attribute
-  const elements = document.querySelectorAll<HTMLElement>('[maidr]');
+  const elements = document.querySelectorAll<HTMLElement>('[maidr-data]');
 
   elements.forEach((element) => {
-    const maidrAttr = element.getAttribute('maidr');
+    const maidrAttr = element.getAttribute('maidr-data');
     if (maidrAttr) {
       try {
         const maidr = JSON.parse(maidrAttr);
@@ -30,7 +31,7 @@ function main(): void {
   }
 }
 
-function initMaidr(element: HTMLElement, maidr: any): void {
+function initMaidr(element: HTMLElement, maidr: Maidr): void {
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
 
