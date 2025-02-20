@@ -104,7 +104,8 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# TODO: Remove this
+#dist
 
 # Gatsby files
 .cache/

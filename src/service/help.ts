@@ -12,6 +12,7 @@ export class HelpService {
 
   public constructor(display: DisplayService) {
     this.display = display;
+
     this.menuItems = [
       { description: 'Move around plot', key: 'arrow key' },
       { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: 'command + arrow key' },
@@ -40,14 +41,14 @@ export class HelpService {
   }
 
   public toggle(): void {
+    store.dispatch(toggleHelpMenu());
+    this.display.toggleHelpFocus();
+
     const enabled = store.getState().helpMenu.enabled;
     if (enabled) {
       hotkeys.setScope(Scope.HELP);
     } else {
       hotkeys.setScope(Scope.DEFAULT);
     }
-
-    this.display.toggleHelpFocus();
-    store.dispatch(toggleHelpMenu());
   }
 }

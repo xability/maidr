@@ -1,5 +1,6 @@
+import type { ThunkExtra } from '@redux/store';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 export interface HelpMenuItem {
   description: string;
@@ -28,6 +29,14 @@ const helpMenuSlice = createSlice({
     },
   },
 });
+
+export const closeHelpMenu = createAsyncThunk<void, void, { extra: ThunkExtra }>(
+  'helpMenu/close',
+  async (_, { extra }) => {
+    const help = extra().help;
+    help.toggle();
+  },
+);
 
 export const { toggleHelpMenu, loadHelpMenu } = helpMenuSlice.actions;
 export default helpMenuSlice.reducer;

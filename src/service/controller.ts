@@ -23,8 +23,8 @@ export class ControllerService {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
-  private readonly help: HelpService;
   private readonly keybinding: KeybindingService;
+  public readonly help: HelpService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
