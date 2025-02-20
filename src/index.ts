@@ -8,31 +8,32 @@ import { Constant } from '@util/constant';
 document.addEventListener(EventType.DOM_LOADED, main);
 
 function main(): void {
-  const plots = document.querySelectorAll<HTMLElement>('[maidr-data]');
+  const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
-    const maidrAttr = plot.getAttribute('maidr-data');
-    if (!maidrAttr) {
+    const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
+    if (!maidrData) {
       return;
     }
 
     try {
-      const maidr = JSON.parse(maidrAttr);
+      const maidr = JSON.parse(maidrData);
       initMaidr(plot, maidr);
     } catch (error) {
       console.error('Error parsing maidr attribute:', error);
     }
   });
 
+  // Fall back to window.maidr if no attribute found.
+  // TODO: Need to be removed along with `window.d.ts`,
+  //  once attribute method is migrated.
   if (plots.length !== 0 && !window.maidr) {
     return;
   }
-
   const maidr = window.maidr;
   const plot = document.getElementById(maidr.id);
   if (!plot) {
     return;
   }
-
   initMaidr(plot, maidr);
 }
 
@@ -68,16 +69,17 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
     locator.setController(controller);
   };
 
-  maidrRoot = document.createElement(Constant.FIGURE);
-  maidrRoot.id = Constant.MAIDR_FIGURE + maidr.id;
-  plot.parentNode!.replaceChild(maidrRoot, plot);
-  maidrRoot.appendChild(plot);
+  const figureElement = document.createElement(Constant.FIGURE);
+  figureElement.id = Constant.MAIDR_FIGURE + maidr.id;
+  plot.parentNode!.replaceChild(figureElement, plot);
+  figureElement.appendChild(plot);
 
   const articleElement = document.createElement(Constant.ARTICLE);
   articleElement.id = Constant.MAIDR_ARTICLE + maidr.id;
-  maidrRoot.parentNode!.replaceChild(articleElement, maidrRoot);
-  articleElement.appendChild(maidrRoot);
+  figureElement.parentNode!.replaceChild(articleElement, figureElement);
+  articleElement.appendChild(figureElement);
 
+  maidrRoot = figureElement;
   plot.addEventListener(EventType.FOCUS_IN, onFocus);
   plot.addEventListener(EventType.CLICK, onFocus);
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);

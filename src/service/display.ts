@@ -63,7 +63,7 @@ export class DisplayService {
     this.notificationDiv = document.getElementById(notificationId)
       ?? this.createNotificationContainer(notificationId);
 
-    const reactId = Constant.MAIDR_CONTAINER + maidrId;
+    const reactId = Constant.REACT_CONTAINER + maidrId;
     this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.reactRoot = createRoot(this.reactDiv);
     this.reactRoot.render(MaidrApp);
