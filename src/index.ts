@@ -8,17 +8,36 @@ import { Constant } from '@util/constant';
 document.addEventListener(EventType.DOM_LOADED, main);
 
 function main(): void {
-  if (!window.maidr) {
+  const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
+  plots.forEach((plot) => {
+    const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
+    if (!maidrData) {
+      return;
+    }
+
+    try {
+      const maidr = JSON.parse(maidrData);
+      initMaidr(plot, maidr);
+    } catch (error) {
+      console.error('Error parsing maidr attribute:', error);
+    }
+  });
+
+  // Fall back to window.maidr if no attribute found.
+  // TODO: Need to be removed along with `window.d.ts`,
+  //  once attribute method is migrated.
+  if (plots.length !== 0 && !window.maidr) {
     return;
   }
-
   const maidr = window.maidr;
-  const maidrId = maidr.id;
-  const plot = document.getElementById(maidrId);
+  const plot = document.getElementById(maidr.id);
   if (!plot) {
     return;
   }
+  initMaidr(plot, maidr);
+}
 
+function initMaidr(plot: HTMLElement, maidr: Maidr): void {
   let maidrRoot: HTMLElement | null = null;
   let controller: ControllerService | null = null;
   let display: DisplayService | null = null;
@@ -50,19 +69,6 @@ function main(): void {
     locator.setController(controller);
   };
 
-  maidrRoot = initMaidr(maidr, plot, onFocus, onBlur);
-  (() => {
-    const display = new DisplayService(maidr, maidrRoot, plot);
-    display.destroy();
-  })();
-}
-
-function initMaidr(
-  maidr: Maidr,
-  plot: HTMLElement,
-  onFocus: () => void,
-  onBlur: (event: FocusEvent) => void,
-): HTMLElement {
   const figureElement = document.createElement(Constant.FIGURE);
   figureElement.id = Constant.MAIDR_FIGURE + maidr.id;
   plot.parentNode!.replaceChild(figureElement, plot);
@@ -73,42 +79,13 @@ function initMaidr(
   figureElement.parentNode!.replaceChild(articleElement, figureElement);
   articleElement.appendChild(figureElement);
 
+  maidrRoot = figureElement;
   plot.addEventListener(EventType.FOCUS_IN, onFocus);
   plot.addEventListener(EventType.CLICK, onFocus);
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
-  return figureElement;
+  (() => {
+    const display = new DisplayService(maidr, maidrRoot, plot);
+    display.destroy();
+  })();
 }
-
-// These methods have not been used as of now and hence commenting them out for clarity
-
-/*
-function main(): void {
-  const plotContainers = Array.from(
-    document.querySelectorAll<HTMLElement>('svg[maidr-container]')
-  );
-  for (const container of plotContainers) {
-    // Make the container focusable.
-    container.setAttribute('tabindex', '0');
-
-    // Handle the MAIDR lifecycle on focus.
-    container.addEventListener(EventType.FOCUS, event => onFigureFocus(event));
-  }
-}
-
-function onFigureFocus(event: FocusEvent) {
-  const maidrContainer = event.currentTarget as HTMLElement;
-  const maidrData = maidrContainer.getAttribute('maidr-data');
-  if (!maidrData) {
-    return;
-  }
-
-  try {
-    const maidr: Maidr = JSON.parse(maidrData);
-    init(maidrContainer, maidr);
-  } catch (error) {
-    console.log(error);
-    throw new Error('Error parsing MAIDR data');
-  }
-}
-*/

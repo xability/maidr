@@ -13,9 +13,9 @@ export abstract class Constant {
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
-  static readonly MAIDR_CONTAINER = 'maidr-react-container-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
+  static readonly REACT_CONTAINER = 'maidr-react-container-';
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
   static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
@@ -38,6 +38,7 @@ export abstract class Constant {
   static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
+  static readonly MAIDR_DATA = 'maidr-data';
   static readonly MB_3 = 'mb-3';
   static readonly NEW_LINE = '\n';
   static readonly OFF = 'off';
