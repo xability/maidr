@@ -1,14 +1,12 @@
-import type { HelpMenuItem } from '@redux/helpMenuSlice';
+import type { HelpMenuItem } from '@redux/slice/helpMenuSlice';
 import type { DisplayService } from '@service/display';
-import { loadHelpMenu, toggleHelpMenu } from '@redux/helpMenuSlice';
-import { store } from '@redux/store';
 import { Scope } from '@service/keybinding';
 import hotkeys from 'hotkeys-js';
 
 export class HelpService {
   private readonly display: DisplayService;
 
-  private readonly menuItems: HelpMenuItem[];
+  public readonly menuItems: HelpMenuItem[];
 
   public constructor(display: DisplayService) {
     this.display = display;
@@ -36,19 +34,18 @@ export class HelpService {
       { description: 'Describe Subtitle', key: 'l s' },
       { description: 'Describe Caption', key: 'l c' },
     ];
-
-    store.dispatch(loadHelpMenu(this.menuItems));
   }
 
-  public toggle(): void {
-    store.dispatch(toggleHelpMenu());
+  public toggle(oldState: boolean): boolean {
     this.display.toggleHelpFocus();
 
-    const enabled = store.getState().helpMenu.enabled;
-    if (enabled) {
+    const newState = !oldState;
+    if (newState) {
       hotkeys.setScope(Scope.HELP);
     } else {
       hotkeys.setScope(Scope.DEFAULT);
     }
+
+    return newState;
   }
 }
