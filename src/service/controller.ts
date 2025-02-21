@@ -54,7 +54,6 @@ export class ControllerService {
       text: this.text,
       review: this.review,
       autoplay: this.autoplay,
-      help: this.help,
     });
     this.keybinding.register();
 

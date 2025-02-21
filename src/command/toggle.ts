@@ -1,11 +1,12 @@
 import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
-import type { HelpService } from '@service/help';
 import type { Scope } from '@service/keybinding';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
 import type { Command } from './command';
+import { toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import { store } from '@redux/store';
 import hotkeys from 'hotkeys-js';
 
 export class ToggleBrailleCommand implements Command {
@@ -61,14 +62,8 @@ export class ToggleReviewCommand implements Command {
 }
 
 export class ToggleHelpCommand implements Command {
-  private readonly help: HelpService;
-
-  public constructor(help: HelpService) {
-    this.help = help;
-  }
-
   public execute(): void {
-    this.help.toggle();
+    store.dispatch(toggleHelpMenu());
   }
 }
 

@@ -1,6 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { ServiceLocator } from '@service/locator';
-import helpMenuReducer from './helpMenuSlice';
+import helpMenuReducer from './slice/helpMenuSlice';
+
+const locator = (): ServiceLocator => ServiceLocator.instance;
 
 export const store = configureStore({
   reducer: {
@@ -8,11 +10,15 @@ export const store = configureStore({
   },
   middleware: getDefaultMiddleware => getDefaultMiddleware({
     thunk: {
-      extraArgument: () => ServiceLocator.instance,
+      extraArgument: locator,
     },
   }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-export type ThunkExtra = () => ServiceLocator;
+export interface ThunkContext {
+  state: RootState;
+  dispatch: AppDispatch;
+  extra: typeof locator;
+}
