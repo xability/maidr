@@ -10,6 +10,7 @@
       "@model/*": ["model/*"],
       "@redux/*": ["redux/*"],
       "@service/*": ["service/*"],
+      "@type/*": ["type/*"],
       "@ui/*": ["ui/*"],
       "@util/*": ["util/*"]
     },

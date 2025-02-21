@@ -1,11 +1,11 @@
-import type { Maidr } from './grammar';
-import type { Plot } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
+import { PlotType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LinePlot } from './line';
-import { PlotType } from './plot';
 import { SegmentedPlot } from './segmented';
 
 export abstract class PlotFactory {

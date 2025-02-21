@@ -1,5 +1,6 @@
-import type { LinePoint, Maidr } from './grammar';
-import type { AudioState, TextState } from './state';
+import type { Maidr } from '@type/maidr';
+import type { AudioState, TextState } from '@type/state';
+import type { LinePoint } from './grammar';
 import { AbstractPlot } from './plot';
 
 export class LinePlot extends AbstractPlot<number> {

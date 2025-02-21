@@ -1,27 +1,3 @@
-import type { Orientation } from './plot';
-
-export interface Maidr {
-  id: string;
-  type: string;
-  selector?: string;
-  title?: string;
-  subtitle?: string;
-  caption?: string;
-  orientation?: Orientation;
-  axes?: {
-    x?: string;
-    y?: string;
-    fill?: string;
-  };
-  data:
-    | BarPoint[]
-    | BoxPoint[]
-    | HeatmapData
-    | HistogramPoint[]
-    | LinePoint[][]
-    | SegmentedPoint[][];
-}
-
 export interface BarPoint {
   x: string | number;
   y: number | string;

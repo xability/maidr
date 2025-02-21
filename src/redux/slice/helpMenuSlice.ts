@@ -1,11 +1,7 @@
 import type { ThunkContext } from '@redux/store';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { HelpMenuItem } from '@type/help';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-
-export interface HelpMenuItem {
-  description: string;
-  key: string;
-}
 
 interface HelpMenuState {
   enabled: boolean;

@@ -1,5 +1,5 @@
-import type { Movable, MovableDirection } from '@model/interface';
-import type { PlotState } from '@model/state';
+import type { Movable, MovableDirection } from '@type/movable';
+import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 
