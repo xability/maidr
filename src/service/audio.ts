@@ -1,5 +1,5 @@
-import type { Observer } from '@model/interface';
-import type { PlotState } from '@model/state';
+import type { Observer } from '@type/observable';
+import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
 
 interface Range {

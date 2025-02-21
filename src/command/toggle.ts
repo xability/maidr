@@ -1,9 +1,9 @@
-import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
-import type { Scope } from '@service/keybinding';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
+import type { Scope } from '@type/keys';
+import type { Plot } from '@type/plot';
 import type { Command } from './command';
 import { toggleHelpMenu } from '@redux/slice/helpMenuSlice';
 import { store } from '@redux/store';

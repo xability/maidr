@@ -1,6 +1,8 @@
-import type { HistogramPoint, Maidr } from './grammar';
-import type { TextState } from './state';
-import { AbstractBarPlot, Orientation } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { TextState } from '@type/state';
+import type { HistogramPoint } from './grammar';
+import { Orientation } from '@type/plot';
+import { AbstractBarPlot } from './plot';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public constructor(maidr: Maidr) {

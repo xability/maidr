@@ -1,20 +1,15 @@
-import type { Maidr } from '@model/grammar';
+import type { Maidr } from '@type/maidr';
 import type { Root } from 'react-dom/client';
+import { Focus } from '@type/event';
 import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { createRoot } from 'react-dom/client';
 
-enum FocusMode {
-  BRAILLE,
-  HELP,
-  PLOT,
-  REVIEW,
-}
+import { createRoot } from 'react-dom/client';
 
 export class DisplayService {
   private readonly plotType: string;
-  private readonly focusStack: Stack<FocusMode>;
+  private readonly focusStack: Stack<Focus>;
 
   private readonly maidrRoot: HTMLElement;
   private readonly plot: HTMLElement;
@@ -33,8 +28,8 @@ export class DisplayService {
 
   public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.plotType = maidr.type;
-    this.focusStack = new Stack<FocusMode>();
-    this.focusStack.push(FocusMode.PLOT);
+    this.focusStack = new Stack<Focus>();
+    this.focusStack.push(Focus.PLOT);
 
     const maidrId = maidr.id;
     this.maidrRoot = maidrRoot;
@@ -182,28 +177,14 @@ export class DisplayService {
     return reactDiv;
   }
 
-  public toggleReviewFocus(): void {
-    if (!this.focusStack.removeLast(FocusMode.REVIEW)) {
-      this.focusStack.push(FocusMode.REVIEW);
+  public toggleFocus(focus: Focus): void {
+    if (!this.focusStack.removeLast(focus)) {
+      this.focusStack.push(focus);
     }
     this.updateFocus(this.focusStack.peek());
   }
 
-  public toggleBrailleFocus(): void {
-    if (!this.focusStack.removeLast(FocusMode.BRAILLE)) {
-      this.focusStack.push(FocusMode.BRAILLE);
-    }
-    this.updateFocus(this.focusStack.peek());
-  }
-
-  public toggleHelpFocus(): void {
-    if (!this.focusStack.removeLast(FocusMode.HELP)) {
-      this.focusStack.push(FocusMode.HELP);
-    }
-    this.updateFocus(this.focusStack.peek());
-  }
-
-  private updateFocus(newFocus: FocusMode = FocusMode.PLOT): void {
+  private updateFocus(newFocus: Focus = Focus.PLOT): void {
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
       activeDiv = this.reviewDiv;
@@ -216,24 +197,24 @@ export class DisplayService {
     }
 
     switch (newFocus) {
-      case FocusMode.BRAILLE:
+      case Focus.BRAILLE:
         activeDiv?.classList.add(Constant.HIDDEN);
         this.brailleDiv?.classList.remove(Constant.HIDDEN);
         this.brailleTextArea?.focus();
         break;
 
-      case FocusMode.REVIEW:
+      case Focus.REVIEW:
         activeDiv?.classList.add(Constant.HIDDEN);
         this.reviewDiv?.classList.remove(Constant.HIDDEN);
         this.reviewInput?.focus();
         break;
 
-      case FocusMode.HELP:
+      case Focus.HELP:
         this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
-      case FocusMode.PLOT:
+      case Focus.PLOT:
         this.plot.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;

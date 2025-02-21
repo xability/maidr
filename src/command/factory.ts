@@ -1,12 +1,12 @@
-import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
-import type { Keys } from '@service/keybinding';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
+import type { Keys } from '@type/keys';
+import type { Plot } from '@type/plot';
 import type { Command, CommandContext } from './command';
-import { Scope } from '@service/keybinding';
+import { Scope } from '@type/keys';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,

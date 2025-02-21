@@ -1,11 +1,11 @@
-import type { Observer } from '@model/interface';
-import type { PlotState } from '@model/state';
+import type { Observer } from '@type/observable';
+import type { PlotState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
-import { EventType } from '@model/interface';
+import { EventType, Focus } from '@type/event';
+import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
-import { Scope } from './keybinding';
 
 export class ReviewService implements Observer {
   private readonly notification: NotificationService;
@@ -80,7 +80,7 @@ export class ReviewService implements Observer {
       this.update(state);
       hotkeys.setScope(Scope.REVIEW);
     }
-    this.display.toggleReviewFocus();
+    this.display.toggleFocus(Focus.REVIEW);
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

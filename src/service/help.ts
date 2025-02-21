@@ -1,6 +1,7 @@
-import type { HelpMenuItem } from '@redux/slice/helpMenuSlice';
 import type { DisplayService } from '@service/display';
-import { Scope } from '@service/keybinding';
+import type { HelpMenuItem } from '@type/help';
+import { Focus } from '@type/event';
+import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
 
 export class HelpService {
@@ -37,7 +38,7 @@ export class HelpService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleHelpFocus();
+    this.display.toggleFocus(Focus.HELP);
 
     const newState = !oldState;
     if (newState) {
