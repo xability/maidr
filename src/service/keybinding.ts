@@ -5,6 +5,11 @@ import { Scope } from '@type/keys';
 import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
 
+enum ChatKey {
+  // Misc
+  TOGGLE_CHAT = 'esc',
+}
+
 enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
@@ -37,7 +42,9 @@ enum DefaultKey {
   TOGGLE_REVIEW = 'r',
 
   // Misc
-  TOGGLE_HELP = 'h',
+  TOGGLE_HELP = 'command+/, ctrl+/',
+  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_SETTINGS = 'option+., alt+.',
 
   // Description
   DESCRIBE_POINT = 'space',
@@ -68,11 +75,18 @@ enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
+enum SettingKey {
+  // Misc
+  TOGGLE_SETTING = 'esc',
+}
+
 const scopedKeymap = {
+  [Scope.CHAT]: ChatKey,
   [Scope.DEFAULT]: DefaultKey,
   [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
+  [Scope.SETTINGS]: SettingKey,
 } as const;
 
 export type Keymap = {

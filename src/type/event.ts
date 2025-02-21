@@ -13,4 +13,5 @@ export enum Focus {
   HELP,
   PLOT,
   REVIEW,
+  SETTINGS,
 }

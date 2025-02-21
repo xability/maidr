@@ -2,7 +2,9 @@ import type { Maidr } from '@type/maidr';
 import type { Plot } from '@type/plot';
 import type { DisplayService } from './display';
 import { PlotFactory } from '@model/factory';
+import { ChatService } from '@service/chat';
 import { HelpService } from '@service/help';
+import { SettingsService } from '@service/settings';
 import { AudioService } from './audio';
 import { AutoplayService } from './autoplay';
 import { BrailleService } from './braille';
@@ -16,6 +18,7 @@ export class ControllerService {
 
   private readonly display: DisplayService;
   private readonly notification: NotificationService;
+  public readonly settings: SettingsService;
 
   private readonly audio: AudioService;
   private readonly braille: BrailleService;
@@ -23,14 +26,16 @@ export class ControllerService {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
-  private readonly keybinding: KeybindingService;
   public readonly help: HelpService;
+  public readonly chat: ChatService;
+  private readonly keybinding: KeybindingService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
     this.notification = new NotificationService(this.display);
+    this.settings = new SettingsService(this.display);
 
     this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
     this.braille = new BrailleService(
@@ -47,6 +52,8 @@ export class ControllerService {
       this.plot,
     );
     this.help = new HelpService(this.display);
+    this.chat = new ChatService(this.display);
+
     this.keybinding = new KeybindingService({
       plot: this.plot,
       audio: this.audio,

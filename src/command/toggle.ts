@@ -5,7 +5,9 @@ import type { TextService } from '@service/text';
 import type { Scope } from '@type/keys';
 import type { Plot } from '@type/plot';
 import type { Command } from './command';
+import { toggleChat } from '@redux/slice/chatSlice';
 import { toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import { toggleSettings } from '@redux/slice/settingsSlice';
 import { store } from '@redux/store';
 import hotkeys from 'hotkeys-js';
 
@@ -64,6 +66,18 @@ export class ToggleReviewCommand implements Command {
 export class ToggleHelpCommand implements Command {
   public execute(): void {
     store.dispatch(toggleHelpMenu());
+  }
+}
+
+export class ToggleChatCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleChat());
+  }
+}
+
+export class ToggleSettingsCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleSettings());
   }
 }
 
