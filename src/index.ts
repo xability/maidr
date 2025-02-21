@@ -1,8 +1,8 @@
-import type { Maidr } from '@model/grammar';
-import { EventType } from '@model/interface';
+import type { Maidr } from '@type/maidr';
 import { ControllerService } from '@service/controller';
 import { DisplayService } from '@service/display';
 import { ServiceLocator } from '@service/locator';
+import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
 
 document.addEventListener(EventType.DOM_LOADED, main);

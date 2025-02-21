@@ -1,4 +1,4 @@
-import type { AppDispatch, RootState } from '@redux/store';
+import type { RootState } from '@redux/store';
 import {
   Button,
   Dialog,
@@ -16,16 +16,20 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { closeHelpMenu } from '@redux/helpMenuSlice';
-import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
+import { loadHelpMenu, toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import React, { useEffect } from 'react';
 
 const HelpMenu: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>();
-  const { enabled, items } = useSelector((state: RootState) => state.helpMenu);
+  const dispatch = useAppDispatch();
+  const { enabled, items } = useAppSelector((state: RootState) => state.helpMenu);
+
+  useEffect(() => {
+    dispatch(loadHelpMenu());
+  }, [dispatch]);
 
   const handleClose = (): void => {
-    dispatch(closeHelpMenu());
+    dispatch(toggleHelpMenu());
   };
 
   return (

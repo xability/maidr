@@ -1,13 +1,12 @@
-import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
-import type { HelpService } from '@service/help';
-import type { Keys } from '@service/keybinding';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
+import type { Keys } from '@type/keys';
+import type { Plot } from '@type/plot';
 import type { Command, CommandContext } from './command';
-import { Scope } from '@service/keybinding';
+import { Scope } from '@type/keys';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -54,7 +53,6 @@ export class CommandFactory {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
-  private readonly help: HelpService;
 
   public constructor(commandContext: CommandContext) {
     this.plot = commandContext.plot;
@@ -65,7 +63,6 @@ export class CommandFactory {
     this.review = commandContext.review;
 
     this.autoplay = commandContext.autoplay;
-    this.help = commandContext.help;
   }
 
   public create(command: Keys): Command {
@@ -97,7 +94,7 @@ export class CommandFactory {
         return new ToggleReviewCommand(this.plot, this.review);
 
       case 'TOGGLE_HELP':
-        return new ToggleHelpCommand(this.help);
+        return new ToggleHelpCommand();
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);

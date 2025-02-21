@@ -1,5 +1,5 @@
-import type { Maidr } from '@model/grammar';
-import type { Plot } from '@model/plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
 import type { DisplayService } from './display';
 import { PlotFactory } from '@model/factory';
 import { HelpService } from '@service/help';
@@ -54,7 +54,6 @@ export class ControllerService {
       text: this.text,
       review: this.review,
       autoplay: this.autoplay,
-      help: this.help,
     });
     this.keybinding.register();
 
