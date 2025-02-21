@@ -1,7 +1,8 @@
-import type { Maidr } from '../model/grammar';
-import type { Plot } from '../model/plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
 import type { DisplayService } from './display';
-import { PlotFactory } from '../model/factory';
+import { PlotFactory } from '@model/factory';
+import { HelpService } from '@service/help';
 import { AudioService } from './audio';
 import { AutoplayService } from './autoplay';
 import { BrailleService } from './braille';
@@ -23,6 +24,7 @@ export class ControllerService {
 
   private readonly autoplay: AutoplayService;
   private readonly keybinding: KeybindingService;
+  public readonly help: HelpService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
@@ -44,6 +46,7 @@ export class ControllerService {
       this.text,
       this.plot,
     );
+    this.help = new HelpService(this.display);
     this.keybinding = new KeybindingService({
       plot: this.plot,
       audio: this.audio,

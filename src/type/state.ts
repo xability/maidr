@@ -1,4 +1,4 @@
-import type { MovableDirection } from './interface';
+import type { MovableDirection } from '@type/movable';
 
 export type PlotState =
   | EmptyState

@@ -1,5 +1,5 @@
-import type { Observer } from '@model/interface';
-import type { PlotState, TextState } from '@model/state';
+import type { Observer } from '@type/observable';
+import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
 import { Constant } from '@util/constant';
 

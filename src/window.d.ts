@@ -1,4 +1,4 @@
-import type { Maidr } from '@model/grammar';
+import type { Maidr } from '@type/maidr';
 
 declare global {
   interface Window {

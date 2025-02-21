@@ -1,4 +1,4 @@
-import type { Maidr } from '@model/grammar';
+import type { Maidr } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
 import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
