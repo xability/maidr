@@ -45,7 +45,14 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <Dialog open={reduxSettings.enabled} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog
+      role="dialog"
+      open={reduxSettings.enabled}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      disablePortal
+    >
       <DialogTitle>Settings</DialogTitle>
       <DialogContent>
         <Typography variant="h6" gutterBottom>General Settings</Typography>
