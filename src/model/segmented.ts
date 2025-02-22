@@ -1,6 +1,8 @@
-import type { Maidr, SegmentedPoint } from './grammar';
-import type { TextState } from './state';
-import { AbstractBarPlot, Orientation } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { TextState } from '@type/state';
+import type { SegmentedPoint } from './grammar';
+import { Orientation } from '@type/plot';
+import { AbstractBarPlot } from './plot';
 
 const SUM = 'Sum';
 const LEVEL = 'Level';

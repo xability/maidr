@@ -1,7 +1,7 @@
-import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { TextService } from '@service/text';
+import type { Plot } from '@type/plot';
 import type { Command } from './command';
 
 abstract class DescribeCommand implements Command {

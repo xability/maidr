@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "jsx": "react",
 
     "baseUrl": "./src",
     "module": "CommonJS",
@@ -9,6 +10,7 @@
       "@model/*": ["model/*"],
       "@redux/*": ["redux/*"],
       "@service/*": ["service/*"],
+      "@type/*": ["type/*"],
       "@ui/*": ["ui/*"],
       "@util/*": ["util/*"]
     },

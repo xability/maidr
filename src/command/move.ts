@@ -1,6 +1,7 @@
-import type { Plot } from '@model/plot';
+import type { Plot } from '@type/plot';
+
 import type { Command } from './command';
-import { MovableDirection } from '@model/interface';
+import { MovableDirection } from '@type/movable';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
