@@ -4,6 +4,7 @@
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "github.copilot",
-    "github.vscode-pull-request-github"
+    "github.vscode-pull-request-github",
+    "github.codespaces"
   ]
 }

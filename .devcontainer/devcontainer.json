@@ -14,7 +14,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "GitHub.copilot",
-        "GitHub.vscode-pull-request-github"
+        "GitHub.vscode-pull-request-github",
+        "GitHub.codespaces"
       ],
       "settings": {
         "typescript.tsdk": "/workspace/node_modules/typescript/lib",

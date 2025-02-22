@@ -14,6 +14,8 @@ To contribute to this project, you need to have the following installed on your 
 
 1. [Visual Studio Code (VS Code)](https://code.visualstudio.com/) (This is the recommended IDE)
 
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) (For leveraging the dev container within the project)
+
 ## Getting Started
 
 ### Installing Node
@@ -54,15 +56,26 @@ Once the above steps are complete, we set up the development environment.
 
 The repository comes with the ability to spawn a dev container so that you get all necessary dependancies for the project in an isolated development environment exclusive to maidr and devoid of any interference from local environment configuration.
 
+Docker Desktop that was installed as part of the pre-requisites will be used for accessing the spawned dev container.
+
+The Dev Container can be used via Visual Studio Code or Github Codespaces
+
 To enable this dev container and use it for project development, please follow the steps in order:
 
-1. Download the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension from VS Code marketplace.
+#### Accessing Dev Container through Visual Studio Code
 
-2. Use `Ctrl/Cmd + Shift + P` to invoke the VS Code command palette.
+1. Use `Ctrl/Cmd + Shift + P` to invoke the VS Code command palette.
 
-3. In the search box, type in `> Dev Containers: Build`. This prompt should highlight the option to build the dev container using the configuration available in the repository.
+1. In the search box, type in `> Dev Containers: Rebuild and Reopen in Container `. This option will pick up the dockerfile configuration available in the directory at the time and spawn a new dev container.
 
-4. VS Code takes a few minutes to prepare the dev container with all required dependancies. Once the dev container is successfully spawned, it can be used to work on development activities specific to the maidr repository.
+1. VS Code takes a few minutes to prepare the dev container with all required dependancies. Once the dev container is successfully spawned, it can be used to work on development activities specific to the maidr repository.
+
+#### Accessing Dev Container through Github Codespaces
+
+1. Use `Ctrl/Cmd + Shift + P` to invoke the VS Code command palette.
+
+1. In the search box, type in `> Codespaces: Create New Codespace`. This option will pick up the dockerfile configuration available in the directory at the time and spawn a new dev container.
+
 
    **NOTE**: We will periodically update the configuration of the dev container with any dependancies that are added in the future. In case there are any issues in spawning the dev container or working in that environment, please raise an [issue](https://github.com/xability/maidr-ts/issues/new?template=bug_report.md) with `DevOps : <Issue Description>` as the title.
 
