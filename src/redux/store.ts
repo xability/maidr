@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { ServiceLocator } from '@service/locator';
 import chatReducer from './slice/chatSlice';
-import helpMenuReducer from './slice/helpMenuSlice';
+import helpMenuReducer from './slice/helpSlice';
 import settingsReducer from './slice/settingsSlice';
 
 const locator = (): ServiceLocator => ServiceLocator.instance;

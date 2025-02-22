@@ -1,7 +1,7 @@
 import type { RootState } from '@redux/store';
 import { store } from '@redux/store';
-import HelpMenu from '@ui/pages/HelpMenu';
-import SettingsMenu from '@ui/pages/SettingsMenu';
+import Help from '@ui/pages/Help';
+import Settings from '@ui/pages/Settings';
 import React from 'react';
 import { Provider, useSelector } from 'react-redux';
 
@@ -11,8 +11,8 @@ const App: React.FC = () => {
 
   return (
     <>
-      {isHelpEnabled && <HelpMenu />}
-      {isSettingsEnabled && <SettingsMenu />}
+      {isHelpEnabled && <Help />}
+      {isSettingsEnabled && <Settings />}
     </>
   );
 };

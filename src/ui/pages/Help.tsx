@@ -17,10 +17,10 @@ import {
   Typography,
 } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { loadHelpMenu, toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import { loadHelpMenu, toggleHelpMenu } from '@redux/slice/helpSlice';
 import React, { useEffect } from 'react';
 
-const HelpMenu: React.FC = () => {
+const Help: React.FC = () => {
   const dispatch = useAppDispatch();
   const { enabled, items } = useAppSelector((state: RootState) => state.helpMenu);
 
@@ -87,4 +87,4 @@ const HelpMenu: React.FC = () => {
   );
 };
 
-export default HelpMenu;
+export default Help;

@@ -6,7 +6,7 @@ import type { Scope } from '@type/keys';
 import type { Plot } from '@type/plot';
 import type { Command } from './command';
 import { toggleChat } from '@redux/slice/chatSlice';
-import { toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import { toggleHelpMenu } from '@redux/slice/helpSlice';
 import { toggleSettings } from '@redux/slice/settingsSlice';
 import { store } from '@redux/store';
 import hotkeys from 'hotkeys-js';

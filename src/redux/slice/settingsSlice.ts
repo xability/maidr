@@ -1,5 +1,4 @@
 import type { ThunkContext } from '@redux/store';
-import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Settings } from '@type/settings';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
@@ -20,45 +19,48 @@ const initialState: SettingsState = {
   },
 };
 
+export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
+  'settings/load',
+  async (_, { extra }) => {
+    const service = extra().settings;
+    return service.loadSettings();
+  },
+);
+
+export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
+  'settings/toggle',
+  async (_, { getState, extra }) => {
+    const service = extra().settings;
+    const currentState = getState().settings.enabled;
+    return service.toggle(currentState);
+  },
+);
+
+export const saveSettings = createAsyncThunk<Settings, Settings, ThunkContext>(
+  'settings/save',
+  async (newSettings, { extra }) => {
+    const service = extra().settings;
+    service.saveSettings(newSettings);
+    return newSettings;
+  },
+);
+
 const settingsSlice = createSlice({
   name: 'settings',
   initialState,
-  reducers: {
-    update: (state, action: PayloadAction<Settings>) => {
-      return { ...state, ...action.payload };
-    },
-    toggle: (state, action: PayloadAction<boolean>) => {
-      state.enabled = action.payload;
-    },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(loadSettings.fulfilled, (state, action) => {
+        return { ...state, ...action.payload };
+      })
+      .addCase(toggleSettings.fulfilled, (state, action) => {
+        state.enabled = action.payload;
+      })
+      .addCase(saveSettings.fulfilled, (state, action) => {
+        return { ...state, ...action.payload };
+      });
   },
 });
-const { toggle, update } = settingsSlice.actions;
-
-export const toggleSettings = createAsyncThunk<void, void, ThunkContext>(
-  'settings/toggle',
-  (_, { getState, dispatch, extra }) => {
-    const service = extra().settings;
-    const currentState = getState().settings.enabled;
-    const newState = service.toggle(currentState);
-    dispatch(toggle(newState));
-  },
-);
-
-export const loadSettings = createAsyncThunk<void, void, ThunkContext>(
-  'settings/load',
-  (_, { dispatch, extra }) => {
-    const service = extra().settings;
-    dispatch(update(service.loadSettings()));
-  },
-);
-
-export const saveSettings = createAsyncThunk<void, Settings, ThunkContext>(
-  'settings/save',
-  (settings, { getState, dispatch, extra }) => {
-    const service = extra().settings;
-    dispatch(update(settings));
-    service.saveSettings(getState().settings);
-  },
-);
 
 export default settingsSlice.reducer;

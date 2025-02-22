@@ -1,4 +1,4 @@
-import type { AriaMode, GeneralSettings, Settings } from '@type/settings';
+import type { AriaMode, GeneralSettings, Settings as SettingsType } from '@type/settings';
 import {
   Button,
   Dialog,
@@ -22,10 +22,10 @@ import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
 import { loadSettings, saveSettings, toggleSettings } from '@redux/slice/settingsSlice';
 import React, { useEffect, useState } from 'react';
 
-const SettingsMenu: React.FC = () => {
+const Settings: React.FC = () => {
   const dispatch = useAppDispatch();
   const reduxSettings = useAppSelector(state => state.settings);
-  const [localSettings, setLocalSettings] = useState<Settings>(reduxSettings);
+  const [localSettings, setLocalSettings] = useState<SettingsType>(reduxSettings);
 
   useEffect(() => {
     dispatch(loadSettings());
@@ -158,4 +158,4 @@ const SettingsMenu: React.FC = () => {
   );
 };
 
-export default SettingsMenu;
+export default Settings;
