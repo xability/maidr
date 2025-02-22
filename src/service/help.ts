@@ -7,7 +7,7 @@ import hotkeys from 'hotkeys-js';
 export class HelpService {
   private readonly display: DisplayService;
 
-  public readonly menuItems: HelpMenuItem[];
+  private readonly menuItems: HelpMenuItem[];
 
   public constructor(display: DisplayService) {
     this.display = display;
@@ -35,6 +35,10 @@ export class HelpService {
       { description: 'Describe Subtitle', key: 'l s' },
       { description: 'Describe Caption', key: 'l c' },
     ];
+  }
+
+  public getMenuItems(): HelpMenuItem[] {
+    return this.menuItems;
   }
 
   public toggle(oldState: boolean): boolean {

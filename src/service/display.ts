@@ -210,6 +210,7 @@ export class DisplayService {
         break;
 
       case Focus.HELP:
+      case Focus.SETTINGS:
         this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;

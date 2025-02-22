@@ -75,9 +75,9 @@ enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
-enum SettingKey {
+enum SettingsKey {
   // Misc
-  TOGGLE_SETTING = 'esc',
+  TOGGLE_SETTINGS = 'esc',
 }
 
 const scopedKeymap = {
@@ -86,7 +86,7 @@ const scopedKeymap = {
   [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
-  [Scope.SETTINGS]: SettingKey,
+  [Scope.SETTINGS]: SettingsKey,
 } as const;
 
 export type Keymap = {

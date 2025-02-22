@@ -17,31 +17,31 @@ const helpMenuSlice = createSlice({
   name: 'helpMenu',
   initialState,
   reducers: {
-    toggleHelpMenuAction(state, action: PayloadAction<boolean>): void {
+    toggle(state, action: PayloadAction<boolean>) {
       state.enabled = action.payload;
     },
-    loadHelpMenuAction(state, action: PayloadAction<HelpMenuItem[]>): void {
+    load(state, action: PayloadAction<HelpMenuItem[]>) {
       state.items = action.payload;
     },
   },
 });
-const { toggleHelpMenuAction, loadHelpMenuAction } = helpMenuSlice.actions;
+const { toggle, load } = helpMenuSlice.actions;
 
 export const loadHelpMenu = createAsyncThunk<void, void, ThunkContext>(
   'helpMenu/load',
   (_, { dispatch, extra }) => {
-    const help = extra().help;
-    dispatch(loadHelpMenuAction(help.menuItems));
+    const service = extra().help;
+    dispatch(load(service.getMenuItems()));
   },
 );
 
 export const toggleHelpMenu = createAsyncThunk<void, void, ThunkContext>(
   'helpMenu/toggle',
   (_, { getState, dispatch, extra }) => {
-    const help = extra().help;
+    const service = extra().help;
     const currentState = getState().helpMenu.enabled;
-    const newState = help.toggle(currentState);
-    dispatch(toggleHelpMenuAction(newState));
+    const newState = service.toggle(currentState);
+    dispatch(toggle(newState));
   },
 );
 
