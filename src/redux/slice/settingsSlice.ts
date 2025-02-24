@@ -21,7 +21,7 @@ const initialState: SettingsState = {
 
 export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
   'settings/load',
-  async (_, { extra }) => {
+  (_, { extra }) => {
     const service = extra().settings;
     return service.loadSettings();
   },
@@ -29,7 +29,7 @@ export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
 
 export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
   'settings/toggle',
-  async (_, { getState, extra }) => {
+  (_, { getState, extra }) => {
     const service = extra().settings;
     const currentState = getState().settings.enabled;
     return service.toggle(currentState);
@@ -38,7 +38,7 @@ export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
 
 export const saveSettings = createAsyncThunk<Settings, Settings, ThunkContext>(
   'settings/save',
-  async (newSettings, { extra }) => {
+  (newSettings, { extra }) => {
     const service = extra().settings;
     service.saveSettings(newSettings);
     return newSettings;
@@ -58,7 +58,8 @@ const settingsSlice = createSlice({
         state.enabled = action.payload;
       })
       .addCase(saveSettings.fulfilled, (state, action) => {
-        return { ...state, ...action.payload };
+        const close = { enabled: false };
+        return { ...state, ...action.payload, ...close };
       });
   },
 });
