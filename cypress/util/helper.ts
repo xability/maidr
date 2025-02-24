@@ -1,4 +1,4 @@
-import type { Maidr } from '@model/grammar';
+import type { Maidr } from '@type/maidr';
 import { TestConstants } from '../util/constant';
 
 export function verifyPlotLoaded(plotId: string): void {
@@ -11,29 +11,19 @@ export function verifyMaidrActivated(plotId: string): void {
   cy.focused().should(TestConstants.HAVE_ATTR, TestConstants.HTML_ID, plotId);
 }
 
-export function verifyLeftToRightMovement(maidrData: Maidr, elementId: string): void {
+export function verifyHorizontalMovement(maidrData: Maidr, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
 
   if (Array.isArray(maidrData.data)) {
-    const numBars = maidrData.data.length;
-    for (let i = 0; i < numBars; i++) {
-      cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-    }
-  }
-}
-
-export function verifyRightToLeftMovement(maidrData: Maidr, elementId: string): void {
-  cy.get(TestConstants.HASH + elementId).click();
-  if (Array.isArray(maidrData.data)) {
-    const numBars = maidrData.data.length;
-    // Move to the extreme right first.
-    for (let i = 0; i < numBars; i++) {
-      cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-    }
-    // Then move back left, with a wait after each press.
-    for (let i = numBars - 1; i >= 0; i--) {
-      cy.realPress(TestConstants.LEFT_ARROW_KEY);
-      cy.wait(TestConstants.ONE_MILLISECOND);
+    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+    if (direction === TestConstants.HORIZONTAL_FORWARD) {
+      for (let i = 0; i < numBars; i++) {
+        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
+      }
+    } else if (direction === TestConstants.HORIZONTAL_REVERSE) {
+      for (let i = numBars - 1; i >= 0; i--) {
+        cy.realPress(TestConstants.LEFT_ARROW_KEY);
+      }
     }
   }
 }
@@ -97,28 +87,25 @@ export function verifyResetSpeed(elementId: string): void {
   cy.contains(TestConstants.SPEED_RESET).should(TestConstants.SHOULD_EXIST);
 }
 
-export function verifyAutoplay(maidrData: Maidr, elementId: string, direction: 'left-to-right' | 'right-to-left'): void {
+export function verifyAutoplay(maidrData: Maidr, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
   if (Array.isArray(maidrData.data)) {
-    const numBars = maidrData.data.length;
-    if (direction === 'left-to-right') {
+    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+    if (direction === TestConstants.HORIZONTAL_FORWARD) {
       cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.RIGHT_ARROW_KEY]);
-    } else if (direction === 'right-to-left') {
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
+    } else if (direction === TestConstants.HORIZONTAL_REVERSE) {
       cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.LEFT_ARROW_KEY]);
     }
-    cy.wait(numBars * TestConstants.HALF_SECOND);
+    cy.wait(numBars * TestConstants.ONE_MILLISECOND);
   }
 }
 
-export function verifyExtremePoint(elementId: string, direction: 'left' | 'right'): void {
+export function verifyExtremePoint(elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
-  if (direction === 'left') {
+  if (direction === TestConstants.LEFT) {
     cy.realPress([TestConstants.META_KEY, TestConstants.LEFT_ARROW_KEY]);
     // TODO: Add validation for extreme left point
-  } else if (direction === 'right') {
+  } else if (direction === TestConstants.RIGHT) {
     cy.realPress([TestConstants.META_KEY, TestConstants.RIGHT_ARROW_KEY]);
     // TODO: Add validation for extreme right point
   }
@@ -139,7 +126,6 @@ export function verifyReplaySamePoint(elementId: string): void {
           expect(text).to.equal(pointData);
         });
     });
-  // TODO: Add validation for replaying the same point
 }
 
 export function verifyBrailleNavigationForward(maidrData: Maidr, elementId: string): void {
@@ -147,7 +133,7 @@ export function verifyBrailleNavigationForward(maidrData: Maidr, elementId: stri
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);
   if (Array.isArray(maidrData.data)) {
-    const numBars = maidrData.data.length;
+    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
     cy.realPress(TestConstants.BRAILLE_KEY);
     cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
     for (let i = 0; i < numBars; i++) {
@@ -161,12 +147,9 @@ export function verifyBrailleNavigationReverse(maidrData: Maidr, elementId: stri
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);
   if (Array.isArray(maidrData.data)) {
-    const numBars = maidrData.data.length;
+    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
     cy.realPress(TestConstants.BRAILLE_KEY);
     cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
-    for (let i = 0; i < numBars; i++) {
-      cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-    }
     for (let i = numBars - 1; i >= 0; i--) {
       cy.realPress(TestConstants.LEFT_ARROW_KEY);
     }
