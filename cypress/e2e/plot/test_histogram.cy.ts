@@ -1,4 +1,4 @@
-import type { Maidr } from '@model/grammar';
+import type { Maidr } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
 import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
@@ -38,11 +38,13 @@ describe('Histogram', () => {
   });
 
   it('should be able to move from left to right', () => {
-    helper.verifyLeftToRightMovement(maidrData, TestConstants.HISTOGRAM_ID);
+    helper.verifyHorizontalMovement(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.HORIZONTAL_FORWARD);
   });
 
   it('should be able to move from right to left', () => {
-    helper.verifyRightToLeftMovement(maidrData, TestConstants.HISTOGRAM_ID);
+    // Move to right extreme point
+    helper.verifyExtremePoint(TestConstants.HISTOGRAM_ID, TestConstants.RIGHT);
+    helper.verifyHorizontalMovement(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 
   it('toggle text mode', () => {
@@ -86,14 +88,16 @@ describe('Histogram', () => {
   });
 
   it('Braille Navigation - right to left', () => {
+    helper.verifyExtremePoint(TestConstants.HISTOGRAM_ID, TestConstants.RIGHT);
     helper.verifyBrailleNavigationReverse(maidrData, TestConstants.HISTOGRAM_ID);
   });
 
   it('Autoplay - left to right', () => {
-    helper.verifyAutoplay(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.FORWARD);
+    helper.verifyAutoplay(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.HORIZONTAL_FORWARD);
   });
 
   it('Autoplay - right to left', () => {
-    helper.verifyAutoplay(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.BACKWARD);
+    helper.verifyExtremePoint(TestConstants.HISTOGRAM_ID, TestConstants.RIGHT);
+    helper.verifyAutoplay(maidrData, TestConstants.HISTOGRAM_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 });
