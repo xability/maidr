@@ -12,8 +12,15 @@ export abstract class TestConstants {
   static readonly SHOULD_EXIST = 'exist';
   static readonly INVOKE_TEXT = 'text';
 
+  // Cypress Custom Selectors
+  static readonly FORWARD = 'left-to-right';
+  static readonly BACKWARD = 'right-to-left';
+  static readonly LEFT = 'left';
+  static readonly RIGHT = 'right';
+
   // Plot Type IDs
   static readonly BAR_ID = 'bar';
+  static readonly HISTOGRAM_ID = 'hist';
 
   // Maidr IDs
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-notification-container-';
@@ -40,7 +47,8 @@ export abstract class TestConstants {
   static readonly HASH = '#';
 
   // Instruction text
-  static readonly INSTRUCTION_TEXT = 'This is a maidr plot of type: bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.';
+  static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.';
+  static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. Use H for Help.';
 
   // Text Mode - Status messages
   static readonly TEXT_MODE_TERSE = 'Text mode is terse';
@@ -48,6 +56,7 @@ export abstract class TestConstants {
   static readonly TEXT_MODE_OFF = 'Text mode is off';
 
   // Braille Mode - Status messages
+  static readonly BRAILLE_INCEPTION = 'No info for braille';
   static readonly BRAILLE_MODE_ON = 'Braille is on';
   static readonly BRAILLE_MODE_OFF = 'Braille is off';
 
@@ -62,5 +71,6 @@ export abstract class TestConstants {
 
   // Time constants
   static readonly ONE_SECOND = 1000;
+  static readonly HALF_SECOND = 500;
   static readonly ONE_MILLISECOND = 100;
 }
