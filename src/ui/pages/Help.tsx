@@ -97,7 +97,7 @@ const Help: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
-          sx={{ px: 1, py: 1 }}
+          sx={{ px: 2, py: 1 }}
         >
           <Grid2 size="auto">
             <Button variant="contained" color="primary" onClick={handleClose}>
