@@ -43,7 +43,7 @@ describe('Bar Plot', () => {
 
   it('should be able to move from right to left', () => {
     // Move to right extreme point
-    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyExtremePoint(TestConstants.BAR_ID, TestConstants.RIGHT);
     helper.verifyHorizontalMovement(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 
@@ -88,7 +88,7 @@ describe('Bar Plot', () => {
   });
 
   it('Braille Navigation - right to left', () => {
-    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyExtremePoint(TestConstants.BAR_ID, TestConstants.RIGHT);
     helper.verifyBrailleNavigationReverse(maidrData, TestConstants.BAR_ID);
   });
 
@@ -97,7 +97,7 @@ describe('Bar Plot', () => {
   });
 
   it('Autoplay - right to left', () => {
-    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyExtremePoint(TestConstants.BAR_ID, TestConstants.RIGHT);
     helper.verifyAutoplay(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 });
