@@ -1,4 +1,3 @@
-import type { RootState } from '@redux/store';
 import {
   Button,
   Dialog,
@@ -22,7 +21,7 @@ import React, { useEffect } from 'react';
 
 const Help: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { enabled, items } = useAppSelector((state: RootState) => state.helpMenu);
+  const { enabled, items } = useAppSelector(state => state.helpMenu);
 
   useEffect(() => {
     dispatch(loadHelpMenu());
@@ -40,6 +39,7 @@ const Help: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      closeAfterTransition={false}
     >
       <DialogTitle>Help Dialog</DialogTitle>
       <DialogContent>

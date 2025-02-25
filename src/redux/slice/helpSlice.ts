@@ -15,17 +15,15 @@ const initialState: HelpMenuState = {
 export const loadHelpMenu = createAsyncThunk<HelpMenuItem[], void, ThunkContext>(
   'help/load',
   (_, { extra }) => {
-    const service = extra().help;
-    return service.getMenuItems();
+    return extra().help.getMenuItems();
   },
 );
 
 export const toggleHelpMenu = createAsyncThunk<boolean, void, ThunkContext>(
   'help/toggle',
   (_, { getState, extra }) => {
-    const service = extra().help;
     const currentState = getState().helpMenu.enabled;
-    return service.toggle(currentState);
+    return extra().help.toggle(currentState);
   },
 );
 

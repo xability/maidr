@@ -1,4 +1,4 @@
-import type { AriaMode, GeneralSettings, Settings as SettingsType } from '@type/settings';
+import type { AriaMode, GeneralSettings, LlmSettings } from '@type/settings';
 import {
   Button,
   Dialog,
@@ -6,161 +6,251 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
+  FormControlLabel,
+  Grid2,
+  Radio,
+  RadioGroup,
+  Slider,
   TextField,
   Typography,
 } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { loadSettings, saveSettings, toggleSettings } from '@redux/slice/settingsSlice';
+import { loadSettings, resetSettings, saveSettings, toggleSettings } from '@redux/slice/settingsSlice';
 import React, { useEffect, useState } from 'react';
+
+interface SettingRowProps {
+  label: string;
+  input: React.ReactNode;
+}
+
+const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
+  <Grid2 container spacing={1} alignItems="center" sx={{ py: 1 }}>
+    <Grid2 size={{ xs: 12, sm: 6, md: 4 }}>
+      <Typography variant="body2" fontWeight="normal">
+        {label}
+      </Typography>
+    </Grid2>
+    <Grid2 size={{ xs: 12, sm: 6, md: 8 }}>
+      {input}
+    </Grid2>
+  </Grid2>
+);
 
 const Settings: React.FC = () => {
   const dispatch = useAppDispatch();
-  const reduxSettings = useAppSelector(state => state.settings);
-  const [localSettings, setLocalSettings] = useState<SettingsType>(reduxSettings);
+  const { enabled, general, llm } = useAppSelector(state => state.settings);
+
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
+  const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
     dispatch(loadSettings());
   }, [dispatch]);
+  useEffect(() => {
+    setGeneralSettings(general);
+    setLlmSettings(llm);
+  }, [general, llm]);
 
-  const handleChange = <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]): void => {
-    setLocalSettings(prev => ({ ...prev, [key]: value }));
+  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
+    setGeneralSettings(prev => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
-  const handleSave = (): void => {
-    dispatch(saveSettings(localSettings));
-    dispatch(toggleSettings());
+  const handleReset = (): void => {
+    dispatch(resetSettings());
   };
-
   const handleClose = (): void => {
     dispatch(toggleSettings());
+  };
+  const handleSave = (): void => {
+    dispatch(saveSettings({ general: generalSettings, llm: llmSettings }));
   };
 
   return (
     <Dialog
       role="dialog"
-      open={reduxSettings.enabled}
+      open={enabled}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       disablePortal
+      closeAfterTransition={false}
     >
-      <DialogTitle>Settings</DialogTitle>
-      <DialogContent>
-        <Typography variant="h6" gutterBottom>General Settings</Typography>
+      {/* Header */}
+      <Grid2
+        container
+        component={DialogTitle}
+      >
+        <Grid2 size="grow">
+          <Typography variant="h6" fontWeight="bold">
+            Settings
+          </Typography>
+        </Grid2>
+      </Grid2>
 
-        <TableContainer component={Paper}>
-          <Table aria-label="General settings table">
-            <TableBody>
-              {/* Volume */}
-              <TableRow>
-                <TableCell component="th" scope="row">Volume</TableCell>
-                <TableCell>
-                  <TextField
-                    type="number"
-                    value={localSettings.general.volume}
-                    onChange={e => handleChange('volume', Number(e.target.value))}
-                    inputProps={{ min: 0, max: 100 }}
-                  />
-                </TableCell>
-              </TableRow>
+      <DialogContent sx={{ overflow: 'visible' }}>
+        {/* General Settings */}
+        <Grid2 container spacing={0.5}>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Volume"
+              input={(
+                <Slider
+                  value={generalSettings.volume}
+                  onChange={(_, value) => handleGeneralChange('volume', Number(value))}
+                  min={0}
+                  max={100}
+                  step={1}
+                  valueLabelDisplay="auto"
+                  sx={{
+                    'color': 'primary.main',
+                    '& .MuiSlider-valueLabel': {
+                      backgroundColor: 'primary.main',
+                      borderRadius: 1,
+                    },
+                  }}
+                />
+              )}
+            />
+          </Grid2>
 
-              {/* Outline Color */}
-              <TableRow>
-                <TableCell component="th" scope="row">Outline Color</TableCell>
-                <TableCell>
-                  <TextField
-                    type="color"
-                    value={localSettings.general.highlightColor}
-                    onChange={e => handleChange('highlightColor', e.target.value)}
-                    sx={{ width: 80 }}
-                  />
-                </TableCell>
-              </TableRow>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Outline Color"
+              input={(
+                <TextField
+                  fullWidth
+                  type="color"
+                  size="small"
+                  value={generalSettings.highlightColor}
+                  onChange={e => handleGeneralChange('highlightColor', e.target.value)}
+                />
+              )}
+            />
+          </Grid2>
 
-              {/* Braille Display Size */}
-              <TableRow>
-                <TableCell component="th" scope="row">Braille Display Size</TableCell>
-                <TableCell>
-                  <TextField
-                    type="number"
-                    value={localSettings.general.brailleDisplaySize}
-                    onChange={e => handleChange('brailleDisplaySize', Number(e.target.value))}
-                    inputProps={{ min: 100, max: 500 }}
-                  />
-                </TableCell>
-              </TableRow>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Braille Display Size"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.brailleDisplaySize}
+                  onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
+                />
+              )}
+            />
+          </Grid2>
 
-              {/* Frequency Range */}
-              <TableRow>
-                <TableCell component="th" scope="row">Min Frequency (Hz)</TableCell>
-                <TableCell>
-                  <TextField
-                    type="number"
-                    value={localSettings.general.minFrequency}
-                    onChange={e => handleChange('minFrequency', Number(e.target.value))}
-                  />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell component="th" scope="row">Max Frequency (Hz)</TableCell>
-                <TableCell>
-                  <TextField
-                    type="number"
-                    value={localSettings.general.maxFrequency}
-                    onChange={e => handleChange('maxFrequency', Number(e.target.value))}
-                  />
-                </TableCell>
-              </TableRow>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Min Frequency (Hz)"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.minFrequency}
+                  onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
+                />
+              )}
+            />
+          </Grid2>
 
-              {/* Autoplay Duration */}
-              <TableRow>
-                <TableCell component="th" scope="row">Autoplay Duration (ms)</TableCell>
-                <TableCell>
-                  <TextField
-                    type="number"
-                    value={localSettings.general.autoplayDuration}
-                    onChange={e => handleChange('autoplayDuration', Number(e.target.value))}
-                  />
-                </TableCell>
-              </TableRow>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Max Frequency (Hz)"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.maxFrequency}
+                  onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
+                />
+              )}
+            />
+          </Grid2>
 
-              {/* ARIA Mode */}
-              <TableRow>
-                <TableCell component="th" scope="row">ARIA Mode</TableCell>
-                <TableCell>
-                  <FormControl fullWidth>
-                    <InputLabel>ARIA Mode</InputLabel>
-                    <Select
-                      value={localSettings.general.ariaMode}
-                      onChange={e => handleChange('ariaMode', e.target.value as AriaMode)}
-                      label="ARIA Mode"
-                    >
-                      <MenuItem value="assertive">Assertive</MenuItem>
-                      <MenuItem value="polite">Polite</MenuItem>
-                    </Select>
-                  </FormControl>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </TableContainer>
+          <Grid2 size={12}>
+            <SettingRow
+              label="Autoplay Duration (ms)"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.autoplayDuration}
+                  onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
+                />
+              )}
+            />
+          </Grid2>
+
+          <Grid2 size={12}>
+            <SettingRow
+              label="ARIA Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.ariaMode}
+                    onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
+                  >
+                    <FormControlLabel
+                      value="assertive"
+                      control={<Radio size="small" />}
+                      label="Assertive"
+                    />
+                    <FormControlLabel
+                      value="polite"
+                      control={<Radio size="small" />}
+                      label="Polite"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid2>
+        </Grid2>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" color="primary">
-          Save & Close
-        </Button>
-      </DialogActions>
+      {/* Footer Actions */}
+      <Grid2
+        container
+        component={DialogActions}
+      >
+        <Grid2
+          size="auto"
+          sx={{ px: 1 }}
+        >
+          <Button variant="text" color="inherit" onClick={handleReset}>
+            Reset
+          </Button>
+        </Grid2>
+        <Grid2
+          size="grow"
+          container
+          spacing={1}
+          justifyContent="flex-end"
+          sx={{ px: 2, py: 1 }}
+        >
+          <Grid2 size="auto">
+            <Button variant="outlined" color="inherit" onClick={handleClose}>
+              Close
+            </Button>
+          </Grid2>
+          <Grid2 size="auto">
+            <Button variant="contained" color="primary" onClick={handleSave}>
+              Save
+            </Button>
+          </Grid2>
+        </Grid2>
+      </Grid2>
     </Dialog>
   );
 };

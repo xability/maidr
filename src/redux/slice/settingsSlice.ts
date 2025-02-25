@@ -1,6 +1,11 @@
 import type { ThunkContext } from '@redux/store';
-import type { Settings } from '@type/settings';
+import type { GeneralSettings, LlmSettings } from '@type/settings';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+
+interface Settings {
+  general: GeneralSettings;
+  llm: LlmSettings;
+}
 
 interface SettingsState extends Settings {
   enabled: boolean;
@@ -17,31 +22,62 @@ const initialState: SettingsState = {
     autoplayDuration: 4000,
     ariaMode: 'assertive',
   },
+  llm: {
+    expertiseLevel: 'basic',
+    customInstruction: '',
+    OPEN_AI: {
+      enabled: false,
+      apiKey: '',
+      name: 'Open AI',
+    },
+    GEMINI: {
+      enabled: false,
+      apiKey: '',
+      name: 'Gemini',
+    },
+    CLAUDE: {
+      enabled: false,
+      apiKey: '',
+      name: 'Claude',
+    },
+  },
 };
 
 export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
   'settings/load',
   (_, { extra }) => {
-    const service = extra().settings;
-    return service.loadSettings();
+    return {
+      general: extra().settings.loadSettings(),
+      llm: extra().chat.loadSettings(),
+    };
   },
 );
 
 export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
   'settings/toggle',
   (_, { getState, extra }) => {
-    const service = extra().settings;
     const currentState = getState().settings.enabled;
-    return service.toggle(currentState);
+    return extra().settings.toggle(currentState);
   },
 );
 
 export const saveSettings = createAsyncThunk<Settings, Settings, ThunkContext>(
   'settings/save',
-  (newSettings, { extra }) => {
-    const service = extra().settings;
-    service.saveSettings(newSettings);
+  (newSettings, { dispatch, extra }) => {
+    extra().settings.saveSettings(newSettings.general);
+    extra().chat.saveSettings(newSettings.llm);
+
+    dispatch(toggleSettings());
     return newSettings;
+  },
+);
+
+export const resetSettings = createAsyncThunk<GeneralSettings, void, ThunkContext>(
+  'settings/reset',
+  (_, { extra }) => {
+    const service = extra().settings;
+    service.resetSettings();
+    return service.loadSettings();
   },
 );
 
@@ -58,8 +94,11 @@ const settingsSlice = createSlice({
         state.enabled = action.payload;
       })
       .addCase(saveSettings.fulfilled, (state, action) => {
-        const close = { enabled: false };
-        return { ...state, ...action.payload, ...close };
+        return { ...state, ...action.payload };
+      })
+      .addCase(resetSettings.fulfilled, (state, action) => {
+        const defaultGeneralSettings = { general: action.payload };
+        return { ...state, ...defaultGeneralSettings };
       });
   },
 });

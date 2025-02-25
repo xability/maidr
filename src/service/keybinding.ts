@@ -44,7 +44,7 @@ enum DefaultKey {
   // Misc
   TOGGLE_HELP = 'command+/, ctrl+/',
   TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
-  TOGGLE_SETTINGS = 'option+., alt+.',
+  TOGGLE_SETTINGS = 'command+., ctrl+.',
 
   // Description
   DESCRIBE_POINT = 'space',
