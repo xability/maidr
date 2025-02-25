@@ -25,20 +25,20 @@ const initialState: SettingsState = {
   llm: {
     expertiseLevel: 'basic',
     customInstruction: '',
-    OPEN_AI: {
+    CHAT_GPT: {
       enabled: false,
       apiKey: '',
       name: 'Open AI',
-    },
-    GEMINI: {
-      enabled: false,
-      apiKey: '',
-      name: 'Gemini',
     },
     CLAUDE: {
       enabled: false,
       apiKey: '',
       name: 'Claude',
+    },
+    GEMINI: {
+      enabled: false,
+      apiKey: '',
+      name: 'Gemini',
     },
   },
 };
