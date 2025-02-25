@@ -14,10 +14,10 @@ import React, { useEffect } from 'react';
 
 interface HelpRowProps {
   label: string;
-  content: React.ReactNode;
+  shortcut: string;
 }
 
-const HelpRow: React.FC<HelpRowProps> = ({ label, content }) => (
+const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
   <Grid2
     container
     spacing={1}
@@ -25,12 +25,14 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, content }) => (
     sx={{ py: 1 }}
   >
     <Grid2 size={{ xs: 12, sm: 6, md: 7 }}>
-      <Typography variant="body2" fontWeight="normal">
+      <Typography variant="body2">
         {label}
       </Typography>
     </Grid2>
     <Grid2 size={{ xs: 12, sm: 6, md: 5 }}>
-      {content}
+      <Typography variant="body2" fontWeight={300}>
+        {shortcut}
+      </Typography>
     </Grid2>
   </Grid2>
 );
@@ -73,11 +75,7 @@ const Help: React.FC = () => {
               <Grid2 size={12} key={index}>
                 <HelpRow
                   label={item.description}
-                  content={(
-                    <Typography variant="body2">
-                      {item.key}
-                    </Typography>
-                  )}
+                  shortcut={item.key}
                 />
               </Grid2>
               {index !== items.length - 1 && (

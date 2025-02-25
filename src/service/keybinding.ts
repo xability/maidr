@@ -42,7 +42,7 @@ enum DefaultKey {
   TOGGLE_REVIEW = 'r',
 
   // Misc
-  TOGGLE_HELP = 'command+/, ctrl+/',
+  TOGGLE_HELP = 'h',
   TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
   TOGGLE_SETTINGS = 'command+., ctrl+.',
 
