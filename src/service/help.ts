@@ -23,15 +23,15 @@ export class HelpService {
 
       { description: 'Autoplay Outward', key: 'command + shift + arrow key' },
       { description: 'Stop Autoplay', key: 'command' },
-      { description: 'Speed Up Autoplay', key: '.(period)' },
-      { description: 'Speed Down Autoplay', key: ',(comma)' },
-      { description: 'Reset Autoplay Speed', key: '/(slash)' },
+      { description: 'Speed Up Autoplay', key: '. (period)' },
+      { description: 'Speed Down Autoplay', key: ', (comma)' },
+      { description: 'Reset Autoplay Speed', key: '/ (slash)' },
 
       { description: 'Describe Current Point', key: 'space' },
       { description: 'Describe Plot Title', key: 'l t' },
       { description: 'Describe X Axis', key: 'l x' },
       { description: 'Describe Y Axis', key: 'l y' },
-      { description: 'Describe Fill(Z) Axis', key: 'l f' },
+      { description: 'Describe Fill (Z) Axis', key: 'l f' },
       { description: 'Describe Subtitle', key: 'l s' },
       { description: 'Describe Caption', key: 'l c' },
     ];
