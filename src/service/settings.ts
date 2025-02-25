@@ -1,6 +1,5 @@
 import type { DisplayService } from '@service/display';
 import type { GeneralSettings } from '@type/settings';
-import { Focus } from '@type/event';
 import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
 
@@ -38,7 +37,7 @@ export class SettingsService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus(Focus.SETTINGS);
+    this.display.toggleFocus('SETTINGS');
 
     const newState = !oldState;
     if (newState) {

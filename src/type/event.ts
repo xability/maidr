@@ -7,11 +7,10 @@ export enum EventType {
   SELECTION_CHANGE = 'selectionchange',
 }
 
-export enum Focus {
-  BRAILLE,
-  CHAT,
-  HELP,
-  PLOT,
-  REVIEW,
-  SETTINGS,
-}
+export type Focus =
+  | 'BRAILLE'
+  | 'CHAT'
+  | 'HELP'
+  | 'PLOT'
+  | 'REVIEW'
+  | 'SETTINGS';

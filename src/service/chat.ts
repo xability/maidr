@@ -1,6 +1,5 @@
 import type { DisplayService } from '@service/display';
 import type { LlmSettings } from '@type/settings';
-import { Focus } from '@type/event';
 import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
 
@@ -42,7 +41,7 @@ export class ChatService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus(Focus.CHAT);
+    this.display.toggleFocus('CHAT');
 
     const newState = !oldState;
     if (newState) {

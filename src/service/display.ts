@@ -1,6 +1,6 @@
+import type { Focus } from '@type/event';
 import type { Maidr } from '@type/maidr';
 import type { Root } from 'react-dom/client';
-import { Focus } from '@type/event';
 import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -29,7 +29,7 @@ export class DisplayService {
   public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.plotType = maidr.type;
     this.focusStack = new Stack<Focus>();
-    this.focusStack.push(Focus.PLOT);
+    this.focusStack.push('PLOT');
 
     const maidrId = maidr.id;
     this.maidrRoot = maidrRoot;
@@ -184,7 +184,7 @@ export class DisplayService {
     this.updateFocus(this.focusStack.peek());
   }
 
-  private updateFocus(newFocus: Focus = Focus.PLOT): void {
+  private updateFocus(newFocus: Focus = 'PLOT'): void {
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
       activeDiv = this.reviewDiv;
@@ -197,25 +197,25 @@ export class DisplayService {
     }
 
     switch (newFocus) {
-      case Focus.BRAILLE:
+      case 'BRAILLE':
         activeDiv?.classList.add(Constant.HIDDEN);
         this.brailleDiv?.classList.remove(Constant.HIDDEN);
         this.brailleTextArea?.focus();
         break;
 
-      case Focus.REVIEW:
+      case 'REVIEW':
         activeDiv?.classList.add(Constant.HIDDEN);
         this.reviewDiv?.classList.remove(Constant.HIDDEN);
         this.reviewInput?.focus();
         break;
 
-      case Focus.HELP:
-      case Focus.SETTINGS:
+      case 'HELP':
+      case 'SETTINGS':
         this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
-      case Focus.PLOT:
+      case 'PLOT':
         this.plot.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;

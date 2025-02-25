@@ -62,7 +62,6 @@ const Settings: React.FC = () => {
   const handleReset = (): void => {
     dispatch(resetSettings());
     setGeneralSettings(general);
-    setLlmSettings(llm);
   };
   const handleClose = (): void => {
     dispatch(toggleSettings());

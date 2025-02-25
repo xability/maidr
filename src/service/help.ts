@@ -1,6 +1,5 @@
 import type { DisplayService } from '@service/display';
 import type { HelpMenuItem } from '@type/help';
-import { Focus } from '@type/event';
 import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
 
@@ -42,7 +41,7 @@ export class HelpService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus(Focus.HELP);
+    this.display.toggleFocus('HELP');
 
     const newState = !oldState;
     if (newState) {

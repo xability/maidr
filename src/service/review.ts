@@ -3,7 +3,7 @@ import type { PlotState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
-import { EventType, Focus } from '@type/event';
+import { EventType } from '@type/event';
 import { Scope } from '@type/keys';
 import hotkeys from 'hotkeys-js';
 
@@ -80,7 +80,7 @@ export class ReviewService implements Observer {
       this.update(state);
       hotkeys.setScope(Scope.REVIEW);
     }
-    this.display.toggleFocus(Focus.REVIEW);
+    this.display.toggleFocus('REVIEW');
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

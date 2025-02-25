@@ -1,5 +1,4 @@
-export enum LLM {
-  OPEN_AI = 'OPEN_AI',
-  GEMINI = 'GEMINI',
-  CLAUDE = 'CLAUDE',
-}
+export type LLM =
+  | 'OPEN_AI'
+  | 'GEMINI'
+  | 'CLAUDE';
