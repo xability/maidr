@@ -5,9 +5,10 @@
     "build": "webpack",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --fix",
-    "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'"
+    "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",
+    "semantic-release": "semantic-release"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -25,6 +26,8 @@
     "@commitlint/cli": "^19.7.1",
     "@commitlint/config-conventional": "^19.7.1",
     "@cypress/webpack-preprocessor": "^6.0.2",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^22.13.1",
     "@types/react-dom": "^19.0.3",
     "@types/webpack": "^5.28.5",
@@ -34,6 +37,7 @@
     "eslint-plugin-format": "^1.0.1",
     "http-server": "^14.1.1",
     "husky": "^9.1.7",
+    "semantic-release": "^22.0.12",
     "start-server-and-test": "^2.0.10",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
