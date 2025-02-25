@@ -7,6 +7,7 @@ import type {
   PlotState,
   TextState,
 } from './state';
+import { Constant } from '../util/constant';
 import { MovableDirection } from './interface';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
@@ -146,7 +147,6 @@ export abstract class AbstractPlot<T> implements Plot {
     const movement = {
       UPWARD: () => {
         this.row += 1;
-        this.row = this.values.length - 1;
         if (this.col < 0)
           this.col = 0;
         if (this.col > this.values[this.row]?.length - 1)
@@ -290,7 +290,6 @@ export abstract class AbstractBarPlot<
   // visual highlighting vars
   protected activeElement: HTMLElement | undefined;
   protected activeElementColor: string | undefined;
-  protected readonly defaultElementColor: string = '#BADA55';
   protected barElements: NodeListOf<HTMLElement> | undefined;
 
   protected constructor(maidr: Maidr, points: T[][]) {
@@ -459,7 +458,7 @@ export abstract class AbstractBarPlot<
       && (rgb[0] > 86 || rgb[0] < 169)
     ) {
       // Too gray and too close to center gray, use default
-      newColor = this.defaultElementColor;
+      newColor = Constant.defaultElementColor;
     }
 
     return newColor;
@@ -574,5 +573,3 @@ export abstract class AbstractBarPlot<
     }
   }
 }
-
-// bookmark: just added all the above code, copied over from js, now it's time to run and debug

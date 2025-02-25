@@ -54,4 +54,7 @@ export abstract class Constant {
   static readonly TRUE = 'true';
   static readonly X = 'x';
   static readonly Y = 'y';
+
+  // temp area for help settings. todo: move once we create a help menu
+  static readonly defaultElementColor: string = '#BADA55';
 }
