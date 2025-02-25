@@ -5,6 +5,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   FormControlLabel,
   Grid2,
@@ -107,7 +108,6 @@ const Settings: React.FC = () => {
                   step={1}
                   valueLabelDisplay="auto"
                   sx={{
-                    'color': 'primary.main',
                     '& .MuiSlider-valueLabel': {
                       backgroundColor: 'primary.main',
                       borderRadius: 1,
@@ -219,6 +219,12 @@ const Settings: React.FC = () => {
             />
           </Grid2>
         </Grid2>
+
+        <Grid2 size={12}>
+          <Divider sx={{ py: 0.5 }} />
+        </Grid2>
+
+        {/* LLM Settings */}
       </DialogContent>
 
       {/* Footer Actions */}
