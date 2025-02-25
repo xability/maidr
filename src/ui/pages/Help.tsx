@@ -3,21 +3,37 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   Divider,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Grid2,
   Typography,
 } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
 import { loadHelpMenu, toggleHelpMenu } from '@redux/slice/helpSlice';
 import React, { useEffect } from 'react';
+
+interface HelpRowProps {
+  label: string;
+  content: React.ReactNode;
+}
+
+const HelpRow: React.FC<HelpRowProps> = ({ label, content }) => (
+  <Grid2
+    container
+    spacing={1}
+    alignItems="center"
+    sx={{ py: 1 }}
+  >
+    <Grid2 size={{ xs: 12, sm: 6, md: 7 }}>
+      <Typography variant="body2" fontWeight="normal">
+        {label}
+      </Typography>
+    </Grid2>
+    <Grid2 size={{ xs: 12, sm: 6, md: 5 }}>
+      {content}
+    </Grid2>
+  </Grid2>
+);
 
 const Help: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -36,53 +52,60 @@ const Help: React.FC = () => {
       role="dialog"
       open={enabled}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       disablePortal
       closeAfterTransition={false}
     >
-      <DialogTitle>Help Dialog</DialogTitle>
-      <DialogContent>
-        <DialogContentText component="div">
-          <Typography variant="h6" gutterBottom>
+      {/* Header */}
+      <Grid2 container component={DialogTitle}>
+        <Grid2 size="grow">
+          <Typography variant="h6" fontWeight="bold">
             Keyboard Shortcuts
           </Typography>
-          <TableContainer component={Paper}>
-            <Table aria-label="simple table">
-              <TableHead>
-                <TableRow>
-                  <TableCell align="left">
-                    <Typography variant="body1" fontWeight="bold">
-                      Function
+        </Grid2>
+      </Grid2>
+
+      <DialogContent>
+        <Grid2 container spacing={1}>
+          {items.map((item, index) => (
+            <React.Fragment key={index}>
+              <Grid2 size={12} key={index}>
+                <HelpRow
+                  label={item.description}
+                  content={(
+                    <Typography variant="body2">
+                      {item.key}
                     </Typography>
-                  </TableCell>
-                  <TableCell align="left">
-                    <Typography variant="body1" fontWeight="bold">
-                      Key
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((item, index) => (
-                  <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell component="th" scope="row">
-                      {item.description}
-                    </TableCell>
-                    <TableCell align="left">{item.key}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Divider />
-        </DialogContentText>
+                  )}
+                />
+              </Grid2>
+              {index !== items.length - 1 && (
+                <Grid2 size={12}>
+                  <Divider />
+                </Grid2>
+              )}
+            </React.Fragment>
+          ))}
+        </Grid2>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} variant="contained" color="primary">
-          Close
-        </Button>
-      </DialogActions>
+
+      {/* Footer Actions */}
+      <Grid2 container component={DialogActions}>
+        <Grid2
+          size="grow"
+          container
+          spacing={1}
+          justifyContent="flex-end"
+          sx={{ px: 1, py: 1 }}
+        >
+          <Grid2 size="auto">
+            <Button variant="contained" color="primary" onClick={handleClose}>
+              Close
+            </Button>
+          </Grid2>
+        </Grid2>
+      </Grid2>
     </Dialog>
   );
 };
