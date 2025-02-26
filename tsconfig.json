@@ -12,7 +12,8 @@
       "@service/*": ["service/*"],
       "@type/*": ["type/*"],
       "@ui/*": ["ui/*"],
-      "@util/*": ["util/*"]
+      "@util/*": ["util/*"],
+      "@scripts/*": ["scripts/*"]
     },
 
     "resolveJsonModule": true,
