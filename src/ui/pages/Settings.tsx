@@ -1,17 +1,21 @@
-import type { AriaMode, GeneralSettings, LlmSettings } from '@type/settings';
+import type { LLM } from '@type/llm';
+import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import {
   Button,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
   Grid2,
+  MenuItem,
   Radio,
   RadioGroup,
+  Select,
   Slider,
+  Switch,
+  TextareaAutosize,
   TextField,
   Typography,
 } from '@mui/material';
@@ -37,6 +41,44 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
   </Grid2>
 );
 
+interface LlmModelSettingRowProps {
+  modelKey: LLM;
+  modelSettings: LlmModelSettings;
+  onToggle: (key: LLM, enabled: boolean) => void;
+  onChangeKey: (key: LLM, value: string) => void;
+}
+
+const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
+  modelKey,
+  modelSettings,
+  onToggle,
+  onChangeKey,
+}) => (
+  <SettingRow
+    label={modelSettings.name}
+    input={(
+      <Grid2 container spacing={1} alignItems="center">
+        <Grid2 size="auto">
+          <Switch
+            checked={modelSettings.enabled}
+            onChange={e => onToggle(modelKey, e.target.checked)}
+          />
+        </Grid2>
+        <Grid2 size="grow">
+          <TextField
+            disabled={!modelSettings.enabled}
+            fullWidth
+            size="small"
+            value={modelSettings.apiKey}
+            onChange={e => onChangeKey(modelKey, e.target.value)}
+            placeholder={`Enter ${modelSettings.name} API Key`}
+          />
+        </Grid2>
+      </Grid2>
+    )}
+  />
+);
+
 const Settings: React.FC = () => {
   const dispatch = useAppDispatch();
   const { enabled, general, llm } = useAppSelector(state => state.settings);
@@ -56,6 +98,28 @@ const Settings: React.FC = () => {
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
+    }));
+  };
+  const handleLlmChange = (key: keyof LlmSettings, value: string): void => {
+    setLlmSettings(prev => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+  const handleLlmModelChange = (
+    modelKey: LLM,
+    propKey: keyof LlmModelSettings,
+    value: string | boolean,
+  ): void => {
+    setLlmSettings(prev => ({
+      ...prev,
+      models: {
+        ...prev.models, // Preserve other models
+        [modelKey]: {
+          ...prev.models[modelKey], // Preserve other properties of this model
+          [propKey]: value, // Update the specific property
+        },
+      },
     }));
   };
 
@@ -80,21 +144,18 @@ const Settings: React.FC = () => {
       disablePortal
       closeAfterTransition={false}
     >
-      {/* Header */}
-      <Grid2
-        container
-        component={DialogTitle}
-      >
+      <DialogContent sx={{ overflow: 'visible' }}>
+        {/* Header */}
         <Grid2 size="grow">
-          <Typography variant="h6" fontWeight="bold">
+          <Typography variant="h6" fontWeight="bold" gutterBottom>
             Settings
           </Typography>
         </Grid2>
-      </Grid2>
 
-      <DialogContent sx={{ overflow: 'visible' }}>
         {/* General Settings */}
         <Grid2 container spacing={0.5}>
+
+          {/* Volume Slider */}
           <Grid2 size={12}>
             <SettingRow
               label="Volume"
@@ -117,6 +178,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Highlight Color Picker */}
           <Grid2 size={12}>
             <SettingRow
               label="Outline Color"
@@ -132,6 +194,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Braille Display Size Input */}
           <Grid2 size={12}>
             <SettingRow
               label="Braille Display Size"
@@ -147,6 +210,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Min Frequency Input */}
           <Grid2 size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
@@ -162,6 +226,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Max Frequency Input */}
           <Grid2 size={12}>
             <SettingRow
               label="Max Frequency (Hz)"
@@ -177,6 +242,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Autoplay Duration Input */}
           <Grid2 size={12}>
             <SettingRow
               label="Autoplay Duration (ms)"
@@ -192,6 +258,7 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Aria Mode Radio */}
           <Grid2 size={12}>
             <SettingRow
               label="ARIA Mode"
@@ -224,6 +291,76 @@ const Settings: React.FC = () => {
         </Grid2>
 
         {/* LLM Settings */}
+        <Grid2 container spacing={0.5} sx={{ mt: 2 }}>
+          <Grid2 size={12}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              LLM Settings
+            </Typography>
+          </Grid2>
+
+          {/* LLM Model Toggles */}
+          {(Object.keys(llmSettings.models) as LLM[]).map((modelKey) => {
+            const model = llmSettings.models[modelKey];
+
+            return (
+              <Grid2 size={12} key={modelKey}>
+                <LlmModelSettingRow
+                  modelKey={modelKey}
+                  modelSettings={model}
+                  onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
+                  onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                />
+              </Grid2>
+            );
+          })}
+
+          {/* Expertise Level */}
+          <Grid2 size={12}>
+            <SettingRow
+              label="Expertise Level"
+              input={(
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={llmSettings.expertiseLevel}
+                    onChange={e => handleLlmChange('expertiseLevel', e.target.value)}
+                  >
+                    <MenuItem value="basic">Basic</MenuItem>
+                    <MenuItem value="intermediate">Intermediate</MenuItem>
+                    <MenuItem value="advanced">Advanced</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
+          </Grid2>
+
+          {/* Custom Instructions */}
+          <Grid2 size={12}>
+            <Grid2 container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+              <Grid2 size={{ xs: 12, sm: 6, md: 4 }} sx={{ py: 1 }}>
+                <Typography variant="body2" fontWeight="normal">
+                  Custom Instructions
+                </Typography>
+              </Grid2>
+              <Grid2 size={{ xs: 12, sm: 6, md: 8 }}>
+                <TextareaAutosize
+                  value={llmSettings.customInstruction}
+                  onChange={e => handleLlmChange('customInstruction', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                  }}
+                  placeholder="Enter custom instruction..."
+                />
+              </Grid2>
+            </Grid2>
+          </Grid2>
+        </Grid2>
+
+        <Grid2 size={12}>
+          <Divider sx={{ py: 0.5 }} />
+        </Grid2>
       </DialogContent>
 
       {/* Footer Actions */}

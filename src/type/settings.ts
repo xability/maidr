@@ -4,20 +4,18 @@ export type AriaMode = 'assertive' | 'polite';
 
 export type ExpertiseLevel = 'basic' | 'intermediate' | 'advanced';
 
-interface AgentSettings {
+export interface LlmModelSettings {
   name: string;
   apiKey: string;
   enabled: boolean;
 }
 
-export type LlmSettings =
-  | {
-    [key in LLM]: AgentSettings;
-  }
-  & {
-    expertiseLevel: ExpertiseLevel;
-    customInstruction: string;
-  };
+export interface LlmSettings {
+  expertiseLevel: ExpertiseLevel;
+  customExpertiseLevel?: string;
+  customInstruction: string;
+  models: Record<LLM, LlmModelSettings>;
+}
 
 export interface GeneralSettings {
   volume: number;
