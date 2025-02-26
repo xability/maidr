@@ -12,7 +12,7 @@ export class DisplayService {
   private readonly focusStack: Stack<Focus>;
 
   private readonly maidrRoot: HTMLElement;
-  private readonly plot: HTMLElement;
+  public readonly plot: HTMLElement;
 
   private readonly reactDiv?: HTMLElement;
   private reactRoot: Root | null;
@@ -26,7 +26,7 @@ export class DisplayService {
   public readonly reviewDiv: HTMLElement;
   public readonly reviewInput: HTMLInputElement;
 
-  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
+  public constructor(maidrRoot: HTMLElement, plot: HTMLElement, maidr: Maidr) {
     this.plotType = maidr.type;
     this.focusStack = new Stack<Focus>();
     this.focusStack.push('PLOT');

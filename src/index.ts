@@ -60,10 +60,10 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
     }
 
     if (!display) {
-      display = new DisplayService(maidr, maidrRoot, plot);
+      display = new DisplayService(maidrRoot, plot, maidr);
     }
     if (!controller) {
-      controller = new ControllerService(maidr, display);
+      controller = new ControllerService(display, maidr);
     }
 
     locator.setController(controller);
@@ -85,7 +85,7 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
   (() => {
-    const display = new DisplayService(maidr, maidrRoot, plot);
+    const display = new DisplayService(maidrRoot, plot, maidr);
     display.destroy();
   })();
 }

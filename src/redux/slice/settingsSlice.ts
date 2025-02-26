@@ -29,7 +29,7 @@ const initialState: SettingsState = {
       CHAT_GPT: {
         enabled: false,
         apiKey: '',
-        name: 'Open AI',
+        name: 'ChatGPT',
       },
       CLAUDE: {
         enabled: false,

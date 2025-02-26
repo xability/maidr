@@ -1,4 +1,4 @@
-import type { LLM } from '@type/llm';
+import type { Llm } from '@type/llm';
 
 export type AriaMode = 'assertive' | 'polite';
 
@@ -14,7 +14,7 @@ export interface LlmSettings {
   expertiseLevel: ExpertiseLevel;
   customExpertiseLevel?: string;
   customInstruction: string;
-  models: Record<LLM, LlmModelSettings>;
+  models: Record<Llm, LlmModelSettings>;
 }
 
 export interface GeneralSettings {

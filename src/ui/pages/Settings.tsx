@@ -1,4 +1,4 @@
-import type { LLM } from '@type/llm';
+import type { Llm } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import {
   Button,
@@ -42,10 +42,10 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
 );
 
 interface LlmModelSettingRowProps {
-  modelKey: LLM;
+  modelKey: Llm;
   modelSettings: LlmModelSettings;
-  onToggle: (key: LLM, enabled: boolean) => void;
-  onChangeKey: (key: LLM, value: string) => void;
+  onToggle: (key: Llm, enabled: boolean) => void;
+  onChangeKey: (key: Llm, value: string) => void;
 }
 
 const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
@@ -107,17 +107,17 @@ const Settings: React.FC = () => {
     }));
   };
   const handleLlmModelChange = (
-    modelKey: LLM,
+    modelKey: Llm,
     propKey: keyof LlmModelSettings,
     value: string | boolean,
   ): void => {
     setLlmSettings(prev => ({
       ...prev,
       models: {
-        ...prev.models, // Preserve other models
+        ...prev.models,
         [modelKey]: {
-          ...prev.models[modelKey], // Preserve other properties of this model
-          [propKey]: value, // Update the specific property
+          ...prev.models[modelKey],
+          [propKey]: value,
         },
       },
     }));
@@ -299,7 +299,7 @@ const Settings: React.FC = () => {
           </Grid2>
 
           {/* LLM Model Toggles */}
-          {(Object.keys(llmSettings.models) as LLM[]).map((modelKey) => {
+          {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
 
             return (

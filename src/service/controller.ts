@@ -20,7 +20,7 @@ export class ControllerService {
   private readonly notification: NotificationService;
   public readonly settings: SettingsService;
 
-  private readonly audio: AudioService;
+  public readonly audio: AudioService;
   private readonly braille: BrailleService;
   private readonly text: TextService;
   private readonly review: ReviewService;
@@ -30,7 +30,7 @@ export class ControllerService {
   public readonly chat: ChatService;
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, display: DisplayService) {
+  public constructor(display: DisplayService, maidr: Maidr) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
@@ -52,7 +52,7 @@ export class ControllerService {
       this.plot,
     );
     this.help = new HelpService(this.display);
-    this.chat = new ChatService(this.display);
+    this.chat = new ChatService(this.display, maidr);
 
     this.keybinding = new KeybindingService({
       plot: this.plot,
