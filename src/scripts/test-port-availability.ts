@@ -20,8 +20,8 @@ portfinder.getPort((err, port) => {
       execSync(`start-server-and-test 'http-server -p ${port}' http://localhost:${port} 'cypress run'`, { stdio: 'inherit' });
     }
   } catch (error) {
-    console.log('Tests completed with some failures, but continuing execution :\n');
-    // If you want to see the error details, you can uncomment the next line
-    console.log(error);
+    console.error('Tests completed with some failures:');
+    console.error(error);
+    process.exit(1);
   }
 });
