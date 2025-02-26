@@ -14,16 +14,23 @@ export function verifyMaidrActivated(plotId: string): void {
 export function verifyHorizontalMovement(maidrData: Maidr, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
 
+  let numPoints: number;
+
   if (Array.isArray(maidrData.data)) {
-    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
-    if (direction === TestConstants.HORIZONTAL_FORWARD) {
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-    } else if (direction === TestConstants.HORIZONTAL_REVERSE) {
-      for (let i = numBars - 1; i >= 0; i--) {
-        cy.realPress(TestConstants.LEFT_ARROW_KEY);
-      }
+    numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+  } else if (maidrData.data && Array.isArray(maidrData.data.points)) {
+    numPoints = maidrData.data.points.length;
+  } else {
+    throw new Error('Unexpected data structure in Maidr Data');
+  }
+
+  if (direction === TestConstants.HORIZONTAL_FORWARD) {
+    for (let i = 0; i < numPoints; i++) {
+      cy.realPress(TestConstants.RIGHT_ARROW_KEY);
+    }
+  } else if (direction === TestConstants.HORIZONTAL_REVERSE) {
+    for (let i = numPoints - 1; i >= 0; i--) {
+      cy.realPress(TestConstants.LEFT_ARROW_KEY);
     }
   }
 }
@@ -90,13 +97,13 @@ export function verifyResetSpeed(elementId: string): void {
 export function verifyAutoplay(maidrData: Maidr, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
   if (Array.isArray(maidrData.data)) {
-    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+    const numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
     if (direction === TestConstants.HORIZONTAL_FORWARD) {
       cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.RIGHT_ARROW_KEY]);
     } else if (direction === TestConstants.HORIZONTAL_REVERSE) {
       cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.LEFT_ARROW_KEY]);
     }
-    cy.wait(numBars * TestConstants.ONE_MILLISECOND);
+    cy.wait(numPoints * TestConstants.ONE_MILLISECOND);
   }
 }
 
@@ -132,13 +139,20 @@ export function verifyBrailleNavigationForward(maidrData: Maidr, elementId: stri
   cy.get(TestConstants.HASH + elementId).click();
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);
+  let numPoints: number;
+
   if (Array.isArray(maidrData.data)) {
-    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
-    cy.realPress(TestConstants.BRAILLE_KEY);
-    cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
-    for (let i = 0; i < numBars; i++) {
-      cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-    }
+    numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+  } else if (maidrData.data && Array.isArray(maidrData.data.points)) {
+    numPoints = maidrData.data.points.length;
+  } else {
+    throw new Error('Unexpected data structure in Maidr Data');
+  }
+
+  cy.realPress(TestConstants.BRAILLE_KEY);
+  cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
+  for (let i = 0; i < numPoints; i++) {
+    cy.realPress(TestConstants.RIGHT_ARROW_KEY);
   }
 }
 
@@ -146,12 +160,20 @@ export function verifyBrailleNavigationReverse(maidrData: Maidr, elementId: stri
   cy.get(TestConstants.HASH + elementId).click();
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);
+
+  let numPoints: number;
+
   if (Array.isArray(maidrData.data)) {
-    const numBars = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
-    cy.realPress(TestConstants.BRAILLE_KEY);
-    cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
-    for (let i = numBars - 1; i >= 0; i--) {
-      cy.realPress(TestConstants.LEFT_ARROW_KEY);
-    }
+    numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
+  } else if (maidrData.data && Array.isArray(maidrData.data.points)) {
+    numPoints = maidrData.data.points.length;
+  } else {
+    throw new Error('Unexpected data structure in Maidr Data');
+  }
+
+  cy.realPress(TestConstants.BRAILLE_KEY);
+  cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + elementId);
+  for (let i = numPoints - 1; i >= 0; i--) {
+    cy.realPress(TestConstants.LEFT_ARROW_KEY);
   }
 }
