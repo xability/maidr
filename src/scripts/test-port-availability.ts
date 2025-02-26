@@ -21,7 +21,9 @@ portfinder.getPort((err, port) => {
     }
   } catch (error) {
     console.error('Tests completed with some failures:');
+    // Error shown here
     console.error(error);
+    // eslint-disable-next-line node/prefer-global/process
     process.exit(1);
   }
 });
