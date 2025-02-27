@@ -9,7 +9,7 @@ const locator = (): ServiceLocator => ServiceLocator.instance;
 export const store = configureStore({
   reducer: {
     chat: chatReducer,
-    helpMenu: helpMenuReducer,
+    help: helpMenuReducer,
     settings: settingsReducer,
   },
   middleware: getDefaultMiddleware => getDefaultMiddleware({

@@ -22,7 +22,7 @@ export const loadHelpMenu = createAsyncThunk<HelpMenuItem[], void, ThunkContext>
 export const toggleHelpMenu = createAsyncThunk<boolean, void, ThunkContext>(
   'help/toggle',
   (_, { getState, extra }) => {
-    const currentState = getState().helpMenu.enabled;
+    const currentState = getState().help.enabled;
     return extra().help.toggle(currentState);
   },
 );

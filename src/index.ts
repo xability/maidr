@@ -26,10 +26,15 @@ function main(): void {
   // Fall back to window.maidr if no attribute found.
   // TODO: Need to be removed along with `window.d.ts`,
   //  once attribute method is migrated.
-  if (plots.length !== 0 && !window.maidr) {
+  if (plots.length !== 0) {
     return;
   }
+
   const maidr = window.maidr;
+  if (!maidr) {
+    return;
+  }
+
   const plot = document.getElementById(maidr.id);
   if (!plot) {
     return;

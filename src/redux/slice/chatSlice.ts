@@ -1,16 +1,6 @@
 import type { ThunkContext } from '@redux/store';
-import type { Status } from '@type/event';
-import type { Llm } from '@type/llm';
+import type { Llm, Message } from '@type/llm';
 import { createAction, createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  model?: Llm;
-  timestamp: string;
-  status: Status;
-}
 
 interface ChatState {
   enabled: boolean;
@@ -76,7 +66,7 @@ export const sendMessage = createAsyncThunk<void, string, ThunkContext>(
         } else {
           dispatch(updateResponse({
             model,
-            data: response.data,
+            data: response.data!,
             timestamp,
           }));
         }

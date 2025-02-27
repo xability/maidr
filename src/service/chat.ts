@@ -104,12 +104,12 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {
         return {
-          data: '',
+          success: false,
           error: response.error?.message,
         };
       } else if (!response.data) {
         return {
-          data: '',
+          success: false,
           error: 'Response unavailable',
         };
       } else {
@@ -117,7 +117,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       }
     } catch (error) {
       return {
-        data: '',
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
@@ -198,12 +198,13 @@ class ChatGpt extends AbstractLlmModel<ChatGptResponse> {
   protected formatResponse(response: ChatGptResponse): LlmResponse {
     if (response.choices.length === 0) {
       return {
-        data: '',
+        success: false,
         error: 'Invalid response format',
       };
     }
 
     return {
+      success: true,
       data: response.choices[0].message.content,
     };
   }
@@ -262,12 +263,13 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   protected formatResponse(response: ClaudeResponse): LlmResponse {
     if (response.content.length === 0) {
       return {
-        data: '',
+        success: false,
         error: 'Invalid response format',
       };
     }
 
     return {
+      success: true,
       data: response.content[0].text,
     };
   }
@@ -340,12 +342,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
   protected formatResponse(response: GeminiResponse): LlmResponse {
     if (response.candidates.length === 0) {
       return {
-        data: '',
+        success: false,
         error: 'Invalid response format',
       };
     }
 
     return {
+      success: true,
       data: response.candidates[0].content.parts[0].text,
     };
   }

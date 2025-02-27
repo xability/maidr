@@ -39,7 +39,7 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 
 const Help: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { enabled, items } = useAppSelector(state => state.helpMenu);
+  const { enabled, items } = useAppSelector(state => state.help);
 
   useEffect(() => {
     dispatch(loadHelpMenu());

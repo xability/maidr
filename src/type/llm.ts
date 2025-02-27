@@ -1,3 +1,5 @@
+import type { Status } from '@type/event';
+
 export type Llm =
   | 'CHAT_GPT'
   | 'CLAUDE'
@@ -12,6 +14,16 @@ export interface LlmRequest {
 }
 
 export interface LlmResponse {
-  data: string;
+  success: boolean;
+  data?: string;
   error?: string;
+}
+
+export interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  model?: Llm;
+  timestamp: string;
+  status: Status;
 }
