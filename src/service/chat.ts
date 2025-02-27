@@ -78,7 +78,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     this.svg = svg;
     this.json = JSON.stringify(maidr);
 
-    this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api/';
+    this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
   }
 
@@ -124,7 +124,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   }
 
   private getMaidrUrl(): string {
-    return `${this.maidrBaseUrl}/${this.getEndPoint()}/?${this.codeQueryParam}`;
+    return `${this.maidrBaseUrl}/${this.getEndPoint()}?code=${this.codeQueryParam}`;
   }
 
   protected abstract getApiUrl(apiKey?: string): string;
