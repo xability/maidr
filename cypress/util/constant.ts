@@ -24,7 +24,6 @@ export abstract class TestConstants {
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINE_ID = 'line';
 
-
   // Maidr IDs
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-notification-container-';
   static readonly MAIDR_INFO_CONTAINER = 'maidr-info-container-';
