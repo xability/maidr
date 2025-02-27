@@ -15,5 +15,9 @@
     {
       "text": "Use conventional commit message format."
     }
+  ],
+  "githubPullRequests.pullRequestDescription": "Copilot",
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    { "file": ".github/PULL_REQUEST_TEMPLATE.md" }
   ]
 }
