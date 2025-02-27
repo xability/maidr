@@ -153,47 +153,63 @@ const Chat: React.FC = () => {
       role="dialog"
       open={enabled}
       onClose={handleClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       disablePortal
       closeAfterTransition={false}
+      sx={{
+        '& .MuiDialog-paper': {
+          height: '70vh',
+          maxHeight: '90vh',
+        },
+      }}
     >
       <DialogTitle>
         <Grid2 container justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight="bold">
-            Chart Assistant
-          </Typography>
-          <IconButton onClick={handleClose}>
-            <Close />
-          </IconButton>
+          <Grid2 size="auto">
+            <Typography variant="h6" fontWeight="bold">
+              Chart Assistant
+            </Typography>
+          </Grid2>
+          <Grid2 size="auto">
+            <IconButton onClick={handleClose}>
+              <Close />
+            </IconButton>
+          </Grid2>
         </Grid2>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-          }}
-        >
+        <Grid2 container direction="column" sx={{ height: '100%' }}>
           {/* Messages Container */}
-          <Box
+          <Grid2
+            size={12}
             sx={{
-              flex: 1,
-              overflow: 'auto',
-              p: 2,
-              bgcolor: theme.palette.background.default,
+              'flex': 1,
+              'overflowY': 'auto',
+              'p': 2,
+              'bgcolor': theme.palette.background.default,
+              '&::-webkit-scrollbar': {
+                width: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: theme.palette.grey[100],
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: theme.palette.grey[400],
+                borderRadius: '3px',
+              },
             }}
           >
             {messages.map(message => (
               <MessageBubble key={message.id} message={message} />
             ))}
             <div ref={messagesEndRef} />
-          </Box>
+          </Grid2>
 
           {/* Input Container */}
-          <Box
+          <Grid2
+            size={12}
             sx={{
               p: 2,
               borderTop: `1px solid ${theme.palette.divider}`,
@@ -214,7 +230,7 @@ const Chat: React.FC = () => {
                   autoFocus
                 />
               </Grid2>
-              <Grid2 size={{ xs: 2 }} textAlign="right">
+              <Grid2 size={{ xs: 2 }} container justifyContent="flex-end">
                 <IconButton
                   onClick={handleSend}
                   color="primary"
@@ -230,8 +246,8 @@ const Chat: React.FC = () => {
                 </IconButton>
               </Grid2>
             </Grid2>
-          </Box>
-        </Box>
+          </Grid2>
+        </Grid2>
       </DialogContent>
     </Dialog>
   );
