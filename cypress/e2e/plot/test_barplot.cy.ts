@@ -1,5 +1,6 @@
 import type { Maidr } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
+import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
 
 describe('Bar Plot', () => {
@@ -17,177 +18,86 @@ describe('Bar Plot', () => {
     // Visit the file before each test
     cy.visit('examples/barplot.html');
   });
+
   it('should load the barplot with maidr data', () => {
-    cy.get(TestConstants.SVG + TestConstants.HASH + TestConstants.BAR_ID).should('exist');
+    helper.verifyPlotLoaded(TestConstants.BAR_ID);
   });
 
   it('should activate maidr on click', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.focused().should(TestConstants.HAVE_ATTR, TestConstants.HTML_ID, TestConstants.BAR_ID);
+    helper.verifyMaidrActivated(TestConstants.BAR_ID);
   });
 
   it('should display instruction text', () => {
     cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    const maidr_instruction = cy.get(`#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`);
-    maidr_instruction.invoke('text').then((text) => {
-      const normalizedText = text.replace(/\s+/g, ' ').trim();
-      expect(normalizedText).to.equal(TestConstants.INSTRUCTION_TEXT);
-    });
+    cy.get(`#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
+      .invoke('text')
+      .then((text) => {
+        const normalizedText = text.replace(/\s+/g, ' ').trim();
+        expect(normalizedText).to.equal(TestConstants.BAR_INSTRUCTION_TEXT);
+      });
   });
 
   it('should be able to move from left to right', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-    }
+    helper.verifyHorizontalMovement(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_FORWARD);
   });
 
   it('should be able to move from right to left', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-      for (let i = numBars - 1; i >= 0; i--) {
-        cy.realPress(TestConstants.LEFT_ARROW_KEY);
-        cy.wait(TestConstants.ONE_MILLISECOND);
-      }
-    }
+    // Move to right extreme point
+    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyHorizontalMovement(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 
   it('toggle text mode', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.TEXT_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.TEXT_MODE_TERSE).should(TestConstants.SHOULD_EXIST);
-    cy.realPress(TestConstants.TEXT_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.TEXT_MODE_OFF).should(TestConstants.SHOULD_EXIST);
-    cy.realPress(TestConstants.TEXT_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.TEXT_MODE_VERBOSE).should(TestConstants.SHOULD_EXIST);
+    helper.verifyToggleTextMode(TestConstants.BAR_ID);
   });
 
   it('toggle braille mode', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.BRAILLE_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.BRAILLE_MODE_ON).should(TestConstants.SHOULD_EXIST);
-    cy.realPress(TestConstants.BRAILLE_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.BRAILLE_MODE_OFF).should(TestConstants.SHOULD_EXIST);
+    helper.verifyToggleBrailleMode(TestConstants.BAR_ID);
   });
 
   it('toggle sonification', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.SOUND_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.SOUND_MODE_OFF).should(TestConstants.SHOULD_EXIST);
-    cy.realPress(TestConstants.SOUND_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.SOUND_MODE_ON).should(TestConstants.SHOULD_EXIST);
+    helper.verifyToggleSonification(TestConstants.BAR_ID);
   });
 
   it('should be able to increase speed', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.PERIOD_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.SPEED_UP).should(TestConstants.SHOULD_EXIST);
+    helper.verifyIncreaseSpeed(TestConstants.BAR_ID);
   });
 
   it('should be able to decrease speed', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.COMMA_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.SPEED_DOWN).should(TestConstants.SHOULD_EXIST);
+    helper.verifyDecreaseSpeed(TestConstants.BAR_ID);
   });
 
   it('should be able to reset speed', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress(TestConstants.SLASH_KEY);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.contains(TestConstants.SPEED_RESET).should(TestConstants.SHOULD_EXIST);
+    helper.verifyResetSpeed(TestConstants.BAR_ID);
   });
 
   it('should play left extreme point', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress([TestConstants.META_KEY, TestConstants.LEFT_ARROW_KEY]);
-    // TODO: Add validation for extreme left point
+    helper.verifyExtremePoint(TestConstants.BAR_ID, TestConstants.LEFT);
   });
 
   it('should play right extreme point', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress([TestConstants.META_KEY, TestConstants.RIGHT_ARROW_KEY]);
-    // TODO: Add validation for extreme right point
+    helper.verifyExtremePoint(TestConstants.BAR_ID, TestConstants.RIGHT);
   });
 
   it('should replay the same point', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    cy.realPress([TestConstants.META_KEY, TestConstants.RIGHT_ARROW_KEY]);
-    cy.wait(TestConstants.ONE_MILLISECOND);
-    cy.get(`#${TestConstants.MAIDR_INFO_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
-      .invoke(TestConstants.INVOKE_TEXT)
-      .then((text) => {
-        const pointData = text;
-        cy.realPress(TestConstants.SPACE_KEY);
-        cy.get(`#${TestConstants.MAIDR_INFO_CONTAINER + TestConstants.BAR_ID} ${TestConstants.PARAGRAPH}`)
-          .invoke(TestConstants.INVOKE_TEXT)
-          .then((text) => {
-            expect(text).to.equal(pointData);
-          });
-      });
-    // TODO: Add validation for replaying the same point
+    helper.verifyReplaySamePoint(TestConstants.BAR_ID);
   });
+
   it('Braille Navigation - left to right', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      cy.realPress(TestConstants.BRAILLE_KEY);
-      cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + TestConstants.BAR_ID);
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-    }
+    helper.verifyBrailleNavigationForward(maidrData, TestConstants.BAR_ID);
   });
 
   it('Braille Navigation - right to left', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      cy.realPress(TestConstants.BRAILLE_KEY);
-      cy.focused().should(TestConstants.HAVE_ID, TestConstants.BRAILLE_TEXTAREA + TestConstants.BAR_ID);
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-      for (let i = numBars - 1; i >= 0; i--) {
-        cy.realPress(TestConstants.LEFT_ARROW_KEY);
-      }
-    }
+    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyBrailleNavigationReverse(maidrData, TestConstants.BAR_ID);
   });
 
   it('Autoplay - left to right', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.RIGHT_ARROW_KEY]);
-      cy.wait(numBars * TestConstants.ONE_SECOND);
-    }
+    helper.verifyAutoplay(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_FORWARD);
   });
 
   it('Autoplay - right to left', () => {
-    cy.get(TestConstants.HASH + TestConstants.BAR_ID).click();
-    if (Array.isArray(maidrData.data)) {
-      const numBars = maidrData.data.length;
-      for (let i = 0; i < numBars; i++) {
-        cy.realPress(TestConstants.RIGHT_ARROW_KEY);
-      }
-      cy.realPress([TestConstants.META_KEY, TestConstants.SHIFT_KEY, TestConstants.LEFT_ARROW_KEY]);
-      cy.wait(numBars * TestConstants.ONE_SECOND);
-    }
+    helper.verifyExtremePoint(TestConstants.LINE_ID, TestConstants.RIGHT);
+    helper.verifyAutoplay(maidrData, TestConstants.BAR_ID, TestConstants.HORIZONTAL_REVERSE);
   });
 });
