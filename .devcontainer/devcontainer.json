@@ -27,8 +27,6 @@
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
-
-        // Copilot related settings
         "github.copilot.chat.commitMessageGeneration.instructions": [
           {
             "text": "Use conventional commit message format."
