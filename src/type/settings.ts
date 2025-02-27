@@ -12,7 +12,7 @@ export interface LlmModelSettings {
 
 export interface LlmSettings {
   expertiseLevel: ExpertiseLevel;
-  customExpertiseLevel?: string;
+  customExpertise?: string;
   customInstruction: string;
   models: Record<Llm, LlmModelSettings>;
 }
@@ -25,4 +25,9 @@ export interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   ariaMode: AriaMode;
+}
+
+export interface Settings {
+  general: GeneralSettings;
+  llm: LlmSettings;
 }

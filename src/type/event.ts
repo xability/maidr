@@ -14,3 +14,8 @@ export type Focus =
   | 'PLOT'
   | 'REVIEW'
   | 'SETTINGS';
+
+export type Status =
+  | 'PENDING'
+  | 'SUCCESS'
+  | 'FAILED';
