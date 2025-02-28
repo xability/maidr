@@ -100,14 +100,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
           {/* Status Indicator */}
           {!message.isUser && message.status === 'PENDING' && (
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: -20,
-                right: 0,
-                color: theme.palette.text.secondary,
-              }}
-            >
+            <Box>
               <CircularProgress size={16} />
             </Box>
           )}

@@ -40,7 +40,7 @@ export const sendMessage = createAsyncThunk<void, string, ThunkContext>(
 
     const enabledModels = (Object.keys(llmSettings.models) as Llm[])
       .filter(model => llmSettings.models[model].enabled);
-    for (const model of enabledModels) {
+    await Promise.all(enabledModels.map(async (model) => {
       const audioId = audio.playWaitingTone();
       try {
         dispatch(addPendingResponse({
@@ -49,36 +49,36 @@ export const sendMessage = createAsyncThunk<void, string, ThunkContext>(
         }));
 
         const config = llmSettings.models[model];
-        chat.sendMessage(model, {
+        const response = await chat.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
           expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
           apiKey: config.apiKey,
-        }).then((response) => {
-          audio.stop(audioId);
-          if (response.error) {
-            dispatch(updateError({
-              model,
-              error: response.error,
-              timestamp,
-            }));
-          } else {
-            dispatch(updateResponse({
-              model,
-              data: response.data!,
-              timestamp,
-            }));
-          }
         });
+
+        audio.stop(audioId);
+        if (response.error) {
+          dispatch(updateError({
+            model,
+            error: response.error,
+            timestamp,
+          }));
+        } else {
+          dispatch(updateResponse({
+            model,
+            data: response.data!,
+            timestamp,
+          }));
+        }
       } catch (error) {
         audio.stop(audioId);
         dispatch(updateError({
           model,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : 'Error processing request',
           timestamp,
         }));
       }
-    }
+    }));
   },
 );
 
