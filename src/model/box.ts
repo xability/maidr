@@ -69,6 +69,7 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   protected braille(): BrailleState {
     return {
       empty: true,
+      type: this.type,
     };
   }
 

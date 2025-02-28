@@ -60,6 +60,7 @@ export class ControllerService {
       braille: this.braille,
       text: this.text,
       review: this.review,
+      notification: this.notification,
       autoplay: this.autoplay,
     });
     this.keybinding.register();

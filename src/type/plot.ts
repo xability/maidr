@@ -10,6 +10,7 @@ export enum PlotType {
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
+  SCATTER = 'point',
   STACKED = 'stacked_bar',
 }
 

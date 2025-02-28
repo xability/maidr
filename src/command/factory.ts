@@ -1,6 +1,7 @@
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
 import type { Keys } from '@type/keys';
@@ -42,6 +43,7 @@ import {
   ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
+  ToggleScatterNavigationCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
@@ -54,6 +56,7 @@ export class CommandFactory {
   private readonly text: TextService;
   private readonly review: ReviewService;
 
+  private readonly notification: NotificationService;
   private readonly autoplay: AutoplayService;
 
   public constructor(commandContext: CommandContext) {
@@ -64,6 +67,7 @@ export class CommandFactory {
     this.text = commandContext.text;
     this.review = commandContext.review;
 
+    this.notification = commandContext.notification;
     this.autoplay = commandContext.autoplay;
   }
 
@@ -95,6 +99,8 @@ export class CommandFactory {
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.plot, this.review);
 
+      case 'TOGGLE_SCATTER_NAVIGATION':
+        return new ToggleScatterNavigationCommand(this.plot, this.notification);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand();
       case 'TOGGLE_CHAT':

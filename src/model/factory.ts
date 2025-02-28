@@ -6,6 +6,7 @@ import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LinePlot } from './line';
+import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
 
 export abstract class PlotFactory {
@@ -25,6 +26,9 @@ export abstract class PlotFactory {
 
       case PlotType.LINE:
         return new LinePlot(maidr);
+
+      case PlotType.SCATTER:
+        return new ScatterPlot(maidr);
 
       case PlotType.DODGED:
       case PlotType.NORMALIZED:

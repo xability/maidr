@@ -42,6 +42,7 @@ enum DefaultKey {
   TOGGLE_REVIEW = 'r',
 
   // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
   TOGGLE_HELP = 'h',
   TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
   TOGGLE_SETTINGS = 'command+., ctrl+.',
@@ -65,7 +66,7 @@ enum LabelKey {
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
 
-  // UI
+  // Misc
   TOGGLE_HELP = 'h',
 }
 

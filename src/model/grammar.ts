@@ -32,6 +32,14 @@ export interface LinePoint {
   y: number;
 }
 
+export interface ScatterSeries {
+  fill?: string;
+  points: {
+    x: number;
+    y: number;
+  }[];
+}
+
 export interface SegmentedPoint extends BarPoint {
   fill: string;
 }
