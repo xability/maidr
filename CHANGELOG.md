@@ -1,3 +1,10 @@
+## [2.30.1](https://github.com/xability/maidr/compare/v2.30.0...v2.30.1) (2025-02-28)
+
+
+### Bug Fixes
+
+* support initialization by appending IDs to containers ([#638](https://github.com/xability/maidr/issues/638)) ([da6b498](https://github.com/xability/maidr/commit/da6b498b4450b7491b8502b9f642c61aa00f972b))
+
 # [2.30.0](https://github.com/xability/maidr/compare/v2.29.1...v2.30.0) (2025-02-28)
 
 
