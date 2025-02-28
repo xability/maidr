@@ -1,6 +1,8 @@
-import type { BoxPoint, Maidr } from './grammar';
-import type { AudioState, BrailleState, TextState } from './state';
-import { AbstractPlot, Orientation } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { BoxPoint } from './grammar';
+import { Orientation } from '@type/plot';
+import { AbstractPlot } from './plot';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';

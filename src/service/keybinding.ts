@@ -1,5 +1,7 @@
 import type { CommandContext } from '@command/command';
+import type { Keys } from '@type/keys';
 import { CommandFactory } from '@command/factory';
+import { Scope } from '@type/keys';
 import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
 
@@ -36,9 +38,15 @@ enum DefaultKey {
 
   // Misc
   TOGGLE_SCATTER_NAVIGATION = 'n',
+  TOGGLE_HELP = 'h',
 
   // Description
   DESCRIBE_POINT = 'space',
+}
+
+enum HelpKey {
+  // Misc
+  TOGGLE_HELP = 'esc',
 }
 
 enum LabelKey {
@@ -50,6 +58,9 @@ enum LabelKey {
   DESCRIBE_TITLE = 't',
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
+
+  // Misc
+  TOGGLE_HELP = 'h',
 }
 
 enum ReviewKey {
@@ -58,22 +69,16 @@ enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
-export enum Scope {
-  DEFAULT = 'DEFAULT',
-  LABEL = 'LABEL',
-  REVIEW = 'REVIEW',
-}
-
 const scopedKeymap = {
   [Scope.DEFAULT]: DefaultKey,
+  [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
 } as const;
 
-type Keymap = {
+export type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
-export type Keys = keyof Keymap[Scope];
 
 export class KeybindingService {
   private readonly commandFactory: CommandFactory;

@@ -1,6 +1,7 @@
 import type { NotificationService } from '@service/notification';
-import type { Maidr, ScatterSeries } from './grammar';
-import type { AudioState, BrailleState, TextState } from './state';
+import type { Maidr } from '@type/maidr';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { ScatterSeries } from './grammar';
 import { AbstractPlot } from './plot';
 
 const TYPE = 'Type';

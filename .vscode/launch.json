@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug maidr in Chrome",
+      "file": "${file}",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:///*": "${webRoot}/*",
+        "webpack:///./*": "${webRoot}/*",
+        "webpack:///src/*": "${webRoot}/src/*",
+        "webpack://maidr-ts/*": "${webRoot}/*"
+      },
+      "preLaunchTask": "npm: build",
+      "trace": true
+    }
+  ]
+}

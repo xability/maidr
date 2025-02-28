@@ -1,5 +1,6 @@
-import type { Maidr } from './grammar';
-import type { Plot } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
+import { PlotType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
@@ -7,18 +8,6 @@ import { Histogram } from './histogram';
 import { LinePlot } from './line';
 import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
-
-enum PlotType {
-  BAR = 'bar',
-  BOX = 'box',
-  DODGED = 'dodged_bar',
-  HEATMAP = 'heat',
-  HISTOGRAM = 'hist',
-  LINE = 'line',
-  NORMALIZED = 'stacked_normalized_bar',
-  SCATTER = 'point',
-  STACKED = 'stacked_bar',
-}
 
 export abstract class PlotFactory {
   public static create(maidr: Maidr): Plot {

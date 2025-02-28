@@ -1,8 +1,9 @@
-import type { Movable, Observer } from '@model/interface';
-import type { PlotState } from '@model/state';
+import type { Movable } from '@type/movable';
+import type { Observer } from '@type/observable';
+import type { PlotState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { EventType } from '@model/interface';
+import { EventType, Focus } from '@type/event';
 import { Constant } from '@util/constant';
 
 export class BrailleService implements Observer {
@@ -85,7 +86,7 @@ export class BrailleService implements Observer {
     } else {
       this.enabled = false;
     }
-    this.display.toggleBrailleFocus();
+    this.display.toggleFocus(Focus.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
