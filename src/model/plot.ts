@@ -89,7 +89,10 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public get state(): PlotState {
     if (this.isOutOfBounds) {
-      return { empty: true };
+      return {
+        empty: true,
+        type: this.type,
+      };
     }
 
     return {
@@ -179,9 +182,7 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 }
 
-export abstract class AbstractBarPlot<
-  T extends BarPoint,
-> extends AbstractPlot<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot<number> {
   protected readonly points: T[][];
   protected readonly orientation: Orientation;
 

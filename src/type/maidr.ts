@@ -1,4 +1,12 @@
-import type { BarPoint, BoxPoint, HeatmapData, HistogramPoint, LinePoint, SegmentedPoint } from '@model/grammar';
+import type {
+  BarPoint,
+  BoxPoint,
+  HeatmapData,
+  HistogramPoint,
+  LinePoint,
+  ScatterSeries,
+  SegmentedPoint,
+} from '@model/grammar';
 
 import type { Orientation } from '@type/plot';
 
@@ -21,5 +29,6 @@ export interface Maidr {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | ScatterSeries[]
     | SegmentedPoint[][];
 }

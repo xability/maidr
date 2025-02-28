@@ -37,6 +37,7 @@ enum DefaultKey {
   TOGGLE_REVIEW = 'r',
 
   // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
   TOGGLE_HELP = 'h',
 
   // Description
@@ -58,7 +59,7 @@ enum LabelKey {
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
 
-  // UI
+  // Misc
   TOGGLE_HELP = 'h',
 }
 

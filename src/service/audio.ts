@@ -69,6 +69,8 @@ export class AudioService implements Observer {
   }
 
   public update(state: PlotState): void {
+    this.stop();
+
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF) {
       return;
@@ -79,11 +81,7 @@ export class AudioService implements Observer {
       return;
     }
 
-    this.stop();
-    // TODO: Handle point.
     const audio = state.audio;
-    this.stop();
-    // TODO: Handle point.
     if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
@@ -92,10 +90,11 @@ export class AudioService implements Observer {
       }
 
       let currentIndex = 0;
+      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const playNext = (): void => {
         if (currentIndex < values.length) {
           this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
-          this.timeoutId = setTimeout(playNext, 50);
+          this.timeoutId = setTimeout(playNext, playRate);
         } else {
           this.stop();
         }
@@ -125,7 +124,7 @@ export class AudioService implements Observer {
 
     const fromPanning = { min: 0, max: panningSize };
     const toPanning = { min: -1, max: 1 };
-    const panning = this.interpolate(rawPanning, fromPanning, toPanning);
+    const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
     this.playOscillator(frequency, panning);
   }
@@ -215,6 +214,10 @@ export class AudioService implements Observer {
     return (
       ((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min
     );
+  }
+
+  private clamp(value: number, from: number, to: number): number {
+    return Math.max(from, Math.min(value, to));
   }
 
   public toggle(): void {

@@ -23,8 +23,9 @@ export class ControllerService {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
-  private readonly keybinding: KeybindingService;
   public readonly help: HelpService;
+
+  private readonly keybinding: KeybindingService;
 
   public constructor(maidr: Maidr, display: DisplayService) {
     this.plot = PlotFactory.create(maidr);
@@ -47,12 +48,14 @@ export class ControllerService {
       this.plot,
     );
     this.help = new HelpService(this.display);
+
     this.keybinding = new KeybindingService({
       plot: this.plot,
       audio: this.audio,
       braille: this.braille,
       text: this.text,
       review: this.review,
+      notification: this.notification,
       autoplay: this.autoplay,
     });
     this.keybinding.register();
