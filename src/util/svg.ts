@@ -37,7 +37,7 @@ export abstract class Svg {
 
       // Convert to JPEG with quality setting
       ctx.drawImage(img, 0, 0);
-      return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      return canvas.toDataURL('image/jpeg', 0.92);
     } catch (error) {
       console.error('Error converting SVG to Base 64:', error instanceof Error ? error.message : error);
       return '';

@@ -10,6 +10,7 @@ export interface LlmRequest {
   customInstruction: string;
   expertise: string;
   apiKey?: string;
+  email?: string;
   clientToken?: string;
 }
 

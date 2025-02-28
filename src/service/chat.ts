@@ -98,7 +98,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         : this.getApiUrl(request.apiKey);
 
       const headers: Record<string, string> = request.clientToken
-        ? { Authorization: `Bearer ${request.clientToken}` }
+        ? { Authentication: `${request.email} ${request.clientToken}` }
         : {};
 
       const response = await Api.post<T>(url, payload, headers);
@@ -318,7 +318,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
             },
             {
               inlineData: {
-                data: image,
+                data: image.split(',')[1],
                 mimeType: 'image/svg+xml',
               },
             },

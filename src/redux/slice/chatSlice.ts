@@ -49,27 +49,27 @@ export const sendMessage = createAsyncThunk<void, string, ThunkContext>(
         }));
 
         const config = llmSettings.models[model];
-        const response = await chat.sendMessage(model, {
+        chat.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
           expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
           apiKey: config.apiKey,
+        }).then((response) => {
+          audio.stop(audioId);
+          if (response.error) {
+            dispatch(updateError({
+              model,
+              error: response.error,
+              timestamp,
+            }));
+          } else {
+            dispatch(updateResponse({
+              model,
+              data: response.data!,
+              timestamp,
+            }));
+          }
         });
-
-        audio.stop(audioId);
-        if (response.error) {
-          dispatch(updateError({
-            model,
-            error: response.error,
-            timestamp,
-          }));
-        } else {
-          dispatch(updateResponse({
-            model,
-            data: response.data!,
-            timestamp,
-          }));
-        }
       } catch (error) {
         audio.stop(audioId);
         dispatch(updateError({
