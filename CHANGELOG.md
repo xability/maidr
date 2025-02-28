@@ -1,3 +1,10 @@
+# [2.30.0](https://github.com/xability/maidr/compare/v2.29.1...v2.30.0) (2025-02-28)
+
+
+### Features
+
+* support iframeless design and add init function for initializing maidr ([#637](https://github.com/xability/maidr/issues/637)) ([64c9467](https://github.com/xability/maidr/commit/64c9467c9b0e1802efa564792dbdb8441f9ed1b7))
+
 ## [2.29.1](https://github.com/xability/maidr/compare/v2.29.0...v2.29.1) (2025-02-20)
 
 
