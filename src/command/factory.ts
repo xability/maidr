@@ -40,9 +40,11 @@ import {
   SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
+  ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScatterNavigationCommand,
+  ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
 
@@ -101,6 +103,10 @@ export class CommandFactory {
         return new ToggleScatterNavigationCommand(this.plot, this.notification);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand();
+      case 'TOGGLE_CHAT':
+        return new ToggleChatCommand();
+      case 'TOGGLE_SETTINGS':
+        return new ToggleSettingsCommand();
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);

@@ -206,6 +206,10 @@ export class AudioService implements Observer {
     this.playOscillator(frequency, panning, wave);
   }
 
+  public playWaitingTone(): NodeJS.Timeout {
+    return setTimeout(() => {});
+  }
+
   private interpolate(value: number, from: Range, to: Range): number {
     if (from.min === 0 && from.max === 0) {
       return 0;
@@ -245,9 +249,9 @@ export class AudioService implements Observer {
     this.notification.notify(message);
   }
 
-  private stop(): void {
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId);
+  public stop(audioId: NodeJS.Timeout | null = this.timeoutId): void {
+    if (audioId) {
+      clearTimeout(audioId);
       this.timeoutId = null;
     }
   }

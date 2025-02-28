@@ -1,5 +1,8 @@
+import type { AudioService } from '@service/audio';
+import type { ChatService } from '@service/chat';
 import type { ControllerService } from '@service/controller';
 import type { HelpService } from '@service/help';
+import type { SettingsService } from '@service/settings';
 
 export class ServiceLocator {
   private static locator: ServiceLocator;
@@ -17,11 +20,32 @@ export class ServiceLocator {
     return ServiceLocator.locator;
   }
 
+  public get audio(): AudioService {
+    if (!this.controller) {
+      throw new Error('Audio is unavailable');
+    }
+    return this.controller.audio;
+  }
+
+  public get chat(): ChatService {
+    if (!this.controller) {
+      throw new Error('Chat is unavailable');
+    }
+    return this.controller.chat;
+  }
+
   public get help(): HelpService {
     if (!this.controller) {
-      throw new Error('Help has not been initialized.');
+      throw new Error('Help is unavailable');
     }
     return this.controller.help;
+  }
+
+  public get settings(): SettingsService {
+    if (!this.controller) {
+      throw new Error('Settings is unavailable');
+    }
+    return this.controller.settings;
   }
 
   public setController(controller: ControllerService | null): void {

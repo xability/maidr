@@ -1,12 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { ServiceLocator } from '@service/locator';
-import helpMenuReducer from './slice/helpMenuSlice';
+import chatReducer from './slice/chatSlice';
+import helpMenuReducer from './slice/helpSlice';
+import settingsReducer from './slice/settingsSlice';
 
 const locator = (): ServiceLocator => ServiceLocator.instance;
 
 export const store = configureStore({
   reducer: {
-    helpMenu: helpMenuReducer,
+    chat: chatReducer,
+    help: helpMenuReducer,
+    settings: settingsReducer,
   },
   middleware: getDefaultMiddleware => getDefaultMiddleware({
     thunk: {

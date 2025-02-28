@@ -26,10 +26,15 @@ function main(): void {
   // Fall back to window.maidr if no attribute found.
   // TODO: Need to be removed along with `window.d.ts`,
   //  once attribute method is migrated.
-  if (plots.length !== 0 && !window.maidr) {
+  if (plots.length !== 0) {
     return;
   }
+
   const maidr = window.maidr;
+  if (!maidr) {
+    return;
+  }
+
   const plot = document.getElementById(maidr.id);
   if (!plot) {
     return;
@@ -60,10 +65,10 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
     }
 
     if (!display) {
-      display = new DisplayService(maidr, maidrRoot, plot);
+      display = new DisplayService(maidrRoot, plot, maidr);
     }
     if (!controller) {
-      controller = new ControllerService(maidr, display);
+      controller = new ControllerService(display, maidr);
     }
 
     locator.setController(controller);
@@ -85,7 +90,7 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
   (() => {
-    const display = new DisplayService(maidr, maidrRoot, plot);
+    const display = new DisplayService(maidrRoot, plot, maidr);
     display.destroy();
   })();
 }

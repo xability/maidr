@@ -7,7 +7,9 @@ import type { Scope } from '@type/keys';
 import type { Plot } from '@type/plot';
 import type { Command } from './command';
 import { ScatterPlot } from '@model/scatter';
-import { toggleHelpMenu } from '@redux/slice/helpMenuSlice';
+import { toggleChat } from '@redux/slice/chatSlice';
+import { toggleHelpMenu } from '@redux/slice/helpSlice';
+import { toggleSettings } from '@redux/slice/settingsSlice';
 import { store } from '@redux/store';
 import hotkeys from 'hotkeys-js';
 
@@ -82,6 +84,18 @@ export class ToggleScatterNavigationCommand implements Command {
 export class ToggleHelpCommand implements Command {
   public execute(): void {
     store.dispatch(toggleHelpMenu());
+  }
+}
+
+export class ToggleChatCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleChat());
+  }
+}
+
+export class ToggleSettingsCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleSettings());
   }
 }
 
