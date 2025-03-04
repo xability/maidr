@@ -1,13 +1,12 @@
 {
   "name": "maidr-ts",
   "version": "1.1.1",
-  "files": [
-    "dist/*"
-  ],
+  "main": "dist/maidr.js",
+  "files": ["dist"],
   "scripts": {
     "build": "webpack",
-    "prepare": "husky",
-    "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
+    "prepublishOnly": "npm run build",
+    "prepare": "husky install",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",

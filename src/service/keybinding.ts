@@ -19,7 +19,7 @@ enum DefaultKey {
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
 
-  STOP_AUTOPLAY = 'command, ctrl',
+  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
   SPEED_UP_AUTOPLAY = '.',
   SPEED_DOWN_AUTOPLAY = ',',
   RESET_AUTOPLAY_SPEED = '/',
