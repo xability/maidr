@@ -20,6 +20,7 @@ import {
 } from './autoplay';
 import {
   DescribeCaptionCommand,
+  DescribeFillCommand,
   DescribePointCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
@@ -112,6 +113,8 @@ export class CommandFactory {
         return new DescribeXCommand(this.plot, this.text);
       case 'DESCRIBE_Y':
         return new DescribeYCommand(this.plot, this.text);
+      case 'DESCRIBE_FILL':
+        return new DescribeFillCommand(this.plot, this.text);
       case 'DESCRIBE_POINT':
         return new DescribePointCommand(this.plot, this.audio, this.braille, this.text);
       case 'DESCRIBE_TITLE':

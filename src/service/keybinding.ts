@@ -57,11 +57,12 @@ enum HelpKey {
 }
 
 enum LabelKey {
-  ACTIVATE_DEFAULT_SCOPE = 'esc',
+  ACTIVATE_DEFAULT_SCOPE = '*',
 
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
+  DESCRIBE_FILL = 'f',
   DESCRIBE_TITLE = 't',
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
