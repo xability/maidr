@@ -1,7 +1,14 @@
 import type { CommandContext } from '@command/command';
+import type { Keys } from '@type/keys';
 import { CommandFactory } from '@command/factory';
+import { Scope } from '@type/keys';
 import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
+
+enum ChatKey {
+  // Misc
+  TOGGLE_CHAT = 'esc',
+}
 
 enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
@@ -34,8 +41,19 @@ enum DefaultKey {
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
 
+  // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
+  TOGGLE_HELP = 'h',
+  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_SETTINGS = 'command+., ctrl+.',
+
   // Description
   DESCRIBE_POINT = 'space',
+}
+
+enum HelpKey {
+  // Misc
+  TOGGLE_HELP = 'esc',
 }
 
 enum LabelKey {
@@ -47,6 +65,9 @@ enum LabelKey {
   DESCRIBE_TITLE = 't',
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
+
+  // Misc
+  TOGGLE_HELP = 'h',
 }
 
 enum ReviewKey {
@@ -55,22 +76,23 @@ enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
-export enum Scope {
-  DEFAULT = 'DEFAULT',
-  LABEL = 'LABEL',
-  REVIEW = 'REVIEW',
+enum SettingsKey {
+  // Misc
+  TOGGLE_SETTINGS = 'esc',
 }
 
 const scopedKeymap = {
+  [Scope.CHAT]: ChatKey,
   [Scope.DEFAULT]: DefaultKey,
+  [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
+  [Scope.SETTINGS]: SettingsKey,
 } as const;
 
-type Keymap = {
+export type Keymap = {
   [K in Scope]: (typeof scopedKeymap)[K];
 };
-export type Keys = keyof Keymap[Scope];
 
 export class KeybindingService {
   private readonly commandFactory: CommandFactory;

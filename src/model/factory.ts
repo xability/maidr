@@ -1,11 +1,12 @@
-import type { Maidr } from './grammar';
-import type { Plot } from './plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
+import { PlotType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LinePlot } from './line';
-import { PlotType } from './plot';
+import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
 
 export abstract class PlotFactory {
@@ -25,6 +26,9 @@ export abstract class PlotFactory {
 
       case PlotType.LINE:
         return new LinePlot(maidr);
+
+      case PlotType.SCATTER:
+        return new ScatterPlot(maidr);
 
       case PlotType.DODGED:
       case PlotType.NORMALIZED:

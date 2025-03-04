@@ -1,4 +1,4 @@
-import type { MovableDirection } from './interface';
+import type { MovableDirection } from '@type/movable';
 
 export type PlotState =
   | EmptyState
@@ -12,6 +12,7 @@ export type PlotState =
 
 export interface EmptyState {
   empty: true;
+  type: string;
 }
 
 export interface AudioState {
@@ -20,8 +21,6 @@ export interface AudioState {
   size: number;
   value: number | number[];
   index: number;
-  count?: number;
-  volume?: number;
 }
 
 export type BrailleState =
@@ -35,7 +34,7 @@ export type BrailleState =
 
 export interface TextState {
   mainLabel: string;
-  mainValue: number | string;
+  mainValue: number | number[] | string;
   crossLabel: string;
   crossValue: number | number[] | string;
   fillLabel?: string;

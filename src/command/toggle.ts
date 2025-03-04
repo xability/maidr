@@ -1,10 +1,16 @@
-import type { Plot } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
-import type { Scope } from '@service/keybinding';
+import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
+import type { Scope } from '@type/keys';
+import type { Plot } from '@type/plot';
 import type { Command } from './command';
+import { ScatterPlot } from '@model/scatter';
+import { toggleChat } from '@redux/slice/chatSlice';
+import { toggleHelpMenu } from '@redux/slice/helpSlice';
+import { toggleSettings } from '@redux/slice/settingsSlice';
+import { store } from '@redux/store';
 import hotkeys from 'hotkeys-js';
 
 export class ToggleBrailleCommand implements Command {
@@ -56,6 +62,40 @@ export class ToggleReviewCommand implements Command {
 
   public execute(): void {
     this.review.toggle(this.plot.state);
+  }
+}
+
+export class ToggleScatterNavigationCommand implements Command {
+  private readonly plot: Plot;
+  private readonly notification: NotificationService;
+
+  public constructor(plot: Plot, notification: NotificationService) {
+    this.plot = plot;
+    this.notification = notification;
+  }
+
+  public execute(): void {
+    if (this.plot instanceof ScatterPlot) {
+      (this.plot as ScatterPlot).toggleNavigation(this.notification);
+    }
+  }
+}
+
+export class ToggleHelpCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleHelpMenu());
+  }
+}
+
+export class ToggleChatCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleChat());
+  }
+}
+
+export class ToggleSettingsCommand implements Command {
+  public execute(): void {
+    store.dispatch(toggleSettings());
   }
 }
 

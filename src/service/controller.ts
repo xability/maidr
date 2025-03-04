@@ -1,7 +1,10 @@
-import type { Maidr } from '../model/grammar';
-import type { Plot } from '../model/plot';
+import type { Maidr } from '@type/maidr';
+import type { Plot } from '@type/plot';
 import type { DisplayService } from './display';
-import { PlotFactory } from '../model/factory';
+import { PlotFactory } from '@model/factory';
+import { ChatService } from '@service/chat';
+import { HelpService } from '@service/help';
+import { SettingsService } from '@service/settings';
 import { AudioService } from './audio';
 import { AutoplayService } from './autoplay';
 import { BrailleService } from './braille';
@@ -15,20 +18,24 @@ export class ControllerService {
 
   private readonly display: DisplayService;
   private readonly notification: NotificationService;
+  public readonly settings: SettingsService;
 
-  private readonly audio: AudioService;
+  public readonly audio: AudioService;
   private readonly braille: BrailleService;
   private readonly text: TextService;
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
+  public readonly help: HelpService;
+  public readonly chat: ChatService;
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, display: DisplayService) {
+  public constructor(display: DisplayService, maidr: Maidr) {
     this.plot = PlotFactory.create(maidr);
 
     this.display = display;
     this.notification = new NotificationService(this.display);
+    this.settings = new SettingsService(this.display);
 
     this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
     this.braille = new BrailleService(
@@ -44,12 +51,16 @@ export class ControllerService {
       this.text,
       this.plot,
     );
+    this.help = new HelpService(this.display);
+    this.chat = new ChatService(this.display, maidr);
+
     this.keybinding = new KeybindingService({
       plot: this.plot,
       audio: this.audio,
       braille: this.braille,
       text: this.text,
       review: this.review,
+      notification: this.notification,
       autoplay: this.autoplay,
     });
     this.keybinding.register();

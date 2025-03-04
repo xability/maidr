@@ -1,7 +1,8 @@
 export abstract class Constant {
+  private constructor() { /* Prevent Instantiation */ }
+
   // HTML elements.
   static readonly ARTICLE = 'article';
-  static readonly BR = 'br';
   static readonly DIV = 'div';
   static readonly FIGURE = 'figure';
   static readonly IMAGE = 'img';
@@ -14,9 +15,9 @@ export abstract class Constant {
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
   static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
-  static readonly MAIDR_BR = 'maidr-br-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';
+  static readonly REACT_CONTAINER = 'maidr-react-container-';
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
   static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
@@ -31,12 +32,6 @@ export abstract class Constant {
   static readonly ROLE = 'role';
   static readonly TITLE = 'title';
 
-  // HTML positions.
-  static readonly AFTER_BEGIN = 'afterbegin';
-  static readonly AFTER_END = 'afterend';
-  static readonly BEFORE_BEGIN = 'beforebegin';
-  static readonly BEFORE_END = 'beforeend';
-
   // Attribute values.
   static readonly APPLICATION = 'application';
   static readonly ARE = ' are ';
@@ -45,6 +40,7 @@ export abstract class Constant {
   static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
+  static readonly MAIDR_DATA = 'maidr-data';
   static readonly MB_3 = 'mb-3';
   static readonly NEW_LINE = '\n';
   static readonly OFF = 'off';

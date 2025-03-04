@@ -1,0 +1,40 @@
+{
+  "name": "TypeScript Dev Container",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "appPort": [3000],
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "GitHub.copilot",
+        "GitHub.vscode-pull-request-github",
+        "GitHub.codespaces"
+      ],
+      "settings": {
+        "typescript.tsdk": "/workspace/node_modules/typescript/lib",
+        "eslint.options": {
+          "configFile": "/workspace/eslint.config.ts"
+        },
+        "eslint.enable": true,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "github.copilot.chat.commitMessageGeneration.instructions": [
+          {
+            "text": "Use conventional commit message format."
+          }
+        ]
+      }
+    }
+  },
+  "postCreateCommand": "npm install",
+  "runArgs": ["--init"]
+}

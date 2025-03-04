@@ -1,13 +1,10 @@
-import type { BarPoint, Maidr } from './grammar';
-import type { Movable, Observable, Observer } from './interface';
-import type {
-  AudioState,
-  AutoplayState,
-  BrailleState,
-  PlotState,
-  TextState,
-} from './state';
-import { MovableDirection } from './interface';
+import type { Maidr } from '@type/maidr';
+import type { Observer } from '@type/observable';
+import type { Plot } from '@type/plot';
+import type { AudioState, AutoplayState, BrailleState, PlotState, TextState } from '@type/state';
+import type { BarPoint } from './grammar';
+import { MovableDirection } from '@type/movable';
+import { Orientation } from '@type/plot';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -15,38 +12,6 @@ const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'Fill';
-
-export enum PlotType {
-  BAR = 'bar',
-  BOX = 'box',
-  DODGED = 'dodged_bar',
-  HEATMAP = 'heat',
-  HISTOGRAM = 'hist',
-  LINE = 'line',
-  NORMALIZED = 'stacked_normalized_bar',
-  STACKED = 'stacked_bar',
-}
-
-export enum Orientation {
-  VERTICAL = 'vert',
-  HORIZONTAL = 'horz',
-}
-
-export interface Plot extends Movable, Observable {
-  id: string;
-  type: string;
-
-  title: string;
-  subtitle: string;
-  caption: string;
-
-  xAxis: string;
-  yAxis: string;
-
-  get state(): PlotState;
-
-  get hasMultiPoints(): boolean;
-}
 
 export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
@@ -125,7 +90,10 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public get state(): PlotState {
     if (this.isOutOfBounds) {
-      return { empty: true };
+      return {
+        empty: true,
+        type: this.type,
+      };
     }
 
     return {
@@ -138,7 +106,6 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 
   public moveOnce(direction: MovableDirection): void {
-    // we set our movement functions to account for our -1, -1 starting position
     const movement = {
       UPWARD: () => {
         this.row += 1;
@@ -274,9 +241,7 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 }
 
-export abstract class AbstractBarPlot<
-  T extends BarPoint,
-> extends AbstractPlot<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot<number> {
   protected readonly points: T[][];
   protected readonly orientation: Orientation;
 
