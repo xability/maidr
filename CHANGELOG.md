@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/xability/maidr-ts/compare/v1.1.1...v1.1.2) (2025-03-04)
+
+
+### Bug Fixes
+
+* stop autoplay using arrow keys ([#129](https://github.com/xability/maidr-ts/issues/129)) ([29a1b3f](https://github.com/xability/maidr-ts/commit/29a1b3f3696796ec31b621777457167cae3253f4))
+
 ## [1.1.1](https://github.com/xability/maidr-ts/compare/v1.1.0...v1.1.1) (2025-03-04)
 
 
