@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/xability/maidr-ts/compare/v1.0.0...v1.0.1) (2025-03-04)
+
+
+### Bug Fixes
+
+* initial movement and out of bounds settings for 2d plots ([#89](https://github.com/xability/maidr-ts/issues/89)) ([5cc3dbf](https://github.com/xability/maidr-ts/commit/5cc3dbf850ad3b7dc636af5f61ad1b73a4afd48c))
+
 # 1.0.0 (2025-03-01)
 
 
