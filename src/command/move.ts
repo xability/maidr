@@ -1,7 +1,5 @@
 import type { Plot } from '@type/plot';
-
 import type { Command } from './command';
-import { MovableDirection } from '@type/movable';
 
 export class MoveUpCommand implements Command {
   private readonly plot: Plot;
@@ -11,7 +9,7 @@ export class MoveUpCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveOnce(MovableDirection.UPWARD);
+    this.plot.moveOnce('UPWARD');
   }
 }
 
@@ -23,7 +21,7 @@ export class MoveDownCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveOnce(MovableDirection.DOWNWARD);
+    this.plot.moveOnce('DOWNWARD');
   }
 }
 
@@ -35,7 +33,7 @@ export class MoveLeftCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveOnce(MovableDirection.BACKWARD);
+    this.plot.moveOnce('BACKWARD');
   }
 }
 
@@ -47,7 +45,7 @@ export class MoveRightCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveOnce(MovableDirection.FORWARD);
+    this.plot.moveOnce('FORWARD');
   }
 }
 
@@ -59,7 +57,7 @@ export class MoveToTopExtremeCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveToExtreme(MovableDirection.UPWARD);
+    this.plot.moveToExtreme('UPWARD');
   }
 }
 
@@ -71,7 +69,7 @@ export class MoveToBottomExtremeCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveToExtreme(MovableDirection.DOWNWARD);
+    this.plot.moveToExtreme('DOWNWARD');
   }
 }
 
@@ -83,7 +81,7 @@ export class MoveToLeftExtremeCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveToExtreme(MovableDirection.BACKWARD);
+    this.plot.moveToExtreme('BACKWARD');
   }
 }
 
@@ -95,6 +93,6 @@ export class MoveToRightExtremeCommand implements Command {
   }
 
   public execute(): void {
-    this.plot.moveToExtreme(MovableDirection.FORWARD);
+    this.plot.moveToExtreme('FORWARD');
   }
 }

@@ -6,9 +6,8 @@ export interface Movable {
   isMovable: ((index: number) => boolean) & ((direction: MovableDirection) => boolean);
 }
 
-export enum MovableDirection {
-  UPWARD = 'UPWARD',
-  DOWNWARD = 'DOWNWARD',
-  FORWARD = 'FORWARD',
-  BACKWARD = 'BACKWARD',
-}
+export type MovableDirection =
+  | 'UPWARD'
+  | 'DOWNWARD'
+  | 'FORWARD'
+  | 'BACKWARD';
