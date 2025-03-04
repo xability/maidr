@@ -36,7 +36,6 @@ export abstract class AbstractPlot<T> implements Plot {
 
   protected constructor(maidr: Maidr) {
     this.observers = [];
-    this.isOutOfBounds = false;
 
     this.id = maidr.id;
     this.type = maidr.type;
@@ -53,7 +52,7 @@ export abstract class AbstractPlot<T> implements Plot {
     this.brailleValues = [];
 
     this.isOutOfBounds = true;
-    this.row = 0;
+    this.row = -1;
     this.col = -1;
   }
 
@@ -75,7 +74,9 @@ export abstract class AbstractPlot<T> implements Plot {
   protected notifyOutOfBounds(): void {
     this.isOutOfBounds = true;
     this.notifyStateUpdate();
-    this.isOutOfBounds = false;
+    if (this.row < 0 && this.col < 0) {
+      this.isOutOfBounds = false;
+    }
   }
 
   protected braille(): BrailleState {
@@ -106,10 +107,35 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public moveOnce(direction: MovableDirection): void {
     const movement = {
-      UPWARD: () => (this.row += 1),
-      DOWNWARD: () => (this.row -= 1),
-      FORWARD: () => (this.col += 1),
-      BACKWARD: () => (this.col -= 1),
+      UPWARD: () => {
+        this.row += 1;
+        this.row = this.values.length - 1;
+        if (this.col < 0)
+          this.col = 0;
+        if (this.col > this.values[this.row]?.length - 1)
+          this.col = this.values[this.row].length - 1;
+      },
+      DOWNWARD: () => {
+        this.row -= 1;
+        if (this.col < 0)
+          this.col = 0;
+        if (this.col > this.values[this.row]?.length - 1)
+          this.col = this.values[this.row].length - 1;
+      },
+      FORWARD: () => {
+        this.col += 1;
+        if (this.row < 0)
+          this.row = 0;
+        if (this.row > this.values.length - 1)
+          this.row = this.values.length - 1;
+      },
+      BACKWARD: () => {
+        this.col -= 1;
+        if (this.row < 0)
+          this.row = 0;
+        if (this.row > this.values.length - 1)
+          this.row = this.values.length - 1;
+      },
     };
 
     if (this.isMovable(direction)) {
@@ -123,19 +149,47 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public moveToExtreme(direction: MovableDirection): void {
     const movement = {
-      UPWARD: () => (this.row = 0),
-      DOWNWARD: () => (this.row = this.values.length - 1),
-      FORWARD: () => (this.col = this.values[this.row].length - 1),
-      BACKWARD: () => (this.col = 0),
+      UPWARD: () => {
+        this.row = this.values.length - 1;
+        if (this.col < 0)
+          this.col = 0;
+        if (this.col > this.values[this.row]?.length - 1)
+          this.col = this.values[this.row].length - 1;
+      },
+      DOWNWARD: () => {
+        this.row = 0;
+        if (this.col < 0)
+          this.col = 0;
+        if (this.col > this.values[this.row]?.length - 1)
+          this.col = this.values[this.row].length - 1;
+      },
+      FORWARD: () => {
+        if (this.row < 0)
+          this.row = 0;
+        if (this.row > this.values.length - 1)
+          this.row = this.values.length - 1;
+        this.col = this.values[this.row].length - 1;
+      },
+      BACKWARD: () => {
+        this.col = 0;
+        if (this.row < 0)
+          this.row = 0;
+        if (this.row > this.values.length - 1)
+          this.row = this.values.length - 1;
+      },
     };
 
+    this.isOutOfBounds = false;
     movement[direction]();
     this.notifyStateUpdate();
   }
 
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
+      if (this.row < 0)
+        this.row = 0;
       this.col = index;
+      this.isOutOfBounds = false;
       this.notifyStateUpdate();
     }
   }
@@ -149,7 +203,12 @@ export abstract class AbstractPlot<T> implements Plot {
         return this.row > 0;
 
       case MovableDirection.FORWARD:
-        return this.col < this.values[this.row].length - 1;
+        // we start charts at -1-1, so we need to not break on the first move
+        return (
+          this.row === -1
+          || this.col === -1
+          || this.col < this.values[this.row].length - 1
+        );
 
       case MovableDirection.BACKWARD:
         return this.col > 0;
