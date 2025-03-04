@@ -1,12 +1,12 @@
 {
   "name": "maidr-ts",
   "version": "1.1.1",
-  "files": [
-    "dist/*"
-  ],
+  "main": "dist/maidr.js",
+  "files": ["dist"],
   "scripts": {
     "build": "webpack",
-    "prepare": "husky",
+    "prepublishOnly": "npm run build",
+    "prepare": "husky install",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
