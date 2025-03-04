@@ -15,8 +15,8 @@ const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
-  protected isInitialEntry: boolean;
-  protected isOutOfBounds: boolean;
+  private isInitialEntry: boolean;
+  private isOutOfBounds: boolean;
 
   public readonly id: string;
   public readonly type: string;
