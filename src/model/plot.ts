@@ -175,13 +175,10 @@ export abstract class AbstractPlot<T> implements Plot {
     switch (target) {
       case 'UPWARD':
         return this.row < this.values.length - 1;
-
       case 'DOWNWARD':
         return this.row > 0;
-
       case 'FORWARD':
-        return this.col < this.values[this.row]?.length - 1;
-
+        return this.col < this.values[this.row].length - 1;
       case 'BACKWARD':
         return this.col > 0;
     }
