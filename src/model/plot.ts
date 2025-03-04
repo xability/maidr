@@ -53,10 +53,10 @@ export abstract class AbstractPlot<T> implements Plot {
     this.brailleValues = [];
 
     this.isInitialEntry = true;
-    this.isOutOfBounds = true;
+    this.isOutOfBounds = false;
 
-    this.row = -1;
-    this.col = -1;
+    this.row = 0;
+    this.col = 0;
   }
 
   public addObserver(observer: Observer): void {
@@ -108,10 +108,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
-      this.isInitialEntry = false;
-      this.isOutOfBounds = false;
-
-      this.clampPosition();
+      this.handleInitialEntry();
       this.notifyStateUpdate();
       return;
     }
@@ -140,9 +137,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public moveToExtreme(direction: MovableDirection): void {
     if (this.isInitialEntry) {
-      this.isInitialEntry = false;
-      this.isOutOfBounds = false;
-      this.clampPosition();
+      this.handleInitialEntry();
     }
 
     switch (direction) {
@@ -165,7 +160,6 @@ export abstract class AbstractPlot<T> implements Plot {
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
       this.col = index;
-      this.isOutOfBounds = false;
       this.notifyStateUpdate();
     }
   }
@@ -176,10 +170,6 @@ export abstract class AbstractPlot<T> implements Plot {
         this.row >= 0 && this.row < this.values.length
         && target >= 0 && target < this.values[this.row].length
       );
-    }
-
-    if (this.isInitialEntry) {
-      return true;
     }
 
     switch (target) {
@@ -197,7 +187,8 @@ export abstract class AbstractPlot<T> implements Plot {
     }
   }
 
-  private clampPosition(): void {
+  private handleInitialEntry(): void {
+    this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
     this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
   }
