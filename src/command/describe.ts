@@ -38,6 +38,17 @@ export class DescribeYCommand extends DescribeCommand {
   }
 }
 
+export class DescribeFillCommand extends DescribeCommand {
+  public constructor(plot: Plot, text: TextService) {
+    super(plot, text);
+  }
+
+  public execute(): void {
+    const message = `Fill is ${this.plot.fill}`;
+    this.text.update(message);
+  }
+}
+
 export class DescribeTitleCommand extends DescribeCommand {
   public constructor(plot: Plot, text: TextService) {
     super(plot, text);

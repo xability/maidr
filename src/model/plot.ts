@@ -11,7 +11,7 @@ const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'Fill';
+const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
@@ -27,7 +27,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public readonly xAxis: string;
   public readonly yAxis: string;
-  protected readonly fill: string;
+  public readonly fill: string;
 
   protected values: T[][];
   protected brailleValues: string[][];
