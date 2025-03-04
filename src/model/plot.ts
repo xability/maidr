@@ -1,9 +1,9 @@
 import type { Maidr } from '@type/maidr';
+import type { MovableDirection } from '@type/movable';
 import type { Observer } from '@type/observable';
 import type { Plot } from '@type/plot';
 import type { AudioState, AutoplayState, BrailleState, PlotState, TextState } from '@type/state';
 import type { BarPoint } from './grammar';
-import { MovableDirection } from '@type/movable';
 import { Orientation } from '@type/plot';
 
 const DEFAULT_TITLE = 'MAIDR Plot';
@@ -11,11 +11,12 @@ const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'Fill';
+const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractPlot<T> implements Plot {
   private observers: Observer[];
-  protected isOutOfBounds: boolean;
+  private isInitialEntry: boolean;
+  private isOutOfBounds: boolean;
 
   public readonly id: string;
   public readonly type: string;
@@ -26,7 +27,7 @@ export abstract class AbstractPlot<T> implements Plot {
 
   public readonly xAxis: string;
   public readonly yAxis: string;
-  protected readonly fill: string;
+  public readonly fill: string;
 
   protected values: T[][];
   protected brailleValues: string[][];
@@ -51,9 +52,11 @@ export abstract class AbstractPlot<T> implements Plot {
     this.values = [];
     this.brailleValues = [];
 
-    this.isOutOfBounds = true;
-    this.row = -1;
-    this.col = -1;
+    this.isInitialEntry = true;
+    this.isOutOfBounds = false;
+
+    this.row = 0;
+    this.col = 0;
   }
 
   public addObserver(observer: Observer): void {
@@ -74,9 +77,7 @@ export abstract class AbstractPlot<T> implements Plot {
   protected notifyOutOfBounds(): void {
     this.isOutOfBounds = true;
     this.notifyStateUpdate();
-    if (this.row < 0 && this.col < 0) {
-      this.isOutOfBounds = false;
-    }
+    this.isOutOfBounds = false;
   }
 
   protected braille(): BrailleState {
@@ -106,121 +107,90 @@ export abstract class AbstractPlot<T> implements Plot {
   }
 
   public moveOnce(direction: MovableDirection): void {
-    const movement = {
-      UPWARD: () => {
-        this.row += 1;
-        this.row = this.values.length - 1;
-        if (this.col < 0)
-          this.col = 0;
-        if (this.col > this.values[this.row]?.length - 1)
-          this.col = this.values[this.row].length - 1;
-      },
-      DOWNWARD: () => {
-        this.row -= 1;
-        if (this.col < 0)
-          this.col = 0;
-        if (this.col > this.values[this.row]?.length - 1)
-          this.col = this.values[this.row].length - 1;
-      },
-      FORWARD: () => {
-        this.col += 1;
-        if (this.row < 0)
-          this.row = 0;
-        if (this.row > this.values.length - 1)
-          this.row = this.values.length - 1;
-      },
-      BACKWARD: () => {
-        this.col -= 1;
-        if (this.row < 0)
-          this.row = 0;
-        if (this.row > this.values.length - 1)
-          this.row = this.values.length - 1;
-      },
-    };
-
-    if (this.isMovable(direction)) {
-      this.isOutOfBounds = false;
-      movement[direction]();
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
       this.notifyStateUpdate();
-    } else {
-      this.notifyOutOfBounds();
+      return;
     }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    switch (direction) {
+      case 'UPWARD':
+        this.row += 1;
+        break;
+      case 'DOWNWARD':
+        this.row -= 1;
+        break;
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
   }
 
   public moveToExtreme(direction: MovableDirection): void {
-    const movement = {
-      UPWARD: () => {
-        this.row = this.values.length - 1;
-        if (this.col < 0)
-          this.col = 0;
-        if (this.col > this.values[this.row]?.length - 1)
-          this.col = this.values[this.row].length - 1;
-      },
-      DOWNWARD: () => {
-        this.row = 0;
-        if (this.col < 0)
-          this.col = 0;
-        if (this.col > this.values[this.row]?.length - 1)
-          this.col = this.values[this.row].length - 1;
-      },
-      FORWARD: () => {
-        if (this.row < 0)
-          this.row = 0;
-        if (this.row > this.values.length - 1)
-          this.row = this.values.length - 1;
-        this.col = this.values[this.row].length - 1;
-      },
-      BACKWARD: () => {
-        this.col = 0;
-        if (this.row < 0)
-          this.row = 0;
-        if (this.row > this.values.length - 1)
-          this.row = this.values.length - 1;
-      },
-    };
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
 
-    this.isOutOfBounds = false;
-    movement[direction]();
+    switch (direction) {
+      case 'UPWARD':
+        this.row = this.values.length - 1;
+        break;
+      case 'DOWNWARD':
+        this.row = 0;
+        break;
+      case 'FORWARD':
+        this.col = this.values[this.row].length - 1;
+        break;
+      case 'BACKWARD':
+        this.col = 0;
+        break;
+    }
     this.notifyStateUpdate();
   }
 
   public moveToIndex(index: number): void {
     if (this.isMovable(index)) {
-      if (this.row < 0)
-        this.row = 0;
       this.col = index;
-      this.isOutOfBounds = false;
       this.notifyStateUpdate();
     }
   }
 
   public isMovable(target: number | MovableDirection): boolean {
+    if (typeof target === 'number') {
+      return (
+        this.row >= 0 && this.row < this.values.length
+        && target >= 0 && target < this.values[this.row].length
+      );
+    }
+
     switch (target) {
-      case MovableDirection.UPWARD:
+      case 'UPWARD':
         return this.row < this.values.length - 1;
 
-      case MovableDirection.DOWNWARD:
+      case 'DOWNWARD':
         return this.row > 0;
 
-      case MovableDirection.FORWARD:
-        // we start charts at -1-1, so we need to not break on the first move
-        return (
-          this.row === -1
-          || this.col === -1
-          || this.col < this.values[this.row].length - 1
-        );
+      case 'FORWARD':
+        return this.col < this.values[this.row]?.length - 1;
 
-      case MovableDirection.BACKWARD:
+      case 'BACKWARD':
         return this.col > 0;
-
-      default:
-        return (
-          this.row >= 0
-          && this.row < this.values.length
-          && target >= 0
-          && target < this.values[this.row].length
-        );
     }
+  }
+
+  private handleInitialEntry(): void {
+    this.isInitialEntry = false;
+    this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
+    this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
   }
 
   protected autoplay(): AutoplayState {
