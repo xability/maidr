@@ -7,6 +7,7 @@
     "build": "webpack",
     "prepublishOnly": "npm run build",
     "prepare": "husky install",
+    "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",
