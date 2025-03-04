@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/xability/maidr-ts/compare/v1.0.1...v1.1.0) (2025-03-04)
+
+
+### Features
+
+* show fill label on `f` key ([#125](https://github.com/xability/maidr-ts/issues/125)) ([5c69baa](https://github.com/xability/maidr-ts/commit/5c69baaee879b298b446b8869b1f760254a7c482))
+
 ## [1.0.1](https://github.com/xability/maidr-ts/compare/v1.0.0...v1.0.1) (2025-03-04)
 
 
