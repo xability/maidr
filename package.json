@@ -1,6 +1,9 @@
 {
   "name": "maidr-ts",
   "version": "1.1.0",
+  "files": [
+    "dist/*"
+  ],
   "scripts": {
     "build": "webpack",
     "prepare": "husky",
