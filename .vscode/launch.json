@@ -16,6 +16,22 @@
       },
       "preLaunchTask": "npm: build",
       "trace": true
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug webpack dev server",
+      "url": "http://localhost:8080",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:///*": "${webRoot}/*",
+        "webpack:///./*": "${webRoot}/*",
+        "webpack:///src/*": "${webRoot}/src/*",
+        "webpack://maidr-ts/*": "${webRoot}/*"
+      },
+      "preLaunchTask": "npm: dev",
+      "trace": true
     }
   ]
 }
