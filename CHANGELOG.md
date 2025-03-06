@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/xability/maidr-ts/compare/v1.1.2...v1.2.0) (2025-03-06)
+
+
+### Features
+
+* support jupyter notebook DOM handling ([#127](https://github.com/xability/maidr-ts/issues/127)) ([d10d2f4](https://github.com/xability/maidr-ts/commit/d10d2f4435d92b50b6cfbf0db77e1cdfb511fee7))
+
 ## [1.1.2](https://github.com/xability/maidr-ts/compare/v1.1.1...v1.1.2) (2025-03-04)
 
 
