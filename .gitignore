@@ -84,6 +84,9 @@ web_modules/
 # Output of 'npm pack'
 *.tgz
 
+# Output of 'npm run build'
+dist
+
 # Yarn Integrity file
 .yarn-integrity
 
@@ -104,7 +107,6 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
