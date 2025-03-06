@@ -6,8 +6,10 @@ import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
 
 if (document.readyState === 'loading') {
+  // Support for regular HTML loading.
   document.addEventListener(EventType.DOM_LOADED, main);
 } else {
+  // Support for Jupyter Notebook, since it is in `interactive` state.
   main();
 }
 
