@@ -5,7 +5,13 @@ import { ServiceLocator } from '@service/locator';
 import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
 
-document.addEventListener(EventType.DOM_LOADED, main);
+if (document.readyState === 'loading') {
+  // Support for regular HTML loading.
+  document.addEventListener(EventType.DOM_LOADED, main);
+} else {
+  // Support for Jupyter Notebook, since it is in `complete` state.
+  main();
+}
 
 function main(): void {
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
