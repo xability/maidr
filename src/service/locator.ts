@@ -1,6 +1,7 @@
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { ControllerService } from '@service/controller';
+import type { DisplayService } from '@service/display';
 import type { HelpService } from '@service/help';
 import type { SettingsService } from '@service/settings';
 
@@ -18,6 +19,13 @@ export class ServiceLocator {
       ServiceLocator.locator = new ServiceLocator();
     }
     return ServiceLocator.locator;
+  }
+
+  public get display(): DisplayService {
+    if (!this.controller) {
+      throw new Error('Display is unavailable');
+    }
+    return this.controller.display;
   }
 
   public get audio(): AudioService {

@@ -1,4 +1,4 @@
-import type { Maidr } from '@type/maidr';
+import type { Layer } from '@type/maidr';
 import { TestConstants } from './constant';
 
 export function verifyPlotLoaded(plotId: string): void {
@@ -11,7 +11,7 @@ export function verifyMaidrActivated(plotId: string): void {
   cy.focused().should(TestConstants.HAVE_ATTR, TestConstants.HTML_ID, plotId);
 }
 
-export function verifyHorizontalMovement(maidrData: Maidr, elementId: string, direction: string): void {
+export function verifyHorizontalMovement(maidrData: Layer, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
 
   let numPoints: number;
@@ -93,7 +93,7 @@ export function verifyResetSpeed(elementId: string): void {
   cy.contains(TestConstants.SPEED_RESET).should(TestConstants.SHOULD_EXIST);
 }
 
-export function verifyAutoplay(maidrData: Maidr, elementId: string, direction: string): void {
+export function verifyAutoplay(maidrData: Layer, elementId: string, direction: string): void {
   cy.get(TestConstants.HASH + elementId).click();
   if (Array.isArray(maidrData.data)) {
     const numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
@@ -134,7 +134,7 @@ export function verifyReplaySamePoint(elementId: string): void {
     });
 }
 
-export function verifyBrailleNavigationForward(maidrData: Maidr, elementId: string): void {
+export function verifyBrailleNavigationForward(maidrData: Layer, elementId: string): void {
   cy.get(TestConstants.HASH + elementId).click();
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);
@@ -155,7 +155,7 @@ export function verifyBrailleNavigationForward(maidrData: Maidr, elementId: stri
   }
 }
 
-export function verifyBrailleNavigationReverse(maidrData: Maidr, elementId: string): void {
+export function verifyBrailleNavigationReverse(maidrData: Layer, elementId: string): void {
   cy.get(TestConstants.HASH + elementId).click();
   // Move to the right to induce braille
   cy.realPress(TestConstants.RIGHT_ARROW_KEY);

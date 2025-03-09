@@ -1,14 +1,13 @@
 import type { Focus } from '@type/event';
-import type { Maidr } from '@type/maidr';
 import type { Root } from 'react-dom/client';
+import type { ContextService } from './context';
 import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-
 import { createRoot } from 'react-dom/client';
 
 export class DisplayService {
-  private readonly plotType: string;
+  private readonly context: ContextService;
   private readonly focusStack: Stack<Focus>;
 
   private readonly maidrRoot: HTMLElement;
@@ -26,12 +25,12 @@ export class DisplayService {
   public readonly reviewDiv: HTMLElement;
   public readonly reviewInput: HTMLInputElement;
 
-  public constructor(maidrRoot: HTMLElement, plot: HTMLElement, maidr: Maidr) {
-    this.plotType = maidr.type;
+  public constructor(context: ContextService, maidrRoot: HTMLElement, plot: HTMLElement) {
+    this.context = context;
     this.focusStack = new Stack<Focus>();
     this.focusStack.push('PLOT');
 
-    const maidrId = maidr.id;
+    const maidrId = this.context.id;
     this.maidrRoot = maidrRoot;
     this.plot = plot;
 
@@ -88,15 +87,8 @@ export class DisplayService {
     return !this.maidrRoot?.contains(target);
   }
 
-  public getInstruction(includeClickPrompt: boolean): string {
-    return `This is a maidr plot of type: ${this.plotType}.
-        ${includeClickPrompt ? 'Click to activate.' : Constant.EMPTY}
-        Use Arrows to navigate data points. Toggle B for Braille, T for Text,
-        S for Sonification, and R for Review mode. Use H for Help.`;
-  }
-
   public addInstruction(): void {
-    const maidrInstruction = this.getInstruction(true);
+    const maidrInstruction = this.context.getInstruction(true);
     this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
     this.plot.setAttribute(Constant.TITLE, maidrInstruction);
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);

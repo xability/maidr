@@ -10,19 +10,29 @@ enum ChatKey {
   TOGGLE_CHAT = 'esc',
 }
 
-enum DefaultKey {
-  ACTIVATE_LABEL_SCOPE = 'l',
+enum FigureLabelKey {
+  ACTIVATE_SUBPLOT_SCOPE = '*',
 
-  // Autoplay
-  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
-  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
-  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
-  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  // Description
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_SUBTITLE = 's',
+  DESCRIBE_CAPTION = 'c',
 
-  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
-  SPEED_UP_AUTOPLAY = '.',
-  SPEED_DOWN_AUTOPLAY = ',',
-  RESET_AUTOPLAY_SPEED = '/',
+  // Misc
+  TOGGLE_HELP = 'h',
+}
+
+enum HelpKey {
+  // Misc
+  TOGGLE_HELP = 'esc',
+}
+
+enum SubplotKey {
+  ACTIVATE_FIGURE_LABEL_SCOPE = 'l',
+
+  // Description
+  DESCRIBE_TITLE = 't',
+  DESCRIBE_POINT = 'space',
 
   // Navigation
   MOVE_UP = 'up',
@@ -35,29 +45,16 @@ enum DefaultKey {
   MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
   MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
 
-  // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_TEXT = 't',
-  TOGGLE_AUDIO = 's',
-  TOGGLE_REVIEW = 'r',
+  MOVE_TO_TRACE_CONTEXT = 'return, enter',
 
   // Misc
-  TOGGLE_SCATTER_NAVIGATION = 'n',
   TOGGLE_HELP = 'h',
   TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
   TOGGLE_SETTINGS = 'command+., ctrl+.',
-
-  // Description
-  DESCRIBE_POINT = 'space',
 }
 
-enum HelpKey {
-  // Misc
-  TOGGLE_HELP = 'esc',
-}
-
-enum LabelKey {
-  ACTIVATE_DEFAULT_SCOPE = '*',
+enum TraceLabelKey {
+  ACTIVATE_TRACE_SCOPE = '*',
 
   // Description
   DESCRIBE_X = 'x',
@@ -82,13 +79,60 @@ enum SettingsKey {
   TOGGLE_SETTINGS = 'esc',
 }
 
+enum TraceKey {
+  ACTIVATE_TRACE_LABEL_SCOPE = 'l',
+
+  // Autoplay
+  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
+  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
+  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+
+  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
+  SPEED_UP_AUTOPLAY = '.',
+  SPEED_DOWN_AUTOPLAY = ',',
+  RESET_AUTOPLAY_SPEED = '/',
+
+  // Navigation
+  MOVE_UP = 'up',
+  MOVE_DOWN = 'down',
+  MOVE_RIGHT = 'right',
+  MOVE_LEFT = 'left',
+
+  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
+  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
+  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
+  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+
+  MOVE_TO_SUBPLOT_CONTEXT = 'esc',
+  MOVE_TO_NEXT_TRACE = 'fn+up, pageup',
+  MOVE_TO_PREV_TRACE = 'fn+down, pagedown',
+
+  // Modes
+  TOGGLE_BRAILLE = 'b',
+  TOGGLE_TEXT = 't',
+  TOGGLE_AUDIO = 's',
+  TOGGLE_REVIEW = 'r',
+
+  // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
+  TOGGLE_HELP = 'h',
+  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_SETTINGS = 'command+., ctrl+.',
+
+  // Description
+  DESCRIBE_POINT = 'space',
+}
+
 const scopedKeymap = {
   [Scope.CHAT]: ChatKey,
-  [Scope.DEFAULT]: DefaultKey,
+  [Scope.SUBPLOT]: SubplotKey,
   [Scope.HELP]: HelpKey,
-  [Scope.LABEL]: LabelKey,
+  [Scope.FIGURE_LABEL]: FigureLabelKey,
   [Scope.REVIEW]: ReviewKey,
   [Scope.SETTINGS]: SettingsKey,
+  [Scope.TRACE]: TraceKey,
+  [Scope.TRACE_LABEL]: TraceLabelKey,
 } as const;
 
 export type Keymap = {
@@ -131,7 +175,7 @@ export class KeybindingService {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', 'DEFAULT', (event: KeyboardEvent): void => {
+          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               command.execute(event);
             }
@@ -146,7 +190,7 @@ export class KeybindingService {
     }
 
     // Set the initial scope.
-    hotkeys.setScope(Scope.DEFAULT);
+    hotkeys.setScope(Scope.SUBPLOT);
   }
 
   public unregister(): void {

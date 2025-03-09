@@ -1,19 +1,51 @@
 import type { MovableDirection } from '@type/movable';
 
-export type PlotState =
-  | EmptyState
-  | {
-    empty: false;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-  };
+export type PlotState = FigureState | SubplotState | TraceState;
 
 export interface EmptyState {
   empty: true;
   type: string;
 }
+
+export type FigureState =
+  | EmptyState
+  | {
+    empty: false;
+    type: 'figure';
+    title: string;
+    subtitle: string;
+    caption: string;
+    size: number;
+    index: number;
+    subplot: SubplotState;
+  };
+
+export type SubplotState =
+  | EmptyState
+  | {
+    empty: false;
+    type: 'subplot';
+    size: number;
+    index: number;
+    trace: TraceState;
+    traceType: string;
+  };
+
+export type TraceState =
+  | EmptyState
+  | {
+    empty: false;
+    type: 'trace';
+    traceType: string;
+    title: string;
+    xAxis: string;
+    yAxis: string;
+    fill: string;
+    audio: AudioState;
+    braille: BrailleState;
+    text: TextState;
+    autoplay: AutoplayState;
+  };
 
 export interface AudioState {
   min: number;
@@ -33,15 +65,11 @@ export type BrailleState =
   };
 
 export interface TextState {
-  mainLabel: string;
-  mainValue: number | number[] | string;
-  crossLabel: string;
-  crossValue: number | number[] | string;
-  fillLabel?: string;
-  fillValue?: string;
+  main: { label: string; value: number | number[] | string };
+  cross: { label: string; value: number | number[] | string };
+  fill?: { label: string; value: string };
+  range?: { min: number; max: number };
   section?: string;
-  min?: number;
-  max?: number;
 }
 
 export type AutoplayState = {

@@ -47,7 +47,7 @@ export class HelpService {
     if (newState) {
       hotkeys.setScope(Scope.HELP);
     } else {
-      hotkeys.setScope(Scope.DEFAULT);
+      hotkeys.setScope(Scope.SUBPLOT);
     }
 
     return newState;

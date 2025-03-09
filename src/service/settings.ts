@@ -66,7 +66,7 @@ export class SettingsService {
     if (newState) {
       hotkeys.setScope(Scope.SETTINGS);
     } else {
-      hotkeys.setScope(Scope.DEFAULT);
+      hotkeys.setScope(Scope.SUBPLOT);
     }
 
     return newState;

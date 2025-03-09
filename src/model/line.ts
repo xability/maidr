@@ -1,26 +1,31 @@
-import type { Maidr } from '@type/maidr';
+import type { Layer } from '@type/maidr';
 import type { AudioState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
-import { AbstractPlot } from './plot';
+import { AbstractTrace } from './plot';
 
 const TYPE = 'Type';
 
-export class LinePlot extends AbstractPlot<number> {
+export class LinePlot extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
+  private readonly lineValues: number[][];
 
   private readonly min: number[];
   private readonly max: number[];
 
-  public constructor(maidr: Maidr) {
+  public constructor(maidr: Layer) {
     super(maidr);
 
     this.points = maidr.data as LinePoint[][];
 
-    this.values = this.points.map(row => row.map(point => Number(point.y)));
-    this.min = this.values.map(row => Math.min(...row));
-    this.max = this.values.map(row => Math.max(...row));
+    this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
+    this.min = this.lineValues.map(row => Math.min(...row));
+    this.max = this.lineValues.map(row => Math.max(...row));
 
-    this.brailleValues = this.toBraille(this.values);
+    this.brailleValues = this.toBraille(this.lineValues);
+  }
+
+  protected get values(): number[][] {
+    return this.lineValues;
   }
 
   protected audio(): AudioState {
@@ -35,13 +40,13 @@ export class LinePlot extends AbstractPlot<number> {
 
   protected text(): TextState {
     const point = this.points[this.row][this.col];
-    const fillData = point.fill ? { fillLabel: TYPE, fillValue: point.fill } : {};
+    const fillData = point.fill
+      ? { fill: { label: TYPE, value: point.fill } }
+      : {};
 
     return {
-      mainLabel: this.xAxis,
-      mainValue: point.x,
-      crossLabel: this.yAxis,
-      crossValue: point.y,
+      main: { label: this.xAxis, value: this.points[this.row][this.col].x },
+      cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
     };
   }

@@ -1,5 +1,5 @@
 import type { Observer } from '@type/observable';
-import type { PlotState } from '@type/state';
+import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 
 interface Range {
@@ -20,7 +20,7 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioService implements Observer {
+export class AudioService implements Observer<TraceState> {
   private readonly notification: NotificationService;
 
   private readonly isCombinedAudio: boolean;
@@ -68,7 +68,7 @@ export class AudioService implements Observer {
     return compressor;
   }
 
-  public update(state: PlotState): void {
+  public update(state: TraceState): void {
     this.stop();
 
     // Play audio only if turned on.

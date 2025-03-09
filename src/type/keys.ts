@@ -2,9 +2,11 @@ import type { Keymap } from '@service/keybinding';
 
 export enum Scope {
   CHAT = 'CHAT',
-  DEFAULT = 'DEFAULT',
   HELP = 'HELP',
-  LABEL = 'LABEL',
+  FIGURE_LABEL = 'FIGURE_LABEL',
+  SUBPLOT = 'SUBPLOT',
+  TRACE = 'TRACE',
+  TRACE_LABEL = 'TRACE_LABEL',
   REVIEW = 'REVIEW',
   SETTINGS = 'SETTINGS',
 }

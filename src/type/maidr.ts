@@ -12,11 +12,21 @@ import type { Orientation } from '@type/plot';
 
 export interface Maidr {
   id: string;
-  type: string;
-  selector?: string;
   title?: string;
   subtitle?: string;
   caption?: string;
+  panels: Panel[][];
+}
+
+export interface Panel {
+  legend?: string[];
+  layers: Layer[];
+}
+
+export interface Layer {
+  type: string;
+  title?: string;
+  selector?: string;
   orientation?: Orientation;
   axes?: {
     x?: string;

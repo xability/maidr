@@ -1,15 +1,15 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
+import type { ContextService } from '@service/context';
 import type { TextService } from '@service/text';
-import type { Plot } from '@type/plot';
 import type { Command } from './command';
 
 abstract class DescribeCommand implements Command {
-  protected readonly plot: Plot;
+  protected readonly context: ContextService;
   protected readonly text: TextService;
 
-  protected constructor(plot: Plot, text: TextService) {
-    this.plot = plot;
+  protected constructor(context: ContextService, text: TextService) {
+    this.context = context;
     this.text = text;
   }
 
@@ -17,68 +17,93 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `X label is ${this.plot.xAxis}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      const message = `X label is ${state.xAxis}`;
+      this.text.update(message);
+    }
   }
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `Y label is ${this.plot.yAxis}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      const message = `Y label is ${state.yAxis}`;
+      this.text.update(message);
+    }
   }
 }
 
 export class DescribeFillCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `Fill is ${this.plot.fill}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      const message = `Fill is ${state.fill}`;
+      this.text.update(message);
+    }
   }
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `Title is ${this.plot.title}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.empty) {
+      return;
+    }
+
+    if (state.type === 'figure') {
+      const message = `Figure title is ${state.title}`;
+      this.text.update(message);
+    } else if (state.type === 'trace') {
+      const message = `Subplot title is ${state.title}`;
+      this.text.update(message);
+    }
   }
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `Subtitle is ${this.plot.subtitle}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      const message = `Subtitle is ${state.subtitle}`;
+      this.text.update(message);
+    }
   }
 }
 
 export class DescribeCaptionCommand extends DescribeCommand {
-  public constructor(plot: Plot, text: TextService) {
-    super(plot, text);
+  public constructor(context: ContextService, text: TextService) {
+    super(context, text);
   }
 
   public execute(): void {
-    const message = `Caption is ${this.plot.caption}`;
-    this.text.update(message);
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      const message = `Caption is ${state.caption}`;
+      this.text.update(message);
+    }
   }
 }
 
@@ -87,19 +112,29 @@ export class DescribePointCommand extends DescribeCommand {
   private readonly braille: BrailleService;
 
   public constructor(
-    plot: Plot,
+    context: ContextService,
     audio: AudioService,
     braille: BrailleService,
     text: TextService,
   ) {
-    super(plot, text);
+    super(context, text);
     this.audio = audio;
     this.braille = braille;
   }
 
   public execute(): void {
-    this.audio.update(this.plot.state);
-    this.braille.update(this.plot.state);
-    this.text.update(this.plot.state);
+    const state = this.context.state;
+    switch (state.type) {
+      case 'figure':
+      case 'subplot':
+        this.text.update(state);
+        break;
+
+      case 'trace':
+        this.text.update(state);
+        this.audio.update(state);
+        this.braille.update(state);
+        break;
+    }
   }
 }

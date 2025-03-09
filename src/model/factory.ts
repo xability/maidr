@@ -1,6 +1,6 @@
-import type { Maidr } from '@type/maidr';
-import type { Plot } from '@type/plot';
-import { PlotType } from '@type/plot';
+import type { Layer } from '@type/maidr';
+import type { Trace } from '@type/plot';
+import { TraceType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
@@ -9,34 +9,34 @@ import { LinePlot } from './line';
 import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
 
-export abstract class PlotFactory {
-  public static create(maidr: Maidr): Plot {
-    switch (maidr.type) {
-      case PlotType.BAR:
-        return new BarPlot(maidr);
+export abstract class TraceFactory {
+  public static create(layer: Layer): Trace {
+    switch (layer.type) {
+      case TraceType.BAR:
+        return new BarPlot(layer);
 
-      case PlotType.BOX:
-        return new BoxPlot(maidr);
+      case TraceType.BOX:
+        return new BoxPlot(layer);
 
-      case PlotType.HEATMAP:
-        return new Heatmap(maidr);
+      case TraceType.HEATMAP:
+        return new Heatmap(layer);
 
-      case PlotType.HISTOGRAM:
-        return new Histogram(maidr);
+      case TraceType.HISTOGRAM:
+        return new Histogram(layer);
 
-      case PlotType.LINE:
-        return new LinePlot(maidr);
+      case TraceType.LINE:
+        return new LinePlot(layer);
 
-      case PlotType.SCATTER:
-        return new ScatterPlot(maidr);
+      case TraceType.SCATTER:
+        return new ScatterPlot(layer);
 
-      case PlotType.DODGED:
-      case PlotType.NORMALIZED:
-      case PlotType.STACKED:
-        return new SegmentedPlot(maidr);
+      case TraceType.DODGED:
+      case TraceType.NORMALIZED:
+      case TraceType.STACKED:
+        return new SegmentedPlot(layer);
 
       default:
-        throw new Error(`Invalid plot type: ${maidr.type}`);
+        throw new Error(`Invalid trace type: ${layer.type}`);
     }
   }
 }

@@ -32,7 +32,7 @@ export class ChatService {
     if (newState) {
       hotkeys.setScope(Scope.CHAT);
     } else {
-      hotkeys.setScope(Scope.DEFAULT);
+      hotkeys.setScope(Scope.SUBPLOT);
     }
 
     return newState;

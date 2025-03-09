@@ -1,8 +1,9 @@
 import type { NotificationService } from '@service/notification';
-import type { Maidr } from '@type/maidr';
+import type { Layer } from '@type/maidr';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
-import { AbstractPlot } from './plot';
+
+import { AbstractTrace } from '@model/plot';
 
 const TYPE = 'Type';
 
@@ -23,7 +24,7 @@ interface ScatterYPoint {
   y: number;
 }
 
-export class ScatterPlot extends AbstractPlot<number> {
+export class ScatterPlot extends AbstractTrace<number> {
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[][];
@@ -36,7 +37,7 @@ export class ScatterPlot extends AbstractPlot<number> {
   private readonly minX: number[];
   private readonly maxX: number[];
 
-  public constructor(maidr: Maidr) {
+  public constructor(maidr: Layer) {
     super(maidr);
 
     this.mode = NavMode.COL;
@@ -93,17 +94,13 @@ export class ScatterPlot extends AbstractPlot<number> {
     this.yValues = this.yPoints.map(row => row.map(point => point.y));
     this.minY = this.yValues[0].map((_, col) => Math.min(...this.yValues.map(row => row[col])));
     this.maxY = this.yValues[0].map((_, col) => Math.max(...this.yValues.map(row => row[col])));
-
-    this.values = this.xValues;
   }
 
   public toggleNavigation(notification: NotificationService): void {
     if (this.mode === NavMode.COL) {
       this.mode = NavMode.ROW;
-      this.values = this.yValues;
     } else {
       this.mode = NavMode.COL;
-      this.values = this.xValues;
     }
 
     [this.row, this.col] = [this.col, this.row];
@@ -111,6 +108,10 @@ export class ScatterPlot extends AbstractPlot<number> {
 
     const message = `Switched to ${this.mode} navigation`;
     notification.notify(message);
+  }
+
+  protected get values(): number[][] {
+    return this.mode === NavMode.COL ? this.xValues : this.yValues;
   }
 
   protected audio(): AudioState {
@@ -140,14 +141,12 @@ export class ScatterPlot extends AbstractPlot<number> {
       ? this.xPoints[this.row][this.col]
       : this.yPoints[this.row][this.col];
     const fillData = point.fill
-      ? { fillLabel: TYPE, fillValue: point.fill }
+      ? { fill: { label: TYPE, value: point.fill } }
       : {};
 
     return {
-      mainLabel: this.xAxis,
-      mainValue: point.x,
-      crossLabel: this.yAxis,
-      crossValue: point.y,
+      main: { label: this.xAxis, value: point.x },
+      cross: { label: this.yAxis, value: point.y },
       ...fillData,
     };
   }

@@ -1,16 +1,16 @@
-import type { Maidr } from '@type/maidr';
+import type { Layer } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
 import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
 
 describe('Histogram', () => {
-  let maidrData: Maidr;
+  let maidrData: Layer;
 
   before(() => {
     // Visit the file and extract the maidr data before all tests
     cy.visit('examples/histogram.html');
     cy.window().then((window) => {
-      maidrData = window.maidr;
+      maidrData = window.maidr.panels[0][0].layers[0];
     });
   });
 
