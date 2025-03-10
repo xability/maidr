@@ -7,8 +7,7 @@ import type {
   ScatterSeries,
   SegmentedPoint,
 } from '@model/grammar';
-
-import type { Orientation } from '@type/plot';
+import type { Orientation } from './plot';
 
 export interface Maidr {
   id: string;
