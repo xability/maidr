@@ -14,6 +14,27 @@ export interface BoxPoint {
   upperOutliers: number[];
 }
 
+export interface BoxBound {
+  lowerOutliers: BoxBoundPoint;
+  min: BoxBoundPoint;
+  q1: BoxBoundPoint;
+  q2: BoxBoundPoint;
+  q3: BoxBoundPoint;
+  max: BoxBoundPoint;
+  upperOutliers: BoxBoundPoint;
+}
+export interface BoxBoundPoint {
+  x: number;
+  y: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+  type: string;
+}
+
 export interface HeatmapData {
   x: string[];
   y: string[];

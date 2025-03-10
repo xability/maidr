@@ -1,5 +1,7 @@
 export abstract class Constant {
-  private constructor() { /* Prevent Instantiation */ }
+  private constructor() {
+    /* Prevent Instantiation */
+  }
 
   // HTML elements.
   static readonly ARTICLE = 'article';
@@ -21,6 +23,7 @@ export abstract class Constant {
   static readonly REVIEW_CONTAINER = 'maidr-review-container-';
   static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly TEXT_CONTAINER = 'maidr-info-container-';
+  static readonly HIGHLIGHT_RECT_ID = 'maidr-highlight-rect';
 
   // HTML Classes.
   static readonly BRAILLE_AND_REVIEW_CLASS = 'maidr-braille-review-';
@@ -50,4 +53,9 @@ export abstract class Constant {
   static readonly TRUE = 'true';
   static readonly X = 'x';
   static readonly Y = 'y';
+
+  // Settings
+  static readonly RECT_PADDING = 15; // px
+  static readonly RECT_STROKE_WIDTH = 4; // px
+  static readonly DEFAULT_HIGHLIGHT_COLOR = '#03AA0F';
 }
