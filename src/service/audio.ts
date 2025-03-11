@@ -254,6 +254,12 @@ export class AudioService implements Observer {
       clearTimeout(audioId);
       this.timeoutId = null;
     }
+
+    // Clear any ongoing audio playback
+    this.audioContext.close().then(() => {
+      this.audioContext = new AudioContext();
+      this.compressor = this.initCompressor();
+    });
   }
 
   public updateVolume(volume: number): void {

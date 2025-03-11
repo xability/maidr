@@ -2,6 +2,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
+import type { AudioService } from './audio';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
@@ -14,6 +15,7 @@ export class AutoplayService {
   private readonly notification: NotificationService;
   private readonly text: TextService;
   private readonly movable: Movable;
+  private readonly audio: AudioService;
 
   private playId: NodeJS.Timeout | null;
   private currentDirection: MovableDirection | null;
@@ -27,10 +29,16 @@ export class AutoplayService {
   private readonly totalDuration: number;
   private readonly interval: number;
 
-  public constructor(notification: NotificationService, text: TextService, movable: Movable) {
+  public constructor(
+    notification: NotificationService,
+    text: TextService,
+    movable: Movable,
+    audio: AudioService,
+  ) {
     this.notification = notification;
     this.text = text;
     this.movable = movable;
+    this.audio = audio;
 
     this.playId = null;
     this.currentDirection = null;
@@ -68,6 +76,7 @@ export class AutoplayService {
   public stop(): void {
     if (this.playId) {
       clearInterval(this.playId);
+      this.audio.stop();
     }
 
     this.playId = null;
