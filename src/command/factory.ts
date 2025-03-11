@@ -34,7 +34,7 @@ import {
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
   MoveToNextTraceCommand,
-  MoveToPrevPlotCommand,
+  MoveToPrevTraceCommand,
   MoveToRightExtremeCommand,
   MoveToSubplotContextCommand,
   MoveToTopExtremeCommand,
@@ -102,7 +102,7 @@ export class CommandFactory {
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context);
       case 'MOVE_TO_PREV_TRACE':
-        return new MoveToPrevPlotCommand(this.context);
+        return new MoveToPrevTraceCommand(this.context);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);

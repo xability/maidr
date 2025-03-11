@@ -140,7 +140,7 @@ export class MoveToNextTraceCommand implements Command {
   }
 }
 
-export class MoveToPrevPlotCommand implements Command {
+export class MoveToPrevTraceCommand implements Command {
   private readonly context: ContextService;
 
   public constructor(context: ContextService) {
