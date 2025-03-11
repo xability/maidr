@@ -2,7 +2,6 @@ import type { NotificationService } from '@service/notification';
 import type { Layer } from '@type/maidr';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
-
 import { AbstractTrace } from '@model/plot';
 
 const TYPE = 'Type';
