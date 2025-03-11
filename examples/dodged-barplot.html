@@ -19,23 +19,8 @@
             height="576.00pt"
             viewBox="0 0 720.00 576.00"
             id="dodged_bar"
+            maidr-data='{"id":"dodged_bar","title":"Bar Plot","subtitle":"Segmented bar plot of the number of cars in each class by drive type","caption":"Source: mpg dataset from ggplot2 package","panels":[[{"layers":[{"type":"dodged_bar","selector":"#dodged_bar g:nth-of-type(2) rect[style*=\"butt\"]","axes":{"x":"Class","y":"Count","fill":"Drive"},"data":[[{"x":"2seater","y":5,"fill":"r"},{"x":"compact","y":0,"fill":"r"},{"x":"midsize","y":0,"fill":"r"},{"x":"minivan","y":0,"fill":"r"},{"x":"pickup","y":0,"fill":"r"},{"x":"subcompact","y":9,"fill":"r"},{"x":"sub","y":11,"fill":"r"}],[{"x":"2seater","y":0,"fill":"f"},{"x":"compact","y":35,"fill":"f"},{"x":"midsize","y":38,"fill":"f"},{"x":"minivan","y":11,"fill":"f"},{"x":"pickup","y":0,"fill":"f"},{"x":"subcompact","y":22,"fill":"f"},{"x":"sub","y":0,"fill":"f"}],[{"x":"2seater","y":0,"fill":"4"},{"x":"compact","y":12,"fill":"4"},{"x":"midsize","y":3,"fill":"4"},{"x":"minivan","y":0,"fill":"4"},{"x":"pickup","y":33,"fill":"4"},{"x":"subcompact","y":4,"fill":"4"},{"x":"sub","y":51,"fill":"4"}]]}]}]]}'
           >
-            <defs>
-              <style type="text/css">
-                <![CDATA[
-                .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
-                  fill: none;
-                  stroke: #000000;
-                  stroke-linecap: round;
-                  stroke-linejoin: round;
-                  stroke-miterlimit: 10.00;
-                }
-                .svglite text {
-                  white-space: pre;
-                }
-                ]]>
-              </style>
-            </defs>
             <rect width="100%" height="100%" style="stroke: none; fill: #ffffff" />
             <defs>
               <clipPath id="cpMC4wMHw3MjAuMDB8MC4wMHw1NzYuMDA=">
@@ -544,44 +529,54 @@
     </div>
     <script>
       var maidr = {
-        type: 'dodged_bar',
         id: 'dodged_bar',
-        selector: "#dodged_bar g:nth-of-type(2) rect[style*='butt']",
         title: 'Bar Plot',
         subtitle: 'Segmented bar plot of the number of cars in each class by drive type',
         caption: 'Source: mpg dataset from ggplot2 package',
-        axes: {
-          x: 'Class',
-          y: 'Count',
-          fill: 'Drive',
-        },
-        data: [
+        panels: [
           [
-            { x: '2seater', y: 5, fill: 'r' },
-            { x: 'compact', y: 0, fill: 'r' },
-            { x: 'midsize', y: 0, fill: 'r' },
-            { x: 'minivan', y: 0, fill: 'r' },
-            { x: 'pickup', y: 0, fill: 'r' },
-            { x: 'subcompact', y: 9, fill: 'r' },
-            { x: 'sub', y: 11, fill: 'r' },
-          ],
-          [
-            { x: '2seater', y: 0, fill: 'f' },
-            { x: 'compact', y: 35, fill: 'f' },
-            { x: 'midsize', y: 38, fill: 'f' },
-            { x: 'minivan', y: 11, fill: 'f' },
-            { x: 'pickup', y: 0, fill: 'f' },
-            { x: 'subcompact', y: 22, fill: 'f' },
-            { x: 'sub', y: 0, fill: 'f' },
-          ],
-          [
-            { x: '2seater', y: 0, fill: '4' },
-            { x: 'compact', y: 12, fill: '4' },
-            { x: 'midsize', y: 3, fill: '4' },
-            { x: 'minivan', y: 0, fill: '4' },
-            { x: 'pickup', y: 33, fill: '4' },
-            { x: 'subcompact', y: 4, fill: '4' },
-            { x: 'sub', y: 51, fill: '4' },
+            {
+              layers: [
+                {
+                  type: 'dodged_bar',
+                  selector: "#dodged_bar g:nth-of-type(2) rect[style*='butt']",
+                  axes: {
+                    x: 'Class',
+                    y: 'Count',
+                    fill: 'Drive',
+                  },
+                  data: [
+                    [
+                      { x: '2seater', y: 5, fill: 'r' },
+                      { x: 'compact', y: 0, fill: 'r' },
+                      { x: 'midsize', y: 0, fill: 'r' },
+                      { x: 'minivan', y: 0, fill: 'r' },
+                      { x: 'pickup', y: 0, fill: 'r' },
+                      { x: 'subcompact', y: 9, fill: 'r' },
+                      { x: 'sub', y: 11, fill: 'r' },
+                    ],
+                    [
+                      { x: '2seater', y: 0, fill: 'f' },
+                      { x: 'compact', y: 35, fill: 'f' },
+                      { x: 'midsize', y: 38, fill: 'f' },
+                      { x: 'minivan', y: 11, fill: 'f' },
+                      { x: 'pickup', y: 0, fill: 'f' },
+                      { x: 'subcompact', y: 22, fill: 'f' },
+                      { x: 'sub', y: 0, fill: 'f' },
+                    ],
+                    [
+                      { x: '2seater', y: 0, fill: '4' },
+                      { x: 'compact', y: 12, fill: '4' },
+                      { x: 'midsize', y: 3, fill: '4' },
+                      { x: 'minivan', y: 0, fill: '4' },
+                      { x: 'pickup', y: 33, fill: '4' },
+                      { x: 'subcompact', y: 4, fill: '4' },
+                      { x: 'sub', y: 51, fill: '4' },
+                    ],
+                  ],
+                },
+              ],
+            },
           ],
         ],
       };
