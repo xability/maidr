@@ -30,6 +30,7 @@ export interface HistogramPoint extends BarPoint {
 export interface LinePoint {
   x: number;
   y: number;
+  fill?: string;
 }
 
 export interface ScatterSeries {

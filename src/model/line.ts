@@ -3,6 +3,8 @@ import type { AudioState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
 import { AbstractPlot } from './plot';
 
+const TYPE = 'Type';
+
 export class LinePlot extends AbstractPlot<number> {
   private readonly points: LinePoint[][];
 
@@ -32,11 +34,15 @@ export class LinePlot extends AbstractPlot<number> {
   }
 
   protected text(): TextState {
+    const point = this.points[this.row][this.col];
+    const fillData = point.fill ? { fillLabel: TYPE, fillValue: point.fill } : {};
+
     return {
       mainLabel: this.xAxis,
-      mainValue: this.points[this.row][this.col].x,
+      mainValue: point.x,
       crossLabel: this.yAxis,
-      crossValue: this.points[this.row][this.col].y,
+      crossValue: point.y,
+      ...fillData,
     };
   }
 
