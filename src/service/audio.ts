@@ -22,12 +22,11 @@ enum AudioMode {
 
 export class AudioService implements Observer {
   private readonly notification: NotificationService;
-
   private readonly isCombinedAudio: boolean;
   private volume: number;
   private mode: AudioMode;
   private timeoutId: NodeJS.Timeout | null;
-
+  // Restore readonly modifiers
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -68,13 +67,56 @@ export class AudioService implements Observer {
     return compressor;
   }
 
-  public update(state: PlotState): void {
+  /**
+   * Stops audio playback and suspends the audio context
+   * @param audioId Optional timeout ID to clear, defaults to the current timeoutId
+   */
+  public stop(audioId: NodeJS.Timeout | null = this.timeoutId): void {
+    if (audioId) {
+      clearTimeout(audioId);
+      this.timeoutId = null;
+    }
+
+    // Suspend the audio context instead of closing it
+    if (this.audioContext.state !== 'closed' && this.audioContext.state !== 'suspended') {
+      this.audioContext.suspend().catch(err => {
+        console.error('Failed to suspend audio context:', err);
+      });
+
+      // Disconnect any active nodes if needed
+      try {
+        // We don't disconnect the compressor since it's a persistent part of our audio graph
+        // Just ensure any ongoing sounds are stopped
+      } catch (err) {
+        console.error('Error cleaning up audio nodes:', err);
+      }
+    }
+  }
+
+  /**
+   * Ensures the audio context is running before playing audio
+   * @returns Promise that resolves when the context is running
+   */
+  private async ensureAudioContext(): Promise<void> {
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+  }
+
+  /**
+   * Updates the audio playback based on the current plot state
+   * @param state The current plot state
+   */
+  public async update(state: PlotState): Promise<void> {
     this.stop();
 
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF) {
       return;
     }
+
+    // Ensure audio context is active before playing
+    await this.ensureAudioContext();
 
     // TODO: Play empty sound.
     if (state.empty) {
@@ -85,39 +127,48 @@ export class AudioService implements Observer {
     if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
-        this.playZero();
+        await this.playZero();
         return;
       }
 
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
-      const playNext = (): void => {
+
+      const playNext = async (): Promise<void> => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
-          this.timeoutId = setTimeout(playNext, playRate);
+          await this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.timeoutId = setTimeout(() => playNext(), playRate);
         } else {
           this.stop();
         }
       };
 
-      playNext();
+      void playNext();
     } else {
       const value = audio.value as number;
       if (value === 0) {
-        this.playZero();
+        await this.playZero();
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+        await this.playTone(audio.min, audio.max, value, audio.size, audio.index);
       }
     }
   }
 
-  private playTone(
+  /**
+   * Plays a tone with the given frequency and panning parameters
+   * @param minFrequency Minimum frequency value
+   * @param maxFrequency Maximum frequency value
+   * @param rawFrequency Raw frequency value to interpolate
+   * @param panningSize Panning size
+   * @param rawPanning Raw panning value to interpolate
+   */
+  private async playTone(
     minFrequency: number,
     maxFrequency: number,
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
-  ): void {
+  ): Promise<void> {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
@@ -126,14 +177,23 @@ export class AudioService implements Observer {
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    this.playOscillator(frequency, panning);
+    await this.playOscillator(frequency, panning);
   }
 
-  private playOscillator(
+  /**
+   * Plays an oscillator with the given frequency and panning
+   * @param frequency The frequency to play
+   * @param panning The stereo panning value (-1 to 1)
+   * @param wave The oscillator wave type
+   */
+  private async playOscillator(
     frequency: number,
     panning: number,
     wave: OscillatorType = 'sine',
-  ): void {
+  ): Promise<void> {
+    // Ensure audio context is running
+    await this.ensureAudioContext();
+
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
 
@@ -198,16 +258,19 @@ export class AudioService implements Observer {
     );
   }
 
-  private playZero(): void {
+  /**
+   * Plays a zero-value tone
+   */
+  private async playZero(): Promise<void> {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
 
-    this.playOscillator(frequency, panning, wave);
+    await this.playOscillator(frequency, panning, wave);
   }
 
   public playWaitingTone(): NodeJS.Timeout {
-    return setTimeout(() => {});
+    return setTimeout(() => { });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
@@ -247,19 +310,6 @@ export class AudioService implements Observer {
         : this.mode;
     const message = `Sound is ${mode}`;
     this.notification.notify(message);
-  }
-
-  public stop(audioId: NodeJS.Timeout | null = this.timeoutId): void {
-    if (audioId) {
-      clearTimeout(audioId);
-      this.timeoutId = null;
-    }
-
-    // Clear any ongoing audio playback
-    this.audioContext.close().then(() => {
-      this.audioContext = new AudioContext();
-      this.compressor = this.initCompressor();
-    });
   }
 
   public updateVolume(volume: number): void {
