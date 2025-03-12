@@ -62,6 +62,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           <Switch
             checked={modelSettings.enabled}
             onChange={e => onToggle(modelKey, e.target.checked)}
+            slotProps={{
+              input: { 'aria-label': `${!modelSettings.enabled ? 'Enable' : 'Disable'} ${modelSettings.name}` },
+            }}
           />
         </Grid2>
         <Grid2 size="grow">

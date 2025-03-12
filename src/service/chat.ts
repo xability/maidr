@@ -15,7 +15,7 @@ export class ChatService {
     this.display = display;
 
     this.models = {
-      CHAT_GPT: new ChatGpt(display.plot, maidr),
+      GPT: new Gpt(display.plot, maidr),
       CLAUDE: new Claude(display.plot, maidr),
       GEMINI: new Gemini(display.plot, maidr),
     };
@@ -43,7 +43,7 @@ interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
 }
 
-interface ChatGptResponse {
+interface GptResponse {
   choices: {
     message: {
       content: string;
@@ -142,7 +142,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   protected abstract formatResponse(response: T): LlmResponse;
 }
 
-class ChatGpt extends AbstractLlmModel<ChatGptResponse> {
+class Gpt extends AbstractLlmModel<GptResponse> {
   public constructor(svg: HTMLElement, maidr: Maidr) {
     super(svg, maidr);
   }
@@ -195,7 +195,7 @@ class ChatGpt extends AbstractLlmModel<ChatGptResponse> {
     });
   }
 
-  protected formatResponse(response: ChatGptResponse): LlmResponse {
+  protected formatResponse(response: GptResponse): LlmResponse {
     if (response.choices.length === 0) {
       return {
         success: false,
