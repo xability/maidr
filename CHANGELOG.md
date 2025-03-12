@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/xability/maidr-ts/compare/v1.2.0...v1.2.1) (2025-03-12)
+
+
+### Bug Fixes
+
+* add aria label for llm chat and settings ([#137](https://github.com/xability/maidr-ts/issues/137)) ([25020ec](https://github.com/xability/maidr-ts/commit/25020ecd8d087dbcdac47dcb33c5b9e3664baf5d))
+
 # [1.2.0](https://github.com/xability/maidr-ts/compare/v1.1.2...v1.2.0) (2025-03-06)
 
 
