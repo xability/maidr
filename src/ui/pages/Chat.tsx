@@ -165,7 +165,10 @@ const Chat: React.FC = () => {
             </Typography>
           </Grid2>
           <Grid2 size="auto">
-            <IconButton onClick={handleClose}>
+            <IconButton
+              onClick={handleClose}
+              aria-label="Close"
+            >
               <Close />
             </IconButton>
           </Grid2>
@@ -227,6 +230,7 @@ const Chat: React.FC = () => {
                 <IconButton
                   onClick={handleSend}
                   color="primary"
+                  aria-label="Send message"
                   sx={{
                     'bgcolor': theme.palette.primary.main,
                     'color': theme.palette.primary.contrastText,
