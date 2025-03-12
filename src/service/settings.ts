@@ -29,7 +29,7 @@ export class SettingsService {
           CHAT_GPT: {
             enabled: false,
             apiKey: '',
-            name: 'ChatGPT',
+            name: 'Chat GPT',
           },
           CLAUDE: {
             enabled: false,
