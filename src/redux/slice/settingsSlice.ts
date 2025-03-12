@@ -21,10 +21,10 @@ const initialState: SettingsState = {
     expertiseLevel: 'basic',
     customInstruction: '',
     models: {
-      CHAT_GPT: {
+      GPT: {
         enabled: false,
         apiKey: '',
-        name: 'ChatGPT',
+        name: 'GPT',
       },
       CLAUDE: {
         enabled: false,

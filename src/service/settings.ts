@@ -26,10 +26,10 @@ export class SettingsService {
         expertiseLevel: 'basic',
         customInstruction: '',
         models: {
-          CHAT_GPT: {
+          GPT: {
             enabled: false,
             apiKey: '',
-            name: 'Chat GPT',
+            name: 'GPT',
           },
           CLAUDE: {
             enabled: false,

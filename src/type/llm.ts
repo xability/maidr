@@ -1,7 +1,7 @@
 import type { Status } from '@type/event';
 
 export type Llm =
-  | 'CHAT_GPT'
+  | 'GPT'
   | 'CLAUDE'
   | 'GEMINI';
 
