@@ -60,12 +60,12 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       <Grid2 container spacing={1} alignItems="center">
         <Grid2 size="auto">
           <FormControlLabel
-            control={
+            control={(
               <Switch
                 checked={modelSettings.enabled}
                 onChange={e => onToggle(modelKey, e.target.checked)}
               />
-            }
+            )}
             label={`Enable ${modelSettings.name}`}
             labelPlacement="end"
             sx={{ mr: 0 }}

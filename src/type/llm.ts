@@ -5,7 +5,7 @@ import type { Status } from '@type/event';
  * @readonly
  */
 export type Llm =
-  | 'GPT'   // OpenAI GPT models
+  | 'GPT' // OpenAI GPT models
   | 'CLAUDE' // Anthropic Claude models
   | 'GEMINI'; // Google Gemini models
 
