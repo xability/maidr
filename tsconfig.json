@@ -13,7 +13,6 @@
       "@type/*": ["type/*"],
       "@ui/*": ["ui/*"],
       "@util/*": ["util/*"],
-      "@scripts/*": ["scripts/*"]
     },
 
     "resolveJsonModule": true,
