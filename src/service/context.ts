@@ -42,26 +42,19 @@ export class ContextService {
 
   public stepTrace(direction: MovableDirection): void {
     this.context.pop(); // Remove current Trace.
-    const currentSubplot = this.active as Subplot;
-    currentSubplot.moveOnce(direction);
+    const activeSubplot = this.active as Subplot;
+    activeSubplot.moveOnce(direction);
     this.active.notifyStateUpdate();
-
-    const [traceRow, traceCol] = currentSubplot.position;
-    const currentTrace = currentSubplot.traces[traceRow][traceCol];
-    this.context.push(currentTrace);
+    this.context.push(activeSubplot.activeTrace);
   }
 
   public enterSubplot(): void {
     const activeState = this.active.state;
     if (activeState.type === 'figure') {
-      const [subplotRow, subplotCol] = this.active.position;
-      const currentSubplot = (this.active as Figure).subplots[subplotRow][subplotCol];
-      this.context.push(currentSubplot);
+      const activeFigure = this.active as Figure;
+      this.context.push(activeFigure.activeSubplot);
       this.active.notifyStateUpdate();
-
-      const [traceRow, traceCol] = currentSubplot.position;
-      const currentTrace = currentSubplot.traces[traceRow][traceCol];
-      this.context.push(currentTrace);
+      this.context.push(activeFigure.activeSubplot.activeTrace);
     }
   }
 

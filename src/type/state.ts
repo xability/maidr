@@ -18,6 +18,7 @@ export type FigureState =
     size: number;
     index: number;
     subplot: SubplotState;
+    traceTypes: string[];
   };
 
 export type SubplotState =

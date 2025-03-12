@@ -4,7 +4,6 @@ export interface Movable {
   moveToIndex: (index: number) => void;
 
   isMovable: (target: number | MovableDirection) => boolean;
-  get position(): [number, number];
 }
 
 export type MovableDirection =

@@ -60,6 +60,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     return this.subplots;
   }
 
+  public get activeSubplot(): Subplot {
+    return this.subplots[this.row][this.col];
+  }
+
   public get state(): FigureState {
     if (this.isOutOfBounds) {
       return {
@@ -78,13 +82,15 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       caption: this.caption,
       size: this.size,
       index: currentIndex,
-      subplot: this.subplots[this.row][this.col].state,
+      subplot: this.activeSubplot.state,
+      traceTypes: this.activeSubplot.traceTypes,
     };
   }
 }
 
 export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public readonly traces: Trace[][];
+  public readonly traceTypes: string[];
   private readonly size: number;
 
   public constructor(subplot: MaidrSubplot) {
@@ -95,6 +101,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     const layers = subplot.layers;
     this.size = layers.length;
     this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    this.traceTypes = this.traces.flat().map((trace) => {
+      const state = trace.state;
+      return state.empty ? Constant.EMPTY : state.traceType;
+    });
   }
 
   public destroy(): void {
@@ -106,6 +116,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     return this.traces;
   }
 
+  public get activeTrace(): Trace {
+    return this.traces[this.row][this.col];
+  }
+
   public get state(): SubplotState {
     if (this.isOutOfBounds) {
       return {
@@ -114,14 +128,13 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       };
     }
 
-    const traceState = this.traces[this.row][this.col].state;
     return {
       empty: false,
       type: 'subplot',
       size: this.size,
       index: this.row + 1,
-      trace: traceState,
-      traceType: !traceState.empty ? traceState.traceType : Constant.EMPTY,
+      trace: this.activeTrace.state,
+      traceType: this.traceTypes[this.row],
     };
   }
 }

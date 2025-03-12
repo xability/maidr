@@ -30,9 +30,9 @@ export class TextService implements Observer<string | PlotState> {
     if (!state || state.empty) {
       return `No ${state.type} info to display`;
     } else if (state.type === 'figure') {
-      return this.formatFigureText(state.index, state.size);
+      return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(state.traceType, state.index, state.size);
+      return this.formatSubplotText(state.index, state.size, state.traceType);
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {
@@ -40,12 +40,15 @@ export class TextService implements Observer<string | PlotState> {
     }
   }
 
-  private formatFigureText(index: number, size: number): string {
-    return `Subplot ${index} of ${size}`;
+  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+    const details = traceTypes.length === 1
+      ? `This is a ${traceTypes[0]} plot`
+      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA)} plots`;
+    return `Subplot ${index} of ${size}: ${details}`;
   }
 
-  private formatSubplotText(type: string, index: number, size: number): string {
-    return `${type} layer ${index} of ${size}`;
+  private formatSubplotText(index: number, size: number, traceType: string): string {
+    return `Layer ${index} of ${size}: ${traceType} plot`;
   }
 
   private formatVerboseTraceText(state: TextState): string {

@@ -119,10 +119,6 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  public get position(): [number, number] {
-    return [this.row, this.col];
-  }
-
   private handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
