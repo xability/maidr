@@ -5,6 +5,11 @@ import { Scope } from '@type/keys';
 import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
 
+enum ChatKey {
+  // Misc
+  TOGGLE_CHAT = 'esc',
+}
+
 enum DefaultKey {
   ACTIVATE_LABEL_SCOPE = 'l',
 
@@ -14,7 +19,7 @@ enum DefaultKey {
   AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
   AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
 
-  STOP_AUTOPLAY = 'command, ctrl',
+  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
   SPEED_UP_AUTOPLAY = '.',
   SPEED_DOWN_AUTOPLAY = ',',
   RESET_AUTOPLAY_SPEED = '/',
@@ -37,7 +42,10 @@ enum DefaultKey {
   TOGGLE_REVIEW = 'r',
 
   // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
   TOGGLE_HELP = 'h',
+  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_SETTINGS = 'command+., ctrl+.',
 
   // Description
   DESCRIBE_POINT = 'space',
@@ -49,16 +57,17 @@ enum HelpKey {
 }
 
 enum LabelKey {
-  ACTIVATE_DEFAULT_SCOPE = 'esc',
+  ACTIVATE_DEFAULT_SCOPE = '*',
 
   // Description
   DESCRIBE_X = 'x',
   DESCRIBE_Y = 'y',
+  DESCRIBE_FILL = 'f',
   DESCRIBE_TITLE = 't',
   DESCRIBE_SUBTITLE = 's',
   DESCRIBE_CAPTION = 'c',
 
-  // UI
+  // Misc
   TOGGLE_HELP = 'h',
 }
 
@@ -68,11 +77,18 @@ enum ReviewKey {
   TOGGLE_REVIEW = 'r',
 }
 
+enum SettingsKey {
+  // Misc
+  TOGGLE_SETTINGS = 'esc',
+}
+
 const scopedKeymap = {
+  [Scope.CHAT]: ChatKey,
   [Scope.DEFAULT]: DefaultKey,
   [Scope.HELP]: HelpKey,
   [Scope.LABEL]: LabelKey,
   [Scope.REVIEW]: ReviewKey,
+  [Scope.SETTINGS]: SettingsKey,
 } as const;
 
 export type Keymap = {

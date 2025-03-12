@@ -1,8 +1,6 @@
 import type { AutoplayService } from '@service/autoplay';
 import type { Plot } from '@type/plot';
-
 import type { Command } from './command';
-import { MovableDirection } from '@type/movable';
 
 export class AutoplayUpwardCommand implements Command {
   private readonly autoplay: AutoplayService;
@@ -14,7 +12,7 @@ export class AutoplayUpwardCommand implements Command {
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.UPWARD, this.plot.state);
+    this.autoplay.start('UPWARD', this.plot.state);
   }
 }
 
@@ -28,7 +26,7 @@ export class AutoplayDownwardCommand implements Command {
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.DOWNWARD, this.plot.state);
+    this.autoplay.start('DOWNWARD', this.plot.state);
   }
 }
 
@@ -42,7 +40,7 @@ export class AutoplayForwardCommand implements Command {
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.FORWARD, this.plot.state);
+    this.autoplay.start('FORWARD', this.plot.state);
   }
 }
 
@@ -56,7 +54,7 @@ export class AutoplayBackwardCommand implements Command {
   }
 
   public execute(): void {
-    this.autoplay.start(MovableDirection.BACKWARD, this.plot.state);
+    this.autoplay.start('BACKWARD', this.plot.state);
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Maidr } from '@type/maidr';
-import { TestConstants } from '../util/constant';
+import { TestConstants } from './constant';
 
 export function verifyPlotLoaded(plotId: string): void {
   cy.get(TestConstants.SVG + TestConstants.HASH + plotId).should('exist');
@@ -15,7 +15,6 @@ export function verifyHorizontalMovement(maidrData: Maidr, elementId: string, di
   cy.get(TestConstants.HASH + elementId).click();
 
   let numPoints: number;
-
   if (Array.isArray(maidrData.data)) {
     numPoints = Array.isArray(maidrData.data[0]) ? maidrData.data[0].length : maidrData.data.length;
   } else if (maidrData.data && Array.isArray(maidrData.data.points)) {

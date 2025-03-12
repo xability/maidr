@@ -3,7 +3,7 @@ import type { Observer } from '@type/observable';
 import type { PlotState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { EventType, Focus } from '@type/event';
+import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
 
 export class BrailleService implements Observer {
@@ -75,7 +75,7 @@ export class BrailleService implements Observer {
     }
 
     if (state.braille.empty) {
-      const notSupported = 'Braille is not supported';
+      const notSupported = `Braille is not supported for plot type: ${state.braille.type}`;
       this.notification.notify(notSupported);
       return;
     }
@@ -86,7 +86,7 @@ export class BrailleService implements Observer {
     } else {
       this.enabled = false;
     }
-    this.display.toggleFocus(Focus.BRAILLE);
+    this.display.toggleFocus('BRAILLE');
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

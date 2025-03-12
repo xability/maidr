@@ -10,6 +10,7 @@ export enum PlotType {
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
+  SCATTER = 'point',
   STACKED = 'stacked_bar',
 }
 
@@ -28,8 +29,8 @@ export interface Plot extends Movable, Observable {
 
   xAxis: string;
   yAxis: string;
+  fill: string;
 
   get state(): PlotState;
-
   get hasMultiPoints(): boolean;
 }

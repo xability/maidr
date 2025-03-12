@@ -1,1 +1,4 @@
+# Set the default behavior to use LF
+* text=auto eol=lf
+
 examples/* linguist-vendored

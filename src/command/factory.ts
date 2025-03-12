@@ -1,6 +1,7 @@
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
 import type { Keys } from '@type/keys';
@@ -19,6 +20,7 @@ import {
 } from './autoplay';
 import {
   DescribeCaptionCommand,
+  DescribeFillCommand,
   DescribePointCommand,
   DescribeSubtitleCommand,
   DescribeTitleCommand,
@@ -39,8 +41,11 @@ import {
   SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
+  ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
+  ToggleScatterNavigationCommand,
+  ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
 
@@ -52,6 +57,7 @@ export class CommandFactory {
   private readonly text: TextService;
   private readonly review: ReviewService;
 
+  private readonly notification: NotificationService;
   private readonly autoplay: AutoplayService;
 
   public constructor(commandContext: CommandContext) {
@@ -62,6 +68,7 @@ export class CommandFactory {
     this.text = commandContext.text;
     this.review = commandContext.review;
 
+    this.notification = commandContext.notification;
     this.autoplay = commandContext.autoplay;
   }
 
@@ -93,13 +100,21 @@ export class CommandFactory {
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.plot, this.review);
 
+      case 'TOGGLE_SCATTER_NAVIGATION':
+        return new ToggleScatterNavigationCommand(this.plot, this.notification);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand();
+      case 'TOGGLE_CHAT':
+        return new ToggleChatCommand();
+      case 'TOGGLE_SETTINGS':
+        return new ToggleSettingsCommand();
 
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.plot, this.text);
       case 'DESCRIBE_Y':
         return new DescribeYCommand(this.plot, this.text);
+      case 'DESCRIBE_FILL':
+        return new DescribeFillCommand(this.plot, this.text);
       case 'DESCRIBE_POINT':
         return new DescribePointCommand(this.plot, this.audio, this.braille, this.text);
       case 'DESCRIBE_TITLE':

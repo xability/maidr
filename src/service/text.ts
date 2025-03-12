@@ -42,9 +42,11 @@ export class TextService implements Observer {
     // Format main-axis values.
     verbose.push(state.mainLabel, Constant.IS);
 
-    // Format for histogram.
+    // Format for histogram and scatter plot.
     if (state.min !== undefined && state.max !== undefined) {
       verbose.push(String(state.min), Constant.THROUGH, String(state.max));
+    } else if (Array.isArray(state.mainValue)) {
+      verbose.push(state.mainValue.join(Constant.COMMA));
     } else {
       verbose.push(String(state.mainValue));
     }
@@ -52,7 +54,7 @@ export class TextService implements Observer {
     // Format cross-axis label.
     verbose.push(Constant.COMMA, state.crossLabel);
 
-    // Format for boxplot.
+    // Format for box plot.
     if (state.section !== undefined) {
       verbose.push(Constant.COMMA);
 
@@ -72,7 +74,7 @@ export class TextService implements Observer {
       verbose.push(Constant.IS, state.crossValue.join(Constant.COMMA));
     }
 
-    // Format for heatmap.
+    // Format for heatmap and scatter plot.
     if (state.fillLabel !== undefined && state.fillValue !== undefined) {
       verbose.push(
         Constant.COMMA,
@@ -87,9 +89,14 @@ export class TextService implements Observer {
 
   private formatTerseText(state: TextState): string {
     const terse = new Array<string>();
-    terse.push(String(state.mainValue), Constant.COMMA);
 
-    // Format for boxplot.
+    if (Array.isArray(state.mainValue)) {
+      terse.push(state.mainValue.join(Constant.COMMA));
+    } else {
+      terse.push(String(state.mainValue), Constant.COMMA);
+    }
+
+    // Format for box plot.
     if (state.section !== undefined) {
       if (Array.isArray(state.crossValue)) {
         terse.push(String(state.crossValue.length), Constant.SPACE);

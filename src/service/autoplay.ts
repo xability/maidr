@@ -116,10 +116,7 @@ export class AutoplayService {
     this.notification.notify('Reset speed');
   }
 
-  private getAutoplayRate(
-    direction: MovableDirection,
-    state?: PlotState,
-  ): number {
+  private getAutoplayRate(direction: MovableDirection, state?: PlotState): number {
     if (this.userSpeed !== null) {
       return this.userSpeed;
     }
