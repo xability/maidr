@@ -2,10 +2,17 @@ import type { ThunkContext } from '@redux/store';
 import type { Settings } from '@type/settings';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
+/**
+ * Extended settings state that includes UI state
+ */
 interface SettingsState extends Settings {
+  /** Whether the settings UI is visible */
   enabled: boolean;
 }
 
+/**
+ * Initial state for the settings slice
+ */
 const initialState: SettingsState = {
   enabled: false,
   general: {
@@ -40,6 +47,9 @@ const initialState: SettingsState = {
   },
 };
 
+/**
+ * Thunk action to load application settings
+ */
 export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
   'settings/load',
   (_, { extra }) => {
@@ -47,6 +57,9 @@ export const loadSettings = createAsyncThunk<Settings, void, ThunkContext>(
   },
 );
 
+/**
+ * Thunk action to toggle settings UI visibility
+ */
 export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
   'settings/toggle',
   (_, { getState, extra }) => {
@@ -55,6 +68,11 @@ export const toggleSettings = createAsyncThunk<boolean, void, ThunkContext>(
   },
 );
 
+/**
+ * Thunk action to save updated settings
+ *
+ * @param newSettings - The new settings to save
+ */
 export const saveSettings = createAsyncThunk<Settings, Settings, ThunkContext>(
   'settings/save',
   (newSettings, { dispatch, extra }) => {
@@ -64,6 +82,9 @@ export const saveSettings = createAsyncThunk<Settings, Settings, ThunkContext>(
   },
 );
 
+/**
+ * Thunk action to reset settings to defaults
+ */
 export const resetSettings = createAsyncThunk<Settings, void, ThunkContext>(
   'settings/reset',
   (_, { extra }) => {
@@ -73,6 +94,9 @@ export const resetSettings = createAsyncThunk<Settings, void, ThunkContext>(
   },
 );
 
+/**
+ * Settings slice with reducer and action handlers
+ */
 const settingsSlice = createSlice({
   name: 'settings',
   initialState,

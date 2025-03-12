@@ -43,6 +43,9 @@ interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
 }
 
+/**
+ * Response structure for the GPT API calls
+ */
 interface GptResponse {
   choices: {
     message: {
@@ -142,19 +145,49 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   protected abstract formatResponse(response: T): LlmResponse;
 }
 
+/**
+ * GPT implementation of the AbstractLlmModel
+ * Handles communication with OpenAI's GPT API
+ */
 class Gpt extends AbstractLlmModel<GptResponse> {
+  /**
+   * Creates a new GPT model instance
+   *
+   * @param svg - The SVG element representing the chart
+   * @param maidr - The maidr data object
+   */
   public constructor(svg: HTMLElement, maidr: Maidr) {
     super(svg, maidr);
   }
 
+  /**
+   * Returns the OpenAI API URL for API calls
+   *
+   * @returns The API URL string
+   */
   protected getApiUrl(): string {
     return 'https://api.openai.com/v1/chat/completions';
   }
 
+  /**
+   * Returns the endpoint for maidr service calls
+   *
+   * @returns The endpoint string
+   */
   protected getEndPoint(): string {
     return 'openai';
   }
 
+  /**
+   * Creates the payload for the GPT API request
+   *
+   * @param customInstruction - Custom instructions for the AI
+   * @param maidrJson - JSON data of the chart
+   * @param image - Base64 encoded image data
+   * @param currentPositionText - Text describing the current position in the chart
+   * @param message - User's question or message
+   * @returns JSON string payload
+   */
   protected getPayload(
     customInstruction: string,
     maidrJson: string,
@@ -195,6 +228,12 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     });
   }
 
+  /**
+   * Formats the GPT API response into a standardized LlmResponse
+   *
+   * @param response - The raw response from the GPT API
+   * @returns Formatted LlmResponse object
+   */
   protected formatResponse(response: GptResponse): LlmResponse {
     if (response.choices.length === 0) {
       return {
