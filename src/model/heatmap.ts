@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, TextState } from '@type/state';
 import type { HeatmapData } from './grammar';
 import { AbstractTrace } from './plot';
@@ -11,7 +11,7 @@ export class Heatmap extends AbstractTrace<number> {
   private readonly min: number;
   private readonly max: number;
 
-  public constructor(maidr: Layer) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr);
 
     const data = maidr.data as HeatmapData;

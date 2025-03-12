@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { Trace } from '@type/plot';
 import { TraceType } from '@type/plot';
 import { BarPlot } from './bar';
@@ -10,7 +10,7 @@ import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
 
 export abstract class TraceFactory {
-  public static create(layer: Layer): Trace {
+  public static create(layer: MaidrLayer): Trace {
     switch (layer.type) {
       case TraceType.BAR:
         return new BarPlot(layer);

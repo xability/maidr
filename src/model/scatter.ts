@@ -1,5 +1,5 @@
 import type { NotificationService } from '@service/notification';
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
 import { AbstractTrace } from '@model/plot';
@@ -36,7 +36,7 @@ export class ScatterPlot extends AbstractTrace<number> {
   private readonly minX: number[];
   private readonly maxX: number[];
 
-  public constructor(maidr: Layer) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr);
 
     this.mode = NavMode.COL;

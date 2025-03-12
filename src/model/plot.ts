@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
 import type { Trace } from '@type/plot';
@@ -165,7 +165,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected brailleValues: string[][];
 
-  protected constructor(layer: Layer) {
+  protected constructor(layer: MaidrLayer) {
     super();
 
     this.type = layer.type;

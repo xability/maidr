@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, TextState } from '@type/state';
 import type { BarPoint } from './grammar';
 import { Orientation } from '@type/plot';
@@ -12,7 +12,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   protected readonly min: number[];
   protected readonly max: number[];
 
-  protected constructor(layer: Layer, points: T[][]) {
+  protected constructor(layer: MaidrLayer, points: T[][]) {
     super(layer);
 
     this.points = points;
@@ -100,7 +100,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 }
 
 export class BarPlot extends AbstractBarPlot<BarPoint> {
-  public constructor(layer: Layer) {
+  public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }
 }

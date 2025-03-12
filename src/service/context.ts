@@ -80,11 +80,11 @@ export class ContextService {
     const clickPrompt = includeClickPrompt ? 'Click to activate.' : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a MAIDR figure containing ${state.size} panels. ${clickPrompt}
+        return `This is a MAIDR figure containing ${state.size} subplots. ${clickPrompt}
         Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a MAIDR subplot containing ${state.size} traces. ${clickPrompt}`;
+        return `This is a MAIDR subplot containing ${state.size} layers. ${clickPrompt}`;
 
       case 'trace':
         return `This is a maidr plot of type: ${state.traceType}. ${clickPrompt}

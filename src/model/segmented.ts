@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { TextState } from '@type/state';
 import type { SegmentedPoint } from './grammar';
 import { Orientation } from '@type/plot';
@@ -9,7 +9,7 @@ const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
-  public constructor(maidr: Layer) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr, maidr.data as SegmentedPoint[][]);
     this.createSummaryLevel();
   }

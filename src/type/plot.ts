@@ -1,4 +1,4 @@
-import type { Maidr, Panel } from '@type/maidr';
+import type { Maidr, MaidrSubplot } from '@type/maidr';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, SubplotState, TraceState } from '@type/state';
@@ -46,8 +46,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
-    const panels = maidr.panels as Panel[][];
-    this.subplots = panels.map(row => row.map(panel => new Subplot(panel)));
+    const subplots = maidr.subplots as MaidrSubplot[][];
+    this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
@@ -87,12 +87,12 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public readonly traces: Trace[][];
   private readonly size: number;
 
-  public constructor(panel: Panel) {
+  public constructor(subplot: MaidrSubplot) {
     super();
 
     this.isInitialEntry = false;
 
-    const layers = panel.layers;
+    const layers = subplot.layers;
     this.size = layers.length;
     this.traces = layers.map(layer => [TraceFactory.create(layer)]);
   }

@@ -1,16 +1,16 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
 import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
 
 describe('Lineplot', () => {
-  let maidrData: Layer;
+  let maidrData: MaidrLayer;
 
   before(() => {
     // Visit the file and extract the maidr data before all tests
     cy.visit('examples/lineplot.html');
     cy.window().then((window) => {
-      maidrData = window.maidr.panels[0][0].layers[0];
+      maidrData = window.maidr.subplots[0][0].layers[0];
     });
   });
 

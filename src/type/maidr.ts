@@ -14,15 +14,15 @@ export interface Maidr {
   title?: string;
   subtitle?: string;
   caption?: string;
-  panels: Panel[][];
+  subplots: MaidrSubplot[][];
 }
 
-export interface Panel {
+export interface MaidrSubplot {
   legend?: string[];
-  layers: Layer[];
+  layers: MaidrLayer[];
 }
 
-export interface Layer {
+export interface MaidrLayer {
   type: string;
   title?: string;
   selector?: string;

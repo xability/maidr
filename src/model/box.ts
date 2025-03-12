@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
@@ -24,7 +24,7 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: Layer) {
+  constructor(maidr: MaidrLayer) {
     super(maidr);
 
     this.points = maidr.data as BoxPoint[];

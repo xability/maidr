@@ -41,11 +41,11 @@ export class TextService implements Observer<string | PlotState> {
   }
 
   private formatFigureText(index: number, size: number): string {
-    return `Panel ${index} of ${size}`;
+    return `Subplot ${index} of ${size}`;
   }
 
   private formatSubplotText(type: string, index: number, size: number): string {
-    return `${type} trace ${index} of ${size}`;
+    return `${type} layer ${index} of ${size}`;
   }
 
   private formatVerboseTraceText(state: TextState): string {

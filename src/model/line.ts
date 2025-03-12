@@ -1,4 +1,4 @@
-import type { Layer } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
 import { AbstractTrace } from './plot';
@@ -12,7 +12,7 @@ export class LinePlot extends AbstractTrace<number> {
   private readonly min: number[];
   private readonly max: number[];
 
-  public constructor(maidr: Layer) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr);
 
     this.points = maidr.data as LinePoint[][];
