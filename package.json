@@ -8,7 +8,7 @@
   "scripts": {
     "build": "webpack",
     "prepublishOnly": "npm run build",
-    "prepare": "husky install",
+    "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
