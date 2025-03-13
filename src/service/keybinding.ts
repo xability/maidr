@@ -19,7 +19,7 @@ enum FigureLabelKey {
   DESCRIBE_CAPTION = 'c',
 
   // Misc
-  TOGGLE_HELP = 'h',
+  TOGGLE_HELP = 'command+/, ctrl+/',
 }
 
 enum HelpKey {
@@ -48,8 +48,8 @@ enum SubplotKey {
   MOVE_TO_TRACE_CONTEXT = 'return, enter',
 
   // Misc
-  TOGGLE_HELP = 'h',
-  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_HELP = 'command+/, ctrl+/',
+  TOGGLE_CHAT = 'shift+/',
   TOGGLE_SETTINGS = 'command+., ctrl+.',
 }
 
@@ -65,7 +65,7 @@ enum TraceLabelKey {
   DESCRIBE_CAPTION = 'c',
 
   // Misc
-  TOGGLE_HELP = 'h',
+  TOGGLE_HELP = 'command+/, ctrl+/',
 }
 
 enum ReviewKey {
@@ -116,8 +116,8 @@ enum TraceKey {
 
   // Misc
   TOGGLE_SCATTER_NAVIGATION = 'n',
-  TOGGLE_HELP = 'h',
-  TOGGLE_CHAT = 'command+shift+/, ctrl+shift+/',
+  TOGGLE_HELP = 'command+/, ctrl+/',
+  TOGGLE_CHAT = 'shift+/',
   TOGGLE_SETTINGS = 'command+., ctrl+.',
 
   // Description
