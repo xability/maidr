@@ -8,10 +8,6 @@ assignees: ''
 
 # Feature Request
 
-## Description
-
-<!-- Please provide a clear and concise description of the feature you would like to request. -->
-
 ## Motivation
 
 <!-- Explain why this feature is important and how it would benefit the project. -->
