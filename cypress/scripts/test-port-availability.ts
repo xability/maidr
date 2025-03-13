@@ -20,7 +20,7 @@ portfinder.getPort((err, port) => {
       execSync(`start-server-and-test 'http-server -p ${port}' http://localhost:${port} 'cypress run'`, { stdio: 'inherit' });
     }
   } catch (error) {
-    console.error('Tests completed with some failures:');
+    console.error(`Tests completed with some failures: ${error.message}`);
     // Error shown here
     console.error(error);
     // eslint-disable-next-line node/prefer-global/process
