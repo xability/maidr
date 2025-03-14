@@ -23,6 +23,137 @@ enum AudioMode {
 // Define available wave types for audio legend
 const WAVE_TYPES: OscillatorType[] = ['sine', 'square', 'triangle', 'sawtooth'];
 
+/**
+ * Configuration defining a sound variation for a data group
+ * Allows for creating distinct timbres using various audio processing techniques
+ */
+interface SoundVariation {
+  /** The base oscillator wave type */
+  waveType: OscillatorType;
+  /** Filter type to apply (if any) */
+  filterType?: BiquadFilterType;
+  /** Filter frequency (if filter is used) */
+  filterFreq?: number;
+  /** Filter Q factor (if filter is used) */
+  filterQ?: number;
+  /** Whether to apply vibrato effect */
+  vibrato?: boolean;
+  /** Vibrato rate in Hz (if vibrato is used) */
+  vibratoRate?: number;
+  /** Vibrato depth in Hz (if vibrato is used) */
+  vibratoDepth?: number;
+  /** Whether to apply harmonic overtones */
+  harmonics?: boolean;
+  /** Relative volume of harmonics (if harmonics are used) */
+  harmonicVolume?: number;
+  /** Description for notification */
+  description: string;
+}
+
+/**
+ * Predefined sound variations for different data groups
+ * Each variation creates a distinct timbre while maintaining frequency and panning consistency
+ */
+const SOUND_VARIATIONS: SoundVariation[] = [
+  // First 4 variations use basic wave types without additional processing
+  { waveType: 'sine', description: 'Sine wave' },
+  { waveType: 'square', description: 'Square wave' },
+  { waveType: 'triangle', description: 'Triangle wave' },
+  { waveType: 'sawtooth', description: 'Sawtooth wave' },
+
+  // Additional variations with filters and effects
+  {
+    waveType: 'sine',
+    filterType: 'lowpass',
+    filterFreq: 800,
+    filterQ: 5,
+    description: 'Filtered sine wave',
+  },
+  {
+    waveType: 'square',
+    filterType: 'highpass',
+    filterFreq: 300,
+    filterQ: 3,
+    description: 'Filtered square wave',
+  },
+  {
+    waveType: 'triangle',
+    vibrato: true,
+    vibratoRate: 6,
+    vibratoDepth: 15,
+    description: 'Vibrato triangle wave',
+  },
+  {
+    waveType: 'sawtooth',
+    filterType: 'bandpass',
+    filterFreq: 500,
+    filterQ: 4,
+    description: 'Bandpass filtered sawtooth',
+  },
+  {
+    waveType: 'sine',
+    harmonics: true,
+    harmonicVolume: 0.3,
+    description: 'Harmonic sine wave',
+  },
+  {
+    waveType: 'triangle',
+    filterType: 'notch',
+    filterFreq: 700,
+    filterQ: 8,
+    description: 'Notch filtered triangle',
+  },
+  {
+    waveType: 'square',
+    vibrato: true,
+    vibratoRate: 8,
+    vibratoDepth: 20,
+    description: 'Vibrato square wave',
+  },
+  {
+    waveType: 'sawtooth',
+    harmonics: true,
+    harmonicVolume: 0.4,
+    description: 'Harmonic sawtooth',
+  },
+  // Combined techniques for even more variations
+  {
+    waveType: 'sine',
+    filterType: 'lowpass',
+    filterFreq: 600,
+    filterQ: 6,
+    vibrato: true,
+    vibratoRate: 5,
+    vibratoDepth: 10,
+    description: 'Filtered vibrato sine',
+  },
+  {
+    waveType: 'square',
+    filterType: 'highpass',
+    filterFreq: 400,
+    filterQ: 2,
+    harmonics: true,
+    harmonicVolume: 0.25,
+    description: 'Filtered harmonic square',
+  },
+  {
+    waveType: 'triangle',
+    harmonics: true,
+    harmonicVolume: 0.3,
+    vibrato: true,
+    vibratoRate: 7,
+    vibratoDepth: 12,
+    description: 'Harmonic vibrato triangle',
+  },
+  {
+    waveType: 'sawtooth',
+    filterType: 'lowshelf',
+    filterFreq: 350,
+    filterQ: 1,
+    description: 'Lowshelf filtered sawtooth',
+  },
+];
+
 export class AudioService implements Observer {
   private readonly notification: NotificationService;
 
@@ -130,10 +261,24 @@ export class AudioService implements Observer {
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    // Select wave type based on group index
-    const waveType = this.getWaveTypeForGroup(groupIndex);
+    // Get the sound variation for this group
+    const variation = this.getSoundVariationForGroup(groupIndex);
 
-    this.playOscillator(frequency, panning, waveType);
+    this.playEnhancedOscillator(frequency, panning, variation);
+  }
+
+  /**
+   * Gets the appropriate sound variation for a specific group index
+   * @param groupIndex - The index of the data group/series
+   * @returns The configuration for the group's sound variation
+   */
+  private getSoundVariationForGroup(groupIndex?: number): SoundVariation {
+    if (groupIndex === undefined) {
+      return SOUND_VARIATIONS[0]; // Default sound is first variation
+    }
+
+    // Use modulo to cycle through available variations if there are more groups than variations
+    return SOUND_VARIATIONS[groupIndex % SOUND_VARIATIONS.length];
   }
 
   /**
@@ -150,23 +295,75 @@ export class AudioService implements Observer {
     return WAVE_TYPES[groupIndex % WAVE_TYPES.length];
   }
 
-  private playOscillator(
+  /**
+   * Plays an enhanced oscillator with optional filters and effects
+   * @param frequency - Frequency of the oscillator in Hz
+   * @param panning - Stereo panning value from -1 (left) to 1 (right)
+   * @param variation - Sound variation configuration to apply
+   */
+  private playEnhancedOscillator(
     frequency: number,
     panning: number,
-    wave: OscillatorType = 'sine',
+    variation: SoundVariation,
   ): void {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
+    const currentTime = this.audioContext.currentTime;
 
-    // Start with a constant tone.
+    // Create and configure the main oscillator
     const oscillator = this.audioContext.createOscillator();
-    oscillator.type = wave;
+    oscillator.type = variation.waveType;
     oscillator.frequency.value = frequency;
-    oscillator.start();
 
-    // Add volume.
+    // Set up vibrato if specified in the variation
+    if (variation.vibrato && variation.vibratoRate && variation.vibratoDepth) {
+      const vibratoOsc = this.audioContext.createOscillator();
+      vibratoOsc.type = 'sine';
+      vibratoOsc.frequency.value = variation.vibratoRate;
+
+      const vibratoGain = this.audioContext.createGain();
+      vibratoGain.gain.value = variation.vibratoDepth;
+
+      vibratoOsc.connect(vibratoGain);
+      vibratoGain.connect(oscillator.frequency);
+      vibratoOsc.start();
+
+      // Schedule vibrato oscillator cleanup
+      setTimeout(() => {
+        vibratoOsc.stop();
+        vibratoOsc.disconnect();
+        vibratoGain.disconnect();
+      }, duration * 1e3 * 2);
+    }
+
+    // Add harmonics if specified
+    let harmonicOscillators: OscillatorNode[] = [];
+    if (variation.harmonics && variation.harmonicVolume) {
+      // Add two harmonic overtones
+      const harmonicGain = this.audioContext.createGain();
+      harmonicGain.gain.value = variation.harmonicVolume;
+
+      // First harmonic at 2x frequency (one octave up)
+      const firstHarmonic = this.audioContext.createOscillator();
+      firstHarmonic.type = variation.waveType;
+      firstHarmonic.frequency.value = frequency * 2;
+      firstHarmonic.connect(harmonicGain);
+
+      // Second harmonic at 3x frequency
+      const secondHarmonic = this.audioContext.createOscillator();
+      secondHarmonic.type = variation.waveType;
+      secondHarmonic.frequency.value = frequency * 3;
+      secondHarmonic.connect(harmonicGain);
+
+      harmonicOscillators = [firstHarmonic, secondHarmonic];
+      harmonicGain.connect(this.compressor);
+
+      // Start both harmonics
+      harmonicOscillators.forEach(osc => osc.start());
+    }
+
+    // Create volume envelope
     const gainNode = this.audioContext.createGain();
-    const startTime = this.audioContext.currentTime;
     const valueCurve = [
       0.5 * volume,
       volume,
@@ -176,13 +373,25 @@ export class AudioService implements Observer {
       0.1 * volume,
       1e-4 * volume,
     ];
-    gainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
+    gainNode.gain.setValueCurveAtTime(valueCurve, currentTime, duration);
 
-    // Pane the audio.
+    // Set up filter if specified in the variation
+    let filterNode: BiquadFilterNode | null = null;
+    if (variation.filterType && variation.filterFreq) {
+      filterNode = this.audioContext.createBiquadFilter();
+      filterNode.type = variation.filterType;
+      filterNode.frequency.value = variation.filterFreq;
+
+      if (variation.filterQ) {
+        filterNode.Q.value = variation.filterQ;
+      }
+    }
+
+    // Set up stereo panning
     const stereoPannerNode = this.audioContext.createStereoPanner();
     stereoPannerNode.pan.value = panning;
 
-    // Coordinate the audio slightly in front of the listener.
+    // Coordinate the audio slightly in front of the listener
     const pannerNode = new PannerNode(this.audioContext, {
       distanceModel: 'linear',
       positionX: 0.0,
@@ -199,32 +408,73 @@ export class AudioService implements Observer {
       coneOuterGain: 0.4,
     });
 
-    // Create the audio graph.
+    // Create the audio graph based on which components are used
     oscillator.connect(gainNode);
-    gainNode.connect(stereoPannerNode);
+
+    if (filterNode) {
+      // Connect through filter if it exists
+      gainNode.connect(filterNode);
+      filterNode.connect(stereoPannerNode);
+    } else {
+      // Connect directly if no filter
+      gainNode.connect(stereoPannerNode);
+    }
+
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
 
-    // Clean up after the audio stops.
+    // Start the oscillator
+    oscillator.start();
+
+    // Clean up after the audio stops
     this.timeoutId = setTimeout(
       () => {
+        // Disconnect everything in reverse order
         pannerNode.disconnect();
         stereoPannerNode.disconnect();
+        if (filterNode) {
+          filterNode.disconnect();
+        }
         gainNode.disconnect();
-
         oscillator.stop();
         oscillator.disconnect();
+
+        // Clean up harmonics if they exist
+        harmonicOscillators.forEach((osc) => {
+          osc.stop();
+          osc.disconnect();
+        });
       },
       duration * 1e3 * 2,
     );
   }
 
+  /**
+   * Legacy method to play a simple oscillator
+   * Kept for backward compatibility
+   */
+  private playOscillator(
+    frequency: number,
+    panning: number,
+    wave: OscillatorType = 'sine',
+  ): void {
+    const variation: SoundVariation = {
+      waveType: wave,
+      description: `Basic ${wave} wave`,
+    };
+
+    this.playEnhancedOscillator(frequency, panning, variation);
+  }
+
   private playZero(): void {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
-    const wave = 'triangle';
+    const variation: SoundVariation = {
+      waveType: 'triangle',
+      description: 'Zero value indicator',
+    };
 
-    this.playOscillator(frequency, panning, wave);
+    this.playEnhancedOscillator(frequency, panning, variation);
   }
 
   /**
@@ -240,22 +490,22 @@ export class AudioService implements Observer {
     this.stop();
 
     // Play a sequence of tones for each group
-    const actualGroupCount = Math.min(groupCount, WAVE_TYPES.length);
+    const actualGroupCount = Math.min(groupCount, SOUND_VARIATIONS.length);
     let currentGroup = 0;
 
     const playNextGroup = (): void => {
       if (currentGroup < actualGroupCount) {
         const groupIndex = currentGroup++;
-        const waveType = this.getWaveTypeForGroup(groupIndex);
+        const variation = this.getSoundVariationForGroup(groupIndex);
 
         // Play a mid-range frequency tone for each group
         const frequency = (MIN_FREQUENCY + MAX_FREQUENCY) / 2;
-        this.playOscillator(frequency, 0, waveType);
+        this.playEnhancedOscillator(frequency, 0, variation);
 
         // Wait a bit longer between legend tones
         this.timeoutId = setTimeout(playNextGroup, DEFAULT_DURATION * 1500);
 
-        this.notification.notify(`Group ${groupIndex + 1} sound`);
+        this.notification.notify(`Group ${groupIndex + 1} sound: ${variation.description}`);
       }
     };
 
