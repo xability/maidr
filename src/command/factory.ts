@@ -8,6 +8,7 @@ import type { Keys } from '@type/keys';
 import type { Plot } from '@type/plot';
 import type { Command, CommandContext } from './command';
 import { Scope } from '@type/keys';
+import { PlayAudioLegendCommand } from './audio-legend';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -48,7 +49,6 @@ import {
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
-import { PlayAudioLegendCommand } from './audio-legend';
 
 export class CommandFactory {
   private readonly plot: Plot;

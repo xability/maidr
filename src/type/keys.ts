@@ -1,5 +1,3 @@
-import type { Keymap } from '@service/keybinding';
-
 export enum Scope {
   CHAT = 'CHAT',
   DEFAULT = 'DEFAULT',
@@ -45,7 +43,7 @@ export type Keys =
   | 'MOVE_TO_RIGHT_EXTREME'
   | 'MOVE_TO_TOP_EXTREME'
   | 'MOVE_UP'
-  | 'PLAY_AUDIO_LEGEND'  // Added new command for audio legend
+  | 'PLAY_AUDIO_LEGEND' // Added new command for audio legend
   | 'RESET_AUTOPLAY_SPEED'
   | 'SPEED_DOWN_AUTOPLAY'
   | 'SPEED_UP_AUTOPLAY'

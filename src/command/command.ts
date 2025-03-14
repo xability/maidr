@@ -7,7 +7,7 @@ import type { TextService } from '@service/text';
 import type { Plot } from '@type/plot';
 
 export interface Command {
-  execute(event?: KeyboardEvent): void;
+  execute: (event?: KeyboardEvent) => void;
 }
 
 export class EmptyCommand implements Command {
