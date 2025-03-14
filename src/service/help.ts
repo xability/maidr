@@ -19,6 +19,7 @@ export class HelpService {
       { description: 'Toggle Text Mode', key: 't' },
       { description: 'Toggle Sonification Mode', key: 's' },
       { description: 'Toggle Review Mode', key: 'r' },
+      { description: 'Play Audio Legend', key: 'a' }, // New menu item for Audio Legend
 
       { description: 'Autoplay Outward', key: 'command + shift + arrow key' },
       { description: 'Stop Autoplay', key: 'command' },

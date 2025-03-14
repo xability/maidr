@@ -248,6 +248,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot<n
       size,
       index,
       value,
+      groupIndex: isVertical ? this.row : this.col, // Include the group index for audio differentiation
     };
   }
 

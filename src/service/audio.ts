@@ -20,6 +20,9 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
+// Define available wave types for audio legend
+const WAVE_TYPES: OscillatorType[] = ['sine', 'square', 'triangle', 'sawtooth'];
+
 export class AudioService implements Observer {
   private readonly notification: NotificationService;
 
@@ -93,7 +96,7 @@ export class AudioService implements Observer {
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++, audio.groupIndex);
           this.timeoutId = setTimeout(playNext, playRate);
         } else {
           this.stop();
@@ -106,7 +109,7 @@ export class AudioService implements Observer {
       if (value === 0) {
         this.playZero();
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index, audio.groupIndex);
       }
     }
   }
@@ -117,6 +120,7 @@ export class AudioService implements Observer {
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
+    groupIndex?: number,
   ): void {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -126,7 +130,24 @@ export class AudioService implements Observer {
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    this.playOscillator(frequency, panning);
+    // Select wave type based on group index
+    const waveType = this.getWaveTypeForGroup(groupIndex);
+
+    this.playOscillator(frequency, panning, waveType);
+  }
+
+  /**
+   * Gets the appropriate wave type for a specific group index
+   * @param groupIndex - The index of the data group/series
+   * @returns The oscillator wave type to use
+   */
+  private getWaveTypeForGroup(groupIndex?: number): OscillatorType {
+    if (groupIndex === undefined) {
+      return 'sine'; // Default wave type
+    }
+
+    // Use modulo to cycle through available wave types if there are more groups than wave types
+    return WAVE_TYPES[groupIndex % WAVE_TYPES.length];
   }
 
   private playOscillator(
@@ -206,8 +227,44 @@ export class AudioService implements Observer {
     this.playOscillator(frequency, panning, wave);
   }
 
+  /**
+   * Plays an audio legend to demonstrate the different sounds for each group
+   * @param groupCount - Number of different groups in the plot
+   */
+  public playAudioLegend(groupCount: number): void {
+    if (this.mode === AudioMode.OFF) {
+      this.notification.notify('Sound is off. Turn on sound to hear the audio legend.');
+      return;
+    }
+
+    this.stop();
+
+    // Play a sequence of tones for each group
+    const actualGroupCount = Math.min(groupCount, WAVE_TYPES.length);
+    let currentGroup = 0;
+
+    const playNextGroup = (): void => {
+      if (currentGroup < actualGroupCount) {
+        const groupIndex = currentGroup++;
+        const waveType = this.getWaveTypeForGroup(groupIndex);
+
+        // Play a mid-range frequency tone for each group
+        const frequency = (MIN_FREQUENCY + MAX_FREQUENCY) / 2;
+        this.playOscillator(frequency, 0, waveType);
+
+        // Wait a bit longer between legend tones
+        this.timeoutId = setTimeout(playNextGroup, DEFAULT_DURATION * 1500);
+
+        this.notification.notify(`Group ${groupIndex + 1} sound`);
+      }
+    };
+
+    this.notification.notify('Playing audio legend');
+    playNextGroup();
+  }
+
   public playWaitingTone(): NodeJS.Timeout {
-    return setTimeout(() => {});
+    return setTimeout(() => { });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
