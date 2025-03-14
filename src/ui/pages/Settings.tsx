@@ -261,6 +261,26 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
+          {/* Audio Transition Time */}
+          <Grid2 size={12}>
+            <SettingRow
+              label="Audio Transition Time (ms)"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.audioTransitionTime || 15}
+                  onChange={e => handleGeneralChange('audioTransitionTime', Number(e.target.value))}
+                  InputProps={{
+                    inputProps: { min: 5, max: 50 },
+                  }}
+                  helperText="Lower values: faster transitions. Higher values: smoother sound with less popping"
+                />
+              )}
+            />
+          </Grid2>
+
           {/* Aria Mode Radio */}
           <Grid2 size={12}>
             <SettingRow

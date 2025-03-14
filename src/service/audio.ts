@@ -1,6 +1,8 @@
 import type { Observer } from '@type/observable';
 import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
+import { createEnvelope, fadeOut } from '../audio/audio-transitions';
 
 interface Range {
   min: number;
@@ -31,6 +33,10 @@ interface AudioResources {
   harmonicGain?: GainNode;
   /** Cleanup timeout IDs */
   timeouts?: NodeJS.Timeout[];
+  /** Start time of the audio */
+  startTime?: number;
+  /** Duration of the audio */
+  duration?: number;
 }
 
 const MIN_FREQUENCY = 200;
@@ -39,6 +45,10 @@ const NULL_FREQUENCY = 100;
 
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_VOLUME = 0.5;
+
+// Audio transition timing constants
+const ATTACK_TIME = 0.015; // 15ms attack time
+const RELEASE_TIME = 0.02; // 20ms release time
 
 enum AudioMode {
   OFF = 'off',
@@ -182,23 +192,37 @@ const SOUND_VARIATIONS: SoundVariation[] = [
 
 export class AudioService implements Observer {
   private readonly notification: NotificationService;
+  private readonly settingsService?: SettingsService;
 
   private readonly isCombinedAudio: boolean;
   private volume: number;
   private mode: AudioMode;
   private timeoutId: NodeJS.Timeout | null;
   private activeResources: AudioResources[] = [];
+  private attackTime: number = ATTACK_TIME;
+  private releaseTime: number = RELEASE_TIME;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  public constructor(notification: NotificationService, isCombinedAudio: boolean) {
+  public constructor(notification: NotificationService, isCombinedAudio: boolean, settingsService?: SettingsService) {
     this.notification = notification;
+    this.settingsService = settingsService;
 
     this.isCombinedAudio = isCombinedAudio;
     this.volume = DEFAULT_VOLUME;
     this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
     this.timeoutId = null;
+
+    // Apply settings if available
+    if (this.settingsService) {
+      const settings = this.settingsService.loadSettings();
+      if (settings.general.audioTransitionTime) {
+        // Convert from milliseconds to seconds for Web Audio API
+        this.attackTime = settings.general.audioTransitionTime / 1000;
+        this.releaseTime = settings.general.audioTransitionTime / 1000;
+      }
+    }
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
@@ -338,6 +362,8 @@ export class AudioService implements Observer {
     const currentTime = this.audioContext.currentTime;
     const resources: AudioResources = {
       timeouts: [],
+      startTime: currentTime,
+      duration,
     };
 
     // Create and configure the main oscillator
@@ -390,17 +416,11 @@ export class AudioService implements Observer {
 
     // Create volume envelope
     const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = 0; // Start silent to prevent initial pop
     resources.gainNode = gainNode;
-    const valueCurve = [
-      0.5 * volume,
-      volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.1 * volume,
-      1e-4 * volume,
-    ];
-    gainNode.gain.setValueCurveAtTime(valueCurve, currentTime, duration);
+
+    // Apply smooth envelope with user-configured transition times
+    createEnvelope(gainNode, currentTime, duration, this.attackTime, this.releaseTime);
 
     // Set up filter if specified in the variation
     if (variation.filterType && variation.filterFreq) {
@@ -483,61 +503,25 @@ export class AudioService implements Observer {
         resource.timeouts.forEach(timeout => clearTimeout(timeout));
       }
 
-      // Disconnect all nodes in reverse order
-      if (resource.pannerNode) {
-        resource.pannerNode.disconnect();
-      }
-
-      if (resource.stereoPannerNode) {
-        resource.stereoPannerNode.disconnect();
-      }
-
-      if (resource.filterNode) {
-        resource.filterNode.disconnect();
-      }
-
+      // Apply a quick fade out to any still-playing oscillator before disconnecting
+      // to avoid pops when cleaning up during autoplay
       if (resource.gainNode) {
-        resource.gainNode.disconnect();
-      }
+        const currentTime = this.audioContext.currentTime;
+        // Use a faster release time for cleanup to avoid delays in autoplay
+        const quickReleaseTime = Math.min(this.releaseTime * 0.5, 0.01);
+        fadeOut(resource.gainNode.gain, resource.gainNode.gain.value, 0, currentTime, quickReleaseTime);
 
-      // Stop and disconnect oscillator
-      if (resource.oscillator) {
-        try {
-          resource.oscillator.stop();
-        } catch (e) {
-          // Oscillator may already be stopped, which throws an error
-        }
-        resource.oscillator.disconnect();
-      }
-
-      // Clean up harmonics
-      if (resource.harmonicOscs && resource.harmonicOscs.length > 0) {
-        resource.harmonicOscs.forEach((osc) => {
+        // Short delay before disconnecting to allow fade out to complete
+        const delayMs = Math.ceil(quickReleaseTime * 1000) + 5;
+        setTimeout(() => {
           try {
-            osc.stop();
+            this.finalizeCleanup(resource);
           } catch (e) {
-            // Oscillator may already be stopped
+            console.error('Error in delayed cleanup:', e);
           }
-          osc.disconnect();
-        });
-
-        if (resource.harmonicGain) {
-          resource.harmonicGain.disconnect();
-        }
-      }
-
-      // Clean up vibrato
-      if (resource.vibratoOsc) {
-        try {
-          resource.vibratoOsc.stop();
-        } catch (e) {
-          // Oscillator may already be stopped
-        }
-        resource.vibratoOsc.disconnect();
-
-        if (resource.vibratoGain) {
-          resource.vibratoGain.disconnect();
-        }
+        }, delayMs);
+      } else {
+        this.finalizeCleanup(resource);
       }
 
       // Remove from active resources
@@ -547,6 +531,69 @@ export class AudioService implements Observer {
       }
     } catch (error) {
       console.error('Error cleaning up audio resource:', error);
+    }
+  }
+
+  /**
+   * Complete the cleanup process by stopping and disconnecting all nodes
+   * @param resource - The audio resource to clean up
+   */
+  private finalizeCleanup(resource: AudioResources): void {
+    // Disconnect all nodes in reverse order
+    if (resource.pannerNode) {
+      resource.pannerNode.disconnect();
+    }
+
+    if (resource.stereoPannerNode) {
+      resource.stereoPannerNode.disconnect();
+    }
+
+    if (resource.filterNode) {
+      resource.filterNode.disconnect();
+    }
+
+    if (resource.gainNode) {
+      resource.gainNode.disconnect();
+    }
+
+    // Stop and disconnect oscillator
+    if (resource.oscillator) {
+      try {
+        resource.oscillator.stop();
+      } catch (e) {
+        // Oscillator may already be stopped, which throws an error
+      }
+      resource.oscillator.disconnect();
+    }
+
+    // Clean up harmonics
+    if (resource.harmonicOscs && resource.harmonicOscs.length > 0) {
+      resource.harmonicOscs.forEach((osc) => {
+        try {
+          osc.stop();
+        } catch (e) {
+          // Oscillator may already be stopped
+        }
+        osc.disconnect();
+      });
+
+      if (resource.harmonicGain) {
+        resource.harmonicGain.disconnect();
+      }
+    }
+
+    // Clean up vibrato
+    if (resource.vibratoOsc) {
+      try {
+        resource.vibratoOsc.stop();
+      } catch (e) {
+        // Oscillator may already be stopped
+      }
+      resource.vibratoOsc.disconnect();
+
+      if (resource.vibratoGain) {
+        resource.vibratoGain.disconnect();
+      }
     }
   }
 
@@ -689,5 +736,15 @@ export class AudioService implements Observer {
 
   public updateVolume(volume: number): void {
     this.volume = volume;
+  }
+
+  /**
+   * Updates the audio transition timing based on user settings
+   * @param transitionTimeMs - Transition time in milliseconds
+   */
+  public updateTransitionTime(transitionTimeMs: number): void {
+    // Convert from milliseconds to seconds for Web Audio API
+    this.attackTime = transitionTimeMs / 1000;
+    this.releaseTime = transitionTimeMs / 1000;
   }
 }

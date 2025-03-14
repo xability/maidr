@@ -1,3 +1,4 @@
+import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { Settings } from '@type/settings';
 import { Scope } from '@type/keys';
@@ -5,12 +6,14 @@ import hotkeys from 'hotkeys-js';
 
 export class SettingsService {
   private readonly display: DisplayService;
+  private readonly audioService?: AudioService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
 
-  public constructor(display: DisplayService) {
+  public constructor(display: DisplayService, audioService?: AudioService) {
     this.display = display;
+    this.audioService = audioService;
 
     this.defaultSettings = {
       general: {
@@ -20,6 +23,7 @@ export class SettingsService {
         minFrequency: 200,
         maxFrequency: 1000,
         autoplayDuration: 4000,
+        audioTransitionTime: 15,
         ariaMode: 'assertive',
       },
       llm: {
@@ -51,7 +55,21 @@ export class SettingsService {
     return this.currentSettings;
   }
 
+  /**
+   * Saves updated settings to local storage
+   * @param newSettings - The settings to save
+   */
   public saveSettings(newSettings: Settings): void {
+    // Apply the settings to relevant services
+    if (this.audioService) {
+      this.audioService.updateVolume(newSettings.general.volume / 100);
+
+      // Apply audio transition time if available
+      if (newSettings.general.audioTransitionTime) {
+        this.audioService.updateTransitionTime(newSettings.general.audioTransitionTime);
+      }
+    }
+
     this.currentSettings = newSettings;
   }
 

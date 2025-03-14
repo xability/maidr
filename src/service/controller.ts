@@ -37,7 +37,7 @@ export class ControllerService {
     this.notification = new NotificationService(this.display);
     this.settings = new SettingsService(this.display);
 
-    this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
+    this.audio = new AudioService(this.notification, this.plot.hasMultiPoints, this.settings);
     this.braille = new BrailleService(
       this.notification,
       this.display,

@@ -2,21 +2,38 @@ import type { ThunkContext } from '@redux/store';
 import type { Settings } from '@type/settings';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
+/**
+ * Interface defining general settings configuration
+ */
+interface GeneralSettings {
+  volume: number;
+  highlightColor: string;
+  brailleDisplaySize: number;
+  minFrequency: number;
+  maxFrequency: number;
+  autoplayDuration: number;
+  audioTransitionTime: number;
+  ariaMode: 'assertive' | 'polite';
+}
+
 interface SettingsState extends Settings {
   enabled: boolean;
 }
 
+const defaultGeneralSettings: GeneralSettings = {
+  volume: 50,
+  highlightColor: '#1976d2',
+  brailleDisplaySize: 100,
+  minFrequency: 200,
+  maxFrequency: 1000,
+  autoplayDuration: 1000,
+  audioTransitionTime: 15,
+  ariaMode: 'assertive',
+};
+
 const initialState: SettingsState = {
   enabled: false,
-  general: {
-    volume: 50,
-    highlightColor: '#03c809',
-    brailleDisplaySize: 32,
-    minFrequency: 200,
-    maxFrequency: 1000,
-    autoplayDuration: 4000,
-    ariaMode: 'assertive',
-  },
+  general: defaultGeneralSettings,
   llm: {
     expertiseLevel: 'basic',
     customInstruction: '',
