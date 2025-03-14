@@ -50,6 +50,7 @@ export class ControllerService {
       this.notification,
       this.text,
       this.plot,
+      this.audio, // Pass audio service to autoplay service
     );
     this.help = new HelpService(this.display);
     this.chat = new ChatService(this.display, maidr);

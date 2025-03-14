@@ -97,7 +97,7 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
+  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number | boolean): void => {
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
@@ -273,9 +273,27 @@ const Settings: React.FC = () => {
                   value={generalSettings.audioTransitionTime || 15}
                   onChange={e => handleGeneralChange('audioTransitionTime', Number(e.target.value))}
                   InputProps={{
-                    inputProps: { min: 5, max: 50 },
+                    inputProps: { min: 5, max: 100 },
                   }}
-                  helperText="Lower values: faster transitions. Higher values: smoother sound with less popping"
+                  helperText="Higher values give smoother sound transitions (5-100ms)"
+                />
+              )}
+            />
+          </Grid2>
+
+          {/* Sine Wave Extra Smoothing Option */}
+          <Grid2 size={12}>
+            <SettingRow
+              label="Sine Wave Extra Smoothing"
+              input={(
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={generalSettings.sineWaveSmoothing || false}
+                      onChange={e => handleGeneralChange('sineWaveSmoothing', e.target.checked)}
+                    />
+                  )}
+                  label="Apply additional smoothing for sine waves"
                 />
               )}
             />

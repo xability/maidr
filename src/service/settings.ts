@@ -25,6 +25,7 @@ export class SettingsService {
         autoplayDuration: 4000,
         audioTransitionTime: 15,
         ariaMode: 'assertive',
+        sineWaveSmoothing: false,
       },
       llm: {
         expertiseLevel: 'basic',
@@ -62,12 +63,8 @@ export class SettingsService {
   public saveSettings(newSettings: Settings): void {
     // Apply the settings to relevant services
     if (this.audioService) {
-      this.audioService.updateVolume(newSettings.general.volume / 100);
-
-      // Apply audio transition time if available
-      if (newSettings.general.audioTransitionTime) {
-        this.audioService.updateTransitionTime(newSettings.general.audioTransitionTime);
-      }
+      // Apply all audio-related settings at once for better coordination
+      this.audioService.updateSettings(newSettings.general);
     }
 
     this.currentSettings = newSettings;

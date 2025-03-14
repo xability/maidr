@@ -25,6 +25,7 @@ export interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   audioTransitionTime: number;
+  sineWaveSmoothing: boolean;
   ariaMode: AriaMode;
 }
 
