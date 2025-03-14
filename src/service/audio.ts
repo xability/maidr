@@ -7,6 +7,32 @@ interface Range {
   max: number;
 }
 
+/**
+ * Tracks audio resources that need to be cleaned up
+ */
+interface AudioResources {
+  /** Main oscillator node */
+  oscillator?: OscillatorNode;
+  /** Gain node for volume control */
+  gainNode?: GainNode;
+  /** Filter node if one is used */
+  filterNode?: BiquadFilterNode;
+  /** Stereo panner node */
+  stereoPannerNode?: StereoPannerNode;
+  /** 3D panner node */
+  pannerNode?: PannerNode;
+  /** Vibrato oscillator if used */
+  vibratoOsc?: OscillatorNode;
+  /** Vibrato gain node if used */
+  vibratoGain?: GainNode;
+  /** Harmonic oscillators if used */
+  harmonicOscs?: OscillatorNode[];
+  /** Harmonic gain node if used */
+  harmonicGain?: GainNode;
+  /** Cleanup timeout IDs */
+  timeouts?: NodeJS.Timeout[];
+}
+
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
@@ -161,6 +187,7 @@ export class AudioService implements Observer {
   private volume: number;
   private mode: AudioMode;
   private timeoutId: NodeJS.Timeout | null;
+  private activeResources: AudioResources[] = [];
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
@@ -178,7 +205,7 @@ export class AudioService implements Observer {
   }
 
   public destroy(): void {
-    this.stop();
+    this.cleanupAllAudioResources();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       this.audioContext.close().finally();
@@ -203,7 +230,7 @@ export class AudioService implements Observer {
   }
 
   public update(state: PlotState): void {
-    this.stop();
+    this.cleanupAllAudioResources();
 
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF) {
@@ -309,39 +336,38 @@ export class AudioService implements Observer {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
     const currentTime = this.audioContext.currentTime;
+    const resources: AudioResources = {
+      timeouts: [],
+    };
 
     // Create and configure the main oscillator
     const oscillator = this.audioContext.createOscillator();
     oscillator.type = variation.waveType;
     oscillator.frequency.value = frequency;
+    resources.oscillator = oscillator;
 
     // Set up vibrato if specified in the variation
     if (variation.vibrato && variation.vibratoRate && variation.vibratoDepth) {
       const vibratoOsc = this.audioContext.createOscillator();
       vibratoOsc.type = 'sine';
       vibratoOsc.frequency.value = variation.vibratoRate;
+      resources.vibratoOsc = vibratoOsc;
 
       const vibratoGain = this.audioContext.createGain();
       vibratoGain.gain.value = variation.vibratoDepth;
+      resources.vibratoGain = vibratoGain;
 
       vibratoOsc.connect(vibratoGain);
       vibratoGain.connect(oscillator.frequency);
       vibratoOsc.start();
-
-      // Schedule vibrato oscillator cleanup
-      setTimeout(() => {
-        vibratoOsc.stop();
-        vibratoOsc.disconnect();
-        vibratoGain.disconnect();
-      }, duration * 1e3 * 2);
     }
 
     // Add harmonics if specified
-    let harmonicOscillators: OscillatorNode[] = [];
     if (variation.harmonics && variation.harmonicVolume) {
       // Add two harmonic overtones
       const harmonicGain = this.audioContext.createGain();
       harmonicGain.gain.value = variation.harmonicVolume;
+      resources.harmonicGain = harmonicGain;
 
       // First harmonic at 2x frequency (one octave up)
       const firstHarmonic = this.audioContext.createOscillator();
@@ -355,15 +381,16 @@ export class AudioService implements Observer {
       secondHarmonic.frequency.value = frequency * 3;
       secondHarmonic.connect(harmonicGain);
 
-      harmonicOscillators = [firstHarmonic, secondHarmonic];
+      resources.harmonicOscs = [firstHarmonic, secondHarmonic];
       harmonicGain.connect(this.compressor);
 
       // Start both harmonics
-      harmonicOscillators.forEach(osc => osc.start());
+      resources.harmonicOscs.forEach(osc => osc.start());
     }
 
     // Create volume envelope
     const gainNode = this.audioContext.createGain();
+    resources.gainNode = gainNode;
     const valueCurve = [
       0.5 * volume,
       volume,
@@ -376,11 +403,11 @@ export class AudioService implements Observer {
     gainNode.gain.setValueCurveAtTime(valueCurve, currentTime, duration);
 
     // Set up filter if specified in the variation
-    let filterNode: BiquadFilterNode | null = null;
     if (variation.filterType && variation.filterFreq) {
-      filterNode = this.audioContext.createBiquadFilter();
+      const filterNode = this.audioContext.createBiquadFilter();
       filterNode.type = variation.filterType;
       filterNode.frequency.value = variation.filterFreq;
+      resources.filterNode = filterNode;
 
       if (variation.filterQ) {
         filterNode.Q.value = variation.filterQ;
@@ -390,6 +417,7 @@ export class AudioService implements Observer {
     // Set up stereo panning
     const stereoPannerNode = this.audioContext.createStereoPanner();
     stereoPannerNode.pan.value = panning;
+    resources.stereoPannerNode = stereoPannerNode;
 
     // Coordinate the audio slightly in front of the listener
     const pannerNode = new PannerNode(this.audioContext, {
@@ -407,14 +435,15 @@ export class AudioService implements Observer {
       coneOuterAngle: 50,
       coneOuterGain: 0.4,
     });
+    resources.pannerNode = pannerNode;
 
     // Create the audio graph based on which components are used
     oscillator.connect(gainNode);
 
-    if (filterNode) {
+    if (resources.filterNode) {
       // Connect through filter if it exists
-      gainNode.connect(filterNode);
-      filterNode.connect(stereoPannerNode);
+      gainNode.connect(resources.filterNode);
+      resources.filterNode.connect(stereoPannerNode);
     } else {
       // Connect directly if no filter
       gainNode.connect(stereoPannerNode);
@@ -426,27 +455,119 @@ export class AudioService implements Observer {
     // Start the oscillator
     oscillator.start();
 
-    // Clean up after the audio stops
-    this.timeoutId = setTimeout(
-      () => {
-        // Disconnect everything in reverse order
-        pannerNode.disconnect();
-        stereoPannerNode.disconnect();
-        if (filterNode) {
-          filterNode.disconnect();
-        }
-        gainNode.disconnect();
-        oscillator.stop();
-        oscillator.disconnect();
+    // Add this to active resources for tracking
+    this.activeResources.push(resources);
 
-        // Clean up harmonics if they exist
-        harmonicOscillators.forEach((osc) => {
-          osc.stop();
-          osc.disconnect();
-        });
-      },
+    // Clean up after the audio stops
+    const cleanupTimeout = setTimeout(
+      () => this.cleanupAudioResource(resources),
       duration * 1e3 * 2,
     );
+
+    if (resources.timeouts) {
+      resources.timeouts.push(cleanupTimeout);
+    }
+
+    // Store the timeout ID for potential early stopping
+    this.timeoutId = cleanupTimeout;
+  }
+
+  /**
+   * Cleans up a specific audio resource, stopping and disconnecting all nodes
+   * @param resource - The audio resources to clean up
+   */
+  private cleanupAudioResource(resource: AudioResources): void {
+    try {
+      // Clean up timeouts
+      if (resource.timeouts) {
+        resource.timeouts.forEach(timeout => clearTimeout(timeout));
+      }
+
+      // Disconnect all nodes in reverse order
+      if (resource.pannerNode) {
+        resource.pannerNode.disconnect();
+      }
+
+      if (resource.stereoPannerNode) {
+        resource.stereoPannerNode.disconnect();
+      }
+
+      if (resource.filterNode) {
+        resource.filterNode.disconnect();
+      }
+
+      if (resource.gainNode) {
+        resource.gainNode.disconnect();
+      }
+
+      // Stop and disconnect oscillator
+      if (resource.oscillator) {
+        try {
+          resource.oscillator.stop();
+        } catch (e) {
+          // Oscillator may already be stopped, which throws an error
+        }
+        resource.oscillator.disconnect();
+      }
+
+      // Clean up harmonics
+      if (resource.harmonicOscs && resource.harmonicOscs.length > 0) {
+        resource.harmonicOscs.forEach((osc) => {
+          try {
+            osc.stop();
+          } catch (e) {
+            // Oscillator may already be stopped
+          }
+          osc.disconnect();
+        });
+
+        if (resource.harmonicGain) {
+          resource.harmonicGain.disconnect();
+        }
+      }
+
+      // Clean up vibrato
+      if (resource.vibratoOsc) {
+        try {
+          resource.vibratoOsc.stop();
+        } catch (e) {
+          // Oscillator may already be stopped
+        }
+        resource.vibratoOsc.disconnect();
+
+        if (resource.vibratoGain) {
+          resource.vibratoGain.disconnect();
+        }
+      }
+
+      // Remove from active resources
+      const index = this.activeResources.indexOf(resource);
+      if (index !== -1) {
+        this.activeResources.splice(index, 1);
+      }
+    } catch (error) {
+      console.error('Error cleaning up audio resource:', error);
+    }
+  }
+
+  /**
+   * Cleans up all active audio resources
+   */
+  private cleanupAllAudioResources(): void {
+    // Create a copy to avoid modification during iteration
+    const resources = [...this.activeResources];
+
+    // Clean up all resources
+    resources.forEach(resource => this.cleanupAudioResource(resource));
+
+    // Clear the array
+    this.activeResources = [];
+
+    // Also clear any pending main timeout
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
   }
 
   /**
@@ -487,7 +608,7 @@ export class AudioService implements Observer {
       return;
     }
 
-    this.stop();
+    this.cleanupAllAudioResources();
 
     // Play a sequence of tones for each group
     const actualGroupCount = Math.min(groupCount, SOUND_VARIATIONS.length);
@@ -561,6 +682,9 @@ export class AudioService implements Observer {
       clearTimeout(audioId);
       this.timeoutId = null;
     }
+
+    // Also clean up all active audio resources
+    this.cleanupAllAudioResources();
   }
 
   public updateVolume(volume: number): void {
