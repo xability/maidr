@@ -5,8 +5,7 @@ import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import {
   createClickSuppressor,
-  createCrispEnvelope,
-  createEnvelope,
+  createStandardEnvelope,
   fadeIn,
   fadeOut,
 } from '../audio/audio-transitions';
@@ -98,8 +97,14 @@ interface SoundVariation {
  * Each variation creates a distinct timbre while maintaining frequency and panning consistency
  */
 const SOUND_VARIATIONS: SoundVariation[] = [
-  // First 4 variations use basic wave types without additional processing
-  { waveType: 'sine', description: 'Sine wave' },
+  // First variation uses pure sine wave with subtle refinements for pleasant sound
+  {
+    waveType: 'sine',
+    filterType: 'lowpass',
+    filterFreq: 1200,
+    filterQ: 0.7,
+    description: 'Pure sine wave',
+  },
   { waveType: 'square', description: 'Square wave' },
   { waveType: 'triangle', description: 'Triangle wave' },
   { waveType: 'sawtooth', description: 'Sawtooth wave' },
@@ -209,8 +214,6 @@ export class AudioService implements Observer {
   private attackTime: number = ATTACK_TIME;
   private releaseTime: number = RELEASE_TIME;
   private clickSuppressor: { input: AudioNode; output: AudioNode } | null = null;
-  private crispClickSuppressor: { input: AudioNode; output: AudioNode } | null = null;
-  private sineWaveSmoothing: boolean = true;
   private isAutoplayActive: boolean = false;
 
   private readonly audioContext: AudioContext;
@@ -233,18 +236,12 @@ export class AudioService implements Observer {
         this.attackTime = settings.general.audioTransitionTime / 1000;
         this.releaseTime = settings.general.audioTransitionTime / 1000;
       }
-
-      // Apply sine wave smoothing setting if available
-      if (settings.general.sineWaveSmoothing !== undefined) {
-        this.sineWaveSmoothing = settings.general.sineWaveSmoothing;
-      }
     }
 
     this.audioContext = new AudioContext();
 
-    // Create click suppressor chains for different contexts
-    this.clickSuppressor = createClickSuppressor(this.audioContext, false); // Smooth for autoplay
-    this.crispClickSuppressor = createClickSuppressor(this.audioContext, true); // Crisp for individual points
+    // Create click suppressor chain
+    this.clickSuppressor = createClickSuppressor(this.audioContext);
 
     this.compressor = this.initCompressor();
   }
@@ -257,17 +254,6 @@ export class AudioService implements Observer {
           this.clickSuppressor.output.disconnect();
           if (this.clickSuppressor.input.disconnect) {
             this.clickSuppressor.input.disconnect();
-          }
-        } catch {
-          // Ignore errors during cleanup
-        }
-      }
-
-      if (this.crispClickSuppressor) {
-        try {
-          this.crispClickSuppressor.output.disconnect();
-          if (this.crispClickSuppressor.input.disconnect) {
-            this.crispClickSuppressor.input.disconnect();
           }
         } catch {
           // Ignore errors during cleanup
@@ -292,12 +278,8 @@ export class AudioService implements Observer {
 
     compressor.connect(smoothGain);
 
-    // For now connect through the crisp suppressor (default individual point context)
-    // We'll switch this during playback depending on context
-    if (this.crispClickSuppressor) {
-      smoothGain.connect(this.crispClickSuppressor.input);
-      this.crispClickSuppressor.output.connect(this.audioContext.destination);
-    } else if (this.clickSuppressor) {
+    // Connect through click suppressor
+    if (this.clickSuppressor) {
       smoothGain.connect(this.clickSuppressor.input);
       this.clickSuppressor.output.connect(this.audioContext.destination);
     } else {
@@ -308,60 +290,12 @@ export class AudioService implements Observer {
   }
 
   /**
-   * Sets the autoplay state to configure audio processing appropriately
+   * Sets the autoplay state to configure audio transition timing appropriately
    *
    * @param isActive - Whether autoplay is active
    */
   public setAutoplayState(isActive: boolean): void {
-    if (this.isAutoplayActive !== isActive) {
-      this.isAutoplayActive = isActive;
-
-      // Reconfigure audio path based on autoplay state
-      this._reconfigureAudioPath();
-    }
-  }
-
-  /**
-   * Reconfigures the audio path between compressor and destination based on playback context
-   */
-  private _reconfigureAudioPath(): void {
-    // Disconnect current paths
-    try {
-      if (this.compressor) {
-        this.compressor.disconnect();
-      }
-
-      if (this.clickSuppressor) {
-        this.clickSuppressor.output.disconnect();
-      }
-
-      if (this.crispClickSuppressor) {
-        this.crispClickSuppressor.output.disconnect();
-      }
-    } catch {
-      // Ignore disconnection errors
-    }
-
-    // Create a new gain node to connect to the appropriate filter chain
-    const smoothGain = this.audioContext.createGain();
-    smoothGain.gain.value = 0.5;
-
-    // Connect compressor to gain
-    this.compressor.connect(smoothGain);
-
-    // Connect to the appropriate filter chain based on context
-    if (this.isAutoplayActive && this.clickSuppressor) {
-      // Smooth filter path for autoplay
-      smoothGain.connect(this.clickSuppressor.input);
-      this.clickSuppressor.output.connect(this.audioContext.destination);
-    } else if (!this.isAutoplayActive && this.crispClickSuppressor) {
-      // Crisp filter path for individual points
-      smoothGain.connect(this.crispClickSuppressor.input);
-      this.crispClickSuppressor.output.connect(this.audioContext.destination);
-    } else {
-      // Fallback direct connection
-      smoothGain.connect(this.audioContext.destination);
-    }
+    this.isAutoplayActive = isActive;
   }
 
   public update(state: PlotState): void {
@@ -385,25 +319,21 @@ export class AudioService implements Observer {
         return;
       }
 
-      // Set autoplay mode - this is definitely an autoplay sequence
+      // Set autoplay mode - this is an autoplay sequence
       this.setAutoplayState(true);
 
       // Gracefully clean up any previous audio before starting new sequence
       this.cleanupAllAudioResources();
 
-      // Set up sequential playback with better timing for autoplay
+      // Set up sequential playback
       let currentIndex = 0;
       // Determine playback rate based on audio mode
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
 
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          // For sine waves specifically, we need extra care to prevent pops
-          const isSineWave = this.getSoundVariationForGroup(audio.groupIndex).waveType === 'sine';
-
-          // Clean up previous point only if we're not using sine waves
-          // For sine waves, we let the envelope handle the transition
-          if (!isSineWave && currentIndex > 0) {
+          // For sequential playback, clean up previous resources to avoid overlapping sounds
+          if (currentIndex > 0) {
             this.cleanupAllAudioResources();
           }
 
@@ -435,17 +365,8 @@ export class AudioService implements Observer {
       // Handle single value
       const value = audio.value as number;
 
-      // Check wave type for specialized handling
-      const isSineWave = this.getSoundVariationForGroup(audio.groupIndex).waveType === 'sine';
-
-      // For individual points, use appropriate cleanup strategy based on wave type
-      if (isSineWave) {
-        // For sine waves, use a more gradual cleanup to prevent pops
-        this.cleanupAllAudioResources();
-      } else {
-        // For other wave types, standard cleanup is sufficient
-        this.cleanupAllAudioResources();
-      }
+      // Clean up previous audio resources
+      this.cleanupAllAudioResources();
 
       // Play the value
       if (value === 0) {
@@ -526,24 +447,11 @@ export class AudioService implements Observer {
       duration,
     };
 
-    // Determine if this is a sine wave that needs special handling
-    const isSineWave = variation.waveType === 'sine';
-
-    // Apply different envelope timing based on context and wave type
-    let actualAttackTime = this.attackTime;
-    let actualReleaseTime = this.releaseTime;
-
-    if (this.isAutoplayActive) {
-      // For autoplay, use longer transitions for sine waves when smoothing is enabled
-      if (isSineWave && this.sineWaveSmoothing) {
-        actualAttackTime = Math.max(this.attackTime * 1.5, 0.025); // At least 25ms for sine waves
-        actualReleaseTime = Math.max(this.releaseTime * 1.5, 0.025); // At least 25ms for sine waves
-      }
-    } else {
-      // For individual points, use shorter transitions for crisp sound
-      actualAttackTime = Math.min(0.005, this.attackTime * 0.33);
-      actualReleaseTime = Math.min(0.005, this.releaseTime * 0.33);
-    }
+    // Determine transition times based on playback context
+    // Use longer transitions for autoplay to ensure smooth transitions
+    const transitionTime = this.isAutoplayActive
+      ? Math.max(this.attackTime, 0.02) // Minimum 20ms for autoplay
+      : Math.max(this.attackTime * 0.5, 0.01); // Shorter for individual points
 
     // Create and configure the main oscillator
     const oscillator = this.audioContext.createOscillator();
@@ -551,9 +459,8 @@ export class AudioService implements Observer {
     oscillator.frequency.value = frequency;
     resources.oscillator = oscillator;
 
-    // Pre-calculate the optimal onset time to start oscillator before the sound is heard
-    // This avoids phase discontinuities at the start
-    const preStartTime = this.isAutoplayActive && isSineWave && this.sineWaveSmoothing ? 0.01 : 0.002;
+    // Small pre-start time to avoid phase issues at start
+    const preStartTime = 0.005;
     const actualStartTime = Math.max(0, currentTime - preStartTime);
 
     // Set up vibrato if specified in the variation
@@ -565,7 +472,7 @@ export class AudioService implements Observer {
 
       const vibratoGain = this.audioContext.createGain();
       vibratoGain.gain.value = 0; // Start at zero to avoid immediate vibrato
-      fadeIn(vibratoGain.gain, 0, variation.vibratoDepth, currentTime, actualAttackTime);
+      fadeIn(vibratoGain.gain, 0, variation.vibratoDepth, currentTime, transitionTime);
       resources.vibratoGain = vibratoGain;
 
       vibratoOsc.connect(vibratoGain);
@@ -575,10 +482,10 @@ export class AudioService implements Observer {
 
     // Add harmonics if specified
     if (variation.harmonics && variation.harmonicVolume) {
-      // Add two harmonic overtones
+      // Add harmonic overtones for richer sound
       const harmonicGain = this.audioContext.createGain();
       harmonicGain.gain.value = 0; // Start silent
-      fadeIn(harmonicGain.gain, 0, variation.harmonicVolume, currentTime, this.attackTime);
+      fadeIn(harmonicGain.gain, 0, variation.harmonicVolume, currentTime, transitionTime);
       resources.harmonicGain = harmonicGain;
 
       // First harmonic at 2x frequency (one octave up)
@@ -596,37 +503,24 @@ export class AudioService implements Observer {
       resources.harmonicOscs = [firstHarmonic, secondHarmonic];
       harmonicGain.connect(this.compressor);
 
-      // Start both harmonics slightly early for smoother onset
+      // Start harmonics
       resources.harmonicOscs.forEach(osc => osc.start(actualStartTime));
     }
 
-    // Create volume envelope based on playback context
+    // Create volume envelope using consistent approach
     const gainNode = this.audioContext.createGain();
     gainNode.gain.value = 0; // Start silent to prevent initial pop
     resources.gainNode = gainNode;
 
-    // Apply appropriate envelope based on playback context
-    if (this.isAutoplayActive) {
-      // Use smooth envelope for autoplay
-      createEnvelope(
-        gainNode,
-        currentTime,
-        duration,
-        actualAttackTime,
-        actualReleaseTime,
-        volume, // Pass the volume as the sustain level
-      );
-    } else {
-      // Use crisp envelope for individual points
-      createCrispEnvelope(
-        gainNode,
-        currentTime,
-        duration,
-        actualAttackTime,
-        actualReleaseTime,
-        volume,
-      );
-    }
+    // Apply standard envelope with appropriate transition timing
+    createStandardEnvelope(
+      gainNode,
+      currentTime,
+      duration,
+      transitionTime,
+      transitionTime,
+      volume, // Pass the volume as the sustain level
+    );
 
     // Set up filter if specified in the variation
     if (variation.filterType && variation.filterFreq) {
@@ -639,24 +533,24 @@ export class AudioService implements Observer {
         filterNode.Q.value = variation.filterQ;
       }
 
-      // Apply gentle filter parameter ramping to avoid clicks from sudden filter changes
+      // Apply gentle filter parameter ramping to avoid clicks
       if (filterNode.frequency.value > 50) {
         filterNode.frequency.setValueAtTime(50, currentTime);
         filterNode.frequency.exponentialRampToValueAtTime(
           variation.filterFreq,
-          currentTime + Math.min(this.attackTime, 0.01),
+          currentTime + transitionTime,
         );
       }
     }
 
-    // Set up stereo panning with smoother transitions
+    // Set up stereo panning with gentle transitions
     const stereoPannerNode = this.audioContext.createStereoPanner();
     // Start centered and move to target position
     stereoPannerNode.pan.setValueAtTime(0, currentTime);
-    stereoPannerNode.pan.linearRampToValueAtTime(panning, currentTime + this.attackTime);
+    stereoPannerNode.pan.linearRampToValueAtTime(panning, currentTime + transitionTime);
     resources.stereoPannerNode = stereoPannerNode;
 
-    // Coordinate the audio slightly in front of the listener
+    // Configure spatial positioning
     const pannerNode = new PannerNode(this.audioContext, {
       distanceModel: 'linear',
       positionX: 0.0,
@@ -689,7 +583,7 @@ export class AudioService implements Observer {
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
 
-    // Start the oscillator slightly early for cleaner waveform onset
+    // Start the oscillator
     oscillator.start(actualStartTime);
 
     // Add this to active resources for tracking
@@ -721,13 +615,13 @@ export class AudioService implements Observer {
       }
 
       // Apply a quick fade out to any still-playing oscillator before disconnecting
-      // to avoid pops when cleaning up during autoplay
       if (resource.gainNode) {
         const currentTime = this.audioContext.currentTime;
 
-        // Use a faster but still smooth release time for cleanup
-        // Ensure minimum of 10ms for very fast cleanup needed during autoplay
-        const quickReleaseTime = Math.max(Math.min(this.releaseTime * 0.5, 0.02), 0.01);
+        // Use appropriate release time for cleanup
+        const releaseTime = this.isAutoplayActive
+          ? Math.max(0.01, this.releaseTime * 0.5) // Faster for autoplay transitions
+          : Math.max(0.005, this.releaseTime * 0.3); // Even faster for individual points
 
         // Cancel any scheduled parameter changes first
         try {
@@ -736,12 +630,11 @@ export class AudioService implements Observer {
           // Ignore errors if nothing was scheduled
         }
 
-        // Apply exponential fadeout for smoother transition
-        fadeOut(resource.gainNode.gain, resource.gainNode.gain.value, 0.001, currentTime, quickReleaseTime);
+        // Apply quick fadeout
+        fadeOut(resource.gainNode.gain, resource.gainNode.gain.value, 0.001, currentTime, releaseTime);
 
         // Short delay before disconnecting to allow fade out to complete
-        // Add a bit of extra buffer time to ensure the fade completes
-        const delayMs = Math.ceil(quickReleaseTime * 1000) + 10;
+        const delayMs = Math.ceil(releaseTime * 1000) + 5;
         setTimeout(() => {
           try {
             this.finalizeCleanup(resource);
@@ -1001,8 +894,5 @@ export class AudioService implements Observer {
 
     // Update transition times
     this.updateTransitionTime(settings.audioTransitionTime);
-
-    // Update sine wave smoothing
-    this.sineWaveSmoothing = settings.sineWaveSmoothing;
   }
 }

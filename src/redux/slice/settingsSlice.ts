@@ -13,7 +13,6 @@ interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   audioTransitionTime: number;
-  sineWaveSmoothing: boolean; // Enable by default for better audio experience
   ariaMode: 'assertive' | 'polite';
 }
 
@@ -29,7 +28,6 @@ const defaultGeneralSettings: GeneralSettings = {
   maxFrequency: 1000,
   autoplayDuration: 1000,
   audioTransitionTime: 15,
-  sineWaveSmoothing: true, // Enable by default for better audio experience
   ariaMode: 'assertive',
 };
 

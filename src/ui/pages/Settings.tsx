@@ -281,24 +281,6 @@ const Settings: React.FC = () => {
             />
           </Grid2>
 
-          {/* Sine Wave Extra Smoothing Option */}
-          <Grid2 size={12}>
-            <SettingRow
-              label="Sine Wave Extra Smoothing"
-              input={(
-                <FormControlLabel
-                  control={(
-                    <Switch
-                      checked={generalSettings.sineWaveSmoothing || false}
-                      onChange={e => handleGeneralChange('sineWaveSmoothing', e.target.checked)}
-                    />
-                  )}
-                  label="Apply additional smoothing for sine waves"
-                />
-              )}
-            />
-          </Grid2>
-
           {/* Aria Mode Radio */}
           <Grid2 size={12}>
             <SettingRow

@@ -25,7 +25,6 @@ export class SettingsService {
         autoplayDuration: 4000,
         audioTransitionTime: 15,
         ariaMode: 'assertive',
-        sineWaveSmoothing: false,
       },
       llm: {
         expertiseLevel: 'basic',

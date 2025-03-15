@@ -76,8 +76,7 @@ export function fadeOut(
 }
 
 /**
- * Creates a crisp envelope for individual data points with minimal smoothing
- * to preserve the clarity and character of the original waveform
+ * Creates a standard envelope for oscillator sound with natural attack and release curves
  *
  * @param gainNode - The gain node to apply the envelope to
  * @param startTime - When to start the envelope (in seconds)
@@ -86,47 +85,7 @@ export function fadeOut(
  * @param releaseTime - How long the release phase should last (in seconds)
  * @param sustainLevel - The level to maintain during the sustain phase (default 1)
  */
-export function createCrispEnvelope(
-  gainNode: GainNode,
-  startTime: number,
-  duration: number,
-  attackTime: number = 0.005, // Shorter attack time for crisp onset
-  releaseTime: number = 0.005, // Shorter release time for crisp ending
-  sustainLevel: number = 1,
-): void {
-  // Ensure the envelope fits within the duration
-  const maxAttackRelease = duration * 0.3; // Less time spent on attack/release
-  const actualAttack = Math.min(attackTime, maxAttackRelease / 2);
-  const actualRelease = Math.min(releaseTime, maxAttackRelease / 2);
-
-  // Calculate the sustain start and end times
-  const sustainStart = startTime + actualAttack;
-  const sustainEnd = startTime + duration - actualRelease;
-
-  // Quick ramp up with minimal smoothing
-  gainNode.gain.setValueAtTime(0, startTime);
-  gainNode.gain.linearRampToValueAtTime(sustainLevel, sustainStart);
-
-  // Strong sustain for clarity
-  gainNode.gain.setValueAtTime(sustainLevel, sustainStart);
-  gainNode.gain.setValueAtTime(sustainLevel, sustainEnd);
-
-  // Quick ramp down
-  gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-}
-
-/**
- * Creates an advanced envelope for an oscillator to prevent clicks and pops
- * with smoother attack and release curves
- *
- * @param gainNode - The gain node to apply the envelope to
- * @param startTime - When to start the envelope (in seconds)
- * @param duration - Total duration of the sound (in seconds)
- * @param attackTime - How long the attack phase should last (in seconds)
- * @param releaseTime - How long the release phase should last (in seconds)
- * @param sustainLevel - The level to maintain during the sustain phase (default 1)
- */
-export function createEnvelope(
+export function createStandardEnvelope(
   gainNode: GainNode,
   startTime: number,
   duration: number,
@@ -135,7 +94,7 @@ export function createEnvelope(
   sustainLevel: number = 1,
 ): void {
   // Ensure the envelope fits within the duration
-  const maxAttackRelease = duration * 0.9;
+  const maxAttackRelease = duration * 0.8;
   const actualAttack = Math.min(attackTime, maxAttackRelease / 2);
   const actualRelease = Math.min(releaseTime, maxAttackRelease / 2);
 
@@ -183,35 +142,17 @@ export function createDCFilter(audioContext: AudioContext): BiquadFilterNode {
  * Creates a click suppression filter chain
  *
  * @param audioContext - The Web Audio API context
- * @param preserveHighs - Whether to preserve high frequencies (for individual points)
  * @returns An object containing the input and output nodes of the filter chain
  */
 export function createClickSuppressor(
   audioContext: AudioContext,
-  preserveHighs: boolean = false,
 ): { input: AudioNode; output: AudioNode } {
   // Create a DC offset filter to block ultra-low frequencies
   const dcFilter = createDCFilter(audioContext);
 
-  // For individual data points, we want minimal filtering to preserve clarity
-  if (preserveHighs) {
-    return {
-      input: dcFilter,
-      output: dcFilter,
-    };
-  }
-
-  // For autoplay, add additional filtering to smooth transitions
-  const smoothingFilter = audioContext.createBiquadFilter();
-  smoothingFilter.type = 'lowpass';
-  smoothingFilter.frequency.value = 18000; // Just below human hearing range
-  smoothingFilter.Q.value = 0.5;
-
-  // Connect filters in series
-  dcFilter.connect(smoothingFilter);
-
+  // For consistent quality, use minimal filtering
   return {
     input: dcFilter,
-    output: smoothingFilter,
+    output: dcFilter,
   };
 }
