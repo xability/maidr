@@ -97,7 +97,7 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
+  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number | boolean): void => {
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
@@ -256,6 +256,26 @@ const Settings: React.FC = () => {
                   size="small"
                   value={generalSettings.autoplayDuration}
                   onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
+                />
+              )}
+            />
+          </Grid2>
+
+          {/* Audio Transition Time */}
+          <Grid2 size={12}>
+            <SettingRow
+              label="Audio Transition Time (ms)"
+              input={(
+                <TextField
+                  fullWidth
+                  type="number"
+                  size="small"
+                  value={generalSettings.audioTransitionTime || 15}
+                  onChange={e => handleGeneralChange('audioTransitionTime', Number(e.target.value))}
+                  InputProps={{
+                    inputProps: { min: 5, max: 100 },
+                  }}
+                  helperText="Higher values give smoother sound transitions (5-100ms)"
                 />
               )}
             />

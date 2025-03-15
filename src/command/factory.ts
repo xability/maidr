@@ -8,6 +8,7 @@ import type { Keys } from '@type/keys';
 import type { Plot } from '@type/plot';
 import type { Command, CommandContext } from './command';
 import { Scope } from '@type/keys';
+import { PlayAudioLegendCommand } from './audio-legend';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -145,6 +146,9 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplay);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplay);
+
+      case 'PLAY_AUDIO_LEGEND':
+        return new PlayAudioLegendCommand(this.audio, this.plot); // New command for audio legend
 
       default:
         throw new Error(`Invalid command name: ${command}`);

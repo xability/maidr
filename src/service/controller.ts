@@ -13,6 +13,10 @@ import { NotificationService } from './notification';
 import { ReviewService } from './review';
 import { TextService } from './text';
 
+/**
+ * Service that coordinates all other services
+ * Acts as the main controller for the application
+ */
 export class ControllerService {
   private readonly plot: Plot;
 
@@ -30,6 +34,12 @@ export class ControllerService {
   public readonly chat: ChatService;
   private readonly keybinding: KeybindingService;
 
+  /**
+   * Creates a new controller service
+   *
+   * @param display - The display service
+   * @param maidr - The Maidr configuration
+   */
   public constructor(display: DisplayService, maidr: Maidr) {
     this.plot = PlotFactory.create(maidr);
 
@@ -37,7 +47,7 @@ export class ControllerService {
     this.notification = new NotificationService(this.display);
     this.settings = new SettingsService(this.display);
 
-    this.audio = new AudioService(this.notification, this.plot.hasMultiPoints);
+    this.audio = new AudioService(this.notification, this.plot.hasMultiPoints, this.settings);
     this.braille = new BrailleService(
       this.notification,
       this.display,
@@ -46,10 +56,12 @@ export class ControllerService {
     this.text = new TextService(this.notification, this.display.textDiv);
     this.review = new ReviewService(this.notification, this.display, this.text);
 
+    // Pass audio service to autoplay service
     this.autoplay = new AutoplayService(
       this.notification,
       this.text,
       this.plot,
+      this.audio,
     );
     this.help = new HelpService(this.display);
     this.chat = new ChatService(this.display, maidr);
@@ -70,6 +82,9 @@ export class ControllerService {
     this.plot.addObserver(this.text);
   }
 
+  /**
+   * Destroys all services and cleans up resources
+   */
   public destroy(): void {
     this.plot.removeObserver(this.text);
     this.plot.removeObserver(this.braille);

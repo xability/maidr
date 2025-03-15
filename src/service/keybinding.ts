@@ -40,6 +40,7 @@ enum DefaultKey {
   TOGGLE_TEXT = 't',
   TOGGLE_AUDIO = 's',
   TOGGLE_REVIEW = 'r',
+  PLAY_AUDIO_LEGEND = 'a', // New keyboard shortcut for audio legend
 
   // Misc
   TOGGLE_SCATTER_NAVIGATION = 'n',

@@ -30,6 +30,7 @@ export class LinePlot extends AbstractPlot<number> {
       size: this.points[this.row].length,
       index: this.col,
       value: this.points[this.row][this.col].y,
+      groupIndex: this.row, // Include the row/group index for audio differentiation
     };
   }
 

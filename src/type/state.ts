@@ -21,6 +21,7 @@ export interface AudioState {
   size: number;
   value: number | number[];
   index: number;
+  groupIndex?: number; // Added to identify which data group/series a point belongs to
 }
 
 export type BrailleState =
