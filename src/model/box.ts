@@ -26,6 +26,15 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   private plotBounds: BoxBound[] = [];
   private readonly chartOffsetLeft: number;
   private readonly chartOffsetTop: number;
+  private readonly boxPointKeys = [
+    'lowerOutliers',
+    'min',
+    'q1',
+    'q2',
+    'q3',
+    'max',
+    'upperOutliers',
+  ];
 
   constructor(maidr: Maidr) {
     super(maidr);
@@ -58,6 +67,13 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       ?.getBoundingClientRect();
     this.chartOffsetLeft = chartBounds?.left ?? 0;
     this.chartOffsetTop = chartBounds?.top ?? 0;
+
+    this.plotBounds = this.GetPlotBounds(maidr.selector);
+  }
+
+  public notifyStateUpdate(): void {
+    super.notifyStateUpdate();
+    this.UpdateRectDisplay();
   }
 
   protected audio(): AudioState {
@@ -111,9 +127,11 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
    * Calculates the bounding boxes for all elements in the parent element, including outliers, whiskers, and range.
    * @returns An array of bounding boxes for all elements.
    */
-  GetPlotBounds(): BoxBound[] {
-    const chart = document.getElementById(this.id) as HTMLElement;
-    const plots = Array.from(chart.children);
+  GetPlotBounds(selector: string | undefined): BoxBound[] {
+    const elements = document.querySelectorAll(selector ?? '*');
+    const plots = Array.from(
+      [...elements].flatMap(element => Array.from(element.children)),
+    );
     const plotBounds: BoxBound[] = [];
 
     // get the initial set of elements: a parent element for all outliers, whiskers, and range segments
@@ -154,7 +172,7 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       if (plotSet.outlier) {
         const outlierBounds: BoxBound = this.GetOutlierBounds(
           plotSet.outlier,
-          rangeBounds,
+          plotBound.q2,
         );
         plotBound.lowerOutliers = outlierBounds.lowerOutliers;
         plotBound.upperOutliers = outlierBounds.upperOutliers;
@@ -284,19 +302,33 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       = plotBound.q3.right
         = rangeBounds.right;
 
+    plotBound.q1.type = 'q1';
+    plotBound.q2.type = 'q2';
+    plotBound.q3.type = 'q3';
+
     if (this.orientation === Orientation.VERTICAL) {
       plotBound.q1.height = midPointsize;
       plotBound.q1.top = plotBound.q1.bottom - midPointsize;
+      plotBound.q1.width = rangeBounds.width;
+
       plotBound.q2.height = 0;
       plotBound.q2.top = rangeBounds.bottom - midPointsize;
+      plotBound.q2.width = rangeBounds.width;
+
       plotBound.q3.height = rangeBounds.height - midPointsize;
       plotBound.q3.bottom = plotBound.q2.top;
+      plotBound.q3.width = rangeBounds.width;
     } else {
       plotBound.q1.width = midPointsize;
+      plotBound.q1.height = rangeBounds.height;
+
       plotBound.q2.width = 0;
       plotBound.q2.left = rangeBounds.left + midPointsize;
+      plotBound.q2.height = rangeBounds.height;
+
       plotBound.q3.width = rangeBounds.width - midPointsize;
       plotBound.q3.left = plotBound.q2.left;
+      plotBound.q3.height = rangeBounds.height;
     }
 
     return plotBound;
@@ -310,49 +342,56 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
     whisker: Element,
     rangeBounds: DOMRect,
   ): BoxBound {
-    const wBound: BoxBound = this.createBoxBound();
-    const wRect = whisker.getBoundingClientRect();
-    const hasBelow
-      = this.orientation === Orientation.VERTICAL
-        ? wRect.bottom > rangeBounds.bottom
-        : wRect.left < rangeBounds.left;
-    const hasAbove
-      = this.orientation === Orientation.VERTICAL
-        ? wRect.top < rangeBounds.top
-        : wRect.right > rangeBounds.right;
+    const wBound: BoxBound = this.createBoxBound(); // return value
+    let wRectMin: DOMRect | undefined;
+    let wRecMax: DOMRect | undefined;
 
-    // init
-    wBound.min.bottom = wBound.max.bottom = wRect.bottom;
-    wBound.min.top = wBound.max.top = wRect.top;
-    wBound.min.left = wBound.max.left = wRect.left;
-    wBound.min.right = wBound.max.right = wRect.right;
-
-    if (hasBelow) {
-      wBound.min.type = 'whisker';
+    // get children of whisker, which are the actual whisker lines, get the rect
+    const wChildren = Array.from(whisker.children);
+    if (wChildren.length === 0) {
+      return wBound;
+    } else if (wChildren.length === 1) {
+      // which one is it?
       if (this.orientation === Orientation.VERTICAL) {
-        wBound.min.top = plotBound.q1.bottom;
-        wBound.min.y = wBound.min.top;
-        wBound.min.height = wBound.min.bottom - wBound.min.top;
+        if (wChildren[0].getBoundingClientRect().bottom > rangeBounds.bottom) {
+          wRectMin = wChildren[0].getBoundingClientRect();
+        } else {
+          wRecMax = wChildren[0].getBoundingClientRect();
+        }
       } else {
-        plotBound.min.width = plotBound.q1.left - plotBound.min.left;
+        if (wChildren[0].getBoundingClientRect().left < rangeBounds.left) {
+          wRectMin = wChildren[0].getBoundingClientRect();
+        } else {
+          wRecMax = wChildren[0].getBoundingClientRect();
+        }
       }
     } else {
-      plotBound.min.type = 'blank';
+      // we have both
+      wRecMax = wChildren[0].getBoundingClientRect();
+      wRectMin = wChildren[1].getBoundingClientRect();
     }
 
-    if (hasAbove) {
-      plotBound.max.type = 'whisker';
+    // assign rect values to the return whisker object
+    // min
+    if (wRectMin) {
+      wBound.min.bottom = wRectMin.bottom;
+      wBound.min.top = wRectMin.top;
+      wBound.min.left = wRectMin.left;
+      wBound.min.right = wRectMin.right;
+      wBound.min.height = wRectMin.height;
+      wBound.min.width = wRectMin.width;
+      wBound.min.type = 'min';
+    }
 
-      if (this.orientation === Orientation.VERTICAL) {
-        wBound.max.bottom = plotBound.q3.top;
-        wBound.max.height = wBound.max.bottom - wBound.max.top;
-      } else {
-        wBound.max.left = plotBound.q3.right;
-        wBound.max.x = plotBound.q3.right;
-        wBound.max.width = wBound.max.right - wBound.max.left;
-      }
-    } else {
-      wBound.max.type = 'blank';
+    // max
+    if (wRecMax) {
+      wBound.max.bottom = wRecMax.bottom;
+      wBound.max.top = wRecMax.top;
+      wBound.max.left = wRecMax.left;
+      wBound.max.right = wRecMax.right;
+      wBound.max.height = wRecMax.height;
+      wBound.max.width = wRecMax.width;
+      wBound.max.type = 'max';
     }
 
     return wBound;
@@ -361,50 +400,71 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   /**
    * Sets the bounding box values for outliers if they exist.
    */
-  private GetOutlierBounds(outlier: Element, rangeBounds: DOMRect): BoxBound {
+  private GetOutlierBounds(outlier: Element, q2: BoxBoundPoint): BoxBound {
     const outlierElems = Array.from(outlier.children);
+    const returnBound: BoxBound = this.createBoxBound();
     let lowerOutliers: BoxBoundPoint = this.createBoxBoundPoint();
     let upperOutliers: BoxBoundPoint = this.createBoxBoundPoint();
 
-    let outlierBound: BoxBoundPoint = this.createBoxBoundPoint();
-    outlierElems.forEach((elem, index) => {
+    outlierElems.forEach((elem) => {
       const outlierRect = elem.getBoundingClientRect();
-      if (index === 0) {
-        // if first time, set the bounds
-        outlierBound.y = outlierRect.y;
-        outlierBound.x = outlierRect.x;
-        outlierBound.bottom = outlierRect.bottom;
-        outlierBound.top = outlierRect.top;
-        outlierBound.left = outlierRect.left;
-        outlierBound.right = outlierRect.right;
-        outlierBound.height = outlierRect.height;
-        outlierBound.width = outlierRect.width;
-      } else {
-        // other times, expand the bounds
-        outlierBound = this.ExpandOutlierBounds(outlierBound, outlierRect);
-      }
 
-      // set the type
+      // is this an upper or lower outlier?
+      let outlierType: string = '';
       if (this.orientation === Orientation.VERTICAL) {
-        if (outlierRect.left > rangeBounds.left) {
-          lowerOutliers = outlierBound;
+        if (outlierRect.top > q2.top) {
+          outlierType = 'lowerOutliers';
         } else {
-          upperOutliers = outlierBound;
+          outlierType = 'upperOutliers';
         }
       } else {
-        if (outlierRect.bottom > rangeBounds.bottom) {
-          lowerOutliers = outlierBound;
+        if (outlierRect.left < q2.left) {
+          outlierType = 'lowerOutliers';
         } else {
-          upperOutliers = outlierBound;
+          outlierType = 'upperOutliers';
+        }
+      }
+
+      // set the bounds
+      if (outlierType === 'lowerOutliers') {
+        if (lowerOutliers.type === '') {
+          // if first time, set the bounds
+          lowerOutliers.y = outlierRect.y;
+          lowerOutliers.x = outlierRect.x;
+          lowerOutliers.bottom = outlierRect.bottom;
+          lowerOutliers.top = outlierRect.top;
+          lowerOutliers.left = outlierRect.left;
+          lowerOutliers.right = outlierRect.right;
+          lowerOutliers.height = outlierRect.height;
+          lowerOutliers.width = outlierRect.width;
+          lowerOutliers.type = 'lowerOutliers';
+        } else {
+          // other times, expand the bounds
+          lowerOutliers = this.ExpandOutlierBounds(lowerOutliers, outlierRect);
+        }
+      } else {
+        if (upperOutliers.type === '') {
+          // if first time, set the bounds
+          upperOutliers.y = outlierRect.y;
+          upperOutliers.x = outlierRect.x;
+          upperOutliers.bottom = outlierRect.bottom;
+          upperOutliers.top = outlierRect.top;
+          upperOutliers.left = outlierRect.left;
+          upperOutliers.right = outlierRect.right;
+          upperOutliers.height = outlierRect.height;
+          upperOutliers.width = outlierRect.width;
+          upperOutliers.type = 'upperOutliers';
+        } else {
+          // other times, expand the bounds
+          upperOutliers = this.ExpandOutlierBounds(upperOutliers, outlierRect);
         }
       }
     });
 
-    const plotBound: BoxBound = this.createBoxBound();
-    plotBound.lowerOutliers = lowerOutliers;
-    plotBound.upperOutliers = upperOutliers;
+    returnBound.lowerOutliers = lowerOutliers;
+    returnBound.upperOutliers = upperOutliers;
 
-    return plotBound;
+    return returnBound;
   }
 
   private ExpandOutlierBounds(
@@ -424,38 +484,45 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   /**
    * Creates a visual outline using the given bounding points.
    */
-  private CreateRectDisplay(): void {
+  private UpdateRectDisplay(): void {
+    document.getElementById(Constant.HIGHLIGHT_RECT_ID)?.remove();
+
     let plotIndex: number;
     let secIndex: number;
     if (this.orientation === Orientation.VERTICAL) {
-      plotIndex = this.row;
-      secIndex = this.col;
-    } else {
       plotIndex = this.col;
       secIndex = this.row;
+    } else {
+      plotIndex = this.row;
+      secIndex = this.col;
     }
-    const key = this.sections[secIndex].toLowerCase() as keyof BoxBound;
-    const currentBound: BoxBoundPoint = this.plotBounds[plotIndex][key];
-    const x: number
-      = currentBound.left - Constant.RECT_PADDING - this.chartOffsetLeft;
-    const width: number = currentBound.width + Constant.RECT_PADDING * 2;
-    const y: number
-      = currentBound.top - Constant.RECT_PADDING - this.chartOffsetTop;
-    const height: number = currentBound.height + Constant.RECT_PADDING * 2;
 
-    const svgns = 'http://www.w3.org/2000/svg';
-    const rect = document.createElementNS(svgns, 'rect');
+    if (this.plotBounds) {
+      const key = this.boxPointKeys[secIndex] as keyof BoxBound;
+      const currentBound: BoxBoundPoint = this.plotBounds[plotIndex][key];
 
-    rect.setAttribute('id', 'highlight_rect');
-    rect.setAttribute('x', String(x));
-    rect.setAttribute('y', String(y));
-    rect.setAttribute('width', String(width));
-    rect.setAttribute('height', String(height));
-    rect.setAttribute('stroke', Constant.DEFAULT_HIGHLIGHT_COLOR);
-    rect.setAttribute('stroke-width', String(Constant.RECT_STROKE_WIDTH));
-    rect.setAttribute('fill', 'none');
+      if (currentBound.type !== '' && currentBound.type !== 'blank') {
+        const x: number
+          = currentBound.left - Constant.RECT_PADDING - this.chartOffsetLeft;
+        const width: number = currentBound.width + Constant.RECT_PADDING * 2;
+        const y: number
+          = currentBound.top - Constant.RECT_PADDING - this.chartOffsetTop;
+        const height: number = currentBound.height + Constant.RECT_PADDING * 2;
 
-    document.getElementById(Constant.HIGHLIGHT_RECT_ID)?.remove();
-    document.getElementById(Constant.HIGHLIGHT_RECT_ID)?.appendChild(rect);
+        const svgns = 'http://www.w3.org/2000/svg';
+        const rect = document.createElementNS(svgns, 'rect');
+
+        rect.setAttribute('id', Constant.HIGHLIGHT_RECT_ID);
+        rect.setAttribute('x', String(x));
+        rect.setAttribute('y', String(y));
+        rect.setAttribute('width', String(width));
+        rect.setAttribute('height', String(height));
+        rect.setAttribute('stroke', Constant.DEFAULT_HIGHLIGHT_COLOR);
+        rect.setAttribute('stroke-width', String(Constant.RECT_STROKE_WIDTH));
+        rect.setAttribute('fill', 'none');
+
+        document.getElementById(this.id)?.appendChild(rect);
+      }
+    }
   }
 }
