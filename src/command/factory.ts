@@ -42,13 +42,13 @@ import {
   MoveUpCommand,
 } from './move';
 import {
-  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScatterNavigationCommand,
+  ToggleScopeCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
@@ -139,10 +139,10 @@ export class CommandFactory {
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
-        return new SwitchScopeCommand(this.context, Scope.FIGURE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
-        return new SwitchScopeCommand(this.context, Scope.TRACE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
 
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.context, this.autoplay);

@@ -105,7 +105,7 @@ export class ToggleSettingsCommand implements Command {
   }
 }
 
-export class SwitchScopeCommand implements Command {
+export class ToggleScopeCommand implements Command {
   private readonly context: ContextService;
   private readonly scope: Scope;
 
