@@ -4,185 +4,186 @@ import type { Keys } from '@type/event';
 import { CommandFactory } from '@command/factory';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
+import { Platform } from '@util/platform';
 import hotkeys from 'hotkeys-js';
 
-enum BrailleKey {
-  ACTIVATE_TRACE_LABEL_SCOPE = 'l',
+const BRAILLE_KEYMAP = {
+  ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
   // Autoplay
-  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
-  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
-  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
-  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  AUTOPLAY_UPWARD: `${Platform.modifierKey}+shift+up`,
+  AUTOPLAY_DOWNWARD: `${Platform.modifierKey}+shift+down`,
+  AUTOPLAY_FORWARD: `${Platform.modifierKey}+shift+right`,
+  AUTOPLAY_BACKWARD: `${Platform.modifierKey}+shift+left`,
 
-  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
-  SPEED_UP_AUTOPLAY = '.',
-  SPEED_DOWN_AUTOPLAY = ',',
-  RESET_AUTOPLAY_SPEED = '/',
-
-  // Navigation
-  MOVE_UP = 'up',
-  MOVE_DOWN = 'down',
-  MOVE_RIGHT = 'right',
-  MOVE_LEFT = 'left',
-
-  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
-  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
-  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
-  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
-
-  MOVE_TO_NEXT_TRACE = 'fn+up, pageup',
-  MOVE_TO_PREV_TRACE = 'fn+down, pagedown',
-
-  // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_TEXT = 't',
-  TOGGLE_AUDIO = 's',
-  TOGGLE_REVIEW = 'r',
-
-  // Misc
-  TOGGLE_SCATTER_NAVIGATION = 'n',
-  TOGGLE_HELP = 'command+/, ctrl+/',
-  TOGGLE_CHAT = 'shift+/',
-  TOGGLE_SETTINGS = 'command+., ctrl+.',
-
-  // Description
-  DESCRIBE_POINT = 'space',
-}
-
-enum ChatKey {
-  // Misc
-  TOGGLE_CHAT = 'esc',
-}
-
-enum FigureLabelKey {
-  DEACTIVATE_FIGURE_LABEL_SCOPE = '*',
-
-  // Description
-  DESCRIBE_TITLE = 't',
-  DESCRIBE_SUBTITLE = 's',
-  DESCRIBE_CAPTION = 'c',
-
-  // Misc
-  TOGGLE_HELP = 'command+/, ctrl+/',
-}
-
-enum HelpKey {
-  // Misc
-  TOGGLE_HELP = 'esc',
-}
-
-enum SubplotKey {
-  ACTIVATE_FIGURE_LABEL_SCOPE = 'l',
-
-  // Description
-  DESCRIBE_TITLE = 't',
-  DESCRIBE_POINT = 'space',
+  STOP_AUTOPLAY: `${Platform.modifierKey}, up, down, left, right`,
+  SPEED_UP_AUTOPLAY: `.`,
+  SPEED_DOWN_AUTOPLAY: `,`,
+  RESET_AUTOPLAY_SPEED: `/`,
 
   // Navigation
-  MOVE_UP = 'up',
-  MOVE_DOWN = 'down',
-  MOVE_RIGHT = 'right',
-  MOVE_LEFT = 'left',
+  MOVE_UP: `up`,
+  MOVE_DOWN: `down`,
+  MOVE_RIGHT: `right`,
+  MOVE_LEFT: `left`,
 
-  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
-  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
-  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
-  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
 
-  MOVE_TO_TRACE_CONTEXT = 'return, enter',
+  MOVE_TO_NEXT_TRACE: `fn+up, pageup`,
+  MOVE_TO_PREV_TRACE: `fn+down, pagedown`,
+
+  // Modes
+  TOGGLE_BRAILLE: `b`,
+  TOGGLE_TEXT: `t`,
+  TOGGLE_AUDIO: `s`,
+  TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_HELP = 'command+/, ctrl+/',
-  TOGGLE_CHAT = 'shift+/',
-  TOGGLE_SETTINGS = 'command+., ctrl+.',
-}
-
-enum TraceLabelKey {
-  DEACTIVATE_TRACE_LABEL_SCOPE = '*',
+  TOGGLE_SCATTER_NAVIGATION: `n`,
+  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_CHAT: `shift+/`,
+  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
 
   // Description
-  DESCRIBE_X = 'x',
-  DESCRIBE_Y = 'y',
-  DESCRIBE_FILL = 'f',
-  DESCRIBE_TITLE = 't',
-  DESCRIBE_SUBTITLE = 's',
-  DESCRIBE_CAPTION = 'c',
+  DESCRIBE_POINT: `space`,
+} as const;
+
+const CHAT_KEYMAP = {
+  // Misc
+  TOGGLE_CHAT: `esc`,
+} as const;
+
+const FIGURE_LABEL_KEYMAP = {
+  DEACTIVATE_FIGURE_LABEL_SCOPE: `*`,
+
+  // Description
+  DESCRIBE_TITLE: `t`,
+  DESCRIBE_SUBTITLE: `s`,
+  DESCRIBE_CAPTION: `c`,
 
   // Misc
-  TOGGLE_HELP = 'command+/, ctrl+/',
-}
+  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+} as const;
 
-enum ReviewKey {
+const HELP_KEYMAP = {
+  // Misc
+  TOGGLE_HELP: `esc`,
+} as const;
+
+const SUBPLOT_KEYMAP = {
+  ACTIVATE_FIGURE_LABEL_SCOPE: `l`,
+
+  // Description
+  DESCRIBE_TITLE: `t`,
+  DESCRIBE_POINT: `space`,
+
+  // Navigation
+  MOVE_UP: `up`,
+  MOVE_DOWN: `down`,
+  MOVE_RIGHT: `right`,
+  MOVE_LEFT: `left`,
+
+  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
+
+  MOVE_TO_TRACE_CONTEXT: `${Platform.enterKey}`,
+
+  // Misc
+  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_CHAT: `shift+/`,
+  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
+} as const;
+
+const TRACE_LABEL_KEYMAP = {
+  DEACTIVATE_TRACE_LABEL_SCOPE: `*`,
+
+  // Description
+  DESCRIBE_X: `x`,
+  DESCRIBE_Y: `y`,
+  DESCRIBE_FILL: `f`,
+  DESCRIBE_TITLE: `t`,
+  DESCRIBE_SUBTITLE: `s`,
+  DESCRIBE_CAPTION: `c`,
+
+  // Misc
+  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+} as const;
+
+const REVIEW_KEYMAP = {
   // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_REVIEW = 'r',
-}
+  TOGGLE_BRAILLE: `b`,
+  TOGGLE_REVIEW: `r`,
+} as const;
 
-enum SettingsKey {
+const SETTINGS_KEYMAP = {
   // Misc
-  TOGGLE_SETTINGS = 'esc',
-}
+  TOGGLE_SETTINGS: `esc`,
+} as const;
 
-enum TraceKey {
-  ACTIVATE_TRACE_LABEL_SCOPE = 'l',
+const TRACE_KEYMAP = {
+  ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
   // Autoplay
-  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
-  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
-  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
-  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+  AUTOPLAY_UPWARD: `${Platform.modifierKey}+shift+up`,
+  AUTOPLAY_DOWNWARD: `${Platform.modifierKey}+shift+down`,
+  AUTOPLAY_FORWARD: `${Platform.modifierKey}+shift+right`,
+  AUTOPLAY_BACKWARD: `${Platform.modifierKey}+shift+left`,
 
-  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
-  SPEED_UP_AUTOPLAY = '.',
-  SPEED_DOWN_AUTOPLAY = ',',
-  RESET_AUTOPLAY_SPEED = '/',
+  STOP_AUTOPLAY: `${Platform.modifierKey}, up, down, left, right`,
+  SPEED_UP_AUTOPLAY: `.`,
+  SPEED_DOWN_AUTOPLAY: `,`,
+  RESET_AUTOPLAY_SPEED: `/`,
 
   // Navigation
-  MOVE_UP = 'up',
-  MOVE_DOWN = 'down',
-  MOVE_RIGHT = 'right',
-  MOVE_LEFT = 'left',
+  MOVE_UP: `up`,
+  MOVE_DOWN: `down`,
+  MOVE_RIGHT: `right`,
+  MOVE_LEFT: `left`,
 
-  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
-  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
-  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
-  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
 
-  MOVE_TO_SUBPLOT_CONTEXT = 'esc',
-  MOVE_TO_NEXT_TRACE = 'fn+up, pageup',
-  MOVE_TO_PREV_TRACE = 'fn+down, pagedown',
+  MOVE_TO_SUBPLOT_CONTEXT: `esc`,
+  MOVE_TO_NEXT_TRACE: `fn+up, pageup`,
+  MOVE_TO_PREV_TRACE: `fn+down, pagedown`,
 
   // Modes
-  TOGGLE_BRAILLE = 'b',
-  TOGGLE_TEXT = 't',
-  TOGGLE_AUDIO = 's',
-  TOGGLE_REVIEW = 'r',
+  TOGGLE_BRAILLE: `b`,
+  TOGGLE_TEXT: `t`,
+  TOGGLE_AUDIO: `s`,
+  TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_SCATTER_NAVIGATION = 'n',
-  TOGGLE_HELP = 'command+/, ctrl+/',
-  TOGGLE_CHAT = 'shift+/',
-  TOGGLE_SETTINGS = 'command+., ctrl+.',
+  TOGGLE_SCATTER_NAVIGATION: `n`,
+  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_CHAT: `shift+/`,
+  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
 
   // Description
-  DESCRIBE_POINT = 'space',
-}
+  DESCRIBE_POINT: `space`,
+} as const;
 
-const scopedKeymap = {
-  [Scope.BRAILLE]: BrailleKey,
-  [Scope.CHAT]: ChatKey,
-  [Scope.FIGURE_LABEL]: FigureLabelKey,
-  [Scope.HELP]: HelpKey,
-  [Scope.REVIEW]: ReviewKey,
-  [Scope.SETTINGS]: SettingsKey,
-  [Scope.SUBPLOT]: SubplotKey,
-  [Scope.TRACE]: TraceKey,
-  [Scope.TRACE_LABEL]: TraceLabelKey,
+const SCOPED_KEYMAP = {
+  [Scope.BRAILLE]: BRAILLE_KEYMAP,
+  [Scope.CHAT]: CHAT_KEYMAP,
+  [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
+  [Scope.HELP]: HELP_KEYMAP,
+  [Scope.REVIEW]: REVIEW_KEYMAP,
+  [Scope.SETTINGS]: SETTINGS_KEYMAP,
+  [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
+  [Scope.TRACE]: TRACE_KEYMAP,
+  [Scope.TRACE_LABEL]: TRACE_LABEL_KEYMAP,
 } as const;
 
 export type Keymap = {
-  [K in Scope]: (typeof scopedKeymap)[K];
+  [K in Scope]: (typeof SCOPED_KEYMAP)[K];
 };
 
 export class KeybindingService {
@@ -210,7 +211,7 @@ export class KeybindingService {
     };
 
     // Register all bindings.
-    for (const [scope, keymap] of Object.entries(scopedKeymap) as [
+    for (const [scope, keymap] of Object.entries(SCOPED_KEYMAP) as [
       Scope,
       Keymap[Scope],
     ][]) {

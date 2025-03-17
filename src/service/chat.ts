@@ -26,7 +26,6 @@ export class ChatService {
 
   public toggle(oldState: boolean): boolean {
     this.display.toggleFocus(Scope.CHAT);
-
     return !oldState;
   }
 }

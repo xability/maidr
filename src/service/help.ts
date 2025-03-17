@@ -1,47 +1,70 @@
+import type { ContextService } from '@service/context';
 import type { DisplayService } from '@service/display';
 import type { HelpMenuItem } from '@type/help';
 import { Scope } from '@type/event';
+import { Platform } from '@util/platform';
+
+const TRACE_HELP_MENU = [
+  { description: 'Move around Layer', key: 'arrow keys' },
+  { description: 'Move to Next Layer', key: `${Platform.pageUpKey}` },
+  { description: 'Move to Previous Layer', key: `${Platform.pageDownKey}` },
+  { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.modifierKey} + arrow keys` },
+
+  { description: 'Toggle Braille Mode', key: 'b' },
+  { description: 'Toggle Text Mode', key: 't' },
+  { description: 'Toggle Sonification Mode', key: 's' },
+  { description: 'Toggle Review Mode', key: 'r' },
+
+  { description: 'Autoplay Outward', key: `${Platform.modifierKey} + shift + arrow keys` },
+  { description: 'Stop Autoplay', key: `${Platform.modifierKey}` },
+  { description: 'Speed Up Autoplay', key: '. (period)' },
+  { description: 'Speed Down Autoplay', key: ', (comma)' },
+  { description: 'Reset Autoplay Speed', key: '/ (slash)' },
+
+  { description: 'Describe Current Point', key: 'space' },
+  { description: 'Describe Subplot Title', key: 'l t' },
+  { description: 'Describe X Axis', key: 'l x' },
+  { description: 'Describe Y Axis', key: 'l y' },
+  { description: 'Describe Fill (Z) Axis', key: 'l f' },
+];
+
+const SUBPLOT_HELP_MENU = [
+  { description: 'Move around Subplot', key: 'arrow keys' },
+  { description: 'Activate Current Subplot', key: `${Platform.enterKey}` },
+
+  { description: 'Describe Current Subplot', key: 'space' },
+  { description: 'Describe Figure Title', key: 'l s' },
+  { description: 'Describe Subtitle', key: 'l s' },
+  { description: 'Describe Caption', key: 'l c' },
+];
 
 export class HelpService {
+  private readonly context: ContextService;
   private readonly display: DisplayService;
 
-  private readonly menuItems: HelpMenuItem[];
+  private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
 
-  public constructor(display: DisplayService) {
+  public constructor(context: ContextService, display: DisplayService) {
+    this.context = context;
     this.display = display;
 
-    this.menuItems = [
-      { description: 'Move around plot', key: 'arrow key' },
-      { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: 'command + arrow key' },
-
-      { description: 'Toggle Braille Mode', key: 'b' },
-      { description: 'Toggle Text Mode', key: 't' },
-      { description: 'Toggle Sonification Mode', key: 's' },
-      { description: 'Toggle Review Mode', key: 'r' },
-
-      { description: 'Autoplay Outward', key: 'command + shift + arrow key' },
-      { description: 'Stop Autoplay', key: 'command' },
-      { description: 'Speed Up Autoplay', key: '. (period)' },
-      { description: 'Speed Down Autoplay', key: ', (comma)' },
-      { description: 'Reset Autoplay Speed', key: '/ (slash)' },
-
-      { description: 'Describe Current Point', key: 'space' },
-      { description: 'Describe Plot Title', key: 'l t' },
-      { description: 'Describe X Axis', key: 'l x' },
-      { description: 'Describe Y Axis', key: 'l y' },
-      { description: 'Describe Fill (Z) Axis', key: 'l f' },
-      { description: 'Describe Subtitle', key: 'l s' },
-      { description: 'Describe Caption', key: 'l c' },
-    ];
+    this.scopedMenuItems = {
+      [Scope.TRACE]: TRACE_HELP_MENU,
+      [Scope.TRACE_LABEL]: TRACE_HELP_MENU,
+      [Scope.BRAILLE]: TRACE_HELP_MENU,
+      [Scope.SUBPLOT]: SUBPLOT_HELP_MENU,
+      [Scope.FIGURE_LABEL]: SUBPLOT_HELP_MENU,
+    };
   }
 
   public getMenuItems(): HelpMenuItem[] {
-    return this.menuItems;
+    console.error(this.context.scope);
+    console.error(this.scopedMenuItems[this.context.scope]);
+    return this.scopedMenuItems[this.context.scope] ?? [];
   }
 
   public toggle(oldState: boolean): boolean {
     this.display.toggleFocus(Scope.HELP);
-
     return !oldState;
   }
 }

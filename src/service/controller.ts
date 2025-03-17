@@ -45,7 +45,7 @@ export class ControllerService {
     this.review = new ReviewService(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayService(this.context, this.notification, this.text);
-    this.help = new HelpService(this.display);
+    this.help = new HelpService(this.context, this.display);
     this.chat = new ChatService(this.display, maidr);
 
     this.keybinding = new KeybindingService(

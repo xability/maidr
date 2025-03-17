@@ -12,18 +12,16 @@ const initialState: HelpMenuState = {
   items: [],
 };
 
-export const loadHelpMenu = createAsyncThunk<HelpMenuItem[], void, ThunkContext>(
-  'help/load',
-  (_, { extra }) => {
-    return extra().help.getMenuItems();
-  },
-);
-
-export const toggleHelpMenu = createAsyncThunk<boolean, void, ThunkContext>(
+export const toggleHelpMenu = createAsyncThunk<HelpMenuState, void, ThunkContext>(
   'help/toggle',
   (_, { getState, extra }) => {
+    const help = extra().help;
     const currentState = getState().help.enabled;
-    return extra().help.toggle(currentState);
+
+    const items = help.getMenuItems();
+    const enabled = help.toggle(currentState);
+
+    return { enabled, items };
   },
 );
 
@@ -33,11 +31,8 @@ const helpSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(loadHelpMenu.fulfilled, (state, action) => {
-        state.items = action.payload;
-      })
       .addCase(toggleHelpMenu.fulfilled, (state, action) => {
-        state.enabled = action.payload;
+        return action.payload;
       });
   },
 });

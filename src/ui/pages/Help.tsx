@@ -9,8 +9,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { loadHelpMenu, toggleHelpMenu } from '@redux/slice/helpSlice';
-import React, { useEffect } from 'react';
+import { toggleHelpMenu } from '@redux/slice/helpSlice';
+import React from 'react';
 
 interface HelpRowProps {
   label: string;
@@ -40,10 +40,6 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 const Help: React.FC = () => {
   const dispatch = useAppDispatch();
   const { enabled, items } = useAppSelector(state => state.help);
-
-  useEffect(() => {
-    dispatch(loadHelpMenu());
-  }, [dispatch]);
 
   const handleClose = (): void => {
     dispatch(toggleHelpMenu());

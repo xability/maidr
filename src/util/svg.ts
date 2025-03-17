@@ -1,5 +1,5 @@
 export abstract class Svg {
-  private constructor() { /* Prevent Instantiation */ }
+  private constructor() { /* Prevent instantiation */ }
 
   public static async toBase64(svg: HTMLElement): Promise<string> {
     try {
