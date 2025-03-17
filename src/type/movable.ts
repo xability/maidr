@@ -3,7 +3,7 @@ export interface Movable {
   moveToExtreme: (direction: MovableDirection) => void;
   moveToIndex: (index: number) => void;
 
-  isMovable: ((index: number) => boolean) & ((direction: MovableDirection) => boolean);
+  isMovable: (target: number | MovableDirection) => boolean;
 }
 
 export type MovableDirection =

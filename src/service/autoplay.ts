@@ -1,5 +1,6 @@
-import type { Movable, MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { ContextService } from '@service/context';
+import type { MovableDirection } from '@type/movable';
+import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 
@@ -11,9 +12,9 @@ const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
 
 export class AutoplayService {
+  private readonly context: ContextService;
   private readonly notification: NotificationService;
   private readonly text: TextService;
-  private readonly movable: Movable;
 
   private playId: NodeJS.Timeout | null;
   private currentDirection: MovableDirection | null;
@@ -27,10 +28,10 @@ export class AutoplayService {
   private readonly totalDuration: number;
   private readonly interval: number;
 
-  public constructor(notification: NotificationService, text: TextService, movable: Movable) {
+  public constructor(context: ContextService, notification: NotificationService, text: TextService) {
     this.notification = notification;
     this.text = text;
-    this.movable = movable;
+    this.context = context;
 
     this.playId = null;
     this.currentDirection = null;
@@ -49,7 +50,7 @@ export class AutoplayService {
     this.stop();
   }
 
-  public start(direction: MovableDirection, state?: PlotState): void {
+  public start(direction: MovableDirection, state?: TraceState): void {
     this.stop();
     this.text.mute();
 
@@ -57,8 +58,8 @@ export class AutoplayService {
     this.currentDirection = direction;
 
     this.playId = setInterval(() => {
-      if (this.movable.isMovable(direction)) {
-        this.movable.moveOnce(direction);
+      if (this.context.isMovable(direction)) {
+        this.context.moveOnce(direction);
       } else {
         this.stop();
       }
@@ -116,7 +117,7 @@ export class AutoplayService {
     this.notification.notify('Reset speed');
   }
 
-  private getAutoplayRate(direction: MovableDirection, state?: PlotState): number {
+  private getAutoplayRate(direction: MovableDirection, state?: TraceState): number {
     if (this.userSpeed !== null) {
       return this.userSpeed;
     }

@@ -1,13 +1,13 @@
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
-import type { Keys } from '@type/keys';
-import type { Plot } from '@type/plot';
+import type { Keys } from '@type/event';
 import type { Command, CommandContext } from './command';
-import { Scope } from '@type/keys';
+import { Scope } from '@type/event';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -33,24 +33,28 @@ import {
   MoveRightCommand,
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
+  MoveToNextTraceCommand,
+  MoveToPrevTraceCommand,
   MoveToRightExtremeCommand,
+  MoveToSubplotContextCommand,
   MoveToTopExtremeCommand,
+  MoveToTraceContextCommand,
   MoveUpCommand,
 } from './move';
 import {
-  SwitchScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScatterNavigationCommand,
+  ToggleScopeCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
 
 export class CommandFactory {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
   private readonly audio: AudioService;
   private readonly braille: BrailleService;
@@ -61,7 +65,7 @@ export class CommandFactory {
   private readonly autoplay: AutoplayService;
 
   public constructor(commandContext: CommandContext) {
-    this.plot = commandContext.plot;
+    this.context = commandContext.context;
 
     this.audio = commandContext.audio;
     this.braille = commandContext.braille;
@@ -75,33 +79,42 @@ export class CommandFactory {
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
-        return new MoveUpCommand(this.plot);
+        return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
-        return new MoveDownCommand(this.plot);
+        return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
-        return new MoveLeftCommand(this.plot);
+        return new MoveLeftCommand(this.context);
       case 'MOVE_RIGHT':
-        return new MoveRightCommand(this.plot);
+        return new MoveRightCommand(this.context);
       case 'MOVE_TO_TOP_EXTREME':
-        return new MoveToTopExtremeCommand(this.plot);
+        return new MoveToTopExtremeCommand(this.context);
       case 'MOVE_TO_BOTTOM_EXTREME':
-        return new MoveToBottomExtremeCommand(this.plot);
+        return new MoveToBottomExtremeCommand(this.context);
       case 'MOVE_TO_LEFT_EXTREME':
-        return new MoveToLeftExtremeCommand(this.plot);
+        return new MoveToLeftExtremeCommand(this.context);
       case 'MOVE_TO_RIGHT_EXTREME':
-        return new MoveToRightExtremeCommand(this.plot);
+        return new MoveToRightExtremeCommand(this.context);
+
+      case 'MOVE_TO_TRACE_CONTEXT':
+        return new MoveToTraceContextCommand(this.context);
+      case 'MOVE_TO_SUBPLOT_CONTEXT':
+        return new MoveToSubplotContextCommand(this.context);
+      case 'MOVE_TO_NEXT_TRACE':
+        return new MoveToNextTraceCommand(this.context);
+      case 'MOVE_TO_PREV_TRACE':
+        return new MoveToPrevTraceCommand(this.context);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audio);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.plot, this.braille);
+        return new ToggleBrailleCommand(this.context, this.braille);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.text);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.plot, this.review);
+        return new ToggleReviewCommand(this.context, this.review);
 
       case 'TOGGLE_SCATTER_NAVIGATION':
-        return new ToggleScatterNavigationCommand(this.plot, this.notification);
+        return new ToggleScatterNavigationCommand(this.context, this.notification);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand();
       case 'TOGGLE_CHAT':
@@ -110,33 +123,35 @@ export class CommandFactory {
         return new ToggleSettingsCommand();
 
       case 'DESCRIBE_X':
-        return new DescribeXCommand(this.plot, this.text);
+        return new DescribeXCommand(this.context, this.text);
       case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.plot, this.text);
+        return new DescribeYCommand(this.context, this.text);
       case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.plot, this.text);
+        return new DescribeFillCommand(this.context, this.text);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.plot, this.audio, this.braille, this.text);
+        return new DescribePointCommand(this.context, this.audio, this.braille, this.text);
       case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.plot, this.text);
+        return new DescribeTitleCommand(this.context, this.text);
       case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.plot, this.text);
+        return new DescribeSubtitleCommand(this.context, this.text);
       case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.plot, this.text);
+        return new DescribeCaptionCommand(this.context, this.text);
 
-      case 'ACTIVATE_LABEL_SCOPE':
-        return new SwitchScopeCommand(Scope.LABEL);
-      case 'ACTIVATE_DEFAULT_SCOPE':
-        return new SwitchScopeCommand(Scope.DEFAULT);
+      case 'ACTIVATE_FIGURE_LABEL_SCOPE':
+      case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
+      case 'ACTIVATE_TRACE_LABEL_SCOPE':
+      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
 
       case 'AUTOPLAY_UPWARD':
-        return new AutoplayUpwardCommand(this.autoplay, this.plot);
+        return new AutoplayUpwardCommand(this.context, this.autoplay);
       case 'AUTOPLAY_DOWNWARD':
-        return new AutoplayDownwardCommand(this.autoplay, this.plot);
+        return new AutoplayDownwardCommand(this.context, this.autoplay);
       case 'AUTOPLAY_FORWARD':
-        return new AutoplayForwardCommand(this.autoplay, this.plot);
+        return new AutoplayForwardCommand(this.context, this.autoplay);
       case 'AUTOPLAY_BACKWARD':
-        return new AutoplayBackwardCommand(this.autoplay, this.plot);
+        return new AutoplayBackwardCommand(this.context, this.autoplay);
       case 'STOP_AUTOPLAY':
         return new StopAutoplayCommand(this.autoplay);
       case 'SPEED_UP_AUTOPLAY':

@@ -1,7 +1,6 @@
 import type { DisplayService } from '@service/display';
 import type { Settings } from '@type/settings';
-import { Scope } from '@type/keys';
-import hotkeys from 'hotkeys-js';
+import { Scope } from '@type/event';
 
 export class SettingsService {
   private readonly display: DisplayService;
@@ -60,15 +59,8 @@ export class SettingsService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus('SETTINGS');
+    this.display.toggleFocus(Scope.SETTINGS);
 
-    const newState = !oldState;
-    if (newState) {
-      hotkeys.setScope(Scope.SETTINGS);
-    } else {
-      hotkeys.setScope(Scope.DEFAULT);
-    }
-
-    return newState;
+    return !oldState;
   }
 }

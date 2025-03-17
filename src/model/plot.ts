@@ -1,56 +1,32 @@
-import type { Maidr } from '@type/maidr';
-import type { MovableDirection } from '@type/movable';
-import type { Observer } from '@type/observable';
-import type { Plot } from '@type/plot';
-import type { AudioState, AutoplayState, BrailleState, PlotState, TextState } from '@type/state';
-import type { BarPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import type { MaidrLayer } from '@type/maidr';
+import type { Movable, MovableDirection } from '@type/movable';
+import type { Observable, Observer } from '@type/observable';
+import type { Trace } from '@type/plot';
+import type {
+  AudioState,
+  AutoplayState,
+  BrailleState,
+  TextState,
+  TraceState,
+} from '@type/state';
 
-const DEFAULT_TITLE = 'MAIDR Plot';
-const DEFAULT_SUBTITLE = 'unavailable';
-const DEFAULT_CAPTION = 'unavailable';
+const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractPlot<T> implements Plot {
-  private observers: Observer[];
-  private isInitialEntry: boolean;
-  private isOutOfBounds: boolean;
+export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State> {
+  protected observers: Observer<State>[];
 
-  public readonly id: string;
-  public readonly type: string;
-
-  public readonly title: string;
-  public readonly subtitle: string;
-  public readonly caption: string;
-
-  public readonly xAxis: string;
-  public readonly yAxis: string;
-  public readonly fill: string;
-
-  protected values: T[][];
-  protected brailleValues: string[][];
+  protected isInitialEntry: boolean;
+  protected isOutOfBounds: boolean;
 
   protected row: number;
   protected col: number;
 
-  protected constructor(maidr: Maidr) {
+  protected constructor() {
     this.observers = [];
-
-    this.id = maidr.id;
-    this.type = maidr.type;
-
-    this.title = maidr.title ?? DEFAULT_TITLE;
-    this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
-    this.caption = maidr.caption ?? DEFAULT_CAPTION;
-
-    this.xAxis = maidr.axes?.x ?? DEFAULT_X_AXIS;
-    this.yAxis = maidr.axes?.y ?? DEFAULT_Y_AXIS;
-    this.fill = maidr.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.values = [];
-    this.brailleValues = [];
 
     this.isInitialEntry = true;
     this.isOutOfBounds = false;
@@ -59,51 +35,10 @@ export abstract class AbstractPlot<T> implements Plot {
     this.col = 0;
   }
 
-  public addObserver(observer: Observer): void {
-    this.observers.push(observer);
-  }
-
-  public removeObserver(observer: Observer): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
-  }
-
-  public notifyStateUpdate(): void {
-    const currentState = this.state;
+  protected destroy(): void {
     for (const observer of this.observers) {
-      observer.update(currentState);
+      this.removeObserver(observer);
     }
-  }
-
-  protected notifyOutOfBounds(): void {
-    this.isOutOfBounds = true;
-    this.notifyStateUpdate();
-    this.isOutOfBounds = false;
-  }
-
-  protected braille(): BrailleState {
-    return {
-      empty: false,
-      values: this.brailleValues,
-      row: this.row,
-      col: this.col,
-    };
-  }
-
-  public get state(): PlotState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: this.type,
-      };
-    }
-
-    return {
-      empty: false,
-      audio: this.audio(),
-      braille: this.braille(),
-      text: this.text(),
-      autoplay: this.autoplay(),
-    };
   }
 
   public moveOnce(direction: MovableDirection): void {
@@ -190,6 +125,91 @@ export abstract class AbstractPlot<T> implements Plot {
     this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
   }
 
+  public addObserver(observer: Observer<State>): void {
+    this.observers.push(observer);
+  }
+
+  public removeObserver(observer: Observer<State>): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  public notifyStateUpdate(): void {
+    const currentState = this.state;
+    for (const observer of this.observers) {
+      observer.update(currentState);
+    }
+  }
+
+  protected notifyOutOfBounds(): void {
+    this.isOutOfBounds = true;
+    this.notifyStateUpdate();
+    this.isOutOfBounds = false;
+  }
+
+  protected abstract get values(): Element[][];
+
+  public abstract get state(): State;
+}
+
+export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
+  protected readonly type: string;
+  private readonly title: string;
+
+  protected readonly xAxis: string;
+  protected readonly yAxis: string;
+  protected readonly fill: string;
+
+  protected brailleValues: string[][];
+
+  protected constructor(layer: MaidrLayer) {
+    super();
+
+    this.type = layer.type;
+    this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
+
+    this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
+    this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
+    this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+
+    this.brailleValues = [];
+  }
+
+  public destroy(): void {
+    super.destroy();
+  }
+
+  public get state(): TraceState {
+    if (this.isOutOfBounds) {
+      return {
+        empty: true,
+        type: 'trace',
+      };
+    }
+
+    return {
+      empty: false,
+      type: 'trace',
+      traceType: this.type,
+      title: this.title,
+      xAxis: this.xAxis,
+      yAxis: this.yAxis,
+      fill: this.fill,
+      audio: this.audio(),
+      braille: this.braille(),
+      text: this.text(),
+      autoplay: this.autoplay(),
+    };
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: false,
+      values: this.brailleValues,
+      row: this.row,
+      col: this.col,
+    };
+  }
+
   protected autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
@@ -199,104 +219,11 @@ export abstract class AbstractPlot<T> implements Plot {
     };
   }
 
+  public get hasMultiPoints(): boolean {
+    return false;
+  }
+
   protected abstract audio(): AudioState;
 
   protected abstract text(): TextState;
-
-  get hasMultiPoints(): boolean {
-    return false;
-  }
-}
-
-export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractPlot<number> {
-  protected readonly points: T[][];
-  protected readonly orientation: Orientation;
-
-  protected readonly min: number[];
-  protected readonly max: number[];
-
-  protected constructor(maidr: Maidr, points: T[][]) {
-    super(maidr);
-
-    this.points = points;
-    this.orientation = maidr.orientation ?? Orientation.VERTICAL;
-
-    this.values = points.map(row =>
-      row.map(point =>
-        this.orientation === Orientation.VERTICAL
-          ? Number(point.y)
-          : Number(point.x),
-      ),
-    );
-    this.min = this.values.map(row => Math.min(...row));
-    this.max = this.values.map(row => Math.max(...row));
-
-    this.brailleValues = this.toBraille(this.values);
-  }
-
-  protected audio(): AudioState {
-    const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical ? this.values[0].length : this.values.length;
-    const index = isVertical ? this.col : this.row;
-    const value = isVertical
-      ? this.values[this.row][this.col]
-      : this.values[this.col][this.row];
-
-    return {
-      min: Math.min(...this.min),
-      max: Math.max(...this.max),
-      size,
-      index,
-      value,
-    };
-  }
-
-  protected text(): TextState {
-    const isVertical = this.orientation === Orientation.VERTICAL;
-    const point = this.points[this.row][this.col];
-
-    const mainLabel = isVertical ? this.xAxis : this.yAxis;
-    const mainValue = isVertical ? point.x : point.y;
-
-    const crossLabel = isVertical ? this.yAxis : this.xAxis;
-    const crossValue = isVertical ? point.y : point.x;
-
-    return {
-      mainLabel,
-      mainValue,
-      crossLabel,
-      crossValue,
-    };
-  }
-
-  protected toBraille(data: number[][]): string[][] {
-    return data.map((row, index) =>
-      this.createBraille(row, this.min[index], this.max[index]),
-    );
-  }
-
-  protected createBraille(data: number[], min: number, max: number): string[] {
-    const braille = new Array<string>();
-
-    const range = (max - min) / 4;
-    const low = min + range;
-    const medium = low + range;
-    const high = medium + range;
-
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] === 0) {
-        braille.push(' ');
-      } else if (data[i] <= low) {
-        braille.push('⣀');
-      } else if (data[i] <= medium) {
-        braille.push('⠤');
-      } else if (data[i] <= high) {
-        braille.push('⠒');
-      } else {
-        braille.push('⠉');
-      }
-    }
-
-    return braille;
-  }
 }

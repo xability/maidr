@@ -4,7 +4,7 @@ import { HttpStatus } from '@type/api';
 type HttpMethod = 'GET' | 'POST';
 
 export abstract class Api {
-  private constructor() { /* Prevent Instantiation */ }
+  private constructor() { /* Prevent instantiation */ }
 
   private static readonly DEFAULT_HEADERS: Record<string, string> = {
     'Content-Type': 'application/json',

@@ -1,47 +1,49 @@
-import type { Maidr } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, TextState } from '@type/state';
 import type { HeatmapData } from './grammar';
-import { AbstractPlot } from './plot';
+import { AbstractTrace } from './plot';
 
-export class Heatmap extends AbstractPlot<number> {
+export class Heatmap extends AbstractTrace<number> {
+  private readonly heatValues: number[][];
   private readonly x: string[];
   private readonly y: string[];
 
   private readonly min: number;
   private readonly max: number;
 
-  public constructor(maidr: Maidr) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr);
 
     const data = maidr.data as HeatmapData;
     this.x = data.x;
     this.y = data.y;
 
-    this.values = data.points;
-    this.min = Math.min(...this.values.flat());
-    this.max = Math.max(...this.values.flat());
+    this.heatValues = data.points;
+    this.min = Math.min(...this.heatValues.flat());
+    this.max = Math.max(...this.heatValues.flat());
 
-    this.brailleValues = this.toBraille(this.values);
+    this.brailleValues = this.toBraille(this.heatValues);
+  }
+
+  protected get values(): number[][] {
+    return this.heatValues;
   }
 
   protected audio(): AudioState {
     return {
       min: this.min,
       max: this.max,
-      size: this.values.length,
+      size: this.heatValues.length,
       index: this.col,
-      value: this.values[this.row][this.col],
+      value: this.heatValues[this.row][this.col],
     };
   }
 
   protected text(): TextState {
     return {
-      mainLabel: this.xAxis,
-      mainValue: this.x[this.col],
-      crossLabel: this.yAxis,
-      crossValue: this.y[this.row],
-      fillLabel: this.fill,
-      fillValue: String(this.values[this.row][this.col]),
+      main: { label: this.xAxis, value: this.x[this.col] },
+      cross: { label: this.yAxis, value: this.y[this.row] },
+      fill: { label: this.fill, value: String(this.heatValues[this.row][this.col]) },
     };
   }
 

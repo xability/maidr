@@ -1,29 +1,31 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
+import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
-import type { Scope } from '@type/keys';
-import type { Plot } from '@type/plot';
+import type { Scope } from '@type/event';
 import type { Command } from './command';
 import { ScatterPlot } from '@model/scatter';
 import { toggleChat } from '@redux/slice/chatSlice';
 import { toggleHelpMenu } from '@redux/slice/helpSlice';
 import { toggleSettings } from '@redux/slice/settingsSlice';
 import { store } from '@redux/store';
-import hotkeys from 'hotkeys-js';
 
 export class ToggleBrailleCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
   private readonly braille: BrailleService;
 
-  public constructor(plot: Plot, braille: BrailleService) {
-    this.plot = plot;
+  public constructor(context: ContextService, braille: BrailleService) {
+    this.context = context;
     this.braille = braille;
   }
 
   public execute(): void {
-    this.braille.toggle(this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace') {
+      this.braille.toggle(state);
+    }
   }
 }
 
@@ -52,31 +54,35 @@ export class ToggleAudioCommand implements Command {
 }
 
 export class ToggleReviewCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
   private readonly review: ReviewService;
 
-  public constructor(plot: Plot, review: ReviewService) {
-    this.plot = plot;
+  public constructor(context: ContextService, review: ReviewService) {
+    this.context = context;
     this.review = review;
   }
 
   public execute(): void {
-    this.review.toggle(this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace') {
+      this.review.toggle(state);
+    }
   }
 }
 
 export class ToggleScatterNavigationCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
   private readonly notification: NotificationService;
 
-  public constructor(plot: Plot, notification: NotificationService) {
-    this.plot = plot;
+  public constructor(context: ContextService, notification: NotificationService) {
+    this.context = context;
     this.notification = notification;
   }
 
   public execute(): void {
-    if (this.plot instanceof ScatterPlot) {
-      (this.plot as ScatterPlot).toggleNavigation(this.notification);
+    const activeContext = this.context.active;
+    if (activeContext instanceof ScatterPlot) {
+      (activeContext as ScatterPlot).toggleNavigation(this.notification);
     }
   }
 }
@@ -99,14 +105,16 @@ export class ToggleSettingsCommand implements Command {
   }
 }
 
-export class SwitchScopeCommand implements Command {
-  private readonly scopeName: Scope;
+export class ToggleScopeCommand implements Command {
+  private readonly context: ContextService;
+  private readonly scope: Scope;
 
-  public constructor(scopeName: Scope) {
-    this.scopeName = scopeName;
+  public constructor(context: ContextService, scope: Scope) {
+    this.context = context;
+    this.scope = scope;
   }
 
   public execute(): void {
-    hotkeys.setScope(this.scopeName);
+    this.context.toggleScope(this.scope);
   }
 }

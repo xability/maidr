@@ -1,98 +1,146 @@
-import type { Plot } from '@type/plot';
+import type { ContextService } from '@service/context';
 import type { Command } from './command';
 
 export class MoveUpCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveOnce('UPWARD');
+    this.context.moveOnce('UPWARD');
   }
 }
 
 export class MoveDownCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveOnce('DOWNWARD');
+    this.context.moveOnce('DOWNWARD');
   }
 }
 
 export class MoveLeftCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveOnce('BACKWARD');
+    this.context.moveOnce('BACKWARD');
   }
 }
 
 export class MoveRightCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveOnce('FORWARD');
+    this.context.moveOnce('FORWARD');
   }
 }
 
 export class MoveToTopExtremeCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveToExtreme('UPWARD');
+    this.context.moveToExtreme('UPWARD');
   }
 }
 
 export class MoveToBottomExtremeCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveToExtreme('DOWNWARD');
+    this.context.moveToExtreme('DOWNWARD');
   }
 }
 
 export class MoveToLeftExtremeCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveToExtreme('BACKWARD');
+    this.context.moveToExtreme('BACKWARD');
   }
 }
 
 export class MoveToRightExtremeCommand implements Command {
-  private readonly plot: Plot;
+  private readonly context: ContextService;
 
-  public constructor(plot: Plot) {
-    this.plot = plot;
+  public constructor(context: ContextService) {
+    this.context = context;
   }
 
   public execute(): void {
-    this.plot.moveToExtreme('FORWARD');
+    this.context.moveToExtreme('FORWARD');
+  }
+}
+
+export class MoveToTraceContextCommand implements Command {
+  private readonly context: ContextService;
+
+  public constructor(context: ContextService) {
+    this.context = context;
+  }
+
+  public execute(): void {
+    this.context.enterSubplot();
+  }
+}
+
+export class MoveToSubplotContextCommand implements Command {
+  private readonly context: ContextService;
+
+  public constructor(context: ContextService) {
+    this.context = context;
+  }
+
+  public execute(): void {
+    this.context.exitSubplot();
+  }
+}
+
+export class MoveToNextTraceCommand implements Command {
+  private readonly context: ContextService;
+
+  public constructor(context: ContextService) {
+    this.context = context;
+  }
+
+  public execute(): void {
+    this.context.stepTrace('UPWARD');
+  }
+}
+
+export class MoveToPrevTraceCommand implements Command {
+  private readonly context: ContextService;
+
+  public constructor(context: ContextService) {
+    this.context = context;
+  }
+
+  public execute(): void {
+    this.context.stepTrace('DOWNWARD');
   }
 }

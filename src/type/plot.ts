@@ -1,8 +1,16 @@
+import type { Maidr, MaidrSubplot } from '@type/maidr';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { PlotState } from '@type/state';
+import type { FigureState, SubplotState, TraceState } from '@type/state';
+import { TraceFactory } from '@model/factory';
+import { AbstractObservableElement } from '@model/plot';
+import { Constant } from '@util/constant';
 
-export enum PlotType {
+const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
+const DEFAULT_SUBTITLE = 'unavailable';
+const DEFAULT_CAPTION = 'unavailable';
+
+export enum TraceType {
   BAR = 'bar',
   BOX = 'box',
   DODGED = 'dodged_bar',
@@ -19,18 +27,119 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
-export interface Plot extends Movable, Observable {
-  id: string;
-  type: string;
+export class Figure extends AbstractObservableElement<Subplot, FigureState> {
+  public readonly id: string;
 
-  title: string;
-  subtitle: string;
-  caption: string;
+  private readonly title: string;
+  private readonly subtitle: string;
+  private readonly caption: string;
 
-  xAxis: string;
-  yAxis: string;
-  fill: string;
+  public readonly subplots: Subplot[][];
+  private readonly size: number;
 
-  get state(): PlotState;
+  public constructor(maidr: Maidr) {
+    super();
+
+    this.id = maidr.id;
+
+    this.title = maidr.title ?? DEFAULT_FIGURE_TITLE;
+    this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
+    this.caption = maidr.caption ?? DEFAULT_CAPTION;
+
+    const subplots = maidr.subplots as MaidrSubplot[][];
+    this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
+    this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
+  }
+
+  public destroy(): void {
+    this.values.flat().forEach(subplot => subplot.destroy());
+    super.destroy();
+  }
+
+  protected get values(): Subplot[][] {
+    return this.subplots;
+  }
+
+  public get activeSubplot(): Subplot {
+    return this.subplots[this.row][this.col];
+  }
+
+  public get state(): FigureState {
+    if (this.isOutOfBounds) {
+      return {
+        empty: true,
+        type: 'figure',
+      };
+    }
+
+    const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
+      .reduce((sum, r) => sum + r.length, 0);
+    return {
+      empty: false,
+      type: 'figure',
+      title: this.title,
+      subtitle: this.subtitle,
+      caption: this.caption,
+      size: this.size,
+      index: currentIndex,
+      subplot: this.activeSubplot.state,
+      traceTypes: this.activeSubplot.traceTypes,
+    };
+  }
+}
+
+export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
+  public readonly traces: Trace[][];
+  public readonly traceTypes: string[];
+  private readonly size: number;
+
+  public constructor(subplot: MaidrSubplot) {
+    super();
+
+    this.isInitialEntry = false;
+
+    const layers = subplot.layers;
+    this.size = layers.length;
+    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    this.traceTypes = this.traces.flat().map((trace) => {
+      const state = trace.state;
+      return state.empty ? Constant.EMPTY : state.traceType;
+    });
+  }
+
+  public destroy(): void {
+    this.values.flat().forEach(trace => trace.destroy());
+    super.destroy();
+  }
+
+  protected get values(): Trace[][] {
+    return this.traces;
+  }
+
+  public get activeTrace(): Trace {
+    return this.traces[this.row][this.col];
+  }
+
+  public get state(): SubplotState {
+    if (this.isOutOfBounds) {
+      return {
+        empty: true,
+        type: 'subplot',
+      };
+    }
+
+    return {
+      empty: false,
+      type: 'subplot',
+      size: this.size,
+      index: this.row + 1,
+      trace: this.activeTrace.state,
+      traceType: this.traceTypes[this.row],
+    };
+  }
+}
+
+export interface Trace extends Movable, Observable<TraceState> {
+  destroy: () => void;
   get hasMultiPoints(): boolean;
 }

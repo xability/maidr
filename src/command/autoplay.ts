@@ -1,60 +1,72 @@
 import type { AutoplayService } from '@service/autoplay';
-import type { Plot } from '@type/plot';
+import type { ContextService } from '@service/context';
 import type { Command } from './command';
 
 export class AutoplayUpwardCommand implements Command {
+  private readonly context: ContextService;
   private readonly autoplay: AutoplayService;
-  private readonly plot: Plot;
 
-  public constructor(autoplay: AutoplayService, plot: Plot) {
+  public constructor(context: ContextService, autoplay: AutoplayService) {
+    this.context = context;
     this.autoplay = autoplay;
-    this.plot = plot;
   }
 
   public execute(): void {
-    this.autoplay.start('UPWARD', this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      this.autoplay.start('UPWARD', state);
+    }
   }
 }
 
 export class AutoplayDownwardCommand implements Command {
+  private readonly context: ContextService;
   private readonly autoplay: AutoplayService;
-  private readonly plot: Plot;
 
-  public constructor(autoplay: AutoplayService, plot: Plot) {
+  public constructor(context: ContextService, autoplay: AutoplayService) {
     this.autoplay = autoplay;
-    this.plot = plot;
+    this.context = context;
   }
 
   public execute(): void {
-    this.autoplay.start('DOWNWARD', this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      this.autoplay.start('DOWNWARD', state);
+    }
   }
 }
 
 export class AutoplayForwardCommand implements Command {
+  private readonly context: ContextService;
   private readonly autoplay: AutoplayService;
-  private readonly plot: Plot;
 
-  public constructor(autoplay: AutoplayService, plot: Plot) {
+  public constructor(context: ContextService, autoplay: AutoplayService) {
     this.autoplay = autoplay;
-    this.plot = plot;
+    this.context = context;
   }
 
   public execute(): void {
-    this.autoplay.start('FORWARD', this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      this.autoplay.start('FORWARD', state);
+    }
   }
 }
 
 export class AutoplayBackwardCommand implements Command {
+  private readonly context: ContextService;
   private readonly autoplay: AutoplayService;
-  private readonly plot: Plot;
 
-  public constructor(autoplay: AutoplayService, plot: Plot) {
+  public constructor(context: ContextService, autoplay: AutoplayService) {
     this.autoplay = autoplay;
-    this.plot = plot;
+    this.context = context;
   }
 
   public execute(): void {
-    this.autoplay.start('BACKWARD', this.plot.state);
+    const state = this.context.state;
+    if (state.type === 'trace' && !state.empty) {
+      this.autoplay.start('BACKWARD', state);
+    }
   }
 }
 

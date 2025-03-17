@@ -1,5 +1,5 @@
 export abstract class Constant {
-  private constructor() { /* Prevent Instantiation */ }
+  private constructor() { /* Prevent instantiation */ }
 
   // HTML elements.
   static readonly ARTICLE = 'article';

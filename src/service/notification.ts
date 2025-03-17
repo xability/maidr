@@ -1,3 +1,4 @@
+import type { ContextService } from '@service/context';
 import type { DisplayService } from './display';
 import { Constant } from '@util/constant';
 
@@ -5,7 +6,7 @@ export class NotificationService {
   private readonly enabled: boolean;
   private readonly notificationDiv?: HTMLElement;
 
-  public constructor(display: DisplayService) {
+  public constructor(context: ContextService, display: DisplayService) {
     if (!display.notificationDiv) {
       this.enabled = false;
       return;
@@ -13,7 +14,7 @@ export class NotificationService {
 
     this.notificationDiv = display.notificationDiv;
     this.enabled = true;
-    this.notify(display.getInstruction(false));
+    this.notify(context.getInstruction(false));
   }
 
   public notify(message: string): void {

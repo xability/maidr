@@ -28,7 +28,7 @@ export interface HistogramPoint extends BarPoint {
 }
 
 export interface LinePoint {
-  x: number;
+  x: number | string;
   y: number;
   fill?: string;
 }
