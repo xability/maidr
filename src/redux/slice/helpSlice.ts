@@ -31,7 +31,7 @@ const helpSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(toggleHelpMenu.fulfilled, (state, action) => {
+      .addCase(toggleHelpMenu.fulfilled, (_, action) => {
         return action.payload;
       });
   },
