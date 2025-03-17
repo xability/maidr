@@ -4,14 +4,13 @@ import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
-import type { Scope } from '@type/keys';
+import type { Scope } from '@type/event';
 import type { Command } from './command';
 import { ScatterPlot } from '@model/scatter';
 import { toggleChat } from '@redux/slice/chatSlice';
 import { toggleHelpMenu } from '@redux/slice/helpSlice';
 import { toggleSettings } from '@redux/slice/settingsSlice';
 import { store } from '@redux/store';
-import hotkeys from 'hotkeys-js';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: ContextService;
@@ -106,14 +105,16 @@ export class ToggleSettingsCommand implements Command {
   }
 }
 
-export class SwitchScopeCommand implements Command {
-  private readonly scopeName: Scope;
+export class ToggleScopeCommand implements Command {
+  private readonly context: ContextService;
+  private readonly scope: Scope;
 
-  public constructor(scopeName: Scope) {
-    this.scopeName = scopeName;
+  public constructor(context: ContextService, scope: Scope) {
+    this.context = context;
+    this.scope = scope;
   }
 
   public execute(): void {
-    hotkeys.setScope(this.scopeName);
+    this.context.toggleScope(this.scope);
   }
 }

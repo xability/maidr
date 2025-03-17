@@ -1,10 +1,9 @@
 import type { DisplayService } from '@service/display';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
 import type { Maidr } from '@type/maidr';
-import { Scope } from '@type/keys';
+import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
-import hotkeys from 'hotkeys-js';
 
 export class ChatService {
   private readonly display: DisplayService;
@@ -26,16 +25,9 @@ export class ChatService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus('CHAT');
+    this.display.toggleFocus(Scope.CHAT);
 
-    const newState = !oldState;
-    if (newState) {
-      hotkeys.setScope(Scope.CHAT);
-    } else {
-      hotkeys.setScope(Scope.SUBPLOT);
-    }
-
-    return newState;
+    return !oldState;
   }
 }
 

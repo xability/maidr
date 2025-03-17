@@ -28,7 +28,7 @@ export class TextService implements Observer<string | PlotState> {
 
   public formatText(state: PlotState): string {
     if (!state || state.empty) {
-      return `No ${state.type} info to display`;
+      return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {

@@ -1,7 +1,6 @@
 import type { DisplayService } from '@service/display';
 import type { HelpMenuItem } from '@type/help';
-import { Scope } from '@type/keys';
-import hotkeys from 'hotkeys-js';
+import { Scope } from '@type/event';
 
 export class HelpService {
   private readonly display: DisplayService;
@@ -41,15 +40,8 @@ export class HelpService {
   }
 
   public toggle(oldState: boolean): boolean {
-    this.display.toggleFocus('HELP');
+    this.display.toggleFocus(Scope.HELP);
 
-    const newState = !oldState;
-    if (newState) {
-      hotkeys.setScope(Scope.HELP);
-    } else {
-      hotkeys.setScope(Scope.SUBPLOT);
-    }
-
-    return newState;
+    return !oldState;
   }
 }
