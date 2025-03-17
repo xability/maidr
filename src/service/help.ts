@@ -6,8 +6,8 @@ import { Platform } from '@util/platform';
 
 const TRACE_HELP_MENU = [
   { description: 'Move around Layer', key: 'arrow keys' },
-  { description: 'Move to Next Layer', key: `${Platform.pageUpKey}` },
-  { description: 'Move to Previous Layer', key: `${Platform.pageDownKey}` },
+  { description: 'Move to Next Layer', key: 'page up' },
+  { description: 'Move to Previous Layer', key: 'page down' },
   { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.modifierKey} + arrow keys` },
 
   { description: 'Toggle Braille Mode', key: 'b' },

@@ -17,12 +17,4 @@ export abstract class Platform {
   public static get enterKey(): string {
     return Platform.IS_MAC ? 'return' : 'enter';
   }
-
-  public static get pageUpKey(): string {
-    return Platform.IS_MAC ? 'fn+up' : 'pageup';
-  }
-
-  public static get pageDownKey(): string {
-    return Platform.IS_MAC ? 'fn+down' : 'pagedown';
-  }
 }

@@ -32,8 +32,8 @@ const BRAILLE_KEYMAP = {
   MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
   MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
 
-  MOVE_TO_NEXT_TRACE: `fn+up, pageup`,
-  MOVE_TO_PREV_TRACE: `fn+down, pagedown`,
+  MOVE_TO_NEXT_TRACE: `pageup`,
+  MOVE_TO_PREV_TRACE: `pagedown`,
 
   // Modes
   TOGGLE_BRAILLE: `b`,
@@ -151,8 +151,8 @@ const TRACE_KEYMAP = {
   MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
 
   MOVE_TO_SUBPLOT_CONTEXT: `esc`,
-  MOVE_TO_NEXT_TRACE: `fn+up, pageup`,
-  MOVE_TO_PREV_TRACE: `fn+down, pagedown`,
+  MOVE_TO_NEXT_TRACE: `pageup`,
+  MOVE_TO_PREV_TRACE: `pagedown`,
 
   // Modes
   TOGGLE_BRAILLE: `b`,
