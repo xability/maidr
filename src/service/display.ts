@@ -1,4 +1,4 @@
-import type { Focus } from '@type/event';
+import type { Scope } from '@type/event';
 import type { Root } from 'react-dom/client';
 import type { ContextService } from './context';
 import { MaidrApp } from '@ui/App';
@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 
 export class DisplayService {
   private readonly context: ContextService;
-  private readonly focusStack: Stack<Focus>;
+  private readonly focusStack: Stack<Scope>;
 
   private readonly maidrRoot: HTMLElement;
   public readonly plot: HTMLElement;
@@ -27,8 +27,8 @@ export class DisplayService {
 
   public constructor(context: ContextService, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.context = context;
-    this.focusStack = new Stack<Focus>();
-    this.focusStack.push('PLOT');
+    this.focusStack = new Stack<Scope>();
+    this.focusStack.push(this.context.scope);
 
     const maidrId = this.context.id;
     this.maidrRoot = maidrRoot;
@@ -169,14 +169,15 @@ export class DisplayService {
     return reactDiv;
   }
 
-  public toggleFocus(focus: Focus): void {
-    if (!this.focusStack.removeLast(focus)) {
-      this.focusStack.push(focus);
+  public toggleFocus(scope: Scope): void {
+    if (!this.focusStack.removeLast(scope)) {
+      this.focusStack.push(scope);
     }
-    this.updateFocus(this.focusStack.peek());
+    this.updateFocus(this.focusStack.peek()!);
+    this.context.toggleScope(scope);
   }
 
-  private updateFocus(newFocus: Focus = 'PLOT'): void {
+  private updateFocus(newScope: Scope): void {
     let activeDiv: HTMLElement | undefined;
     if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
       activeDiv = this.reviewDiv;
@@ -188,7 +189,7 @@ export class DisplayService {
       activeDiv = undefined;
     }
 
-    switch (newFocus) {
+    switch (newScope) {
       case 'BRAILLE':
         activeDiv?.classList.add(Constant.HIDDEN);
         this.brailleDiv?.classList.remove(Constant.HIDDEN);
@@ -201,13 +202,14 @@ export class DisplayService {
         this.reviewInput?.focus();
         break;
 
+      case 'CHAT':
       case 'HELP':
       case 'SETTINGS':
         this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
-      case 'PLOT':
+      default:
         this.plot.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;

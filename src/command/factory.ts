@@ -5,9 +5,9 @@ import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
-import type { Keys } from '@type/keys';
+import type { Keys } from '@type/event';
 import type { Command, CommandContext } from './command';
-import { Scope } from '@type/keys';
+import { Scope } from '@type/event';
 import {
   AutoplayBackwardCommand,
   AutoplayDownwardCommand,
@@ -138,13 +138,11 @@ export class CommandFactory {
         return new DescribeCaptionCommand(this.context, this.text);
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
-        return new SwitchScopeCommand(Scope.FIGURE_LABEL);
-      case 'ACTIVATE_SUBPLOT_SCOPE':
-        return new SwitchScopeCommand(Scope.SUBPLOT);
-      case 'ACTIVATE_TRACE_SCOPE':
-        return new SwitchScopeCommand(Scope.TRACE);
+      case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
+        return new SwitchScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-        return new SwitchScopeCommand(Scope.TRACE_LABEL);
+      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
+        return new SwitchScopeCommand(this.context, Scope.TRACE_LABEL);
 
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.context, this.autoplay);

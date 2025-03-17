@@ -1,7 +1,5 @@
 import type { ContextService } from '@service/context';
 import type { Command } from './command';
-import { Scope } from '@type/keys';
-import hotkeys from 'hotkeys-js';
 
 export class MoveUpCommand implements Command {
   private readonly context: ContextService;
@@ -108,7 +106,6 @@ export class MoveToTraceContextCommand implements Command {
 
   public execute(): void {
     this.context.enterSubplot();
-    hotkeys.setScope(Scope.TRACE);
   }
 }
 
@@ -121,7 +118,6 @@ export class MoveToSubplotContextCommand implements Command {
 
   public execute(): void {
     this.context.exitSubplot();
-    hotkeys.setScope(Scope.SUBPLOT);
   }
 }
 
@@ -133,10 +129,7 @@ export class MoveToNextTraceCommand implements Command {
   }
 
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.context.stepTrace('UPWARD');
-    }
+    this.context.stepTrace('UPWARD');
   }
 }
 
@@ -148,9 +141,6 @@ export class MoveToPrevTraceCommand implements Command {
   }
 
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.context.stepTrace('DOWNWARD');
-    }
+    this.context.stepTrace('DOWNWARD');
   }
 }

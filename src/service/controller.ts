@@ -48,15 +48,18 @@ export class ControllerService {
     this.help = new HelpService(this.display);
     this.chat = new ChatService(this.display, maidr);
 
-    this.keybinding = new KeybindingService({
-      context: this.context,
-      audio: this.audio,
-      braille: this.braille,
-      text: this.text,
-      review: this.review,
-      notification: this.notification,
-      autoplay: this.autoplay,
-    });
+    this.keybinding = new KeybindingService(
+      this.context,
+      {
+        context: this.context,
+        audio: this.audio,
+        braille: this.braille,
+        text: this.text,
+        review: this.review,
+        notification: this.notification,
+        autoplay: this.autoplay,
+      },
+    );
     this.keybinding.register();
     this.registerObservers();
   }

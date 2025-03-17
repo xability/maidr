@@ -1,9 +1,54 @@
 import type { CommandContext } from '@command/command';
-import type { Keys } from '@type/keys';
+import type { ContextService } from '@service/context';
+import type { Keys } from '@type/event';
 import { CommandFactory } from '@command/factory';
-import { Scope } from '@type/keys';
+import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import hotkeys from 'hotkeys-js';
+
+enum BrailleKey {
+  ACTIVATE_TRACE_LABEL_SCOPE = 'l',
+
+  // Autoplay
+  AUTOPLAY_UPWARD = 'command+shift+up, ctrl+shift+up',
+  AUTOPLAY_DOWNWARD = 'command+shift+down, ctrl+shift+down',
+  AUTOPLAY_FORWARD = 'command+shift+right, ctrl+shift+right',
+  AUTOPLAY_BACKWARD = 'command+shift+left, ctrl+shift+left',
+
+  STOP_AUTOPLAY = 'command, ctrl, up, down, left, right',
+  SPEED_UP_AUTOPLAY = '.',
+  SPEED_DOWN_AUTOPLAY = ',',
+  RESET_AUTOPLAY_SPEED = '/',
+
+  // Navigation
+  MOVE_UP = 'up',
+  MOVE_DOWN = 'down',
+  MOVE_RIGHT = 'right',
+  MOVE_LEFT = 'left',
+
+  MOVE_TO_TOP_EXTREME = 'command+up, ctrl+up',
+  MOVE_TO_BOTTOM_EXTREME = 'command+down, ctrl+down',
+  MOVE_TO_LEFT_EXTREME = 'command+left, ctrl+left',
+  MOVE_TO_RIGHT_EXTREME = 'command+right, ctrl+right',
+
+  MOVE_TO_NEXT_TRACE = 'fn+up, pageup',
+  MOVE_TO_PREV_TRACE = 'fn+down, pagedown',
+
+  // Modes
+  TOGGLE_BRAILLE = 'b',
+  TOGGLE_TEXT = 't',
+  TOGGLE_AUDIO = 's',
+  TOGGLE_REVIEW = 'r',
+
+  // Misc
+  TOGGLE_SCATTER_NAVIGATION = 'n',
+  TOGGLE_HELP = 'command+/, ctrl+/',
+  TOGGLE_CHAT = 'shift+/',
+  TOGGLE_SETTINGS = 'command+., ctrl+.',
+
+  // Description
+  DESCRIBE_POINT = 'space',
+}
 
 enum ChatKey {
   // Misc
@@ -11,7 +56,7 @@ enum ChatKey {
 }
 
 enum FigureLabelKey {
-  ACTIVATE_SUBPLOT_SCOPE = '*',
+  DEACTIVATE_FIGURE_LABEL_SCOPE = '*',
 
   // Description
   DESCRIBE_TITLE = 't',
@@ -54,7 +99,7 @@ enum SubplotKey {
 }
 
 enum TraceLabelKey {
-  ACTIVATE_TRACE_SCOPE = '*',
+  DEACTIVATE_TRACE_LABEL_SCOPE = '*',
 
   // Description
   DESCRIBE_X = 'x',
@@ -125,12 +170,13 @@ enum TraceKey {
 }
 
 const scopedKeymap = {
+  [Scope.BRAILLE]: BrailleKey,
   [Scope.CHAT]: ChatKey,
-  [Scope.SUBPLOT]: SubplotKey,
-  [Scope.HELP]: HelpKey,
   [Scope.FIGURE_LABEL]: FigureLabelKey,
+  [Scope.HELP]: HelpKey,
   [Scope.REVIEW]: ReviewKey,
   [Scope.SETTINGS]: SettingsKey,
+  [Scope.SUBPLOT]: SubplotKey,
   [Scope.TRACE]: TraceKey,
   [Scope.TRACE_LABEL]: TraceLabelKey,
 } as const;
@@ -140,9 +186,11 @@ export type Keymap = {
 };
 
 export class KeybindingService {
+  private readonly context: ContextService;
   private readonly commandFactory: CommandFactory;
 
-  public constructor(commandContext: CommandContext) {
+  public constructor(context: ContextService, commandContext: CommandContext) {
+    this.context = context;
     this.commandFactory = new CommandFactory(commandContext);
   }
 
@@ -189,8 +237,7 @@ export class KeybindingService {
       }
     }
 
-    // Set the initial scope.
-    hotkeys.setScope(Scope.SUBPLOT);
+    hotkeys.setScope(this.context.scope);
   }
 
   public unregister(): void {

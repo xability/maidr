@@ -3,7 +3,7 @@ import type { TraceState } from '@type/state';
 import type { ContextService } from './context';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { EventType } from '@type/event';
+import { EventType, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
 export class BrailleService implements Observer<TraceState> {
@@ -80,13 +80,9 @@ export class BrailleService implements Observer<TraceState> {
       return;
     }
 
-    if (!this.enabled) {
-      this.enabled = true;
-      this.update(state);
-    } else {
-      this.enabled = false;
-    }
-    this.display.toggleFocus('BRAILLE');
+    this.enabled = !this.enabled;
+    this.enabled && this.update(state);
+    this.display.toggleFocus(Scope.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
