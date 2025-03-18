@@ -8,6 +8,7 @@ const TYPE = 'Type';
 export class LinePlot extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
   private readonly lineValues: number[][];
+  protected readonly brailleValues: string[][];
 
   private readonly min: number[];
   private readonly max: number[];
@@ -27,6 +28,7 @@ export class LinePlot extends AbstractTrace<number> {
   public destroy(): void {
     this.points.length = 0;
     this.lineValues.length = 0;
+    this.brailleValues.length = 0;
 
     this.min.length = 0;
     this.max.length = 0;

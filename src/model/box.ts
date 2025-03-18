@@ -63,6 +63,10 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     return this.boxValues;
   }
 
+  protected get brailleValues(): string[][] {
+    return [];
+  }
+
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 

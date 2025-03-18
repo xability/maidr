@@ -5,6 +5,8 @@ import { AbstractTrace } from './plot';
 
 export class Heatmap extends AbstractTrace<number> {
   private readonly heatValues: number[][];
+  protected readonly brailleValues: string[][];
+
   private readonly x: string[];
   private readonly y: string[];
 
@@ -27,6 +29,7 @@ export class Heatmap extends AbstractTrace<number> {
 
   public destroy(): void {
     this.heatValues.length = 0;
+    this.brailleValues.length = 0;
 
     this.x.length = 0;
     this.y.length = 0;

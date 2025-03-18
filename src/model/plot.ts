@@ -160,8 +160,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected readonly yAxis: string;
   protected readonly fill: string;
 
-  protected brailleValues: string[][];
-
   protected constructor(layer: MaidrLayer) {
     super();
 
@@ -171,12 +169,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.brailleValues = [];
   }
 
   public destroy(): void {
-    this.brailleValues.length = 0;
     super.destroy();
   }
 
@@ -228,4 +223,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract audio(): AudioState;
 
   protected abstract text(): TextState;
+
+  protected abstract get brailleValues(): string[][];
 }

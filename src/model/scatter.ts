@@ -127,6 +127,10 @@ export class ScatterPlot extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? this.xValues : this.yValues;
   }
 
+  protected get brailleValues(): string[][] {
+    return [];
+  }
+
   protected audio(): AudioState {
     const isVertical = this.mode === NavMode.COL;
 

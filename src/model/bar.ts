@@ -7,8 +7,9 @@ import { AbstractTrace } from './plot';
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
-  protected readonly orientation: Orientation;
+  protected readonly brailleValues: string[][];
 
+  protected readonly orientation: Orientation;
   protected readonly min: number[];
   protected readonly max: number[];
 
@@ -33,6 +34,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   public destroy(): void {
     this.points.length = 0;
     this.barValues.length = 0;
+    this.brailleValues.length = 0;
 
     this.min.length = 0;
     this.max.length = 0;
