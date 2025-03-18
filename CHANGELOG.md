@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/xability/maidr-ts/compare/v1.2.1...v1.2.2) (2025-03-18)
+
+
+### Bug Fixes
+
+* prevent mutating the maidr data to remove duplicate summary level ([#154](https://github.com/xability/maidr-ts/issues/154)) ([d187750](https://github.com/xability/maidr-ts/commit/d187750eaae8c0de14d044a8136f63e3215d8c4e))
+
 ## [1.2.1](https://github.com/xability/maidr-ts/compare/v1.2.0...v1.2.1) (2025-03-12)
 
 
