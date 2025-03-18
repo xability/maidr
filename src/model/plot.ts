@@ -39,6 +39,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     for (const observer of this.observers) {
       this.removeObserver(observer);
     }
+    this.observers.length = 0;
   }
 
   public moveOnce(direction: MovableDirection): void {
@@ -159,8 +160,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected readonly yAxis: string;
   protected readonly fill: string;
 
-  protected brailleValues: string[][];
-
   protected constructor(layer: MaidrLayer) {
     super();
 
@@ -170,8 +169,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.brailleValues = [];
   }
 
   public destroy(): void {
@@ -226,4 +223,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract audio(): AudioState;
 
   protected abstract text(): TextState;
+
+  protected abstract get brailleValues(): string[][];
 }

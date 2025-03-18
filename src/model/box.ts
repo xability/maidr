@@ -50,8 +50,21 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.row = this.boxValues.length - 1;
   }
 
+  public destroy(): void {
+    this.points.length = 0;
+    this.boxValues.length = 0;
+
+    this.sections.length = 0;
+
+    super.destroy();
+  }
+
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
+  }
+
+  protected get brailleValues(): string[][] {
+    return [];
   }
 
   protected audio(): AudioState {

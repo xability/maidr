@@ -68,7 +68,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }
 
     if (!controller) {
-      controller = new ControllerService(maidr, maidrRoot, plot);
+      // Create a deep copy to prevent mutations on the original maidr object.
+      const maidrClone = JSON.parse(JSON.stringify(maidr));
+      controller = new ControllerService(maidrClone, maidrRoot, plot);
     }
 
     locator.setController(controller);
@@ -90,7 +92,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
   (() => {
-    const controller = new ControllerService(maidr, maidrRoot, plot);
+    // Create a deep copy to prevent mutations on the original maidr object.
+    const maidrClone = JSON.parse(JSON.stringify(maidr));
+    const controller = new ControllerService(maidrClone, maidrRoot, plot);
     controller.destroy();
   })();
 }
