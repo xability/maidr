@@ -26,7 +26,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected col: number;
 
   protected constructor() {
-    this.observers = [];
+    this.observers = new Array<Observer<State>>();
 
     this.isInitialEntry = true;
     this.isOutOfBounds = false;
