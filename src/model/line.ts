@@ -24,6 +24,16 @@ export class LinePlot extends AbstractTrace<number> {
     this.brailleValues = this.toBraille(this.lineValues);
   }
 
+  public destroy(): void {
+    this.points.length = 0;
+    this.lineValues.length = 0;
+
+    this.min.length = 0;
+    this.max.length = 0;
+
+    super.destroy();
+  }
+
   protected get values(): number[][] {
     return this.lineValues;
   }

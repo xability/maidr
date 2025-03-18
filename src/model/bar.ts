@@ -30,6 +30,16 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.brailleValues = this.getBraille();
   }
 
+  public destroy(): void {
+    this.points.length = 0;
+    this.barValues.length = 0;
+
+    this.min.length = 0;
+    this.max.length = 0;
+
+    super.destroy();
+  }
+
   protected get values(): number[][] {
     return this.barValues;
   }

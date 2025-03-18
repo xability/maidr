@@ -25,6 +25,15 @@ export class Heatmap extends AbstractTrace<number> {
     this.brailleValues = this.toBraille(this.heatValues);
   }
 
+  public destroy(): void {
+    this.heatValues.length = 0;
+
+    this.x.length = 0;
+    this.y.length = 0;
+
+    super.destroy();
+  }
+
   protected get values(): number[][] {
     return this.heatValues;
   }

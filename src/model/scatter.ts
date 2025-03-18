@@ -95,6 +95,20 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.maxY = this.yValues[0].map((_, col) => Math.max(...this.yValues.map(row => row[col])));
   }
 
+  public destroy(): void {
+    this.xPoints.length = 0;
+    this.xValues.length = 0;
+    this.minX.length = 0;
+    this.maxX.length = 0;
+
+    this.yPoints.length = 0;
+    this.yValues.length = 0;
+    this.minY.length = 0;
+    this.maxY.length = 0;
+
+    super.destroy();
+  }
+
   public toggleNavigation(notification: NotificationService): void {
     if (this.mode === NavMode.COL) {
       this.mode = NavMode.ROW;

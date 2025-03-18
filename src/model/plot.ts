@@ -175,6 +175,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   public destroy(): void {
+    this.brailleValues.length = 0;
     super.destroy();
   }
 
