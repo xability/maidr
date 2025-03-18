@@ -52,7 +52,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   }
 
   public destroy(): void {
-    this.values.flat().forEach(subplot => subplot.destroy());
+    this.subplots.forEach(row => row.forEach(subplot => subplot.destroy()));
+    this.subplots.length = 0;
     super.destroy();
   }
 
@@ -108,7 +109,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   public destroy(): void {
-    this.values.flat().forEach(trace => trace.destroy());
+    this.traces.forEach(row => row.forEach(trace => trace.destroy()));
+    this.traces.length = 0;
     super.destroy();
   }
 

@@ -39,6 +39,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     for (const observer of this.observers) {
       this.removeObserver(observer);
     }
+    this.observers.length = 0;
   }
 
   public moveOnce(direction: MovableDirection): void {
