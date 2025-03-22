@@ -2,14 +2,12 @@ import type { BarPoint } from '../src/model/grammar';
 import { expect } from '@jest/globals';
 
 /**
- * Interface representing a bar chart configuration
- * @interface BarChart
+ * Interface representing a subplot layer in the chart
+ * @interface ChartLayer
  */
-interface BarChart {
+interface ChartLayer {
   type: string;
-  id: string;
   selector: string;
-  title: string;
   axes: {
     x: string;
     y: string;
@@ -18,36 +16,93 @@ interface BarChart {
 }
 
 /**
- * Test mockup of bar chart data based on sample JSON
+ * Interface representing a subplot in the chart
+ * @interface ChartSubplot
  */
-const mockBarData: BarChart = {
-  type: 'bar',
+interface ChartSubplot {
+  layers: ChartLayer[];
+}
+
+/**
+ * Interface representing the complete bar chart configuration with subplots
+ * @interface MaidrChart
+ */
+interface MaidrChart {
+  id: string;
+  title: string;
+  subplots: ChartSubplot[][];
+}
+
+/**
+ * Test mockup of bar chart data based on updated MAIDR format
+ */
+const maidrData: MaidrChart = {
   id: 'bar',
-  selector: 'path[clip-path=\'url(#p0f12ed050e)\']',
   title: 'The Number of Tips by Day',
-  axes: {
-    x: 'Day',
-    y: 'Count',
-  },
-  data: [
-    {
-      x: 'Sat',
-      y: 87,
-    },
-    {
-      x: 'Sun',
-      y: 76,
-    },
-    {
-      x: 'Thur',
-      y: 62,
-    },
-    {
-      x: 'Fri',
-      y: 19,
-    },
+  subplots: [
+    [
+      {
+        layers: [
+          {
+            type: 'bar',
+            selector: 'path[clip-path=\'url(#p0f12ed050e)\']',
+            axes: {
+              x: 'Day',
+              y: 'Count',
+            },
+            data: [
+              {
+                x: 'Sat',
+                y: 87,
+              },
+              {
+                x: 'Sun',
+                y: 76,
+              },
+              {
+                x: 'Thur',
+                y: 62,
+              },
+              {
+                x: 'Fri',
+                y: 19,
+              },
+            ],
+          },
+        ],
+      },
+    ],
   ],
 };
+
+/**
+ * Gets the bar data from the MAIDR chart structure
+ * @param chart - The MAIDR chart object
+ * @param subplotIndex - Row index of the subplot (defaults to 0)
+ * @param subplotColIndex - Column index of the subplot (defaults to 0)
+ * @param layerIndex - Index of the layer within the subplot (defaults to 0)
+ * @returns The bar data points
+ * @throws {Error} If the specified indexes don't exist or the layer is not a bar type
+ */
+function getBarData(
+  chart: MaidrChart,
+  subplotIndex = 0,
+  subplotColIndex = 0,
+  layerIndex = 0,
+): BarPoint[] {
+  if (!chart.subplots[subplotIndex]
+    || !chart.subplots[subplotIndex][subplotColIndex]
+    || !chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex]) {
+    throw new Error('Invalid subplot or layer index');
+  }
+
+  const layer = chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex];
+  if (layer.type !== 'bar') {
+    throw new Error(`Expected bar layer, but found ${layer.type}`);
+  }
+
+  return layer.data;
+}
 
 /**
  * Returns the maximum y-value from the data
@@ -104,18 +159,26 @@ function findBarByXValue(data: BarPoint[], xValue: string | number): number {
 }
 
 describe('Bar Plot Data Tests', () => {
+  let barData: BarPoint[];
+
+  beforeEach(() => {
+    barData = getBarData(maidrData);
+  });
+
   describe('Data Structure Validation', () => {
     test('should have valid bar chart structure', () => {
-      expect(mockBarData.type).toBe('bar');
-      expect(mockBarData.id).toBeDefined();
-      expect(mockBarData.title).toBeDefined();
-      expect(mockBarData.axes).toHaveProperty('x');
-      expect(mockBarData.axes).toHaveProperty('y');
-      expect(Array.isArray(mockBarData.data)).toBe(true);
+      const layer = maidrData.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe('bar');
+      expect(maidrData.id).toBeDefined();
+      expect(maidrData.title).toBeDefined();
+      expect(layer.axes).toHaveProperty('x');
+      expect(layer.axes).toHaveProperty('y');
+      expect(Array.isArray(layer.data)).toBe(true);
     });
 
     test('should contain valid data points', () => {
-      mockBarData.data.forEach((point) => {
+      barData.forEach((point) => {
         expect(point).toHaveProperty('x');
         expect(point).toHaveProperty('y');
 
@@ -127,28 +190,28 @@ describe('Bar Plot Data Tests', () => {
 
   describe('Data Value Verification', () => {
     test('should have correct number of data points', () => {
-      expect(mockBarData.data.length).toBe(4);
+      expect(barData.length).toBe(4);
     });
 
     test('should have correct days in the data', () => {
-      const days = mockBarData.data.map(point => point.x);
+      const days = barData.map(point => point.x);
       expect(days).toEqual(['Sat', 'Sun', 'Thur', 'Fri']);
     });
 
     test('should have correct counts for each day', () => {
-      expect(mockBarData.data[0].y).toBe(87);
-      expect(mockBarData.data[1].y).toBe(76);
-      expect(mockBarData.data[2].y).toBe(62);
-      expect(mockBarData.data[3].y).toBe(19);
+      expect(barData[0].y).toBe(87);
+      expect(barData[1].y).toBe(76);
+      expect(barData[2].y).toBe(62);
+      expect(barData[3].y).toBe(19);
     });
 
     test('should identify maximum value correctly', () => {
-      const maxValue = getMaximumValue(mockBarData.data);
+      const maxValue = getMaximumValue(barData);
       expect(maxValue).toBe(87);
     });
 
     test('should identify minimum value correctly', () => {
-      const minValue = getMinimumValue(mockBarData.data);
+      const minValue = getMinimumValue(barData);
       expect(minValue).toBe(19);
     });
   });
@@ -156,42 +219,42 @@ describe('Bar Plot Data Tests', () => {
   describe('Navigation Operations', () => {
     test('should navigate to the next bar correctly', () => {
       const currentIndex = 0;
-      const nextIndex = navigateBar(mockBarData.data, currentIndex, 1);
+      const nextIndex = navigateBar(barData, currentIndex, 1);
       expect(nextIndex).toBe(1);
-      expect(mockBarData.data[nextIndex].x).toBe('Sun');
+      expect(barData[nextIndex].x).toBe('Sun');
     });
 
     test('should navigate to the previous bar correctly', () => {
       const currentIndex = 1;
-      const prevIndex = navigateBar(mockBarData.data, currentIndex, -1);
+      const prevIndex = navigateBar(barData, currentIndex, -1);
       expect(prevIndex).toBe(0);
-      expect(mockBarData.data[prevIndex].x).toBe('Sat');
+      expect(barData[prevIndex].x).toBe('Sat');
     });
 
     test('should wrap around to the first bar when navigating past the last bar', () => {
-      const currentIndex = mockBarData.data.length - 1;
-      const nextIndex = navigateBar(mockBarData.data, currentIndex, 1);
+      const currentIndex = barData.length - 1;
+      const nextIndex = navigateBar(barData, currentIndex, 1);
       expect(nextIndex).toBe(0);
-      expect(mockBarData.data[nextIndex].x).toBe('Sat');
+      expect(barData[nextIndex].x).toBe('Sat');
     });
 
     test('should wrap around to the last bar when navigating before the first bar', () => {
       const currentIndex = 0;
-      const prevIndex = navigateBar(mockBarData.data, currentIndex, -1);
-      expect(prevIndex).toBe(mockBarData.data.length - 1);
-      expect(mockBarData.data[prevIndex].x).toBe('Fri');
+      const prevIndex = navigateBar(barData, currentIndex, -1);
+      expect(prevIndex).toBe(barData.length - 1);
+      expect(barData[prevIndex].x).toBe('Fri');
     });
   });
 
   describe('Search Operations', () => {
     test('should find bar by x value', () => {
-      const thurIndex = findBarByXValue(mockBarData.data, 'Thur');
+      const thurIndex = findBarByXValue(barData, 'Thur');
       expect(thurIndex).toBe(2);
-      expect(mockBarData.data[thurIndex].y).toBe(62);
+      expect(barData[thurIndex].y).toBe(62);
     });
 
     test('should return -1 for non-existent x value', () => {
-      const nonExistentIndex = findBarByXValue(mockBarData.data, 'Mon');
+      const nonExistentIndex = findBarByXValue(barData, 'Mon');
       expect(nonExistentIndex).toBe(-1);
     });
   });
@@ -210,6 +273,11 @@ describe('Bar Plot Data Tests', () => {
 
       expect(nextIndex).toBe(0);
       expect(prevIndex).toBe(0);
+    });
+
+    test('should throw error for invalid subplot or layer indices', () => {
+      expect(() => getBarData(maidrData, 1)).toThrow('Invalid subplot or layer index');
+      expect(() => getBarData(maidrData, 0, 1)).toThrow('Invalid subplot or layer index');
     });
   });
 });
