@@ -1,6 +1,5 @@
 import type { Maidr } from '@type/maidr';
 import { ControllerService } from '@service/controller';
-import { DisplayService } from '@service/display';
 import { ServiceLocator } from '@service/locator';
 import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
@@ -23,7 +22,7 @@ function main(): void {
 
     try {
       const maidr = JSON.parse(maidrData);
-      initMaidr(plot, maidr);
+      initMaidr(maidr, plot);
     } catch (error) {
       console.error('Error parsing maidr attribute:', error);
     }
@@ -45,23 +44,21 @@ function main(): void {
   if (!plot) {
     return;
   }
-  initMaidr(plot, maidr);
+  initMaidr(maidr, plot);
 }
 
-function initMaidr(plot: HTMLElement, maidr: Maidr): void {
+function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrRoot: HTMLElement | null = null;
   let controller: ControllerService | null = null;
-  let display: DisplayService | null = null;
   const locator: ServiceLocator = ServiceLocator.instance;
 
   const onBlur = (event: FocusEvent): void => {
-    if (!display || !display.shouldDestroy(event)) {
+    if (!locator.display.shouldDestroy(event)) {
       return;
     }
 
     controller?.destroy();
     controller = null;
-    display = null;
 
     locator.setController(controller);
   };
@@ -70,11 +67,10 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
       return;
     }
 
-    if (!display) {
-      display = new DisplayService(maidrRoot, plot, maidr);
-    }
     if (!controller) {
-      controller = new ControllerService(display, maidr);
+      // Create a deep copy to prevent mutations on the original maidr object.
+      const maidrClone = JSON.parse(JSON.stringify(maidr));
+      controller = new ControllerService(maidrClone, maidrRoot, plot);
     }
 
     locator.setController(controller);
@@ -96,7 +92,9 @@ function initMaidr(plot: HTMLElement, maidr: Maidr): void {
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
   (() => {
-    const display = new DisplayService(maidrRoot, plot, maidr);
-    display.destroy();
+    // Create a deep copy to prevent mutations on the original maidr object.
+    const maidrClone = JSON.parse(JSON.stringify(maidr));
+    const controller = new ControllerService(maidrClone, maidrRoot, plot);
+    controller.destroy();
   })();
 }

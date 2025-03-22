@@ -1,8 +1,8 @@
-import type { Maidr } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
-import { AbstractPlot } from './plot';
+import { AbstractTrace } from './plot';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -14,8 +14,9 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot extends AbstractPlot<number[] | number> {
+export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
+  private readonly boxValues: (number[] | number)[][];
   private readonly orientation: Orientation;
 
   private readonly sections: string[];
@@ -23,14 +24,14 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: Maidr) {
+  constructor(maidr: MaidrLayer) {
     super(maidr);
 
     this.points = maidr.data as BoxPoint[];
     this.orientation = maidr.orientation ?? Orientation.VERTICAL;
 
     this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
-    this.values = this.points.map(point => [
+    this.boxValues = this.points.map(point => [
       point.lowerOutliers,
       point.min,
       point.q1,
@@ -40,21 +41,38 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
       point.upperOutliers,
     ]);
 
-    const flattenedValues = this.values.map(row =>
+    const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
-    this.min = Math.min(...flattenedValues.flat());
-    this.max = Math.max(...flattenedValues.flat());
+    this.min = Math.min(...flatBoxValues.flat());
+    this.max = Math.max(...flatBoxValues.flat());
 
-    this.row = this.values.length - 1;
+    this.row = this.boxValues.length - 1;
+  }
+
+  public destroy(): void {
+    this.points.length = 0;
+    this.boxValues.length = 0;
+
+    this.sections.length = 0;
+
+    super.destroy();
+  }
+
+  protected get values(): (number[] | number)[][] {
+    return this.boxValues;
+  }
+
+  protected get brailleValues(): string[][] {
+    return [];
   }
 
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
     const value = isHorizontal
-      ? this.values[this.row][this.col]
-      : this.values[this.col][this.row];
+      ? this.boxValues[this.row][this.col]
+      : this.boxValues[this.col][this.row];
     const index = isHorizontal ? this.col : this.row;
 
     return {
@@ -84,14 +102,12 @@ export class BoxPlot extends AbstractPlot<number[] | number> {
 
     const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
     const crossValue = isHorizontal
-      ? this.values[this.row][this.col]
-      : this.values[this.col][this.row];
+      ? this.boxValues[this.row][this.col]
+      : this.boxValues[this.col][this.row];
 
     return {
-      mainLabel,
-      mainValue: point.fill,
-      crossLabel,
-      crossValue,
+      main: { label: mainLabel, value: point.fill },
+      cross: { label: crossLabel, value: crossValue },
       section,
     };
   }

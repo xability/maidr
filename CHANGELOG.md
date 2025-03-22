@@ -1,3 +1,20 @@
+# [2.0.0](https://github.com/xability/maidr-ts/compare/v1.2.2...v2.0.0) (2025-03-18)
+
+
+* feat!: release multi layer and subplots ([#155](https://github.com/xability/maidr-ts/issues/155)) ([f8fef21](https://github.com/xability/maidr-ts/commit/f8fef21da17091a692c4a3c24efa1892a117fc64))
+
+
+### BREAKING CHANGES
+
+* The MAIDR JSON has been modified to include layers and subplots
+
+## [1.2.2](https://github.com/xability/maidr-ts/compare/v1.2.1...v1.2.2) (2025-03-18)
+
+
+### Bug Fixes
+
+* prevent mutating the maidr data to remove duplicate summary level ([#154](https://github.com/xability/maidr-ts/issues/154)) ([d187750](https://github.com/xability/maidr-ts/commit/d187750eaae8c0de14d044a8136f63e3215d8c4e))
+
 ## [1.2.1](https://github.com/xability/maidr-ts/compare/v1.2.0...v1.2.1) (2025-03-12)
 
 

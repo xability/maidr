@@ -9,7 +9,7 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export class TextService implements Observer {
+export class TextService implements Observer<string | PlotState> {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
@@ -28,95 +28,110 @@ export class TextService implements Observer {
 
   public formatText(state: PlotState): string {
     if (!state || state.empty) {
-      return 'No info to display';
+      return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
+    } else if (state.type === 'figure') {
+      return this.formatFigureText(state.index, state.size, state.traceTypes);
+    } else if (state.type === 'subplot') {
+      return this.formatSubplotText(state.index, state.size, state.traceType);
     } else if (this.mode === TextMode.VERBOSE) {
-      return this.formatVerboseText(state.text);
+      return this.formatVerboseTraceText(state.text);
     } else {
-      return this.formatTerseText(state.text);
+      return this.formatTerseTraceText(state.text);
     }
   }
 
-  private formatVerboseText(state: TextState): string {
+  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+    const details = traceTypes.length === 1
+      ? `This is a ${traceTypes[0]} plot`
+      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA)} plots`;
+    return `Subplot ${index} of ${size}: ${details}`;
+  }
+
+  private formatSubplotText(index: number, size: number, traceType: string): string {
+    return `Layer ${index} of ${size}: ${traceType} plot`;
+  }
+
+  private formatVerboseTraceText(state: TextState): string {
     const verbose = new Array<string>();
 
     // Format main-axis values.
-    verbose.push(state.mainLabel, Constant.IS);
+    verbose.push(state.main.label, Constant.IS);
 
     // Format for histogram and scatter plot.
-    if (state.min !== undefined && state.max !== undefined) {
-      verbose.push(String(state.min), Constant.THROUGH, String(state.max));
-    } else if (Array.isArray(state.mainValue)) {
-      verbose.push(state.mainValue.join(Constant.COMMA));
+    if (state.range !== undefined) {
+      verbose.push(String(state.range.min), Constant.THROUGH, String(state.range.max));
+    } else if (Array.isArray(state.main.value)) {
+      verbose.push(state.main.value.join(Constant.COMMA));
     } else {
-      verbose.push(String(state.mainValue));
+      verbose.push(String(state.main.value));
     }
 
     // Format cross-axis label.
-    verbose.push(Constant.COMMA, state.crossLabel);
+    verbose.push(Constant.COMMA, state.cross.label);
 
     // Format for box plot.
     if (state.section !== undefined) {
       verbose.push(Constant.COMMA);
 
-      if (Array.isArray(state.crossValue)) {
-        verbose.push(String(state.crossValue.length), Constant.SPACE);
+      if (Array.isArray(state.cross.value)) {
+        verbose.push(String(state.cross.value.length), Constant.SPACE);
       }
 
       verbose.push(state.section);
     }
 
     // Format cross-axis values.
-    if (!Array.isArray(state.crossValue)) {
-      verbose.push(Constant.IS, String(state.crossValue));
-    } else if (state.crossValue.length > 1) {
-      verbose.push(Constant.ARE, state.crossValue.join(Constant.COMMA));
-    } else if (state.crossValue.length > 0) {
-      verbose.push(Constant.IS, state.crossValue.join(Constant.COMMA));
+    if (!Array.isArray(state.cross.value)) {
+      verbose.push(Constant.IS, String(state.cross.value));
+    } else if (state.cross.value.length > 1) {
+      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA));
+    } else if (state.cross.value.length > 0) {
+      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA));
     }
 
     // Format for heatmap and scatter plot.
-    if (state.fillLabel !== undefined && state.fillValue !== undefined) {
+    if (state.fill !== undefined) {
       verbose.push(
         Constant.COMMA,
-        state.fillLabel,
+        state.fill.label,
         Constant.IS,
-        state.fillValue,
+        state.fill.value,
       );
     }
 
     return verbose.join(Constant.EMPTY);
   }
 
-  private formatTerseText(state: TextState): string {
+  private formatTerseTraceText(state: TextState): string {
     const terse = new Array<string>();
 
-    if (Array.isArray(state.mainValue)) {
-      terse.push(state.mainValue.join(Constant.COMMA));
+    if (Array.isArray(state.main.value)) {
+      terse.push(state.main.value.join(Constant.COMMA));
     } else {
-      terse.push(String(state.mainValue), Constant.COMMA);
+      terse.push(String(state.main.value), Constant.COMMA);
     }
 
     // Format for box plot.
     if (state.section !== undefined) {
-      if (Array.isArray(state.crossValue)) {
-        terse.push(String(state.crossValue.length), Constant.SPACE);
+      if (Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value.length), Constant.SPACE);
       }
 
       terse.push(state.section);
     }
 
     // Format for heatmap and segmented plots.
-    if (state.fillValue !== undefined) {
-      terse.push(state.fillValue, Constant.COMMA);
+    if (state.fill !== undefined) {
+      terse.push(state.fill.value, Constant.COMMA);
     }
 
     // Format for cross axis values.
-    if (!Array.isArray(state.crossValue)) {
-      terse.push(Constant.IS, String(state.crossValue));
-    } else if (state.crossValue.length > 1) {
-      terse.push(Constant.ARE, state.crossValue.join(Constant.COMMA));
-    } else if (state.crossValue.length > 0) {
-      terse.push(Constant.IS, state.crossValue.join(Constant.COMMA));
+    if (!Array.isArray(state.cross.value)) {
+      terse.push(Constant.IS, String(state.cross.value));
+    } else if (state.cross.value.length > 1) {
+      terse.push(Constant.ARE, state.cross.value.join(Constant.COMMA));
+    } else if (state.cross.value.length > 0) {
+      terse.push(Constant.IS, state.cross.value.join(Constant.COMMA));
     }
 
     return terse.join(Constant.EMPTY);

@@ -1,16 +1,16 @@
-import type { Maidr } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import { TestConstants } from '../../util/constant';
 import * as helper from '../../util/helper';
 import 'cypress-real-events/support';
 
 describe('Bar Plot', () => {
-  let maidrData: Maidr;
+  let maidrData: MaidrLayer;
 
   before(() => {
     // Visit the file and extract the maidr data before all tests
     cy.visit('examples/barplot.html');
     cy.window().then((window) => {
-      maidrData = window.maidr;
+      maidrData = window.maidr.subplots[0][0].layers[0];
     });
   });
 

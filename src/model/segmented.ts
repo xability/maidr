@@ -1,15 +1,15 @@
-import type { Maidr } from '@type/maidr';
+import type { MaidrLayer } from '@type/maidr';
 import type { TextState } from '@type/state';
 import type { SegmentedPoint } from './grammar';
 import { Orientation } from '@type/plot';
-import { AbstractBarPlot } from './plot';
+import { AbstractBarPlot } from './bar';
 
 const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
-  public constructor(maidr: Maidr) {
+  public constructor(maidr: MaidrLayer) {
     super(maidr, maidr.data as SegmentedPoint[][]);
     this.createSummaryLevel();
   }
@@ -36,7 +36,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
       summaryPoints.push(point);
     }
     this.points.push(summaryPoints);
-    this.values.push(summaryValues);
+    this.barValues.push(summaryValues);
 
     const summaryMin = Math.min(...summaryValues);
     const summaryMax = Math.max(...summaryValues);
@@ -49,14 +49,12 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   }
 
   protected text(): TextState {
-    const fillData = {
-      fillLabel: LEVEL,
-      fillValue: this.points[this.row][this.col].fill ?? UNDEFINED,
-    };
-
     return {
       ...super.text(),
-      ...fillData,
+      fill: {
+        label: LEVEL,
+        value: this.points[this.row][this.col].fill ?? UNDEFINED,
+      },
     };
   }
 

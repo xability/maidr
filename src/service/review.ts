@@ -1,13 +1,11 @@
 import type { Observer } from '@type/observable';
-import type { PlotState } from '@type/state';
+import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
-import { EventType } from '@type/event';
-import { Scope } from '@type/keys';
-import hotkeys from 'hotkeys-js';
+import { EventType, Scope } from '@type/event';
 
-export class ReviewService implements Observer {
+export class ReviewService implements Observer<TraceState> {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
   private readonly text: TextService;
@@ -57,7 +55,7 @@ export class ReviewService implements Observer {
     }
   }
 
-  public update(state: PlotState): void {
+  public update(state: TraceState): void {
     if (!this.enabled || state.empty) {
       return;
     }
@@ -65,22 +63,16 @@ export class ReviewService implements Observer {
     this.reviewInput!.value = this.text.formatText(state);
   }
 
-  public toggle(state: PlotState): void {
+  public toggle(state: TraceState): void {
     if (state.empty) {
       const noInfo = 'No info for review';
       this.notification.notify(noInfo);
       return;
     }
 
-    if (this.enabled) {
-      this.enabled = false;
-      hotkeys.setScope(Scope.DEFAULT);
-    } else {
-      this.enabled = true;
-      this.update(state);
-      hotkeys.setScope(Scope.REVIEW);
-    }
-    this.display.toggleFocus('REVIEW');
+    this.enabled = !this.enabled;
+    this.enabled && this.update(state);
+    this.display.toggleFocus(Scope.REVIEW);
 
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);

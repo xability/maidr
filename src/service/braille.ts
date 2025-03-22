@@ -1,12 +1,12 @@
-import type { Movable } from '@type/movable';
 import type { Observer } from '@type/observable';
-import type { PlotState } from '@type/state';
+import type { TraceState } from '@type/state';
+import type { ContextService } from './context';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { EventType } from '@type/event';
+import { EventType, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
-export class BrailleService implements Observer {
+export class BrailleService implements Observer<TraceState> {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
 
@@ -16,9 +16,9 @@ export class BrailleService implements Observer {
   private readonly selectionChangeHandler?: (event: Event) => void;
 
   public constructor(
+    context: ContextService,
     notification: NotificationService,
     display: DisplayService,
-    movable: Movable,
   ) {
     this.notification = notification;
     this.display = display;
@@ -31,7 +31,7 @@ export class BrailleService implements Observer {
     this.selectionChangeHandler = (event: Event) => {
       event.preventDefault();
       if (this.enabled) {
-        movable.moveToIndex(this.brailleTextArea!.selectionStart || -1);
+        context.moveToIndex(this.brailleTextArea!.selectionStart || -1);
       }
     };
     this.brailleTextArea = display.brailleTextArea;
@@ -50,7 +50,7 @@ export class BrailleService implements Observer {
     }
   }
 
-  public update(state: PlotState): void {
+  public update(state: TraceState): void {
     if (!this.enabled || state.empty || state.braille.empty) {
       return;
     }
@@ -67,7 +67,7 @@ export class BrailleService implements Observer {
     this.brailleTextArea!.setSelectionRange(index, index);
   }
 
-  public toggle(state: PlotState): void {
+  public toggle(state: TraceState): void {
     if (state.empty) {
       const noInfo = 'No info for braille';
       this.notification.notify(noInfo);
@@ -80,13 +80,9 @@ export class BrailleService implements Observer {
       return;
     }
 
-    if (!this.enabled) {
-      this.enabled = true;
-      this.update(state);
-    } else {
-      this.enabled = false;
-    }
-    this.display.toggleFocus('BRAILLE');
+    this.enabled = !this.enabled;
+    this.enabled && this.update(state);
+    this.display.toggleFocus(Scope.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
