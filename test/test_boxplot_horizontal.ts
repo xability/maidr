@@ -1,10 +1,6 @@
 import type { BoxPoint } from '../src/model/grammar';
 import { expect } from '@jest/globals';
 
-/**
- * Interface representing a subplot layer in the chart
- * @interface ChartLayer
- */
 interface ChartLayer {
   type: string;
   orientation: string;
@@ -16,26 +12,15 @@ interface ChartLayer {
   data: BoxPoint[];
 }
 
-/**
- * Interface representing a subplot in the chart
- * @interface ChartSubplot
- */
 interface ChartSubplot {
   layers: ChartLayer[];
 }
 
-/**
- * Interface representing the complete chart configuration with subplots
- * @interface MaidrChart
- */
 interface MaidrChart {
   id: string;
   subplots: ChartSubplot[][];
 }
 
-/**
- * Test mockup of boxplot chart data based on updated MAIDR format
- */
 const maidrData: MaidrChart = {
   id: 'boxplot1',
   subplots: [
@@ -124,15 +109,6 @@ const maidrData: MaidrChart = {
   ],
 };
 
-/**
- * Gets the boxplot data from the MAIDR chart structure
- * @param chart - The MAIDR chart object
- * @param subplotIndex - Row index of the subplot (defaults to 0)
- * @param subplotColIndex - Column index of the subplot (defaults to 0)
- * @param layerIndex - Index of the layer within the subplot (defaults to 0)
- * @returns The box data points
- * @throws {Error} If the specified indexes don't exist or the layer is not a box type
- */
 function getBoxData(
   chart: MaidrChart,
   subplotIndex = 0,
@@ -153,12 +129,6 @@ function getBoxData(
   return layer.data;
 }
 
-/**
- * Returns the maximum median (q2) value from the data
- * @param data - Array of box data points
- * @returns The maximum median value as a number
- * @throws {Error} If the data array is empty
- */
 function getMaximumMedian(data: BoxPoint[]): number {
   if (data.length === 0) {
     throw new Error('Cannot get maximum median from empty data array');
@@ -166,12 +136,6 @@ function getMaximumMedian(data: BoxPoint[]): number {
   return Math.max(...data.map(point => point.q2));
 }
 
-/**
- * Returns the minimum median (q2) value from the data
- * @param data - Array of box data points
- * @returns The minimum median value as a number
- * @throws {Error} If the data array is empty
- */
 function getMinimumMedian(data: BoxPoint[]): number {
   if (data.length === 0) {
     throw new Error('Cannot get minimum median from empty data array');
@@ -179,12 +143,6 @@ function getMinimumMedian(data: BoxPoint[]): number {
   return Math.min(...data.map(point => point.q2));
 }
 
-/**
- * Returns the box point with the highest interquartile range (IQR)
- * @param data - Array of box data points
- * @returns The box point with the highest IQR
- * @throws {Error} If the data array is empty
- */
 function getHighestIQR(data: BoxPoint[]): BoxPoint {
   if (data.length === 0) {
     throw new Error('Cannot get highest IQR from empty data array');
@@ -204,12 +162,6 @@ function getHighestIQR(data: BoxPoint[]): BoxPoint {
   return maxIQRPoint!;
 }
 
-/**
- * Returns the box point with the lowest interquartile range (IQR)
- * @param data - Array of box data points
- * @returns The box point with the lowest IQR
- * @throws {Error} If the data array is empty
- */
 function getLowestIQR(data: BoxPoint[]): BoxPoint {
   if (data.length === 0) {
     throw new Error('Cannot get lowest IQR from empty data array');
@@ -229,38 +181,14 @@ function getLowestIQR(data: BoxPoint[]): BoxPoint {
   return minIQRPoint!;
 }
 
-/**
- * Calculates the interquartile range (IQR) for a box point
- * @param point - Box data point
- * @returns The interquartile range (q3 - q1)
- */
-
-/**
- * Finds a box point by its fill value (e.g., continent name)
- * @param data - Array of box data points
- * @param fillValue - The fill value to search for
- * @returns The matching box point or undefined if not found
- */
 function findBoxByFill(data: BoxPoint[], fillValue: string): BoxPoint | undefined {
   return data.find(point => point.fill === fillValue);
 }
 
-/**
- * Calculates the total number of outliers in a box point
- * @param point - Box data point
- * @returns The total number of outliers (lower + upper)
- */
 function countOutliers(point: BoxPoint): number {
   return (point.lowerOutliers?.length || 0) + (point.upperOutliers?.length || 0);
 }
 
-/**
- * Navigates through box data to find the next element based on current index
- * @param data - Array of box data points
- * @param currentIndex - Current index in the data array
- * @param direction - Direction to move (1 for right, -1 for left)
- * @returns The new index after navigation
- */
 function navigateBox(data: BoxPoint[], currentIndex: number, direction: 1 | -1): number {
   const newIndex = currentIndex + direction;
   if (newIndex < 0) {

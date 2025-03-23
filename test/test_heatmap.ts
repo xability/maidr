@@ -1,10 +1,6 @@
 import type { HeatmapData } from '../src/model/grammar';
 import { expect } from '@jest/globals';
 
-/**
- * Interface representing a subplot layer in the chart
- * @interface ChartLayer
- */
 interface ChartLayer {
   type: string;
   axes: {
@@ -15,27 +11,16 @@ interface ChartLayer {
   data: HeatmapData;
 }
 
-/**
- * Interface representing a subplot in the chart
- * @interface ChartSubplot
- */
 interface ChartSubplot {
   layers: ChartLayer[];
 }
 
-/**
- * Interface representing the complete chart configuration with subplots
- * @interface MaidrChart
- */
 interface MaidrChart {
   id: string;
   title: string;
   subplots: ChartSubplot[][];
 }
 
-/**
- * Test mockup of heatmap chart data based on updated MAIDR format
- */
 const maidrData: MaidrChart = {
   id: 'heatmap',
   title: 'Heatmap of Flight Passengers',
@@ -75,15 +60,6 @@ const maidrData: MaidrChart = {
   ],
 };
 
-/**
- * Gets the heatmap data from the MAIDR chart structure
- * @param chart - The MAIDR chart object
- * @param subplotIndex - Row index of the subplot (defaults to 0)
- * @param subplotColIndex - Column index of the subplot (defaults to 0)
- * @param layerIndex - Index of the layer within the subplot (defaults to 0)
- * @returns The heatmap data
- * @throws {Error} If the specified indexes don't exist or the layer is not a heat type
- */
 function getHeatmapData(
   chart: MaidrChart,
   subplotIndex = 0,
@@ -104,17 +80,6 @@ function getHeatmapData(
   return layer.data;
 }
 
-/**
- * Returns the maximum value from the heatmap data
- * @param data - Heatmap data containing points matrix
- * @returns The maximum value as a number
- * @throws {Error} If the data has empty points array
- * @example
- * ```
- * const maxValue = getMaximumValue(heatmapData);
- * console.log(maxValue); // 622.0
- * ```
- */
 function getMaximumValue(data: HeatmapData): number {
   if (!data.points || data.points.length === 0) {
     throw new Error('Cannot get maximum value from empty data array');
@@ -131,12 +96,6 @@ function getMaximumValue(data: HeatmapData): number {
   return max;
 }
 
-/**
- * Returns the minimum value from the heatmap data
- * @param data - Heatmap data containing points matrix
- * @returns The minimum value as a number
- * @throws {Error} If the data has empty points array
- */
 function getMinimumValue(data: HeatmapData): number {
   if (!data.points || data.points.length === 0) {
     throw new Error('Cannot get minimum value from empty data array');
@@ -153,13 +112,6 @@ function getMinimumValue(data: HeatmapData): number {
   return min;
 }
 
-/**
- * Gets the value at a specific x,y coordinate in the heatmap
- * @param data - Heatmap data containing points matrix
- * @param xIndex - Index in the x array
- * @param yIndex - Index in the y array
- * @returns The value at the specified coordinate or null if out of bounds
- */
 function getValueAt(data: HeatmapData, xIndex: number, yIndex: number): number | null {
   if (!data.points
     || yIndex < 0
@@ -172,12 +124,6 @@ function getValueAt(data: HeatmapData, xIndex: number, yIndex: number): number |
   return data.points[yIndex][xIndex];
 }
 
-/**
- * Calculates the average value for a specific x-axis value (e.g., year)
- * @param data - Heatmap data containing points matrix
- * @param xIndex - Index of the x-axis value to average
- * @returns The average value or null if index is invalid
- */
 function getAverageForXValue(data: HeatmapData, xIndex: number): number | null {
   if (!data.points
     || data.points.length === 0
@@ -199,12 +145,6 @@ function getAverageForXValue(data: HeatmapData, xIndex: number): number | null {
   return count > 0 ? sum / count : null;
 }
 
-/**
- * Calculates the average value for a specific y-axis value (e.g., month)
- * @param data - Heatmap data containing points matrix
- * @param yIndex - Index of the y-axis value to average
- * @returns The average value or null if index is invalid
- */
 function getAverageForYValue(data: HeatmapData, yIndex: number): number | null {
   if (!data.points
     || yIndex < 0
@@ -219,12 +159,6 @@ function getAverageForYValue(data: HeatmapData, yIndex: number): number | null {
   return sum / row.length;
 }
 
-/**
- * Finds coordinates of the cell with the maximum value
- * @param data - Heatmap data containing points matrix
- * @returns Object with x and y indices of the maximum value
- * @throws {Error} If the data has empty points array
- */
 function findMaxValueCoordinates(data: HeatmapData): { xIndex: number; yIndex: number } {
   if (!data.points || data.points.length === 0) {
     throw new Error('Cannot find max value coordinates in empty data');
@@ -247,12 +181,6 @@ function findMaxValueCoordinates(data: HeatmapData): { xIndex: number; yIndex: n
   return maxCoords;
 }
 
-/**
- * Finds coordinates of the cell with the minimum value
- * @param data - Heatmap data containing points matrix
- * @returns Object with x and y indices of the minimum value
- * @throws {Error} If the data has empty points array
- */
 function findMinValueCoordinates(data: HeatmapData): { xIndex: number; yIndex: number } {
   if (!data.points || data.points.length === 0) {
     throw new Error('Cannot find min value coordinates in empty data');

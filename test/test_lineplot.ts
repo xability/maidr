@@ -1,18 +1,10 @@
 import { expect } from '@jest/globals';
 
-/**
- * Extended LinePoint interface for date-based time series data
- * @interface TimeSeriesPoint
- */
 interface TimeSeriesPoint {
-  x: string; // Date string in YYYY-MM-DD format
-  y: number; // Unemployment count value
+  x: string;
+  y: number;
 }
 
-/**
- * Interface representing a subplot layer in the chart
- * @interface ChartLayer
- */
 interface ChartLayer {
   type: string;
   selector: string;
@@ -23,27 +15,16 @@ interface ChartLayer {
   data: TimeSeriesPoint[][];
 }
 
-/**
- * Interface representing a subplot in the chart
- * @interface ChartSubplot
- */
 interface ChartSubplot {
   layers: ChartLayer[];
 }
 
-/**
- * Interface representing the complete chart configuration with subplots
- * @interface MaidrChart
- */
 interface MaidrChart {
   id: string;
   title: string;
   subplots: ChartSubplot[][];
 }
 
-/**
- * Custom error class for line chart data operations
- */
 class LineChartDataError extends Error {
   constructor(message: string) {
     super(message);
@@ -51,9 +32,6 @@ class LineChartDataError extends Error {
   }
 }
 
-/**
- * Test mockup of line chart data based on updated MAIDR format
- */
 const maidrData: MaidrChart = {
   id: 'line',
   title: 'Unemployment Rate Over Time',
@@ -121,22 +99,6 @@ const maidrData: MaidrChart = {
   ],
 };
 
-/**
- * Gets the line data from the MAIDR chart structure
- * @param chart - The MAIDR chart object
- * @param subplotIndex - Row index of the subplot (defaults to 0)
- * @param subplotColIndex - Column index of the subplot (defaults to 0)
- * @param layerIndex - Index of the layer within the subplot (defaults to 0)
- * @param seriesIndex - Index of the series within the layer data (defaults to 0)
- * @returns The line data points
- * @throws {LineChartDataError} If the specified indexes don't exist or the layer is not a line type
- *
- * @example
- * ```typescript
- * const lineData = getLineData(maidrData);
- * // Returns the first line series from the chart
- * ```
- */
 function getLineData(
   chart: MaidrChart,
   subplotIndex = 0,
@@ -162,18 +124,6 @@ function getLineData(
   return layer.data[seriesIndex];
 }
 
-/**
- * Gets the maximum y-value from the line data series
- * @param data - Array of time series data points
- * @returns The maximum y value as a number
- * @throws {LineChartDataError} If data array is empty
- *
- * @example
- * ```typescript
- * const maxValue = getMaximumValue(lineData);
- * // maxValue = 15352 (highest unemployment count)
- * ```
- */
 function getMaximumValue(data: TimeSeriesPoint[]): number {
   if (data.length === 0) {
     throw new LineChartDataError('Cannot get maximum value from empty data array');
@@ -182,18 +132,6 @@ function getMaximumValue(data: TimeSeriesPoint[]): number {
   return Math.max(...data.map(point => point.y));
 }
 
-/**
- * Gets the minimum y-value from the line data series
- * @param data - Array of time series data points
- * @returns The minimum y value as a number
- * @throws {LineChartDataError} If data array is empty
- *
- * @example
- * ```typescript
- * const minValue = getMinimumValue(lineData);
- * // minValue = 2685 (lowest unemployment count)
- * ```
- */
 function getMinimumValue(data: TimeSeriesPoint[]): number {
   if (data.length === 0) {
     throw new LineChartDataError('Cannot get minimum value from empty data array');
@@ -202,18 +140,6 @@ function getMinimumValue(data: TimeSeriesPoint[]): number {
   return Math.min(...data.map(point => point.y));
 }
 
-/**
- * Calculates the average y-value from the line data series
- * @param data - Array of time series data points
- * @returns The average y value as a number
- * @throws {LineChartDataError} If data array is empty
- *
- * @example
- * ```typescript
- * const avgValue = getAverageValue(lineData);
- * // avgValue = Average unemployment rate across all time points
- * ```
- */
 function getAverageValue(data: TimeSeriesPoint[]): number {
   if (data.length === 0) {
     throw new LineChartDataError('Cannot calculate average from empty data array');
@@ -224,38 +150,13 @@ function getAverageValue(data: TimeSeriesPoint[]): number {
   return sum / data.length;
 }
 
-/**
- * Finds a data point by date
- * @param data - Array of time series data points
- * @param date - The date to search for (in string format)
- * @returns The found data point or undefined if not found
- *
- * @example
- * ```typescript
- * const dataPoint = findDataPointByDate(lineData, '1970-01-01');
- * // Returns the data point for January 1970
- * ```
- */
 function findDataPointByDate(data: TimeSeriesPoint[], date: string): TimeSeriesPoint | undefined {
   return data.find(point => point.x === date);
 }
 
-/**
- * Navigates to the next point in line data
- * @param data - Array of time series data points
- * @param currentIndex - Current index in the data array
- * @param direction - Direction to move (1 for right, -1 for left)
- * @returns The new index after navigation
- *
- * @example
- * ```typescript
- * const nextIdx = navigateLine(lineData, 5, 1); // Move to next point from index 5
- * ```
- */
 function navigateLine(data: TimeSeriesPoint[], currentIndex: number, direction: 1 | -1): number {
   const newIndex = currentIndex + direction;
 
-  // Handle boundary conditions with wraparound
   if (newIndex < 0) {
     return data.length - 1;
   } else if (newIndex >= data.length) {
@@ -265,48 +166,14 @@ function navigateLine(data: TimeSeriesPoint[], currentIndex: number, direction: 
   return newIndex;
 }
 
-/**
- * Extracts year from date string
- * @param dateStr - Date string in format 'YYYY-MM-DD'
- * @returns Year as number
- *
- * @example
- * ```typescript
- * const year = extractYear('1970-01-01');
- * // year = 1970
- * ```
- */
 function extractYear(dateStr: string): number {
   return Number.parseInt(dateStr.split('-')[0], 10);
 }
 
-/**
- * Finds data points for a specific year
- * @param data - Array of time series data points
- * @param year - Year to filter by
- * @returns Array of data points for the specified year
- *
- * @example
- * ```typescript
- * const points1970 = findPointsByYear(lineData, 1970);
- * // Returns all data points from 1970
- * ```
- */
 function findPointsByYear(data: TimeSeriesPoint[], year: number): TimeSeriesPoint[] {
   return data.filter(point => extractYear(point.x) === year);
 }
 
-/**
- * Calculates the yearly average values
- * @param data - Array of time series data points
- * @returns Map of year to average value
- *
- * @example
- * ```typescript
- * const yearlyAverages = calculateYearlyAverages(lineData);
- * // Returns a map with each year as key and average unemployment rate as value
- * ```
- */
 function calculateYearlyAverages(data: TimeSeriesPoint[]): Map<number, number> {
   if (data.length === 0) {
     throw new LineChartDataError('Cannot calculate yearly averages from empty data array');

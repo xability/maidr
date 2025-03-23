@@ -1,10 +1,6 @@
 import type { HistogramPoint } from '../src/model/grammar';
 import { expect } from '@jest/globals';
 
-/**
- * Extended histogram point interface with additional properties present in the data
- * @interface ExtendedHistogramPoint
- */
 interface ExtendedHistogramPoint extends HistogramPoint {
   count: number;
   density: number;
@@ -18,10 +14,6 @@ interface ExtendedHistogramPoint extends HistogramPoint {
   linetype: number;
 }
 
-/**
- * Interface representing a subplot layer in the chart
- * @interface ChartLayer
- */
 interface ChartLayer {
   type: string;
   selector: string;
@@ -32,27 +24,16 @@ interface ChartLayer {
   data: ExtendedHistogramPoint[];
 }
 
-/**
- * Interface representing a subplot in the chart
- * @interface ChartSubplot
- */
 interface ChartSubplot {
   layers: ChartLayer[];
 }
 
-/**
- * Interface representing the complete chart configuration with subplots
- * @interface MaidrChart
- */
 interface MaidrChart {
   id: string;
   title: string;
   subplots: ChartSubplot[][];
 }
 
-/**
- * Custom error class for histogram data operations
- */
 class HistogramDataError extends Error {
   constructor(message: string) {
     super(message);
@@ -60,9 +41,6 @@ class HistogramDataError extends Error {
   }
 }
 
-/**
- * Test mockup of histogram chart data based on updated MAIDR format
- */
 const maidrData: MaidrChart = {
   id: 'hist',
   title: 'Distribution of Engine Displacement',
@@ -446,15 +424,6 @@ const maidrData: MaidrChart = {
   ],
 };
 
-/**
- * Gets the histogram data from the MAIDR chart structure
- * @param chart - The MAIDR chart object
- * @param subplotIndex - Row index of the subplot (defaults to 0)
- * @param subplotColIndex - Column index of the subplot (defaults to 0)
- * @param layerIndex - Index of the layer within the subplot (defaults to 0)
- * @returns The histogram data points
- * @throws {HistogramDataError} If the specified indexes don't exist or the layer is not a histogram type
- */
 function getHistogramData(
   chart: MaidrChart,
   subplotIndex = 0,
@@ -475,18 +444,6 @@ function getHistogramData(
   return layer.data;
 }
 
-/**
- * Gets the maximum count or y-value from the data
- * @param data - Array of histogram data points
- * @returns The maximum count value
- * @throws {HistogramDataError} If data array is empty
- *
- * @example
- * ```
- * const maxCount = getMaximumCount(histData);
- * // maxCount = 28 (highest bin count)
- * ```
- */
 function getMaximumCount(data: HistogramPoint[]): number {
   if (data.length === 0) {
     throw new HistogramDataError('Cannot get maximum count from empty data array');
@@ -494,18 +451,6 @@ function getMaximumCount(data: HistogramPoint[]): number {
   return Math.max(...data.map(point => typeof point.y === 'number' ? point.y : Number.parseFloat(String(point.y))));
 }
 
-/**
- * Gets the minimum count or y-value from the data
- * @param data - Array of histogram data points
- * @returns The minimum count value
- * @throws {HistogramDataError} If data array is empty
- *
- * @example
- * ```
- * const minCount = getMinimumCount(histData);
- * // minCount = 0 (lowest bin count)
- * ```
- */
 function getMinimumCount(data: HistogramPoint[]): number {
   if (data.length === 0) {
     throw new HistogramDataError('Cannot get minimum count from empty data array');
@@ -513,18 +458,6 @@ function getMinimumCount(data: HistogramPoint[]): number {
   return Math.min(...data.map(point => typeof point.y === 'number' ? point.y : Number.parseFloat(String(point.y))));
 }
 
-/**
- * Gets the total count across all bins
- * @param data - Array of histogram data points
- * @returns The total count
- * @throws {HistogramDataError} If data array is empty
- *
- * @example
- * ```
- * const total = getTotalCount(histData);
- * // total = sum of all bin counts
- * ```
- */
 function getTotalCount(data: HistogramPoint[]): number {
   if (data.length === 0) {
     throw new HistogramDataError('Cannot calculate total from empty data array');
@@ -533,19 +466,6 @@ function getTotalCount(data: HistogramPoint[]): number {
     total + (typeof point.y === 'number' ? point.y : Number.parseFloat(String(point.y))), 0);
 }
 
-/**
- * Gets the bin width from the data
- * @param data - Array of histogram data points
- * @param index - Index of the bin to check
- * @returns The width of the bin
- * @throws {HistogramDataError} If data array is empty or index is invalid
- *
- * @example
- * ```
- * const width = getBinWidth(histData, 5);
- * // width = xMax - xMin for the specified bin
- * ```
- */
 function getBinWidth(data: HistogramPoint[], index: number): number {
   if (data.length === 0) {
     throw new HistogramDataError('Cannot calculate bin width from empty data array');
@@ -557,23 +477,9 @@ function getBinWidth(data: HistogramPoint[], index: number): number {
   return data[index].xMax - data[index].xMin;
 }
 
-/**
- * Navigates through histogram data to find the next bin based on current index
- * @param data - Array of histogram data points
- * @param currentIndex - Current index in the data array
- * @param direction - Direction to move (1 for right, -1 for left)
- * @returns The new index after navigation
- *
- * @example
- * ```
- * const nextIdx = navigateHistogram(histData, 2, 1); // Move right from index 2
- * const prevIdx = navigateHistogram(histData, 2, -1); // Move left from index 2
- * ```
- */
 function navigateHistogram(data: HistogramPoint[], currentIndex: number, direction: 1 | -1): number {
   const newIndex = currentIndex + direction;
 
-  // Handle boundary conditions with wraparound
   if (newIndex < 0) {
     return data.length - 1;
   } else if (newIndex >= data.length) {
@@ -583,34 +489,10 @@ function navigateHistogram(data: HistogramPoint[], currentIndex: number, directi
   return newIndex;
 }
 
-/**
- * Finds the bin that contains the given x value
- * @param data - Array of histogram data points
- * @param xValue - The x value to find
- * @returns The index of the bin containing the value or -1 if not found
- *
- * @example
- * ```
- * const binIndex = findBinContainingValue(histData, 3.5);
- * // Returns index of the bin where xMin <= 3.5 < xMax
- * ```
- */
 function findBinContainingValue(data: HistogramPoint[], xValue: number): number {
   return data.findIndex(bin => xValue >= bin.xMin && xValue < bin.xMax);
 }
 
-/**
- * Find the bin with the highest count (mode of the distribution)
- * @param data - Array of histogram data points
- * @returns The index of the bin with the highest count
- * @throws {HistogramDataError} If data array is empty
- *
- * @example
- * ```
- * const modeIndex = findModeIndex(histData);
- * // Returns index of the bin with the highest count
- * ```
- */
 function findModeIndex(data: HistogramPoint[]): number {
   if (data.length === 0) {
     throw new HistogramDataError('Cannot find mode in empty data array');
@@ -631,11 +513,9 @@ function findModeIndex(data: HistogramPoint[]): number {
 }
 
 describe('Histogram Data Tests', () => {
-  // We'll use this to access histogram data in tests
   let histData: ExtendedHistogramPoint[];
 
   beforeEach(() => {
-    // Get the histogram data from the MAIDR structure
     histData = getHistogramData(maidrData);
   });
 
@@ -844,7 +724,6 @@ describe('Histogram Data Tests', () => {
     });
 
     test('should handle string y-values by parsing them to numbers', () => {
-      // Create a modified version of the histogram data with string y-values
       const stringYData: HistogramPoint[] = [
         { ...histData[0], y: '19' as unknown as number },
         { ...histData[1], y: '24' as unknown as number },
