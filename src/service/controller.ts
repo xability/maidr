@@ -1,4 +1,5 @@
 import type { Maidr } from '@type/maidr';
+import { HighlightService } from '@service/highlight';
 import { Figure } from '@type/plot';
 import { AudioService } from './audio';
 import { AutoplayService } from './autoplay';
@@ -27,6 +28,7 @@ export class ControllerService {
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
+  private readonly highlight: HighlightService;
   public readonly help: HelpService;
   public readonly chat: ChatService;
   private readonly keybinding: KeybindingService;
@@ -39,12 +41,13 @@ export class ControllerService {
     this.notification = new NotificationService(this.context, this.display);
     this.settings = new SettingsService(this.display);
 
-    this.audio = new AudioService(this.notification, false);
+    this.audio = new AudioService(this.notification, this.context.state);
     this.braille = new BrailleService(this.context, this.notification, this.display);
     this.text = new TextService(this.notification, this.display.textDiv);
     this.review = new ReviewService(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayService(this.context, this.notification, this.text);
+    this.highlight = new HighlightService(this.notification, this.display);
     this.help = new HelpService(this.context, this.display);
     this.chat = new ChatService(this.display, maidr);
 
@@ -66,6 +69,7 @@ export class ControllerService {
 
   public destroy(): void {
     this.keybinding.unregister();
+    this.highlight.destroy();
     this.autoplay.destroy();
 
     this.review.destroy();
@@ -80,10 +84,12 @@ export class ControllerService {
     this.figure.addObserver(this.text);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.text);
+      subplot.addObserver(this.audio);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
         trace.addObserver(this.audio);
         trace.addObserver(this.braille);
         trace.addObserver(this.text);
+        trace.addObserver(this.highlight);
       }));
     }));
   }
