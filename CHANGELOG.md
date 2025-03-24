@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/xability/maidr-ts/compare/v2.0.0...v2.0.1) (2025-03-24)
+
+
+### Bug Fixes
+
+* update audio to cycle combined mode in multi layer ([#156](https://github.com/xability/maidr-ts/issues/156)) ([9b9fa83](https://github.com/xability/maidr-ts/commit/9b9fa83b19bb58d68591a99db47b76c71817be70))
+
 # [2.0.0](https://github.com/xability/maidr-ts/compare/v1.2.2...v2.0.0) (2025-03-18)
 
 
