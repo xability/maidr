@@ -180,6 +180,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       return {
         empty: true,
         type: 'trace',
+        traceType: this.type,
       };
     }
 
@@ -191,7 +192,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
-      isCombinedAudio: this.hasMultiPoints(),
+      hasMultiPoints: this.hasMultiPoints(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),

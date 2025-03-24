@@ -171,7 +171,8 @@ export class ScatterPlot extends AbstractTrace<number> {
   protected braille(): BrailleState {
     return {
       empty: true,
-      type: this.type,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 

@@ -2,13 +2,11 @@ import type { MovableDirection } from '@type/movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export interface EmptyState {
-  empty: true;
-  type: string;
-}
-
 export type FigureState =
-  | EmptyState
+  | {
+    empty: true;
+    type: 'figure';
+  }
   | {
     empty: false;
     type: 'figure';
@@ -22,19 +20,26 @@ export type FigureState =
   };
 
 export type SubplotState =
-  | EmptyState
+  | {
+    empty: true;
+    type: 'subplot';
+  }
   | {
     empty: false;
     type: 'subplot';
     size: number;
     index: number;
     trace: TraceState;
-    traceType: string;
-    isCombinedAudio: boolean;
   };
 
+interface TraceEmptyState {
+  empty: true;
+  type: 'trace';
+  traceType: string;
+}
+
 export type TraceState =
-  | EmptyState
+  | TraceEmptyState
   | {
     empty: false;
     type: 'trace';
@@ -43,7 +48,7 @@ export type TraceState =
     xAxis: string;
     yAxis: string;
     fill: string;
-    isCombinedAudio: boolean;
+    hasMultiPoints: boolean;
     audio: AudioState;
     braille: BrailleState;
     text: TextState;
@@ -59,7 +64,7 @@ export interface AudioState {
 }
 
 export type BrailleState =
-  | EmptyState
+  | TraceEmptyState
   | {
     empty: false;
     values: string[][];
@@ -80,5 +85,5 @@ export type AutoplayState = {
 };
 
 export type HighlightState =
-  | EmptyState
+  | TraceEmptyState
   | object;
