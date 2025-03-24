@@ -137,11 +137,12 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       index: this.row + 1,
       trace: this.activeTrace.state,
       traceType: this.traceTypes[this.row],
+      isCombinedAudio: this.activeTrace.hasMultiPoints(),
     };
   }
 }
 
 export interface Trace extends Movable, Observable<TraceState> {
   destroy: () => void;
-  get hasMultiPoints(): boolean;
+  hasMultiPoints: () => boolean;
 }

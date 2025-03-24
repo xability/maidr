@@ -191,6 +191,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
+      isCombinedAudio: this.hasMultiPoints(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
@@ -216,7 +217,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  public get hasMultiPoints(): boolean {
+  public hasMultiPoints(): boolean {
     return false;
   }
 

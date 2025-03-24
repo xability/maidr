@@ -30,6 +30,7 @@ export type SubplotState =
     index: number;
     trace: TraceState;
     traceType: string;
+    isCombinedAudio: boolean;
   };
 
 export type TraceState =
@@ -42,6 +43,7 @@ export type TraceState =
     xAxis: string;
     yAxis: string;
     fill: string;
+    isCombinedAudio: boolean;
     audio: AudioState;
     braille: BrailleState;
     text: TextState;
@@ -76,3 +78,7 @@ export interface TextState {
 export type AutoplayState = {
   [key in MovableDirection]: number;
 };
+
+export type HighlightState =
+  | EmptyState
+  | object;

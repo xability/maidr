@@ -175,7 +175,7 @@ export class ScatterPlot extends AbstractTrace<number> {
     };
   }
 
-  public get hasMultiPoints(): boolean {
+  public hasMultiPoints(): boolean {
     return true;
   }
 }
