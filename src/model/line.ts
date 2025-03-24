@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
 import { AbstractTrace } from './plot';
 
@@ -60,6 +60,14 @@ export class LinePlot extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
+    };
+  }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 

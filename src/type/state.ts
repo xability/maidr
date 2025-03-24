@@ -53,6 +53,7 @@ export type TraceState =
     braille: BrailleState;
     text: TextState;
     autoplay: AutoplayState;
+    highlight: HighlightState;
   };
 
 export interface AudioState {
@@ -86,4 +87,7 @@ export type AutoplayState = {
 
 export type HighlightState =
   | TraceEmptyState
-  | object;
+  | {
+    empty: false;
+    elements: object[];
+  };

@@ -58,7 +58,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  public hasMultiPoints(): boolean {
+  protected hasMultiPoints(): boolean {
     return true;
   }
 }

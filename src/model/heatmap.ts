@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { HeatmapData } from './grammar';
 import { AbstractTrace } from './plot';
 
@@ -56,6 +56,14 @@ export class Heatmap extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
       fill: { label: this.fill, value: String(this.heatValues[this.row][this.col]) },
+    };
+  }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 

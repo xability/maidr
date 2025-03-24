@@ -14,5 +14,11 @@ export class HighlightService implements Observer<PlotState> {
 
   public destroy(): void {}
 
-  public update(_: PlotState): void {}
+  public update(state: PlotState): void {
+    if (state.empty || state.type !== 'trace' || state.highlight.empty) {
+      return;
+    }
+
+    console.warn('HighlightService to be implemented');
+  }
 }

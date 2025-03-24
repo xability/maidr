@@ -1,6 +1,6 @@
 import type { NotificationService } from '@service/notification';
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
 import { AbstractTrace } from '@model/plot';
 
@@ -176,7 +176,15 @@ export class ScatterPlot extends AbstractTrace<number> {
     };
   }
 
-  public hasMultiPoints(): boolean {
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+    };
+  }
+
+  protected hasMultiPoints(): boolean {
     return true;
   }
 }

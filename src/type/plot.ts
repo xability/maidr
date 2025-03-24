@@ -142,5 +142,4 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
 export interface Trace extends Movable, Observable<TraceState> {
   destroy: () => void;
-  hasMultiPoints: () => boolean;
 }

@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { BarPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -76,6 +76,14 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     return {
       main: { label: mainLabel, value: mainValue },
       cross: { label: crossLabel, value: crossValue },
+    };
+  }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
