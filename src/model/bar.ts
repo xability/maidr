@@ -7,7 +7,9 @@ import { AbstractTrace } from './plot';
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
+
   protected readonly brailleValues: string[][];
+  protected readonly highlightValues: SVGElement[][];
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -29,6 +31,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max = this.barValues.map(row => Math.max(...row));
 
     this.brailleValues = this.getBraille();
+    this.highlightValues = this.getSvgElements(layer.selectors);
   }
 
   public destroy(): void {
@@ -80,10 +83,17 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   }
 
   protected highlight(): HighlightState {
+    if (this.highlightValues.length === 0) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
     };
   }
 
@@ -116,6 +126,37 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     }
 
     return braille;
+  }
+
+  private getSvgElements(selectors?: string[]): SVGElement[][] {
+    const svgElements = new Array<Array<SVGElement>>();
+    if (!selectors || selectors.length === 0) {
+      return svgElements;
+    }
+
+    selectors.forEach((selector) => {
+      const domElements = document.querySelectorAll<SVGElement>(selector);
+      svgElements.push(Array.from(domElements));
+    });
+
+    if (!this.validateHighlighting(svgElements)) {
+      return new Array<Array<SVGElement>>();
+    }
+    return svgElements;
+  }
+
+  private validateHighlighting(elements: SVGElement[][]): boolean {
+    if (elements.length !== this.points.length) {
+      return false;
+    }
+
+    for (let row = 0; row < this.points.length; row++) {
+      if (elements[row].length !== this.points[row].length) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }
 

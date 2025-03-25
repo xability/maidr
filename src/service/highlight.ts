@@ -1,24 +1,63 @@
 import type { Observer } from '@type/observable';
 import type { PlotState } from '@type/state';
-import type { DisplayService } from './display';
-import type { NotificationService } from './notification';
+import { Color } from '@util/color';
+import { Constant } from '@util/constant';
+
+const DEFAULT_HIGHLIGHT_COLOR = '#BADA55';
 
 export class HighlightService implements Observer<PlotState> {
-  private readonly notification: NotificationService;
-  private readonly display: DisplayService;
+  private readonly highlightedElements: Set<SVGElement>;
 
-  public constructor(notification: NotificationService, display: DisplayService) {
-    this.notification = notification;
-    this.display = display;
+  public constructor() {
+    this.highlightedElements = new Set<SVGElement>();
   }
 
-  public destroy(): void {}
+  public destroy(): void {
+    this.unhighlight();
+  }
 
   public update(state: PlotState): void {
+    this.unhighlight();
     if (state.empty || state.type !== 'trace' || state.highlight.empty) {
       return;
     }
 
-    console.warn('HighlightService to be implemented');
+    const elements = Array.isArray(state.highlight.elements)
+      ? state.highlight.elements
+      : [state.highlight.elements];
+    this.highlight(elements);
+  }
+
+  private highlight(elements: SVGElement[]): void {
+    elements.forEach((element, index) => {
+      const clone = element.cloneNode(true) as SVGElement;
+      const originalColor = window.getComputedStyle(element).getPropertyValue('fill');
+
+      clone.id = `highlight-${Date.now()}-${index}`;
+      clone.style.fill = this.getHighlightColor(originalColor);
+
+      element.insertAdjacentElement(Constant.AFTER_END, clone);
+      this.highlightedElements.add(clone);
+    });
+  }
+
+  private unhighlight(): void {
+    this.highlightedElements.forEach(element => element.remove());
+    this.highlightedElements.clear();
+  }
+
+  private getHighlightColor(originalColor: string): string {
+    const originalRgb = Color.parse(originalColor);
+    if (!originalRgb) {
+      return DEFAULT_HIGHLIGHT_COLOR;
+    }
+
+    const invertedRgb = Color.invert(originalRgb);
+    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
+    if (contrastRatio >= 4.5) {
+      return Color.rgbToString(invertedRgb);
+    }
+
+    return DEFAULT_HIGHLIGHT_COLOR;
   }
 }

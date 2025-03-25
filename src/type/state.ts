@@ -89,5 +89,5 @@ export type HighlightState =
   | TraceEmptyState
   | {
     empty: false;
-    elements: object[];
+    elements: SVGElement | SVGElement[];
   };

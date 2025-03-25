@@ -33,6 +33,7 @@ export abstract class Constant {
   static readonly TITLE = 'title';
 
   // Attribute values.
+  static readonly AFTER_END = 'afterend';
   static readonly APPLICATION = 'application';
   static readonly ARE = ' are ';
   static readonly ASSERTIVE = 'assertive';

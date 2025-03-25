@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { TextState } from '@type/state';
+import type { HighlightState, TextState } from '@type/state';
 import type { SegmentedPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractBarPlot } from './bar';
@@ -55,6 +55,14 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
         label: LEVEL,
         value: this.points[this.row][this.col].fill ?? UNDEFINED,
       },
+    };
+  }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
