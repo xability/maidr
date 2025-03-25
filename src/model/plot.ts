@@ -16,7 +16,8 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State> {
+export abstract class AbstractObservableElement<Element, State>
+implements Movable, Observable<State> {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -102,8 +103,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   public isMovable(target: number | MovableDirection): boolean {
     if (typeof target === 'number') {
       return (
-        this.row >= 0 && this.row < this.values.length
-        && target >= 0 && target < this.values[this.row].length
+        this.row >= 0
+        && this.row < this.values.length
+        && target >= 0
+        && target < this.values[this.row].length
       );
     }
 
@@ -122,7 +125,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   private handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
+    this.col = Math.max(
+      0,
+      Math.min(this.col, this.values[this.row].length - 1),
+    );
   }
 
   public addObserver(observer: Observer<State>): void {
@@ -151,7 +157,9 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   public abstract get state(): State;
 }
 
-export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
+export abstract class AbstractTrace<T>
+  extends AbstractObservableElement<T, TraceState>
+  implements Trace {
   protected readonly type: string;
   private readonly title: string;
 
