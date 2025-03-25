@@ -25,8 +25,8 @@ export class Heatmap extends AbstractTrace<number> {
     this.min = Math.min(...this.heatmapValues.flat());
     this.max = Math.max(...this.heatmapValues.flat());
 
-    this.brailleValues = this.getBraille(this.heatmapValues);
-    this.highlightValues = this.getHighlighting(layer.selectors as string);
+    this.brailleValues = this.getBraille();
+    this.highlightValues = this.getHighlighting(layer.selectors);
   }
 
   public destroy(): void {
@@ -77,22 +77,22 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
-  private getBraille(data: number[][]): string[][] {
+  private getBraille(): string[][] {
     const braille = new Array<Array<string>>();
 
     const range = (this.max - this.min) / 3;
     const low = this.min + range;
     const medium = low + range;
 
-    for (let row = 0; row < data.length; row++) {
+    for (let row = 0; row < this.values.length; row++) {
       braille.push(new Array<string>());
 
-      for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === 0) {
+      for (let col = 0; col < this.heatmapValues[row].length; col++) {
+        if (this.heatmapValues[row][col] === 0) {
           braille[row].push(' ');
-        } else if (data[row][col] <= low) {
+        } else if (this.heatmapValues[row][col] <= low) {
           braille[row].push('⠤');
-        } else if (data[row][col] <= medium) {
+        } else if (this.heatmapValues[row][col] <= medium) {
           braille[row].push('⠒');
         } else {
           braille[row].push('⠉');
@@ -103,15 +103,15 @@ export class Heatmap extends AbstractTrace<number> {
     return braille;
   }
 
-  private getHighlighting(selector?: string): SVGElement[][] {
+  private getHighlighting(selector?: string[]): SVGElement[][] {
     const svgElements = new Array<Array<SVGElement>>();
-    if (!selector) {
+    if (!selector || svgElements.length >= 1) {
       return svgElements;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector[0]));
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
       return svgElements;
     }
