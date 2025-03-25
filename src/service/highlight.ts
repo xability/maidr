@@ -3,8 +3,6 @@ import type { PlotState } from '@type/state';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 
-const DEFAULT_HIGHLIGHT_COLOR = '#BADA55';
-
 export class HighlightService implements Observer<PlotState> {
   private readonly highlightedElements: Set<SVGElement>;
 
@@ -49,7 +47,7 @@ export class HighlightService implements Observer<PlotState> {
   private getHighlightColor(originalColor: string): string {
     const originalRgb = Color.parse(originalColor);
     if (!originalRgb) {
-      return DEFAULT_HIGHLIGHT_COLOR;
+      return Constant.MAIDR_HIGHLIGHT_COLOR;
     }
 
     const invertedRgb = Color.invert(originalRgb);
@@ -58,6 +56,6 @@ export class HighlightService implements Observer<PlotState> {
       return Color.rgbToString(invertedRgb);
     }
 
-    return DEFAULT_HIGHLIGHT_COLOR;
+    return Constant.MAIDR_HIGHLIGHT_COLOR;
   }
 }

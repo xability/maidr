@@ -43,6 +43,7 @@ export abstract class Constant {
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
   static readonly MAIDR_DATA = 'maidr-data';
+  static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly MB_3 = 'mb-3';
   static readonly NEW_LINE = '\n';
   static readonly OFF = 'off';
