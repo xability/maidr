@@ -1,6 +1,7 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
+import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { Command } from './command';
 
@@ -110,16 +111,19 @@ export class DescribeCaptionCommand extends DescribeCommand {
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioService;
   private readonly braille: BrailleService;
+  private readonly highlight: HighlightService;
 
   public constructor(
     context: ContextService,
+    text: TextService,
     audio: AudioService,
     braille: BrailleService,
-    text: TextService,
+    highlight: HighlightService,
   ) {
     super(context, text);
     this.audio = audio;
     this.braille = braille;
+    this.highlight = highlight;
   }
 
   public execute(): void {
@@ -134,6 +138,7 @@ export class DescribePointCommand extends DescribeCommand {
         this.text.update(state);
         this.audio.update(state);
         this.braille.update(state);
+        this.highlight.update(state);
         break;
     }
   }

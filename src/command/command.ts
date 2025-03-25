@@ -2,6 +2,7 @@ import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
+import type { HighlightService } from '@service/highlight';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
@@ -20,4 +21,5 @@ export interface CommandContext {
 
   notification: NotificationService;
   autoplay: AutoplayService;
+  highlight: HighlightService;
 }

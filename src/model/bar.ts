@@ -31,13 +31,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max = this.barValues.map(row => Math.max(...row));
 
     this.brailleValues = this.getBraille();
-    this.highlightValues = this.getSvgElements(layer.selectors);
+    this.highlightValues = this.getSvgElements(layer.selectors as string[]);
   }
 
   public destroy(): void {
     this.points.length = 0;
     this.barValues.length = 0;
+
     this.brailleValues.length = 0;
+    this.highlightValues.length = 0;
 
     this.min.length = 0;
     this.max.length = 0;

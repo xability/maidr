@@ -61,6 +61,7 @@ export class ControllerService {
         review: this.review,
         notification: this.notification,
         autoplay: this.autoplay,
+        highlight: this.highlight,
       },
     );
     this.keybinding.register();
