@@ -29,16 +29,16 @@ export class HighlightService implements Observer<PlotState> {
   }
 
   private highlight(elements: SVGElement[]): void {
-    elements.forEach((element, index) => {
+    for (const element of elements) {
       const clone = element.cloneNode(true) as SVGElement;
       const originalColor = window.getComputedStyle(element).getPropertyValue('fill');
 
-      clone.id = `highlight-${Date.now()}-${index}`;
+      clone.id = Constant.MAIDR_HIGHLIGHT + Date.now();
       clone.style.fill = this.getHighlightColor(originalColor);
 
       element.insertAdjacentElement(Constant.AFTER_END, clone);
       this.highlightedElements.add(clone);
-    });
+    }
   }
 
   private unhighlight(): void {
