@@ -31,7 +31,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max = this.barValues.map(row => Math.max(...row));
 
     this.brailleValues = this.getBraille();
-    this.highlightValues = this.getSvgElements(layer.selector);
+    this.highlightValues = this.extractSvgElements(layer.selector);
   }
 
   public destroy(): void {
@@ -130,32 +130,22 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     return braille;
   }
 
-  protected getSvgElements(selector?: string): SVGElement[][] {
-    const svgElements = new Array<Array<SVGElement>>();
+  protected extractSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
-      return svgElements;
+      return new Array<Array<SVGElement>>();
     }
 
-    svgElements.push(Array.from(document.querySelectorAll<SVGElement>(selector)));
-    if (!this.validateHighlighting(svgElements)) {
-      svgElements.length = 0;
+    const svgElements = [Array.from(document.querySelectorAll<SVGElement>(selector))];
+    if (svgElements.length !== this.points.length) {
+      return new Array<Array<SVGElement>>();
     }
-
-    return svgElements;
-  }
-
-  private validateHighlighting(elements: SVGElement[][]): boolean {
-    if (elements.length !== this.points.length) {
-      return false;
-    }
-
     for (let row = 0; row < this.points.length; row++) {
-      if (elements[row].length !== this.points[row].length) {
-        return false;
+      if (svgElements[row].length === this.points[row].length) {
+        return new Array<Array<SVGElement>>();
       }
     }
 
-    return true;
+    return svgElements;
   }
 }
 

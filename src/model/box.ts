@@ -24,11 +24,11 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: MaidrLayer) {
-    super(maidr);
+  constructor(layer: MaidrLayer) {
+    super(layer);
 
-    this.points = maidr.data as BoxPoint[];
-    this.orientation = maidr.orientation ?? Orientation.VERTICAL;
+    this.points = layer.data as BoxPoint[];
+    this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
     this.boxValues = this.points.map(point => [

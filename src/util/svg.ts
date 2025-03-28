@@ -1,5 +1,9 @@
+import { Constant } from '@util/constant';
+
 export abstract class Svg {
   private constructor() { /* Prevent instantiation */ }
+
+  private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
   public static async toBase64(svg: HTMLElement): Promise<string> {
     try {
@@ -42,5 +46,13 @@ export abstract class Svg {
       console.error('Error converting SVG to Base 64:', error instanceof Error ? error.message : error);
       return '';
     }
+  }
+
+  public static createEmptyElement(type: string = 'rect'): SVGElement {
+    const element = document.createElementNS(this.SVG_NAMESPACE, type) as SVGElement;
+    element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
+    element.setAttribute(Constant.STROKE, Constant.TRANSPARENT);
+    element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    return element;
   }
 }

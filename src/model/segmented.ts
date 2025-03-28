@@ -2,6 +2,7 @@ import type { MaidrLayer } from '@type/maidr';
 import type { HighlightState, TextState } from '@type/state';
 import type { SegmentedPoint } from './grammar';
 import { Orientation } from '@type/plot';
+import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
 const SUM = 'Sum';
@@ -9,8 +10,8 @@ const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
-  public constructor(maidr: MaidrLayer) {
-    super(maidr, maidr.data as SegmentedPoint[][]);
+  public constructor(layer: MaidrLayer) {
+    super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();
   }
 
@@ -77,34 +78,47 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     return true;
   }
 
-  protected getSvgElements(selector: string): SVGElement[][] {
-    const svgElements = new Array<Array<SVGElement>>();
+  protected extractSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
-      return svgElements;
+      return new Array<Array<SVGElement>>();
     }
 
     const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
     if (domElements.length === 0) {
-      return svgElements;
+      return new Array<Array<SVGElement>>();
     }
 
+    const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
       for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
         const row = new Array<SVGElement>();
         for (let c = 0; c < this.barValues[r].length; c++) {
           if (domIndex >= domElements.length) {
-            svgElements.length = 0;
-            return svgElements;
+            return new Array<Array<SVGElement>>();
           } else if (this.barValues[r][c] === 0) {
-            row.push(new SVGElement());
+            row.push(Svg.createEmptyElement());
           } else {
             row.push(domElements[domIndex++]);
           }
         }
         svgElements.push(row);
       }
+    } else if (domElements[0] instanceof SVGRectElement) {
+      for (let r = 0; r < this.barValues.length; r++) {
+        svgElements.push(new Array<SVGElement>());
+      }
+      for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
+        for (let r = this.barValues.length - 1; r >= 0; r--) {
+          if (domIndex >= domElements.length) {
+            return new Array<Array<SVGElement>>();
+          } else if (this.barValues[r][c] === 0) {
+            svgElements[r].push(Svg.createEmptyElement());
+          } else {
+            svgElements[r].push(domElements[domIndex++]);
+          }
+        }
+      }
     }
-
     return svgElements;
   }
 }

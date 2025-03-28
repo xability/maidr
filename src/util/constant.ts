@@ -30,8 +30,11 @@ export abstract class Constant {
   static readonly ARIA_ATOMIC = 'aria-atomic';
   static readonly ARIA_LABEL = 'aria-label';
   static readonly ARIA_LIVE = 'aria-live';
+  static readonly FILL = 'fill';
   static readonly ROLE = 'role';
+  static readonly STROKE = 'stroke';
   static readonly TITLE = 'title';
+  static readonly VISIBILITY = 'visibility';
 
   // Attribute values.
   static readonly AFTER_END = 'afterend';
@@ -50,6 +53,7 @@ export abstract class Constant {
   static readonly SPACE = ' ';
   static readonly TEXT = 'text';
   static readonly THROUGH = ' through ';
+  static readonly TRANSPARENT = 'transparent';
   static readonly TRUE = 'true';
   static readonly X = 'x';
   static readonly Y = 'y';

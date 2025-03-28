@@ -13,10 +13,10 @@ export class LinePlot extends AbstractTrace<number> {
   private readonly min: number[];
   private readonly max: number[];
 
-  public constructor(maidr: MaidrLayer) {
-    super(maidr);
+  public constructor(layer: MaidrLayer) {
+    super(layer);
 
-    this.points = maidr.data as LinePoint[][];
+    this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
     this.min = this.lineValues.map(row => Math.min(...row));
