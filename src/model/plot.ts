@@ -6,6 +6,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  HighlightState,
   TextState,
   TraceState,
 } from '@type/state';
@@ -180,6 +181,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       return {
         empty: true,
         type: 'trace',
+        traceType: this.type,
       };
     }
 
@@ -191,11 +193,12 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
-      isCombinedAudio: this.hasMultiPoints(),
+      hasMultiPoints: this.hasMultiPoints(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
       autoplay: this.autoplay(),
+      highlight: this.highlight(),
     };
   }
 
@@ -217,13 +220,15 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  public hasMultiPoints(): boolean {
+  protected hasMultiPoints(): boolean {
     return false;
   }
 
   protected abstract audio(): AudioState;
 
   protected abstract text(): TextState;
+
+  protected abstract highlight(): HighlightState;
 
   protected abstract get brailleValues(): string[][];
 }

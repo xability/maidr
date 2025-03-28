@@ -2,6 +2,7 @@ import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
+import type { HighlightService } from '@service/highlight';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { TextService } from '@service/text';
@@ -63,6 +64,7 @@ export class CommandFactory {
 
   private readonly notification: NotificationService;
   private readonly autoplay: AutoplayService;
+  private readonly highlight: HighlightService;
 
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
@@ -74,6 +76,7 @@ export class CommandFactory {
 
     this.notification = commandContext.notification;
     this.autoplay = commandContext.autoplay;
+    this.highlight = commandContext.highlight;
   }
 
   public create(command: Keys): Command {
@@ -129,7 +132,7 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.text);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audio, this.braille, this.text);
+        return new DescribePointCommand(this.context, this.text, this.audio, this.braille, this.highlight);
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.text);
       case 'DESCRIBE_SUBTITLE':

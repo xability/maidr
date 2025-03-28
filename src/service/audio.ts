@@ -72,11 +72,16 @@ export class AudioService implements Observer<SubplotState | TraceState> {
   }
 
   private updateMode(state: PlotState): void {
-    if (state.empty || state.type === 'figure' || state.isCombinedAudio === this.isCombinedAudio) {
+    if (state.empty || state.type === 'figure') {
       return;
     }
 
-    this.isCombinedAudio = state.isCombinedAudio;
+    const traceState = state.type === 'subplot' ? state.trace : state;
+    if (traceState.empty || traceState.hasMultiPoints === this.isCombinedAudio) {
+      return;
+    }
+
+    this.isCombinedAudio = traceState.hasMultiPoints;
     if (this.mode === AudioMode.OFF) {
       return;
     }

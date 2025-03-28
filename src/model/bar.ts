@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { BarPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -7,7 +7,9 @@ import { AbstractTrace } from './plot';
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
+
   protected readonly brailleValues: string[][];
+  protected readonly highlightValues: SVGElement[][];
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -29,12 +31,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max = this.barValues.map(row => Math.max(...row));
 
     this.brailleValues = this.getBraille();
+    this.highlightValues = this.extractSvgElements(layer.selector);
   }
 
   public destroy(): void {
     this.points.length = 0;
     this.barValues.length = 0;
+
     this.brailleValues.length = 0;
+    this.highlightValues.length = 0;
 
     this.min.length = 0;
     this.max.length = 0;
@@ -79,6 +84,21 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     };
   }
 
+  protected highlight(): HighlightState {
+    if (this.highlightValues.length === 0) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
+    };
+  }
+
   protected getBraille(): string[][] {
     return this.barValues.map((row, index) =>
       this.createBraille(row, this.min[index], this.max[index]),
@@ -108,6 +128,24 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     }
 
     return braille;
+  }
+
+  protected extractSvgElements(selector?: string): SVGElement[][] {
+    if (!selector) {
+      return new Array<Array<SVGElement>>();
+    }
+
+    const svgElements = [Array.from(document.querySelectorAll<SVGElement>(selector))];
+    if (svgElements.length !== this.points.length) {
+      return new Array<Array<SVGElement>>();
+    }
+    for (let row = 0; row < this.points.length; row++) {
+      if (svgElements[row].length === this.points[row].length) {
+        return new Array<Array<SVGElement>>();
+      }
+    }
+
+    return svgElements;
   }
 }
 

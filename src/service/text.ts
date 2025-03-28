@@ -32,7 +32,7 @@ export class TextService implements Observer<string | PlotState> {
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(state.index, state.size, state.traceType);
+      return this.formatSubplotText(state.index, state.size, state.trace.traceType);
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {

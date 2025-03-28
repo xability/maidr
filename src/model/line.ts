@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
 import { AbstractTrace } from './plot';
 
@@ -13,10 +13,10 @@ export class LinePlot extends AbstractTrace<number> {
   private readonly min: number[];
   private readonly max: number[];
 
-  public constructor(maidr: MaidrLayer) {
-    super(maidr);
+  public constructor(layer: MaidrLayer) {
+    super(layer);
 
-    this.points = maidr.data as LinePoint[][];
+    this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
     this.min = this.lineValues.map(row => Math.min(...row));
@@ -60,6 +60,14 @@ export class LinePlot extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
+    };
+  }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
