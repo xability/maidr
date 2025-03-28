@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/xability/maidr-ts/compare/v2.0.1...v2.1.0) (2025-03-28)
+
+
+### Features
+
+* support highlighting for bar plot, histogram, and heatmap ([#157](https://github.com/xability/maidr-ts/issues/157)) ([50064bc](https://github.com/xability/maidr-ts/commit/50064bcaaac93d9bb5985adf10fdd1b40dcf7a65))
+
 ## [2.0.1](https://github.com/xability/maidr-ts/compare/v2.0.0...v2.0.1) (2025-03-24)
 
 
