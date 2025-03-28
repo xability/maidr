@@ -31,7 +31,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max = this.barValues.map(row => Math.max(...row));
 
     this.brailleValues = this.getBraille();
-    this.highlightValues = this.getSvgElements(layer.selectors);
+    this.highlightValues = this.getSvgElements(layer.selector);
   }
 
   public destroy(): void {
@@ -130,20 +130,17 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     return braille;
   }
 
-  private getSvgElements(selectors?: string[]): SVGElement[][] {
+  protected getSvgElements(selector?: string): SVGElement[][] {
     const svgElements = new Array<Array<SVGElement>>();
-    if (!selectors || selectors.length === 0) {
+    if (!selector) {
       return svgElements;
     }
 
-    selectors.forEach((selector) => {
-      const domElements = document.querySelectorAll<SVGElement>(selector);
-      svgElements.push(Array.from(domElements));
-    });
-
+    svgElements.push(Array.from(document.querySelectorAll<SVGElement>(selector)));
     if (!this.validateHighlighting(svgElements)) {
-      return new Array<Array<SVGElement>>();
+      svgElements.length = 0;
     }
+
     return svgElements;
   }
 

@@ -26,7 +26,7 @@ export class Heatmap extends AbstractTrace<number> {
     this.max = Math.max(...this.heatmapValues.flat());
 
     this.brailleValues = this.getBraille();
-    this.highlightValues = this.getHighlighting(layer.selectors);
+    this.highlightValues = this.getSvgElements(layer.selector);
   }
 
   public destroy(): void {
@@ -103,15 +103,15 @@ export class Heatmap extends AbstractTrace<number> {
     return braille;
   }
 
-  private getHighlighting(selector?: string[]): SVGElement[][] {
+  private getSvgElements(selector?: string): SVGElement[][] {
     const svgElements = new Array<Array<SVGElement>>();
-    if (!selector || svgElements.length >= 1) {
+    if (!selector) {
       return svgElements;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector[0]));
+    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
       return svgElements;
     }
@@ -119,7 +119,7 @@ export class Heatmap extends AbstractTrace<number> {
     if (domElements[0] instanceof SVGPathElement) {
       for (let r = 0; r < numRows; r++) {
         const rowIndex = numRows - 1 - r;
-        const row: SVGElement[] = [];
+        const row = new Array<SVGElement>();
         for (let c = 0; c < numCols; c++) {
           const flatIndex = rowIndex * numCols + c;
           row.push(domElements[flatIndex]);
@@ -128,7 +128,7 @@ export class Heatmap extends AbstractTrace<number> {
       }
     } else if (domElements[0] instanceof SVGRectElement) {
       for (let r = 0; r < numRows; r++) {
-        const row: SVGElement[] = [];
+        const row = new Array<SVGElement>();
         for (let c = 0; c < numCols; c++) {
           const flatIndex = c * numRows + r;
           row.push(domElements[flatIndex]);

@@ -59,14 +59,52 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   }
 
   protected highlight(): HighlightState {
+    if (this.highlightValues.length === 0 || this.row === this.barValues.length - 1) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
     };
   }
 
   protected hasMultiPoints(): boolean {
     return true;
+  }
+
+  protected getSvgElements(selector: string): SVGElement[][] {
+    const svgElements = new Array<Array<SVGElement>>();
+    if (!selector) {
+      return svgElements;
+    }
+
+    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    if (domElements.length === 0) {
+      return svgElements;
+    }
+
+    if (domElements[0] instanceof SVGPathElement) {
+      for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
+        const row = new Array<SVGElement>();
+        for (let c = 0; c < this.barValues[r].length; c++) {
+          if (domIndex >= domElements.length) {
+            svgElements.length = 0;
+            return svgElements;
+          } else if (this.barValues[r][c] === 0) {
+            row.push(new SVGElement());
+          } else {
+            row.push(domElements[domIndex++]);
+          }
+        }
+        svgElements.push(row);
+      }
+    }
+
+    return svgElements;
   }
 }

@@ -25,7 +25,7 @@ export interface MaidrSubplot {
 export interface MaidrLayer {
   type: string;
   title?: string;
-  selectors?: string[];
+  selector?: string;
   orientation?: Orientation;
   axes?: {
     x?: string;
