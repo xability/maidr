@@ -140,7 +140,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       return new Array<Array<SVGElement>>();
     }
     for (let row = 0; row < this.points.length; row++) {
-      if (svgElements[row].length === this.points[row].length) {
+      if (svgElements[row].length !== this.points[row].length) {
         return new Array<Array<SVGElement>>();
       }
     }

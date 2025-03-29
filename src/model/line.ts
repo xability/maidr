@@ -1,9 +1,12 @@
 import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
+import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 import { AbstractTrace } from './plot';
 
 const TYPE = 'Type';
+const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
 export class LinePlot extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
@@ -69,10 +72,17 @@ export class LinePlot extends AbstractTrace<number> {
   }
 
   protected highlight(): HighlightState {
+    if (this.highlightValues.length === 0) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
     };
   }
 
@@ -151,16 +161,41 @@ export class LinePlot extends AbstractTrace<number> {
 
     const svgElements = new Array<Array<SVGElement>>();
     for (let r = 0; r < selectors.length; r++) {
-      const domElements = Array.from(document.querySelectorAll(selectors[r]));
+      const domElements = Array.from(document.querySelectorAll<SVGElement>(selectors[r]));
       if (domElements.length !== 1) {
         return new Array<Array<SVGElement>>();
       }
 
-      if (domElements[0] instanceof SVGPathElement) {
-        console.error('Implement path extraction');
-      } else if (domElements[0] instanceof SVGPolylineElement) {
-        console.error('Implement polyline extraction');
+      const coordinates = new Array<LinePoint>();
+      const lineElement = domElements[0];
+      if (lineElement instanceof SVGPathElement) {
+        const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
+        let match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
+        while (match !== null) {
+          coordinates.push({ x: Number.parseFloat(match[1]), y: Number.parseFloat(match[3]) });
+          match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
+        }
+      } else if (lineElement instanceof SVGPolylineElement) {
+        const pointsAttr = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
+        const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
+        for (const coordinate of strCoords) {
+          const [x, y] = coordinate.split(Constant.COMMA);
+          coordinates.push({ x: Number.parseFloat(x), y: Number.parseFloat(y) });
+        }
       }
+      if (coordinates.length !== this.lineValues[r].length) {
+        return new Array<Array<SVGElement>>();
+      }
+
+      const style = window.getComputedStyle(lineElement);
+      const linePointElements = new Array<SVGElement>();
+      for (const coordinate of coordinates) {
+        if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
+          return new Array<Array<SVGElement>>();
+        }
+        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, style, lineElement));
+      }
+      svgElements.push(linePointElements);
     }
 
     return svgElements;
