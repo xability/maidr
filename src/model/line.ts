@@ -8,7 +8,9 @@ const TYPE = 'Type';
 export class LinePlot extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
   private readonly lineValues: number[][];
+
   protected readonly brailleValues: string[][];
+  private readonly highlightValues: SVGElement[][];
 
   private readonly min: number[];
   private readonly max: number[];
@@ -22,13 +24,16 @@ export class LinePlot extends AbstractTrace<number> {
     this.min = this.lineValues.map(row => Math.min(...row));
     this.max = this.lineValues.map(row => Math.max(...row));
 
-    this.brailleValues = this.toBraille(this.lineValues);
+    this.brailleValues = this.mapToBraille(this.lineValues);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
   }
 
   public destroy(): void {
     this.points.length = 0;
     this.lineValues.length = 0;
+
     this.brailleValues.length = 0;
+    this.highlightValues.length = 0;
 
     this.min.length = 0;
     this.max.length = 0;
@@ -71,7 +76,7 @@ export class LinePlot extends AbstractTrace<number> {
     };
   }
 
-  private toBraille(data: number[][]): string[][] {
+  private mapToBraille(data: number[][]): string[][] {
     const braille = new Array<Array<string>>();
 
     for (let row = 0; row < data.length; row++) {
@@ -137,5 +142,27 @@ export class LinePlot extends AbstractTrace<number> {
     }
 
     return braille;
+  }
+
+  private mapToSvgElements(selectors?: string[]): SVGElement[][] {
+    if (!selectors || selectors.length !== this.lineValues.length) {
+      return new Array<Array<SVGElement>>();
+    }
+
+    const svgElements = new Array<Array<SVGElement>>();
+    for (let r = 0; r < selectors.length; r++) {
+      const domElements = Array.from(document.querySelectorAll(selectors[r]));
+      if (domElements.length !== 1) {
+        return new Array<Array<SVGElement>>();
+      }
+
+      if (domElements[0] instanceof SVGPathElement) {
+        console.error('Implement path extraction');
+      } else if (domElements[0] instanceof SVGPolylineElement) {
+        console.error('Implement polyline extraction');
+      }
+    }
+
+    return svgElements;
   }
 }
