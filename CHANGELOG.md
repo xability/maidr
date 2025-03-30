@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/xability/maidr-ts/compare/v2.1.0...v2.2.0) (2025-03-30)
+
+
+### Features
+
+* support line plot highlighting ([#159](https://github.com/xability/maidr-ts/issues/159)) ([454da00](https://github.com/xability/maidr-ts/commit/454da0076a318572b4bb63d6963979df90b59c9e))
+
 # [2.1.0](https://github.com/xability/maidr-ts/compare/v2.0.1...v2.1.0) (2025-03-28)
 
 
