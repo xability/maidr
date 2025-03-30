@@ -18,8 +18,8 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   private createSummaryLevel(): void {
     const summaryValues = new Array<number>();
     const summaryPoints = new Array<SegmentedPoint>();
-    for (let i = 0; i < this.values[0].length; i++) {
-      const sum = this.values.reduce((sum, row) => sum + row[i], 0);
+    for (let i = 0; i < this.barValues[0].length; i++) {
+      const sum = this.barValues.reduce((sum, row) => sum + row[i], 0);
       summaryValues.push(sum);
 
       const point
@@ -78,7 +78,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     return true;
   }
 
-  protected extractSvgElements(selector?: string): SVGElement[][] {
+  protected mapToSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
       return new Array<Array<SVGElement>>();
     }

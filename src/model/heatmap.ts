@@ -25,8 +25,8 @@ export class Heatmap extends AbstractTrace<number> {
     this.min = Math.min(...this.heatmapValues.flat());
     this.max = Math.max(...this.heatmapValues.flat());
 
-    this.brailleValues = this.getBraille();
-    this.highlightValues = this.getSvgElements(layer.selector);
+    this.brailleValues = this.mapToBraille(this.heatmapValues);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
   public destroy(): void {
@@ -77,7 +77,7 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
-  private getBraille(): string[][] {
+  private mapToBraille(data: number[][]): string[][] {
     const braille = new Array<Array<string>>();
 
     const range = (this.max - this.min) / 3;
@@ -87,12 +87,12 @@ export class Heatmap extends AbstractTrace<number> {
     for (let row = 0; row < this.values.length; row++) {
       braille.push(new Array<string>());
 
-      for (let col = 0; col < this.heatmapValues[row].length; col++) {
-        if (this.heatmapValues[row][col] === 0) {
+      for (let col = 0; col < data[row].length; col++) {
+        if (data[row][col] === 0) {
           braille[row].push(' ');
-        } else if (this.heatmapValues[row][col] <= low) {
+        } else if (data[row][col] <= low) {
           braille[row].push('⠤');
-        } else if (this.heatmapValues[row][col] <= medium) {
+        } else if (data[row][col] <= medium) {
           braille[row].push('⠒');
         } else {
           braille[row].push('⠉');
@@ -103,7 +103,7 @@ export class Heatmap extends AbstractTrace<number> {
     return braille;
   }
 
-  private getSvgElements(selector?: string): SVGElement[][] {
+  private mapToSvgElements(selector?: string): SVGElement[][] {
     const svgElements = new Array<Array<SVGElement>>();
     if (!selector) {
       return svgElements;

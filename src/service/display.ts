@@ -34,18 +34,18 @@ export class DisplayService {
     this.maidrRoot = maidrRoot;
     this.plot = plot;
 
-    const brailleId = Constant.BRAILLE_CONTAINER + maidrId;
-    const brailleTextAreaId = Constant.BRAILLE_TEXT_AREA + maidrId;
+    const brailleId = `${Constant.BRAILLE_CONTAINER}-${maidrId}`;
+    const brailleTextAreaId = `${Constant.BRAILLE_TEXT_AREA}-${maidrId}`;
     this.brailleDiv = document.getElementById(brailleId) ?? this.createBrailleContainer(brailleId);
     this.brailleTextArea
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
 
-    const textId = Constant.TEXT_CONTAINER + maidrId;
+    const textId = `${Constant.TEXT_CONTAINER}-${maidrId}`;
     this.textDiv = document.getElementById(textId) ?? this.createTextContainer(textId);
 
-    const reviewId = Constant.REVIEW_CONTAINER + maidrId;
-    const reviewInputId = Constant.REVIEW_INPUT + maidrId;
+    const reviewId = `${Constant.REVIEW_CONTAINER}-${maidrId}`;
+    const reviewInputId = `${Constant.REVIEW_INPUT}-${maidrId}`;
     this.reviewDiv
       = (document.getElementById(reviewId) as HTMLElement)
         ?? this.createReviewContainer(reviewId);
@@ -53,11 +53,11 @@ export class DisplayService {
       = (document.getElementById(reviewInputId) as HTMLInputElement)
         ?? this.createReviewInput(reviewInputId);
 
-    const notificationId = Constant.NOTIFICATION_CONTAINER + maidrId;
+    const notificationId = `${Constant.NOTIFICATION_CONTAINER}-${maidrId}`;
     this.notificationDiv = document.getElementById(notificationId)
       ?? this.createNotificationContainer(notificationId);
 
-    const reactId = Constant.REACT_CONTAINER + maidrId;
+    const reactId = `${Constant.REACT_CONTAINER}-${maidrId}`;
     this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.reactRoot = createRoot(this.reactDiv);
     this.reactRoot.render(MaidrApp);
@@ -114,7 +114,7 @@ export class DisplayService {
   private createBrailleTextArea(brailleAndReviewTextAreaId: string): HTMLTextAreaElement {
     const brailleTextArea = document.createElement(Constant.TEXT_AREA);
     brailleTextArea.id = brailleAndReviewTextAreaId;
-    brailleTextArea.classList.add(Constant.BRAILLE_AND_REVIEW_CLASS);
+    brailleTextArea.classList.add(Constant.BRAILLE_CLASS);
 
     this.brailleDiv.appendChild(brailleTextArea);
     return brailleTextArea;

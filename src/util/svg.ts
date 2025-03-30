@@ -55,4 +55,21 @@ export abstract class Svg {
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     return element;
   }
+
+  public static createCircleElement(cx: string | number, cy: string | number, style: CSSStyleDeclaration, parent: SVGElement): SVGElement {
+    const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
+    const color = style.stroke || Constant.MAIDR_HIGHLIGHT_COLOR;
+    const strokeWidth = style.strokeWidth || '3';
+    const radius = Number.parseFloat(strokeWidth) * 3;
+
+    element.setAttribute(Constant.CIRCLE_X, String(cx));
+    element.setAttribute(Constant.CIRCLE_Y, String(cy));
+    element.setAttribute(Constant.RADIUS, String(radius));
+    element.setAttribute(Constant.FILL, color);
+    element.setAttribute(Constant.STROKE, color);
+    element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
+    element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    parent.parentNode?.appendChild(element);
+    return element;
+  }
 }

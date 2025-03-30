@@ -1,4 +1,4 @@
-import type { MovableDirection } from '@type/movable';
+import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 

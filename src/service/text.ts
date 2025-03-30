@@ -43,7 +43,7 @@ export class TextService implements Observer<string | PlotState> {
   private formatFigureText(index: number, size: number, traceTypes: string[]): string {
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
-      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA)} plots`;
+      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
     return `Subplot ${index} of ${size}: ${details}`;
   }
 
@@ -61,17 +61,17 @@ export class TextService implements Observer<string | PlotState> {
     if (state.range !== undefined) {
       verbose.push(String(state.range.min), Constant.THROUGH, String(state.range.max));
     } else if (Array.isArray(state.main.value)) {
-      verbose.push(state.main.value.join(Constant.COMMA));
+      verbose.push(state.main.value.join(Constant.COMMA_SPACE));
     } else {
       verbose.push(String(state.main.value));
     }
 
     // Format cross-axis label.
-    verbose.push(Constant.COMMA, state.cross.label);
+    verbose.push(Constant.COMMA_SPACE, state.cross.label);
 
     // Format for box plot.
     if (state.section !== undefined) {
-      verbose.push(Constant.COMMA);
+      verbose.push(Constant.COMMA_SPACE);
 
       if (Array.isArray(state.cross.value)) {
         verbose.push(String(state.cross.value.length), Constant.SPACE);
@@ -84,15 +84,15 @@ export class TextService implements Observer<string | PlotState> {
     if (!Array.isArray(state.cross.value)) {
       verbose.push(Constant.IS, String(state.cross.value));
     } else if (state.cross.value.length > 1) {
-      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA));
+      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
     } else if (state.cross.value.length > 0) {
-      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA));
+      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
     }
 
     // Format for heatmap and scatter plot.
     if (state.fill !== undefined) {
       verbose.push(
-        Constant.COMMA,
+        Constant.COMMA_SPACE,
         state.fill.label,
         Constant.IS,
         state.fill.value,
@@ -106,9 +106,9 @@ export class TextService implements Observer<string | PlotState> {
     const terse = new Array<string>();
 
     if (Array.isArray(state.main.value)) {
-      terse.push(state.main.value.join(Constant.COMMA));
+      terse.push(state.main.value.join(Constant.COMMA_SPACE));
     } else {
-      terse.push(String(state.main.value), Constant.COMMA);
+      terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
 
     // Format for box plot.
@@ -122,16 +122,16 @@ export class TextService implements Observer<string | PlotState> {
 
     // Format for heatmap and segmented plots.
     if (state.fill !== undefined) {
-      terse.push(state.fill.value, Constant.COMMA);
+      terse.push(state.fill.value, Constant.COMMA_SPACE);
     }
 
     // Format for cross axis values.
     if (!Array.isArray(state.cross.value)) {
       terse.push(Constant.IS, String(state.cross.value));
     } else if (state.cross.value.length > 1) {
-      terse.push(Constant.ARE, state.cross.value.join(Constant.COMMA));
+      terse.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
     } else if (state.cross.value.length > 0) {
-      terse.push(Constant.IS, state.cross.value.join(Constant.COMMA));
+      terse.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
     }
 
     return terse.join(Constant.EMPTY);

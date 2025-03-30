@@ -30,8 +30,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.min = this.barValues.map(row => Math.min(...row));
     this.max = this.barValues.map(row => Math.max(...row));
 
-    this.brailleValues = this.getBraille();
-    this.highlightValues = this.extractSvgElements(layer.selector);
+    this.brailleValues = this.mapToBraille(this.barValues);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
   public destroy(): void {
@@ -99,8 +99,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     };
   }
 
-  protected getBraille(): string[][] {
-    return this.barValues.map((row, index) =>
+  private mapToBraille(data: number[][]): string[][] {
+    return data.map((row, index) =>
       this.createBraille(row, this.min[index], this.max[index]),
     );
   }
@@ -130,7 +130,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     return braille;
   }
 
-  protected extractSvgElements(selector?: string): SVGElement[][] {
+  protected mapToSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
       return new Array<Array<SVGElement>>();
     }
@@ -140,7 +140,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       return new Array<Array<SVGElement>>();
     }
     for (let row = 0; row < this.points.length; row++) {
-      if (svgElements[row].length === this.points[row].length) {
+      if (svgElements[row].length !== this.points[row].length) {
         return new Array<Array<SVGElement>>();
       }
     }
