@@ -1,4 +1,4 @@
-import type { Llm } from '@type/llm';
+import type { Llm } from './llm';
 
 export type AriaMode = 'assertive' | 'polite';
 

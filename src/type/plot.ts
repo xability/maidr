@@ -1,7 +1,7 @@
-import type { Maidr, MaidrSubplot } from '@type/maidr';
-import type { Movable } from '@type/movable';
-import type { Observable } from '@type/observable';
-import type { FigureState, SubplotState, TraceState } from '@type/state';
+import type { Maidr, MaidrSubplot } from './maidr';
+import type { Movable } from './movable';
+import type { Observable } from './observable';
+import type { FigureState, SubplotState, TraceState } from './state';
 import { TraceFactory } from '@model/factory';
 import { AbstractObservableElement } from '@model/plot';
 import { Constant } from '@util/constant';

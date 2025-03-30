@@ -1,4 +1,4 @@
-import type { Status } from '@type/event';
+import type { Status } from './event';
 
 export type Llm =
   | 'GPT'
