@@ -4,6 +4,16 @@ const config: ReturnType<typeof antfu> = antfu({
   type: 'lib',
   rules: {
     'style/brace-style': ['error', '1tbs'],
+    'unused-imports/no-unused-vars': ['error', {
+      vars: 'all',
+      varsIgnorePattern: '^_',
+      args: 'after-used',
+      argsIgnorePattern: '^_',
+      // Special exception for catch parameters
+      ignoreRestSiblings: true,
+      caughtErrors: 'none',
+      caughtErrorsIgnorePattern: '^_',
+    }],
   },
   stylistic: {
     semi: true,
