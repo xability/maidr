@@ -3,6 +3,7 @@ import { ServiceLocator } from '@service/locator';
 import chatReducer from './slice/chatSlice';
 import helpMenuReducer from './slice/helpSlice';
 import settingsReducer from './slice/settingsSlice';
+import textReducer from './slice/textSlice';
 
 const locator = (): ServiceLocator => ServiceLocator.instance;
 
@@ -10,6 +11,7 @@ export const store = configureStore({
   reducer: {
     chat: chatReducer,
     help: helpMenuReducer,
+    text: textReducer,
     settings: settingsReducer,
   },
   middleware: getDefaultMiddleware => getDefaultMiddleware({

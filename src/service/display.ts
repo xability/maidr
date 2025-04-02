@@ -16,9 +16,7 @@ export class DisplayService {
   private readonly reactDiv?: HTMLElement;
   private reactRoot: Root | null;
 
-  public readonly textDiv: HTMLElement;
   public readonly notificationDiv: HTMLElement;
-
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
 
@@ -40,9 +38,6 @@ export class DisplayService {
     this.brailleTextArea
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
-
-    const textId = `${Constant.TEXT_CONTAINER}-${maidrId}`;
-    this.textDiv = document.getElementById(textId) ?? this.createTextContainer(textId);
 
     const reviewId = `${Constant.REVIEW_CONTAINER}-${maidrId}`;
     const reviewInputId = `${Constant.REVIEW_INPUT}-${maidrId}`;
@@ -74,7 +69,6 @@ export class DisplayService {
     this.reviewInput.remove();
     this.reviewDiv.remove();
 
-    this.textDiv.remove();
     this.notificationDiv.innerHTML = Constant.EMPTY;
 
     this.reactRoot?.unmount();
@@ -118,16 +112,6 @@ export class DisplayService {
 
     this.brailleDiv.appendChild(brailleTextArea);
     return brailleTextArea;
-  }
-
-  private createTextContainer(textId: string): HTMLElement {
-    const textDiv = document.createElement(Constant.DIV);
-    textDiv.id = textId;
-    textDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    textDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
-
-    this.maidrRoot.appendChild(textDiv);
-    return textDiv;
   }
 
   private createReviewContainer(reviewId: string): HTMLElement {

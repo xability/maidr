@@ -24,7 +24,7 @@ export class ControllerService {
 
   public readonly audio: AudioService;
   private readonly braille: BrailleService;
-  private readonly text: TextService;
+  public readonly text: TextService;
   private readonly review: ReviewService;
 
   private readonly autoplay: AutoplayService;
@@ -43,7 +43,7 @@ export class ControllerService {
 
     this.audio = new AudioService(this.notification, this.context.state);
     this.braille = new BrailleService(this.context, this.notification, this.display);
-    this.text = new TextService(this.notification, this.display.textDiv);
+    this.text = new TextService(this.notification);
     this.review = new ReviewService(this.notification, this.display, this.text);
 
     this.autoplay = new AutoplayService(this.context, this.notification, this.text);

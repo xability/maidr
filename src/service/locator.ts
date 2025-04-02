@@ -4,6 +4,7 @@ import type { ControllerService } from '@service/controller';
 import type { DisplayService } from '@service/display';
 import type { HelpService } from '@service/help';
 import type { SettingsService } from '@service/settings';
+import type { TextService } from '@service/text';
 
 export class ServiceLocator {
   private static locator: ServiceLocator;
@@ -54,6 +55,13 @@ export class ServiceLocator {
       throw new Error('Settings is unavailable');
     }
     return this.controller.settings;
+  }
+
+  public get text(): TextService {
+    if (!this.controller) {
+      throw new Error('Text is unavailable');
+    }
+    return this.controller.text;
   }
 
   public setController(controller: ControllerService | null): void {

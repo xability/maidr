@@ -3,13 +3,13 @@ import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
-import type { TextService } from '@service/text';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
 import { ScatterPlot } from '@model/scatter';
 import { toggleChat } from '@redux/slice/chatSlice';
 import { toggleHelpMenu } from '@redux/slice/helpSlice';
 import { toggleSettings } from '@redux/slice/settingsSlice';
+import { toggleText } from '@redux/slice/textSlice';
 import { store } from '@redux/store';
 
 export class ToggleBrailleCommand implements Command {
@@ -30,14 +30,8 @@ export class ToggleBrailleCommand implements Command {
 }
 
 export class ToggleTextCommand implements Command {
-  private readonly text: TextService;
-
-  public constructor(text: TextService) {
-    this.text = text;
-  }
-
   public execute(): void {
-    this.text.toggle();
+    store.dispatch(toggleText());
   }
 }
 
