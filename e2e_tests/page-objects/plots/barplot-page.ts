@@ -327,6 +327,150 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
+   * Toggles review mode on/off
+   * @returns Promise resolving when toggling is complete
+   * @throws BarPlotError if toggling fails
+   */
+  public async toggleReviewMode(): Promise<void> {
+    try {
+      await this.page.keyboard.press(TestConstants.REVIEW_KEY);
+    } catch (error) {
+      throw new BarPlotError('Failed to toggle review mode');
+    }
+  }
+
+  /**
+   * Checks if review mode is active
+   * @returns Promise resolving to true if review mode is active, false otherwise
+   */
+  public async isReviewModeActive(review_mode: string): Promise<boolean> {
+    const notificationSelector
+      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+    try {
+      const notification_text = await this.getElementText(notificationSelector);
+      if (review_mode === TestConstants.REVIEW_MODE_ON) {
+        return notification_text === TestConstants.REVIEW_MODE_ON_MESSAGE;
+      } else if (review_mode === TestConstants.REVIEW_MODE_OFF) {
+        return notification_text === TestConstants.REVIEW_MODE_OFF_MESSAGE;
+      } else {
+        throw new BarPlotError('Invalid review mode specified');
+      }
+    } catch (error) {
+      throw new BarPlotError('Failed to check review mode status');
+    }
+  }
+
+  /**
+   * Toggle X-axis title
+   * @returns Promise resolving when toggling is complete
+   * @throws BarPlotError if toggling fails
+   */
+
+  public async toggleXAxisTitle(): Promise<void> {
+    try {
+      await this.page.keyboard.press(TestConstants.LABEL_KEY);
+      await this.page.keyboard.press(TestConstants.X_AXIS_TITLE);
+    } catch (error) {
+      throw new BarPlotError('Failed to toggle X-axis title');
+    }
+  }
+
+  /**
+   * Toggle Y-axis title
+   * @returns Promise resolving when toggling is complete
+   * @throws BarPlotError if toggling fails
+   */
+  public async toggleYAxisTitle(): Promise<void> {
+    try {
+      await this.page.keyboard.press(TestConstants.LABEL_KEY);
+      await this.page.keyboard.press(TestConstants.Y_AXIS_TITLE);
+    } catch (error) {
+      throw new BarPlotError('Failed to toggle Y-axis title');
+    }
+  }
+
+  /**
+   * Get X-Axis title
+   * @returns X-axis title text
+   * @throws BarPlotError if title cannot be retrieved
+   */
+
+  public async getXAxisTitle(): Promise<string> {
+    const xAxisTitleSelector = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+    try {
+      const xAxisTitle = await this.getElementText(xAxisTitleSelector);
+      return xAxisTitle;
+    } catch (error) {
+      throw new BarPlotError('Failed to get X-axis title');
+    }
+  }
+
+  /**
+   * Get Y-Axis title
+   * @returns Y-axis title text
+   * @throws BarPlotError if title cannot be retrieved
+   */
+  public async getYAxisTitle(): Promise<string> {
+    const yAxisTitleSelector = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+    try {
+      const yAxisTitle = await this.getElementText(yAxisTitleSelector);
+      return yAxisTitle;
+    } catch (error) {
+      throw new BarPlotError('Failed to get Y-axis title');
+    }
+  }
+
+  /**
+   * Presses multiple keys in sequence
+   * @param keys - Array of keys to press in order
+   * @returns Promise resolving when all keys have been pressed
+   * @throws Error if key press fails
+   */
+  private async pressKeysInSequence(keys: string[]): Promise<void> {
+    try {
+      for (const key of keys) {
+        await this.page.keyboard.press(key);
+
+        // Add a small delay between key presses to ensure they're registered separately
+        await this.page.waitForTimeout(100);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to press keys in sequence: ${errorMessage}`);
+    }
+  }
+  /**
+   * Toggle Help menu
+   * @returns Promise resolving when toggling is complete
+   * @throws BarPlotError if toggling fails
+   */
+
+  public async showHelpMenu(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.COMMAND_KEY);
+      await this.page.waitForTimeout(50);
+      await this.page.keyboard.press(TestConstants.SLASH_KEY);
+
+      await expect(this.page.locator(TestConstants.MAIDR_HELP_MODAL)).toBeVisible({
+        timeout: 5000,
+      });
+
+      const helpTitle = await this.getElementText(TestConstants.MAIDR_HELP_MODAL_TITLE);
+      if (!helpTitle.includes(TestConstants.HELP_MENU_TITLE)) {
+        throw new Error(`Expected dialog title to contain "Keyboard Shortcuts", but got "${helpTitle}"`);
+      }
+
+      await this.page.click(TestConstants.HELP_MENU_CLOSE_BUTTON);
+
+      await expect(this.page.locator(TestConstants.MAIDR_HELP_MODAL)).not.toBeVisible({
+        timeout: 1000,
+      });
+    } catch (error) {
+      throw new BarPlotError('Failed to show help menu');
+    }
+  }
+
+  /**
    * Gets the current playback speed
    * @returns Promise resolving to the current speed value
    * @throws BarPlotError if speed cannot be retrieved
@@ -349,7 +493,7 @@ export class BarPlotPage extends BasePage {
    */
   public async increaseSpeed(): Promise<void> {
     try {
-      await this.page.keyboard.press('+');
+      await this.page.keyboard.press(TestConstants.PERIOD_KEY);
     } catch (error) {
       throw new BarPlotError('Failed to increase speed');
     }
@@ -362,7 +506,7 @@ export class BarPlotPage extends BasePage {
    */
   public async decreaseSpeed(): Promise<void> {
     try {
-      await this.page.keyboard.press('-');
+      await this.page.keyboard.press(TestConstants.COMMA_KEY);
     } catch (error) {
       throw new BarPlotError('Failed to decrease speed');
     }
@@ -375,9 +519,24 @@ export class BarPlotPage extends BasePage {
    */
   public async resetSpeed(): Promise<void> {
     try {
-      await this.page.keyboard.press('0');
+      await this.page.keyboard.press(TestConstants.SLASH_KEY);
     } catch (error) {
       throw new BarPlotError('Failed to reset speed');
+    }
+  }
+
+  /**
+   * Get current speed toggle information
+   * @returns current speed toggle information
+   * @throws BarPlotError if speed toggle information cannot be retrieved
+   */
+  public async getSpeedToggleInfo(): Promise<string> {
+    const speedToggleSelector
+      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+    try {
+      return await this.getElementText(speedToggleSelector);
+    } catch (error) {
+      throw new BarPlotError('Failed to get speed toggle information');
     }
   }
 

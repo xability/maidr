@@ -1,3 +1,4 @@
+import type { Maidr, MaidrLayer } from '../../src/type/maidr';
 /**
  * E2E tests for Bar Plot functionality
  *
@@ -9,14 +10,49 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
 import { TestConstants } from '../utils/constants';
 
 test.describe('Bar Plot', () => {
+  let maidrData: Maidr; ;
+  let barLayer: MaidrLayer;
+  // let barPoints: BarPoint[];
+
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    const barPlotPage = new BarPlotPage(page);
-    await barPlotPage.navigateToBarPlot();
+    try {
+      const barPlotPage = new BarPlotPage(page);
+      await barPlotPage.navigateToBarPlot();
+      await page.waitForSelector(`svg#${TestConstants.BAR_ID}`, { timeout: 10000 });
 
-    await context.close();
+      maidrData = await page.evaluate((plotId) => {
+        const svgElement = document.querySelector(`svg#${plotId}`);
+
+        if (!svgElement) {
+          throw new Error(`SVG element with ID ${plotId} not found`);
+        }
+
+        const maidrDataAttr = svgElement.getAttribute('maidr-data');
+
+        if (!maidrDataAttr) {
+          throw new Error('maidr-data attribute not found on SVG element');
+        }
+
+        try {
+          return JSON.parse(maidrDataAttr);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
+        }
+      }, TestConstants.BAR_ID);
+
+      barLayer = maidrData.subplots[0][0].layers[0];
+      // barPoints = barLayer.data as BarPoint[];
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to extract MAIDR data:', errorMessage);
+      throw error;
+    } finally {
+      await context.close();
+    }
   });
 
   test.beforeEach(async ({ page }) => {
@@ -91,5 +127,71 @@ test.describe('Bar Plot', () => {
 
     expect(isSoundModeOff).toBe(true);
     expect(isSoundModeOn).toBe(true);
+  });
+
+  test('should toggle review mode on and off', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.toggleReviewMode();
+    const isReviewModeOn = await barPlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+    await barPlotPage.toggleReviewMode();
+    const isReviewModeOff = await barPlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+    expect(isReviewModeOn).toBe(true);
+    expect(isReviewModeOff).toBe(true);
+  });
+
+  test('should display X-axis Title', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+    await barPlotPage.toggleXAxisTitle();
+
+    const xAxisTitle = await barPlotPage.getXAxisTitle();
+    expect(xAxisTitle).toContain(barLayer?.axes?.x ?? '');
+  });
+
+  test('should display Y-Axis Title', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+    await barPlotPage.toggleYAxisTitle();
+
+    const yAxisTitle = await barPlotPage.getYAxisTitle();
+    expect(yAxisTitle).toContain(barLayer?.axes?.y ?? '');
+  });
+
+  test('should show help menu', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showHelpMenu();
+  });
+
+  test('should be able to speed up', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.increaseSpeed();
+    const speed = await barPlotPage.getSpeedToggleInfo();
+    expect(speed).toEqual(TestConstants.SPEED_UP);
+  });
+
+  test('should be able to slow down', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.decreaseSpeed();
+    const speed = await barPlotPage.getSpeedToggleInfo();
+    expect(speed).toEqual(TestConstants.SPEED_DOWN);
+  });
+
+  test('should be able to reset speed', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.resetSpeed();
+    const speed = await barPlotPage.getSpeedToggleInfo();
+    expect(speed).toEqual(TestConstants.SPEED_RESET);
   });
 });

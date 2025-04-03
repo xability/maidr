@@ -38,6 +38,8 @@ export abstract class TestConstants {
   static readonly MAIDR_INFO_CONTAINER = 'maidr-info-container-';
   static readonly MAIDR_SPEED_INDICATOR = 'maidr-speed-indicator-';
   static readonly BRAILLE_TEXTAREA = 'maidr-braille-textarea-';
+  static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
+  static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
 
   /**
    * Keyboard key constants
@@ -62,6 +64,11 @@ export abstract class TestConstants {
   static readonly PLUS_KEY = '+';
   static readonly MINUS_KEY = '-';
   static readonly ZERO_KEY = '0';
+  static readonly REVIEW_KEY = 'r';
+  static readonly LABEL_KEY = 'l';
+  static readonly X_AXIS_TITLE = 'x';
+  static readonly Y_AXIS_TITLE = 'y';
+  static readonly COMMAND_KEY = 'Meta';
 
   /**
    * Common selectors and prefixes
@@ -116,12 +123,29 @@ export abstract class TestConstants {
   static readonly SOUND_MODE_OFF = 'Sound is off';
 
   /**
+   * Review Modes
+   */
+  static readonly REVIEW_MODE_ON = 'on';
+  static readonly REVIEW_MODE_OFF = 'off';
+  /**
+   * Status messages for review mode
+   */
+  static readonly REVIEW_MODE_ON_MESSAGE = 'Review is on';
+  static readonly REVIEW_MODE_OFF_MESSAGE = 'Review is off';
+
+  /**
    * Status messages for speed changes
    */
   static readonly SPEED_UP = 'Speed up';
   static readonly SPEED_DOWN = 'Speed down';
   static readonly SPEED_RESET = 'Reset speed';
 
+  /**
+   * Help Menu Identifies
+   */
+
+  static readonly HELP_MENU_TITLE = 'Keyboard Shortcuts';
+  static readonly HELP_MENU_CLOSE_BUTTON = '.MuiDialogActions-root button';
   /**
    * Time constants (in milliseconds)
    */
