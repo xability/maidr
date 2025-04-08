@@ -1,6 +1,8 @@
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
+import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -9,14 +11,24 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
+interface TextChangedEvent {
+  value: string;
+}
+
 export class TextService implements Observer<PlotState> {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
 
+  private readonly onChangeEmitter: Emitter<TextChangedEvent>;
+  public readonly onChange: Event<TextChangedEvent>;
+
   public constructor(notification: NotificationService) {
     this.notification = notification;
     this.mode = TextMode.VERBOSE;
+
+    this.onChangeEmitter = new Emitter<TextChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
   public format(state: string | PlotState): string {
@@ -141,7 +153,7 @@ export class TextService implements Observer<PlotState> {
     // Format the text based on the display mode.
     const text = this.format(state);
     if (text) {
-      // TODO: Emit text update event.
+      this.onChangeEmitter.fire({ value: text });
     }
   }
 

@@ -51,7 +51,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let controller: Controller | null = null;
 
   const onBlur = (event: FocusEvent): void => {
-    if (!controller || controller.displayService.shouldDestroy(event)) {
+    if (!controller || !controller.shouldDispose(event)) {
       return;
     }
 

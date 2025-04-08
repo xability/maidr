@@ -1,4 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { AutoplayService } from '@service/autoplay';
 import type { TextService } from '@service/text';
 import type { PlotState } from '@type/state';
 import type { AppStore } from '../store';
@@ -40,13 +41,33 @@ const { update, announceText, toggle, reset } = textSlice.actions;
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
 
-  public constructor(store: AppStore, text: TextService) {
+  public constructor(store: AppStore, text: TextService, autoplay: AutoplayService) {
     super(store);
     this.textService = text;
+    this.registerListeners(text, autoplay);
   }
 
   public dispose(): void {
     this.store.dispatch(reset());
+    super.dispose();
+  }
+
+  private registerListeners(text: TextService, autoplay: AutoplayService): void {
+    this.disposables.push(text.onChange((e) => {
+      this.update(e.value);
+    }));
+
+    this.disposables.push(autoplay.onChange((e) => {
+      switch (e.type) {
+        case 'start':
+          this.setAriaAnnouncement(false);
+          break;
+
+        case 'stop':
+          this.setAriaAnnouncement(true);
+          break;
+      }
+    }));
   }
 
   public get state(): TextState {
@@ -63,12 +84,8 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.store.dispatch(update(formattedText));
   }
 
-  public mute(): void {
-    this.store.dispatch(announceText(false));
-  }
-
-  public unmute(): void {
-    this.store.dispatch(announceText(true));
+  private setAriaAnnouncement(enabled: boolean): void {
+    this.store.dispatch(announceText(enabled));
   }
 }
 

@@ -131,7 +131,7 @@ const Chat: React.FC = () => {
   };
   const handleSend = (): void => {
     if (inputMessage.trim()) {
-      viewModel.sendMessage(inputMessage);
+      void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
   };

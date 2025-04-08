@@ -25,7 +25,7 @@ export class Controller implements Disposable {
   private readonly figure: Figure;
   private readonly context: ContextService;
 
-  public readonly displayService: DisplayService;
+  private readonly displayService: DisplayService;
   private readonly notificationService: NotificationService;
   private readonly settingsService: SettingsService;
 
@@ -64,7 +64,7 @@ export class Controller implements Disposable {
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 
-    this.textViewModel = new TextViewModel(store, this.textService);
+    this.textViewModel = new TextViewModel(store, this.textService, this.autoplayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
@@ -109,6 +109,10 @@ export class Controller implements Disposable {
     this.displayService.dispose();
     this.context.dispose();
     this.figure.dispose();
+  }
+
+  public shouldDispose(event: FocusEvent): boolean {
+    return this.displayService.shouldDestroy(event);
   }
 
   private registerViewModels(): void {

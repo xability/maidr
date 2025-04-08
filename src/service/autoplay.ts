@@ -1,8 +1,10 @@
 import type { ContextService } from '@service/context';
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import { Emitter } from '@type/event';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
@@ -10,6 +12,10 @@ const MAX_SPEED = 500;
 
 const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
+
+interface AutoplayChangeEvent {
+  type: 'start' | 'stop';
+}
 
 export class AutoplayService implements Disposable {
   private readonly context: ContextService;
@@ -27,6 +33,9 @@ export class AutoplayService implements Disposable {
   private readonly totalDuration: number;
   private readonly interval: number;
 
+  private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
+  public readonly onChange: Event<AutoplayChangeEvent>;
+
   public constructor(context: ContextService, notification: NotificationService) {
     this.notification = notification;
     this.context = context;
@@ -42,6 +51,9 @@ export class AutoplayService implements Disposable {
     this.autoplayRate = this.defaultSpeed;
     this.totalDuration = TOTAL_DURATION;
     this.interval = DEFAULT_INTERVAL;
+
+    this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
   public dispose(): void {
@@ -50,7 +62,7 @@ export class AutoplayService implements Disposable {
 
   public start(direction: MovableDirection, state?: TraceState): void {
     this.stop();
-    // TODO: Emit autoplay started event.
+    this.onChangeEmitter.fire({ type: 'start' });
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
@@ -71,7 +83,7 @@ export class AutoplayService implements Disposable {
 
     this.playId = null;
     this.currentDirection = null;
-    // TODO: Emit autoplay stopped event.
+    this.onChangeEmitter.fire({ type: 'stop' });
   }
 
   private restart(): void {
