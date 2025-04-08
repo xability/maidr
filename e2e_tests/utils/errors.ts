@@ -47,20 +47,6 @@ export class AssertionError extends TestError {
 }
 
 /**
- * Error thrown when bar plot related operations fail
- */
-export class BarPlotError extends Error {
-  /**
-   * Creates a new BarPlotError
-   * @param message - Error message describing the issue
-   */
-  constructor(message: string) {
-    super(message);
-    this.name = 'BarPlotError';
-  }
-}
-
-/**
  * Error thrown when a keypress operation fails
  * Used to identify issues with keyboard interactions during tests
  */
@@ -80,5 +66,33 @@ export class KeypressError extends TestError {
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, KeypressError);
     }
+  }
+}
+
+/**
+ * Error thrown when bar plot related operations fail
+ */
+export class BarPlotError extends Error {
+  /**
+   * Creates a new BarPlotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'BarPlotError';
+  }
+}
+
+/**
+ * Error thrown when Histogram related operations fail
+ */
+export class HistogramError extends Error {
+  /**
+   * Creates a new HistogramError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'HistogramError';
   }
 }

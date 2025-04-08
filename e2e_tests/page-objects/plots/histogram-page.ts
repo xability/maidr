@@ -1,43 +1,41 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../../utils/constants';
-import { BarPlotError } from '../../utils/errors';
+import { HistogramError } from '../../utils/errors';
 import { BasePage } from '../base-page';
 
 /**
- * Page object representing the bar plot page
- * Handles all bar plot specific interactions and verifications
+ * Page object representing the Histogram plot page
+ * Handles all histogram plot specific interactions and verifications
  */
-export class BarPlotPage extends BasePage {
+export class HistogramPage extends BasePage {
   /**
    * The ID of the plot being tested
    */
   private readonly plotId: string;
 
   /**
-   * Creates a new BarPlotPage instance
+   * Creates a new HistogramPage instance
    * @param page - The Playwright page object
-   * @param plotId - ID of the bar plot (defaults to BAR_ID constant)
+   * @param plotId - ID of the Histogram plot (default: TestConstants.HISTOGRAM_ID)
    */
-  constructor(page: Page, plotId: string = TestConstants.BAR_ID) {
+  constructor(page: Page, plotId: string = TestConstants.HISTOGRAM_ID) {
     super(page);
     this.plotId = plotId;
   }
 
   /**
-   * Navigates to the bar plot page
+   * Navigates to the Histogram plot page
    * @returns Promise resolving when navigation completes
-   * @throws BarPlotError if navigation fails
+   * @throws HistogramError if navigation fails
    */
-  public async navigateToBarPlot(): Promise<void> {
+  public async navigateToHistogram(): Promise<void> {
     try {
-    // Use absolute path to ensure correct navigation
-      const absolutePath = '/examples/barplot.html';
-
+      const absolutePath = '/examples/histogram.html';
       await this.navigateTo(absolutePath);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to navigate to bar plot: ${errorMessage}`);
+      throw new HistogramError(`Failed to navigate to Histogram: ${errorMessage}`);
     }
   }
 
@@ -48,7 +46,7 @@ export class BarPlotPage extends BasePage {
    * @param expectedContent - The expected text content to wait for
    * @param options - Configuration options for the wait operation
    * @returns Promise resolving when the condition is met
-   * @throws BarPlotError if timeout is reached before the condition is met
+   * @throws HistogramError if timeout is reached before the condition is met
    *
    * @example
    * // Wait for data point info to show specific content
@@ -82,7 +80,7 @@ export class BarPlotPage extends BasePage {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(
+      throw new HistogramError(
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
       );
@@ -92,7 +90,7 @@ export class BarPlotPage extends BasePage {
   /**
    * Verifies the plot has loaded correctly
    * @returns Promise resolving when verification is complete
-   * @throws BarPlotError if plot is not loaded correctly
+   * @throws HistogramError if plot is not loaded correctly
    */
   public async verifyPlotLoaded(): Promise<void> {
     try {
@@ -101,14 +99,14 @@ export class BarPlotPage extends BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new BarPlotError('Bar plot failed to load correctly');
+      throw new HistogramError('Histogram plot failed to load correctly');
     }
   }
 
   /**
    * Activates MAIDR by clicking on the plot
    * @returns Promise resolving when MAIDR is activated
-   * @throws BarPlotError if MAIDR cannot be activated
+   * @throws HistogramError if MAIDR cannot be activated
    */
   public async activateMaidr(): Promise<void> {
     try {
@@ -123,14 +121,15 @@ export class BarPlotPage extends BasePage {
           but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`);
       }
     } catch (error) {
-      throw new BarPlotError('Failed to activate MAIDR');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new HistogramError(`Failed to navigate to bar plot: ${errorMessage}`);
     }
   }
 
   /**
    * Activates MAIDR by clicking directly on the SVG element
    * @returns Promise resolving when MAIDR is activated via click
-   * @throws BarPlotError if MAIDR cannot be activated by clicking
+   * @throws HistogramError if MAIDR cannot be activated by clicking
    */
   public async activateMaidrOnClick(): Promise<void> {
     try {
@@ -150,14 +149,14 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`);
+      throw new HistogramError(`Failed to activate MAIDR by clicking: ${errorMessage}`);
     }
   }
 
   /**
    * Gets the instruction text displayed by MAIDR
    * @returns Promise resolving to the instruction text
-   * @throws BarPlotError if instruction text cannot be retrieved
+   * @throws HistogramError if instruction text cannot be retrieved
    */
   public async getInstructionText(): Promise<string> {
     const notificationSelector
@@ -167,14 +166,14 @@ export class BarPlotPage extends BasePage {
       const text = await this.getElementText(notificationSelector);
       return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
-      throw new BarPlotError('Failed to get instruction text');
+      throw new HistogramError('Failed to get instruction text');
     }
   }
 
   /**
    * Gets the current notification text (data point information)
    * @returns Promise resolving to the notification text
-   * @throws BarPlotError if notification text cannot be retrieved
+   * @throws HistogramError if notification text cannot be retrieved
    */
   public async getNotificationText(): Promise<string> {
     const notificationSelector
@@ -183,7 +182,7 @@ export class BarPlotPage extends BasePage {
     try {
       return await this.getElementText(notificationSelector);
     } catch (error) {
-      throw new BarPlotError('Failed to get notification text');
+      throw new HistogramError('Failed to get notification text');
     }
   }
 
@@ -203,10 +202,10 @@ export class BarPlotPage extends BasePage {
       } else if (textMode === TestConstants.TEXT_MODE_OFF) {
         return notification_text === TestConstants.TEXT_MODE_OFF_MESSAGE;
       } else {
-        throw new BarPlotError('Invalid text mode specified');
+        throw new HistogramError('Invalid text mode specified');
       }
     } catch (error) {
-      throw new BarPlotError('Failed to check text mode status');
+      throw new HistogramError('Failed to check text mode status');
     }
   }
 
@@ -224,10 +223,10 @@ export class BarPlotPage extends BasePage {
       } else if (braille_mode === TestConstants.BRAILLE_OFF) {
         return notification_text === TestConstants.BRAILLE_MODE_OFF;
       } else {
-        throw new BarPlotError('Invalid braille mode specified');
+        throw new HistogramError('Invalid braille mode specified');
       }
     } catch (error) {
-      throw new BarPlotError('Failed to check braille mode status');
+      throw new HistogramError('Failed to check braille mode status');
     }
   }
 
@@ -245,10 +244,10 @@ export class BarPlotPage extends BasePage {
       } else if (sonification_mode === TestConstants.SOUND_OFF) {
         return notification_text === TestConstants.SOUND_MODE_OFF;
       } else {
-        throw new BarPlotError('Invalid sonification mode specified');
+        throw new HistogramError('Invalid sonification mode specified');
       }
     } catch (error) {
-      throw new BarPlotError('Failed to check sonification status');
+      throw new HistogramError('Failed to check sonification status');
     }
   }
 
@@ -266,17 +265,17 @@ export class BarPlotPage extends BasePage {
       } else if (review_mode === TestConstants.REVIEW_MODE_OFF) {
         return notification_text === TestConstants.REVIEW_MODE_OFF_MESSAGE;
       } else {
-        throw new BarPlotError('Invalid review mode specified');
+        throw new HistogramError('Invalid review mode specified');
       }
     } catch (error) {
-      throw new BarPlotError('Failed to check review mode status');
+      throw new HistogramError('Failed to check review mode status');
     }
   }
 
   /**
    * Get X-Axis title
    * @returns X-axis title text
-   * @throws BarPlotError if title cannot be retrieved
+   * @throws HistogramError if title cannot be retrieved
    */
 
   public async getXAxisTitle(): Promise<string> {
@@ -285,14 +284,14 @@ export class BarPlotPage extends BasePage {
       const xAxisTitle = await this.getElementText(xAxisTitleSelector);
       return xAxisTitle;
     } catch (error) {
-      throw new BarPlotError('Failed to get X-axis title');
+      throw new HistogramError('Failed to get X-axis title');
     }
   }
 
   /**
    * Get Y-Axis title
    * @returns Y-axis title text
-   * @throws BarPlotError if title cannot be retrieved
+   * @throws HistogramError if title cannot be retrieved
    */
   public async getYAxisTitle(): Promise<string> {
     const yAxisTitleSelector = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
@@ -300,14 +299,14 @@ export class BarPlotPage extends BasePage {
       const yAxisTitle = await this.getElementText(yAxisTitleSelector);
       return yAxisTitle;
     } catch (error) {
-      throw new BarPlotError('Failed to get Y-axis title');
+      throw new HistogramError('Failed to get Y-axis title');
     }
   }
 
   /**
    * Gets the current playback speed
    * @returns Promise resolving to the current speed value
-   * @throws BarPlotError if speed cannot be retrieved
+   * @throws HistogramError if speed cannot be retrieved
    */
   public async getPlaybackSpeed(): Promise<number> {
     try {
@@ -316,14 +315,14 @@ export class BarPlotPage extends BasePage {
       );
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new BarPlotError('Failed to get playback speed');
+      throw new HistogramError('Failed to get playback speed');
     }
   }
 
   /**
    * Get current speed toggle information
    * @returns current speed toggle information
-   * @throws BarPlotError if speed toggle information cannot be retrieved
+   * @throws HistogramError if speed toggle information cannot be retrieved
    */
   public async getSpeedToggleInfo(): Promise<string> {
     const speedToggleSelector
@@ -331,14 +330,14 @@ export class BarPlotPage extends BasePage {
     try {
       return await this.getElementText(speedToggleSelector);
     } catch (error) {
-      throw new BarPlotError('Failed to get speed toggle information');
+      throw new HistogramError('Failed to get speed toggle information');
     }
   }
 
   /**
    * Get the current data point information
    * @returns Promise resolving to the current data point information
-   * @throws BarPlotError if data point information cannot be retrieved
+   * @throws HistogramError if data point information cannot be retrieved
    */
 
   public async getCurrentDataPointInfo(): Promise<string> {
@@ -347,7 +346,7 @@ export class BarPlotPage extends BasePage {
     try {
       return await this.getElementText(dataPointSelector);
     } catch (error) {
-      throw new BarPlotError('Failed to get current data point information');
+      throw new HistogramError('Failed to get current data point information');
     }
   }
 
@@ -356,7 +355,7 @@ export class BarPlotPage extends BasePage {
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
    * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws BarPlotError if autoplay fails or times out
+   * @throws HistogramError if autoplay fails or times out
    *
    * @example
    * // Start autoplay and wait for data point info to reach expected text
@@ -386,7 +385,7 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete forward autoplay: ${errorMessage}`);
+      throw new HistogramError(`Failed to complete forward autoplay: ${errorMessage}`);
     }
   }
 
@@ -395,7 +394,7 @@ export class BarPlotPage extends BasePage {
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
    * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws BarPlotError if autoplay fails or times out
+   * @throws HistogramError if autoplay fails or times out
    *
    * @example
    * // Start autoplay and wait for data point info to reach expected text
@@ -425,7 +424,7 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete reverse autoplay: ${errorMessage}`);
+      throw new HistogramError(`Failed to complete reverse autoplay: ${errorMessage}`);
     }
   }
 }

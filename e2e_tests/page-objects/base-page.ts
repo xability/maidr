@@ -67,6 +67,36 @@ export class BasePage {
   }
 
   /**
+   * Gets information about the currently active element on the page
+   * @returns Promise resolving to information about the active element
+   */
+  public async getActiveElementInfo(): Promise<{
+    tagName: string;
+    className: string;
+    id: string;
+    attributes: Record<string, string>;
+  }> {
+    return await this.page.evaluate(() => {
+      const activeElement = document.activeElement;
+
+      const attributes: Record<string, string> = {};
+      if (activeElement && activeElement.attributes) {
+        for (let i = 0; i < activeElement.attributes.length; i++) {
+          const attr = activeElement.attributes[i];
+          attributes[attr.name] = attr.value;
+        }
+      }
+
+      return {
+        tagName: activeElement?.tagName?.toLowerCase() || 'none',
+        className: activeElement?.className || '',
+        id: activeElement?.id || '',
+        attributes,
+      };
+    });
+  }
+
+  /**
    * Fills an input field with text
    * @param selector - The selector for the input element
    * @param text - The text to fill in the input
