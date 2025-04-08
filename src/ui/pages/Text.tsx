@@ -17,7 +17,7 @@ const Text: FC = () => {
     <div
       id="maidr-text-container"
       {...(announce && {
-        'aria-live': 'polite',
+        'aria-live': 'assertive',
         'aria-atomic': 'true',
       })}
     >

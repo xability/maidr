@@ -1,31 +1,13 @@
 import type { ContextService } from '@service/context';
-import type { DisplayService } from './display';
-import { Constant } from '@util/constant';
+import { notify } from '@redux/slice/notificationSlice';
+import { store } from '@redux/store';
 
 export class NotificationService {
-  private readonly enabled: boolean;
-  private readonly notificationDiv?: HTMLElement;
-
-  public constructor(context: ContextService, display: DisplayService) {
-    if (!display.notificationDiv) {
-      this.enabled = false;
-      return;
-    }
-
-    this.notificationDiv = display.notificationDiv;
-    this.enabled = true;
+  public constructor(context: ContextService) {
     this.notify(context.getInstruction(false));
   }
 
   public notify(message: string): void {
-    if (!this.enabled || !message) {
-      return;
-    }
-
-    const paragraph = document.createElement(Constant.P);
-    paragraph.innerHTML = message;
-
-    this.notificationDiv!.innerHTML = Constant.EMPTY;
-    this.notificationDiv!.append(paragraph);
+    store.dispatch(notify(message));
   }
 }

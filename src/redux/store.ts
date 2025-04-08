@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { ServiceLocator } from '@service/locator';
 import chatReducer from './slice/chatSlice';
 import helpMenuReducer from './slice/helpSlice';
+import notificationReducer from './slice/notificationSlice';
 import settingsReducer from './slice/settingsSlice';
 import textReducer from './slice/textSlice';
 
@@ -11,6 +12,7 @@ export const store = configureStore({
   reducer: {
     chat: chatReducer,
     help: helpMenuReducer,
+    notification: notificationReducer,
     text: textReducer,
     settings: settingsReducer,
   },

@@ -38,7 +38,7 @@ export class ControllerService {
     this.context = new ContextService(this.figure);
 
     this.display = new DisplayService(this.context, maidrRoot, plot);
-    this.notification = new NotificationService(this.context, this.display);
+    this.notification = new NotificationService(this.context);
     this.settings = new SettingsService(this.display);
 
     this.audio = new AudioService(this.notification, this.context.state);

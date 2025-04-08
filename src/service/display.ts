@@ -16,7 +16,6 @@ export class DisplayService {
   private readonly reactDiv?: HTMLElement;
   private reactRoot: Root | null;
 
-  public readonly notificationDiv: HTMLElement;
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
 
@@ -48,10 +47,6 @@ export class DisplayService {
       = (document.getElementById(reviewInputId) as HTMLInputElement)
         ?? this.createReviewInput(reviewInputId);
 
-    const notificationId = `${Constant.NOTIFICATION_CONTAINER}-${maidrId}`;
-    this.notificationDiv = document.getElementById(notificationId)
-      ?? this.createNotificationContainer(notificationId);
-
     const reactId = `${Constant.REACT_CONTAINER}-${maidrId}`;
     this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.reactRoot = createRoot(this.reactDiv);
@@ -68,8 +63,6 @@ export class DisplayService {
 
     this.reviewInput.remove();
     this.reviewDiv.remove();
-
-    this.notificationDiv.innerHTML = Constant.EMPTY;
 
     this.reactRoot?.unmount();
     this.reactRoot = null;
@@ -132,17 +125,6 @@ export class DisplayService {
 
     this.reviewDiv.appendChild(reviewInput);
     return reviewInput;
-  }
-
-  private createNotificationContainer(notificationId: string): HTMLElement {
-    const notificationDiv = document.createElement(Constant.DIV);
-    notificationDiv.id = notificationId;
-    notificationDiv.classList.add(Constant.MB_3);
-    notificationDiv.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    notificationDiv.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
-
-    this.maidrRoot.appendChild(notificationDiv);
-    return notificationDiv;
   }
 
   private createReactContainer(reactId: string): HTMLElement {
