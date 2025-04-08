@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/xability/maidr-ts/compare/v2.2.0...v2.3.0) (2025-04-08)
+
+
+### Features
+
+* move text feature to react ([#163](https://github.com/xability/maidr-ts/issues/163)) ([a443bd5](https://github.com/xability/maidr-ts/commit/a443bd5c349f6e67e625ce668cf62436a8ab8c83))
+
 # [2.2.0](https://github.com/xability/maidr-ts/compare/v2.1.0...v2.2.0) (2025-03-30)
 
 
