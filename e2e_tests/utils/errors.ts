@@ -96,3 +96,17 @@ export class HistogramError extends Error {
     this.name = 'HistogramError';
   }
 }
+
+/**
+ * Error thrown when Lineplot related operations fail
+ */
+export class LinePlotError extends Error {
+  /**
+   * Creates a new LinePlotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'LinePlotError';
+  }
+}

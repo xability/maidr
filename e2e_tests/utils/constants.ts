@@ -28,7 +28,7 @@ export abstract class TestConstants {
   static readonly BAR_ID = 'bar';
   static readonly HEATMAP_ID = 'heatmap';
   static readonly HISTOGRAM_ID = 'hist';
-  static readonly LINE_ID = 'line';
+  static readonly LINEPLOT_ID = 'line';
 
   /**
    * MAIDR plot identifiers
@@ -85,7 +85,7 @@ export abstract class TestConstants {
   static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly LINE_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes
