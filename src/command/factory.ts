@@ -112,7 +112,7 @@ export class CommandFactory {
       case 'TOGGLE_BRAILLE':
         return new ToggleBrailleCommand(this.context, this.braille);
       case 'TOGGLE_TEXT':
-        return new ToggleTextCommand(this.text);
+        return new ToggleTextCommand();
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.context, this.review);
 

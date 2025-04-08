@@ -1,6 +1,8 @@
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
+import { setTextAnnouncement, updateText } from '@redux/slice/textSlice';
+import { store } from '@redux/store';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -13,17 +15,10 @@ export class TextService implements Observer<string | PlotState> {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
-  private readonly textDiv!: HTMLElement;
 
-  public constructor(notification: NotificationService, textDiv?: HTMLElement) {
+  public constructor(notification: NotificationService) {
     this.notification = notification;
-    if (!textDiv) {
-      this.mode = TextMode.OFF;
-      return;
-    }
-
     this.mode = TextMode.VERBOSE;
-    this.textDiv = textDiv;
   }
 
   public formatText(state: PlotState): string {
@@ -153,14 +148,11 @@ export class TextService implements Observer<string | PlotState> {
 
     // Display the text.
     if (text) {
-      const paragraph = document.createElement(Constant.P);
-      paragraph.innerHTML = text;
-      this.textDiv.innerHTML = Constant.EMPTY;
-      this.textDiv.append(paragraph);
+      store.dispatch(updateText(text));
     }
   }
 
-  public toggle(): void {
+  public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
         this.mode = TextMode.VERBOSE;
@@ -175,23 +167,17 @@ export class TextService implements Observer<string | PlotState> {
         break;
     }
 
-    if (this.mode === TextMode.OFF) {
-      this.textDiv?.classList.add(Constant.HIDDEN);
-    } else {
-      this.textDiv?.classList.remove(Constant.HIDDEN);
-    }
-
     const message = `Text mode is ${this.mode}`;
     this.notification.notify(message);
+
+    return this.mode !== TextMode.OFF;
   }
 
   public mute(): void {
-    this.textDiv?.removeAttribute(Constant.ARIA_LIVE);
-    this.textDiv?.removeAttribute(Constant.ARIA_ATOMIC);
+    store.dispatch(setTextAnnouncement(false));
   }
 
   public unmute(): void {
-    this.textDiv?.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    this.textDiv?.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
+    store.dispatch(setTextAnnouncement(true));
   }
 }
