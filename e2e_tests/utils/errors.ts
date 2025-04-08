@@ -59,3 +59,26 @@ export class BarPlotError extends Error {
     this.name = 'BarPlotError';
   }
 }
+
+/**
+ * Error thrown when a keypress operation fails
+ * Used to identify issues with keyboard interactions during tests
+ */
+export class KeypressError extends TestError {
+  /**
+   * Creates a new KeypressError
+   * @param key - The key that failed to be pressed
+   * @param context - Additional context about the operation being performed
+   * @param cause - Optional underlying cause of the error
+   */
+  constructor(key: string, context: string, cause?: Error) {
+    const causeMessage = cause ? `: ${cause.message}` : '';
+    super(`Failed to press key "${key}" during ${context}${causeMessage}`);
+    this.name = 'KeypressError';
+
+    // Preserve stack trace in Node.js environments
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, KeypressError);
+    }
+  }
+}

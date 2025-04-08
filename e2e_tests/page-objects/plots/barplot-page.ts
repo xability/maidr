@@ -240,19 +240,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Toggles text mode on/off
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleTextMode(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.TEXT_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle text mode');
-    }
-  }
-
-  /**
    * Checks if text mode is active
    * @returns Promise resolving to true if text mode is active, false otherwise
    */
@@ -272,19 +259,6 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       throw new BarPlotError('Failed to check text mode status');
-    }
-  }
-
-  /**
-   * Toggles braille mode on/off
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleBrailleMode(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.BRAILLE_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle braille mode');
     }
   }
 
@@ -310,19 +284,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Toggles sonification on/off
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleSonification(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.SOUND_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle sonification');
-    }
-  }
-
-  /**
    * Checks if sonification is active
    * @returns Promise resolving to true if sonification is active, false otherwise
    */
@@ -344,19 +305,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Toggles review mode on/off
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleReviewMode(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.REVIEW_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle review mode');
-    }
-  }
-
-  /**
    * Checks if review mode is active
    * @returns Promise resolving to true if review mode is active, false otherwise
    */
@@ -374,35 +322,6 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       throw new BarPlotError('Failed to check review mode status');
-    }
-  }
-
-  /**
-   * Toggle X-axis title
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-
-  public async toggleXAxisTitle(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.LABEL_KEY);
-      await this.page.keyboard.press(TestConstants.X_AXIS_TITLE);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle X-axis title');
-    }
-  }
-
-  /**
-   * Toggle Y-axis title
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleYAxisTitle(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.LABEL_KEY);
-      await this.page.keyboard.press(TestConstants.Y_AXIS_TITLE);
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle Y-axis title');
     }
   }
 
@@ -438,56 +357,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Presses multiple keys in sequence
-   * @param keys - Array of keys to press in order
-   * @returns Promise resolving when all keys have been pressed
-   * @throws Error if key press fails
-   */
-  private async pressKeysInSequence(keys: string[]): Promise<void> {
-    try {
-      for (const key of keys) {
-        await this.page.keyboard.press(key);
-
-        // Add a small delay between key presses to ensure they're registered separately
-        await this.page.waitForTimeout(100);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to press keys in sequence: ${errorMessage}`);
-    }
-  }
-  /**
-   * Toggle Help menu
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-
-  public async showHelpMenu(): Promise<void> {
-    try {
-      await this.page.keyboard.down(TestConstants.COMMAND_KEY);
-      await this.page.waitForTimeout(50);
-      await this.page.keyboard.press(TestConstants.SLASH_KEY);
-
-      await expect(this.page.locator(TestConstants.MAIDR_HELP_MODAL)).toBeVisible({
-        timeout: 5000,
-      });
-
-      const helpTitle = await this.getElementText(TestConstants.MAIDR_HELP_MODAL_TITLE);
-      if (!helpTitle.includes(TestConstants.HELP_MENU_TITLE)) {
-        throw new Error(`Expected dialog title to contain "Keyboard Shortcuts", but got "${helpTitle}"`);
-      }
-
-      await this.page.click(TestConstants.HELP_MENU_CLOSE_BUTTON);
-
-      await expect(this.page.locator(TestConstants.MAIDR_HELP_MODAL)).not.toBeVisible({
-        timeout: 1000,
-      });
-    } catch (error) {
-      throw new BarPlotError('Failed to show help menu');
-    }
-  }
-
-  /**
    * Gets the current playback speed
    * @returns Promise resolving to the current speed value
    * @throws BarPlotError if speed cannot be retrieved
@@ -500,45 +369,6 @@ export class BarPlotPage extends BasePage {
       return Number.parseFloat(speedText);
     } catch (error) {
       throw new BarPlotError('Failed to get playback speed');
-    }
-  }
-
-  /**
-   * Increases playback speed
-   * @returns Promise resolving when speed change is complete
-   * @throws BarPlotError if speed change fails
-   */
-  public async increaseSpeed(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.PERIOD_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to increase speed');
-    }
-  }
-
-  /**
-   * Decreases playback speed
-   * @returns Promise resolving when speed change is complete
-   * @throws BarPlotError if speed change fails
-   */
-  public async decreaseSpeed(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.COMMA_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to decrease speed');
-    }
-  }
-
-  /**
-   * Resets playback speed to default
-   * @returns Promise resolving when speed reset is complete
-   * @throws BarPlotError if speed reset fails
-   */
-  public async resetSpeed(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.SLASH_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to reset speed');
     }
   }
 
@@ -558,79 +388,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Replays the current data point
-   * @returns Promise resolving when replay is complete
-   * @throws BarPlotError if replay fails
-   */
-  public async replayCurrentPoint(): Promise<void> {
-    try {
-      await this.page.keyboard.press(' ');
-    } catch (error) {
-      throw new BarPlotError('Failed to replay current point');
-    }
-  }
-
-  /**
-   * Toggles autoplay on/off
-   * @returns Promise resolving when toggling is complete
-   * @throws BarPlotError if toggling fails
-   */
-  public async toggleAutoplay(): Promise<void> {
-    try {
-      await this.page.keyboard.press('a');
-    } catch (error) {
-      throw new BarPlotError('Failed to toggle autoplay');
-    }
-  }
-
-  /**
-   * Checks if autoplay is active
-   * @returns Promise resolving to true if autoplay is active, false otherwise
-   */
-  public async isAutoplayActive(): Promise<boolean> {
-    return await this.isElementVisible(
-      `#${TestConstants.MAIDR_CONTAINER + this.plotId} .autoplay-active`,
-    );
-  }
-
-  /**
-   * Waits for a specified amount of time
-   * @param milliseconds - Time to wait in milliseconds
-   * @returns Promise resolving when wait is complete
-   */
-  public async wait(milliseconds: number): Promise<void> {
-    await this.page.waitForTimeout(milliseconds);
-  }
-
-  /**
-   * Move to the next data point on the right
-   * @returns Promise resolving when movement is complete
-   * @throws BarPlotError if movement fails
-   */
-  public async moveToNextDataPoint(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to move to next data point: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Move to the previous data point on the left
-   * @returns Promise resolving when movement is complete
-   * @throws BarPlotError if movement fails
-   */
-  public async moveToPreviousDataPoint(): Promise<void> {
-    try {
-      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to move to previous data point: ${errorMessage}`);
-    }
-  }
-
-  /**
    * Get the current data point information
    * @returns Promise resolving to the current data point information
    * @throws BarPlotError if data point information cannot be retrieved
@@ -643,37 +400,6 @@ export class BarPlotPage extends BasePage {
       return await this.getElementText(dataPointSelector);
     } catch (error) {
       throw new BarPlotError('Failed to get current data point information');
-    }
-  }
-
-  /**
-   * Get the information about first data point
-   * @returns Promise resolving to the first data point information
-   * @throws BarPlotError if data point information cannot be retrieved
-   */
-
-  public async moveToFirstDataPoint(): Promise<void> {
-    try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
-      await this.page.waitForTimeout(50);
-      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to get first data point information');
-    }
-  }
-
-  /**
-   * Get the information about last data point
-   * @returns Promise resolving to the last data point information
-   * @throws BarPlotError if data point information cannot be retrieved
-   */
-  public async moveToLastDataPoint(): Promise<void> {
-    try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
-      await this.page.waitForTimeout(50);
-      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
-    } catch (error) {
-      throw new BarPlotError('Failed to get last data point information');
     }
   }
 
@@ -696,7 +422,7 @@ export class BarPlotPage extends BasePage {
     // Start autoplay with keyboard shortcuts
       await this.page.keyboard.down(TestConstants.META_KEY);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
+      await this.pressKey(TestConstants.RIGHT_ARROW_KEY, 'start forward autoplay');
 
       // Release modifier keys
       await this.page.keyboard.up(TestConstants.META_KEY);
@@ -738,7 +464,7 @@ export class BarPlotPage extends BasePage {
     // Start autoplay with keyboard shortcuts
       await this.page.keyboard.down(TestConstants.META_KEY);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
+      await this.pressKey(TestConstants.LEFT_ARROW_KEY, 'start reverse autoplay');
 
       // Release modifier keys
       await this.page.keyboard.up(TestConstants.META_KEY);
