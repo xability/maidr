@@ -29,7 +29,7 @@ export class Heatmap extends AbstractTrace<number> {
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.heatmapValues.length = 0;
     this.brailleValues.length = 0;
     this.highlightValues.length = 0;
@@ -37,7 +37,7 @@ export class Heatmap extends AbstractTrace<number> {
     this.x.length = 0;
     this.y.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): number[][] {

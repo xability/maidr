@@ -5,7 +5,10 @@ import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
-import type { TextService } from '@service/text';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
 
 export interface Command {
   execute: (event?: Event) => void;
@@ -14,12 +17,16 @@ export interface Command {
 export interface CommandContext {
   context: ContextService;
 
-  audio: AudioService;
-  braille: BrailleService;
-  text: TextService;
-  review: ReviewService;
+  audioService: AudioService;
+  brailleService: BrailleService;
+  reviewService: ReviewService;
 
-  notification: NotificationService;
-  autoplay: AutoplayService;
-  highlight: HighlightService;
+  notificationService: NotificationService;
+  autoplayService: AutoplayService;
+  highlightService: HighlightService;
+
+  textViewModel: TextViewModel;
+  helpViewModel: HelpViewModel;
+  chatViewModel: ChatViewModel;
+  settingsViewModel: SettingsViewModel;
 }

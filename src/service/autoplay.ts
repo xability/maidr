@@ -1,8 +1,8 @@
 import type { ContextService } from '@service/context';
+import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
-import type { TextService } from './text';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
@@ -11,10 +11,9 @@ const MAX_SPEED = 500;
 const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
 
-export class AutoplayService {
+export class AutoplayService implements Disposable {
   private readonly context: ContextService;
   private readonly notification: NotificationService;
-  private readonly text: TextService;
 
   private playId: NodeJS.Timeout | null;
   private currentDirection: MovableDirection | null;
@@ -28,9 +27,8 @@ export class AutoplayService {
   private readonly totalDuration: number;
   private readonly interval: number;
 
-  public constructor(context: ContextService, notification: NotificationService, text: TextService) {
+  public constructor(context: ContextService, notification: NotificationService) {
     this.notification = notification;
-    this.text = text;
     this.context = context;
 
     this.playId = null;
@@ -46,13 +44,13 @@ export class AutoplayService {
     this.interval = DEFAULT_INTERVAL;
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.stop();
   }
 
   public start(direction: MovableDirection, state?: TraceState): void {
     this.stop();
-    this.text.mute();
+    // TODO: Emit autoplay started event.
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
@@ -73,7 +71,7 @@ export class AutoplayService {
 
     this.playId = null;
     this.currentDirection = null;
-    this.text.unmute();
+    // TODO: Emit autoplay stopped event.
   }
 
   private restart(): void {
