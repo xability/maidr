@@ -1,17 +1,9 @@
 import type { FC } from 'react';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { resetText } from '@redux/slice/textSlice';
-import React, { useEffect } from 'react';
+import { useViewModelState } from '@state/hook/useViewModel';
+import React from 'react';
 
 const Text: FC = () => {
-  const dispatch = useAppDispatch();
-  const { announce, value } = useAppSelector(state => state.text);
-
-  useEffect(() => {
-    return () => {
-      dispatch(resetText());
-    };
-  }, [dispatch]);
+  const { announce, value } = useViewModelState('text');
 
   return (
     <div

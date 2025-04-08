@@ -1,12 +1,13 @@
+import type { ContextService } from '@service/context';
+import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
-import type { ContextService } from './context';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import { EventType, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
-export class BrailleService implements Observer<TraceState> {
+export class BrailleService implements Observer<TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
 
@@ -41,7 +42,7 @@ export class BrailleService implements Observer<TraceState> {
     );
   }
 
-  public destroy(): void {
+  public dispose(): void {
     if (this.brailleTextArea && this.selectionChangeHandler) {
       this.brailleTextArea.removeEventListener(
         EventType.SELECTION_CHANGE,

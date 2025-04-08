@@ -14,8 +14,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { sendMessage, toggleChat } from '@redux/slice/chatSlice';
+import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useRef, useState } from 'react';
 
 interface MessageBubbleProps {
@@ -112,8 +111,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
 const Chat: React.FC = () => {
   const theme = useTheme();
-  const dispatch = useAppDispatch();
-  const { enabled, messages } = useAppSelector(state => state.chat);
+
+  const viewModel = useViewModel('chat');
+  const { enabled, messages } = useViewModelState('chat');
+
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -126,11 +127,11 @@ const Chat: React.FC = () => {
   }, [messages]);
 
   const handleClose = (): void => {
-    dispatch(toggleChat());
+    viewModel.toggle();
   };
   const handleSend = (): void => {
     if (inputMessage.trim()) {
-      dispatch(sendMessage(inputMessage));
+      void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
   };

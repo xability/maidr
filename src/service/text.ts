@@ -1,8 +1,8 @@
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
-import { setTextAnnouncement, updateText } from '@redux/slice/textSlice';
-import { store } from '@redux/store';
+import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -11,18 +11,30 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export class TextService implements Observer<string | PlotState> {
+interface TextChangedEvent {
+  value: string;
+}
+
+export class TextService implements Observer<PlotState> {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
 
+  private readonly onChangeEmitter: Emitter<TextChangedEvent>;
+  public readonly onChange: Event<TextChangedEvent>;
+
   public constructor(notification: NotificationService) {
     this.notification = notification;
     this.mode = TextMode.VERBOSE;
+
+    this.onChangeEmitter = new Emitter<TextChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
-  public formatText(state: PlotState): string {
-    if (!state || state.empty) {
+  public format(state: string | PlotState): string {
+    if (typeof state === 'string') {
+      return state;
+    } else if (!state || state.empty) {
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
@@ -132,23 +144,16 @@ export class TextService implements Observer<string | PlotState> {
     return terse.join(Constant.EMPTY);
   }
 
-  public update(state: string | PlotState): void {
+  public update(state: PlotState): void {
     // Show text only if turned on.
     if (this.mode === TextMode.OFF) {
       return;
     }
 
     // Format the text based on the display mode.
-    let text;
-    if (typeof state === 'string') {
-      text = state;
-    } else {
-      text = this.formatText(state);
-    }
-
-    // Display the text.
+    const text = this.format(state);
     if (text) {
-      store.dispatch(updateText(text));
+      this.onChangeEmitter.fire({ value: text });
     }
   }
 
@@ -171,13 +176,5 @@ export class TextService implements Observer<string | PlotState> {
     this.notification.notify(message);
 
     return this.mode !== TextMode.OFF;
-  }
-
-  public mute(): void {
-    store.dispatch(setTextAnnouncement(false));
-  }
-
-  public unmute(): void {
-    store.dispatch(setTextAnnouncement(true));
   }
 }

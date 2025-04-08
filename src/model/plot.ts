@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { MaidrLayer } from '@type/maidr';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
@@ -17,7 +18,7 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State> {
+export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -36,7 +37,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = 0;
   }
 
-  protected destroy(): void {
+  public dispose(): void {
     for (const observer of this.observers) {
       this.removeObserver(observer);
     }
@@ -172,8 +173,8 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
-  public destroy(): void {
-    super.destroy();
+  public dispose(): void {
+    super.dispose();
   }
 
   public get state(): TraceState {

@@ -50,13 +50,13 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.row = this.boxValues.length - 1;
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
     this.boxValues.length = 0;
 
     this.sections.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): (number[] | number)[][] {
