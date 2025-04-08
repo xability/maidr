@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/xability/maidr-ts/compare/v2.3.0...v2.3.1) (2025-04-08)
+
+
+### Performance Improvements
+
+* support mvvm architecture ([#167](https://github.com/xability/maidr-ts/issues/167)) ([ddcb1b2](https://github.com/xability/maidr-ts/commit/ddcb1b24d99f8570833d1eb6402f035d9cc2d18f))
+
 # [2.3.0](https://github.com/xability/maidr-ts/compare/v2.2.0...v2.3.0) (2025-04-08)
 
 
