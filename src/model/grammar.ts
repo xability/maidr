@@ -14,6 +14,15 @@ export interface BoxPoint {
   upperOutliers: number[];
 }
 
+export interface CandlestickPoint {
+  value: string;
+  low: number;
+  open: number;
+  close: number;
+  high: number;
+  volume: number;
+}
+
 export interface HeatmapData {
   x: string[];
   y: string[];

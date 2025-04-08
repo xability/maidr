@@ -32,7 +32,11 @@ export class TextService implements Observer<string | PlotState> {
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(state.index, state.size, state.trace.traceType);
+      return this.formatSubplotText(
+        state.index,
+        state.size,
+        state.trace.traceType,
+      );
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {
@@ -40,14 +44,23 @@ export class TextService implements Observer<string | PlotState> {
     }
   }
 
-  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
-    const details = traceTypes.length === 1
-      ? `This is a ${traceTypes[0]} plot`
-      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
+  private formatFigureText(
+    index: number,
+    size: number,
+    traceTypes: string[],
+  ): string {
+    const details
+      = traceTypes.length === 1
+        ? `This is a ${traceTypes[0]} plot`
+        : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
     return `Subplot ${index} of ${size}: ${details}`;
   }
 
-  private formatSubplotText(index: number, size: number, traceType: string): string {
+  private formatSubplotText(
+    index: number,
+    size: number,
+    traceType: string,
+  ): string {
     return `Layer ${index} of ${size}: ${traceType} plot`;
   }
 
@@ -59,7 +72,11 @@ export class TextService implements Observer<string | PlotState> {
 
     // Format for histogram and scatter plot.
     if (state.range !== undefined) {
-      verbose.push(String(state.range.min), Constant.THROUGH, String(state.range.max));
+      verbose.push(
+        String(state.range.min),
+        Constant.THROUGH,
+        String(state.range.max),
+      );
     } else if (Array.isArray(state.main.value)) {
       verbose.push(state.main.value.join(Constant.COMMA_SPACE));
     } else {
@@ -111,7 +128,7 @@ export class TextService implements Observer<string | PlotState> {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
 
-    // Format for box plot.
+    // Format for box plot and candlestick.
     if (state.section !== undefined) {
       if (Array.isArray(state.cross.value)) {
         terse.push(String(state.cross.value.length), Constant.SPACE);

@@ -3,6 +3,7 @@ import type { Trace } from '@type/plot';
 import { TraceType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
+import { Candlestick } from './candlestick';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LinePlot } from './line';
@@ -17,6 +18,9 @@ export abstract class TraceFactory {
 
       case TraceType.BOX:
         return new BoxPlot(layer);
+
+      case TraceType.CANDLESTICK:
+        return new Candlestick(layer);
 
       case TraceType.HEATMAP:
         return new Heatmap(layer);

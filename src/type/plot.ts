@@ -13,6 +13,7 @@ const DEFAULT_CAPTION = 'unavailable';
 export enum TraceType {
   BAR = 'bar',
   BOX = 'box',
+  CANDLESTICK = 'candlestick',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
@@ -47,7 +48,9 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
+    this.subplots = subplots.map(row =>
+      row.map(subplot => new Subplot(subplot)),
+    );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
@@ -73,8 +76,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       };
     }
 
-    const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
-      .reduce((sum, r) => sum + r.length, 0);
+    const currentIndex
+      = this.col
+        + 1
+        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
     return {
       empty: false,
       type: 'figure',

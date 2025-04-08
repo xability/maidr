@@ -1,6 +1,7 @@
 import type {
   BarPoint,
   BoxPoint,
+  CandlestickPoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -39,5 +40,6 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterSeries[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | CandlestickPoint[];
 }

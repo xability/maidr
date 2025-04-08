@@ -1,5 +1,10 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type {
+  AudioState,
+  BrailleState,
+  HighlightState,
+  TextState,
+} from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -14,15 +19,15 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot extends AbstractTrace<number[] | number> {
+export class BoxPlot<T = number[] | number> extends AbstractTrace<T> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
-  private readonly orientation: Orientation;
+  public orientation: Orientation;
 
-  private readonly sections: string[];
+  public sections: string[];
 
-  private readonly min: number;
-  private readonly max: number;
+  public min: number;
+  public max: number;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -59,8 +64,8 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     super.destroy();
   }
 
-  protected get values(): (number[] | number)[][] {
-    return this.boxValues;
+  protected get values(): T[][] {
+    return this.boxValues as T[][];
   }
 
   protected get brailleValues(): string[][] {
