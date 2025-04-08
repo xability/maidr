@@ -31,6 +31,10 @@ export abstract class TestConstants {
   static readonly LINE_ID = 'line';
 
   /**
+   * MAIDR plot identifiers
+   */
+  static readonly PLOT_EXTREME_VERIFICATION = 'No plot info to display';
+  /**
    * MAIDR component identifiers
    */
   static readonly MAIDR_CONTAINER = 'maidr-container-';

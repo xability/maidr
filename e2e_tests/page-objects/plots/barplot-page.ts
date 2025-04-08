@@ -44,6 +44,57 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
+   * Waits for an element to contain specific content
+   *
+   * @param selector - CSS selector for the target element
+   * @param expectedContent - The expected text content to wait for
+   * @param options - Configuration options for the wait operation
+   * @returns Promise resolving when the condition is met
+   * @throws BarPlotError if timeout is reached before the condition is met
+   *
+   * @example
+   * // Wait for data point info to show specific content
+   * await waitForElementContent('#info-container p', 'Expected text', { timeout: 5000 });
+   */
+  public async waitForElementContent(
+    selector: string,
+    expectedContent: string,
+  options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    const timeout = options.timeout || 10000;
+    const pollInterval = options.pollInterval || 100;
+
+    try {
+    // First verify the element exists
+      await this.page.waitForSelector(selector, { timeout: Math.min(5000, timeout / 2) });
+
+      // Then wait for its content to match expected
+      await this.page.waitForFunction(
+        ({ selector, expectedContent }) => {
+          const element = document.querySelector(selector);
+          return element && element.textContent?.includes(expectedContent);
+        },
+        { selector, expectedContent },
+        { timeout, polling: pollInterval },
+      );
+    } catch (error) {
+    // Log current element content for debugging
+      let actualContent = '';
+      try {
+        actualContent = await this.page.$eval(selector, el => el.textContent || '');
+      } catch {
+        actualContent = 'Element not found';
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(
+        `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
+        + `Actual content: "${actualContent}". ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
    * Gets information about the currently active element on the page
    * @returns Promise resolving to information about the active element
    */
@@ -169,40 +220,6 @@ export class BarPlotPage extends BasePage {
       return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
       throw new BarPlotError('Failed to get instruction text');
-    }
-  }
-
-  /**
-   * Moves to the next bar in the specified direction
-   * @param direction - Direction of movement (right or left arrow key)
-   * @returns Promise resolving when movement is complete
-   * @throws BarPlotError if movement fails
-   */
-  public async moveToNextBar(direction: 'ArrowRight' | 'ArrowLeft'): Promise<void> {
-    try {
-      await this.page.keyboard.press(direction);
-    } catch (error) {
-      throw new BarPlotError(`Failed to move ${direction === 'ArrowRight' ? 'right' : 'left'}`);
-    }
-  }
-
-  /**
-   * Navigates to extreme point (first or last bar)
-   * @param extremePoint - Which extreme to navigate to ('Home' or 'End')
-   * @returns Promise resolving when navigation is complete
-   * @throws BarPlotError if navigation fails
-   */
-  public async navigateToExtremePoint(extremePoint: 'Home' | 'End'): Promise<void> {
-    try {
-      await this.page.keyboard.press(extremePoint);
-
-      const selector = extremePoint === 'Home'
-        ? `#${TestConstants.MAIDR_CONTAINER + this.plotId} .bar.active:first-child`
-        : `#${TestConstants.MAIDR_CONTAINER + this.plotId} .bar.active:last-child`;
-
-      await expect(this.page.locator(selector)).toBeVisible();
-    } catch (error) {
-      throw new BarPlotError(`Failed to navigate to ${extremePoint === 'Home' ? 'first' : 'last'} bar`);
     }
   }
 
@@ -583,5 +600,164 @@ export class BarPlotPage extends BasePage {
    */
   public async wait(milliseconds: number): Promise<void> {
     await this.page.waitForTimeout(milliseconds);
+  }
+
+  /**
+   * Move to the next data point on the right
+   * @returns Promise resolving when movement is complete
+   * @throws BarPlotError if movement fails
+   */
+  public async moveToNextDataPoint(): Promise<void> {
+    try {
+      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to move to next data point: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Move to the previous data point on the left
+   * @returns Promise resolving when movement is complete
+   * @throws BarPlotError if movement fails
+   */
+  public async moveToPreviousDataPoint(): Promise<void> {
+    try {
+      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to move to previous data point: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get the current data point information
+   * @returns Promise resolving to the current data point information
+   * @throws BarPlotError if data point information cannot be retrieved
+   */
+
+  public async getCurrentDataPointInfo(): Promise<string> {
+    const dataPointSelector
+      = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+    try {
+      return await this.getElementText(dataPointSelector);
+    } catch (error) {
+      throw new BarPlotError('Failed to get current data point information');
+    }
+  }
+
+  /**
+   * Get the information about first data point
+   * @returns Promise resolving to the first data point information
+   * @throws BarPlotError if data point information cannot be retrieved
+   */
+
+  public async moveToFirstDataPoint(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.waitForTimeout(50);
+      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
+    } catch (error) {
+      throw new BarPlotError('Failed to get first data point information');
+    }
+  }
+
+  /**
+   * Get the information about last data point
+   * @returns Promise resolving to the last data point information
+   * @throws BarPlotError if data point information cannot be retrieved
+   */
+  public async moveToLastDataPoint(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.waitForTimeout(50);
+      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
+    } catch (error) {
+      throw new BarPlotError('Failed to get last data point information');
+    }
+  }
+
+  /**
+   * Starts forward autoplay and waits for completion
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @returns Promise resolving when autoplay completes and expected content is displayed
+   * @throws BarPlotError if autoplay fails or times out
+   *
+   * @example
+   * // Start autoplay and wait for data point info to reach expected text
+   * await startForwardAutoplay('Last data point reached', { timeout: 10000 });
+   */
+  public async startForwardAutoplay(
+    expectedContent?: string,
+  options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+    // Start autoplay with keyboard shortcuts
+      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.press(TestConstants.RIGHT_ARROW_KEY);
+
+      // Release modifier keys
+      await this.page.keyboard.up(TestConstants.META_KEY);
+      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.up(TestConstants.RIGHT_ARROW_KEY);
+
+      // If expected content is provided, wait for it
+      if (expectedContent) {
+        const dataPointSelector
+        = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+        await this.waitForElementContent(
+          dataPointSelector,
+          expectedContent,
+          options,
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to complete forward autoplay: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Starts reverse autoplay and waits for completion
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @returns Promise resolving when autoplay completes and expected content is displayed
+   * @throws BarPlotError if autoplay fails or times out
+   *
+   * @example
+   * // Start autoplay and wait for data point info to reach expected text
+   * await startReverseAutoplay('First data point reached', { timeout: 10000 });
+   */
+  public async startReverseAutoplay(
+    expectedContent?: string,
+  options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+    // Start autoplay with keyboard shortcuts
+      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.press(TestConstants.LEFT_ARROW_KEY);
+
+      // Release modifier keys
+      await this.page.keyboard.up(TestConstants.META_KEY);
+      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.up(TestConstants.LEFT_ARROW_KEY);
+
+      // If expected content is provided, wait for it
+      if (expectedContent) {
+        const dataPointSelector
+        = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+        await this.waitForElementContent(
+          dataPointSelector,
+          expectedContent,
+          options,
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to complete reverse autoplay: ${errorMessage}`);
+    }
   }
 }

@@ -1,18 +1,12 @@
 import type { Maidr, MaidrLayer } from '../../src/type/maidr';
-/**
- * E2E tests for Bar Plot functionality
- *
- * These tests verify that the bar plot renders correctly and that all
- * interactive features function as expected.
- */
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
 import { TestConstants } from '../utils/constants';
 
 test.describe('Bar Plot', () => {
-  let maidrData: Maidr; ;
+  let maidrData: Maidr;
   let barLayer: MaidrLayer;
-  // let barPoints: BarPoint[];
+  let dataLength: number;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -45,7 +39,7 @@ test.describe('Bar Plot', () => {
       }, TestConstants.BAR_ID);
 
       barLayer = maidrData.subplots[0][0].layers[0];
-      // barPoints = barLayer.data as BarPoint[];
+      dataLength = (barLayer.data as { x: string; y: number }[]).length;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -120,10 +114,10 @@ test.describe('Bar Plot', () => {
     await barPlotPage.activateMaidr();
 
     await barPlotPage.toggleSonification();
-    const isSoundModeOff = await barPlotPage.isSonificationActive(TestConstants.SOUND_ON);
+    const isSoundModeOff = await barPlotPage.isSonificationActive(TestConstants.SOUND_OFF);
 
     await barPlotPage.toggleSonification();
-    const isSoundModeOn = await barPlotPage.isSonificationActive(TestConstants.SOUND_OFF);
+    const isSoundModeOn = await barPlotPage.isSonificationActive(TestConstants.SOUND_ON);
 
     expect(isSoundModeOff).toBe(true);
     expect(isSoundModeOn).toBe(true);
@@ -193,5 +187,89 @@ test.describe('Bar Plot', () => {
     await barPlotPage.resetSpeed();
     const speed = await barPlotPage.getSpeedToggleInfo();
     expect(speed).toEqual(TestConstants.SPEED_RESET);
+  });
+
+  test('should move from left to right', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    for (let i = 0; i <= dataLength; i++) {
+      await barPlotPage.moveToNextDataPoint();
+    }
+
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+  });
+
+  test('should move from right to left', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    for (let i = 0; i <= dataLength; i++) {
+      await barPlotPage.moveToPreviousDataPoint();
+    }
+
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+  });
+
+  test('should move to the first data point', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.moveToFirstDataPoint();
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    if (Array.isArray(barLayer?.data) && dataLength > 0 && 'x' in barLayer.data[0]) {
+      expect(currentDataPoint).toContain((barLayer.data[0] as { x: string }).x);
+    } else {
+      throw new Error('Invalid data format in barLayer');
+    }
+  });
+
+  test('should move to the last data point', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.moveToLastDataPoint();
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    if (Array.isArray(barLayer?.data) && dataLength > 0 && 'x' in barLayer.data[0]) {
+      expect(currentDataPoint).toContain((barLayer.data[dataLength - 1] as { x: string }).x);
+    } else {
+      throw new Error('Invalid data format in barLayer');
+    }
+  });
+
+  test('should execute forward autoplay', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    let expectedDataPoint: string;
+    if (Array.isArray(barLayer.data) && dataLength > 0 && 'x' in barLayer.data[0]) {
+      expectedDataPoint = (barLayer.data[dataLength - 1] as { x: string }).x;
+    } else {
+      throw new Error('Invalid data format in barLayer');
+    }
+
+    await barPlotPage.startForwardAutoplay(
+      expectedDataPoint,
+    );
+  });
+
+  test('should execute backward autoplay', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    let expectedDataPoint: string;
+    if (Array.isArray(barLayer.data) && dataLength > 0 && 'x' in barLayer.data[0]) {
+      expectedDataPoint = (barLayer.data[0] as { x: string }).x;
+    } else {
+      throw new Error('Invalid data format in barLayer');
+    }
+
+    await barPlotPage.moveToLastDataPoint();
+
+    await barPlotPage.startReverseAutoplay(
+      expectedDataPoint,
+    );
   });
 });
