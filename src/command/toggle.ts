@@ -115,8 +115,8 @@ export class ToggleChatCommand implements Command {
 export class ToggleSettingsCommand implements Command {
   private readonly settingsViewModel: SettingsViewModel;
 
-  public constructor(chatViewModel: SettingsViewModel) {
-    this.settingsViewModel = chatViewModel;
+  public constructor(settingsViewModel: SettingsViewModel) {
+    this.settingsViewModel = settingsViewModel;
   }
 
   public execute(): void {
