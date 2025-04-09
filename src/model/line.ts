@@ -31,7 +31,7 @@ export class LinePlot extends AbstractTrace<number> {
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
     this.lineValues.length = 0;
 
@@ -41,7 +41,7 @@ export class LinePlot extends AbstractTrace<number> {
     this.min.length = 0;
     this.max.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): number[][] {

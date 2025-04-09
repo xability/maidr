@@ -1,6 +1,8 @@
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
+import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -9,25 +11,30 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export class TextService implements Observer<string | PlotState> {
+interface TextChangedEvent {
+  value: string;
+}
+
+export class TextService implements Observer<PlotState> {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
-  private readonly textDiv!: HTMLElement;
 
-  public constructor(notification: NotificationService, textDiv?: HTMLElement) {
+  private readonly onChangeEmitter: Emitter<TextChangedEvent>;
+  public readonly onChange: Event<TextChangedEvent>;
+
+  public constructor(notification: NotificationService) {
     this.notification = notification;
-    if (!textDiv) {
-      this.mode = TextMode.OFF;
-      return;
-    }
-
     this.mode = TextMode.VERBOSE;
-    this.textDiv = textDiv;
+
+    this.onChangeEmitter = new Emitter<TextChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
-  public formatText(state: PlotState): string {
-    if (!state || state.empty) {
+  public format(state: string | PlotState): string {
+    if (typeof state === 'string') {
+      return state;
+    } else if (!state || state.empty) {
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
@@ -137,30 +144,20 @@ export class TextService implements Observer<string | PlotState> {
     return terse.join(Constant.EMPTY);
   }
 
-  public update(state: string | PlotState): void {
+  public update(state: PlotState): void {
     // Show text only if turned on.
     if (this.mode === TextMode.OFF) {
       return;
     }
 
     // Format the text based on the display mode.
-    let text;
-    if (typeof state === 'string') {
-      text = state;
-    } else {
-      text = this.formatText(state);
-    }
-
-    // Display the text.
+    const text = this.format(state);
     if (text) {
-      const paragraph = document.createElement(Constant.P);
-      paragraph.innerHTML = text;
-      this.textDiv.innerHTML = Constant.EMPTY;
-      this.textDiv.append(paragraph);
+      this.onChangeEmitter.fire({ value: text });
     }
   }
 
-  public toggle(): void {
+  public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
         this.mode = TextMode.VERBOSE;
@@ -175,23 +172,9 @@ export class TextService implements Observer<string | PlotState> {
         break;
     }
 
-    if (this.mode === TextMode.OFF) {
-      this.textDiv?.classList.add(Constant.HIDDEN);
-    } else {
-      this.textDiv?.classList.remove(Constant.HIDDEN);
-    }
-
     const message = `Text mode is ${this.mode}`;
     this.notification.notify(message);
-  }
 
-  public mute(): void {
-    this.textDiv?.removeAttribute(Constant.ARIA_LIVE);
-    this.textDiv?.removeAttribute(Constant.ARIA_ATOMIC);
-  }
-
-  public unmute(): void {
-    this.textDiv?.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    this.textDiv?.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
+    return this.mode !== TextMode.OFF;
   }
 }

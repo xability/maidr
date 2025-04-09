@@ -19,8 +19,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { loadSettings, resetSettings, saveSettings, toggleSettings } from '@redux/slice/settingsSlice';
+import { useViewModel } from '@state/hook/useViewModel';
 import React, { useEffect, useState } from 'react';
 
 interface SettingRowProps {
@@ -83,15 +82,15 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 );
 
 const Settings: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { enabled, general, llm } = useAppSelector(state => state.settings);
+  const viewModel = useViewModel('settings');
+  const { enabled, general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
-    dispatch(loadSettings());
-  }, [dispatch]);
+    viewModel.load();
+  }, [viewModel]);
   useEffect(() => {
     setGeneralSettings(general);
     setLlmSettings(llm);
@@ -127,14 +126,14 @@ const Settings: React.FC = () => {
   };
 
   const handleReset = (): void => {
-    dispatch(resetSettings());
+    viewModel.reset();
     setGeneralSettings(general);
   };
   const handleClose = (): void => {
-    dispatch(toggleSettings());
+    viewModel.toggle();
   };
   const handleSave = (): void => {
-    dispatch(saveSettings({ general: generalSettings, llm: llmSettings }));
+    viewModel.save({ general: generalSettings, llm: llmSettings });
   };
 
   return (
