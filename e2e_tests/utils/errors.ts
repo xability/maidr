@@ -124,3 +124,17 @@ export class HeatmapError extends Error {
     this.name = 'HeatmapError';
   }
 }
+
+/**
+ * Error thrown when Dodged barplot related operations fail
+ */
+export class DodgedBarplotError extends Error {
+  /**
+   * Creates a new DodgedBarplotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'DodgedBarplotError';
+  }
+}
