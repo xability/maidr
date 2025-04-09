@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { Figure, Subplot, Trace } from '@type/plot';
 import type { PlotState } from '@type/state';
@@ -8,7 +9,7 @@ import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
 
-export class ContextService {
+export class ContextService implements Disposable {
   public readonly id: string;
   private readonly instructionContext: Plot;
 
@@ -43,6 +44,11 @@ export class ContextService {
     // Set the context to trace level.
     this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
+  }
+
+  public dispose(): void {
+    this.plotContext.clear();
+    this.scopeContext.clear();
   }
 
   public get active(): Plot {
@@ -122,7 +128,7 @@ export class ContextService {
 
       case 'subplot':
         return `This is a MAIDR subplot containing ${state.size} layers, and
-        this is layer 1 of ${state.size}: ${state.traceType} plot. ${clickPrompt}
+        this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
 

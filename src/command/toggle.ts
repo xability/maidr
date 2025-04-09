@@ -3,14 +3,13 @@ import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
 import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
-import type { TextService } from '@service/text';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
 import { ScatterPlot } from '@model/scatter';
-import { toggleChat } from '@redux/slice/chatSlice';
-import { toggleHelpMenu } from '@redux/slice/helpSlice';
-import { toggleSettings } from '@redux/slice/settingsSlice';
-import { store } from '@redux/store';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: ContextService;
@@ -30,14 +29,14 @@ export class ToggleBrailleCommand implements Command {
 }
 
 export class ToggleTextCommand implements Command {
-  private readonly text: TextService;
+  private readonly textViewModel: TextViewModel;
 
-  public constructor(text: TextService) {
-    this.text = text;
+  public constructor(textViewModel: TextViewModel) {
+    this.textViewModel = textViewModel;
   }
 
   public execute(): void {
-    this.text.toggle();
+    this.textViewModel.toggle();
   }
 }
 
@@ -82,26 +81,46 @@ export class ToggleScatterNavigationCommand implements Command {
   public execute(): void {
     const activeContext = this.context.active;
     if (activeContext instanceof ScatterPlot) {
-      (activeContext as ScatterPlot).toggleNavigation(this.notification);
+      const navMode = (activeContext as ScatterPlot).toggleNavigation();
+      const message = `Switched to ${navMode} navigation`;
+      this.notification.notify(message);
     }
   }
 }
 
 export class ToggleHelpCommand implements Command {
+  private readonly helpViewModel: HelpViewModel;
+
+  public constructor(helpViewModel: HelpViewModel) {
+    this.helpViewModel = helpViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleHelpMenu());
+    this.helpViewModel.toggle();
   }
 }
 
 export class ToggleChatCommand implements Command {
+  private readonly chatViewModel: ChatViewModel;
+
+  public constructor(chatViewModel: ChatViewModel) {
+    this.chatViewModel = chatViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleChat());
+    this.chatViewModel.toggle();
   }
 }
 
 export class ToggleSettingsCommand implements Command {
+  private readonly settingsViewModel: SettingsViewModel;
+
+  public constructor(settingsViewModel: SettingsViewModel) {
+    this.settingsViewModel = settingsViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleSettings());
+    this.settingsViewModel.toggle();
   }
 }
 

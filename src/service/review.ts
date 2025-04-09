@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
@@ -5,7 +6,7 @@ import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { EventType, Scope } from '@type/event';
 
-export class ReviewService implements Observer<TraceState> {
+export class ReviewService implements Observer<TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
   private readonly text: TextService;
@@ -49,7 +50,7 @@ export class ReviewService implements Observer<TraceState> {
     this.reviewInput.addEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     if (this.reviewInput && this.reviewKeyHandler) {
       this.reviewInput.removeEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
     }
@@ -60,7 +61,7 @@ export class ReviewService implements Observer<TraceState> {
       return;
     }
 
-    this.reviewInput!.value = this.text.formatText(state);
+    this.reviewInput!.value = this.text.format(state);
   }
 
   public toggle(state: TraceState): void {

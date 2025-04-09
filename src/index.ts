@@ -1,8 +1,7 @@
 import type { Maidr } from '@type/maidr';
-import { ControllerService } from '@service/controller';
-import { ServiceLocator } from '@service/locator';
 import { EventType } from '@type/event';
 import { Constant } from '@util/constant';
+import { Controller } from './controller';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
@@ -49,18 +48,15 @@ function main(): void {
 
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrRoot: HTMLElement | null = null;
-  let controller: ControllerService | null = null;
-  const locator: ServiceLocator = ServiceLocator.instance;
+  let controller: Controller | null = null;
 
   const onBlur = (event: FocusEvent): void => {
-    if (!locator.display.shouldDestroy(event)) {
+    if (!controller || !controller.shouldDispose(event)) {
       return;
     }
 
-    controller?.destroy();
+    controller?.dispose();
     controller = null;
-
-    locator.setController(controller);
   };
   const onFocus = (): void => {
     if (!maidrRoot) {
@@ -68,10 +64,10 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }
 
     if (!controller) {
-      controller = new ControllerService(maidr, maidrRoot, plot);
+      // Create a deep copy to prevent mutations on the original maidr object.
+      const maidrClone = JSON.parse(JSON.stringify(maidr));
+      controller = new Controller(maidrClone, maidrRoot, plot);
     }
-
-    locator.setController(controller);
   };
 
   const figureElement = document.createElement(Constant.FIGURE);
@@ -90,7 +86,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(EventType.FOCUS_OUT, onBlur);
 
   (() => {
-    const controller = new ControllerService(maidr, maidrRoot, plot);
-    controller.destroy();
+    // Create a deep copy to prevent mutations on the original maidr object.
+    const maidrClone = JSON.parse(JSON.stringify(maidr));
+    const controller = new Controller(maidrClone, maidrRoot, plot);
+    controller.dispose();
   })();
 }
