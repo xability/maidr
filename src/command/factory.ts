@@ -3,7 +3,6 @@ import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
-import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -64,7 +63,6 @@ export class CommandFactory {
   private readonly brailleService: BrailleService;
   private readonly reviewService: ReviewService;
 
-  private readonly notificationService: NotificationService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
 
@@ -80,7 +78,6 @@ export class CommandFactory {
     this.brailleService = commandContext.brailleService;
     this.reviewService = commandContext.reviewService;
 
-    this.notificationService = commandContext.notificationService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
 
@@ -128,7 +125,7 @@ export class CommandFactory {
         return new ToggleReviewCommand(this.contextService, this.reviewService);
 
       case 'TOGGLE_SCATTER_NAVIGATION':
-        return new ToggleScatterNavigationCommand(this.contextService, this.notificationService);
+        return new ToggleScatterNavigationCommand(this.contextService, this.textViewModel);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
       case 'TOGGLE_CHAT':

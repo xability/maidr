@@ -3,7 +3,6 @@ import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
-import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -21,7 +20,6 @@ export interface CommandContext {
   brailleService: BrailleService;
   reviewService: ReviewService;
 
-  notificationService: NotificationService;
   autoplayService: AutoplayService;
   highlightService: HighlightService;
 

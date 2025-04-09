@@ -1,7 +1,6 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
-import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -71,11 +70,11 @@ export class ToggleReviewCommand implements Command {
 
 export class ToggleScatterNavigationCommand implements Command {
   private readonly context: ContextService;
-  private readonly notification: NotificationService;
+  private readonly textViewModel: TextViewModel;
 
-  public constructor(context: ContextService, notification: NotificationService) {
+  public constructor(context: ContextService, textViewModel: TextViewModel) {
     this.context = context;
-    this.notification = notification;
+    this.textViewModel = textViewModel;
   }
 
   public execute(): void {
@@ -83,7 +82,7 @@ export class ToggleScatterNavigationCommand implements Command {
     if (activeContext instanceof ScatterPlot) {
       const navMode = (activeContext as ScatterPlot).toggleNavigation();
       const message = `Switched to ${navMode} navigation`;
-      this.notification.notify(message);
+      this.textViewModel.notify(message);
     }
   }
 }

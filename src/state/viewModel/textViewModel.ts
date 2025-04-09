@@ -100,7 +100,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.store.dispatch(update(formattedText));
   }
 
-  private notify(message: string): void {
+  public notify(message: string): void {
     this.store.dispatch(notify(message));
   }
 

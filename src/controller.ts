@@ -75,7 +75,6 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         brailleService: this.brailleService,
         reviewService: this.reviewService,
-        notificationService: this.notificationService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
         textViewModel: this.textViewModel,
