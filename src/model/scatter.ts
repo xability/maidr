@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
 import { AbstractTrace } from '@model/plot';
 
@@ -129,8 +129,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? this.xValues : this.yValues;
   }
 
-  protected get brailleValues(): string[][] {
-    return [];
+  protected get brailleValues(): null {
+    return null;
   }
 
   protected audio(): AudioState {
@@ -167,14 +167,6 @@ export class ScatterPlot extends AbstractTrace<number> {
       main: { label: this.xAxis, value: point.x },
       cross: { label: this.yAxis, value: point.y },
       ...fillData,
-    };
-  }
-
-  protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
     };
   }
 

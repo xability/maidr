@@ -203,7 +203,15 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected braille(): BrailleState {
+  private braille(): BrailleState {
+    if (this.brailleValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
       empty: false,
       values: this.brailleValues,
@@ -212,7 +220,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected autoplay(): AutoplayState {
+  private autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
       DOWNWARD: this.values.length,
@@ -231,5 +239,5 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract highlight(): HighlightState;
 
-  protected abstract get brailleValues(): string[][];
+  protected abstract get brailleValues(): string[][] | null;
 }

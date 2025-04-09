@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -63,8 +63,8 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     return this.boxValues;
   }
 
-  protected get brailleValues(): string[][] {
-    return [];
+  protected get brailleValues(): null {
+    return null;
   }
 
   protected audio(): AudioState {
@@ -81,14 +81,6 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       size: this.sections.length,
       index,
       value,
-    };
-  }
-
-  protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
     };
   }
 
