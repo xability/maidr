@@ -122,7 +122,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  private handleInitialEntry(): void {
+  protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
     this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
@@ -220,7 +220,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  private autoplay(): AutoplayState {
+  protected autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
       DOWNWARD: this.values.length,

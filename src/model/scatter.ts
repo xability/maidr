@@ -1,9 +1,8 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, HighlightState, TextState } from '@type/state';
-import type { ScatterSeries } from './grammar';
+import type { MovableDirection } from '@type/movable';
+import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
+import type { ScatterPoint } from './grammar';
 import { AbstractTrace } from '@model/plot';
-
-const TYPE = 'Type';
 
 enum NavMode {
   COL = 'column',
@@ -11,122 +10,81 @@ enum NavMode {
 }
 
 interface ScatterXPoint {
-  fill?: string;
   x: number;
   y: number[];
 }
 
 interface ScatterYPoint {
-  fill?: string;
-  x: number[];
   y: number;
+  x: number[];
 }
 
 export class ScatterPlot extends AbstractTrace<number> {
   private mode: NavMode;
 
-  private readonly xPoints: ScatterXPoint[][];
-  private readonly xValues: number[][];
-  private readonly minY: number[];
-  private readonly maxY: number[];
+  private readonly xPoints: ScatterXPoint[];
+  private readonly yPoints: ScatterYPoint[];
 
-  private readonly yPoints: ScatterYPoint[][];
-  private readonly yValues: number[][];
-  private readonly minX: number[];
-  private readonly maxX: number[];
+  private readonly xValues: number[];
+  private readonly yValues: number[];
+
+  private readonly minX: number;
+  private readonly maxX: number;
+  private readonly minY: number;
+  private readonly maxY: number;
 
   public constructor(layer: MaidrLayer) {
     super(layer);
 
     this.mode = NavMode.COL;
-    const data = layer.data as ScatterSeries[];
+    const data = layer.data as ScatterPoint[];
 
-    this.xPoints = new Array<Array<ScatterXPoint>>();
-    for (let i = 0; i < data.length; i++) {
-      const sorted = data[i].points.sort((a, b) => a.x - b.x || b.y - b.y);
-      const series = new Array<ScatterXPoint>();
-
-      for (let curr = 0, last = series.length - 1; curr < sorted.length; curr++) {
-        if (curr !== 0 && sorted[curr].x === series[last].x) {
-          series[last].y.push(sorted[curr].y);
-        } else {
-          last = series.push({
-            fill: data[i].fill,
-            x: sorted[curr].x,
-            y: [sorted[curr].y],
-          }) - 1;
-        }
+    // Process x-axis grouped points
+    const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
+    this.xPoints = [];
+    let currentX: ScatterXPoint | null = null;
+    for (const point of sortedByX) {
+      if (!currentX || currentX.x !== point.x) {
+        currentX = { x: point.x, y: [] };
+        this.xPoints.push(currentX);
       }
-      this.xPoints.push(series);
+      currentX.y.push(point.y);
     }
 
-    this.yPoints = new Array<Array<ScatterYPoint>>();
-    for (let i = 0; i < data.length; i++) {
-      const sorted = data[i].points.sort((a, b) => a.y - b.y || b.x - b.x);
-      const series = new Array<ScatterYPoint>();
-
-      for (let curr = 0, last = series.length - 1; curr < sorted.length; curr++) {
-        if (curr !== 0 && sorted[curr].y === series[last].y) {
-          series[last].x.push(sorted[curr].x);
-        } else {
-          last = series.push({
-            fill: data[i].fill,
-            x: [sorted[curr].x],
-            y: sorted[curr].y,
-          }) - 1;
-        }
+    // Process y-axis grouped points
+    const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
+    this.yPoints = [];
+    let currentY: ScatterYPoint | null = null;
+    for (const point of sortedByY) {
+      if (!currentY || currentY.y !== point.y) {
+        currentY = { y: point.y, x: [] };
+        this.yPoints.push(currentY);
       }
-
-      for (let row = 0; row < series.length; row++) {
-        if (!this.yPoints[row]) {
-          this.yPoints[row] = new Array<ScatterYPoint>();
-        }
-        this.yPoints[row].push(series[row]);
-      }
+      currentY.x.push(point.x);
     }
 
-    this.xValues = this.xPoints.map(row => row.map(point => point.x));
-    this.minX = this.xValues.map(row => Math.min(...row));
-    this.maxX = this.xValues.map(row => Math.max(...row));
+    // Calculate axis ranges
+    this.xValues = this.xPoints.map(p => p.x);
+    this.yValues = this.yPoints.map(p => p.y);
 
-    this.yValues = this.yPoints.map(row => row.map(point => point.y));
-    this.minY = this.yValues[0].map((_, col) =>
-      Math.min(...this.yValues.map(row => row[col])),
-    );
-    this.maxY = this.yValues[0].map((_, col) =>
-      Math.max(...this.yValues.map(row => row[col])),
-    );
+    this.minX = Math.min(...this.xValues);
+    this.maxX = Math.max(...this.xValues);
+    this.minY = Math.min(...this.yValues);
+    this.maxY = Math.max(...this.yValues);
   }
 
   public dispose(): void {
     this.xPoints.length = 0;
-    this.xValues.length = 0;
-    this.minX.length = 0;
-    this.maxX.length = 0;
-
     this.yPoints.length = 0;
+    this.xValues.length = 0;
     this.yValues.length = 0;
-    this.minY.length = 0;
-    this.maxY.length = 0;
-
     super.dispose();
   }
 
-  public toggleNavigation(): NavMode {
-    if (this.mode === NavMode.COL) {
-      this.mode = NavMode.ROW;
-    } else {
-      this.mode = NavMode.COL;
-    }
-
-    [this.row, this.col] = [this.col, this.row];
-    this.notifyStateUpdate();
-
-    return this.mode;
-  }
-
   protected get values(): number[][] {
-    return this.mode === NavMode.COL ? this.xValues : this.yValues;
+    return this.mode === NavMode.COL
+      ? [this.xValues]
+      : [this.yValues];
   }
 
   protected get brailleValues(): null {
@@ -134,39 +92,49 @@ export class ScatterPlot extends AbstractTrace<number> {
   }
 
   protected audio(): AudioState {
-    const isVertical = this.mode === NavMode.COL;
-
-    const min = isVertical ? this.minY[this.row] : this.minX[this.col];
-    const max = isVertical ? this.maxY[this.row] : this.maxX[this.col];
-    const size = isVertical ? this.xPoints.length : this.yPoints.length;
-
-    const index = isVertical ? this.col : this.row;
-    const value = isVertical
-      ? this.xPoints[this.row][this.col].y
-      : this.yPoints[this.row][this.col].x;
-
-    return {
-      min,
-      max,
-      size,
-      index,
-      value,
-    };
+    if (this.mode === NavMode.COL) {
+      const current = this.xPoints[this.col];
+      return {
+        min: this.minY,
+        max: this.maxY,
+        size: current.y.length,
+        index: this.col,
+        value: current.y,
+      };
+    } else {
+      const current = this.yPoints[this.row];
+      return {
+        min: this.minX,
+        max: this.maxX,
+        size: current.x.length,
+        index: this.row,
+        value: current.x,
+      };
+    }
   }
 
   protected text(): TextState {
-    const isVertical = this.mode === NavMode.COL;
-    const point = isVertical
-      ? this.xPoints[this.row][this.col]
-      : this.yPoints[this.row][this.col];
-    const fillData = point.fill
-      ? { fill: { label: TYPE, value: point.fill } }
-      : {};
+    if (this.mode === NavMode.COL) {
+      const current = this.xPoints[this.col];
+      return {
+        main: { label: this.xAxis, value: current.x },
+        cross: { label: this.yAxis, value: current.y },
+      };
+    } else {
+      const current = this.yPoints[this.row];
+      return {
+        main: { label: this.yAxis, value: current.y },
+        cross: { label: this.xAxis, value: current.x },
+      };
+    }
+  }
 
+  protected autoplay(): AutoplayState {
     return {
-      main: { label: this.xAxis, value: point.x },
-      cross: { label: this.yAxis, value: point.y },
-      ...fillData,
+      UPWARD: this.yValues.length,
+      DOWNWARD: this.yValues.length,
+      FORWARD: this.xValues.length,
+      BACKWARD: this.xValues.length,
     };
   }
 
@@ -180,5 +148,134 @@ export class ScatterPlot extends AbstractTrace<number> {
 
   protected hasMultiPoints(): boolean {
     return true;
+  }
+
+  private toggleNavigation(): void {
+    if (this.mode === NavMode.COL) {
+      const currentX = this.xPoints[this.col];
+      const midY = currentX.y[Math.floor(currentX.y.length / 2)];
+      this.row = this.yValues.indexOf(midY);
+      this.mode = NavMode.ROW;
+    } else {
+      const currentY = this.yPoints[this.row];
+      const midX = currentY.x[Math.floor(currentY.x.length / 2)];
+      this.col = this.xValues.indexOf(midX);
+      this.mode = NavMode.COL;
+    }
+  }
+
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (direction) {
+        case 'FORWARD':
+          this.col++;
+          break;
+        case 'BACKWARD':
+          this.col--;
+          break;
+        case 'UPWARD':
+        case 'DOWNWARD': {
+          this.toggleNavigation();
+          break;
+        }
+      }
+    } else {
+      switch (direction) {
+        case 'UPWARD':
+          this.row++;
+          break;
+        case 'DOWNWARD':
+          this.row--;
+          break;
+        case 'FORWARD':
+        case 'BACKWARD': {
+          this.toggleNavigation();
+          break;
+        }
+      }
+    }
+    this.notifyStateUpdate();
+  }
+
+  public moveToExtreme(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (direction) {
+        case 'UPWARD':
+          this.toggleNavigation();
+          this.row = this.yPoints.length - 1;
+          break;
+        case 'DOWNWARD':
+          this.toggleNavigation();
+          this.row = 0;
+          break;
+        case 'FORWARD':
+          this.col = this.xPoints.length - 1;
+          break;
+        case 'BACKWARD':
+          this.col = 0;
+          break;
+      }
+    } else {
+      switch (direction) {
+        case 'UPWARD':
+          this.row = this.yPoints.length - 1;
+          break;
+        case 'DOWNWARD':
+          this.row = 0;
+          break;
+        case 'FORWARD':
+          this.toggleNavigation();
+          this.col = this.xPoints.length - 1;
+          break;
+        case 'BACKWARD':
+          this.toggleNavigation();
+          this.col = 0;
+          break;
+      }
+    }
+    this.notifyStateUpdate();
+  }
+
+  public isMovable(target: number | MovableDirection): boolean {
+    if (typeof target === 'number') {
+      return false;
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (target) {
+        case 'FORWARD':
+          return this.col < this.xPoints.length - 1;
+        case 'BACKWARD':
+          return this.col > 0;
+        case 'UPWARD':
+        case 'DOWNWARD':
+          return true;
+      }
+    } else {
+      switch (target) {
+        case 'UPWARD':
+          return this.row < this.yPoints.length - 1;
+        case 'DOWNWARD':
+          return this.row > 0;
+        case 'FORWARD':
+        case 'BACKWARD':
+          return true;
+      }
+    }
   }
 }
