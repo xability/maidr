@@ -1,28 +1,21 @@
 import type { FC } from 'react';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { resetText } from '@redux/slice/textSlice';
-import React, { useEffect } from 'react';
+import { useViewModelState } from '@state/hook/useViewModel';
+import React from 'react';
 
 const Text: FC = () => {
-  const dispatch = useAppDispatch();
-  const { announce, value } = useAppSelector(state => state.text);
-
-  useEffect(() => {
-    return () => {
-      dispatch(resetText());
-    };
-  }, [dispatch]);
+  const { enabled, announce, value, message } = useViewModelState('text');
+  const shouldAnnounce = announce || message;
 
   return (
     <div
       id="maidr-text-container"
-      {...(announce && {
+      {...(shouldAnnounce && {
         'aria-live': 'assertive',
         'aria-atomic': 'true',
       })}
     >
       <p>
-        {value}
+        {message || (enabled && value)}
       </p>
     </div>
   );

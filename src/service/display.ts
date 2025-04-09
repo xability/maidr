@@ -1,12 +1,13 @@
+import type { ContextService } from '@service/context';
+import type { Disposable } from '@type/disposable';
 import type { Scope } from '@type/event';
 import type { Root } from 'react-dom/client';
-import type { ContextService } from './context';
 import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import { createRoot } from 'react-dom/client';
 
-export class DisplayService {
+export class DisplayService implements Disposable {
   private readonly context: ContextService;
   private readonly focusStack: Stack<Scope>;
 
@@ -55,7 +56,7 @@ export class DisplayService {
     this.removeInstruction();
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.addInstruction();
 
     this.brailleTextArea.remove();

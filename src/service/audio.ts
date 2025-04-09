@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
@@ -20,7 +21,7 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioService implements Observer<SubplotState | TraceState> {
+export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
 
   private isCombinedAudio: boolean;
@@ -46,7 +47,7 @@ export class AudioService implements Observer<SubplotState | TraceState> {
     this.compressor = this.initCompressor();
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.stop();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();

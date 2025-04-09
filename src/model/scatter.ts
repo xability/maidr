@@ -1,4 +1,3 @@
-import type { NotificationService } from '@service/notification';
 import type { MaidrLayer } from '@type/maidr';
 import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
@@ -95,7 +94,7 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.maxY = this.yValues[0].map((_, col) => Math.max(...this.yValues.map(row => row[col])));
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.xPoints.length = 0;
     this.xValues.length = 0;
     this.minX.length = 0;
@@ -106,10 +105,10 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.minY.length = 0;
     this.maxY.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
-  public toggleNavigation(notification: NotificationService): void {
+  public toggleNavigation(): NavMode {
     if (this.mode === NavMode.COL) {
       this.mode = NavMode.ROW;
     } else {
@@ -119,8 +118,7 @@ export class ScatterPlot extends AbstractTrace<number> {
     [this.row, this.col] = [this.col, this.row];
     this.notifyStateUpdate();
 
-    const message = `Switched to ${this.mode} navigation`;
-    notification.notify(message);
+    return this.mode;
   }
 
   protected get values(): number[][] {

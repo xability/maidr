@@ -1,12 +1,11 @@
 import type { Maidr } from '@type/maidr';
-import { ControllerService } from '@service/controller';
-import { ServiceLocator } from '@service/locator';
-import { EventType } from '@type/event';
+import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
+import { Controller } from './controller';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
-  document.addEventListener(EventType.DOM_LOADED, main);
+  document.addEventListener(DomEventType.DOM_LOADED, main);
 } else {
   // Support for Jupyter Notebook, since it is in `complete` state.
   main();
@@ -49,18 +48,15 @@ function main(): void {
 
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrRoot: HTMLElement | null = null;
-  let controller: ControllerService | null = null;
-  const locator: ServiceLocator = ServiceLocator.instance;
+  let controller: Controller | null = null;
 
   const onBlur = (event: FocusEvent): void => {
-    if (!locator.display.shouldDestroy(event)) {
+    if (!controller || !controller.shouldDispose(event)) {
       return;
     }
 
-    controller?.destroy();
+    controller?.dispose();
     controller = null;
-
-    locator.setController(controller);
   };
   const onFocus = (): void => {
     if (!maidrRoot) {
@@ -70,10 +66,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     if (!controller) {
       // Create a deep copy to prevent mutations on the original maidr object.
       const maidrClone = JSON.parse(JSON.stringify(maidr));
-      controller = new ControllerService(maidrClone, maidrRoot, plot);
+      controller = new Controller(maidrClone, maidrRoot, plot);
     }
-
-    locator.setController(controller);
   };
 
   const figureElement = document.createElement(Constant.FIGURE);
@@ -87,14 +81,14 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   articleElement.appendChild(figureElement);
 
   maidrRoot = figureElement;
-  plot.addEventListener(EventType.FOCUS_IN, onFocus);
-  plot.addEventListener(EventType.CLICK, onFocus);
-  plot.addEventListener(EventType.FOCUS_OUT, onBlur);
+  plot.addEventListener(DomEventType.FOCUS_IN, onFocus);
+  plot.addEventListener(DomEventType.CLICK, onFocus);
+  plot.addEventListener(DomEventType.FOCUS_OUT, onBlur);
 
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.
     const maidrClone = JSON.parse(JSON.stringify(maidr));
-    const controller = new ControllerService(maidrClone, maidrRoot, plot);
-    controller.destroy();
+    const controller = new Controller(maidrClone, maidrRoot, plot);
+    controller.dispose();
   })();
 }

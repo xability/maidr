@@ -1,0 +1,145 @@
+import type { Disposable } from '@type/disposable';
+import type { Maidr } from '@type/maidr';
+import { AudioService } from '@service/audio';
+import { AutoplayService } from '@service/autoplay';
+import { BrailleService } from '@service/braille';
+import { ChatService } from '@service/chat';
+import { ContextService } from '@service/context';
+import { DisplayService } from '@service/display';
+import { HelpService } from '@service/help';
+import { HighlightService } from '@service/highlight';
+import { KeybindingService } from '@service/keybinding';
+import { NotificationService } from '@service/notification';
+import { ReviewService } from '@service/review';
+import { SettingsService } from '@service/settings';
+import { TextService } from '@service/text';
+import { store } from '@state/store';
+import { ChatViewModel } from '@state/viewModel/chatViewModel';
+import { HelpViewModel } from '@state/viewModel/helpViewModel';
+import { NotificationViewModel } from '@state/viewModel/notificationViewModel';
+import { ViewModelRegistry } from '@state/viewModel/registry';
+import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import { TextViewModel } from '@state/viewModel/textViewModel';
+import { Figure } from '@type/plot';
+
+export class Controller implements Disposable {
+  private readonly figure: Figure;
+  private readonly context: ContextService;
+
+  private readonly displayService: DisplayService;
+  private readonly notificationService: NotificationService;
+  private readonly settingsService: SettingsService;
+
+  private readonly audioService: AudioService;
+  private readonly brailleService: BrailleService;
+  private readonly textService: TextService;
+  private readonly reviewService: ReviewService;
+
+  private readonly autoplayService: AutoplayService;
+  private readonly highlightService: HighlightService;
+  private readonly helpService: HelpService;
+  private readonly chatService: ChatService;
+
+  private readonly textViewModel: TextViewModel;
+  private readonly helpViewModel: HelpViewModel;
+  private readonly chatViewModel: ChatViewModel;
+  private readonly settingsViewModel: SettingsViewModel;
+  private readonly notificationViewModel: NotificationViewModel;
+
+  private readonly keybinding: KeybindingService;
+
+  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
+    this.figure = new Figure(maidr);
+    this.context = new ContextService(this.figure);
+
+    this.displayService = new DisplayService(this.context, maidrRoot, plot);
+    this.notificationService = new NotificationService();
+    this.settingsService = new SettingsService(this.displayService);
+
+    this.audioService = new AudioService(this.notificationService, this.context.state);
+    this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
+    this.textService = new TextService(this.notificationService);
+    this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
+
+    this.autoplayService = new AutoplayService(this.context, this.notificationService);
+    this.highlightService = new HighlightService();
+    this.helpService = new HelpService(this.context, this.displayService);
+    this.chatService = new ChatService(this.displayService, maidr);
+
+    this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
+    this.helpViewModel = new HelpViewModel(store, this.helpService);
+    this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
+    this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+    this.notificationViewModel = new NotificationViewModel(store, this.notificationService);
+
+    this.keybinding = new KeybindingService(
+      {
+        context: this.context,
+        audioService: this.audioService,
+        brailleService: this.brailleService,
+        reviewService: this.reviewService,
+        notificationService: this.notificationService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
+        textViewModel: this.textViewModel,
+        chatViewModel: this.chatViewModel,
+        helpViewModel: this.helpViewModel,
+        settingsViewModel: this.settingsViewModel,
+      },
+    );
+
+    this.registerViewModels();
+    this.registerObservers();
+    this.keybinding.register(this.context.scope);
+
+    this.notificationService.notify(this.context.getInstruction(false));
+  }
+
+  public dispose(): void {
+    this.keybinding.unregister();
+    ViewModelRegistry.instance.dispose();
+
+    this.notificationViewModel.dispose();
+    this.settingsViewModel.dispose();
+    this.chatViewModel.dispose();
+    this.helpViewModel.dispose();
+    this.textViewModel.dispose();
+
+    this.highlightService.dispose();
+    this.autoplayService.dispose();
+
+    this.reviewService.dispose();
+    this.brailleService.dispose();
+    this.audioService.dispose();
+
+    this.displayService.dispose();
+    this.context.dispose();
+    this.figure.dispose();
+  }
+
+  public shouldDispose(event: FocusEvent): boolean {
+    return this.displayService.shouldDestroy(event);
+  }
+
+  private registerViewModels(): void {
+    ViewModelRegistry.instance.register('text', this.textViewModel);
+    ViewModelRegistry.instance.register('help', this.helpViewModel);
+    ViewModelRegistry.instance.register('chat', this.chatViewModel);
+    ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register('notification', this.notificationViewModel);
+  }
+
+  private registerObservers(): void {
+    this.figure.addObserver(this.textService);
+    this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
+      subplot.addObserver(this.textService);
+      subplot.addObserver(this.audioService);
+      subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
+        trace.addObserver(this.audioService);
+        trace.addObserver(this.brailleService);
+        trace.addObserver(this.textService);
+        trace.addObserver(this.highlightService);
+      }));
+    }));
+  }
+}

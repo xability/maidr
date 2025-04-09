@@ -34,7 +34,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
     this.barValues.length = 0;
 
@@ -44,7 +44,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.min.length = 0;
     this.max.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): number[][] {

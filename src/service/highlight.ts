@@ -1,16 +1,17 @@
+import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { PlotState } from '@type/state';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 
-export class HighlightService implements Observer<PlotState> {
+export class HighlightService implements Observer<PlotState>, Disposable {
   private readonly highlightedElements: Set<SVGElement>;
 
   public constructor() {
     this.highlightedElements = new Set<SVGElement>();
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.unhighlight();
   }
 
