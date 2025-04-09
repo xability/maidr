@@ -110,3 +110,17 @@ export class LinePlotError extends Error {
     this.name = 'LinePlotError';
   }
 }
+
+/**
+ * Error thrown when Heatmap related operations fail
+ */
+export class HeatmapError extends Error {
+  /**
+   * Creates a new HeatmapError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'HeatmapError';
+  }
+}
