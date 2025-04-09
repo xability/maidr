@@ -23,9 +23,7 @@ export abstract class Constant {
   static readonly BRAILLE_CLASS = 'maidr-braille';
 
   // HTML attributes.
-  static readonly ARIA_ATOMIC = 'aria-atomic';
   static readonly ARIA_LABEL = 'aria-label';
-  static readonly ARIA_LIVE = 'aria-live';
   static readonly CIRCLE_X = 'cx';
   static readonly CIRCLE_Y = 'cy';
   static readonly D = 'd';

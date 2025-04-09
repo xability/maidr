@@ -18,6 +18,7 @@ interface TextChangedEvent {
 
 export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
+
   private mode: TextMode;
 
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
@@ -25,6 +26,7 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   public constructor(notification: NotificationService) {
     this.notification = notification;
+
     this.mode = TextMode.VERBOSE;
 
     this.onChangeEmitter = new Emitter<TextChangedEvent>();

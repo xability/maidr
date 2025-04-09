@@ -1,4 +1,3 @@
-import type { NotificationViewModel } from '@state/viewModel/notificationViewModel';
 import type { Disposable } from '@type/disposable';
 import type { ChatViewModel } from './chatViewModel';
 import type { HelpViewModel } from './helpViewModel';
@@ -8,7 +7,6 @@ import type { TextViewModel } from './textViewModel';
 export interface ViewModelMap {
   chat: ChatViewModel;
   help: HelpViewModel;
-  notification: NotificationViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;
 }

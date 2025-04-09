@@ -16,7 +16,6 @@ import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
-import { NotificationViewModel } from '@state/viewModel/notificationViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
@@ -44,7 +43,6 @@ export class Controller implements Disposable {
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
-  private readonly notificationViewModel: NotificationViewModel;
 
   private readonly keybinding: KeybindingService;
 
@@ -70,7 +68,6 @@ export class Controller implements Disposable {
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
-    this.notificationViewModel = new NotificationViewModel(store, this.notificationService);
 
     this.keybinding = new KeybindingService(
       {
@@ -97,9 +94,8 @@ export class Controller implements Disposable {
 
   public dispose(): void {
     this.keybinding.unregister();
-    ViewModelRegistry.instance.dispose();
 
-    this.notificationViewModel.dispose();
+    ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
@@ -108,10 +104,12 @@ export class Controller implements Disposable {
     this.highlightService.dispose();
     this.autoplayService.dispose();
 
+    this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
     this.audioService.dispose();
 
+    this.notificationService.dispose();
     this.displayService.dispose();
     this.context.dispose();
     this.figure.dispose();
@@ -126,7 +124,6 @@ export class Controller implements Disposable {
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);
-    ViewModelRegistry.instance.register('notification', this.notificationViewModel);
   }
 
   private registerObservers(): void {
