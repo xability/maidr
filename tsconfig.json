@@ -8,7 +8,7 @@
     "paths": {
       "@command/*": ["command/*"],
       "@model/*": ["model/*"],
-      "@redux/*": ["redux/*"],
+      "@state/*": ["state/*"],
       "@service/*": ["service/*"],
       "@type/*": ["type/*"],
       "@ui/*": ["ui/*"],

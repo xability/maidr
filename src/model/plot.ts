@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { MaidrLayer } from '@type/maidr';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
@@ -6,6 +7,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  HighlightState,
   TextState,
   TraceState,
 } from '@type/state';
@@ -16,8 +18,7 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State> {
+export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -27,7 +28,7 @@ implements Movable, Observable<State> {
   protected col: number;
 
   protected constructor() {
-    this.observers = [];
+    this.observers = new Array<Observer<State>>();
 
     this.isInitialEntry = true;
     this.isOutOfBounds = false;
@@ -36,10 +37,11 @@ implements Movable, Observable<State> {
     this.col = 0;
   }
 
-  protected destroy(): void {
+  public dispose(): void {
     for (const observer of this.observers) {
       this.removeObserver(observer);
     }
+    this.observers.length = 0;
   }
 
   public moveOnce(direction: MovableDirection): void {
@@ -103,10 +105,8 @@ implements Movable, Observable<State> {
   public isMovable(target: number | MovableDirection): boolean {
     if (typeof target === 'number') {
       return (
-        this.row >= 0
-        && this.row < this.values.length
-        && target >= 0
-        && target < this.values[this.row].length
+        this.row >= 0 && this.row < this.values.length
+        && target >= 0 && target < this.values[this.row].length
       );
     }
 
@@ -125,10 +125,7 @@ implements Movable, Observable<State> {
   private handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    this.col = Math.max(
-      0,
-      Math.min(this.col, this.values[this.row].length - 1),
-    );
+    this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
   }
 
   public addObserver(observer: Observer<State>): void {
@@ -157,17 +154,13 @@ implements Movable, Observable<State> {
   public abstract get state(): State;
 }
 
-export abstract class AbstractTrace<T>
-  extends AbstractObservableElement<T, TraceState>
-  implements Trace {
+export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
   protected readonly type: string;
   private readonly title: string;
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
   protected readonly fill: string;
-
-  protected brailleValues: string[][];
 
   protected constructor(layer: MaidrLayer) {
     super();
@@ -178,12 +171,10 @@ export abstract class AbstractTrace<T>
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.brailleValues = [];
   }
 
-  public destroy(): void {
-    super.destroy();
+  public dispose(): void {
+    super.dispose();
   }
 
   public get state(): TraceState {
@@ -191,6 +182,7 @@ export abstract class AbstractTrace<T>
       return {
         empty: true,
         type: 'trace',
+        traceType: this.type,
       };
     }
 
@@ -202,10 +194,12 @@ export abstract class AbstractTrace<T>
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
+      hasMultiPoints: this.hasMultiPoints(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
       autoplay: this.autoplay(),
+      highlight: this.highlight(),
     };
   }
 
@@ -227,11 +221,15 @@ export abstract class AbstractTrace<T>
     };
   }
 
-  public get hasMultiPoints(): boolean {
+  protected hasMultiPoints(): boolean {
     return false;
   }
 
   protected abstract audio(): AudioState;
 
   protected abstract text(): TextState;
+
+  protected abstract highlight(): HighlightState;
+
+  protected abstract get brailleValues(): string[][];
 }

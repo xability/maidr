@@ -1,7 +1,8 @@
-import type { Maidr, MaidrSubplot } from '@type/maidr';
-import type { Movable } from '@type/movable';
-import type { Observable } from '@type/observable';
-import type { FigureState, SubplotState, TraceState } from '@type/state';
+import type { Disposable } from '@type/disposable';
+import type { Maidr, MaidrSubplot } from './maidr';
+import type { Movable } from './movable';
+import type { Observable } from './observable';
+import type { FigureState, SubplotState, TraceState } from './state';
 import { TraceFactory } from '@model/factory';
 import { AbstractObservableElement } from '@model/plot';
 import { Constant } from '@util/constant';
@@ -51,9 +52,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
-  public destroy(): void {
-    this.values.flat().forEach(subplot => subplot.destroy());
-    super.destroy();
+  public dispose(): void {
+    this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
+    this.subplots.length = 0;
+    super.dispose();
   }
 
   protected get values(): Subplot[][] {
@@ -107,9 +109,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     });
   }
 
-  public destroy(): void {
-    this.values.flat().forEach(trace => trace.destroy());
-    super.destroy();
+  public dispose(): void {
+    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
+    this.traces.length = 0;
+    super.dispose();
   }
 
   protected get values(): Trace[][] {
@@ -134,12 +137,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
-      traceType: this.traceTypes[this.row],
     };
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState> {
-  destroy: () => void;
-  get hasMultiPoints(): boolean;
-}
+export interface Trace extends Movable, Observable<TraceState>, Disposable {}

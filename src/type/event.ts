@@ -1,4 +1,5 @@
 import type { Keymap } from '@service/keybinding';
+import type { Disposable } from './disposable';
 
 export enum EventType {
   CLICK = 'click',
@@ -27,3 +28,26 @@ export enum Scope {
 }
 
 export type Keys = keyof Keymap[Scope];
+
+export type Event<T> = (listener: (e: T) => any) => Disposable;
+
+export class Emitter<T> {
+  private listeners: Set<(event: T) => void> = new Set();
+
+  public event: Event<T> = (listener: (e: T) => any): Disposable => {
+    this.listeners.add(listener);
+    return {
+      dispose: () => this.listeners.delete(listener),
+    };
+  };
+
+  public fire(event: T): void {
+    for (const listener of this.listeners) {
+      listener(event);
+    }
+  }
+
+  public dispose(): void {
+    this.listeners.clear();
+  }
+}

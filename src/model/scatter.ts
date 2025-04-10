@@ -1,6 +1,5 @@
-import type { NotificationService } from '@service/notification';
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { ScatterSeries } from './grammar';
 import { AbstractTrace } from '@model/plot';
 import { Orientation } from '@type/plot';
@@ -79,9 +78,9 @@ export class ScatterPlot extends AbstractTrace<number> {
     // visual highlighting
     // note: this doesn't handle multi plots. To do that we'd have to do a for on layer.selector[i]
     this.xElements = new Array<ScatterXPoint>();
-    if (layer.selector) {
+    if (layer.selectors as string) {
       const elements: SVGUseElement[] = Array.from(
-        document.querySelectorAll(layer.selector),
+        document.querySelectorAll(layer.selectors as string),
       );
       const groups: Map<number, ScatterXPoint> = new Map();
 
@@ -144,12 +143,12 @@ export class ScatterPlot extends AbstractTrace<number> {
       }
     }
     this.yElements = new Array<ScatterYPoint>();
-    if (layer.selector) {
+    if (layer.selectors as string) {
       // visual highlighting
       // sort the html elements by y then x attributes
       // and filter out dups of x and y
       const elements: SVGUseElement[] = Array.from(
-        document.querySelectorAll(layer.selector),
+        document.querySelectorAll(layer.selectors as string),
       );
       const yGroups: Map<number, ScatterYPoint> = new Map();
 
@@ -204,7 +203,21 @@ export class ScatterPlot extends AbstractTrace<number> {
     }
   }
 
-  public toggleNavigation(notification: NotificationService): void {
+  public dispose(): void {
+    this.xPoints.length = 0;
+    this.xValues.length = 0;
+    this.minX.length = 0;
+    this.maxX.length = 0;
+
+    this.yPoints.length = 0;
+    this.yValues.length = 0;
+    this.minY.length = 0;
+    this.maxY.length = 0;
+
+    super.dispose();
+  }
+
+  public toggleNavigation(): NavMode {
     if (this.mode === NavMode.COL) {
       this.mode = NavMode.ROW;
     } else {
@@ -214,12 +227,15 @@ export class ScatterPlot extends AbstractTrace<number> {
     [this.row, this.col] = [this.col, this.row];
     this.notifyStateUpdate();
 
-    const message = `Switched to ${this.mode} navigation`;
-    notification.notify(message);
+    return this.mode;
   }
 
   protected get values(): number[][] {
     return this.mode === NavMode.COL ? this.xValues : this.yValues;
+  }
+
+  protected get brailleValues(): string[][] {
+    return [];
   }
 
   protected audio(): AudioState {
@@ -262,11 +278,20 @@ export class ScatterPlot extends AbstractTrace<number> {
   protected braille(): BrailleState {
     return {
       empty: true,
-      type: this.type,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
-  public get hasMultiPoints(): boolean {
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+    };
+  }
+
+  protected hasMultiPoints(): boolean {
     return true;
   }
 

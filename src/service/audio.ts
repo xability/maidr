@@ -1,5 +1,6 @@
+import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 
 interface Range {
@@ -20,30 +21,33 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioService implements Observer<TraceState> {
+export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
 
-  private readonly isCombinedAudio: boolean;
-  private volume: number;
+  private isCombinedAudio: boolean;
   private mode: AudioMode;
+
+  private readonly volume: number;
   private timeoutId: NodeJS.Timeout | null;
 
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  public constructor(notification: NotificationService, isCombinedAudio: boolean) {
+  public constructor(notification: NotificationService, state: PlotState) {
     this.notification = notification;
 
-    this.isCombinedAudio = isCombinedAudio;
+    this.isCombinedAudio = false;
+    this.mode = AudioMode.SEPARATE;
+    this.updateMode(state);
+
     this.volume = DEFAULT_VOLUME;
-    this.mode = isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
     this.timeoutId = null;
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.stop();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
@@ -68,11 +72,34 @@ export class AudioService implements Observer<TraceState> {
     return compressor;
   }
 
-  public update(state: TraceState): void {
+  private updateMode(state: PlotState): void {
+    if (state.empty || state.type === 'figure') {
+      return;
+    }
+
+    const traceState = state.type === 'subplot' ? state.trace : state;
+    if (traceState.empty || traceState.hasMultiPoints === this.isCombinedAudio) {
+      return;
+    }
+
+    this.isCombinedAudio = traceState.hasMultiPoints;
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+
+    if (this.isCombinedAudio) {
+      this.mode = AudioMode.COMBINED;
+    } else {
+      this.mode = AudioMode.SEPARATE;
+    }
+  }
+
+  public update(state: SubplotState | TraceState): void {
     this.stop();
+    this.updateMode(state);
 
     // Play audio only if turned on.
-    if (this.mode === AudioMode.OFF) {
+    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
       return;
     }
 
@@ -254,9 +281,5 @@ export class AudioService implements Observer<TraceState> {
       clearTimeout(audioId);
       this.timeoutId = null;
     }
-  }
-
-  public updateVolume(volume: number): void {
-    this.volume = volume;
   }
 }

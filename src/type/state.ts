@@ -1,14 +1,12 @@
-import type { MovableDirection } from '@type/movable';
+import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export interface EmptyState {
-  empty: true;
-  type: string;
-}
-
 export type FigureState =
-  | EmptyState
+  | {
+    empty: true;
+    type: 'figure';
+  }
   | {
     empty: false;
     type: 'figure';
@@ -22,18 +20,26 @@ export type FigureState =
   };
 
 export type SubplotState =
-  | EmptyState
+  | {
+    empty: true;
+    type: 'subplot';
+  }
   | {
     empty: false;
     type: 'subplot';
     size: number;
     index: number;
     trace: TraceState;
-    traceType: string;
   };
 
+interface TraceEmptyState {
+  empty: true;
+  type: 'trace';
+  traceType: string;
+}
+
 export type TraceState =
-  | EmptyState
+  | TraceEmptyState
   | {
     empty: false;
     type: 'trace';
@@ -42,10 +48,12 @@ export type TraceState =
     xAxis: string;
     yAxis: string;
     fill: string;
+    hasMultiPoints: boolean;
     audio: AudioState;
     braille: BrailleState;
     text: TextState;
     autoplay: AutoplayState;
+    highlight: HighlightState;
   };
 
 export interface AudioState {
@@ -57,7 +65,7 @@ export interface AudioState {
 }
 
 export type BrailleState =
-  | EmptyState
+  | TraceEmptyState
   | {
     empty: false;
     values: string[][];
@@ -76,3 +84,10 @@ export interface TextState {
 export type AutoplayState = {
   [key in MovableDirection]: number;
 };
+
+export type HighlightState =
+  | TraceEmptyState
+  | {
+    empty: false;
+    elements: SVGElement | SVGElement[];
+  };

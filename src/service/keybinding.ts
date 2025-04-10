@@ -1,5 +1,4 @@
 import type { CommandContext } from '@command/command';
-import type { ContextService } from '@service/context';
 import type { Keys } from '@type/event';
 import { CommandFactory } from '@command/factory';
 import { Scope } from '@type/event';
@@ -187,15 +186,13 @@ export type Keymap = {
 };
 
 export class KeybindingService {
-  private readonly context: ContextService;
   private readonly commandFactory: CommandFactory;
 
-  public constructor(context: ContextService, commandContext: CommandContext) {
-    this.context = context;
+  public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
   }
 
-  public register(): void {
+  public register(initialScope: Scope): void {
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName.toLowerCase() === Constant.INPUT) {
@@ -238,7 +235,7 @@ export class KeybindingService {
       }
     }
 
-    hotkeys.setScope(this.context.scope);
+    hotkeys.setScope(initialScope);
   }
 
   public unregister(): void {
