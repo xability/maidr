@@ -1,5 +1,7 @@
 export abstract class Constant {
-  private constructor() { /* Prevent instantiation */ }
+  private constructor() {
+    /* Prevent instantiation */
+  }
 
   // HTML elements.
   static readonly ARTICLE = 'article';
@@ -65,4 +67,7 @@ export abstract class Constant {
   static readonly VISIBLE = 'visible';
   static readonly X = 'x';
   static readonly Y = 'y';
+
+  static readonly HIGHLIGHT_RECT_ID = 'maidr-highlight-rect';
+  static readonly DEFAULT_HIGHLIGHT_COLOR = '#03AA0F';
 }
