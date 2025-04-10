@@ -8,7 +8,6 @@ import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
-import { ScatterPlot } from '@model/scatter';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: ContextService;
@@ -64,25 +63,6 @@ export class ToggleReviewCommand implements Command {
     const state = this.context.state;
     if (state.type === 'trace') {
       this.review.toggle(state);
-    }
-  }
-}
-
-export class ToggleScatterNavigationCommand implements Command {
-  private readonly context: ContextService;
-  private readonly textViewModel: TextViewModel;
-
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
-    this.context = context;
-    this.textViewModel = textViewModel;
-  }
-
-  public execute(): void {
-    const activeContext = this.context.active;
-    if (activeContext instanceof ScatterPlot) {
-      const navMode = (activeContext as ScatterPlot).toggleNavigation();
-      const message = `Switched to ${navMode} navigation`;
-      this.textViewModel.notify(message);
     }
   }
 }

@@ -41,7 +41,6 @@ const BRAILLE_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_SCATTER_NAVIGATION: `n`,
   TOGGLE_HELP: `${Platform.modifierKey}+/`,
   TOGGLE_CHAT: `shift+/`,
   TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
@@ -160,7 +159,6 @@ const TRACE_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_SCATTER_NAVIGATION: `n`,
   TOGGLE_HELP: `${Platform.modifierKey}+/`,
   TOGGLE_CHAT: `shift+/`,
   TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,

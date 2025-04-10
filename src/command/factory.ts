@@ -50,7 +50,6 @@ import {
   ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
-  ToggleScatterNavigationCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
@@ -124,8 +123,6 @@ export class CommandFactory {
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.contextService, this.reviewService);
 
-      case 'TOGGLE_SCATTER_NAVIGATION':
-        return new ToggleScatterNavigationCommand(this.contextService, this.textViewModel);
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
       case 'TOGGLE_CHAT':
