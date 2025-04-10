@@ -60,7 +60,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
   }
 
   protected highlight(): HighlightState {
-    if (this.highlightValues.length === 0 || this.row === this.barValues.length - 1) {
+    if (this.highlightValues === null || this.row === this.barValues.length - 1) {
       return {
         empty: true,
         type: 'trace',

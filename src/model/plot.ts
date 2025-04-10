@@ -220,6 +220,21 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
+  protected highlight(): HighlightState {
+    if (this.highlightValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
+    };
+  }
+
   protected autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
@@ -237,7 +252,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract text(): TextState;
 
-  protected abstract highlight(): HighlightState;
-
   protected abstract get brailleValues(): string[][] | null;
+
+  protected abstract get highlightValues(): SVGElement[][] | null;
 }

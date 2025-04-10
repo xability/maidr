@@ -28,6 +28,9 @@ export class ScatterPlot extends AbstractTrace<number> {
   private readonly xValues: number[];
   private readonly yValues: number[];
 
+  private readonly highlightXValues: SVGElement[][] | null;
+  private readonly highlightYValues: SVGElement[][] | null;
+
   private readonly minX: number;
   private readonly maxX: number;
   private readonly minY: number;
@@ -39,9 +42,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.mode = NavMode.COL;
     const data = layer.data as ScatterPoint[];
 
-    // Process x-axis grouped points
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
-    this.xPoints = [];
+    this.xPoints = new Array<ScatterXPoint>();
     let currentX: ScatterXPoint | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
@@ -51,9 +53,8 @@ export class ScatterPlot extends AbstractTrace<number> {
       currentX.y.push(point.y);
     }
 
-    // Process y-axis grouped points
     const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
-    this.yPoints = [];
+    this.yPoints = new Array<ScatterYPoint>();
     let currentY: ScatterYPoint | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
@@ -63,7 +64,6 @@ export class ScatterPlot extends AbstractTrace<number> {
       currentY.x.push(point.x);
     }
 
-    // Calculate axis ranges
     this.xValues = this.xPoints.map(p => p.x);
     this.yValues = this.yPoints.map(p => p.y);
 
@@ -71,13 +71,20 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.maxX = Math.max(...this.xValues);
     this.minY = Math.min(...this.yValues);
     this.maxY = Math.max(...this.yValues);
+
+    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
   }
 
   public dispose(): void {
     this.xPoints.length = 0;
     this.yPoints.length = 0;
+
     this.xValues.length = 0;
     this.yValues.length = 0;
+
+    this.highlightXValues && (this.highlightXValues.length = 0);
+    this.highlightYValues && (this.highlightYValues.length = 0);
+
     super.dispose();
   }
 
@@ -89,6 +96,12 @@ export class ScatterPlot extends AbstractTrace<number> {
 
   protected get brailleValues(): null {
     return null;
+  }
+
+  protected get highlightValues(): SVGElement[][] | null {
+    return this.mode === NavMode.COL
+      ? this.highlightXValues
+      : this.highlightYValues;
   }
 
   protected audio(): AudioState {
@@ -139,10 +152,28 @@ export class ScatterPlot extends AbstractTrace<number> {
   }
 
   protected highlight(): HighlightState {
+    if (this.highlightValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
+    const elements = this.mode === NavMode.COL
+      ? this.col < this.highlightValues.length ? this.highlightXValues![this.col] : null
+      : this.row < this.highlightValues.length ? this.highlightYValues![this.row] : null;
+    if (!elements) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      elements,
     };
   }
 
@@ -277,5 +308,44 @@ export class ScatterPlot extends AbstractTrace<number> {
           return true;
       }
     }
+  }
+
+  private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {
+    if (!selector) {
+      return [null, null];
+    }
+
+    const elements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    if (elements.length === 0) {
+      return [null, null];
+    }
+
+    const xGroups = new Map<number, SVGElement[]>();
+    const yGroups = new Map<number, SVGElement[]>();
+    elements.forEach((element) => {
+      const x = Number.parseFloat(element.getAttribute('x') || '');
+      const y = Number.parseFloat(element.getAttribute('y') || '');
+
+      if (!Number.isNaN(x)) {
+        if (!xGroups.has(x))
+          xGroups.set(x, []);
+        xGroups.get(x)!.push(element);
+      }
+
+      if (!Number.isNaN(y)) {
+        if (!yGroups.has(y))
+          yGroups.set(y, []);
+        yGroups.get(y)!.push(element);
+      }
+    });
+
+    const sortedXElements = Array.from(xGroups.entries())
+      .sort(([x1], [x2]) => x1 - x2)
+      .map(([_, elements]) => elements);
+    const sortedYElements = Array.from(yGroups.entries())
+      .sort(([y1], [y2]) => y2 - y1)
+      .map(([_, elements]) => elements);
+
+    return [sortedXElements, sortedYElements];
   }
 }

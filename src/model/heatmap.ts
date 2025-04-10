@@ -1,12 +1,12 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, HighlightState, TextState } from '@type/state';
+import type { AudioState, TextState } from '@type/state';
 import type { HeatmapData } from './grammar';
 import { AbstractTrace } from './plot';
 
 export class Heatmap extends AbstractTrace<number> {
   private readonly heatmapValues: number[][];
   protected readonly brailleValues: string[][];
-  private readonly highlightValues: SVGElement[][];
+  protected readonly highlightValues: SVGElement[][] | null;
 
   private readonly x: string[];
   private readonly y: string[];
@@ -32,7 +32,7 @@ export class Heatmap extends AbstractTrace<number> {
   public dispose(): void {
     this.heatmapValues.length = 0;
     this.brailleValues.length = 0;
-    this.highlightValues.length = 0;
+    this.highlightValues && (this.highlightValues.length = 0);
 
     this.x.length = 0;
     this.y.length = 0;
@@ -62,21 +62,6 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
-  protected highlight(): HighlightState {
-    if (this.highlightValues.length === 0) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
-    }
-
-    return {
-      empty: false,
-      elements: this.highlightValues[this.row][this.col],
-    };
-  }
-
   private mapToBraille(data: number[][]): string[][] {
     const braille = new Array<Array<string>>();
 
@@ -103,19 +88,19 @@ export class Heatmap extends AbstractTrace<number> {
     return braille;
   }
 
-  private mapToSvgElements(selector?: string): SVGElement[][] {
-    const svgElements = new Array<Array<SVGElement>>();
+  private mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
-      return svgElements;
+      return null;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
     const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
-      return svgElements;
+      return null;
     }
 
+    const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
       for (let r = 0; r < numRows; r++) {
         const rowIndex = numRows - 1 - r;

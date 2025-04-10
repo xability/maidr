@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, HighlightState, TextState } from '@type/state';
+import type { AudioState, TextState } from '@type/state';
 import type { LinePoint } from './grammar';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
@@ -13,7 +13,7 @@ export class LinePlot extends AbstractTrace<number> {
   private readonly lineValues: number[][];
 
   protected readonly brailleValues: string[][];
-  private readonly highlightValues: SVGElement[][];
+  protected readonly highlightValues: SVGElement[][] | null;
 
   private readonly min: number[];
   private readonly max: number[];
@@ -36,7 +36,7 @@ export class LinePlot extends AbstractTrace<number> {
     this.lineValues.length = 0;
 
     this.brailleValues.length = 0;
-    this.highlightValues.length = 0;
+    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
@@ -68,21 +68,6 @@ export class LinePlot extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
-    };
-  }
-
-  protected highlight(): HighlightState {
-    if (this.highlightValues.length === 0) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
-    }
-
-    return {
-      empty: false,
-      elements: this.highlightValues[this.row][this.col],
     };
   }
 
@@ -154,16 +139,16 @@ export class LinePlot extends AbstractTrace<number> {
     return braille;
   }
 
-  private mapToSvgElements(selectors?: string[]): SVGElement[][] {
+  private mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length !== this.lineValues.length) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     const svgElements = new Array<Array<SVGElement>>();
     for (let r = 0; r < selectors.length; r++) {
       const domElements = Array.from(document.querySelectorAll<SVGElement>(selectors[r]));
       if (domElements.length !== 1) {
-        return new Array<Array<SVGElement>>();
+        return null;
       }
 
       const coordinates = new Array<LinePoint>();
@@ -184,14 +169,14 @@ export class LinePlot extends AbstractTrace<number> {
         }
       }
       if (coordinates.length !== this.lineValues[r].length) {
-        return new Array<Array<SVGElement>>();
+        return null;
       }
 
       const style = window.getComputedStyle(lineElement);
       const linePointElements = new Array<SVGElement>();
       for (const coordinate of coordinates) {
         if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
-          return new Array<Array<SVGElement>>();
+          return null;
         }
         linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, style, lineElement));
       }

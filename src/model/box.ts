@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, HighlightState, TextState } from '@type/state';
+import type { AudioState, TextState } from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -67,6 +67,10 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     return null;
   }
 
+  protected get highlightValues(): null {
+    return null;
+  }
+
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
@@ -81,14 +85,6 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       size: this.sections.length,
       index,
       value,
-    };
-  }
-
-  protected highlight(): HighlightState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
     };
   }
 
