@@ -122,7 +122,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  private handleInitialEntry(): void {
+  protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
     this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
@@ -203,12 +203,35 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected braille(): BrailleState {
+  private braille(): BrailleState {
+    if (this.brailleValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
       empty: false,
       values: this.brailleValues,
       row: this.row,
       col: this.col,
+    };
+  }
+
+  protected highlight(): HighlightState {
+    if (this.highlightValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
     };
   }
 
@@ -229,7 +252,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract text(): TextState;
 
-  protected abstract highlight(): HighlightState;
+  protected abstract get brailleValues(): string[][] | null;
 
-  protected abstract get brailleValues(): string[][];
+  protected abstract get highlightValues(): SVGElement[][] | null;
 }
