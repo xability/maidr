@@ -58,8 +58,6 @@ export class HelpService {
   }
 
   public getMenuItems(): HelpMenuItem[] {
-    console.error(this.context.scope);
-    console.error(this.scopedMenuItems[this.context.scope]);
     return this.scopedMenuItems[this.context.scope] ?? [];
   }
 
