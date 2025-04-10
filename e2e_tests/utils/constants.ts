@@ -30,6 +30,7 @@ export abstract class TestConstants {
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINEPLOT_ID = 'line';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
+  static readonly STACKED_BARPLOT_ID = 'stacked_bar';
 
   /**
    * MAIDR plot identifiers
@@ -88,6 +89,7 @@ export abstract class TestConstants {
   static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes

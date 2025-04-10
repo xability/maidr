@@ -126,7 +126,7 @@ export class HeatmapError extends Error {
 }
 
 /**
- * Error thrown when Dodged barplot related operations fail
+ * Error thrown when Dodged Barplot related operations fail
  */
 export class DodgedBarplotError extends Error {
   /**
@@ -136,5 +136,19 @@ export class DodgedBarplotError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'DodgedBarplotError';
+  }
+}
+
+/**
+ * Error thrown when Stacked Barplot related operations fail
+ */
+export class StackedBarplotError extends Error {
+  /**
+   * Creates a new StackedBarplotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'StackedBarplotError';
   }
 }
