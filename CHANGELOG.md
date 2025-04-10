@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/xability/maidr-ts/compare/v2.3.1...v2.4.0) (2025-04-10)
+
+
+### Features
+
+* visual highlighting for scatterplot ([#158](https://github.com/xability/maidr-ts/issues/158)) ([59c13cc](https://github.com/xability/maidr-ts/commit/59c13cc0ebf82175d1d0fc86599c826ef643fe3a))
+
 ## [2.3.1](https://github.com/xability/maidr-ts/compare/v2.3.0...v2.3.1) (2025-04-08)
 
 
