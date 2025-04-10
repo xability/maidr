@@ -10,8 +10,7 @@ const Text: FC = () => {
     <div
       id="maidr-text-container"
       {...(shouldAnnounce && {
-        'aria-live': 'assertive',
-        'aria-atomic': 'true',
+        role: 'alert',
       })}
     >
       <p>

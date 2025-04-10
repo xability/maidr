@@ -69,6 +69,8 @@ export class Controller implements Disposable {
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
+    this.notificationService.notify(this.context.getInstruction(false));
+
     this.keybinding = new KeybindingService(
       {
         context: this.context,
@@ -87,8 +89,6 @@ export class Controller implements Disposable {
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);
-
-    this.notificationService.notify(this.context.getInstruction(false));
   }
 
   public dispose(): void {
