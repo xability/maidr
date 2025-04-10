@@ -53,7 +53,7 @@ export class Controller implements Disposable {
     this.context = new ContextService(this.figure);
 
     this.displayService = new DisplayService(this.context, maidrRoot, plot);
-    this.notificationService = new NotificationService(this.context, this.displayService);
+    this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state);
@@ -66,11 +66,13 @@ export class Controller implements Disposable {
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 
-    this.textViewModel = new TextViewModel(store, this.textService, this.autoplayService);
+    this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+
+    this.notificationService.notify(this.context.getInstruction(false));
 
     this.keybinding = new KeybindingService(
       {
@@ -94,8 +96,8 @@ export class Controller implements Disposable {
 
   public dispose(): void {
     this.keybinding.unregister();
-    ViewModelRegistry.instance.dispose();
 
+    ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
@@ -105,10 +107,12 @@ export class Controller implements Disposable {
     this.highlightService.dispose();
     this.autoplayService.dispose();
 
+    this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
     this.audioService.dispose();
 
+    this.notificationService.dispose();
     this.displayService.dispose();
     this.context.dispose();
     this.figure.dispose();

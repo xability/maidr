@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
@@ -15,7 +16,7 @@ interface TextChangedEvent {
   value: string;
 }
 
-export class TextService implements Observer<PlotState> {
+export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
@@ -25,10 +26,15 @@ export class TextService implements Observer<PlotState> {
 
   public constructor(notification: NotificationService) {
     this.notification = notification;
+
     this.mode = TextMode.VERBOSE;
 
     this.onChangeEmitter = new Emitter<TextChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+  }
+
+  public dispose(): void {
+    this.onChangeEmitter.dispose();
   }
 
   public format(state: string | PlotState): string {

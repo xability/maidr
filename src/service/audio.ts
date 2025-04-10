@@ -51,7 +51,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.stop();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
-      this.audioContext.close().finally();
+      void this.audioContext.close();
     }
   }
 

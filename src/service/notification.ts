@@ -1,31 +1,29 @@
-import type { ContextService } from '@service/context';
-import type { DisplayService } from './display';
-import { Constant } from '@util/constant';
+import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
+import { Emitter } from '@type/event';
 
-export class NotificationService {
-  private readonly enabled: boolean;
-  private readonly notificationDiv?: HTMLElement;
+interface NotificationChangedEvent {
+  value: string;
+}
 
-  public constructor(context: ContextService, display: DisplayService) {
-    if (!display.notificationDiv) {
-      this.enabled = false;
-      return;
-    }
+export class NotificationService implements Disposable {
+  private readonly onChangeEmitter: Emitter<NotificationChangedEvent>;
+  public readonly onChange: Event<NotificationChangedEvent>;
 
-    this.notificationDiv = display.notificationDiv;
-    this.enabled = true;
-    this.notify(context.getInstruction(false));
+  public constructor() {
+    this.onChangeEmitter = new Emitter<NotificationChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
+  }
+
+  public dispose(): void {
+    this.onChangeEmitter.dispose();
   }
 
   public notify(message: string): void {
-    if (!this.enabled || !message) {
+    if (!message) {
       return;
     }
 
-    const paragraph = document.createElement(Constant.P);
-    paragraph.innerHTML = message;
-
-    this.notificationDiv!.innerHTML = Constant.EMPTY;
-    this.notificationDiv!.append(paragraph);
+    this.onChangeEmitter.fire({ value: message });
   }
 }
