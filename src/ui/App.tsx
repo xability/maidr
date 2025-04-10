@@ -8,14 +8,14 @@ import Settings from './pages/Settings';
 import Text from './pages/Text';
 
 const App: React.FC = () => {
-  const { enabled: isTextEnabled } = useViewModelState('text');
+  const { enabled: isTextEnabled, message } = useViewModelState('text');
   const { enabled: isHelpEnabled } = useViewModelState('help');
   const { enabled: isSettingsEnabled } = useViewModelState('settings');
   const { enabled: isChatEnabled } = useViewModelState('chat');
 
   return (
     <>
-      {isTextEnabled && <Text />}
+      {(isTextEnabled || message) && <Text />}
       {isHelpEnabled && <Help />}
       {isSettingsEnabled && <Settings />}
       {isChatEnabled && <Chat />}

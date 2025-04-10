@@ -1,7 +1,7 @@
 import type { Keymap } from '@service/keybinding';
 import type { Disposable } from './disposable';
 
-export enum EventType {
+export enum DomEventType {
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS_IN = 'focusin',

@@ -4,7 +4,7 @@ import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
-import { EventType, Scope } from '@type/event';
+import { DomEventType, Scope } from '@type/event';
 
 export class ReviewService implements Observer<TraceState>, Disposable {
   private readonly notification: NotificationService;
@@ -47,12 +47,12 @@ export class ReviewService implements Observer<TraceState>, Disposable {
       }
     };
     this.reviewInput = display.reviewInput;
-    this.reviewInput.addEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
+    this.reviewInput.addEventListener(DomEventType.KEY_DOWN, this.reviewKeyHandler);
   }
 
   public dispose(): void {
     if (this.reviewInput && this.reviewKeyHandler) {
-      this.reviewInput.removeEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
+      this.reviewInput.removeEventListener(DomEventType.KEY_DOWN, this.reviewKeyHandler);
     }
   }
 

@@ -60,7 +60,6 @@ export class SettingsService {
 
   public toggle(oldState: boolean): boolean {
     this.display.toggleFocus(Scope.SETTINGS);
-
     return !oldState;
   }
 }
