@@ -1,3 +1,4 @@
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
 import type { ChatViewModel } from './chatViewModel';
 import type { HelpViewModel } from './helpViewModel';
@@ -7,6 +8,7 @@ import type { TextViewModel } from './textViewModel';
 export interface ViewModelMap {
   chat: ChatViewModel;
   help: HelpViewModel;
+  review: ReviewViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;
 }

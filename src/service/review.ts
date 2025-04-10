@@ -1,81 +1,51 @@
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
-import { EventType, Scope } from '@type/event';
+import { Emitter, Scope } from '@type/event';
+
+interface ReviewChangedEvent {
+  value: string;
+}
 
 export class ReviewService implements Observer<TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
   private readonly text: TextService;
 
-  private enabled: boolean;
+  private readonly onChangeEmitter: Emitter<ReviewChangedEvent>;
+  public readonly onChange: Event<ReviewChangedEvent>;
 
-  private readonly reviewInput?: HTMLInputElement;
-  private readonly reviewKeyHandler?: (event: KeyboardEvent) => void;
-
-  public constructor(
-    notification: NotificationService,
-    display: DisplayService,
-    text: TextService,
-  ) {
+  public constructor(notification: NotificationService, display: DisplayService, text: TextService) {
     this.notification = notification;
     this.display = display;
     this.text = text;
 
-    this.enabled = false;
-    if (!display.reviewInput) {
-      return;
-    }
-
-    this.reviewKeyHandler = (e: KeyboardEvent) => {
-      const isNavigationKey
-        = e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End';
-      const isCtrlKey = e.ctrlKey || e.metaKey;
-      const isModifierKey = isCtrlKey || e.shiftKey;
-
-      if (
-        !isNavigationKey // Navigate next character with Arrow keys.
-        && !(isModifierKey && isNavigationKey) // Navigate to Start and End.
-        && !(isCtrlKey && e.key === 'a') // Select text.
-        && !(isCtrlKey && e.key === 'c') // Copy text.
-        && !(e.key === 'Tab') // Allow blur after focussed.
-      ) {
-        e.preventDefault();
-      }
-    };
-    this.reviewInput = display.reviewInput;
-    this.reviewInput.addEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
+    this.onChangeEmitter = new Emitter<ReviewChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
   public dispose(): void {
-    if (this.reviewInput && this.reviewKeyHandler) {
-      this.reviewInput.removeEventListener(EventType.KEY_DOWN, this.reviewKeyHandler);
-    }
+    this.onChangeEmitter.dispose();
   }
 
   public update(state: TraceState): void {
-    if (!this.enabled || state.empty) {
-      return;
+    const review = this.text.format(state);
+    if (review) {
+      this.onChangeEmitter.fire({ value: review });
     }
-
-    this.reviewInput!.value = this.text.format(state);
   }
 
-  public toggle(state: TraceState): void {
-    if (state.empty) {
-      const noInfo = 'No info for review';
-      this.notification.notify(noInfo);
-      return;
-    }
-
-    this.enabled = !this.enabled;
-    this.enabled && this.update(state);
+  public toggle(oldState: boolean): boolean {
     this.display.toggleFocus(Scope.REVIEW);
 
-    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
+    const newState = !oldState;
+    const message = `Review is ${newState ? 'on' : 'off'}`;
     this.notification.notify(message);
+
+    return newState;
   }
 }

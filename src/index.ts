@@ -1,11 +1,11 @@
 import type { Maidr } from '@type/maidr';
-import { EventType } from '@type/event';
+import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
 import { Controller } from './controller';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
-  document.addEventListener(EventType.DOM_LOADED, main);
+  document.addEventListener(DomEventType.DOM_LOADED, main);
 } else {
   // Support for Jupyter Notebook, since it is in `complete` state.
   main();
@@ -81,9 +81,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   articleElement.appendChild(figureElement);
 
   maidrRoot = figureElement;
-  plot.addEventListener(EventType.FOCUS_IN, onFocus);
-  plot.addEventListener(EventType.CLICK, onFocus);
-  plot.addEventListener(EventType.FOCUS_OUT, onBlur);
+  plot.addEventListener(DomEventType.FOCUS_IN, onFocus);
+  plot.addEventListener(DomEventType.CLICK, onFocus);
+  plot.addEventListener(DomEventType.FOCUS_OUT, onBlur);
 
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.

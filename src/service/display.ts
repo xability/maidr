@@ -21,9 +21,6 @@ export class DisplayService implements Disposable {
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
 
-  public readonly reviewDiv: HTMLElement;
-  public readonly reviewInput: HTMLInputElement;
-
   public constructor(context: ContextService, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Scope>();
@@ -39,15 +36,6 @@ export class DisplayService implements Disposable {
     this.brailleTextArea
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
-
-    const reviewId = `${Constant.REVIEW_CONTAINER}-${maidrId}`;
-    const reviewInputId = `${Constant.REVIEW_INPUT}-${maidrId}`;
-    this.reviewDiv
-      = (document.getElementById(reviewId) as HTMLElement)
-        ?? this.createReviewContainer(reviewId);
-    this.reviewInput
-      = (document.getElementById(reviewInputId) as HTMLInputElement)
-        ?? this.createReviewInput(reviewInputId);
 
     const notificationId = `${Constant.NOTIFICATION_CONTAINER}-${maidrId}`;
     this.notificationDiv = document.getElementById(notificationId)
@@ -66,9 +54,6 @@ export class DisplayService implements Disposable {
 
     this.brailleTextArea.remove();
     this.brailleDiv.remove();
-
-    this.reviewInput.remove();
-    this.reviewDiv.remove();
 
     this.notificationDiv.innerHTML = Constant.EMPTY;
 
@@ -115,26 +100,6 @@ export class DisplayService implements Disposable {
     return brailleTextArea;
   }
 
-  private createReviewContainer(reviewId: string): HTMLElement {
-    const reviewDiv = document.createElement(Constant.DIV);
-    reviewDiv.id = reviewId;
-    reviewDiv.classList.add(Constant.HIDDEN);
-
-    this.maidrRoot.appendChild(reviewDiv);
-    return reviewDiv;
-  }
-
-  private createReviewInput(reviewInputId: string): HTMLInputElement {
-    const reviewInput = document.createElement(Constant.INPUT);
-    reviewInput.id = reviewInputId;
-    reviewInput.type = Constant.TEXT;
-    reviewInput.autocomplete = Constant.OFF;
-    reviewInput.size = 50;
-
-    this.reviewDiv.appendChild(reviewInput);
-    return reviewInput;
-  }
-
   private createNotificationContainer(notificationId: string): HTMLElement {
     const notificationDiv = document.createElement(Constant.DIV);
     notificationDiv.id = notificationId;
@@ -164,9 +129,7 @@ export class DisplayService implements Disposable {
 
   private updateFocus(newScope: Scope): void {
     let activeDiv: HTMLElement | undefined;
-    if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
-      activeDiv = this.reviewDiv;
-    } else if (
+    if (
       (document.activeElement as HTMLTextAreaElement) === this.brailleTextArea
     ) {
       activeDiv = this.brailleDiv;
@@ -181,14 +144,9 @@ export class DisplayService implements Disposable {
         this.brailleTextArea?.focus();
         break;
 
-      case 'REVIEW':
-        activeDiv?.classList.add(Constant.HIDDEN);
-        this.reviewDiv?.classList.remove(Constant.HIDDEN);
-        this.reviewInput?.focus();
-        break;
-
       case 'CHAT':
       case 'HELP':
+      case 'REVIEW':
       case 'SETTINGS':
         this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);

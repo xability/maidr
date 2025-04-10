@@ -3,9 +3,9 @@ import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
-import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Keys } from '@type/event';
@@ -60,12 +60,12 @@ export class CommandFactory {
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
-  private readonly reviewService: ReviewService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
 
   private readonly textViewModel: TextViewModel;
+  private readonly reviewViewModel: ReviewViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly settingsViewModel: SettingsViewModel;
@@ -75,12 +75,12 @@ export class CommandFactory {
 
     this.audioService = commandContext.audioService;
     this.brailleService = commandContext.brailleService;
-    this.reviewService = commandContext.reviewService;
 
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
 
     this.textViewModel = commandContext.textViewModel;
+    this.reviewViewModel = commandContext.reviewViewModel;
     this.chatViewModel = commandContext.chatViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
@@ -121,7 +121,7 @@ export class CommandFactory {
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.contextService, this.reviewService);
+        return new ToggleReviewCommand(this.reviewViewModel);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
