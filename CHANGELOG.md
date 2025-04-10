@@ -1,3 +1,10 @@
+## [2.4.2](https://github.com/xability/maidr-ts/compare/v2.4.1...v2.4.2) (2025-04-10)
+
+
+### Bug Fixes
+
+* show the keyboard shortcuts properly on toggle ([#172](https://github.com/xability/maidr-ts/issues/172)) ([13918b3](https://github.com/xability/maidr-ts/commit/13918b36b1ad1aa9d6e4806d29e5a15008081b2b))
+
 ## [2.4.1](https://github.com/xability/maidr-ts/compare/v2.4.0...v2.4.1) (2025-04-10)
 
 
