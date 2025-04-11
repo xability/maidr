@@ -21,6 +21,64 @@ async function setupLinePlotPage(
   return linePlotPage;
 }
 
+/**
+ * Gets the correct data length from a line plot layer
+ * @param layer - The MAIDR layer containing line plot data
+ * @returns The number of data points in the layer
+ * @throws Error if data structure is invalid
+ */
+function getLinePlotDataLength(layer: MaidrLayer | undefined): number {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    return layer.data[0].length;
+  } else if (Array.isArray(layer.data)) {
+    return layer.data.length;
+  }
+
+  throw new TypeError('Layer data is not in expected format');
+}
+
+/**
+ * Safely extracts the display value from a lineplot data point
+ * @param layer - The lineplot layer containing data points
+ * @param index - Index of the data point to extract value from
+ * @returns The formatted string value suitable for display comparison
+ * @throws Error if data structure is invalid or index is out of bounds
+ */
+function getLinePlotDisplayValue(layer: MaidrLayer | undefined, index: number): string {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  let lineData: { x: string; y: number }[];
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    lineData = layer.data[0] as { x: string; y: number }[];
+  } else if (Array.isArray(layer.data)) {
+    lineData = layer.data as { x: string; y: number }[];
+  } else {
+    throw new TypeError('Layer data is not in expected format');
+  }
+
+  if (!Array.isArray(lineData)) {
+    throw new TypeError('Line data is not in expected format');
+  }
+
+  if (index < 0 || index >= lineData.length) {
+    throw new Error(`Index ${index} is out of bounds for data length ${lineData.length}`);
+  }
+
+  const linePoint = lineData[index];
+
+  if (!linePoint || typeof linePoint.x === 'undefined') {
+    throw new Error(`Data point at index ${index} has invalid format`);
+  }
+
+  return `${linePoint.x}`;
+}
+
 test.describe('Line Plot', () => {
   let maidrData: Maidr;
   let linePlotLayer: MaidrLayer;
@@ -57,7 +115,7 @@ test.describe('Line Plot', () => {
       }, TestConstants.LINEPLOT_ID);
 
       linePlotLayer = maidrData.subplots[0][0].layers[0];
-      dataLength = (linePlotLayer.data as { x: string; y: number }[]).length;
+      dataLength = getLinePlotDataLength(linePlotLayer);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -225,10 +283,12 @@ test.describe('Line Plot', () => {
 
     await linePlotPage.moveToFirstDataPoint();
     const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    if (Array.isArray(linePlotLayer?.data) && dataLength > 0 && 'x' in linePlotLayer.data[0]) {
-      expect(currentDataPoint).toContain((linePlotLayer.data[0] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in linePlotLayer');
+    try {
+      const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`First data point verification failed: ${errorMessage}`);
     }
   });
 
@@ -237,42 +297,44 @@ test.describe('Line Plot', () => {
 
     await linePlotPage.moveToLastDataPoint();
     const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    if (Array.isArray(linePlotLayer?.data) && dataLength > 0 && 'x' in linePlotLayer.data[0]) {
-      expect(currentDataPoint).toContain((linePlotLayer.data[dataLength - 1] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in linePlotLayer');
+
+    try {
+      const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Last data point verification failed: ${errorMessage}, ${dataLength}`);
     }
   });
 
   test('should execute forward autoplay', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(linePlotLayer.data) && dataLength > 0 && 'x' in linePlotLayer.data[0]) {
-      expectedDataPoint = (linePlotLayer.data[dataLength - 1] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in linePlotLayer');
-    }
+    try {
+      const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
 
-    await linePlotPage.startForwardAutoplay(
-      expectedDataPoint,
-    );
+      await linePlotPage.startForwardAutoplay(
+        lastDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+    }
   });
 
   test('should execute backward autoplay', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(linePlotLayer.data) && dataLength > 0 && 'x' in linePlotLayer.data[0]) {
-      expectedDataPoint = (linePlotLayer.data[0] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in linePlotLayer');
+    try {
+      const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
+
+      await linePlotPage.moveToLastDataPoint();
+      await linePlotPage.startReverseAutoplay(
+        firstDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
     }
-
-    await linePlotPage.moveToLastDataPoint();
-
-    await linePlotPage.startReverseAutoplay(
-      expectedDataPoint,
-    );
   });
 });
