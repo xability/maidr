@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { useViewModelState } from '@state/hook/useViewModel';
+import { Constant } from '@util/constant';
 import React from 'react';
 
 const Text: FC = () => {
@@ -8,7 +9,7 @@ const Text: FC = () => {
 
   return (
     <div
-      id="maidr-text-container"
+      id={Constant.TEXT_CONTAINER}
       {...(shouldAnnounce && {
         role: 'alert',
       })}

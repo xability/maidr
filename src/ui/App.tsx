@@ -17,8 +17,11 @@ const App: React.FC = () => {
 
   return (
     <>
-      {(isTextEnabled || message) && <Text />}
-      {isReviewEnabled && <Review />}
+      {
+        isReviewEnabled
+          ? <Review />
+          : (isTextEnabled || message) && <Text />
+      }
       {isHelpEnabled && <Help />}
       {isSettingsEnabled && <Settings />}
       {isChatEnabled && <Chat />}
