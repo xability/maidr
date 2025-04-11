@@ -1,6 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { ReviewService } from '@service/review';
 import type { AppStore } from '@state/store';
+import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
@@ -55,8 +56,8 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
     return this.store.getState().review;
   }
 
-  public toggle(): void {
-    const enabled = this.reviewService.toggle(this.state.enabled);
+  public toggle(state?: TraceState): void {
+    const enabled = this.reviewService.toggle(this.state.enabled, state);
     this.store.dispatch(toggle(enabled));
   }
 }

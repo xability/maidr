@@ -39,7 +39,8 @@ export class ReviewService implements Observer<TraceState>, Disposable {
     }
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(oldState: boolean, state?: TraceState): boolean {
+    state && this.update(state);
     this.display.toggleFocus(Scope.REVIEW);
 
     const newState = !oldState;

@@ -121,7 +121,7 @@ export class CommandFactory {
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.reviewViewModel);
+        return new ToggleReviewCommand(this.contextService, this.reviewViewModel);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);

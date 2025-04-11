@@ -51,14 +51,19 @@ export class ToggleAudioCommand implements Command {
 }
 
 export class ToggleReviewCommand implements Command {
+  private readonly context: ContextService;
   private readonly reviewViewModel: ReviewViewModel;
 
-  public constructor(reviewViewModel: ReviewViewModel) {
+  public constructor(context: ContextService, reviewViewModel: ReviewViewModel) {
+    this.context = context;
     this.reviewViewModel = reviewViewModel;
   }
 
   public execute(): void {
-    this.reviewViewModel.toggle();
+    const state = this.context.state;
+    if (state.type === 'trace') {
+      this.reviewViewModel.toggle(state);
+    }
   }
 }
 
