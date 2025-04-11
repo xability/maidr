@@ -1,7 +1,6 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
-import type { NotificationService } from '@service/notification';
 import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -9,7 +8,6 @@ import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
-import { ScatterPlot } from '@model/scatter';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: ContextService;
@@ -65,25 +63,6 @@ export class ToggleReviewCommand implements Command {
     const state = this.context.state;
     if (state.type === 'trace') {
       this.review.toggle(state);
-    }
-  }
-}
-
-export class ToggleScatterNavigationCommand implements Command {
-  private readonly context: ContextService;
-  private readonly notification: NotificationService;
-
-  public constructor(context: ContextService, notification: NotificationService) {
-    this.context = context;
-    this.notification = notification;
-  }
-
-  public execute(): void {
-    const activeContext = this.context.active;
-    if (activeContext instanceof ScatterPlot) {
-      const navMode = (activeContext as ScatterPlot).toggleNavigation();
-      const message = `Switched to ${navMode} navigation`;
-      this.notification.notify(message);
     }
   }
 }

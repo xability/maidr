@@ -38,10 +38,8 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
   }
 
   public toggle(): void {
-    const currentState = this.state.enabled;
-    const enabled = this.helpService.toggle(currentState);
     const items = this.helpService.getMenuItems();
-
+    const enabled = this.helpService.toggle(this.state.enabled);
     this.store.dispatch(setHelpState({ enabled, items }));
   }
 

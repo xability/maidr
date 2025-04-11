@@ -4,7 +4,7 @@ import type {
   HeatmapData,
   HistogramPoint,
   LinePoint,
-  ScatterSeries,
+  ScatterPoint,
   SegmentedPoint,
 } from '@model/grammar';
 import type { Orientation } from './plot';
@@ -38,6 +38,6 @@ export interface MaidrLayer {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
-    | ScatterSeries[]
+    | ScatterPoint[]
     | SegmentedPoint[][];
 }

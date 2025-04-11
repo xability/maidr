@@ -3,18 +3,18 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import React from 'react';
 
 const Text: FC = () => {
-  const { announce, value } = useViewModelState('text');
+  const { enabled, announce, value, message } = useViewModelState('text');
+  const shouldAnnounce = announce || message;
 
   return (
     <div
       id="maidr-text-container"
-      {...(announce && {
-        'aria-live': 'polite',
-        'aria-atomic': 'true',
+      {...(shouldAnnounce && {
+        role: 'alert',
       })}
     >
       <p>
-        {value}
+        {message || (enabled && value)}
       </p>
     </div>
   );

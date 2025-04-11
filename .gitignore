@@ -163,3 +163,7 @@ cypress/screenshots/
 # Playwright
 test-results/
 playwright-report/
+
+# Qodo AI
+.qodo
+

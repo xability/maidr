@@ -4,7 +4,7 @@ import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { EventType, Scope } from '@type/event';
+import { DomEventType, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
 export class BrailleService implements Observer<TraceState>, Disposable {
@@ -37,7 +37,7 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     };
     this.brailleTextArea = display.brailleTextArea;
     this.brailleTextArea.addEventListener(
-      EventType.SELECTION_CHANGE,
+      DomEventType.SELECTION_CHANGE,
       this.selectionChangeHandler,
     );
   }
@@ -45,7 +45,7 @@ export class BrailleService implements Observer<TraceState>, Disposable {
   public dispose(): void {
     if (this.brailleTextArea && this.selectionChangeHandler) {
       this.brailleTextArea.removeEventListener(
-        EventType.SELECTION_CHANGE,
+        DomEventType.SELECTION_CHANGE,
         this.selectionChangeHandler,
       );
     }

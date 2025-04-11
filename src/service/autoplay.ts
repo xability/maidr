@@ -58,6 +58,7 @@ export class AutoplayService implements Disposable {
 
   public dispose(): void {
     this.stop();
+    this.onChangeEmitter.dispose();
   }
 
   public start(direction: MovableDirection, state?: TraceState): void {

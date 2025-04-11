@@ -1,3 +1,24 @@
+## [2.4.2](https://github.com/xability/maidr-ts/compare/v2.4.1...v2.4.2) (2025-04-10)
+
+
+### Bug Fixes
+
+* show the keyboard shortcuts properly on toggle ([#172](https://github.com/xability/maidr-ts/issues/172)) ([13918b3](https://github.com/xability/maidr-ts/commit/13918b36b1ad1aa9d6e4806d29e5a15008081b2b))
+
+## [2.4.1](https://github.com/xability/maidr-ts/compare/v2.4.0...v2.4.1) (2025-04-10)
+
+
+### Bug Fixes
+
+* update scatter plot row by row highlighting ([#168](https://github.com/xability/maidr-ts/issues/168)) ([3d39140](https://github.com/xability/maidr-ts/commit/3d39140fd920b799fe3147339b55555400e229ee))
+
+# [2.4.0](https://github.com/xability/maidr-ts/compare/v2.3.1...v2.4.0) (2025-04-10)
+
+
+### Features
+
+* visual highlighting for scatterplot ([#158](https://github.com/xability/maidr-ts/issues/158)) ([59c13cc](https://github.com/xability/maidr-ts/commit/59c13cc0ebf82175d1d0fc86599c826ef643fe3a))
+
 ## [2.3.1](https://github.com/xability/maidr-ts/compare/v2.3.0...v2.3.1) (2025-04-08)
 
 
