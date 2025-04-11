@@ -21,6 +21,72 @@ async function setupStackedBarplotPage(
   return stackedBarplotPage;
 }
 
+/**
+ * Gets the correct data length from a stacked barplot layer
+ * @param layer - The MAIDR layer containing stacked barplot data
+ * @returns The number of data points in the first series
+ * @throws Error if data structure is invalid
+ */
+function getStackedBarplotDataLength(layer: MaidrLayer | undefined): number {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    return layer.data[0].length;
+  } else if (Array.isArray(layer.data)) {
+    return layer.data.length;
+  }
+
+  throw new TypeError('Layer data is not in expected format');
+}
+
+/**
+ * Safely extracts the display value from a stacked barplot data point
+ * @param layer - The stacked barplot layer containing data points
+ * @param index - Index of the data point to extract value from
+ * @returns The formatted string value suitable for display comparison
+ * @throws Error if data structure is invalid or index is out of bounds
+ */
+function getStackedBarplotDisplayValue(layer: MaidrLayer | undefined, index: number): string {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    const barSeries = layer.data[0] as Array<{ x: string; y: number; fill: string }>;
+
+    if (!Array.isArray(barSeries)) {
+      throw new TypeError('Bar series is not an array');
+    }
+
+    if (index < 0 || index >= barSeries.length) {
+      throw new Error(`Index ${index} is out of bounds for data length ${barSeries.length}`);
+    }
+
+    const barPoint = barSeries[index];
+
+    if (!barPoint || typeof barPoint.x === 'undefined') {
+      throw new Error(`Data point at index ${index} has invalid format`);
+    }
+
+    return String(barPoint.x);
+  } else if (Array.isArray(layer.data)) {
+    if (index < 0 || index >= layer.data.length) {
+      throw new Error(`Index ${index} is out of bounds for data length ${layer.data.length}`);
+    }
+
+    const dataPoint = layer.data[index];
+
+    if (!dataPoint || !('x' in dataPoint)) {
+      throw new Error(`Data point at index ${index} has invalid format`);
+    }
+
+    return String(dataPoint.x);
+  }
+
+  throw new TypeError('Layer data is not in expected format');
+}
 test.describe('Stacked Barplot', () => {
   let maidrData: Maidr;
   let stackedBarplotLayer: MaidrLayer;
@@ -57,7 +123,7 @@ test.describe('Stacked Barplot', () => {
       }, TestConstants.STACKED_BARPLOT_ID);
 
       stackedBarplotLayer = maidrData.subplots[0][0].layers[0];
-      dataLength = (stackedBarplotLayer.data as { x: string; y: number }[]).length;
+      dataLength = getStackedBarplotDataLength(stackedBarplotLayer);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -201,7 +267,7 @@ test.describe('Stacked Barplot', () => {
   test('should move from left to right', async ({ page }) => {
     const StackedBarplotPage = await setupStackedBarplotPage(page);
 
-    for (let i = 0; i <= dataLength; i++) {
+    for (let i = 0; i <= dataLength + 1; i++) {
       await StackedBarplotPage.moveToNextDataPoint();
     }
 
@@ -221,58 +287,63 @@ test.describe('Stacked Barplot', () => {
   });
 
   test('should move to the first data point', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.moveToFirstDataPoint();
-    const currentDataPoint = await StackedBarplotPage.getCurrentDataPointInfo();
-    if (Array.isArray(stackedBarplotLayer?.data) && dataLength > 0 && 'x' in stackedBarplotLayer.data[0]) {
-      expect(currentDataPoint).toContain((stackedBarplotLayer.data[0] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in stackedBarplotLayer');
+    await stackedBarplotPage.moveToFirstDataPoint();
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    try {
+      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`First data point verification failed: ${errorMessage}`);
     }
   });
 
   test('should move to the last data point', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.moveToLastDataPoint();
-    const currentDataPoint = await StackedBarplotPage.getCurrentDataPointInfo();
-    if (Array.isArray(stackedBarplotLayer?.data) && dataLength > 0 && 'x' in stackedBarplotLayer.data[0]) {
-      expect(currentDataPoint).toContain((stackedBarplotLayer.data[dataLength - 1] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in stackedBarplotLayer');
+    await stackedBarplotPage.moveToLastDataPoint();
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    try {
+      const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Last data point verification failed: ${errorMessage}`);
     }
   });
 
   test('should execute forward autoplay', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(stackedBarplotLayer.data) && dataLength > 0 && 'x' in stackedBarplotLayer.data[0]) {
-      expectedDataPoint = (stackedBarplotLayer.data[dataLength - 1] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in stackedBarplotLayer');
+    try {
+      const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
+
+      await stackedBarplotPage.startForwardAutoplay(
+        lastDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
     }
-
-    await StackedBarplotPage.startForwardAutoplay(
-      expectedDataPoint,
-    );
   });
 
   test('should execute backward autoplay', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(stackedBarplotLayer.data) && dataLength > 0 && 'x' in stackedBarplotLayer.data[0]) {
-      expectedDataPoint = (stackedBarplotLayer.data[0] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in stackedBarplotLayer');
+    try {
+      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+
+      await stackedBarplotPage.moveToLastDataPoint();
+      await stackedBarplotPage.startReverseAutoplay(
+        firstDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
     }
-
-    await StackedBarplotPage.moveToLastDataPoint();
-
-    await StackedBarplotPage.startReverseAutoplay(
-      expectedDataPoint,
-    );
   });
 });
