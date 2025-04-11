@@ -17,6 +17,7 @@ const initialState: ChatState = {
 };
 
 const addUserMessage = createAction<{ text: string; timestamp: string }>('chat/addUserMessage');
+const addSystemMessage = createAction<{ text: string; timestamp: string }>('chat/addSystemMessage');
 const addPendingResponse = createAction<{ model: Llm; timestamp: string }>('chat/addPendingResponse');
 const updateResponse = createAction<{ model: Llm; data: string; timestamp: string }>('chat/updateResponse');
 const updateError = createAction<{ model: Llm; error: string; timestamp: string }>('chat/updateError');
@@ -39,6 +40,15 @@ const chatSlice = createSlice({
           id: `msg-${Date.now()}`,
           text: action.payload.text,
           isUser: true,
+          timestamp: action.payload.timestamp,
+          status: 'SUCCESS',
+        });
+      })
+      .addCase(addSystemMessage, (state, action) => {
+        state.messages.push({
+          id: `sys-${Date.now()}`,
+          text: action.payload.text,
+          isUser: false,
           timestamp: action.payload.timestamp,
           status: 'SUCCESS',
         });
@@ -104,17 +114,29 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.store.dispatch(toggle(enabled));
   }
 
+  public addSystemMessage(text: string): void {
+    this.store.dispatch(addSystemMessage({
+      text,
+      timestamp: new Date().toISOString(),
+    }));
+  }
+
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
-    const timestamp = new Date().toISOString();
+    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
+      .filter(model => llmSettings.models[model].enabled);
 
+    if (enabledModels.length === 0) {
+      this.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings.');
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
     this.store.dispatch(addUserMessage({
       text: newMessage,
       timestamp,
     }));
 
-    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled);
     await Promise.all(enabledModels.map(async (model) => {
       const audioId = this.audioService.playWaitingTone();
       try {

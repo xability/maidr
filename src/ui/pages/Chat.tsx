@@ -1,19 +1,6 @@
 import type { Message } from '@type/llm';
-import { Close, Send, SmartToy } from '@mui/icons-material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import {
-  Avatar,
-  Box,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid2,
-  IconButton,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { AccountCircle as AccountCircleIcon, Close, Send as SendIcon, SmartToy } from '@mui/icons-material';
+import { Avatar, Box, CircularProgress, Dialog, DialogContent, DialogTitle, Grid2, IconButton, TextField, Typography, useTheme } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -48,13 +35,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               : theme.palette.grey[500],
           }}
         >
-          {message.isUser
-            ? (
-                <AccountCircleIcon />
-              )
-            : (
-                <SmartToy fontSize="small" />
-              )}
+          {message.isUser ? <AccountCircleIcon /> : <SmartToy fontSize="small" />}
         </Avatar>
 
         <Box
@@ -64,10 +45,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             bgcolor: message.isUser
               ? theme.palette.primary.light
               : theme.palette.background.paper,
-            border: `1px solid ${
-              message.isUser
-                ? theme.palette.primary.main
-                : theme.palette.divider
+            border: `1px solid ${message.isUser
+              ? theme.palette.primary.main
+              : theme.palette.divider
             }`,
             position: 'relative',
           }}
@@ -114,9 +94,18 @@ const Chat: React.FC = () => {
 
   const viewModel = useViewModel('chat');
   const { enabled, messages } = useViewModelState('chat');
+  const settings = useViewModelState('settings');
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const isAnyAgentEnabled = Object.values(settings.llm.models).some(model => model.enabled && model.apiKey);
+
+  useEffect(() => {
+    if (enabled && !isAnyAgentEnabled) {
+      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+    }
+  }, [enabled, isAnyAgentEnabled, viewModel]);
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,12 +118,18 @@ const Chat: React.FC = () => {
   const handleClose = (): void => {
     viewModel.toggle();
   };
+
   const handleSend = (): void => {
+    if (!isAnyAgentEnabled) {
+      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+      return;
+    }
     if (inputMessage.trim()) {
       void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
   };
+
   const handleKeyPress = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -221,10 +216,11 @@ const Chat: React.FC = () => {
                   value={inputMessage}
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder="Type your message..."
+                  placeholder={isAnyAgentEnabled ? 'Type your message...' : 'Enable at least one agent in settings to chat'}
                   variant="outlined"
                   size="small"
                   autoFocus
+                  disabled={!isAnyAgentEnabled}
                 />
               </Grid2>
               <Grid2 size={{ xs: 2 }} container justifyContent="flex-end">
@@ -239,8 +235,9 @@ const Chat: React.FC = () => {
                       bgcolor: theme.palette.primary.dark,
                     },
                   }}
+                  disabled={!isAnyAgentEnabled}
                 >
-                  <Send />
+                  <SendIcon />
                 </IconButton>
               </Grid2>
             </Grid2>
