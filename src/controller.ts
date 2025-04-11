@@ -48,11 +48,11 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
+  public constructor(maidr: Maidr, maidrRoot: HTMLElement, reactRoot: HTMLElement, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new ContextService(this.figure);
 
-    this.displayService = new DisplayService(this.context, maidrRoot, plot);
+    this.displayService = new DisplayService(this.context, maidrRoot, reactRoot, plot);
     this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(this.displayService);
 

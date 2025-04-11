@@ -14,13 +14,13 @@ export class DisplayService implements Disposable {
   private readonly maidrRoot: HTMLElement;
   public readonly plot: HTMLElement;
 
-  private readonly reactDiv?: HTMLElement;
+  private readonly reactDiv: HTMLElement;
   private reactRoot: Root | null;
 
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
 
-  public constructor(context: ContextService, maidrRoot: HTMLElement, plot: HTMLElement) {
+  public constructor(context: ContextService, maidrRoot: HTMLElement, reactDiv: HTMLElement, plot: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Scope>();
     this.focusStack.push(this.context.scope);
@@ -36,8 +36,7 @@ export class DisplayService implements Disposable {
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
 
-    const reactId = `${Constant.REACT_CONTAINER}-${maidrId}`;
-    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
+    this.reactDiv = reactDiv;
     this.reactRoot = createRoot(this.reactDiv);
     this.reactRoot.render(MaidrApp);
 
@@ -52,7 +51,6 @@ export class DisplayService implements Disposable {
 
     this.reactRoot?.unmount();
     this.reactRoot = null;
-    this.reactDiv?.remove();
   }
 
   public shouldDestroy(event: FocusEvent): boolean {
@@ -93,14 +91,6 @@ export class DisplayService implements Disposable {
     return brailleTextArea;
   }
 
-  private createReactContainer(reactId: string): HTMLElement {
-    const reactDiv = document.createElement(Constant.DIV);
-    reactDiv.id = reactId;
-
-    this.maidrRoot.appendChild(reactDiv);
-    return reactDiv;
-  }
-
   public toggleFocus(scope: Scope): void {
     if (!this.focusStack.removeLast(scope)) {
       this.focusStack.push(scope);
@@ -130,7 +120,7 @@ export class DisplayService implements Disposable {
       case 'HELP':
       case 'REVIEW':
       case 'SETTINGS':
-        this.reactDiv?.focus();
+        this.reactDiv.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
