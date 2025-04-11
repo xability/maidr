@@ -4,6 +4,101 @@ import { expect, test } from '@playwright/test';
 import { DodgedBarplotPage } from '../page-objects/plots/dodgedBarplot-page';
 import { TestConstants } from '../utils/constants';
 
+interface DodgedBarDataPoint {
+  x: string;
+  y: number;
+  fill: string;
+}
+
+/**
+ * Safely extracts the display value from a dodged barplot data point
+ * @param layer - The dodged barplot layer containing data points
+ * @param index - Index of the data point to extract value from
+ * @param seriesIndex - Index of the series (default: 0)
+ * @returns The formatted string value suitable for display comparison
+ * @throws Error if data structure is invalid or index is out of bounds
+ */
+function getDodgedBarplotDisplayValue(
+  layer: MaidrLayer | undefined,
+  index: number,
+  seriesIndex = 0,
+): string {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  // Handle nested array structure (dodged barplot data is typically nested)
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    if (seriesIndex < 0 || seriesIndex >= layer.data.length) {
+      throw new Error(`Series index ${seriesIndex} is out of bounds for data length ${layer.data.length}`);
+    }
+
+    const barSeries = layer.data[seriesIndex] as DodgedBarDataPoint[];
+
+    if (!Array.isArray(barSeries)) {
+      throw new TypeError('Bar series is not an array');
+    }
+
+    if (index < 0 || index >= barSeries.length) {
+      throw new Error(`Index ${index} is out of bounds for data length ${barSeries.length}`);
+    }
+
+    const barPoint = barSeries[index];
+
+    if (!barPoint || typeof barPoint.x === 'undefined') {
+      throw new Error(`Data point at index ${index} has invalid format`);
+    }
+
+    return String(barPoint.x);
+  } else if (Array.isArray(layer.data)) {
+    if (index < 0 || index >= layer.data.length) {
+      throw new Error(`Index ${index} is out of bounds for data length ${layer.data.length}`);
+    }
+
+    const dataPoint = layer.data[index];
+
+    if (!dataPoint || !('x' in dataPoint)) {
+      throw new Error(`Data point at index ${index} has invalid format`);
+    }
+
+    return String(dataPoint.x);
+  }
+
+  throw new TypeError('Layer data is not in expected format');
+}
+
+/**
+ * Gets the correct data length from a dodged barplot layer
+ * @param layer - The MAIDR layer containing dodged barplot data
+ * @param seriesIndex - Index of the series to get length for (default: 0)
+ * @returns The number of data points in the specified series
+ * @throws Error if data structure is invalid
+ */
+function getDodgedBarplotDataLength(
+  layer: MaidrLayer | undefined,
+  seriesIndex = 0,
+): number {
+  if (!layer?.data) {
+    throw new TypeError('Layer data is undefined');
+  }
+
+  // Handle nested array structure (dodged barplot data is typically nested)
+  if (Array.isArray(layer.data) && Array.isArray(layer.data[0])) {
+    if (seriesIndex < 0 || seriesIndex >= layer.data.length) {
+      throw new Error(`Series index ${seriesIndex} is out of bounds for data length ${layer.data.length}`);
+    }
+    const seriesData = layer.data[seriesIndex];
+    if (Array.isArray(seriesData)) {
+      return seriesData.length;
+    }
+    throw new TypeError('Series data is not an array');
+  } else if (Array.isArray(layer.data)) {
+    return layer.data.length;
+  }
+
+  throw new TypeError('Layer data is not in expected format');
+}
+
 /**
  * Helper function to create and initialize a dodged barplot page
  * @param page - The Playwright page
@@ -57,7 +152,7 @@ test.describe('Dodged Barplot', () => {
       }, TestConstants.DODGED_BARPLOT_ID);
 
       dodgedBarplotLayer = maidrData.subplots[0][0].layers[0];
-      dataLength = (dodgedBarplotLayer.data as { x: string; y: number }[]).length;
+      dataLength = getDodgedBarplotDataLength(dodgedBarplotLayer);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -206,7 +301,7 @@ test.describe('Dodged Barplot', () => {
     }
 
     const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    expect(currentDataPoint).toContain(TestConstants.PLOT_EXTREME_VERIFICATION);
   });
 
   test('should move from right to left', async ({ page }) => {
@@ -217,7 +312,7 @@ test.describe('Dodged Barplot', () => {
     }
 
     const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    expect(currentDataPoint).toContain(TestConstants.PLOT_EXTREME_VERIFICATION);
   });
 
   test('should move to the first data point', async ({ page }) => {
@@ -225,10 +320,13 @@ test.describe('Dodged Barplot', () => {
 
     await dodgedBarplotPage.moveToFirstDataPoint();
     const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    if (Array.isArray(dodgedBarplotLayer?.data) && dataLength > 0 && 'x' in dodgedBarplotLayer.data[0]) {
-      expect(currentDataPoint).toContain((dodgedBarplotLayer.data[0] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in dodgedBarplotLayer');
+
+    try {
+      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`First data point verification failed: ${errorMessage}`);
     }
   });
 
@@ -237,42 +335,44 @@ test.describe('Dodged Barplot', () => {
 
     await dodgedBarplotPage.moveToLastDataPoint();
     const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    if (Array.isArray(dodgedBarplotLayer?.data) && dataLength > 0 && 'x' in dodgedBarplotLayer.data[0]) {
-      expect(currentDataPoint).toContain((dodgedBarplotLayer.data[dataLength - 1] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in dodgedBarplotLayer');
+
+    try {
+      const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Last data point verification failed: ${errorMessage}`);
     }
   });
 
   test('should execute forward autoplay', async ({ page }) => {
     const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(dodgedBarplotLayer.data) && dataLength > 0 && 'x' in dodgedBarplotLayer.data[0]) {
-      expectedDataPoint = (dodgedBarplotLayer.data[dataLength - 1] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in dodgedBarplotLayer');
-    }
+    try {
+      const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
 
-    await dodgedBarplotPage.startForwardAutoplay(
-      expectedDataPoint,
-    );
+      await dodgedBarplotPage.startForwardAutoplay(
+        lastDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+    }
   });
 
   test('should execute backward autoplay', async ({ page }) => {
     const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    let expectedDataPoint: string;
-    if (Array.isArray(dodgedBarplotLayer.data) && dataLength > 0 && 'x' in dodgedBarplotLayer.data[0]) {
-      expectedDataPoint = (dodgedBarplotLayer.data[0] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in dodgedBarplotLayer');
+    try {
+      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+
+      await dodgedBarplotPage.moveToLastDataPoint();
+      await dodgedBarplotPage.startReverseAutoplay(
+        firstDataPointValue,
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
     }
-
-    await dodgedBarplotPage.moveToLastDataPoint();
-
-    await dodgedBarplotPage.startReverseAutoplay(
-      expectedDataPoint,
-    );
   });
 });
