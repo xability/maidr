@@ -33,13 +33,17 @@ export class ReviewService implements Observer<TraceState>, Disposable {
   }
 
   public update(state: TraceState): void {
+    if (state.empty) {
+      return;
+    }
+
     const review = this.text.format(state);
     if (review) {
       this.onChangeEmitter.fire({ value: review });
     }
   }
 
-  public toggle(oldState: boolean, state?: TraceState): boolean {
+  public toggle(oldState: boolean, state: TraceState): boolean {
     state && this.update(state);
     this.display.toggleFocus(Scope.REVIEW);
 

@@ -56,7 +56,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
     return this.store.getState().review;
   }
 
-  public toggle(state?: TraceState): void {
+  public toggle(state: TraceState): void {
     const enabled = this.reviewService.toggle(this.state.enabled, state);
     this.store.dispatch(toggle(enabled));
   }
