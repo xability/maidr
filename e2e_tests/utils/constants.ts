@@ -31,6 +31,8 @@ export abstract class TestConstants {
   static readonly LINEPLOT_ID = 'line';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
+  static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
+  static readonly BOXPLOT_HORIZONTAL_ID = 'boxplot_horizontal';
 
   /**
    * MAIDR plot identifiers
@@ -90,6 +92,7 @@ export abstract class TestConstants {
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes
@@ -117,6 +120,7 @@ export abstract class TestConstants {
   static readonly BRAILLE_INCEPTION = 'No info for braille';
   static readonly BRAILLE_MODE_ON = 'Braille is on';
   static readonly BRAILLE_MODE_OFF = 'Braille is off';
+  static readonly BRAILLE_BOXPLOT_STATUS = 'Braille is not supported for plot type: box';
 
   /**
    * Sound Modes

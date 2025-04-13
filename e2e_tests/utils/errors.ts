@@ -152,3 +152,17 @@ export class StackedBarplotError extends Error {
     this.name = 'StackedBarplotError';
   }
 }
+
+/**
+ * Error thrown when Vertical Boxplot related operations fail
+ */
+export class BoxplotVerticalError extends Error {
+  /**
+   * Creates a new BoxplotVerticalError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'BoxplotVerticalError';
+  }
+}
