@@ -4,7 +4,7 @@ import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createAction, createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from './viewModel';
+import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 interface ChatState {
   enabled: boolean;
@@ -85,97 +85,61 @@ const chatSlice = createSlice({
       });
   },
 });
-const { toggle, reset } = chatSlice.actions;
+const { toggle } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
   private readonly audioService: AudioService;
 
-  constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
+  public constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
     super(store);
     this.chatService = chatService;
     this.audioService = audioService;
   }
 
-  public dispose(): void {
-    this.store.dispatch(reset());
-  }
-
   public get state(): ChatState {
-    return this.snapshot.chat;
+    return this.store.getState().chat;
   }
 
-  private get snapshot(): Readonly<RootState> {
-    return this.store.getState();
+  private get settings(): RootState['settings'] {
+    return this.store.getState().settings;
   }
 
   public toggle(): void {
-    const enabled = this.chatService.toggle(this.state.enabled);
-    this.store.dispatch(toggle(enabled));
+    this.store.dispatch(toggle(!this.state.enabled));
   }
 
-  public addSystemMessage(text: string): void {
-    this.store.dispatch(addSystemMessage({
-      text,
-      timestamp: new Date().toISOString(),
-    }));
+  public addMessage(text: string, isUser: boolean = false, _model?: Llm): void {
+    const timestamp = new Date().toISOString();
+    if (isUser) {
+      this.store.dispatch(addUserMessage({ text, timestamp }));
+    } else {
+      this.store.dispatch(addSystemMessage({ text, timestamp }));
+    }
   }
 
-  public async sendMessage(newMessage: string): Promise<void> {
-    const { llm: llmSettings } = this.snapshot.settings;
-    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled);
+  public async sendMessage(text: string): Promise<void> {
+    const enabledModel = Object.entries(this.settings.llm.models).find(([_, model]) =>
+      model.enabled && model.apiKey,
+    );
 
-    if (enabledModels.length === 0) {
-      this.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings.');
+    if (!enabledModel) {
+      this.addMessage('No agents are enabled. Please enable at least one agent in the settings page.');
       return;
     }
 
-    const timestamp = new Date().toISOString();
-    this.store.dispatch(addUserMessage({
-      text: newMessage,
-      timestamp,
-    }));
+    const [model, config] = enabledModel;
+    this.addMessage(text, true);
 
-    await Promise.all(enabledModels.map(async (model) => {
-      const audioId = this.audioService.playWaitingTone();
-      try {
-        this.store.dispatch(addPendingResponse({
-          model,
-          timestamp,
-        }));
-
-        const config = llmSettings.models[model];
-        const response = await this.chatService.sendMessage(model, {
-          message: newMessage,
-          customInstruction: llmSettings.customInstruction,
-          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
-          apiKey: config.apiKey,
-        });
-
-        this.audioService.stop(audioId);
-        if (response.error) {
-          this.store.dispatch(updateError({
-            model,
-            error: response.error,
-            timestamp,
-          }));
-        } else {
-          this.store.dispatch(updateResponse({
-            model,
-            data: response.data!,
-            timestamp,
-          }));
-        }
-      } catch (error) {
-        this.audioService.stop(audioId);
-        this.store.dispatch(updateError({
-          model,
-          error: error instanceof Error ? error.message : 'Error processing request',
-          timestamp,
-        }));
+    try {
+      await this.chatService.sendMessage(text, model as Llm, config.apiKey);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('authentication')) {
+        this.addMessage('The API key is not authenticated. Please check your API key in the settings page.');
+      } else {
+        this.addMessage('Error sending message. Please try again.');
       }
-    }));
+    }
   }
 }
 
