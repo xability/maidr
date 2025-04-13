@@ -166,3 +166,17 @@ export class BoxplotVerticalError extends Error {
     this.name = 'BoxplotVerticalError';
   }
 }
+
+/**
+ * Error thrown when Horizontal Boxplot related operations fail
+ */
+export class BoxplotHorizontalError extends Error {
+  /**
+   * Creates a new BoxplotHorizontalError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'BoxplotHorizontalError';
+  }
+}
