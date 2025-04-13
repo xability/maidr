@@ -8,8 +8,7 @@ import {
   Grid,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { toggleHelpMenu } from '@redux/slice/helpSlice';
+import { useViewModel } from '@state/hook/useViewModel';
 import React from 'react';
 
 interface HelpRowProps {
@@ -38,11 +37,11 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 );
 
 const Help: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { enabled, items } = useAppSelector(state => state.help);
+  const viewModel = useViewModel('help');
+  const { enabled, items } = viewModel.state;
 
   const handleClose = (): void => {
-    dispatch(toggleHelpMenu());
+    viewModel.toggle();
   };
 
   return (

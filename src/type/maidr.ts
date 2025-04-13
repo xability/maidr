@@ -4,7 +4,7 @@ import type {
   HeatmapData,
   HistogramPoint,
   LinePoint,
-  ScatterSeries,
+  ScatterPoint,
   SegmentedPoint,
 } from '@model/grammar';
 import type { Orientation } from './plot';
@@ -25,7 +25,7 @@ export interface MaidrSubplot {
 export interface MaidrLayer {
   type: string;
   title?: string;
-  selector?: string;
+  selectors?: string | string[];
   orientation?: Orientation;
   axes?: {
     x?: string;
@@ -38,6 +38,6 @@ export interface MaidrLayer {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
-    | ScatterSeries[]
+    | ScatterPoint[]
     | SegmentedPoint[][];
 }

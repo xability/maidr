@@ -1,3 +1,59 @@
+## [2.4.2](https://github.com/xability/maidr-ts/compare/v2.4.1...v2.4.2) (2025-04-10)
+
+
+### Bug Fixes
+
+* show the keyboard shortcuts properly on toggle ([#172](https://github.com/xability/maidr-ts/issues/172)) ([13918b3](https://github.com/xability/maidr-ts/commit/13918b36b1ad1aa9d6e4806d29e5a15008081b2b))
+
+## [2.4.1](https://github.com/xability/maidr-ts/compare/v2.4.0...v2.4.1) (2025-04-10)
+
+
+### Bug Fixes
+
+* update scatter plot row by row highlighting ([#168](https://github.com/xability/maidr-ts/issues/168)) ([3d39140](https://github.com/xability/maidr-ts/commit/3d39140fd920b799fe3147339b55555400e229ee))
+
+# [2.4.0](https://github.com/xability/maidr-ts/compare/v2.3.1...v2.4.0) (2025-04-10)
+
+
+### Features
+
+* visual highlighting for scatterplot ([#158](https://github.com/xability/maidr-ts/issues/158)) ([59c13cc](https://github.com/xability/maidr-ts/commit/59c13cc0ebf82175d1d0fc86599c826ef643fe3a))
+
+## [2.3.1](https://github.com/xability/maidr-ts/compare/v2.3.0...v2.3.1) (2025-04-08)
+
+
+### Performance Improvements
+
+* support mvvm architecture ([#167](https://github.com/xability/maidr-ts/issues/167)) ([ddcb1b2](https://github.com/xability/maidr-ts/commit/ddcb1b24d99f8570833d1eb6402f035d9cc2d18f))
+
+# [2.3.0](https://github.com/xability/maidr-ts/compare/v2.2.0...v2.3.0) (2025-04-08)
+
+
+### Features
+
+* move text feature to react ([#163](https://github.com/xability/maidr-ts/issues/163)) ([a443bd5](https://github.com/xability/maidr-ts/commit/a443bd5c349f6e67e625ce668cf62436a8ab8c83))
+
+# [2.2.0](https://github.com/xability/maidr-ts/compare/v2.1.0...v2.2.0) (2025-03-30)
+
+
+### Features
+
+* support line plot highlighting ([#159](https://github.com/xability/maidr-ts/issues/159)) ([454da00](https://github.com/xability/maidr-ts/commit/454da0076a318572b4bb63d6963979df90b59c9e))
+
+# [2.1.0](https://github.com/xability/maidr-ts/compare/v2.0.1...v2.1.0) (2025-03-28)
+
+
+### Features
+
+* support highlighting for bar plot, histogram, and heatmap ([#157](https://github.com/xability/maidr-ts/issues/157)) ([50064bc](https://github.com/xability/maidr-ts/commit/50064bcaaac93d9bb5985adf10fdd1b40dcf7a65))
+
+## [2.0.1](https://github.com/xability/maidr-ts/compare/v2.0.0...v2.0.1) (2025-03-24)
+
+
+### Bug Fixes
+
+* update audio to cycle combined mode in multi layer ([#156](https://github.com/xability/maidr-ts/issues/156)) ([9b9fa83](https://github.com/xability/maidr-ts/commit/9b9fa83b19bb58d68591a99db47b76c71817be70))
+
 # [2.0.0](https://github.com/xability/maidr-ts/compare/v1.2.2...v2.0.0) (2025-03-18)
 
 

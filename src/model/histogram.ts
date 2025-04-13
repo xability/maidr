@@ -5,8 +5,8 @@ import { Orientation } from '@type/plot';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
-  public constructor(maidr: MaidrLayer) {
-    super(maidr, [maidr.data as HistogramPoint[]]);
+  public constructor(layer: MaidrLayer) {
+    super(layer, [layer.data as HistogramPoint[]]);
   }
 
   protected text(): TextState {

@@ -1,16 +1,13 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
-import type { NotificationService } from '@service/notification';
-import type { ReviewService } from '@service/review';
-import type { TextService } from '@service/text';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
-import { ScatterPlot } from '@model/scatter';
-import { toggleChat } from '@redux/slice/chatSlice';
-import { toggleHelpMenu } from '@redux/slice/helpSlice';
-import { toggleSettings } from '@redux/slice/settingsSlice';
-import { store } from '@redux/store';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: ContextService;
@@ -30,14 +27,14 @@ export class ToggleBrailleCommand implements Command {
 }
 
 export class ToggleTextCommand implements Command {
-  private readonly text: TextService;
+  private readonly textViewModel: TextViewModel;
 
-  public constructor(text: TextService) {
-    this.text = text;
+  public constructor(textViewModel: TextViewModel) {
+    this.textViewModel = textViewModel;
   }
 
   public execute(): void {
-    this.text.toggle();
+    this.textViewModel.toggle();
   }
 }
 
@@ -55,53 +52,54 @@ export class ToggleAudioCommand implements Command {
 
 export class ToggleReviewCommand implements Command {
   private readonly context: ContextService;
-  private readonly review: ReviewService;
+  private readonly reviewViewModel: ReviewViewModel;
 
-  public constructor(context: ContextService, review: ReviewService) {
+  public constructor(context: ContextService, reviewViewModel: ReviewViewModel) {
     this.context = context;
-    this.review = review;
+    this.reviewViewModel = reviewViewModel;
   }
 
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
-      this.review.toggle(state);
-    }
-  }
-}
-
-export class ToggleScatterNavigationCommand implements Command {
-  private readonly context: ContextService;
-  private readonly notification: NotificationService;
-
-  public constructor(context: ContextService, notification: NotificationService) {
-    this.context = context;
-    this.notification = notification;
-  }
-
-  public execute(): void {
-    const activeContext = this.context.active;
-    if (activeContext instanceof ScatterPlot) {
-      (activeContext as ScatterPlot).toggleNavigation(this.notification);
+      this.reviewViewModel.toggle(state);
     }
   }
 }
 
 export class ToggleHelpCommand implements Command {
+  private readonly helpViewModel: HelpViewModel;
+
+  public constructor(helpViewModel: HelpViewModel) {
+    this.helpViewModel = helpViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleHelpMenu());
+    this.helpViewModel.toggle();
   }
 }
 
 export class ToggleChatCommand implements Command {
+  private readonly chatViewModel: ChatViewModel;
+
+  public constructor(chatViewModel: ChatViewModel) {
+    this.chatViewModel = chatViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleChat());
+    this.chatViewModel.toggle();
   }
 }
 
 export class ToggleSettingsCommand implements Command {
+  private readonly settingsViewModel: SettingsViewModel;
+
+  public constructor(settingsViewModel: SettingsViewModel) {
+    this.settingsViewModel = settingsViewModel;
+  }
+
   public execute(): void {
-    store.dispatch(toggleSettings());
+    this.settingsViewModel.toggle();
   }
 }
 

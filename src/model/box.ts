@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, TextState } from '@type/state';
 import type { BoxPoint } from './grammar';
 import { Orientation } from '@type/plot';
 import { AbstractTrace } from './plot';
@@ -24,11 +24,11 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(maidr: MaidrLayer) {
-    super(maidr);
+  constructor(layer: MaidrLayer) {
+    super(layer);
 
-    this.points = maidr.data as BoxPoint[];
-    this.orientation = maidr.orientation ?? Orientation.VERTICAL;
+    this.points = layer.data as BoxPoint[];
+    this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
     this.boxValues = this.points.map(point => [
@@ -50,21 +50,25 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.row = this.boxValues.length - 1;
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
     this.boxValues.length = 0;
 
     this.sections.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
   }
 
-  protected get brailleValues(): string[][] {
-    return [];
+  protected get brailleValues(): null {
+    return null;
+  }
+
+  protected get highlightValues(): null {
+    return null;
   }
 
   protected audio(): AudioState {
@@ -81,13 +85,6 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       size: this.sections.length,
       index,
       value,
-    };
-  }
-
-  protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: this.type,
     };
   }
 

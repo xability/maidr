@@ -7,7 +7,9 @@ import { AbstractTrace } from './plot';
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
+
   protected readonly brailleValues: string[][];
+  protected readonly highlightValues: SVGElement[][] | null;
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -28,18 +30,21 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.min = this.barValues.map(row => Math.min(...row));
     this.max = this.barValues.map(row => Math.max(...row));
 
-    this.brailleValues = this.getBraille();
+    this.brailleValues = this.mapToBraille(this.barValues);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
     this.barValues.length = 0;
+
     this.brailleValues.length = 0;
+    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): number[][] {
@@ -79,8 +84,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     };
   }
 
-  protected getBraille(): string[][] {
-    return this.barValues.map((row, index) =>
+  private mapToBraille(data: number[][]): string[][] {
+    return data.map((row, index) =>
       this.createBraille(row, this.min[index], this.max[index]),
     );
   }
@@ -108,6 +113,24 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     }
 
     return braille;
+  }
+
+  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
+    if (!selector) {
+      return null;
+    }
+
+    const svgElements = [Array.from(document.querySelectorAll<SVGElement>(selector))];
+    if (svgElements.length !== this.points.length) {
+      return null;
+    }
+    for (let row = 0; row < this.points.length; row++) {
+      if (svgElements[row].length !== this.points[row].length) {
+        return null;
+      }
+    }
+
+    return svgElements;
   }
 }
 

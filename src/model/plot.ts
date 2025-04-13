@@ -1,3 +1,4 @@
+import type { Disposable } from '@type/disposable';
 import type { MaidrLayer } from '@type/maidr';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
@@ -6,6 +7,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  HighlightState,
   TextState,
   TraceState,
 } from '@type/state';
@@ -16,7 +18,7 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State> {
+export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -35,7 +37,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = 0;
   }
 
-  protected destroy(): void {
+  public dispose(): void {
     for (const observer of this.observers) {
       this.removeObserver(observer);
     }
@@ -120,7 +122,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  private handleInitialEntry(): void {
+  protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
     this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
@@ -171,8 +173,8 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
-  public destroy(): void {
-    super.destroy();
+  public dispose(): void {
+    super.dispose();
   }
 
   public get state(): TraceState {
@@ -180,6 +182,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       return {
         empty: true,
         type: 'trace',
+        traceType: this.type,
       };
     }
 
@@ -191,19 +194,44 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
+      hasMultiPoints: this.hasMultiPoints(),
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
       autoplay: this.autoplay(),
+      highlight: this.highlight(),
     };
   }
 
-  protected braille(): BrailleState {
+  private braille(): BrailleState {
+    if (this.brailleValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
     return {
       empty: false,
       values: this.brailleValues,
       row: this.row,
       col: this.col,
+    };
+  }
+
+  protected highlight(): HighlightState {
+    if (this.highlightValues === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValues[this.row][this.col],
     };
   }
 
@@ -216,7 +244,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  public get hasMultiPoints(): boolean {
+  protected hasMultiPoints(): boolean {
     return false;
   }
 
@@ -224,5 +252,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract text(): TextState;
 
-  protected abstract get brailleValues(): string[][];
+  protected abstract get brailleValues(): string[][] | null;
+
+  protected abstract get highlightValues(): SVGElement[][] | null;
 }
