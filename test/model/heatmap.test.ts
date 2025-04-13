@@ -1,4 +1,4 @@
-import type { HeatmapData } from '../src/model/grammar';
+import type { HeatmapData } from '@model/grammar';
 import { expect } from '@jest/globals';
 
 interface ChartLayer {
@@ -203,15 +203,15 @@ function findMinValueCoordinates(data: HeatmapData): { xIndex: number; yIndex: n
   return minCoords;
 }
 
-describe('Heatmap Data Tests', () => {
+describe('heatmap Data Tests', () => {
   let heatmapData: HeatmapData;
 
   beforeEach(() => {
     heatmapData = getHeatmapData(maidrData);
   });
 
-  describe('Data Structure Validation', () => {
-    test('should have valid heatmap chart structure', () => {
+  describe('data Structure Validation', () => {
+    it('should have valid heatmap chart structure', () => {
       const layer = maidrData.subplots[0][0].layers[0];
 
       expect(layer.type).toBe('heat');
@@ -223,14 +223,14 @@ describe('Heatmap Data Tests', () => {
       expect(layer.data).toBeDefined();
     });
 
-    test('should have valid x and y arrays', () => {
+    it('should have valid x and y arrays', () => {
       expect(Array.isArray(heatmapData.x)).toBe(true);
       expect(Array.isArray(heatmapData.y)).toBe(true);
       expect(heatmapData.x.length).toBeGreaterThan(0);
       expect(heatmapData.y.length).toBeGreaterThan(0);
     });
 
-    test('should have valid points matrix', () => {
+    it('should have valid points matrix', () => {
       expect(Array.isArray(heatmapData.points)).toBe(true);
       expect(heatmapData.points.length).toBe(heatmapData.y.length);
 
@@ -240,8 +240,8 @@ describe('Heatmap Data Tests', () => {
     });
   });
 
-  describe('Value Retrieval Operations', () => {
-    test('should get correct value at specific coordinates', () => {
+  describe('value Retrieval Operations', () => {
+    it('should get correct value at specific coordinates', () => {
       const janValue = getValueAt(heatmapData, 0, 11);
       expect(janValue).toBe(112.0);
 
@@ -249,7 +249,7 @@ describe('Heatmap Data Tests', () => {
       expect(decValue).toBe(432.0);
     });
 
-    test('should return null for out-of-bounds coordinates', () => {
+    it('should return null for out-of-bounds coordinates', () => {
       expect(getValueAt(heatmapData, -1, 0)).toBeNull();
       expect(getValueAt(heatmapData, 0, -1)).toBeNull();
       expect(getValueAt(heatmapData, 12, 0)).toBeNull();
@@ -257,8 +257,8 @@ describe('Heatmap Data Tests', () => {
     });
   });
 
-  describe('Aggregate Operations', () => {
-    test('should calculate correct average for a specific year', () => {
+  describe('aggregate Operations', () => {
+    it('should calculate correct average for a specific year', () => {
       const avg1949 = getAverageForXValue(heatmapData, 0);
       expect(avg1949).toBeCloseTo(126.667, 3);
 
@@ -267,31 +267,31 @@ describe('Heatmap Data Tests', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    test('should throw error when getting max value with empty data', () => {
+  describe('error Handling', () => {
+    it('should throw error when getting max value with empty data', () => {
       const emptyData: HeatmapData = { x: [], y: [], points: [] };
       expect(() => getMaximumValue(emptyData)).toThrow();
     });
 
-    test('should throw error when getting min value with empty data', () => {
+    it('should throw error when getting min value with empty data', () => {
       const emptyData: HeatmapData = { x: [], y: [], points: [] };
       expect(() => getMinimumValue(emptyData)).toThrow();
     });
 
-    test('should throw error when finding coordinates with empty data', () => {
+    it('should throw error when finding coordinates with empty data', () => {
       const emptyData: HeatmapData = { x: [], y: [], points: [] };
       expect(() => findMaxValueCoordinates(emptyData)).toThrow();
       expect(() => findMinValueCoordinates(emptyData)).toThrow();
     });
 
-    test('should throw error for invalid subplot or layer indices', () => {
+    it('should throw error for invalid subplot or layer indices', () => {
       expect(() => getHeatmapData(maidrData, 1)).toThrow('Invalid subplot or layer index');
       expect(() => getHeatmapData(maidrData, 0, 1)).toThrow('Invalid subplot or layer index');
     });
   });
 
-  describe('Edge Cases', () => {
-    test('should handle empty rows correctly', () => {
+  describe('edge Cases', () => {
+    it('should handle empty rows correctly', () => {
       const dataWithEmptyRow: HeatmapData = {
         x: ['1', '2'],
         y: ['A', 'B', 'C'],
@@ -307,7 +307,7 @@ describe('Heatmap Data Tests', () => {
       expect(getAverageForYValue(dataWithEmptyRow, 2)).toBe(35);
     });
 
-    test('should handle single value heatmap', () => {
+    it('should handle single value heatmap', () => {
       const singleValueData: HeatmapData = {
         x: ['2023'],
         y: ['Jan'],

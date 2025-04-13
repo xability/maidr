@@ -122,8 +122,7 @@ function getAllCategories(chart: MaidrChart): string[] {
     allData.push(...group);
   });
 
-  const uniqueCategories = [...new Set(allData.map(point => point.x))];
-  return uniqueCategories;
+  return [...new Set(allData.map(point => point.x))];
 }
 
 function getGroupLabels(chart: MaidrChart): string[] {
@@ -196,7 +195,7 @@ function navigateGroup(
   return newIndex;
 }
 
-describe('Dodged Bar Plot Data Tests', () => {
+describe('dodged Bar Plot Data Tests', () => {
   let rearWheelData: BarPoint[];
   let frontWheelData: BarPoint[];
   let fourWheelData: BarPoint[];
@@ -207,8 +206,8 @@ describe('Dodged Bar Plot Data Tests', () => {
     fourWheelData = getGroupData(maidrData, 2);
   });
 
-  describe('Data Structure Validation', () => {
-    test('should have valid dodged bar chart structure', () => {
+  describe('data Structure Validation', () => {
+    it('should have valid dodged bar chart structure', () => {
       const layer = maidrData.subplots[0][0].layers[0];
 
       expect(layer.type).toBe('dodged_bar');
@@ -221,7 +220,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(layer.data.length).toBe(3);
     });
 
-    test('should contain valid bar data points', () => {
+    it('should contain valid bar data points', () => {
       const allGroups = maidrData.subplots[0][0].layers[0].data;
       allGroups.forEach((group) => {
         group.forEach((point) => {
@@ -233,7 +232,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       });
     });
 
-    test('should have consistent categories across groups', () => {
+    it('should have consistent categories across groups', () => {
       const categories = getAllCategories(maidrData);
       expect(categories.length).toBe(7);
 
@@ -246,8 +245,8 @@ describe('Dodged Bar Plot Data Tests', () => {
     });
   });
 
-  describe('Data Value Verification', () => {
-    test('should have correct values for rear-wheel drive', () => {
+  describe('data Value Verification', () => {
+    it('should have correct values for rear-wheel drive', () => {
       const twoSeater = findPointByCategory(rearWheelData, '2seater');
       const subcompact = findPointByCategory(rearWheelData, 'subcompact');
       const sub = findPointByCategory(rearWheelData, 'sub');
@@ -260,7 +259,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(sub?.y).toBe(11);
     });
 
-    test('should have correct values for front-wheel drive', () => {
+    it('should have correct values for front-wheel drive', () => {
       const compact = findPointByCategory(frontWheelData, 'compact');
       const midsize = findPointByCategory(frontWheelData, 'midsize');
       const minivan = findPointByCategory(frontWheelData, 'minivan');
@@ -273,7 +272,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(minivan?.y).toBe(11);
     });
 
-    test('should have correct values for four-wheel drive', () => {
+    it('should have correct values for four-wheel drive', () => {
       const pickup = findPointByCategory(fourWheelData, 'pickup');
       const sub = findPointByCategory(fourWheelData, 'sub');
 
@@ -283,60 +282,60 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(sub?.y).toBe(51);
     });
 
-    test('should identify maximum values correctly', () => {
+    it('should identify maximum values correctly', () => {
       expect(getMaximumValue(rearWheelData)).toBe(11);
       expect(getMaximumValue(frontWheelData)).toBe(38);
       expect(getMaximumValue(fourWheelData)).toBe(51);
     });
 
-    test('should identify minimum values correctly', () => {
+    it('should identify minimum values correctly', () => {
       expect(getMinimumValue(rearWheelData)).toBe(0);
       expect(getMinimumValue(frontWheelData)).toBe(0);
       expect(getMinimumValue(fourWheelData)).toBe(0);
     });
   });
 
-  describe('Category Analysis', () => {
-    test('should compute category totals correctly', () => {
+  describe('category Analysis', () => {
+    it('should compute category totals correctly', () => {
       expect(getTotalByCategory(maidrData, '2seater')).toBe(5);
       expect(getTotalByCategory(maidrData, 'compact')).toBe(47);
       expect(getTotalByCategory(maidrData, 'midsize')).toBe(41);
       expect(getTotalByCategory(maidrData, 'sub')).toBe(62);
     });
 
-    test('should identify category with maximum total', () => {
+    it('should identify category with maximum total', () => {
       expect(getMaximumCategory(maidrData)).toBe('sub');
     });
 
-    test('should identify drive types for each group', () => {
+    it('should identify drive types for each group', () => {
       const groups = getGroupLabels(maidrData);
       expect(groups).toEqual(['r', 'f', '4']);
     });
   });
 
-  describe('Navigation Operations', () => {
-    test('should navigate to the next group correctly', () => {
+  describe('navigation Operations', () => {
+    it('should navigate to the next group correctly', () => {
       const currentGroupIndex = 0;
       const nextGroupIndex = navigateGroup(maidrData, currentGroupIndex, 1);
 
       expect(nextGroupIndex).toBe(1);
     });
 
-    test('should navigate to the previous group correctly', () => {
+    it('should navigate to the previous group correctly', () => {
       const currentGroupIndex = 1;
       const prevGroupIndex = navigateGroup(maidrData, currentGroupIndex, -1);
 
       expect(prevGroupIndex).toBe(0);
     });
 
-    test('should wrap around to the first group when navigating past the last group', () => {
+    it('should wrap around to the first group when navigating past the last group', () => {
       const currentGroupIndex = 2;
       const nextGroupIndex = navigateGroup(maidrData, currentGroupIndex, 1);
 
       expect(nextGroupIndex).toBe(0);
     });
 
-    test('should wrap around to the last group when navigating before the first group', () => {
+    it('should wrap around to the last group when navigating before the first group', () => {
       const currentGroupIndex = 0;
       const prevGroupIndex = navigateGroup(maidrData, currentGroupIndex, -1);
 
@@ -344,29 +343,29 @@ describe('Dodged Bar Plot Data Tests', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    test('should throw error when getting maximum value from empty data', () => {
+  describe('error Handling', () => {
+    it('should throw error when getting maximum value from empty data', () => {
       const emptyData: BarPoint[] = [];
       expect(() => getMaximumValue(emptyData)).toThrow(DodgedBarDataError);
     });
 
-    test('should throw error when getting minimum value from empty data', () => {
+    it('should throw error when getting minimum value from empty data', () => {
       const emptyData: BarPoint[] = [];
       expect(() => getMinimumValue(emptyData)).toThrow(DodgedBarDataError);
     });
 
-    test('should throw error for invalid subplot or layer indices', () => {
+    it('should throw error for invalid subplot or layer indices', () => {
       expect(() => getGroupData(maidrData, 0, 1)).toThrow(DodgedBarDataError);
       expect(() => getGroupData(maidrData, 0, 0, 1)).toThrow(DodgedBarDataError);
     });
 
-    test('should throw error for invalid group index', () => {
+    it('should throw error for invalid group index', () => {
       expect(() => getGroupData(maidrData, 3)).toThrow(DodgedBarDataError);
     });
   });
 
-  describe('Edge Cases', () => {
-    test('should handle categories with zero values', () => {
+  describe('edge Cases', () => {
+    it('should handle categories with zero values', () => {
       const rearMidsize = findPointByCategory(rearWheelData, 'midsize');
       const frontPickup = findPointByCategory(frontWheelData, 'pickup');
       const fourMinivan = findPointByCategory(fourWheelData, 'minivan');
@@ -376,7 +375,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(fourMinivan?.y).toBe(0);
     });
 
-    test('should handle navigation with single group', () => {
+    it('should handle navigation with single group', () => {
       const singleGroupChart = {
         ...maidrData,
         subplots: [[{
@@ -394,7 +393,7 @@ describe('Dodged Bar Plot Data Tests', () => {
       expect(prevIndex).toBe(0);
     });
 
-    test('should return undefined for non-existent category', () => {
+    it('should return undefined for non-existent category', () => {
       const nonExistent = findPointByCategory(rearWheelData, 'luxury');
       expect(nonExistent).toBeUndefined();
     });

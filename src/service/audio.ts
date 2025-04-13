@@ -255,8 +255,4 @@ export class AudioService implements Observer<TraceState> {
       this.timeoutId = null;
     }
   }
-
-  public updateVolume(volume: number): void {
-    this.volume = volume;
-  }
 }

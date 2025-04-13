@@ -1,4 +1,4 @@
-import type { BoxPoint } from '../src/model/grammar';
+import type { BoxPoint } from '@model/grammar';
 import { expect } from '@jest/globals';
 
 interface ChartLayer {
@@ -200,15 +200,15 @@ function navigateBox(data: BoxPoint[], currentIndex: number, direction: 1 | -1):
   return newIndex;
 }
 
-describe('Box Plot Data Tests', () => {
+describe('box Plot Data Tests', () => {
   let boxData: BoxPoint[];
 
   beforeEach(() => {
     boxData = getBoxData(maidrData);
   });
 
-  describe('Data Structure Validation', () => {
-    test('should have valid boxplot chart structure', () => {
+  describe('data Structure Validation', () => {
+    it('should have valid boxplot chart structure', () => {
       const layer = maidrData.subplots[0][0].layers[0];
 
       expect(layer.type).toBe('box');
@@ -220,7 +220,7 @@ describe('Box Plot Data Tests', () => {
       expect(Array.isArray(layer.data)).toBe(true);
     });
 
-    test('should have valid box points in data array', () => {
+    it('should have valid box points in data array', () => {
       boxData.forEach((point) => {
         expect(point).toHaveProperty('fill');
         expect(point).toHaveProperty('min');
@@ -233,7 +233,7 @@ describe('Box Plot Data Tests', () => {
       });
     });
 
-    test('should have expected number of continents', () => {
+    it('should have expected number of continents', () => {
       expect(boxData.length).toBe(5);
 
       const continents = boxData.map(point => point.fill);
@@ -245,8 +245,8 @@ describe('Box Plot Data Tests', () => {
     });
   });
 
-  describe('Data Value Verification', () => {
-    test('should have correct quartile values for Africa', () => {
+  describe('data Value Verification', () => {
+    it('should have correct quartile values for Africa', () => {
       const africa = findBoxByFill(boxData, 'Africa');
       expect(africa).toBeDefined();
       expect(africa!.min).toBe(30);
@@ -256,7 +256,7 @@ describe('Box Plot Data Tests', () => {
       expect(africa!.max).toBe(72.301);
     });
 
-    test('should have correct number of outliers for each continent', () => {
+    it('should have correct number of outliers for each continent', () => {
       const africa = findBoxByFill(boxData, 'Africa')!;
       expect(countOutliers(africa)).toBe(10);
 
@@ -267,40 +267,40 @@ describe('Box Plot Data Tests', () => {
       expect(countOutliers(oceania)).toBe(0);
     });
 
-    test('should identify maximum median value correctly', () => {
+    it('should identify maximum median value correctly', () => {
       const maxMedian = getMaximumMedian(boxData);
       expect(maxMedian).toBe(73.665);
     });
 
-    test('should identify minimum median value correctly', () => {
+    it('should identify minimum median value correctly', () => {
       const minMedian = getMinimumMedian(boxData);
       expect(minMedian).toBe(47.792);
     });
   });
 
-  describe('Navigation Operations', () => {
-    test('should navigate to the next box correctly', () => {
+  describe('navigation Operations', () => {
+    it('should navigate to the next box correctly', () => {
       const currentIndex = 0;
       const nextIndex = navigateBox(boxData, currentIndex, 1);
       expect(nextIndex).toBe(1);
       expect(boxData[nextIndex].fill).toBe('Americas');
     });
 
-    test('should navigate to the previous box correctly', () => {
+    it('should navigate to the previous box correctly', () => {
       const currentIndex = 1;
       const prevIndex = navigateBox(boxData, currentIndex, -1);
       expect(prevIndex).toBe(0);
       expect(boxData[prevIndex].fill).toBe('Africa');
     });
 
-    test('should wrap around to the first box when navigating past the last box', () => {
+    it('should wrap around to the first box when navigating past the last box', () => {
       const currentIndex = boxData.length - 1;
       const nextIndex = navigateBox(boxData, currentIndex, 1);
       expect(nextIndex).toBe(0);
       expect(boxData[nextIndex].fill).toBe('Africa');
     });
 
-    test('should wrap around to the last box when navigating before the first box', () => {
+    it('should wrap around to the last box when navigating before the first box', () => {
       const currentIndex = 0;
       const prevIndex = navigateBox(boxData, currentIndex, -1);
       expect(prevIndex).toBe(boxData.length - 1);
@@ -308,42 +308,42 @@ describe('Box Plot Data Tests', () => {
     });
   });
 
-  describe('Search Operations', () => {
-    test('should find box by fill value', () => {
+  describe('search Operations', () => {
+    it('should find box by fill value', () => {
       const asia = findBoxByFill(boxData, 'Asia');
       expect(asia).toBeDefined();
       expect(asia!.min).toBe(28.801);
       expect(asia!.max).toBe(82.603);
     });
 
-    test('should return undefined for non-existent fill value', () => {
+    it('should return undefined for non-existent fill value', () => {
       const nonExistent = findBoxByFill(boxData, 'Antarctica');
       expect(nonExistent).toBeUndefined();
     });
   });
 
-  describe('Error Handling', () => {
-    test('should throw error when getting max median with empty data', () => {
+  describe('error Handling', () => {
+    it('should throw error when getting max median with empty data', () => {
       const emptyData: BoxPoint[] = [];
       expect(() => getMaximumMedian(emptyData)).toThrow();
     });
 
-    test('should throw error when getting min median with empty data', () => {
+    it('should throw error when getting min median with empty data', () => {
       const emptyData: BoxPoint[] = [];
       expect(() => getMinimumMedian(emptyData)).toThrow();
     });
 
-    test('should throw error when getting highest IQR with empty data', () => {
+    it('should throw error when getting highest IQR with empty data', () => {
       const emptyData: BoxPoint[] = [];
       expect(() => getHighestIQR(emptyData)).toThrow();
     });
 
-    test('should throw error when getting lowest IQR with empty data', () => {
+    it('should throw error when getting lowest IQR with empty data', () => {
       const emptyData: BoxPoint[] = [];
       expect(() => getLowestIQR(emptyData)).toThrow();
     });
 
-    test('should throw error for invalid subplot or layer indices', () => {
+    it('should throw error for invalid subplot or layer indices', () => {
       expect(() => getBoxData(maidrData, 1)).toThrow('Invalid subplot or layer index');
       expect(() => getBoxData(maidrData, 0, 1)).toThrow('Invalid subplot or layer index');
     });

@@ -13,7 +13,6 @@ export abstract class Constant {
   // HTML IDs.
   static readonly BRAILLE_CONTAINER = 'maidr-braille-container-';
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea-';
-  static readonly BRAILLE_INPUT_LENGTH = 32;
   static readonly MAIDR_ARTICLE = 'maidr-article-';
   static readonly MAIDR_FIGURE = 'maidr-figure-';
   static readonly NOTIFICATION_CONTAINER = 'maidr-notification-container-';

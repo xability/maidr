@@ -195,15 +195,15 @@ function calculateYearlyAverages(data: TimeSeriesPoint[]): Map<number, number> {
   return yearlyAverages;
 }
 
-describe('Line Plot Data Tests', () => {
+describe('line Plot Data Tests', () => {
   let lineData: TimeSeriesPoint[];
 
   beforeEach(() => {
     lineData = getLineData(maidrData);
   });
 
-  describe('Data Structure Validation', () => {
-    test('should have valid line chart structure', () => {
+  describe('data Structure Validation', () => {
+    it('should have valid line chart structure', () => {
       const layer = maidrData.subplots[0][0].layers[0];
 
       expect(layer.type).toBe('line');
@@ -216,7 +216,7 @@ describe('Line Plot Data Tests', () => {
       expect(Array.isArray(layer.data[0])).toBe(true);
     });
 
-    test('should contain valid line data points', () => {
+    it('should contain valid line data points', () => {
       lineData.forEach((point) => {
         expect(point).toHaveProperty('x');
         expect(point).toHaveProperty('y');
@@ -225,7 +225,7 @@ describe('Line Plot Data Tests', () => {
       });
     });
 
-    test('should have chronologically ordered data', () => {
+    it('should have chronologically ordered data', () => {
       for (let i = 1; i < lineData.length; i++) {
         const currentDate = new Date(lineData[i].x);
         const prevDate = new Date(lineData[i - 1].x);
@@ -234,8 +234,8 @@ describe('Line Plot Data Tests', () => {
     });
   });
 
-  describe('Data Value Verification', () => {
-    test('should have correct data points for specific dates', () => {
+  describe('data Value Verification', () => {
+    it('should have correct data points for specific dates', () => {
       const july1967 = findDataPointByDate(lineData, '1967-07-01');
       const dec1967 = findDataPointByDate(lineData, '1967-12-01');
       const jan1970 = findDataPointByDate(lineData, '1970-01-01');
@@ -248,7 +248,7 @@ describe('Line Plot Data Tests', () => {
       expect(jan1970?.y).toBe(3201);
     });
 
-    test('should identify maximum value correctly', () => {
+    it('should identify maximum value correctly', () => {
       const maxValue = getMaximumValue(lineData);
       expect(maxValue).toBeGreaterThan(3000);
       const jan1970 = findDataPointByDate(lineData, '1970-01-01');
@@ -257,7 +257,7 @@ describe('Line Plot Data Tests', () => {
       }
     });
 
-    test('should identify minimum value correctly', () => {
+    it('should identify minimum value correctly', () => {
       const minValue = getMinimumValue(lineData);
       expect(minValue).toBeLessThan(3000);
       const dec1968 = findDataPointByDate(lineData, '1968-12-01');
@@ -266,15 +266,15 @@ describe('Line Plot Data Tests', () => {
       }
     });
 
-    test('should calculate average value correctly', () => {
+    it('should calculate average value correctly', () => {
       const avgValue = getAverageValue(lineData);
       expect(avgValue).toBeGreaterThan(0);
       expect(typeof avgValue).toBe('number');
     });
   });
 
-  describe('Time Series Analysis', () => {
-    test('should group data points by year correctly', () => {
+  describe('time Series Analysis', () => {
+    it('should group data points by year correctly', () => {
       const points1967 = findPointsByYear(lineData, 1967);
       const points1968 = findPointsByYear(lineData, 1968);
       const points1969 = findPointsByYear(lineData, 1969);
@@ -284,7 +284,7 @@ describe('Line Plot Data Tests', () => {
       expect(points1969.length).toBe(12);
     });
 
-    test('should calculate yearly averages correctly', () => {
+    it('should calculate yearly averages correctly', () => {
       const yearlyAverages = calculateYearlyAverages(lineData);
       expect(yearlyAverages.size).toBeGreaterThan(0);
 
@@ -301,7 +301,7 @@ describe('Line Plot Data Tests', () => {
       }
     });
 
-    test('should show increasing trend from 1969 to 1970', () => {
+    it('should show increasing trend from 1969 to 1970', () => {
       const points1969 = findPointsByYear(lineData, 1969);
       const points1970 = findPointsByYear(lineData, 1970);
 
@@ -312,8 +312,8 @@ describe('Line Plot Data Tests', () => {
     });
   });
 
-  describe('Navigation Operations', () => {
-    test('should navigate to the next point correctly', () => {
+  describe('navigation Operations', () => {
+    it('should navigate to the next point correctly', () => {
       const currentIndex = 0;
       const nextIndex = navigateLine(lineData, currentIndex, 1);
 
@@ -321,7 +321,7 @@ describe('Line Plot Data Tests', () => {
       expect(lineData[nextIndex].x).toBe('1967-08-01');
     });
 
-    test('should navigate to the previous point correctly', () => {
+    it('should navigate to the previous point correctly', () => {
       const currentIndex = 1;
       const prevIndex = navigateLine(lineData, currentIndex, -1);
 
@@ -329,7 +329,7 @@ describe('Line Plot Data Tests', () => {
       expect(lineData[prevIndex].x).toBe('1967-07-01');
     });
 
-    test('should wrap around to the first point when navigating past the last point', () => {
+    it('should wrap around to the first point when navigating past the last point', () => {
       const currentIndex = lineData.length - 1;
       const nextIndex = navigateLine(lineData, currentIndex, 1);
 
@@ -337,7 +337,7 @@ describe('Line Plot Data Tests', () => {
       expect(lineData[nextIndex].x).toBe('1967-07-01');
     });
 
-    test('should wrap around to the last point when navigating before the first point', () => {
+    it('should wrap around to the last point when navigating before the first point', () => {
       const currentIndex = 0;
       const prevIndex = navigateLine(lineData, currentIndex, -1);
 
@@ -347,35 +347,35 @@ describe('Line Plot Data Tests', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    test('should throw error when getting maximum value from empty data', () => {
+  describe('error Handling', () => {
+    it('should throw error when getting maximum value from empty data', () => {
       const emptyData: TimeSeriesPoint[] = [];
       expect(() => getMaximumValue(emptyData)).toThrow(LineChartDataError);
     });
 
-    test('should throw error when getting minimum value from empty data', () => {
+    it('should throw error when getting minimum value from empty data', () => {
       const emptyData: TimeSeriesPoint[] = [];
       expect(() => getMinimumValue(emptyData)).toThrow(LineChartDataError);
     });
 
-    test('should throw error when calculating average from empty data', () => {
+    it('should throw error when calculating average from empty data', () => {
       const emptyData: TimeSeriesPoint[] = [];
       expect(() => getAverageValue(emptyData)).toThrow(LineChartDataError);
     });
 
-    test('should throw error for invalid subplot or layer indices', () => {
+    it('should throw error for invalid subplot or layer indices', () => {
       expect(() => getLineData(maidrData, 1)).toThrow(LineChartDataError);
       expect(() => getLineData(maidrData, 0, 1)).toThrow(LineChartDataError);
     });
 
-    test('should return undefined when finding nonexistent date', () => {
+    it('should return undefined when finding nonexistent date', () => {
       const result = findDataPointByDate(lineData, '1900-01-01');
       expect(result).toBeUndefined();
     });
   });
 
-  describe('Edge Cases', () => {
-    test('should handle navigation on single-element array', () => {
+  describe('edge Cases', () => {
+    it('should handle navigation on single-element array', () => {
       const singleElementData: TimeSeriesPoint[] = [{ x: '2000-01-01', y: 100 }];
       const nextIndex = navigateLine(singleElementData, 0, 1);
       const prevIndex = navigateLine(singleElementData, 0, -1);
@@ -384,7 +384,7 @@ describe('Line Plot Data Tests', () => {
       expect(prevIndex).toBe(0);
     });
 
-    test('should handle dates at year boundaries', () => {
+    it('should handle dates at year boundaries', () => {
       const dec1969 = findDataPointByDate(lineData, '1969-12-01');
       const jan1970 = findDataPointByDate(lineData, '1970-01-01');
 
@@ -394,7 +394,7 @@ describe('Line Plot Data Tests', () => {
       expect(extractYear(jan1970!.x)).toBe(1970);
     });
 
-    test('should handle yearly calculations with partial data', () => {
+    it('should handle yearly calculations with partial data', () => {
       const partialData = [
         { x: '1967-01-01', y: 1000 },
         { x: '1967-02-01', y: 1100 },

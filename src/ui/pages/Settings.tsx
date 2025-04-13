@@ -8,7 +8,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
-  Grid2,
+  Grid,
   MenuItem,
   Radio,
   RadioGroup,
@@ -29,16 +29,16 @@ interface SettingRowProps {
 }
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid2 container spacing={1} alignItems="center" sx={{ py: 1 }}>
-    <Grid2 size={{ xs: 12, sm: 6, md: 4 }}>
+  <Grid container spacing={1} alignItems="center" sx={{ py: 1 }}>
+    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
       <Typography variant="body2" fontWeight="normal">
         {label}
       </Typography>
-    </Grid2>
-    <Grid2 size={{ xs: 12, sm: 6, md: 8 }}>
+    </Grid>
+    <Grid size={{ xs: 12, sm: 6, md: 8 }}>
       {input}
-    </Grid2>
-  </Grid2>
+    </Grid>
+  </Grid>
 );
 
 interface LlmModelSettingRowProps {
@@ -57,8 +57,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   <SettingRow
     label={modelSettings.name}
     input={(
-      <Grid2 container spacing={1} alignItems="center">
-        <Grid2 size="auto">
+      <Grid container spacing={1} alignItems="center">
+        <Grid size="auto">
           <Switch
             checked={modelSettings.enabled}
             onChange={e => onToggle(modelKey, e.target.checked)}
@@ -66,8 +66,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               input: { 'aria-label': `${!modelSettings.enabled ? 'Enable' : 'Disable'} ${modelSettings.name}` },
             }}
           />
-        </Grid2>
-        <Grid2 size="grow">
+        </Grid>
+        <Grid size="grow">
           <TextField
             disabled={!modelSettings.enabled}
             fullWidth
@@ -76,8 +76,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
             onChange={e => onChangeKey(modelKey, e.target.value)}
             placeholder={`Enter ${modelSettings.name} API Key`}
           />
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
     )}
   />
 );
@@ -149,17 +149,17 @@ const Settings: React.FC = () => {
     >
       <DialogContent sx={{ overflow: 'visible' }}>
         {/* Header */}
-        <Grid2 size="grow">
+        <Grid size="grow">
           <Typography variant="h6" fontWeight="bold" gutterBottom>
             Settings
           </Typography>
-        </Grid2>
+        </Grid>
 
         {/* General Settings */}
-        <Grid2 container spacing={0.5}>
+        <Grid container spacing={0.5}>
 
           {/* Volume Slider */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Volume"
               input={(
@@ -179,10 +179,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Highlight Color Picker */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Outline Color"
               input={(
@@ -195,10 +195,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Braille Display Size Input */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Braille Display Size"
               input={(
@@ -211,10 +211,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Min Frequency Input */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
               input={(
@@ -227,10 +227,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Max Frequency Input */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Max Frequency (Hz)"
               input={(
@@ -243,10 +243,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Autoplay Duration Input */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Autoplay Duration (ms)"
               input={(
@@ -259,10 +259,10 @@ const Settings: React.FC = () => {
                 />
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Aria Mode Radio */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="ARIA Mode"
               input={(
@@ -286,39 +286,39 @@ const Settings: React.FC = () => {
                 </FormControl>
               )}
             />
-          </Grid2>
-        </Grid2>
+          </Grid>
+        </Grid>
 
-        <Grid2 size={12}>
+        <Grid size={12}>
           <Divider sx={{ py: 0.5 }} />
-        </Grid2>
+        </Grid>
 
         {/* LLM Settings */}
-        <Grid2 container spacing={0.5} sx={{ mt: 2 }}>
-          <Grid2 size={12}>
+        <Grid container spacing={0.5} sx={{ mt: 2 }}>
+          <Grid size={12}>
             <Typography variant="h6" fontWeight="bold" gutterBottom>
               LLM Settings
             </Typography>
-          </Grid2>
+          </Grid>
 
           {/* LLM Model Toggles */}
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
 
             return (
-              <Grid2 size={12} key={modelKey}>
+              <Grid size={12} key={modelKey}>
                 <LlmModelSettingRow
                   modelKey={modelKey}
                   modelSettings={model}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
                 />
-              </Grid2>
+              </Grid>
             );
           })}
 
           {/* Expertise Level */}
-          <Grid2 size={12}>
+          <Grid size={12}>
             <SettingRow
               label="Expertise Level"
               input={(
@@ -334,17 +334,17 @@ const Settings: React.FC = () => {
                 </FormControl>
               )}
             />
-          </Grid2>
+          </Grid>
 
           {/* Custom Instructions */}
-          <Grid2 size={12}>
-            <Grid2 container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid2 size={{ xs: 12, sm: 6, md: 4 }} sx={{ py: 1 }}>
+          <Grid size={12}>
+            <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={{ py: 1 }}>
                 <Typography variant="body2" fontWeight="normal">
                   Custom Instructions
                 </Typography>
-              </Grid2>
-              <Grid2 size={{ xs: 12, sm: 6, md: 8 }}>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 8 }}>
                 <TextareaAutosize
                   value={llmSettings.customInstruction}
                   onChange={e => handleLlmChange('customInstruction', e.target.value)}
@@ -356,48 +356,48 @@ const Settings: React.FC = () => {
                   }}
                   placeholder="Enter custom instruction..."
                 />
-              </Grid2>
-            </Grid2>
-          </Grid2>
-        </Grid2>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
 
-        <Grid2 size={12}>
+        <Grid size={12}>
           <Divider sx={{ py: 0.5 }} />
-        </Grid2>
+        </Grid>
       </DialogContent>
 
       {/* Footer Actions */}
-      <Grid2
+      <Grid
         container
         component={DialogActions}
       >
-        <Grid2
+        <Grid
           size="auto"
           sx={{ px: 1 }}
         >
           <Button variant="text" color="inherit" onClick={handleReset}>
             Reset
           </Button>
-        </Grid2>
-        <Grid2
+        </Grid>
+        <Grid
           size="grow"
           container
           spacing={1}
           justifyContent="flex-end"
           sx={{ px: 2, py: 1 }}
         >
-          <Grid2 size="auto">
+          <Grid size="auto">
             <Button variant="outlined" color="inherit" onClick={handleClose}>
               Close
             </Button>
-          </Grid2>
-          <Grid2 size="auto">
+          </Grid>
+          <Grid size="auto">
             <Button variant="contained" color="primary" onClick={handleSave}>
               Save
             </Button>
-          </Grid2>
-        </Grid2>
-      </Grid2>
+          </Grid>
+        </Grid>
+      </Grid>
     </Dialog>
   );
 };

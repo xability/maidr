@@ -1,4 +1,4 @@
-import type { HistogramPoint } from '../src/model/grammar';
+import type { HistogramPoint } from '@model/grammar';
 import { expect } from '@jest/globals';
 
 interface ExtendedHistogramPoint extends HistogramPoint {
@@ -512,15 +512,15 @@ function findModeIndex(data: HistogramPoint[]): number {
   return maxIndex;
 }
 
-describe('Histogram Data Tests', () => {
+describe('histogram Data Tests', () => {
   let histData: ExtendedHistogramPoint[];
 
   beforeEach(() => {
     histData = getHistogramData(maidrData);
   });
 
-  describe('Data Structure Validation', () => {
-    test('should have valid histogram chart structure', () => {
+  describe('data Structure Validation', () => {
+    it('should have valid histogram chart structure', () => {
       const layer = maidrData.subplots[0][0].layers[0];
 
       expect(layer.type).toBe('hist');
@@ -531,7 +531,7 @@ describe('Histogram Data Tests', () => {
       expect(Array.isArray(layer.data)).toBe(true);
     });
 
-    test('should contain valid histogram data points', () => {
+    it('should contain valid histogram data points', () => {
       histData.forEach((point) => {
         expect(point).toHaveProperty('x');
         expect(point).toHaveProperty('y');
@@ -546,7 +546,7 @@ describe('Histogram Data Tests', () => {
       });
     });
 
-    test('should have uniform bin widths', () => {
+    it('should have uniform bin widths', () => {
       const firstBinWidth = histData[0].xMax - histData[0].xMin;
       const tolerance = 0.001;
 
@@ -559,12 +559,12 @@ describe('Histogram Data Tests', () => {
     });
   });
 
-  describe('Data Value Verification', () => {
-    test('should have correct number of data points', () => {
+  describe('data Value Verification', () => {
+    it('should have correct number of data points', () => {
       expect(histData.length).toBe(20);
     });
 
-    test('should have correct count values in each bin', () => {
+    it('should have correct count values in each bin', () => {
       expect(histData[0].count).toBe(19);
       expect(histData[1].count).toBe(24);
       expect(histData[2].count).toBe(19);
@@ -572,24 +572,24 @@ describe('Histogram Data Tests', () => {
       expect(histData[18].count).toBe(0);
     });
 
-    test('should identify maximum count correctly', () => {
+    it('should identify maximum count correctly', () => {
       const maxCount = getMaximumCount(histData);
       expect(maxCount).toBe(28);
     });
 
-    test('should identify minimum count correctly', () => {
+    it('should identify minimum count correctly', () => {
       const minCount = getMinimumCount(histData);
       expect(minCount).toBe(0);
     });
 
-    test('should calculate total count correctly', () => {
+    it('should calculate total count correctly', () => {
       const expectedTotal = histData.reduce((sum, bin) => sum + bin.count, 0);
       const totalCount = getTotalCount(histData);
       expect(totalCount).toBe(expectedTotal);
       expect(totalCount).toBe(234);
     });
 
-    test('should calculate bin width correctly', () => {
+    it('should calculate bin width correctly', () => {
       const binIndex = 5;
       const expectedWidth = histData[binIndex].xMax - histData[binIndex].xMin;
       const binWidth = getBinWidth(histData, binIndex);
@@ -598,29 +598,29 @@ describe('Histogram Data Tests', () => {
     });
   });
 
-  describe('Navigation Operations', () => {
-    test('should navigate to the next bin correctly', () => {
+  describe('navigation Operations', () => {
+    it('should navigate to the next bin correctly', () => {
       const currentIndex = 0;
       const nextIndex = navigateHistogram(histData, currentIndex, 1);
       expect(nextIndex).toBe(1);
       expect(histData[nextIndex].x).toBeCloseTo(1.9895, 4);
     });
 
-    test('should navigate to the previous bin correctly', () => {
+    it('should navigate to the previous bin correctly', () => {
       const currentIndex = 1;
       const prevIndex = navigateHistogram(histData, currentIndex, -1);
       expect(prevIndex).toBe(0);
       expect(histData[prevIndex].x).toBeCloseTo(1.7053, 4);
     });
 
-    test('should wrap around to the first bin when navigating past the last bin', () => {
+    it('should wrap around to the first bin when navigating past the last bin', () => {
       const currentIndex = histData.length - 1;
       const nextIndex = navigateHistogram(histData, currentIndex, 1);
       expect(nextIndex).toBe(0);
       expect(histData[nextIndex].x).toBeCloseTo(1.7053, 4);
     });
 
-    test('should wrap around to the last bin when navigating before the first bin', () => {
+    it('should wrap around to the last bin when navigating before the first bin', () => {
       const currentIndex = 0;
       const prevIndex = navigateHistogram(histData, currentIndex, -1);
       expect(prevIndex).toBe(histData.length - 1);
@@ -628,8 +628,8 @@ describe('Histogram Data Tests', () => {
     });
   });
 
-  describe('Search Operations', () => {
-    test('should find bin containing specific x value', () => {
+  describe('search Operations', () => {
+    it('should find bin containing specific x value', () => {
       const valueToFind = 3.5;
       const binIndex = findBinContainingValue(histData, valueToFind);
       expect(binIndex).toBe(6);
@@ -637,13 +637,13 @@ describe('Histogram Data Tests', () => {
       expect(histData[binIndex].xMax).toBeGreaterThan(valueToFind);
     });
 
-    test('should return -1 for x value outside range', () => {
+    it('should return -1 for x value outside range', () => {
       const valueOutsideRange = 10.0;
       const binIndex = findBinContainingValue(histData, valueOutsideRange);
       expect(binIndex).toBe(-1);
     });
 
-    test('should find the mode (bin with highest frequency)', () => {
+    it('should find the mode (bin with highest frequency)', () => {
       const expectedModeIndex = 3;
       const modeIndex = findModeIndex(histData);
       expect(modeIndex).toBe(expectedModeIndex);
@@ -651,30 +651,30 @@ describe('Histogram Data Tests', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    test('should throw error for empty data array when getting maximum count', () => {
+  describe('error Handling', () => {
+    it('should throw error for empty data array when getting maximum count', () => {
       const emptyData: HistogramPoint[] = [];
       expect(() => getMaximumCount(emptyData)).toThrow(HistogramDataError);
     });
 
-    test('should throw error for empty data array when getting minimum count', () => {
+    it('should throw error for empty data array when getting minimum count', () => {
       const emptyData: HistogramPoint[] = [];
       expect(() => getMinimumCount(emptyData)).toThrow(HistogramDataError);
     });
 
-    test('should throw error for invalid bin index', () => {
+    it('should throw error for invalid bin index', () => {
       const invalidIndex = 50;
       expect(() => getBinWidth(histData, invalidIndex)).toThrow(HistogramDataError);
     });
 
-    test('should correctly handle bins with zero count', () => {
+    it('should correctly handle bins with zero count', () => {
       const zeroBinIndex = 18;
       expect(histData[zeroBinIndex].count).toBe(0);
       expect(histData[zeroBinIndex].y).toBe(0);
       expect(histData[zeroBinIndex].density).toBe(0);
     });
 
-    test('should throw error for invalid subplot or layer indices', () => {
+    it('should throw error for invalid subplot or layer indices', () => {
       expect(() => getHistogramData(maidrData, 1)).toThrow(HistogramDataError);
       expect(() => getHistogramData(maidrData, 0, 1)).toThrow(HistogramDataError);
       expect(() => getHistogramData({ ...maidrData, subplots: [[{ layers: [{ type: 'bar', data: [], selector: '', axes: { x: '', y: '' } }] }]] }, 0, 0, 0))
@@ -682,8 +682,8 @@ describe('Histogram Data Tests', () => {
     });
   });
 
-  describe('Edge Cases', () => {
-    test('should handle single-bin histogram', () => {
+  describe('edge Cases', () => {
+    it('should handle single-bin histogram', () => {
       const singleBinData: MaidrChart = {
         id: 'single-bin-hist',
         title: 'Single Bin Histogram',
@@ -723,7 +723,7 @@ describe('Histogram Data Tests', () => {
       expect(findModeIndex(singleBinHistData)).toBe(0);
     });
 
-    test('should handle string y-values by parsing them to numbers', () => {
+    it('should handle string y-values by parsing them to numbers', () => {
       const stringYData: HistogramPoint[] = [
         { ...histData[0], y: '19' as unknown as number },
         { ...histData[1], y: '24' as unknown as number },
