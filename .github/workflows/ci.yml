@@ -40,12 +40,4 @@ jobs:
         run: npm install
 
       - name: Run Jest tests with coverage
-        run: npm run jest:coverage
-
-      # - name: Install JSDoc globally
-      #   run: |
-      #     npm install -g jsdoc
-      #     npm install --no-save jsdoc-typescript-plugin typescript
-
-      # - name: Generate Jest documentation
-      #   run: npm run docs:jest
+        run: npm run test:coverage
