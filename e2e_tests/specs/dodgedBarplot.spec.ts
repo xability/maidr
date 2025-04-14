@@ -269,6 +269,13 @@ test.describe('Dodged Barplot', () => {
     await dodgedBarplotPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const barPlotPage = await setupDodgedBarplotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 

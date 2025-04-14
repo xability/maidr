@@ -211,6 +211,13 @@ test.describe('Boxplot Horizontal', () => {
     await boxplotHorizontalPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
+    await boxplotHorizontalPage.activateMaidr();
+
+    await boxplotHorizontalPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
     await boxplotHorizontalPage.activateMaidr();

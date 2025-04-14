@@ -174,6 +174,13 @@ test.describe('Histogram', () => {
     await heatmapPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const barPlotPage = await setupHeatmapPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const heatmapPage = await setupHeatmapPage(page);
 

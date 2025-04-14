@@ -208,6 +208,43 @@ export class BasePage {
   }
 
   /**
+   * Shows the Settings menu and verifies it appears correctly
+   * @returns Promise that resolves when settings menu is shown and verified
+   * @throws AssertionError if Settings menu does not appear or doesn't have expected content
+   */
+  public async showSettingsMenu(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.COMMAND_KEY);
+      await this.page.waitForTimeout(100);
+      await this.pressKey(TestConstants.PERIOD_KEY, 'show settings menu');
+      await this.page.keyboard.up(TestConstants.COMMAND_KEY);
+
+      const settingsModal = this.page.locator(TestConstants.MAIDR_SETTINGS_MODAL);
+
+      await expect(settingsModal).toBeVisible({
+        timeout: 5000,
+      });
+
+      const settingsHeading = this.page.getByText(TestConstants.SETTINGS_MENU_TITLE, { exact: true });
+      const isHeadingVisible = await settingsHeading.isVisible();
+      if (!isHeadingVisible) {
+        throw new Error(`Settings heading "${TestConstants.SETTINGS_MENU_TITLE}" not visible`);
+      }
+
+      await this.pressKey(TestConstants.ESCAPE_KEY, 'close settings menu');
+
+      await expect(settingsModal).not.toBeVisible({
+        timeout: 2000,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Failed to show settings menu: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
    * Increases playback speed
    * @throws KeypressError if operation fails
    */

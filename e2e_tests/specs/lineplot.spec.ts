@@ -232,6 +232,12 @@ test.describe('Line Plot', () => {
     await linePlotPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const linePlotPage = await setupLinePlotPage(page);
+
+    await linePlotPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 

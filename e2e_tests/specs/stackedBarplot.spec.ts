@@ -240,6 +240,12 @@ test.describe('Stacked Barplot', () => {
     await StackedBarplotPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const StackedBarplotPage = await setupStackedBarplotPage(page);
+
+    await StackedBarplotPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const StackedBarplotPage = await setupStackedBarplotPage(page);
 

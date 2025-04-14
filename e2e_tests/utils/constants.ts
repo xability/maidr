@@ -48,6 +48,8 @@ export abstract class TestConstants {
   static readonly BRAILLE_TEXTAREA = 'maidr-braille-textarea-';
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
+  static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';
+  static readonly MAIDR_SETTINGS_MODAL_TITLE = '.MuiTypography-h6';
 
   /**
    * Keyboard key constants
@@ -77,6 +79,7 @@ export abstract class TestConstants {
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
   static readonly COMMAND_KEY = 'Meta';
+  static readonly ESCAPE_KEY = 'Escape';
 
   /**
    * Common selectors and prefixes
@@ -159,6 +162,13 @@ export abstract class TestConstants {
 
   static readonly HELP_MENU_TITLE = 'Keyboard Shortcuts';
   static readonly HELP_MENU_CLOSE_BUTTON = '.MuiDialogActions-root button';
+
+  /**
+   * Settings Menu Identifies
+   */
+
+  static readonly SETTINGS_MENU_TITLE = 'Settings';
+  static readonly SETTINGS_MENU_CLOSE_BUTTON = '.MuiDialogActions-root button:has(span:contains("Close"))';
   /**
    * Time constants (in milliseconds)
    */

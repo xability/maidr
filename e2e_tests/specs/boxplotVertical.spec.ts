@@ -210,6 +210,13 @@ test.describe('Boxplot Vertical', () => {
     await boxplotVerticalPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const barPlotPage = new BoxplotVerticalPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const boxplotVerticalPage = new BoxplotVerticalPage(page);
     await boxplotVerticalPage.activateMaidr();

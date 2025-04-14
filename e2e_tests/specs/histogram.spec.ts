@@ -205,6 +205,12 @@ test.describe('Histogram', () => {
     await histogramPage.showHelpMenu();
   });
 
+  test('should show settings menu', async ({ page }) => {
+    const histogramPage = await setupHistogramPage(page);
+
+    await histogramPage.showSettingsMenu();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const histogramPage = await setupHistogramPage(page);
 
