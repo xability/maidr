@@ -246,6 +246,12 @@ test.describe('Stacked Barplot', () => {
     await StackedBarplotPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const StackedBarplotPage = await setupStackedBarplotPage(page);
+
+    await StackedBarplotPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const StackedBarplotPage = await setupStackedBarplotPage(page);
 

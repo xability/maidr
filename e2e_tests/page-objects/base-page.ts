@@ -245,6 +245,45 @@ export class BasePage {
   }
 
   /**
+   * Shows the Chat dialog and verifies it appears correctly
+   * @returns Promise that resolves when Chat Dialog is shown and verified
+   * @throws AssertionError if Chat Dialog does not appear or doesn't have expected content
+   */
+  public async showChatDialog(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
+      await this.page.waitForTimeout(100);
+      await this.pressKey(TestConstants.SLASH_KEY, 'show Chat dialog');
+
+      const chatModal = this.page.locator(TestConstants.MAIDR_CHAT_MODAL);
+
+      await expect(chatModal).toBeVisible({
+        timeout: 5000,
+      });
+
+      const chatHeading = this.page.getByText(TestConstants.CHAT_DIALOG_TITLE, { exact: true });
+      const isHeadingVisible = await chatHeading.isVisible({
+        timeout: 10000,
+      });
+
+      if (!isHeadingVisible) {
+        throw new Error(`Chat heading "${TestConstants.CHAT_DIALOG_TITLE}" not visible`);
+      }
+
+      await this.pressKey(TestConstants.ESCAPE_KEY, 'close chat dialog');
+
+      await expect(chatModal).not.toBeVisible({
+        timeout: 2000,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Failed to show settings menu: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
    * Increases playback speed
    * @throws KeypressError if operation fails
    */

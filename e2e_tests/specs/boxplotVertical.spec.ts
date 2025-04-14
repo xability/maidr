@@ -217,6 +217,13 @@ test.describe('Boxplot Vertical', () => {
     await barPlotPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const barPlotPage = new BoxplotVerticalPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const boxplotVerticalPage = new BoxplotVerticalPage(page);
     await boxplotVerticalPage.activateMaidr();

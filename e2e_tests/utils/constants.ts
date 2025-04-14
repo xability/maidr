@@ -49,7 +49,7 @@ export abstract class TestConstants {
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
   static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';
-  static readonly MAIDR_SETTINGS_MODAL_TITLE = '.MuiTypography-h6';
+  static readonly MAIDR_CHAT_MODAL = '.MuiDialog-container div[role="dialog"]';
 
   /**
    * Keyboard key constants
@@ -164,11 +164,16 @@ export abstract class TestConstants {
   static readonly HELP_MENU_CLOSE_BUTTON = '.MuiDialogActions-root button';
 
   /**
-   * Settings Menu Identifies
+   * Settings Menu Identifiers
    */
 
   static readonly SETTINGS_MENU_TITLE = 'Settings';
-  static readonly SETTINGS_MENU_CLOSE_BUTTON = '.MuiDialogActions-root button:has(span:contains("Close"))';
+
+  /**
+   * Chat Menu Identifiers
+   */
+  static readonly CHAT_DIALOG_TITLE = 'Chart Assistant';
+
   /**
    * Time constants (in milliseconds)
    */

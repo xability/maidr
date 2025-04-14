@@ -211,6 +211,12 @@ test.describe('Histogram', () => {
     await histogramPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const histogramPage = await setupHistogramPage(page);
+
+    await histogramPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const histogramPage = await setupHistogramPage(page);
 

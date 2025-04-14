@@ -181,6 +181,13 @@ test.describe('Histogram', () => {
     await barPlotPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const barPlotPage = await setupHeatmapPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const heatmapPage = await setupHeatmapPage(page);
 

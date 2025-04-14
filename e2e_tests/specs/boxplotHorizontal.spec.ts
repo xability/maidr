@@ -218,6 +218,13 @@ test.describe('Boxplot Horizontal', () => {
     await boxplotHorizontalPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
+    await boxplotHorizontalPage.activateMaidr();
+
+    await boxplotHorizontalPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
     await boxplotHorizontalPage.activateMaidr();

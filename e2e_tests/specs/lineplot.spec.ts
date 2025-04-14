@@ -238,6 +238,12 @@ test.describe('Line Plot', () => {
     await linePlotPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const linePlotPage = await setupLinePlotPage(page);
+
+    await linePlotPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 

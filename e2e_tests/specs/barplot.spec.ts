@@ -169,6 +169,13 @@ test.describe('Bar Plot', () => {
     await barPlotPage.showSettingsMenu();
   });
 
+  test('should show chat dialog', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.showChatDialog();
+  });
+
   test('should be able to speed up', async ({ page }) => {
     const barPlotPage = new BarPlotPage(page);
     await barPlotPage.activateMaidr();
