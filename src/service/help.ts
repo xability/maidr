@@ -8,15 +8,15 @@ const TRACE_HELP_MENU = [
   { description: 'Move around Layer', key: 'arrow keys' },
   { description: 'Move to Next Layer', key: 'page up' },
   { description: 'Move to Previous Layer', key: 'page down' },
-  { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.ctrl} + arrow keys` },
+  { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.modifierKey} + arrow keys` },
 
   { description: 'Toggle Braille Mode', key: 'b' },
   { description: 'Toggle Text Mode', key: 't' },
   { description: 'Toggle Sonification Mode', key: 's' },
   { description: 'Toggle Review Mode', key: 'r' },
 
-  { description: 'Autoplay Outward', key: `${Platform.ctrl} + shift + arrow keys` },
-  { description: 'Stop Autoplay', key: `${Platform.ctrl}` },
+  { description: 'Autoplay Outward', key: `${Platform.modifierKey} + shift + arrow keys` },
+  { description: 'Stop Autoplay', key: `${Platform.modifierKey}` },
   { description: 'Speed Up Autoplay', key: '. (period)' },
   { description: 'Speed Down Autoplay', key: ', (comma)' },
   { description: 'Reset Autoplay Speed', key: '/ (slash)' },
@@ -30,7 +30,7 @@ const TRACE_HELP_MENU = [
 
 const SUBPLOT_HELP_MENU = [
   { description: 'Move around Subplot', key: 'arrow keys' },
-  { description: 'Activate Current Subplot', key: `${Platform.enter}` },
+  { description: 'Activate Current Subplot', key: `${Platform.enterKey}` },
 
   { description: 'Describe Current Subplot', key: 'space' },
   { description: 'Describe Figure Title', key: 'l s' },
