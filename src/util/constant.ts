@@ -12,11 +12,13 @@ export abstract class Constant {
   // HTML IDs.
   static readonly BRAILLE_CONTAINER = 'maidr-braille-container';
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea';
+  static readonly CHAT_CONTAINER = 'maidr-chat-container';
   static readonly MAIDR_ARTICLE = 'maidr-article';
   static readonly MAIDR_FIGURE = 'maidr-figure';
   static readonly MAIDR_HIGHLIGHT = 'maidr-highlight';
   static readonly REACT_CONTAINER = 'maidr-react-container';
   static readonly REVIEW_INPUT = 'maidr-review-input';
+  static readonly SETTINGS_CONTAINER = 'maidr-settings';
   static readonly TEXT_CONTAINER = 'maidr-text-container';
 
   // HTML Classes.

@@ -16,6 +16,8 @@ export class ReviewService implements Observer<TraceState>, Disposable {
   private readonly display: DisplayService;
   private readonly text: TextService;
 
+  private enabled: boolean;
+
   private readonly onChangeEmitter: Emitter<ReviewChangedEvent>;
   public readonly onChange: Event<ReviewChangedEvent>;
 
@@ -23,6 +25,8 @@ export class ReviewService implements Observer<TraceState>, Disposable {
     this.notification = notification;
     this.display = display;
     this.text = text;
+
+    this.enabled = false;
 
     this.onChangeEmitter = new Emitter<ReviewChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
@@ -43,14 +47,12 @@ export class ReviewService implements Observer<TraceState>, Disposable {
     }
   }
 
-  public toggle(oldState: boolean, state: TraceState): boolean {
+  public toggle(state: TraceState): void {
     state && this.update(state);
     this.display.toggleFocus(Scope.REVIEW);
 
-    const newState = !oldState;
-    const message = `Review is ${newState ? 'on' : 'off'}`;
+    this.enabled = !this.enabled;
+    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
-
-    return newState;
   }
 }

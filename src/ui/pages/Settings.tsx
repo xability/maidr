@@ -83,10 +83,11 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
 const Settings: React.FC = () => {
   const viewModel = useViewModel('settings');
-  const { enabled, general, llm } = viewModel.state;
+  const { general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
+  const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
     viewModel.load();
@@ -130,6 +131,7 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
   };
   const handleClose = (): void => {
+    setEnabled(false);
     viewModel.toggle();
   };
   const handleSave = (): void => {

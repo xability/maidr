@@ -15,6 +15,7 @@ import { SettingsService } from '@service/settings';
 import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
+import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -42,6 +43,7 @@ export class Controller implements Disposable {
 
   private readonly textViewModel: TextViewModel;
   private readonly reviewViewModel: ReviewViewModel;
+  private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
@@ -68,6 +70,7 @@ export class Controller implements Disposable {
 
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
+    this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
@@ -121,6 +124,7 @@ export class Controller implements Disposable {
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
     ViewModelRegistry.instance.register('review', this.reviewViewModel);
+    ViewModelRegistry.instance.register('display', this.displayViewModel);
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);

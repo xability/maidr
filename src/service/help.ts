@@ -61,8 +61,7 @@ export class HelpService {
     return this.scopedMenuItems[this.context.scope] ?? [];
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(): void {
     this.display.toggleFocus(Scope.HELP);
-    return !oldState;
   }
 }

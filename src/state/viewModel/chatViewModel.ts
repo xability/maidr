@@ -1,4 +1,3 @@
-import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
@@ -25,9 +24,6 @@ const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    toggle(state, action: PayloadAction<boolean>) {
-      state.enabled = action.payload;
-    },
     reset() {
       return initialState;
     },
@@ -75,7 +71,7 @@ const chatSlice = createSlice({
       });
   },
 });
-const { toggle, reset } = chatSlice.actions;
+const { reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -100,8 +96,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   public toggle(): void {
-    const enabled = this.chatService.toggle(this.state.enabled);
-    this.store.dispatch(toggle(enabled));
+    this.chatService.toggle();
   }
 
   public async sendMessage(newMessage: string): Promise<void> {

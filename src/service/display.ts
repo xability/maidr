@@ -1,15 +1,20 @@
 import type { ContextService } from '@service/context';
 import type { Disposable } from '@type/disposable';
-import type { Scope } from '@type/event';
+import type { Event, Focus, Scope } from '@type/event';
 import type { Root } from 'react-dom/client';
+import { Emitter } from '@type/event';
 import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import { createRoot } from 'react-dom/client';
 
+interface FocusChangedEvent {
+  value: Focus;
+}
+
 export class DisplayService implements Disposable {
   private readonly context: ContextService;
-  private readonly focusStack: Stack<Scope>;
+  private readonly focusStack: Stack<Focus>;
 
   private readonly maidrContainer: HTMLElement;
   public readonly plot: HTMLElement;
@@ -18,6 +23,9 @@ export class DisplayService implements Disposable {
 
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
+
+  private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
+  public readonly onChange: Event<FocusChangedEvent>;
 
   public constructor(context: ContextService, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
     this.context = context;
@@ -37,6 +45,9 @@ export class DisplayService implements Disposable {
 
     this.reactRoot = createRoot(reactContainer);
     this.reactRoot.render(MaidrApp);
+
+    this.onChangeEmitter = new Emitter<FocusChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
 
     this.removeInstruction();
   }
@@ -84,15 +95,15 @@ export class DisplayService implements Disposable {
     return brailleTextArea;
   }
 
-  public toggleFocus(scope: Scope): void {
+  public toggleFocus(scope: Focus): void {
     if (!this.focusStack.removeLast(scope)) {
       this.focusStack.push(scope);
     }
+    this.context.toggleScope(scope as Scope);
     this.updateFocus(this.focusStack.peek()!);
-    this.context.toggleScope(scope);
   }
 
-  private updateFocus(newScope: Scope): void {
+  private updateFocus(newScope: Focus): void {
     let activeDiv: HTMLElement | undefined;
     if (
       (document.activeElement as HTMLTextAreaElement) === this.brailleTextArea

@@ -6,12 +6,10 @@ import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 interface ReviewState {
-  enabled: boolean;
   value: string;
 }
 
 const initialState: ReviewState = {
-  enabled: false,
   value: '',
 };
 
@@ -22,15 +20,12 @@ const reviewSlice = createSlice({
     update(state, action: PayloadAction<string>): void {
       state.value = action.payload;
     },
-    toggle(state, action: PayloadAction<boolean>): void {
-      state.enabled = action.payload;
-    },
     reset(): ReviewState {
       return initialState;
     },
   },
 });
-const { update, toggle, reset } = reviewSlice.actions;
+const { update, reset } = reviewSlice.actions;
 
 export class ReviewViewModel extends AbstractViewModel<ReviewState> {
   private readonly reviewService: ReviewService;
@@ -57,8 +52,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
   }
 
   public toggle(state: TraceState): void {
-    const enabled = this.reviewService.toggle(this.state.enabled, state);
-    this.store.dispatch(toggle(enabled));
+    this.reviewService.toggle(state);
   }
 }
 
