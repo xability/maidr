@@ -386,7 +386,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       else if (node instanceof OscillatorNode) {
         const currentTime = this.audioContext.currentTime;
         // Allow more time for the gain node fade-out to complete
-        const stopDelay = 0.12;  // 120ms
+        const stopDelay = 0.12; // 120ms
 
         try {
           node.stop(currentTime + stopDelay);
