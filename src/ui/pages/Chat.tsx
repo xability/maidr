@@ -103,9 +103,9 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     if (enabled && !isAnyAgentEnabled) {
-      viewModel.addMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
     }
-  }, [enabled, isAnyAgentEnabled]);
+  }, [enabled, isAnyAgentEnabled, viewModel]);
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,7 +121,7 @@ const Chat: React.FC = () => {
 
   const handleSend = (): void => {
     if (!isAnyAgentEnabled) {
-      viewModel.addMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
       return;
     }
     if (inputMessage.trim()) {

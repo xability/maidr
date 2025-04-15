@@ -4,7 +4,7 @@ import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createAction, createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
   enabled: boolean;
@@ -85,61 +85,97 @@ const chatSlice = createSlice({
       });
   },
 });
-const { toggle } = chatSlice.actions;
+const { toggle, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
   private readonly audioService: AudioService;
 
-  public constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
+  constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
     super(store);
     this.chatService = chatService;
     this.audioService = audioService;
   }
 
-  public get state(): ChatState {
-    return this.store.getState().chat;
+  public dispose(): void {
+    this.store.dispatch(reset());
   }
 
-  private get settings(): RootState['settings'] {
-    return this.store.getState().settings;
+  public get state(): ChatState {
+    return this.snapshot.chat;
+  }
+
+  private get snapshot(): Readonly<RootState> {
+    return this.store.getState();
   }
 
   public toggle(): void {
-    this.store.dispatch(toggle(!this.state.enabled));
+    const enabled = this.chatService.toggle(this.state.enabled);
+    this.store.dispatch(toggle(enabled));
   }
 
-  public addMessage(text: string, isUser: boolean = false, _model?: Llm): void {
-    const timestamp = new Date().toISOString();
-    if (isUser) {
-      this.store.dispatch(addUserMessage({ text, timestamp }));
-    } else {
-      this.store.dispatch(addSystemMessage({ text, timestamp }));
-    }
+  public addSystemMessage(text: string): void {
+    this.store.dispatch(addSystemMessage({
+      text,
+      timestamp: new Date().toISOString(),
+    }));
   }
 
-  public async sendMessage(text: string): Promise<void> {
-    const enabledModel = Object.entries(this.settings.llm.models).find(([_, model]) =>
-      model.enabled && model.apiKey,
-    );
+  public async sendMessage(newMessage: string): Promise<void> {
+    const { llm: llmSettings } = this.snapshot.settings;
+    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
+      .filter(model => llmSettings.models[model].enabled);
 
-    if (!enabledModel) {
-      this.addMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+    if (enabledModels.length === 0) {
+      this.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings.');
       return;
     }
 
-    const [model, config] = enabledModel;
-    this.addMessage(text, true);
+    const timestamp = new Date().toISOString();
+    this.store.dispatch(addUserMessage({
+      text: newMessage,
+      timestamp,
+    }));
 
-    try {
-      await this.chatService.sendMessage(text, model as Llm, config.apiKey);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('authentication')) {
-        this.addMessage('The API key is not authenticated. Please check your API key in the settings page.');
-      } else {
-        this.addMessage('Error sending message. Please try again.');
+    await Promise.all(enabledModels.map(async (model) => {
+      const audioId = this.audioService.playWaitingTone();
+      try {
+        this.store.dispatch(addPendingResponse({
+          model,
+          timestamp,
+        }));
+
+        const config = llmSettings.models[model];
+        const response = await this.chatService.sendMessage(model, {
+          message: newMessage,
+          customInstruction: llmSettings.customInstruction,
+          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
+          apiKey: config.apiKey,
+        });
+
+        this.audioService.stop(audioId);
+        if (response.error) {
+          this.store.dispatch(updateError({
+            model,
+            error: response.error,
+            timestamp,
+          }));
+        } else {
+          this.store.dispatch(updateResponse({
+            model,
+            data: response.data!,
+            timestamp,
+          }));
+        }
+      } catch (error) {
+        this.audioService.stop(audioId);
+        this.store.dispatch(updateError({
+          model,
+          error: error instanceof Error ? error.message : 'Error processing request',
+          timestamp,
+        }));
       }
-    }
+    }));
   }
 }
 
