@@ -72,7 +72,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     if (this.audioContext.state !== 'closed') {
       try {
         this.compressor.disconnect();
-      } catch (error) {
+      } catch {
         // The compressor might already be disconnected
       }
       void this.audioContext.close();
@@ -358,83 +358,61 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
         return;
       }
 
-      // Handle GainNode with refined fade-out to prevent popping
       if (node instanceof GainNode) {
         const currentTime = this.audioContext.currentTime;
         const currentGain = node.gain.value;
-
-        // Capture the current gain value precisely
         node.gain.cancelScheduledValues(currentTime);
         node.gain.setValueAtTime(currentGain, currentTime);
-
-        // Use a longer exponential fade-out (sounds more natural than linear)
-        // Use 100ms for smoother transition
         const fadeOutDuration = 0.1;
-        // Exponential ramp can't reach zero, so use a very small value
         node.gain.exponentialRampToValueAtTime(0.0001, currentTime + fadeOutDuration);
-
-        // Schedule disconnect after the fade completes with a small buffer
         setTimeout(() => {
           try {
             node.disconnect();
-          } catch (e) {
+          } catch {
             // Node may already be disconnected
           }
         }, Math.floor(fadeOutDuration * 1000) + 20);
-      }
-      // Handle oscillators with scheduled stop
-      else if (node instanceof OscillatorNode) {
+      } else if (node instanceof OscillatorNode) {
         const currentTime = this.audioContext.currentTime;
-        // Allow more time for the gain node fade-out to complete
-        const stopDelay = 0.12; // 120ms
-
+        const stopDelay = 0.12;
         try {
           node.stop(currentTime + stopDelay);
-
-          // Schedule the disconnect after oscillator stops completely
           setTimeout(() => {
             try {
               node.disconnect();
-            } catch (e) {
+            } catch {
               // Node may already be disconnected
             }
           }, stopDelay * 1000 + 30);
-        } catch (e) {
-          // Oscillator might already be stopped
+        } catch {
           try {
             node.disconnect();
-          } catch (innerE) {
+          } catch {
             // Node may already be disconnected
           }
         }
-      }
-      // Handle stereo panner nodes
-      else if (node instanceof StereoPannerNode) {
-        // Add a small delay before disconnecting stereo panner for smoother transition
+      } else if (node instanceof StereoPannerNode) {
         setTimeout(() => {
           try {
             node.disconnect();
-          } catch (e) {
+          } catch {
             // Node may already be disconnected
           }
         }, 120);
-      }
-      // Other node types (like PannerNode)
-      else {
-        // Add a small delay before disconnecting other nodes
+      } else {
         setTimeout(() => {
           try {
             node.disconnect();
-          } catch (e) {
+          } catch {
             // Node may already be disconnected
           }
         }, 130);
       }
-    } catch (error) {
+    } catch (cleanupError) {
       // Handle any unexpected errors during cleanup
-      console.error('Error cleaning up audio node:', error);
+
+      console.error('Error cleaning up audio node:', cleanupError);
     } finally {
-      // Remove the node from its tracking array
       const index = nodeArray.indexOf(node);
       if (index !== -1) {
         nodeArray.splice(index, 1);
