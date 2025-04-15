@@ -90,7 +90,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
       const headers: Record<string, string> = request.clientToken
         ? { Authentication: `${request.email} ${request.clientToken}` }
-        : {};
+        : { Authorization: `Bearer ${request.apiKey}` };
 
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {

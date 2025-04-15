@@ -133,7 +133,7 @@ const Settings: React.FC = () => {
     viewModel.toggle();
   };
   const handleSave = (): void => {
-    viewModel.save({ general: generalSettings, llm: llmSettings });
+    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
 
   return (
@@ -392,7 +392,7 @@ const Settings: React.FC = () => {
           </Grid2>
           <Grid2 size="auto">
             <Button variant="contained" color="primary" onClick={handleSave}>
-              Save
+              Save & Close
             </Button>
           </Grid2>
         </Grid2>
