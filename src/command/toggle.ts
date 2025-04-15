@@ -1,9 +1,9 @@
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { ContextService } from '@service/context';
+import type { ReviewService } from '@service/review';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
-import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
@@ -52,17 +52,17 @@ export class ToggleAudioCommand implements Command {
 
 export class ToggleReviewCommand implements Command {
   private readonly context: ContextService;
-  private readonly reviewViewModel: ReviewViewModel;
+  private readonly review: ReviewService;
 
-  public constructor(context: ContextService, reviewViewModel: ReviewViewModel) {
+  public constructor(context: ContextService, review: ReviewService) {
     this.context = context;
-    this.reviewViewModel = reviewViewModel;
+    this.review = review;
   }
 
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
-      this.reviewViewModel.toggle(state);
+      this.review.toggle(state);
     }
   }
 }
