@@ -1,7 +1,7 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
-import type { BrailleService } from '@service/braille';
 import type { HighlightService } from '@service/highlight';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
 
@@ -110,20 +110,20 @@ export class DescribeCaptionCommand extends DescribeCommand {
 
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioService;
-  private readonly braille: BrailleService;
+  private readonly brailleViewModel: BrailleViewModel;
   private readonly highlight: HighlightService;
 
   public constructor(
     context: Context,
     audioService: AudioService,
-    brailleService: BrailleService,
     highlightService: HighlightService,
+    brailleViewModel: BrailleViewModel,
     textViewModel: TextViewModel,
   ) {
     super(context, textViewModel);
     this.audio = audioService;
-    this.braille = brailleService;
     this.highlight = highlightService;
+    this.brailleViewModel = brailleViewModel;
   }
 
   public execute(): void {
@@ -137,7 +137,7 @@ export class DescribePointCommand extends DescribeCommand {
       case 'trace':
         this.textViewModel.update(state);
         this.audio.update(state);
-        this.braille.update(state);
+        this.brailleViewModel.update(state);
         this.highlight.update(state);
         break;
     }

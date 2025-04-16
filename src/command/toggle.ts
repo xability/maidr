@@ -1,6 +1,6 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
-import type { BrailleService } from '@service/braille';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -11,17 +11,17 @@ import type { Command } from './command';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
-  private readonly braille: BrailleService;
+  private readonly brailleViewModel: BrailleViewModel;
 
-  public constructor(context: Context, braille: BrailleService) {
+  public constructor(context: Context, brailleViewModel: BrailleViewModel) {
     this.context = context;
-    this.braille = braille;
+    this.brailleViewModel = brailleViewModel;
   }
 
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
-      this.braille.toggle(state);
+      this.brailleViewModel.toggle(state);
     }
   }
 }

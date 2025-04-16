@@ -74,7 +74,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     if (!controller) {
       // Create a deep copy to prevent mutations on the original maidr object.
       const maidrClone = JSON.parse(JSON.stringify(maidr));
-      controller = new Controller(maidrClone, maidrContainer, plot, reactContainer);
+      controller = new Controller(maidrClone, plot, reactContainer);
     }
   };
 
@@ -100,7 +100,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.
     const maidrClone = JSON.parse(JSON.stringify(maidr));
-    const controller = new Controller(maidrClone, maidrContainer, plot, reactContainer);
+    const controller = new Controller(maidrClone, plot, reactContainer);
     controller.dispose();
   })();
 }

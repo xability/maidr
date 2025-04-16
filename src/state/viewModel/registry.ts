@@ -1,3 +1,4 @@
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
@@ -7,6 +8,7 @@ import type { SettingsViewModel } from './settingsViewModel';
 import type { TextViewModel } from './textViewModel';
 
 export interface ViewModelMap {
+  braille: BrailleViewModel;
   chat: ChatViewModel;
   display: DisplayViewModel;
   help: HelpViewModel;

@@ -1,8 +1,8 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
-import type { BrailleService } from '@service/braille';
 import type { HighlightService } from '@service/highlight';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -59,10 +59,10 @@ export class CommandFactory {
   private readonly context: Context;
 
   private readonly audioService: AudioService;
-  private readonly brailleService: BrailleService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
 
+  private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
@@ -73,10 +73,10 @@ export class CommandFactory {
     this.context = commandContext.context;
 
     this.audioService = commandContext.audioService;
-    this.brailleService = commandContext.brailleService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
 
+    this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
@@ -115,7 +115,7 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.brailleService);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
@@ -135,7 +135,7 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audioService, this.brailleService, this.highlightService, this.textViewModel);
+        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':
