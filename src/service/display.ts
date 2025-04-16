@@ -14,13 +14,16 @@ export class DisplayService implements Disposable {
   private readonly maidrRoot: HTMLElement;
   public readonly plot: HTMLElement;
 
-  private readonly reactDiv: HTMLElement;
+  private readonly reactDiv?: HTMLElement;
   private reactRoot: Root | null;
 
   public readonly brailleDiv: HTMLElement;
   public readonly brailleTextArea: HTMLTextAreaElement;
 
-  public constructor(context: ContextService, maidrRoot: HTMLElement, reactDiv: HTMLElement, plot: HTMLElement) {
+  public readonly reviewDiv: HTMLElement;
+  public readonly reviewInput: HTMLInputElement;
+
+  public constructor(context: ContextService, maidrRoot: HTMLElement, plot: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Scope>();
     this.focusStack.push(this.context.scope);
@@ -36,7 +39,17 @@ export class DisplayService implements Disposable {
       = (document.getElementById(brailleTextAreaId) as HTMLTextAreaElement)
         ?? this.createBrailleTextArea(brailleTextAreaId);
 
-    this.reactDiv = reactDiv;
+    const reviewId = `${Constant.REVIEW_CONTAINER}-${maidrId}`;
+    const reviewInputId = `${Constant.REVIEW_INPUT}-${maidrId}`;
+    this.reviewDiv
+      = (document.getElementById(reviewId) as HTMLElement)
+        ?? this.createReviewContainer(reviewId);
+    this.reviewInput
+      = (document.getElementById(reviewInputId) as HTMLInputElement)
+        ?? this.createReviewInput(reviewInputId);
+
+    const reactId = `${Constant.REACT_CONTAINER}-${maidrId}`;
+    this.reactDiv = document.getElementById(reactId) ?? this.createReactContainer(reactId);
     this.reactRoot = createRoot(this.reactDiv);
     this.reactRoot.render(MaidrApp);
 
@@ -49,8 +62,12 @@ export class DisplayService implements Disposable {
     this.brailleTextArea.remove();
     this.brailleDiv.remove();
 
+    this.reviewInput.remove();
+    this.reviewDiv.remove();
+
     this.reactRoot?.unmount();
     this.reactRoot = null;
+    this.reactDiv?.remove();
   }
 
   public shouldDestroy(event: FocusEvent): boolean {
@@ -91,6 +108,34 @@ export class DisplayService implements Disposable {
     return brailleTextArea;
   }
 
+  private createReviewContainer(reviewId: string): HTMLElement {
+    const reviewDiv = document.createElement(Constant.DIV);
+    reviewDiv.id = reviewId;
+    reviewDiv.classList.add(Constant.HIDDEN);
+
+    this.maidrRoot.appendChild(reviewDiv);
+    return reviewDiv;
+  }
+
+  private createReviewInput(reviewInputId: string): HTMLInputElement {
+    const reviewInput = document.createElement(Constant.INPUT);
+    reviewInput.id = reviewInputId;
+    reviewInput.type = Constant.TEXT;
+    reviewInput.autocomplete = Constant.OFF;
+    reviewInput.size = 50;
+
+    this.reviewDiv.appendChild(reviewInput);
+    return reviewInput;
+  }
+
+  private createReactContainer(reactId: string): HTMLElement {
+    const reactDiv = document.createElement(Constant.DIV);
+    reactDiv.id = reactId;
+
+    this.maidrRoot.appendChild(reactDiv);
+    return reactDiv;
+  }
+
   public toggleFocus(scope: Scope): void {
     if (!this.focusStack.removeLast(scope)) {
       this.focusStack.push(scope);
@@ -101,7 +146,9 @@ export class DisplayService implements Disposable {
 
   private updateFocus(newScope: Scope): void {
     let activeDiv: HTMLElement | undefined;
-    if (
+    if ((document.activeElement as HTMLInputElement) === this.reviewInput) {
+      activeDiv = this.reviewDiv;
+    } else if (
       (document.activeElement as HTMLTextAreaElement) === this.brailleTextArea
     ) {
       activeDiv = this.brailleDiv;
@@ -116,11 +163,16 @@ export class DisplayService implements Disposable {
         this.brailleTextArea?.focus();
         break;
 
+      case 'REVIEW':
+        activeDiv?.classList.add(Constant.HIDDEN);
+        this.reviewDiv?.classList.remove(Constant.HIDDEN);
+        this.reviewInput?.focus();
+        break;
+
       case 'CHAT':
       case 'HELP':
-      case 'REVIEW':
       case 'SETTINGS':
-        this.reactDiv.focus();
+        this.reactDiv?.focus();
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
 
