@@ -18,13 +18,12 @@ export interface CommandContext {
 
   audioService: AudioService;
   brailleService: BrailleService;
-
   autoplayService: AutoplayService;
   highlightService: HighlightService;
 
-  textViewModel: TextViewModel;
-  reviewViewModel: ReviewViewModel;
-  helpViewModel: HelpViewModel;
   chatViewModel: ChatViewModel;
+  helpViewModel: HelpViewModel;
+  reviewViewModel: ReviewViewModel;
   settingsViewModel: SettingsViewModel;
+  textViewModel: TextViewModel;
 }

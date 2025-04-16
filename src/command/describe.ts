@@ -115,15 +115,15 @@ export class DescribePointCommand extends DescribeCommand {
 
   public constructor(
     context: ContextService,
+    audioService: AudioService,
+    brailleService: BrailleService,
+    highlightService: HighlightService,
     textViewModel: TextViewModel,
-    audio: AudioService,
-    braille: BrailleService,
-    highlight: HighlightService,
   ) {
     super(context, textViewModel);
-    this.audio = audio;
-    this.braille = braille;
-    this.highlight = highlight;
+    this.audio = audioService;
+    this.braille = brailleService;
+    this.highlight = highlightService;
   }
 
   public execute(): void {

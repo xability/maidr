@@ -80,15 +80,17 @@ export class Controller implements Disposable {
     this.keybinding = new KeybindingService(
       {
         context: this.context,
+
         audioService: this.audioService,
         brailleService: this.brailleService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
-        textViewModel: this.textViewModel,
-        reviewViewModel: this.reviewViewModel,
+
         chatViewModel: this.chatViewModel,
         helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
       },
     );
 

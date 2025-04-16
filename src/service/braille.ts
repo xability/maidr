@@ -76,13 +76,13 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     }
 
     if (state.braille.empty) {
-      const notSupported = `Braille is not supported for plot type: ${state.braille.type}`;
+      const notSupported = `Braille is not supported for plot type: ${state.braille.traceType}`;
       this.notification.notify(notSupported);
       return;
     }
 
     this.enabled = !this.enabled;
-    this.enabled && this.update(state);
+    this.update(state);
     this.display.toggleFocus(Scope.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
