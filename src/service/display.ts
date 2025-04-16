@@ -132,5 +132,7 @@ export class DisplayService implements Disposable {
         activeDiv?.classList.add(Constant.HIDDEN);
         break;
     }
+
+    this.onChangeEmitter.fire({ value: newScope });
   }
 }

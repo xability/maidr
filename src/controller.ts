@@ -104,6 +104,7 @@ export class Controller implements Disposable {
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
+    this.displayViewModel.dispose();
     this.reviewViewModel.dispose();
     this.textViewModel.dispose();
 
