@@ -1,4 +1,4 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
@@ -17,7 +17,7 @@ export class BrailleService implements Observer<TraceState>, Disposable {
   private readonly selectionChangeHandler?: (event: Event) => void;
 
   public constructor(
-    context: ContextService,
+    context: Context,
     notification: NotificationService,
     display: DisplayService,
   ) {

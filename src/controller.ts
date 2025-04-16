@@ -1,10 +1,10 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr } from '@type/maidr';
+import { Context } from '@model/context';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
-import { ContextService } from '@service/context';
 import { DisplayService } from '@service/display';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
@@ -25,7 +25,7 @@ import { Figure } from '@type/plot';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
-  private readonly context: ContextService;
+  private readonly context: Context;
 
   private readonly displayService: DisplayService;
   private readonly notificationService: NotificationService;
@@ -52,7 +52,7 @@ export class Controller implements Disposable {
 
   public constructor(maidr: Maidr, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
     this.figure = new Figure(maidr);
-    this.context = new ContextService(this.figure);
+    this.context = new Context(this.figure);
 
     this.displayService = new DisplayService(this.context, maidrContainer, plot, reactContainer);
     this.notificationService = new NotificationService();

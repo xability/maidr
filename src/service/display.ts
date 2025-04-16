@@ -1,4 +1,4 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
 import type { Root } from 'react-dom/client';
@@ -13,7 +13,7 @@ interface FocusChangedEvent {
 }
 
 export class DisplayService implements Disposable {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly focusStack: Stack<Focus>;
 
   private readonly maidrContainer: HTMLElement;
@@ -27,7 +27,7 @@ export class DisplayService implements Disposable {
   private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
   public readonly onChange: Event<FocusChangedEvent>;
 
-  public constructor(context: ContextService, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(context: Context, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
     this.focusStack.push(this.context.scope as Focus);

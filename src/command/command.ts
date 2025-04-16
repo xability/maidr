@@ -1,7 +1,7 @@
+import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
-import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -14,7 +14,7 @@ export interface Command {
 }
 
 export interface CommandContext {
-  context: ContextService;
+  context: Context;
 
   audioService: AudioService;
   brailleService: BrailleService;
