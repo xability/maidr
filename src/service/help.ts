@@ -1,4 +1,4 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { HelpMenuItem } from '@type/help';
 import { Scope } from '@type/event';
@@ -39,12 +39,12 @@ const SUBPLOT_HELP_MENU = [
 ];
 
 export class HelpService {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly display: DisplayService;
 
   private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
 
-  public constructor(context: ContextService, display: DisplayService) {
+  public constructor(context: Context, display: DisplayService) {
     this.context = context;
     this.display = display;
 

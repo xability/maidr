@@ -1,15 +1,15 @@
+import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
-import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
 
 abstract class DescribeCommand implements Command {
-  protected readonly context: ContextService;
+  protected readonly context: Context;
   protected readonly textViewModel: TextViewModel;
 
-  protected constructor(context: ContextService, textViewModel: TextViewModel) {
+  protected constructor(context: Context, textViewModel: TextViewModel) {
     this.context = context;
     this.textViewModel = textViewModel;
   }
@@ -18,7 +18,7 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -32,7 +32,7 @@ export class DescribeXCommand extends DescribeCommand {
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -46,7 +46,7 @@ export class DescribeYCommand extends DescribeCommand {
 }
 
 export class DescribeFillCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -60,7 +60,7 @@ export class DescribeFillCommand extends DescribeCommand {
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -81,7 +81,7 @@ export class DescribeTitleCommand extends DescribeCommand {
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -95,7 +95,7 @@ export class DescribeSubtitleCommand extends DescribeCommand {
 }
 
 export class DescribeCaptionCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -114,16 +114,16 @@ export class DescribePointCommand extends DescribeCommand {
   private readonly highlight: HighlightService;
 
   public constructor(
-    context: ContextService,
+    context: Context,
+    audioService: AudioService,
+    brailleService: BrailleService,
+    highlightService: HighlightService,
     textViewModel: TextViewModel,
-    audio: AudioService,
-    braille: BrailleService,
-    highlight: HighlightService,
   ) {
     super(context, textViewModel);
-    this.audio = audio;
-    this.braille = braille;
-    this.highlight = highlight;
+    this.audio = audioService;
+    this.braille = brailleService;
+    this.highlight = highlightService;
   }
 
   public execute(): void {

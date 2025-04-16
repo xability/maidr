@@ -9,7 +9,7 @@ import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
 
-export class ContextService implements Disposable {
+export class Context implements Disposable {
   public readonly id: string;
   private readonly instructionContext: Plot;
 
