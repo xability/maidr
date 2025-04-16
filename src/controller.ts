@@ -14,6 +14,7 @@ import { ReviewService } from '@service/review';
 import { SettingsService } from '@service/settings';
 import { TextService } from '@service/text';
 import { store } from '@state/store';
+import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -42,6 +43,7 @@ export class Controller implements Disposable {
   private readonly chatService: ChatService;
 
   private readonly textViewModel: TextViewModel;
+  private readonly brailleViewModel: BrailleViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
@@ -50,11 +52,11 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, maidrContainer, plot, reactContainer);
+    this.displayService = new DisplayService(this.context, plot, reactContainer);
     this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(this.displayService);
 
@@ -69,6 +71,7 @@ export class Controller implements Disposable {
     this.chatService = new ChatService(this.displayService, maidr);
 
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
+    this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
@@ -82,10 +85,10 @@ export class Controller implements Disposable {
         context: this.context,
 
         audioService: this.audioService,
-        brailleService: this.brailleService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
 
+        brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
@@ -108,6 +111,7 @@ export class Controller implements Disposable {
     this.helpViewModel.dispose();
     this.displayViewModel.dispose();
     this.reviewViewModel.dispose();
+    this.brailleViewModel.dispose();
     this.textViewModel.dispose();
 
     this.highlightService.dispose();
@@ -126,6 +130,7 @@ export class Controller implements Disposable {
 
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
+    ViewModelRegistry.instance.register('braille', this.brailleViewModel);
     ViewModelRegistry.instance.register('review', this.reviewViewModel);
     ViewModelRegistry.instance.register('display', this.displayViewModel);
     ViewModelRegistry.instance.register('help', this.helpViewModel);

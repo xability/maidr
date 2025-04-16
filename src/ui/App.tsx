@@ -3,6 +3,7 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
+import Braille from './pages/Braille';
 import Chat from './pages/Chat';
 import Help from './pages/Help';
 import Review from './pages/Review';
@@ -15,6 +16,9 @@ const App: React.FC = () => {
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
+      case 'BRAILLE':
+        return <Braille />;
+
       case 'CHAT':
         return <Chat />;
 

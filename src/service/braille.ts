@@ -1,54 +1,41 @@
 import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
-import { DomEventType, Scope } from '@type/event';
+import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
+interface BrailleChangedEvent {
+  value: string;
+  index: number;
+}
+
 export class BrailleService implements Observer<TraceState>, Disposable {
+  private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
 
   private enabled: boolean;
 
-  private readonly brailleTextArea?: HTMLTextAreaElement;
-  private readonly selectionChangeHandler?: (event: Event) => void;
+  private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
+  public readonly onChange: Event<BrailleChangedEvent>;
 
-  public constructor(
-    context: Context,
-    notification: NotificationService,
-    display: DisplayService,
-  ) {
+  public constructor(context: Context, notification: NotificationService, display: DisplayService) {
+    this.context = context;
     this.notification = notification;
     this.display = display;
 
     this.enabled = false;
-    if (!display.brailleDiv || !display.brailleTextArea) {
-      return;
-    }
 
-    this.selectionChangeHandler = (event: Event) => {
-      event.preventDefault();
-      if (this.enabled) {
-        context.moveToIndex(this.brailleTextArea!.selectionStart || -1);
-      }
-    };
-    this.brailleTextArea = display.brailleTextArea;
-    this.brailleTextArea.addEventListener(
-      DomEventType.SELECTION_CHANGE,
-      this.selectionChangeHandler,
-    );
+    this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
   public dispose(): void {
-    if (this.brailleTextArea && this.selectionChangeHandler) {
-      this.brailleTextArea.removeEventListener(
-        DomEventType.SELECTION_CHANGE,
-        this.selectionChangeHandler,
-      );
-    }
+    this.onChangeEmitter.dispose();
   }
 
   public update(state: TraceState): void {
@@ -57,15 +44,20 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     }
 
     const braille = state.braille;
-    this.brailleTextArea!.value = braille.values
+    const value = braille.values
       .map(row => row.join(Constant.EMPTY))
       .join(Constant.NEW_LINE);
-
     const index = braille.col + braille.values
       .map(row => row.join(Constant.EMPTY).length + 1)
       .slice(0, braille.row)
       .reduce((acc, length) => acc + length, 0);
-    this.brailleTextArea!.setSelectionRange(index, index);
+    this.onChangeEmitter.fire({ value, index });
+  }
+
+  public moveToIndex(index: number): void {
+    if (this.enabled) {
+      this.context.moveToIndex(index);
+    }
   }
 
   public toggle(state: TraceState): void {
