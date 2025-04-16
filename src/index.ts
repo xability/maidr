@@ -51,7 +51,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let reactContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
 
-  const onFocusOut = (_: FocusEvent): void => {
+  const onFocusOut = (): void => {
+    // Calling `setTimeout` to let React's rendering pipeline
+    // to process all the events to finalize the correct activeElement.
     setTimeout(() => {
       if (!maidrContainer) {
         return;

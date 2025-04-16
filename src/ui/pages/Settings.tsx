@@ -142,7 +142,6 @@ const Settings: React.FC = () => {
       open={enabled}
       onClose={handleClose}
       maxWidth="sm"
-      onBlur={e => e.preventDefault()}
       fullWidth
       disablePortal
     >
