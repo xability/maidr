@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",
-    "semantic-release": "semantic-release",
+    "semantic-release": "semantic-release"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
