@@ -124,7 +124,7 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [viewModel]);
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -150,7 +150,6 @@ const Chat: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',

@@ -52,7 +52,6 @@ const Help: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       {/* Header */}
       <Grid2 container component={DialogTitle}>
