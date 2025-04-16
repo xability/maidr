@@ -8,17 +8,24 @@ const Braille: React.FC = () => {
   const { value, index } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
+  const lastIndexRef = useRef<number>(index);
 
   useEffect(() => {
     if (brailleRef.current) {
       brailleRef.current.selectionStart = index;
       brailleRef.current.selectionEnd = index;
+      lastIndexRef.current = index;
     }
   }, [index]);
 
   const handleSelectionChange = (event: FormEvent<HTMLTextAreaElement>): void => {
     const textArea = event.currentTarget;
-    viewModel.moveToIndex(textArea.selectionStart);
+    const newIndex = textArea.selectionStart;
+
+    if (newIndex !== lastIndexRef.current) {
+      lastIndexRef.current = newIndex;
+      viewModel.moveToIndex(newIndex);
+    }
   };
 
   return (

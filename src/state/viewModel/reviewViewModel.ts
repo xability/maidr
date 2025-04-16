@@ -33,7 +33,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
   public constructor(store: AppStore, reviewService: ReviewService) {
     super(store);
     this.reviewService = reviewService;
-    this.registerListeners();
+    this.registerListener();
   }
 
   public dispose(): void {
@@ -41,7 +41,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
     super.dispose();
   }
 
-  private registerListeners(): void {
+  private registerListener(): void {
     this.disposables.push(this.reviewService.onChange((e) => {
       this.store.dispatch(update(e.value));
     }));

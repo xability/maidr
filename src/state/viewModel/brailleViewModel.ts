@@ -35,7 +35,7 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   public constructor(store: AppStore, brailleService: BrailleService) {
     super(store);
     this.brailleService = brailleService;
-    this.registerListeners();
+    this.registerListener();
   }
 
   public dispose(): void {
@@ -43,7 +43,7 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
     super.dispose();
   }
 
-  private registerListeners(): void {
+  private registerListener(): void {
     this.disposables.push(this.brailleService.onChange((e) => {
       this.store.dispatch(update(e));
     }));
