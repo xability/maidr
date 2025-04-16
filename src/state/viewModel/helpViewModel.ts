@@ -6,12 +6,10 @@ import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 interface HelpMenuState {
-  enabled: boolean;
   items: HelpMenuItem[];
 }
 
 const initialState: HelpMenuState = {
-  enabled: false,
   items: [],
 };
 
@@ -19,15 +17,15 @@ const helpSlice = createSlice({
   name: 'help',
   initialState,
   reducers: {
-    setHelpState(_, action: PayloadAction<HelpMenuState>): HelpMenuState {
-      return action.payload;
+    setHelpItems(state, action: PayloadAction<HelpMenuItem[]>): void {
+      state.items = action.payload;
     },
     reset(): HelpMenuState {
       return initialState;
     },
   },
 });
-const { setHelpState, reset } = helpSlice.actions;
+const { setHelpItems, reset } = helpSlice.actions;
 
 export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
   private readonly helpService: HelpService;
@@ -39,8 +37,8 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
 
   public toggle(): void {
     const items = this.helpService.getMenuItems();
-    const enabled = this.helpService.toggle(this.state.enabled);
-    this.store.dispatch(setHelpState({ enabled, items }));
+    this.store.dispatch(setHelpItems(items));
+    this.helpService.toggle();
   }
 
   public dispose(): void {

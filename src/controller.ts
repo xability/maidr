@@ -15,8 +15,10 @@ import { SettingsService } from '@service/settings';
 import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
+import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
+import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 import { Figure } from '@type/plot';
@@ -40,17 +42,19 @@ export class Controller implements Disposable {
   private readonly chatService: ChatService;
 
   private readonly textViewModel: TextViewModel;
+  private readonly reviewViewModel: ReviewViewModel;
+  private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, maidrRoot: HTMLElement, plot: HTMLElement) {
+  public constructor(maidr: Maidr, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new ContextService(this.figure);
 
-    this.displayService = new DisplayService(this.context, maidrRoot, plot);
+    this.displayService = new DisplayService(this.context, maidrContainer, plot, reactContainer);
     this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(this.displayService);
 
@@ -65,6 +69,8 @@ export class Controller implements Disposable {
     this.chatService = new ChatService(this.displayService, maidr);
 
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
+    this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
+    this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
@@ -76,10 +82,10 @@ export class Controller implements Disposable {
         context: this.context,
         audioService: this.audioService,
         brailleService: this.brailleService,
-        reviewService: this.reviewService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
         textViewModel: this.textViewModel,
+        reviewViewModel: this.reviewViewModel,
         chatViewModel: this.chatViewModel,
         helpViewModel: this.helpViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -98,6 +104,8 @@ export class Controller implements Disposable {
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
+    this.displayViewModel.dispose();
+    this.reviewViewModel.dispose();
     this.textViewModel.dispose();
 
     this.highlightService.dispose();
@@ -114,12 +122,10 @@ export class Controller implements Disposable {
     this.figure.dispose();
   }
 
-  public shouldDispose(event: FocusEvent): boolean {
-    return this.displayService.shouldDestroy(event);
-  }
-
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
+    ViewModelRegistry.instance.register('review', this.reviewViewModel);
+    ViewModelRegistry.instance.register('display', this.displayViewModel);
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);
@@ -134,6 +140,7 @@ export class Controller implements Disposable {
         trace.addObserver(this.audioService);
         trace.addObserver(this.brailleService);
         trace.addObserver(this.textService);
+        trace.addObserver(this.reviewService);
         trace.addObserver(this.highlightService);
       }));
     }));
