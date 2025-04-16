@@ -1,16 +1,14 @@
-import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { useViewModelState } from '@state/hook/useViewModel';
 import { Constant } from '@util/constant';
 import React, { useEffect, useRef } from 'react';
 
 const Review: React.FC = () => {
   const { value } = useViewModelState('review');
-  const viewModel = useViewModel('review');
   const reviewRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const inputElement = reviewRef.current;
-    inputElement?.focus();
-  }, [reviewRef, viewModel]);
+    reviewRef.current?.focus();
+  }, []);
 
   return (
     <div>

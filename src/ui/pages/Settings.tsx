@@ -87,15 +87,10 @@ const Settings: React.FC = () => {
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
-  const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
     viewModel.load();
-  }, [viewModel]);
-  useEffect(() => {
-    setGeneralSettings(general);
-    setLlmSettings(llm);
-  }, [general, llm]);
+  }, []);
 
   const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
     setGeneralSettings(prev => ({
@@ -131,7 +126,6 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
   };
   const handleClose = (): void => {
-    setEnabled(false);
     viewModel.toggle();
   };
   const handleSave = (): void => {
@@ -141,7 +135,7 @@ const Settings: React.FC = () => {
   return (
     <Dialog
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth

@@ -9,7 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useState } from 'react';
+import React from 'react';
 
 interface HelpRowProps {
   label: string;
@@ -40,17 +40,14 @@ const Help: React.FC = () => {
   const viewModel = useViewModel('help');
   const { items } = viewModel.state;
 
-  const [enabled, setEnabled] = useState(true);
-
   const handleClose = (): void => {
-    setEnabled(false);
     viewModel.toggle();
   };
 
   return (
     <Dialog
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth

@@ -6,12 +6,10 @@ import { createAction, createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
-  enabled: boolean;
   messages: Message[];
 }
 
 const initialState: ChatState = {
-  enabled: false,
   messages: [],
 };
 
