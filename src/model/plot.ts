@@ -10,7 +10,6 @@ import type {
   TextState,
   TraceState,
 } from '@type/state';
-import { Orientation } from '@type/plot';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -19,8 +18,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-  implements Movable, Observable<State>
-{
+implements Movable, Observable<State> {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -107,10 +105,10 @@ export abstract class AbstractObservableElement<Element, State>
   public isMovable(target: number | MovableDirection): boolean {
     if (typeof target === 'number') {
       return (
-        this.row >= 0 &&
-        this.row < this.values.length &&
-        target >= 0 &&
-        target < this.values[this.row].length
+        this.row >= 0
+        && this.row < this.values.length
+        && target >= 0
+        && target < this.values[this.row].length
       );
     }
 
@@ -140,7 +138,7 @@ export abstract class AbstractObservableElement<Element, State>
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter((obs) => obs !== observer);
+    this.observers = this.observers.filter(obs => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -163,8 +161,7 @@ export abstract class AbstractObservableElement<Element, State>
 
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
-  implements Trace
-{
+  implements Trace {
   protected readonly type: string;
   private readonly title: string;
 

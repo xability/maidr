@@ -31,7 +31,7 @@ export class Candlestick extends AbstractTrace<number> {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // Map the candlestick data to include trend information
-    this.candles = (layer.data as CandlestickPoint[]).map((candle) => ({
+    this.candles = (layer.data as CandlestickPoint[]).map(candle => ({
       ...candle,
       trend:
         candle.close > candle.open
@@ -44,10 +44,10 @@ export class Candlestick extends AbstractTrace<number> {
     this.sections = [...this.keyMap];
 
     this.candleValues = [
-      this.candles.map((c) => c.open),
-      this.candles.map((c) => c.high),
-      this.candles.map((c) => c.low),
-      this.candles.map((c) => c.close),
+      this.candles.map(c => c.open),
+      this.candles.map(c => c.high),
+      this.candles.map(c => c.low),
+      this.candles.map(c => c.close),
     ];
 
     this.min = Math.min(...this.candleValues.flat());
