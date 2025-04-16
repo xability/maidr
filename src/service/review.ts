@@ -37,7 +37,7 @@ export class ReviewService implements Observer<TraceState>, Disposable {
   }
 
   public update(state: TraceState): void {
-    if (state.empty) {
+    if (!this.enabled || state.empty) {
       return;
     }
 
@@ -48,10 +48,16 @@ export class ReviewService implements Observer<TraceState>, Disposable {
   }
 
   public toggle(state: TraceState): void {
-    state && this.update(state);
-    this.display.toggleFocus(Scope.REVIEW);
+    if (state.empty) {
+      const noInfo = 'No info for review';
+      this.notification.notify(noInfo);
+      return;
+    }
 
     this.enabled = !this.enabled;
+    this.update(state);
+    this.display.toggleFocus(Scope.REVIEW);
+
     const message = `Review is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
   }

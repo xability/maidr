@@ -1,6 +1,6 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
-import type { Event, Focus, Scope } from '@type/event';
+import type { Event, Focus } from '@type/event';
 import type { Root } from 'react-dom/client';
 import { Emitter } from '@type/event';
 import { MaidrApp } from '@ui/App';
@@ -13,7 +13,7 @@ interface FocusChangedEvent {
 }
 
 export class DisplayService implements Disposable {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly focusStack: Stack<Focus>;
 
   private readonly maidrContainer: HTMLElement;
@@ -27,10 +27,10 @@ export class DisplayService implements Disposable {
   private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
   public readonly onChange: Event<FocusChangedEvent>;
 
-  public constructor(context: ContextService, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(context: Context, maidrContainer: HTMLElement, plot: HTMLElement, reactContainer: HTMLElement) {
     this.context = context;
-    this.focusStack = new Stack<Scope>();
-    this.focusStack.push(this.context.scope);
+    this.focusStack = new Stack<Focus>();
+    this.focusStack.push(this.context.scope as Focus);
 
     const maidrId = this.context.id;
     this.maidrContainer = maidrContainer;
@@ -57,6 +57,8 @@ export class DisplayService implements Disposable {
 
     this.brailleTextArea.remove();
     this.brailleDiv.remove();
+
+    this.onChangeEmitter.dispose();
 
     this.reactRoot?.unmount();
     this.reactRoot = null;
@@ -99,7 +101,7 @@ export class DisplayService implements Disposable {
     if (!this.focusStack.removeLast(focus)) {
       this.focusStack.push(focus);
     }
-    this.context.toggleScope(focus as Scope);
+    this.context.toggleScope(focus);
     this.updateFocus(this.focusStack.peek()!);
   }
 
