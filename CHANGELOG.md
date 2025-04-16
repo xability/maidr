@@ -1,3 +1,10 @@
+## [2.4.4](https://github.com/xability/maidr-ts/compare/v2.4.3...v2.4.4) (2025-04-16)
+
+
+### Bug Fixes
+
+* gpt authorization and react rendering and focus ([#182](https://github.com/xability/maidr-ts/issues/182)) ([767d574](https://github.com/xability/maidr-ts/commit/767d574ec4ebc50c3653e212063a37d3b0d58d1b))
+
 ## [2.4.3](https://github.com/xability/maidr-ts/compare/v2.4.2...v2.4.3) (2025-04-15)
 
 
