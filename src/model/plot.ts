@@ -19,7 +19,8 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State> {
+  implements Movable, Observable<State>
+{
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -106,27 +107,20 @@ implements Movable, Observable<State> {
   public isMovable(target: number | MovableDirection): boolean {
     if (typeof target === 'number') {
       return (
-        this.row >= 0
-        && this.row < this.values.length
-        && target >= 0
-        && target < this.values[this.row].length
+        this.row >= 0 &&
+        this.row < this.values.length &&
+        target >= 0 &&
+        target < this.values[this.row].length
       );
     }
 
-    // Reviewer todo: I can't for the life of me get orientation in here from the main plot class and need help
-    // I've faked it, and it should be easy to update
-    const orientation = Orientation.VERTICAL;
     switch (target) {
       case 'UPWARD':
-        return orientation === Orientation.VERTICAL
-          ? this.row < this.values[this.col].length - 1
-          : this.row < this.values.length - 1;
+        return this.row < this.values.length - 1;
       case 'DOWNWARD':
         return this.row > 0;
       case 'FORWARD':
-        return orientation === Orientation.VERTICAL
-          ? this.col < this.values.length - 1
-          : this.col < this.values[this.row].length - 1;
+        return this.col < this.values[this.row].length - 1;
       case 'BACKWARD':
         return this.col > 0;
     }
@@ -146,7 +140,7 @@ implements Movable, Observable<State> {
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -169,7 +163,8 @@ implements Movable, Observable<State> {
 
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
-  implements Trace {
+  implements Trace
+{
   protected readonly type: string;
   private readonly title: string;
 

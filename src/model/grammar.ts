@@ -16,11 +16,12 @@ export interface BoxPoint {
 
 export interface CandlestickPoint {
   value: string;
-  low: number;
   open: number;
-  close: number;
   high: number;
+  low: number;
+  close: number;
   volume: number;
+  trend: string;
 }
 
 export interface HeatmapData {
