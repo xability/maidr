@@ -254,9 +254,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
-        this.mode = this.isCombinedAudio
-          ? AudioMode.COMBINED
-          : AudioMode.SEPARATE;
+        this.mode = this.isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
         break;
 
       case AudioMode.SEPARATE:
