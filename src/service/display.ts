@@ -95,11 +95,11 @@ export class DisplayService implements Disposable {
     return brailleTextArea;
   }
 
-  public toggleFocus(scope: Focus): void {
-    if (!this.focusStack.removeLast(scope)) {
-      this.focusStack.push(scope);
+  public toggleFocus(focus: Focus): void {
+    if (!this.focusStack.removeLast(focus)) {
+      this.focusStack.push(focus);
     }
-    this.context.toggleScope(scope as Scope);
+    this.context.toggleScope(focus as Scope);
     this.updateFocus(this.focusStack.peek()!);
   }
 
