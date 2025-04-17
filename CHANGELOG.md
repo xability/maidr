@@ -1,3 +1,10 @@
+## [2.4.6](https://github.com/xability/maidr-ts/compare/v2.4.5...v2.4.6) (2025-04-17)
+
+
+### Bug Fixes
+
+* audio residue during autoplay ([#191](https://github.com/xability/maidr-ts/issues/191)) ([d96311a](https://github.com/xability/maidr-ts/commit/d96311a3f2633ced0bbb3e94719fa713866fff52))
+
 ## [2.4.5](https://github.com/xability/maidr-ts/compare/v2.4.4...v2.4.5) (2025-04-17)
 
 
