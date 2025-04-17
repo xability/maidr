@@ -51,7 +51,7 @@ const BRAILLE_KEYMAP = {
 
 const CHAT_KEYMAP = {
   // Misc
-  TOGGLE_CHAT: `esc, shift+/`,
+  TOGGLE_CHAT: `esc`,
 } as const;
 
 const FIGURE_LABEL_KEYMAP = {

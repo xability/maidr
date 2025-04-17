@@ -14,7 +14,6 @@ const TRACE_HELP_MENU = [
   { description: 'Toggle Text Mode', key: 't' },
   { description: 'Toggle Sonification Mode', key: 's' },
   { description: 'Toggle Review Mode', key: 'r' },
-  { description: 'Toggle Chat Mode', key: `?` },
 
   { description: 'Autoplay Outward', key: `${Platform.ctrl} + shift + arrow keys` },
   { description: 'Stop Autoplay', key: `${Platform.ctrl}` },
@@ -29,6 +28,7 @@ const TRACE_HELP_MENU = [
   { description: 'Announce Fill (Z) Axis', key: 'l f' },
 
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
+  { description: 'Open Chat', key: `?` },
 ];
 
 const SUBPLOT_HELP_MENU = [
