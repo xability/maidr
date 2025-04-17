@@ -16,8 +16,12 @@ export class HighlightService implements Observer<PlotState>, Disposable {
   }
 
   public update(state: PlotState): void {
+    if (state.empty) {
+      return;
+    }
+
     this.unhighlight();
-    if (state.empty || state.type !== 'trace' || state.highlight.empty) {
+    if (state.type !== 'trace' || state.highlight.empty) {
       return;
     }
 

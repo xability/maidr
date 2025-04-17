@@ -27,6 +27,8 @@ export enum Scope {
   SETTINGS = 'SETTINGS',
 }
 
+export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
+
 export type Keys = keyof Keymap[Scope];
 
 export type Event<T> = (listener: (e: T) => any) => Disposable;

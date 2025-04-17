@@ -1,15 +1,15 @@
+import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
-import type { BrailleService } from '@service/braille';
-import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
 
 abstract class DescribeCommand implements Command {
-  protected readonly context: ContextService;
+  protected readonly context: Context;
   protected readonly textViewModel: TextViewModel;
 
-  protected constructor(context: ContextService, textViewModel: TextViewModel) {
+  protected constructor(context: Context, textViewModel: TextViewModel) {
     this.context = context;
     this.textViewModel = textViewModel;
   }
@@ -18,7 +18,7 @@ abstract class DescribeCommand implements Command {
 }
 
 export class DescribeXCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -32,7 +32,7 @@ export class DescribeXCommand extends DescribeCommand {
 }
 
 export class DescribeYCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -46,7 +46,7 @@ export class DescribeYCommand extends DescribeCommand {
 }
 
 export class DescribeFillCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -60,7 +60,7 @@ export class DescribeFillCommand extends DescribeCommand {
 }
 
 export class DescribeTitleCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -81,7 +81,7 @@ export class DescribeTitleCommand extends DescribeCommand {
 }
 
 export class DescribeSubtitleCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -95,7 +95,7 @@ export class DescribeSubtitleCommand extends DescribeCommand {
 }
 
 export class DescribeCaptionCommand extends DescribeCommand {
-  public constructor(context: ContextService, textViewModel: TextViewModel) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     super(context, textViewModel);
   }
 
@@ -110,20 +110,20 @@ export class DescribeCaptionCommand extends DescribeCommand {
 
 export class DescribePointCommand extends DescribeCommand {
   private readonly audio: AudioService;
-  private readonly braille: BrailleService;
+  private readonly brailleViewModel: BrailleViewModel;
   private readonly highlight: HighlightService;
 
   public constructor(
-    context: ContextService,
+    context: Context,
+    audioService: AudioService,
+    highlightService: HighlightService,
+    brailleViewModel: BrailleViewModel,
     textViewModel: TextViewModel,
-    audio: AudioService,
-    braille: BrailleService,
-    highlight: HighlightService,
   ) {
     super(context, textViewModel);
-    this.audio = audio;
-    this.braille = braille;
-    this.highlight = highlight;
+    this.audio = audioService;
+    this.highlight = highlightService;
+    this.brailleViewModel = brailleViewModel;
   }
 
   public execute(): void {
@@ -137,7 +137,7 @@ export class DescribePointCommand extends DescribeCommand {
       case 'trace':
         this.textViewModel.update(state);
         this.audio.update(state);
-        this.braille.update(state);
+        this.brailleViewModel.update(state);
         this.highlight.update(state);
         break;
     }

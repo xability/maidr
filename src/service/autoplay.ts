@@ -1,4 +1,4 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
@@ -18,7 +18,7 @@ interface AutoplayChangeEvent {
 }
 
 export class AutoplayService implements Disposable {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly notification: NotificationService;
 
   private playId: NodeJS.Timeout | null;
@@ -36,7 +36,7 @@ export class AutoplayService implements Disposable {
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
 
-  public constructor(context: ContextService, notification: NotificationService) {
+  public constructor(context: Context, notification: NotificationService) {
     this.notification = notification;
     this.context = context;
 

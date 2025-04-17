@@ -113,7 +113,7 @@ const Chat: React.FC = () => {
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
-  const { enabled, messages } = useViewModelState('chat');
+  const { messages } = useViewModelState('chat');
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -145,12 +145,11 @@ const Chat: React.FC = () => {
   return (
     <Dialog
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="md"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',
