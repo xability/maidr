@@ -1,3 +1,11 @@
+## [2.4.5](https://github.com/xability/maidr-ts/compare/v2.4.4...v2.4.5) (2025-04-17)
+
+
+### Bug Fixes
+
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([2c829fc](https://github.com/xability/maidr-ts/commit/2c829fcc848dab610c4b2e98f0e9eed3236f14c5))
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([#194](https://github.com/xability/maidr-ts/issues/194)) ([b4ded63](https://github.com/xability/maidr-ts/commit/b4ded630867312f9438eb1851219937a432a10d0))
+
 ## [2.4.4](https://github.com/xability/maidr-ts/compare/v2.4.3...v2.4.4) (2025-04-16)
 
 
