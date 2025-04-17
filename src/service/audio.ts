@@ -8,7 +8,7 @@ interface Range {
   max: number;
 }
 
-type Timer = ReturnType<typeof setTimeout>;
+type AudioId = ReturnType<typeof setTimeout>;
 
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
@@ -29,7 +29,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
-  private readonly activeAudioIds: Map<Timer, OscillatorNode>;
+  private readonly activeAudioIds: Map<AudioId, OscillatorNode>;
 
   private readonly volume: number;
   private readonly audioContext: AudioContext;
@@ -98,6 +98,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
   public update(state: SubplotState | TraceState): void {
     this.updateMode(state);
+    // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF || state.type !== 'trace') {
@@ -119,7 +120,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
-      const activeIds = new Array<Timer>();
+      const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
           this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
@@ -146,7 +147,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
-  ): Timer {
+  ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
@@ -162,7 +163,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     frequency: number,
     panning: number,
     wave: OscillatorType = 'sine',
-  ): Timer {
+  ): AudioId {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
 
@@ -214,7 +215,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     oscillator.start();
 
     // Clean up after the audio stops.
-    const cleanUp = (audioId: Timer): void => {
+    const cleanUp = (audioId: AudioId): void => {
       pannerNode.disconnect(this.compressor);
       stereoPannerNode.disconnect(pannerNode);
       gainNode.disconnect(stereoPannerNode);
@@ -229,7 +230,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playZero(): Timer {
+  private playZero(): AudioId {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
@@ -237,7 +238,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return this.playOscillator(frequency, panning, wave);
   }
 
-  public playWaitingTone(): Timer {
+  public playWaitingTone(): AudioId {
     return setTimeout(() => {});
   }
 
@@ -278,21 +279,21 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.notification.notify(message);
   }
 
-  public stop(audioId: Timer | Timer[]): void {
+  public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
       const activeNode = this.activeAudioIds.get(audioId);
       activeNode?.disconnect();
       activeNode?.stop();
 
-      clearInterval(audioId);
+      clearTimeout(audioId);
       this.activeAudioIds.delete(audioId);
     });
   }
 
   private stopAll(): void {
     this.activeAudioIds.entries().forEach(([audioId, node]) => {
-      clearInterval(audioId);
+      clearTimeout(audioId);
       node.disconnect();
       node.stop();
     });
