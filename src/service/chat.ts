@@ -24,9 +24,8 @@ export class ChatService {
     return this.models[model].getLlmResponse(request);
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(): void {
     this.display.toggleFocus(Scope.CHAT);
-    return !oldState;
   }
 }
 

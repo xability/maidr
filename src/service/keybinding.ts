@@ -10,12 +10,12 @@ const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
   // Autoplay
-  AUTOPLAY_UPWARD: `${Platform.modifierKey}+shift+up`,
-  AUTOPLAY_DOWNWARD: `${Platform.modifierKey}+shift+down`,
-  AUTOPLAY_FORWARD: `${Platform.modifierKey}+shift+right`,
-  AUTOPLAY_BACKWARD: `${Platform.modifierKey}+shift+left`,
+  AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
+  AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
+  AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
+  AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
 
-  STOP_AUTOPLAY: `${Platform.modifierKey}, up, down, left, right`,
+  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
   SPEED_UP_AUTOPLAY: `.`,
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
@@ -26,10 +26,10 @@ const BRAILLE_KEYMAP = {
   MOVE_RIGHT: `right`,
   MOVE_LEFT: `left`,
 
-  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
+  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
 
   MOVE_TO_NEXT_TRACE: `pageup`,
   MOVE_TO_PREV_TRACE: `pagedown`,
@@ -41,9 +41,9 @@ const BRAILLE_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
 
   // Description
   DESCRIBE_POINT: `space`,
@@ -63,7 +63,7 @@ const FIGURE_LABEL_KEYMAP = {
   DESCRIBE_CAPTION: `c`,
 
   // Misc
-  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
 } as const;
 
 const HELP_KEYMAP = {
@@ -84,17 +84,17 @@ const SUBPLOT_KEYMAP = {
   MOVE_RIGHT: `right`,
   MOVE_LEFT: `left`,
 
-  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
+  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
 
-  MOVE_TO_TRACE_CONTEXT: `${Platform.enterKey}`,
+  MOVE_TO_TRACE_CONTEXT: `${Platform.enter}`,
 
   // Misc
-  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
@@ -109,13 +109,21 @@ const TRACE_LABEL_KEYMAP = {
   DESCRIBE_CAPTION: `c`,
 
   // Misc
-  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
 } as const;
 
 const REVIEW_KEYMAP = {
   // Modes
   TOGGLE_BRAILLE: `b`,
   TOGGLE_REVIEW: `r`,
+
+  // Allowed actions
+  ALLOW_DEFAULT:
+    `up, down, left, right,
+    ${Platform.ctrl}+up, ${Platform.ctrl}+down,
+    ${Platform.ctrl}+left, ${Platform.ctrl}+right,
+    pageup, pagedown, home, end,
+    tab, ${Platform.ctrl}+a, ${Platform.ctrl}+c`,
 } as const;
 
 const SETTINGS_KEYMAP = {
@@ -127,12 +135,12 @@ const TRACE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
   // Autoplay
-  AUTOPLAY_UPWARD: `${Platform.modifierKey}+shift+up`,
-  AUTOPLAY_DOWNWARD: `${Platform.modifierKey}+shift+down`,
-  AUTOPLAY_FORWARD: `${Platform.modifierKey}+shift+right`,
-  AUTOPLAY_BACKWARD: `${Platform.modifierKey}+shift+left`,
+  AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
+  AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
+  AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
+  AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
 
-  STOP_AUTOPLAY: `${Platform.modifierKey}, up, down, left, right`,
+  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
   SPEED_UP_AUTOPLAY: `.`,
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
@@ -143,10 +151,10 @@ const TRACE_KEYMAP = {
   MOVE_RIGHT: `right`,
   MOVE_LEFT: `left`,
 
-  MOVE_TO_TOP_EXTREME: `${Platform.modifierKey}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.modifierKey}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.modifierKey}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.modifierKey}+right`,
+  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
+  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
+  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
+  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
 
   MOVE_TO_SUBPLOT_CONTEXT: `esc`,
   MOVE_TO_NEXT_TRACE: `pageup`,
@@ -159,9 +167,9 @@ const TRACE_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Misc
-  TOGGLE_HELP: `${Platform.modifierKey}+/`,
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.modifierKey}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
 
   // Description
   DESCRIBE_POINT: `space`,
@@ -214,21 +222,23 @@ export class KeybindingService {
         Keys,
         string,
       ][]) {
-        const command = this.commandFactory.create(commandName);
-
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
           hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
+              const command = this.commandFactory.create(commandName);
               command.execute(event);
             }
           });
         }
 
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
-          event.preventDefault();
-          command.execute(event);
+          if (commandName !== 'ALLOW_DEFAULT') {
+            event.preventDefault();
+            const command = this.commandFactory.create(commandName);
+            command.execute(event);
+          }
         });
       }
     }

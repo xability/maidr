@@ -83,18 +83,14 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
 const Settings: React.FC = () => {
   const viewModel = useViewModel('settings');
-  const { enabled, general, llm } = viewModel.state;
+  const { general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
     viewModel.load();
-  }, [viewModel]);
-  useEffect(() => {
-    setGeneralSettings(general);
-    setLlmSettings(llm);
-  }, [general, llm]);
+  }, []);
 
   const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
     setGeneralSettings(prev => ({
@@ -133,18 +129,17 @@ const Settings: React.FC = () => {
     viewModel.toggle();
   };
   const handleSave = (): void => {
-    viewModel.save({ general: generalSettings, llm: llmSettings });
+    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
 
   return (
     <Dialog
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       <DialogContent sx={{ overflow: 'visible' }}>
         {/* Header */}
@@ -392,7 +387,7 @@ const Settings: React.FC = () => {
           </Grid2>
           <Grid2 size="auto">
             <Button variant="contained" color="primary" onClick={handleSave}>
-              Save
+              Save & Close
             </Button>
           </Grid2>
         </Grid2>

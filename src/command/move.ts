@@ -1,10 +1,10 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
 import type { Command } from './command';
 
 export class MoveUpCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -14,9 +14,9 @@ export class MoveUpCommand implements Command {
 }
 
 export class MoveDownCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -26,9 +26,9 @@ export class MoveDownCommand implements Command {
 }
 
 export class MoveLeftCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -38,9 +38,9 @@ export class MoveLeftCommand implements Command {
 }
 
 export class MoveRightCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -50,9 +50,9 @@ export class MoveRightCommand implements Command {
 }
 
 export class MoveToTopExtremeCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -62,9 +62,9 @@ export class MoveToTopExtremeCommand implements Command {
 }
 
 export class MoveToBottomExtremeCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -74,9 +74,9 @@ export class MoveToBottomExtremeCommand implements Command {
 }
 
 export class MoveToLeftExtremeCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -86,9 +86,9 @@ export class MoveToLeftExtremeCommand implements Command {
 }
 
 export class MoveToRightExtremeCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -98,9 +98,9 @@ export class MoveToRightExtremeCommand implements Command {
 }
 
 export class MoveToTraceContextCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -110,9 +110,9 @@ export class MoveToTraceContextCommand implements Command {
 }
 
 export class MoveToSubplotContextCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -122,9 +122,9 @@ export class MoveToSubplotContextCommand implements Command {
 }
 
 export class MoveToNextTraceCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 
@@ -134,9 +134,9 @@ export class MoveToNextTraceCommand implements Command {
 }
 
 export class MoveToPrevTraceCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  public constructor(context: ContextService) {
+  public constructor(context: Context) {
     this.context = context;
   }
 

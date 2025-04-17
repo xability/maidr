@@ -140,12 +140,11 @@ const Chat: React.FC = () => {
   return (
     <Dialog
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="md"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',

@@ -1,27 +1,27 @@
+import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
-import type { BrailleService } from '@service/braille';
-import type { ContextService } from '@service/context';
-import type { ReviewService } from '@service/review';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Scope } from '@type/event';
 import type { Command } from './command';
 
 export class ToggleBrailleCommand implements Command {
-  private readonly context: ContextService;
-  private readonly braille: BrailleService;
+  private readonly context: Context;
+  private readonly brailleViewModel: BrailleViewModel;
 
-  public constructor(context: ContextService, braille: BrailleService) {
+  public constructor(context: Context, brailleViewModel: BrailleViewModel) {
     this.context = context;
-    this.braille = braille;
+    this.brailleViewModel = brailleViewModel;
   }
 
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
-      this.braille.toggle(state);
+      this.brailleViewModel.toggle(state);
     }
   }
 }
@@ -51,18 +51,18 @@ export class ToggleAudioCommand implements Command {
 }
 
 export class ToggleReviewCommand implements Command {
-  private readonly context: ContextService;
-  private readonly review: ReviewService;
+  private readonly context: Context;
+  private readonly reviewViewModel: ReviewViewModel;
 
-  public constructor(context: ContextService, review: ReviewService) {
+  public constructor(context: Context, reviewViewModel: ReviewViewModel) {
     this.context = context;
-    this.review = review;
+    this.reviewViewModel = reviewViewModel;
   }
 
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
-      this.review.toggle(state);
+      this.reviewViewModel.toggle(state);
     }
   }
 }
@@ -104,10 +104,10 @@ export class ToggleSettingsCommand implements Command {
 }
 
 export class ToggleScopeCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly scope: Scope;
 
-  public constructor(context: ContextService, scope: Scope) {
+  public constructor(context: Context, scope: Scope) {
     this.context = context;
     this.scope = scope;
   }
