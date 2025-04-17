@@ -124,7 +124,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           apiKey: config.apiKey,
         });
 
-        this.audioService.stop();
+        this.audioService.stop(audioId);
         if (response.error) {
           this.store.dispatch(updateError({
             model,
@@ -139,7 +139,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           }));
         }
       } catch (error) {
-        this.audioService.stop();
+        this.audioService.stop(audioId);
         this.store.dispatch(updateError({
           model,
           error: error instanceof Error ? error.message : 'Error processing request',
