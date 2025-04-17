@@ -25,7 +25,7 @@ const TRACE_HELP_MENU = [
   { description: 'Announce Plot Title', key: 'l t' },
   { description: 'Announce X Label', key: 'l x' },
   { description: 'Announce Y Label', key: 'l y' },
-  { description: 'Announce Fill (Z) Axis', key: 'l f' },
+  { description: 'Announce Fill (Z) Label', key: 'l f' },
 
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
   { description: 'Open Chat', key: `?` },
