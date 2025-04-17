@@ -5,7 +5,7 @@ import { Scope } from '@type/event';
 import { Platform } from '@util/platform';
 
 const TRACE_HELP_MENU = [
-  { description: 'Move around Layer', key: 'arrow keys' },
+  { description: 'Navigate Data Points', key: 'arrow keys' },
   { description: 'Move to Next Layer', key: 'page up' },
   { description: 'Move to Previous Layer', key: 'page down' },
   { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.ctrl} + arrow keys` },
