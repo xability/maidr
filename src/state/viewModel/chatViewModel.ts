@@ -6,10 +6,12 @@ import { createAction, createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
+  enabled: boolean;
   messages: Message[];
 }
 
 const initialState: ChatState = {
+  enabled: false,
   messages: [],
 };
 
@@ -70,7 +72,7 @@ const chatSlice = createSlice({
   },
 });
 
-const { toggle, reset } = chatSlice.actions;
+const { reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
