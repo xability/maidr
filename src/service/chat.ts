@@ -1,5 +1,4 @@
 import type { DisplayService } from '@service/display';
-import type { SettingsService } from '@service/settings';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
 import type { Maidr } from '@type/maidr';
 import { Scope } from '@type/event';
@@ -7,42 +6,26 @@ import { Api } from '@util/api';
 import { Svg } from '@util/svg';
 
 export class ChatService {
-  private readonly displayService: DisplayService;
+  private readonly display: DisplayService;
   private readonly maidr: Maidr;
-  private readonly settingsService: SettingsService;
   private readonly models: Record<Llm, LlmModel>;
 
-  public constructor(displayService: DisplayService, maidr: Maidr, settingsService: SettingsService) {
-    this.displayService = displayService;
+  public constructor(display: DisplayService, maidr: Maidr) {
+    this.display = display;
     this.maidr = maidr;
-    this.settingsService = settingsService;
-
     this.models = {
-      GPT: new Gpt(displayService.plot, maidr),
-      CLAUDE: new Claude(displayService.plot, maidr),
-      GEMINI: new Gemini(displayService.plot, maidr),
+      GPT: new Gpt(display.plot, maidr),
+      CLAUDE: new Claude(display.plot, maidr),
+      GEMINI: new Gemini(display.plot, maidr),
     };
   }
 
-  private isAnyAgentEnabled(): boolean {
-    const settings = this.settingsService.loadSettings();
-    return Object.values(settings.llm.models).some(model =>
-      model.enabled && model.apiKey,
-    );
-  }
-
   public async sendMessage(model: Llm, request: LlmRequest): Promise<LlmResponse> {
-    if (!this.isAnyAgentEnabled()) {
-      return {
-        success: false,
-        error: 'No agents are enabled. Please enable at least one agent in the settings.',
-      };
-    }
     return this.models[model].getLlmResponse(request);
   }
 
   public toggle(oldState: boolean): boolean {
-    this.displayService.toggleFocus(Scope.CHAT);
+    this.display.toggleFocus(Scope.CHAT);
     return !oldState;
   }
 }
@@ -107,7 +90,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
       const headers: Record<string, string> = request.clientToken
         ? { Authentication: `${request.email} ${request.clientToken}` }
-        : {};
+        : { Authorization: `Bearer ${request.apiKey}` };
 
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {
@@ -149,7 +132,6 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
   protected abstract formatResponse(response: T): LlmResponse;
 }
-
 class Gpt extends AbstractLlmModel<GptResponse> {
   public constructor(svg: HTMLElement, maidr: Maidr) {
     super(svg, maidr);

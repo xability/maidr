@@ -16,8 +16,7 @@ const initialState: ChatState = {
   messages: [],
 };
 
-const addUserMessage = createAction<{ text: string; timestamp: string }>('chat/addUserMessage');
-const addSystemMessage = createAction<{ text: string; timestamp: string }>('chat/addSystemMessage');
+const addMessage = createAction<{ text: string; isUser: boolean; timestamp: string }>('chat/addMessage');
 const addPendingResponse = createAction<{ model: Llm; timestamp: string }>('chat/addPendingResponse');
 const updateResponse = createAction<{ model: Llm; data: string; timestamp: string }>('chat/updateResponse');
 const updateError = createAction<{ model: Llm; error: string; timestamp: string }>('chat/updateError');
@@ -35,20 +34,11 @@ const chatSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(addUserMessage, (state, action) => {
+      .addCase(addMessage, (state, action) => {
         state.messages.push({
-          id: `msg-${Date.now()}`,
+          id: `${action.payload.isUser ? 'user' : 'sys'}-${Date.now()}`,
           text: action.payload.text,
-          isUser: true,
-          timestamp: action.payload.timestamp,
-          status: 'SUCCESS',
-        });
-      })
-      .addCase(addSystemMessage, (state, action) => {
-        state.messages.push({
-          id: `sys-${Date.now()}`,
-          text: action.payload.text,
-          isUser: false,
+          isUser: action.payload.isUser,
           timestamp: action.payload.timestamp,
           status: 'SUCCESS',
         });
@@ -85,6 +75,7 @@ const chatSlice = createSlice({
       });
   },
 });
+
 const { toggle, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
@@ -114,28 +105,30 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.store.dispatch(toggle(enabled));
   }
 
-  public addSystemMessage(text: string): void {
-    this.store.dispatch(addSystemMessage({
+  private addMessage(text: string, isUser: boolean = false): void {
+    this.store.dispatch(addMessage({
       text,
+      isUser,
       timestamp: new Date().toISOString(),
     }));
+  }
+
+  public addSystemMessage(text: string): void {
+    this.addMessage(text, false);
   }
 
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
     const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled);
+      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey);
 
     if (enabledModels.length === 0) {
-      this.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings.');
+      this.addMessage('No agents are enabled. Please enable at least one agent in the settings.', false);
       return;
     }
 
     const timestamp = new Date().toISOString();
-    this.store.dispatch(addUserMessage({
-      text: newMessage,
-      timestamp,
-    }));
+    this.addMessage(newMessage, true);
 
     await Promise.all(enabledModels.map(async (model) => {
       const audioId = this.audioService.playWaitingTone();
