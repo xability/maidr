@@ -1,8 +1,8 @@
 import type { DisplayService } from '@service/display';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
 import type { Maidr } from '@type/maidr';
 import type { LlmSettings } from '@type/settings';
-import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
