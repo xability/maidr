@@ -319,6 +319,26 @@ test.describe('Line Plot', () => {
     }
   });
 
+  test('should not be able to move up', async ({ page }) => {
+    const linePlotPage = await setupLinePlotPage(page);
+
+    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await linePlotPage.moveToDataPointAbove();
+
+    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
+  test('should not be able to move down', async ({ page }) => {
+    const linePlotPage = await setupLinePlotPage(page);
+
+    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await linePlotPage.moveToDataPointBelow();
+
+    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
   test('should execute forward autoplay', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 
