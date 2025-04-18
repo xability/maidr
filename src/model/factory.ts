@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { Trace } from '@type/plot';
+import type { Trace } from './plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';

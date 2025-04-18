@@ -1,7 +1,7 @@
 import type { BoxPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { AbstractTrace } from './plot';
+import { AbstractTrace } from './abstract';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -16,8 +16,10 @@ const Q3 = '75%';
 export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
-  private readonly orientation: Orientation;
 
+  protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
+
+  private readonly orientation: Orientation;
   private readonly sections: string[];
 
   private readonly min: number;
@@ -47,6 +49,8 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.max = Math.max(...flatBoxValues.flat());
 
     this.row = this.boxValues.length - 1;
+
+    this.highlightValues = null;
   }
 
   public dispose(): void {
@@ -63,10 +67,6 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
   }
 
   protected get brailleValues(): null {
-    return null;
-  }
-
-  protected get highlightValues(): null {
     return null;
   }
 

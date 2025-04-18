@@ -1,7 +1,7 @@
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { AbstractTrace } from './plot';
+import { AbstractTrace } from './abstract';
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
@@ -52,11 +52,11 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical ? this.values[this.row].length : this.values.length;
+    const size = isVertical ? this.barValues[this.row].length : this.barValues.length;
     const index = isVertical ? this.col : this.row;
     const value = isVertical
-      ? this.values[this.row][this.col]
-      : this.values[this.col][this.row];
+      ? this.barValues[this.row][this.col]
+      : this.barValues[this.col][this.row];
 
     return {
       min: Math.min(...this.min),

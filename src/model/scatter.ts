@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
-import { AbstractTrace } from '@model/plot';
+import { AbstractTrace } from './abstract';
 
 enum NavMode {
   COL = 'column',
@@ -88,9 +88,7 @@ export class ScatterPlot extends AbstractTrace<number> {
   }
 
   protected get values(): number[][] {
-    return this.mode === NavMode.COL
-      ? [this.xValues]
-      : [this.yValues];
+    return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
   }
 
   protected get brailleValues(): null {
@@ -98,9 +96,7 @@ export class ScatterPlot extends AbstractTrace<number> {
   }
 
   protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL
-      ? this.highlightXValues
-      : this.highlightYValues;
+    return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }
 
   protected audio(): AudioState {
@@ -160,8 +156,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     }
 
     const elements = this.mode === NavMode.COL
-      ? this.col < this.highlightValues.length ? this.highlightXValues![this.col] : null
-      : this.row < this.highlightValues.length ? this.highlightYValues![this.row] : null;
+      ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
+      : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
       return {
         empty: true,

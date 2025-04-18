@@ -1,6 +1,6 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import { AbstractTrace } from './plot';
+import { AbstractTrace } from './abstract';
 
 export class Heatmap extends AbstractTrace<number> {
   private readonly heatmapValues: number[][];
@@ -68,7 +68,7 @@ export class Heatmap extends AbstractTrace<number> {
     const low = this.min + range;
     const medium = low + range;
 
-    for (let row = 0; row < this.values.length; row++) {
+    for (let row = 0; row < this.heatmapValues.length; row++) {
       braille.push(new Array<string>());
 
       for (let col = 0; col < data[row].length; col++) {

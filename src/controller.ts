@@ -1,6 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr } from '@type/grammar';
 import { Context } from '@model/context';
+import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
@@ -22,7 +23,6 @@ import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
-import { Figure } from '@type/plot';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;

@@ -2,7 +2,7 @@ import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './plot';
+import { AbstractTrace } from './abstract';
 
 const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;

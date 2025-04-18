@@ -27,6 +27,15 @@ export interface BoxPoint {
   upperOutliers: number[];
 }
 
+export interface BoxSelector {
+  lowerOutliers: string[];
+  min: string;
+  iq: string;
+  q2: string;
+  max: string;
+  upperOutliers: string[];
+}
+
 export interface HeatmapData {
   x: string[];
   y: string[];
@@ -63,7 +72,7 @@ export enum Orientation {
 export interface MaidrLayer {
   type: string;
   title?: string;
-  selectors?: string | string[];
+  selectors?: string | string[] | BoxSelector[];
   orientation?: Orientation;
   axes?: {
     x?: string;
