@@ -102,10 +102,12 @@ const Chat: React.FC = () => {
   const isAnyAgentEnabled = Object.values(settings.llm.models).some(model => model.enabled && model.apiKey);
 
   useEffect(() => {
-    if (enabled && !isAnyAgentEnabled) {
-      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+    if (enabled && messages.length === 0) {
+      // Let the ChatViewModel handle displaying the appropriate message
+      // when chat is opened based on whether any models are enabled
+      viewModel.toggle();
     }
-  }, [enabled, isAnyAgentEnabled, viewModel]);
+  }, [enabled, messages.length, viewModel]);
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

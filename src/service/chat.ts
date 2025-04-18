@@ -1,6 +1,8 @@
 import type { DisplayService } from '@service/display';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
 import type { Maidr } from '@type/maidr';
+import type { LlmSettings } from '@type/settings';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
@@ -9,6 +11,7 @@ export class ChatService {
   private readonly display: DisplayService;
   private readonly maidr: Maidr;
   private readonly models: Record<Llm, LlmModel>;
+  private viewModel?: ChatViewModel;
 
   public constructor(display: DisplayService, maidr: Maidr) {
     this.display = display;
@@ -18,6 +21,29 @@ export class ChatService {
       CLAUDE: new Claude(display.plot, maidr),
       GEMINI: new Gemini(display.plot, maidr),
     };
+  }
+
+  public setViewModel(viewModel: ChatViewModel): void {
+    this.viewModel = viewModel;
+  }
+
+  /**
+   * Checks if any LLM models are enabled with API keys and shows appropriate message
+   * @param llmSettings - The current LLM settings containing model configurations
+   * @returns True if at least one model is enabled with an API key, false otherwise
+   */
+  public checkEnabledModels(llmSettings: LlmSettings): boolean {
+    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
+      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey);
+
+    if (enabledModels.length === 0 && this.viewModel) {
+      this.viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
+      return false;
+    } else if (this.viewModel) {
+      this.viewModel.addSystemMessage('Welcome to the Chart Assistant. You can ask questions about the chart and get AI-powered responses.');
+    }
+
+    return enabledModels.length > 0;
   }
 
   public async sendMessage(model: Llm, request: LlmRequest): Promise<LlmResponse> {

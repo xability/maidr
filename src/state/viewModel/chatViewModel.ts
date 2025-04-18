@@ -82,6 +82,8 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     super(store);
     this.chatService = chatService;
     this.audioService = audioService;
+    // Connect the ChatViewModel with ChatService for system messages
+    this.chatService.setViewModel(this);
   }
 
   public dispose(): void {
@@ -98,6 +100,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
   public toggle(): void {
     this.chatService.toggle();
+
+    // Check for enabled models and show appropriate message when chat is opened
+    if (this.state.messages.length === 0) {
+      const { llm: llmSettings } = this.snapshot.settings;
+      this.chatService.checkEnabledModels(llmSettings);
+    }
   }
 
   private addMessage(text: string, isUser: boolean = false): void {
