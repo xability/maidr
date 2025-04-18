@@ -1,5 +1,5 @@
 import type { Disposable } from '@type/disposable';
-import type { Maidr } from '@type/maidr';
+import type { Maidr } from '@type/grammar';
 import { Context } from '@model/context';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';

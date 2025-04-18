@@ -1,4 +1,4 @@
-import type { Maidr } from '@type/maidr';
+import type { Maidr } from '@type/grammar';
 import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
 import { Controller } from './controller';

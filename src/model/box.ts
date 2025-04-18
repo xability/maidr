@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { BoxPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { BoxPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import { Orientation } from '@type/grammar';
 import { AbstractTrace } from './plot';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';

@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { BarPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import { Orientation } from '@type/grammar';
 import { AbstractTrace } from './plot';
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {

@@ -1,5 +1,5 @@
 import type { Disposable } from '@type/disposable';
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
 import type { Trace } from '@type/plot';

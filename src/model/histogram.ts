@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { TextState } from '@type/state';
-import type { HistogramPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import { Orientation } from '@type/grammar';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {

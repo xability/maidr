@@ -1,6 +1,5 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { LinePoint } from './grammar';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './plot';

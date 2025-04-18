@@ -1,6 +1,5 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { HeatmapData } from './grammar';
 import { AbstractTrace } from './plot';
 
 export class Heatmap extends AbstractTrace<number> {

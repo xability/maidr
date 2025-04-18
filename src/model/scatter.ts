@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
-import type { ScatterPoint } from './grammar';
 import { AbstractTrace } from '@model/plot';
 
 enum NavMode {

@@ -1,6 +1,5 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer } from '@type/grammar';
 import type { Trace } from '@type/plot';
-import { TraceType } from '@type/plot';
 import { BarPlot } from './bar';
 import { BoxPlot } from './box';
 import { Heatmap } from './heatmap';
@@ -8,6 +7,18 @@ import { Histogram } from './histogram';
 import { LinePlot } from './line';
 import { ScatterPlot } from './scatter';
 import { SegmentedPlot } from './segmented';
+
+enum TraceType {
+  BAR = 'bar',
+  BOX = 'box',
+  DODGED = 'dodged_bar',
+  HEATMAP = 'heat',
+  HISTOGRAM = 'hist',
+  LINE = 'line',
+  NORMALIZED = 'stacked_normalized_bar',
+  SCATTER = 'point',
+  STACKED = 'stacked_bar',
+}
 
 export abstract class TraceFactory {
   public static create(layer: MaidrLayer): Trace {

@@ -1,5 +1,5 @@
-import type { Disposable } from '@type/disposable';
-import type { Maidr, MaidrSubplot } from './maidr';
+import type { Disposable } from './disposable';
+import type { Maidr, MaidrSubplot } from './grammar';
 import type { Movable } from './movable';
 import type { Observable } from './observable';
 import type { FigureState, SubplotState, TraceState } from './state';
@@ -10,23 +10,6 @@ import { Constant } from '@util/constant';
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
-
-export enum TraceType {
-  BAR = 'bar',
-  BOX = 'box',
-  DODGED = 'dodged_bar',
-  HEATMAP = 'heat',
-  HISTOGRAM = 'hist',
-  LINE = 'line',
-  NORMALIZED = 'stacked_normalized_bar',
-  SCATTER = 'point',
-  STACKED = 'stacked_bar',
-}
-
-export enum Orientation {
-  VERTICAL = 'vert',
-  HORIZONTAL = 'horz',
-}
 
 export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly id: string;
