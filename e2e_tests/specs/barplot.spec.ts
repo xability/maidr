@@ -253,6 +253,28 @@ test.describe('Bar Plot', () => {
     }
   });
 
+  test('should not be able to move up', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await barPlotPage.moveToDataPointAbove();
+
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
+  test('should not be able to move down', async ({ page }) => {
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    await barPlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await barPlotPage.moveToDataPointBelow();
+
+    const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
   test('should execute forward autoplay', async ({ page }) => {
     const barPlotPage = new BarPlotPage(page);
     await barPlotPage.activateMaidr();

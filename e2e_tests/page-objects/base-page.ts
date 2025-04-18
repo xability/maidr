@@ -352,6 +352,22 @@ export class BasePage {
   }
 
   /**
+   * Moves to the data point above the current data point in the chart
+   * @throws KeypressError if operation fails
+   */
+  public async moveToDataPointAbove(): Promise<void> {
+    await this.pressKey(TestConstants.UP_ARROW_KEY, 'move to data point above');
+  }
+
+  /**
+   * Moves to the data point below the current data point in the chart
+   * @throws KeypressError if operation fails
+   */
+  public async moveToDataPointBelow(): Promise<void> {
+    await this.pressKey(TestConstants.DOWN_ARROW_KEY, 'move to data point below');
+  }
+
+  /**
    * Waits for a specified time period
    * @param milliseconds - The time to wait in milliseconds
    */
