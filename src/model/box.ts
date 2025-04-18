@@ -1,4 +1,4 @@
-import type { BoxPoint, MaidrLayer } from '@type/grammar';
+import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { AbstractTrace } from './abstract';
@@ -32,15 +32,24 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
-    this.boxValues = this.points.map(point => [
-      point.lowerOutliers,
-      point.min,
-      point.q1,
-      point.q2,
-      point.q3,
-      point.max,
-      point.upperOutliers,
-    ]);
+    const sectionAccessors = [
+      (p: BoxPoint) => p.lowerOutliers,
+      (p: BoxPoint) => p.min,
+      (p: BoxPoint) => p.q1,
+      (p: BoxPoint) => p.q2,
+      (p: BoxPoint) => p.q3,
+      (p: BoxPoint) => p.max,
+      (p: BoxPoint) => p.upperOutliers,
+    ];
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.boxValues = this.points.map(point =>
+        sectionAccessors.map(accessor => accessor(point)),
+      );
+    } else {
+      this.boxValues = sectionAccessors.map(accessor =>
+        this.points.map(point => accessor(point)),
+      );
+    }
 
     const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
@@ -50,7 +59,7 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
 
     this.row = this.boxValues.length - 1;
 
-    this.highlightValues = null;
+    this.highlightValues = this.mapToSvgElements(layer.selectors as BoxSelector[]);
   }
 
   public dispose(): void {
@@ -72,16 +81,14 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
 
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-
-    const value = isHorizontal
-      ? this.boxValues[this.row][this.col]
-      : this.boxValues[this.col][this.row];
-    const index = isHorizontal ? this.col : this.row;
+    const value = this.boxValues[this.row][this.col];
+    const size = isHorizontal ? this.sections.length : this.points.length;
+    const index = isHorizontal ? this.col : this.col;
 
     return {
       min: this.min,
       max: this.max,
-      size: this.sections.length,
+      size,
       index,
       value,
     };
@@ -97,14 +104,19 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       : this.sections[this.row];
 
     const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
-    const crossValue = isHorizontal
-      ? this.boxValues[this.row][this.col]
-      : this.boxValues[this.col][this.row];
+    const crossValue = this.boxValues[this.row][this.col];
 
     return {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
     };
+  }
+
+  private mapToSvgElements(selectors: BoxSelector[]): (SVGElement[] | SVGElement)[][] | null {
+    if (!selectors || selectors.length !== this.points.length) {
+      return null;
+    }
+    return null;
   }
 }
