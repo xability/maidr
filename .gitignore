@@ -157,13 +157,9 @@ out
 # Cypress content
 cypress/screenshots/
 
-# VS Code
-.vscode
-
 # Playwright
 test-results/
 playwright-report/
 
 # Qodo AI
 .qodo
-
