@@ -117,6 +117,46 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     if (!selectors || selectors.length !== this.points.length) {
       return null;
     }
-    return null;
+
+    let boxesSections = new Array<Array<(SVGElement[] | SVGElement)>>();
+    for (const selector of selectors) {
+      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
+        Array.from(document.querySelectorAll<SVGElement>(s)),
+      );
+      const min = document.querySelector<SVGElement>(selector.min) ?? new Array<SVGElement>();
+      const iq = document.querySelector<SVGElement>(selector.iq) ?? new Array<SVGElement>();
+      const q2 = document.querySelector<SVGElement>(selector.q2) ?? new Array<SVGElement>();
+      const max = document.querySelector<SVGElement>(selector.max) ?? new Array<SVGElement>();
+      const upperOutliers = selector.upperOutliers.flatMap(s =>
+        Array.from(document.querySelectorAll<SVGElement>(s)),
+      );
+
+      const boxSections = new Array<(SVGElement[] | SVGElement)>();
+      boxSections.push(lowerOutliers);
+      boxSections.push(min);
+      boxSections.push(iq);
+      boxSections.push(q2);
+      boxSections.push(iq);
+      boxSections.push(max);
+      boxSections.push(upperOutliers);
+      boxesSections.push(boxSections);
+    }
+
+    if (this.orientation === Orientation.VERTICAL) {
+      const sectionCount = this.sections.length;
+      const boxCount = boxesSections.length;
+      const transposed: (SVGElement[] | SVGElement)[][] = [];
+
+      for (let sectionIdx = 0; sectionIdx < sectionCount; sectionIdx++) {
+        const row: (SVGElement[] | SVGElement)[] = [];
+        for (let boxIdx = 0; boxIdx < boxCount; boxIdx++) {
+          row.push(boxesSections[boxIdx][sectionIdx]);
+        }
+        transposed.push(row);
+      }
+      boxesSections = transposed;
+    }
+
+    return boxesSections;
   }
 }
