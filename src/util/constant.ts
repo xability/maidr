@@ -31,6 +31,10 @@ export abstract class Constant {
   static readonly STROKE_WIDTH = 'stroke-width';
   static readonly TITLE = 'title';
   static readonly VISIBILITY = 'visibility';
+  static readonly X1 = 'x1';
+  static readonly X2 = 'x2';
+  static readonly Y1 = 'y1';
+  static readonly Y2 = 'y2';
 
   // Attribute values.
   static readonly AFTER_END = 'afterend';
@@ -42,6 +46,7 @@ export abstract class Constant {
   static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
+  static readonly LINE = 'line';
   static readonly MAIDR_DATA = 'maidr-data';
   static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly NEW_LINE = '\n';

@@ -1,6 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
@@ -118,45 +119,52 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       return null;
     }
 
-    let boxesSections = new Array<Array<(SVGElement[] | SVGElement)>>();
-    for (const selector of selectors) {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const svgElements = new Array<Array<(SVGElement[] | SVGElement)>>();
+
+    if (isVertical) {
+      for (let i = 0; i < this.sections.length; i++) {
+        svgElements.push(Array.from({ length: (selectors.length) }));
+      }
+    }
+
+    selectors.forEach((selector, boxIdx) => {
       const lowerOutliers = selector.lowerOutliers.flatMap(s =>
         Array.from(document.querySelectorAll<SVGElement>(s)),
       );
-      const min = document.querySelector<SVGElement>(selector.min) ?? new Array<SVGElement>();
-      const iq = document.querySelector<SVGElement>(selector.iq) ?? new Array<SVGElement>();
-      const q2 = document.querySelector<SVGElement>(selector.q2) ?? new Array<SVGElement>();
-      const max = document.querySelector<SVGElement>(selector.max) ?? new Array<SVGElement>();
       const upperOutliers = selector.upperOutliers.flatMap(s =>
         Array.from(document.querySelectorAll<SVGElement>(s)),
       );
 
-      const boxSections = new Array<(SVGElement[] | SVGElement)>();
-      boxSections.push(lowerOutliers);
-      boxSections.push(min);
-      boxSections.push(iq);
-      boxSections.push(q2);
-      boxSections.push(iq);
-      boxSections.push(max);
-      boxSections.push(upperOutliers);
-      boxesSections.push(boxSections);
-    }
+      const min = document.querySelector<SVGElement>(selector.min) ?? Svg.createEmptyElement();
+      const max = document.querySelector<SVGElement>(selector.max) ?? Svg.createEmptyElement();
 
-    if (this.orientation === Orientation.VERTICAL) {
-      const sectionCount = this.sections.length;
-      const boxCount = boxesSections.length;
-      const transposed: (SVGElement[] | SVGElement)[][] = [];
+      const iq = document.querySelector<SVGElement>(selector.iq) ?? Svg.createEmptyElement();
+      const q2 = document.querySelector<SVGElement>(selector.q2) ?? Svg.createEmptyElement();
 
-      for (let sectionIdx = 0; sectionIdx < sectionCount; sectionIdx++) {
-        const row: (SVGElement[] | SVGElement)[] = [];
-        for (let boxIdx = 0; boxIdx < boxCount; boxIdx++) {
-          row.push(boxesSections[boxIdx][sectionIdx]);
-        }
-        transposed.push(row);
+      const [q1, q3] = isVertical
+        ? [Svg.createLineElement(iq, 'top'), Svg.createLineElement(iq, 'bottom')]
+        : [Svg.createLineElement(iq, 'left'), Svg.createLineElement(iq, 'right')];
+
+      const sections = [
+        lowerOutliers,
+        min,
+        q1,
+        q2,
+        q3,
+        max,
+        upperOutliers,
+      ];
+
+      if (isVertical) {
+        sections.forEach((section, sectionIdx) => {
+          svgElements[sectionIdx][boxIdx] = section;
+        });
+      } else {
+        svgElements.push(sections);
       }
-      boxesSections = transposed;
-    }
+    });
 
-    return boxesSections;
+    return svgElements;
   }
 }

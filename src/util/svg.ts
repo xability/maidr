@@ -1,6 +1,8 @@
 import { Color } from './color';
 import { Constant } from './constant';
 
+type Edge = 'top' | 'bottom' | 'left' | 'right';
+
 export abstract class Svg {
   private constructor() { /* Prevent instantiation */ }
 
@@ -75,10 +77,44 @@ export abstract class Svg {
     return element;
   }
 
+  public static createLineElement(box: SVGElement, edge: Edge): SVGElement {
+    const svg = box as SVGGraphicsElement;
+    const bBox = svg.getBBox();
+    let x1: number, y1: number, x2: number, y2: number;
+    switch (edge) {
+      case 'top':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
+        break;
+      case 'bottom':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
+        break;
+      case 'left':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
+        break;
+      case 'right':
+        [x1, y1, x2, y2] = [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
+        break;
+    }
+
+    const style = window.getComputedStyle(box);
+    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
+    line.setAttribute(Constant.X1, String(x1));
+    line.setAttribute(Constant.Y1, String(y1));
+    line.setAttribute(Constant.X2, String(x2));
+    line.setAttribute(Constant.Y2, String(y2));
+    line.setAttribute(Constant.STROKE, style.stroke);
+    line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
+    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+
+    box.insertAdjacentElement(Constant.AFTER_END, line);
+    return line;
+  }
+
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
     const tag = element.tagName.toLowerCase();
-    const originalColor = tag === Constant.POLYLINE
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+    const originalColor = isLineElement
       ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
       : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
@@ -88,7 +124,7 @@ export abstract class Svg {
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
     clone.style.stroke = color;
-    if (tag === Constant.POLYLINE) {
+    if (isLineElement) {
       const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
       clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
     }
