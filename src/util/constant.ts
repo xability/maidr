@@ -45,7 +45,7 @@ export abstract class Constant {
   static readonly MAIDR_DATA = 'maidr-data';
   static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly NEW_LINE = '\n';
-  static readonly POLYLINE = 'polyine';
+  static readonly POLYLINE = 'polyline';
   static readonly SPACE = ' ';
   static readonly THROUGH = ' through ';
   static readonly TRANSPARENT = 'transparent';
