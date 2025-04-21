@@ -87,6 +87,10 @@ const Settings: React.FC = () => {
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
+  const [email, setEmail] = useState(localStorage.getItem('verifiedEmail') || '');
+  const [isVerified, setIsVerified] = useState(!!localStorage.getItem('clientToken'));
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
 
   useEffect(() => {
     viewModel.load();
@@ -95,6 +99,10 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
     setLlmSettings(llm);
   }, [general, llm]);
+  useEffect(() => {
+    setIsVerified(!!localStorage.getItem('clientToken'));
+    setEmail(localStorage.getItem('verifiedEmail') || '');
+  }, []);
 
   const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
     setGeneralSettings(prev => ({
@@ -123,6 +131,31 @@ const Settings: React.FC = () => {
         },
       },
     }));
+  };
+
+  const handleVerifyEmail = async (): Promise<void> => {
+    setIsVerifying(true);
+    setVerificationError('');
+    try {
+      // TODO: Replace this with a real API endpoint
+      const response = await fetch('/api/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok)
+        throw new Error('Verification failed');
+      const { token } = await response.json();
+      localStorage.setItem('clientToken', token);
+      localStorage.setItem('verifiedEmail', email);
+      setIsVerified(true);
+    } catch (e: any) {
+      setVerificationError(e.message || 'Verification failed');
+      localStorage.removeItem('clientToken');
+      setIsVerified(false);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleReset = (): void => {
@@ -290,6 +323,41 @@ const Settings: React.FC = () => {
 
         <Grid2 size={12}>
           <Divider sx={{ py: 0.5 }} />
+        </Grid2>
+
+        {/* Email Verification */}
+        <Grid2 size={12}>
+          <SettingRow
+            label="Verification Email"
+            input={(
+              <Grid2 container spacing={1} alignItems="center">
+                <Grid2 size="grow">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    disabled={isVerified}
+                  />
+                </Grid2>
+                <Grid2 size="auto">
+                  <Button
+                    variant="contained"
+                    onClick={handleVerifyEmail}
+                    disabled={isVerifying || isVerified || !email}
+                  >
+                    {isVerified ? 'Verified' : isVerifying ? 'Verifying...' : 'Verify'}
+                  </Button>
+                </Grid2>
+              </Grid2>
+            )}
+          />
+          {verificationError && (
+            <Typography color="error" variant="body2" sx={{ ml: 4, mt: 1 }}>
+              {verificationError}
+            </Typography>
+          )}
         </Grid2>
 
         {/* LLM Settings */}

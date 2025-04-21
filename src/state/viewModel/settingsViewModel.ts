@@ -62,7 +62,7 @@ const settingsSlice = createSlice({
     },
     setVerification: (
       state,
-      action: PayloadAction<{ verifiedEmail: string; clientToken: string }>
+      action: PayloadAction<{ verifiedEmail: string; clientToken: string }>,
     ) => {
       state.verifiedEmail = action.payload.verifiedEmail;
       state.clientToken = action.payload.clientToken;
