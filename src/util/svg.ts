@@ -1,4 +1,5 @@
-import { Constant } from '@util/constant';
+import { Color } from './color';
+import { Constant } from './constant';
 
 export abstract class Svg {
   private constructor() { /* Prevent instantiation */ }
@@ -57,10 +58,10 @@ export abstract class Svg {
   }
 
   public static createCircleElement(cx: string | number, cy: string | number, style: CSSStyleDeclaration, parent: SVGElement): SVGElement {
-    const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
     const color = style.stroke || Constant.MAIDR_HIGHLIGHT_COLOR;
-    const strokeWidth = style.strokeWidth || '3';
-    const radius = Number.parseFloat(strokeWidth) * 3;
+    const strokeWidth = style.strokeWidth || '2';
+    const radius = Number.parseFloat(strokeWidth) * 2;
+    const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
 
     element.setAttribute(Constant.CIRCLE_X, String(cx));
     element.setAttribute(Constant.CIRCLE_Y, String(cy));
@@ -69,7 +70,45 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE, color);
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    parent.parentNode?.appendChild(element);
+
+    parent.insertAdjacentElement(Constant.AFTER_END, element);
     return element;
+  }
+
+  public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
+    const clone = element.cloneNode(true) as SVGElement;
+    const tag = element.tagName.toLowerCase();
+    const originalColor = tag === Constant.POLYLINE
+      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
+      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
+    const color = this.getHighlightColor(originalColor, fallbackColor);
+
+    clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+    clone.setAttribute(Constant.STROKE, color);
+    clone.setAttribute(Constant.FILL, color);
+    clone.style.fill = color;
+    clone.style.stroke = color;
+    if (tag === Constant.POLYLINE) {
+      const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
+      clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
+    }
+
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
+  }
+
+  private static getHighlightColor(originalColor: string, fallbackColor: string): string {
+    const originalRgb = Color.parse(originalColor);
+    if (!originalRgb) {
+      return fallbackColor;
+    }
+
+    const invertedRgb = Color.invert(originalRgb);
+    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
+    if (contrastRatio >= 4.5) {
+      return Color.rgbToString(invertedRgb);
+    }
+
+    return fallbackColor;
   }
 }
