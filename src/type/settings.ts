@@ -25,6 +25,8 @@ export interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   ariaMode: AriaMode;
+  verifiedEmail?: string;
+  clientToken?: string;
 }
 
 export interface Settings {
