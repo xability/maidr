@@ -7,6 +7,8 @@ import { AbstractViewModel } from './viewModel';
 
 interface SettingsState extends Settings {
   enabled: boolean;
+  verifiedEmail?: string;
+  clientToken?: string;
 }
 
 const initialState: SettingsState = {
@@ -41,6 +43,8 @@ const initialState: SettingsState = {
       },
     },
   },
+  verifiedEmail: localStorage.getItem('verifiedEmail') || undefined,
+  clientToken: localStorage.getItem('clientToken') || undefined,
 };
 
 const settingsSlice = createSlice({
@@ -56,9 +60,20 @@ const settingsSlice = createSlice({
     reset: (): SettingsState => {
       return initialState;
     },
+    setVerification: (
+      state,
+      action: PayloadAction<{ verifiedEmail: string; clientToken: string }>
+    ) => {
+      state.verifiedEmail = action.payload.verifiedEmail;
+      state.clientToken = action.payload.clientToken;
+    },
+    clearVerification: (state) => {
+      state.verifiedEmail = undefined;
+      state.clientToken = undefined;
+    },
   },
 });
-const { update, toggle, reset } = settingsSlice.actions;
+const { update, toggle, reset, setVerification, clearVerification } = settingsSlice.actions;
 
 export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   private readonly settingsService: SettingsService;
@@ -96,6 +111,14 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.settingsService.resetSettings();
     const settings = this.settingsService.loadSettings();
     this.store.dispatch(update(settings));
+  }
+
+  public setVerification(verifiedEmail: string, clientToken: string): void {
+    this.store.dispatch(setVerification({ verifiedEmail, clientToken }));
+  }
+
+  public clearVerification(): void {
+    this.store.dispatch(clearVerification());
   }
 }
 
