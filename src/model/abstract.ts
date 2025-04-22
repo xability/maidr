@@ -225,7 +225,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   protected highlight(): HighlightState {
-    if (this.highlightValues === null) {
+    if (this.highlightValues === null || this.isInitialEntry) {
       return {
         empty: true,
         type: 'trace',
