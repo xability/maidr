@@ -17,12 +17,12 @@ export class Candlestick extends AbstractTrace<number> {
     'close' | 'low' | 'high' | 'open'
   >)[] = ['close', 'low', 'high', 'open'];
 
-  public orientation: Orientation;
+  private readonly orientation: Orientation;
 
-  public sections: string[];
+  private readonly sections: string[];
 
-  public min: number;
-  public max: number;
+  private readonly min: number;
+  private readonly max: number;
 
   constructor(layer: MaidrLayer) {
     super(layer);

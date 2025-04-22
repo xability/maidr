@@ -19,15 +19,15 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot<T = number[] | number> extends AbstractTrace<T> {
+export class BoxPlot extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
-  public orientation: Orientation;
+  private readonly orientation: Orientation;
 
-  public sections: string[];
+  private readonly sections: string[];
 
-  public min: number;
-  public max: number;
+  private readonly min: number;
+  private readonly max: number;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -64,8 +64,8 @@ export class BoxPlot<T = number[] | number> extends AbstractTrace<T> {
     super.destroy();
   }
 
-  protected get values(): T[][] {
-    return this.boxValues as T[][];
+  protected get values(): (number[] | number)[][] {
+    return this.boxValues;
   }
 
   protected get brailleValues(): string[][] {
