@@ -8,6 +8,8 @@ interface Range {
   max: number;
 }
 
+type AudioId = ReturnType<typeof setTimeout>;
+
 const MIN_FREQUENCY = 200;
 const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
@@ -27,9 +29,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
-  private readonly volume: number;
-  private timeoutId: NodeJS.Timeout | null;
+  private readonly activeAudioIds: Map<AudioId, OscillatorNode>;
 
+  private readonly volume: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -40,15 +42,15 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.mode = AudioMode.SEPARATE;
     this.updateMode(state);
 
-    this.volume = DEFAULT_VOLUME;
-    this.timeoutId = null;
+    this.activeAudioIds = new Map();
 
+    this.volume = DEFAULT_VOLUME;
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
 
   public dispose(): void {
-    this.stop();
+    this.stopAll();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       void this.audioContext.close();
@@ -95,8 +97,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   public update(state: SubplotState | TraceState): void {
-    this.stop();
     this.updateMode(state);
+    // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF || state.type !== 'trace') {
@@ -118,12 +120,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
+      const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
           this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
-          this.timeoutId = setTimeout(playNext, playRate);
+          activeIds.push(setTimeout(playNext, playRate));
         } else {
-          this.stop();
+          this.stop(activeIds);
         }
       };
 
@@ -144,7 +147,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
-  ): void {
+  ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
@@ -153,14 +156,14 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    this.playOscillator(frequency, panning);
+    return this.playOscillator(frequency, panning);
   }
 
   private playOscillator(
     frequency: number,
     panning: number,
     wave: OscillatorType = 'sine',
-  ): void {
+  ): AudioId {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
 
@@ -168,7 +171,6 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const oscillator = this.audioContext.createOscillator();
     oscillator.type = wave;
     oscillator.frequency.value = frequency;
-    oscillator.start();
 
     // Add volume.
     const gainNode = this.audioContext.createGain();
@@ -205,35 +207,38 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       coneOuterGain: 0.4,
     });
 
-    // Create the audio graph.
+    // Create and start the audio graph.
     oscillator.connect(gainNode);
     gainNode.connect(stereoPannerNode);
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
+    oscillator.start();
 
     // Clean up after the audio stops.
-    this.timeoutId = setTimeout(
-      () => {
-        pannerNode.disconnect();
-        stereoPannerNode.disconnect();
-        gainNode.disconnect();
+    const cleanUp = (audioId: AudioId): void => {
+      pannerNode.disconnect(this.compressor);
+      stereoPannerNode.disconnect(pannerNode);
+      gainNode.disconnect(stereoPannerNode);
 
-        oscillator.stop();
-        oscillator.disconnect();
-      },
-      duration * 1e3 * 2,
-    );
+      oscillator.stop();
+      oscillator.disconnect(gainNode);
+
+      this.activeAudioIds.delete(audioId);
+    };
+    const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
+    this.activeAudioIds.set(audioId, oscillator);
+    return audioId;
   }
 
-  private playZero(): void {
+  private playZero(): AudioId {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
 
-    this.playOscillator(frequency, panning, wave);
+    return this.playOscillator(frequency, panning, wave);
   }
 
-  public playWaitingTone(): NodeJS.Timeout {
+  public playWaitingTone(): AudioId {
     return setTimeout(() => {});
   }
 
@@ -254,9 +259,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
-        this.mode = this.isCombinedAudio
-          ? AudioMode.COMBINED
-          : AudioMode.SEPARATE;
+        this.mode = this.isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
         break;
 
       case AudioMode.SEPARATE:
@@ -276,10 +279,24 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.notification.notify(message);
   }
 
-  public stop(audioId: NodeJS.Timeout | null = this.timeoutId): void {
-    if (audioId) {
+  public stop(audioId: AudioId | AudioId[]): void {
+    const audioIds = Array.isArray(audioId) ? audioId : [audioId];
+    audioIds.forEach((audioId) => {
+      const activeNode = this.activeAudioIds.get(audioId);
+      activeNode?.disconnect();
+      activeNode?.stop();
+
       clearTimeout(audioId);
-      this.timeoutId = null;
-    }
+      this.activeAudioIds.delete(audioId);
+    });
+  }
+
+  private stopAll(): void {
+    this.activeAudioIds.entries().forEach(([audioId, node]) => {
+      clearTimeout(audioId);
+      node.disconnect();
+      node.stop();
+    });
+    this.activeAudioIds.clear();
   }
 }

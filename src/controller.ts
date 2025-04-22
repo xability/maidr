@@ -1,6 +1,7 @@
 import type { Disposable } from '@type/disposable';
-import type { Maidr } from '@type/maidr';
+import type { Maidr } from '@type/grammar';
 import { Context } from '@model/context';
+import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
@@ -22,7 +23,6 @@ import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
-import { Figure } from '@type/plot';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -143,6 +143,7 @@ export class Controller implements Disposable {
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);
+      subplot.addObserver(this.highlightService);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
         trace.addObserver(this.audioService);
         trace.addObserver(this.brailleService);

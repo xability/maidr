@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { Constant } from '@util/constant';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 
 const Braille: React.FC = () => {
+  const id = useId();
   const viewModel = useViewModel('braille');
   const { value, index } = useViewModelState('braille');
 
@@ -29,9 +30,9 @@ const Braille: React.FC = () => {
   };
 
   return (
-    <div>
+    <div id={id}>
       <textarea
-        id={Constant.BRAILLE_TEXT_AREA}
+        id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}
         defaultValue={value}
         onSelect={handleSelectionChange}

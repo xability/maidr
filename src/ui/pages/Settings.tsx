@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 
 interface SettingRowProps {
   label: string;
@@ -82,6 +82,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 );
 
 const Settings: React.FC = () => {
+  const id = useId();
   const viewModel = useViewModel('settings');
   const { general, llm } = viewModel.state;
 
@@ -134,6 +135,7 @@ const Settings: React.FC = () => {
 
   return (
     <Dialog
+      id={id}
       role="dialog"
       open={true}
       onClose={handleClose}

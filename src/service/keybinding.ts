@@ -43,7 +43,7 @@ const BRAILLE_KEYMAP = {
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
   DESCRIBE_POINT: `space`,
@@ -94,7 +94,7 @@ const SUBPLOT_KEYMAP = {
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
@@ -169,7 +169,7 @@ const TRACE_KEYMAP = {
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+.`,
+  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
   DESCRIBE_POINT: `space`,

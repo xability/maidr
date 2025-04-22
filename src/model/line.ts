@@ -1,9 +1,8 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { LinePoint } from './grammar';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './plot';
+import { AbstractTrace } from './abstract';
 
 const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
@@ -33,10 +32,6 @@ export class LinePlot extends AbstractTrace<number> {
 
   public dispose(): void {
     this.points.length = 0;
-    this.lineValues.length = 0;
-
-    this.brailleValues.length = 0;
-    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
@@ -146,13 +141,12 @@ export class LinePlot extends AbstractTrace<number> {
 
     const svgElements = new Array<Array<SVGElement>>();
     for (let r = 0; r < selectors.length; r++) {
-      const domElements = Array.from(document.querySelectorAll<SVGElement>(selectors[r]));
-      if (domElements.length !== 1) {
+      const lineElement = Svg.selectElement(selectors[r], false);
+      if (!lineElement) {
         return null;
       }
 
       const coordinates = new Array<LinePoint>();
-      const lineElement = domElements[0];
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
         let match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
@@ -172,13 +166,12 @@ export class LinePlot extends AbstractTrace<number> {
         return null;
       }
 
-      const style = window.getComputedStyle(lineElement);
       const linePointElements = new Array<SVGElement>();
       for (const coordinate of coordinates) {
         if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
           return null;
         }
-        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, style, lineElement));
+        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, lineElement));
       }
       svgElements.push(linePointElements);
     }

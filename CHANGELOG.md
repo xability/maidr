@@ -1,3 +1,32 @@
+# [2.5.0](https://github.com/xability/maidr-ts/compare/v2.4.7...v2.5.0) (2025-04-22)
+
+
+### Features
+
+* support highlight for boxplot ([#202](https://github.com/xability/maidr-ts/issues/202)) ([6d3eb7d](https://github.com/xability/maidr-ts/commit/6d3eb7d2e0c8390d300dc1578910b4dc1d522162))
+
+## [2.4.7](https://github.com/xability/maidr-ts/compare/v2.4.6...v2.4.7) (2025-04-22)
+
+
+### Bug Fixes
+
+* lifecycle in multi figure ([#204](https://github.com/xability/maidr-ts/issues/204)) ([6244802](https://github.com/xability/maidr-ts/commit/6244802d500fd6067d4680efad3ba85a9aced479))
+
+## [2.4.6](https://github.com/xability/maidr-ts/compare/v2.4.5...v2.4.6) (2025-04-17)
+
+
+### Bug Fixes
+
+* audio residue during autoplay ([#191](https://github.com/xability/maidr-ts/issues/191)) ([d96311a](https://github.com/xability/maidr-ts/commit/d96311a3f2633ced0bbb3e94719fa713866fff52))
+
+## [2.4.5](https://github.com/xability/maidr-ts/compare/v2.4.4...v2.4.5) (2025-04-17)
+
+
+### Bug Fixes
+
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([2c829fc](https://github.com/xability/maidr-ts/commit/2c829fcc848dab610c4b2e98f0e9eed3236f14c5))
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([#194](https://github.com/xability/maidr-ts/issues/194)) ([b4ded63](https://github.com/xability/maidr-ts/commit/b4ded630867312f9438eb1851219937a432a10d0))
+
 ## [2.4.4](https://github.com/xability/maidr-ts/compare/v2.4.3...v2.4.4) (2025-04-16)
 
 
