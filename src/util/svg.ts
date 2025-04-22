@@ -51,10 +51,14 @@ export abstract class Svg {
     }
   }
 
-  public static selectAllElements<T extends SVGElement>(query: string): T[] {
+  public static selectAllElements<T extends SVGElement>(query: string, shouldClone: boolean = true): T[] {
     return Array
       .from(document.querySelectorAll<T>(query))
       .map((element) => {
+        if (!shouldClone) {
+          return element;
+        }
+
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         element.insertAdjacentElement(Constant.AFTER_END, clone);
@@ -62,8 +66,12 @@ export abstract class Svg {
       });
   }
 
-  public static selectElement<T extends SVGElement>(query: string): T {
+  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
     const element = document.querySelector<T>(query);
+    if (!shouldClone) {
+      return element as T;
+    }
+
     const clone = element?.cloneNode(true) as T;
     clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
 
