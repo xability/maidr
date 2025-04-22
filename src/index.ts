@@ -52,8 +52,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let controller: Controller | null = null;
 
   const onFocusOut = (): void => {
-    // Calling `setTimeout` to let React's rendering pipeline
-    // to process all the events to finalize the correct activeElement.
+    // Allow React to process all the events before focusing out.
     setTimeout(() => {
       if (!maidrContainer) {
         return;
@@ -67,15 +66,18 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }, 0);
   };
   const onFocusIn = (): void => {
-    if (!maidrContainer || !reactContainer) {
-      return;
-    }
+    // Allow React to process all the events before focusing in.
+    setTimeout(() => {
+      if (!maidrContainer || !reactContainer) {
+        return;
+      }
 
-    if (!controller) {
-      // Create a deep copy to prevent mutations on the original maidr object.
-      const maidrClone = JSON.parse(JSON.stringify(maidr));
-      controller = new Controller(maidrClone, plot, reactContainer);
-    }
+      if (!controller) {
+        // Create a deep copy to prevent mutations on the original maidr object.
+        const maidrClone = JSON.parse(JSON.stringify(maidr));
+        controller = new Controller(maidrClone, plot, reactContainer);
+      }
+    }, 0);
   };
 
   const figureElement = document.createElement(Constant.FIGURE);
