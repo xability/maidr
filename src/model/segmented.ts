@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { HighlightState, TextState } from '@type/state';
-import type { SegmentedPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
@@ -83,7 +82,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
       return new Array<Array<SVGElement>>();
     }
 
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
       return new Array<Array<SVGElement>>();
     }

@@ -2,7 +2,7 @@ import type { Message } from '@type/llm';
 import { AccountCircle as AccountCircleIcon, Close, Send as SendIcon, SmartToy } from '@mui/icons-material';
 import { Avatar, Box, CircularProgress, Dialog, DialogContent, DialogTitle, Grid2, IconButton, TextField, Typography, useTheme } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -90,6 +90,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 };
 
 const Chat: React.FC = () => {
+  const id = useId();
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
@@ -141,6 +142,7 @@ const Chat: React.FC = () => {
 
   return (
     <Dialog
+      id={id}
       role="dialog"
       open={true}
       onClose={handleClose}
