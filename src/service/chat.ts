@@ -8,12 +8,12 @@ import { Svg } from '@util/svg';
 
 export class ChatService {
   private readonly display: DisplayService;
-  private readonly maidr: Maidr;
+  private readonly maidrData: Maidr;
   private readonly models: Record<Llm, LlmModel>;
 
   public constructor(display: DisplayService, maidr: Maidr) {
     this.display = display;
-    this.maidr = maidr;
+    this.maidrData = maidr;
     this.models = {
       GPT: new Gpt(display.plot, maidr),
       CLAUDE: new Claude(display.plot, maidr),
