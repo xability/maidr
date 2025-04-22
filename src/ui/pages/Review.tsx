@@ -11,6 +11,7 @@ const Review: React.FC = () => {
       <input
         id={`${Constant.REVIEW_INPUT}-${id}`}
         defaultValue={value}
+        onFocus={event => event.target.setSelectionRange(0, 0)}
         size={50}
         type="text"
         autoComplete="off"
