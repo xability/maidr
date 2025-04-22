@@ -1,7 +1,6 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
-import type { Maidr } from '@type/maidr';
 import type { LlmSettings } from '@type/settings';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
