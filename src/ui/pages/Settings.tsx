@@ -369,20 +369,29 @@ const Settings: React.FC = () => {
           </Grid2>
 
           {/* LLM Model Toggles */}
-          {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
-            const model = llmSettings.models[modelKey];
-
-            return (
-              <Grid2 size={12} key={modelKey}>
-                <LlmModelSettingRow
-                  modelKey={modelKey}
-                  modelSettings={model}
-                  onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
-                  onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
-                />
-              </Grid2>
-            );
-          })}
+          {!isVerified
+            ? (
+                (Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
+                  const model = llmSettings.models[modelKey];
+                  return (
+                    <Grid2 size={12} key={modelKey}>
+                      <LlmModelSettingRow
+                        modelKey={modelKey}
+                        modelSettings={model}
+                        onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
+                        onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                      />
+                    </Grid2>
+                  );
+                })
+              )
+            : (
+                <Grid2 size={12}>
+                  <Typography variant="body2" sx={{ ml: 4, color: 'success.main' }}>
+                    ✓ Using verified server connection for LLM communication
+                  </Typography>
+                </Grid2>
+              )}
 
           {/* Expertise Level */}
           <Grid2 size={12}>
