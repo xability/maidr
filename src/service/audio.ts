@@ -23,6 +23,80 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
+/**
+ * Defines the properties of an audio palette item for distinct sound generation
+ * @interface AudioPaletteItem
+ */
+interface AudioPaletteItem {
+  /** The type of oscillator wave to use */
+  waveType: OscillatorType;
+  /** Duration of the sound in seconds */
+  duration: number;
+  /** Optional frequency offset to apply (in Hz) */
+  frequencyOffset?: number;
+  /** Optional gain curve for custom envelope shaping */
+  gainCurve?: number[];
+  /** Description of this audio palette item */
+  description: string;
+}
+
+/**
+ * Provides a collection of distinct audio profiles that can be used to represent
+ * different data categories with easily distinguishable sounds
+ */
+const AudioPalette: AudioPaletteItem[] = [
+  {
+    waveType: 'sine',
+    duration: DEFAULT_DURATION,
+    description: 'Smooth sine wave (default)',
+  },
+  {
+    waveType: 'triangle',
+    duration: DEFAULT_DURATION,
+    description: 'Soft triangle wave',
+  },
+  {
+    waveType: 'square',
+    duration: DEFAULT_DURATION * 0.8,
+    frequencyOffset: -20,
+    gainCurve: [0.2, 0.6, 0.4, 0.3, 0.2, 0.1, 0.01],
+    description: 'Harsher square wave with shorter duration',
+  },
+  {
+    waveType: 'sawtooth',
+    duration: DEFAULT_DURATION * 0.9,
+    frequencyOffset: 15,
+    description: 'Bright sawtooth wave with slight frequency increase',
+  },
+  {
+    waveType: 'sine',
+    duration: DEFAULT_DURATION * 1.2,
+    frequencyOffset: 80,
+    gainCurve: [0.3, 0.8, 0.7, 0.6, 0.4, 0.2, 0.05],
+    description: 'Higher pitched sine wave with longer duration',
+  },
+  {
+    waveType: 'triangle',
+    duration: DEFAULT_DURATION * 0.7,
+    frequencyOffset: -50,
+    gainCurve: [0.5, 0.7, 0.6, 0.4, 0.3, 0.2, 0.05],
+    description: 'Lower pitched triangle wave with shorter duration',
+  },
+  {
+    waveType: 'square',
+    duration: DEFAULT_DURATION * 1.1,
+    frequencyOffset: 40,
+    description: 'Higher pitched square wave with longer duration',
+  },
+  {
+    waveType: 'sawtooth',
+    duration: DEFAULT_DURATION * 0.85,
+    frequencyOffset: -30,
+    gainCurve: [0.4, 0.9, 0.7, 0.5, 0.3, 0.15, 0.02],
+    description: 'Lower pitched sawtooth wave with custom envelope',
+  },
+];
+
 export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
 
@@ -123,8 +197,12 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          // Use category index to select distinct audio palette item for each data series
+          // This allows users to differentiate between different categories in multi-line plots and stacked bar plots
+          const categoryIndex = state.hasMultiPoints ? currentIndex % AudioPalette.length : 0;
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex, categoryIndex);
           activeIds.push(setTimeout(playNext, playRate));
+          currentIndex++;
         } else {
           this.stop(activeIds);
         }
@@ -147,6 +225,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
+    categoryIndex: number = 0,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -156,15 +235,29 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    return this.playOscillator(frequency, panning);
+    // Use the categoryIndex to select an audio palette item
+    const paletteIndex = categoryIndex % AudioPalette.length;
+    const paletteItem = AudioPalette[paletteIndex];
+
+    // Apply frequency offset if specified in the palette item
+    const adjustedFrequency = frequency + (paletteItem.frequencyOffset || 0);
+
+    return this.playOscillator(
+      adjustedFrequency,
+      panning,
+      paletteItem.waveType,
+      paletteItem.duration,
+      paletteItem.gainCurve
+    );
   }
 
   private playOscillator(
     frequency: number,
     panning: number,
     wave: OscillatorType = 'sine',
+    duration: number = DEFAULT_DURATION,
+    customGainCurve?: number[],
   ): AudioId {
-    const duration = DEFAULT_DURATION;
     const volume = this.volume;
 
     // Start with a constant tone.
@@ -175,7 +268,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     // Add volume.
     const gainNode = this.audioContext.createGain();
     const startTime = this.audioContext.currentTime;
-    const valueCurve = [
+    const defaultCurve = [
       0.5 * volume,
       volume,
       0.5 * volume,
@@ -184,6 +277,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       0.1 * volume,
       1e-4 * volume,
     ];
+    // Use custom gain curve if provided, otherwise use default
+    const valueCurve = customGainCurve
+      ? customGainCurve.map(value => value * volume)
+      : defaultCurve;
     gainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
 
     // Pane the audio.
@@ -239,7 +336,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   public playWaitingTone(): AudioId {
-    return setTimeout(() => {});
+    return setTimeout(() => { });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
