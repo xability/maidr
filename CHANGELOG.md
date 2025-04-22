@@ -1,3 +1,10 @@
+## [2.4.7](https://github.com/xability/maidr-ts/compare/v2.4.6...v2.4.7) (2025-04-22)
+
+
+### Bug Fixes
+
+* lifecycle in multi figure ([#204](https://github.com/xability/maidr-ts/issues/204)) ([6244802](https://github.com/xability/maidr-ts/commit/6244802d500fd6067d4680efad3ba85a9aced479))
+
 ## [2.4.6](https://github.com/xability/maidr-ts/compare/v2.4.5...v2.4.6) (2025-04-17)
 
 
