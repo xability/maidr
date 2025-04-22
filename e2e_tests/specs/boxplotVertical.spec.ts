@@ -306,6 +306,31 @@ test.describe('Boxplot Vertical', () => {
       throw new Error(`Last data point verification failed: ${errorMessage}`);
     }
   });
+
+  test('should move to the box above', async ({ page }) => {
+    const boxplotHorizontalPage = new BoxplotVerticalPage(page);
+    await boxplotHorizontalPage.activateMaidr();
+
+    await boxplotHorizontalPage.moveToDataPointAbove();
+
+    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
+  test('should move to the box below', async ({ page }) => {
+    const boxplotHorizontalPage = new BoxplotVerticalPage(page);
+    await boxplotHorizontalPage.activateMaidr();
+
+    await boxplotHorizontalPage.moveToDataPointBelow();
+
+    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
   test('should execute forward autoplay', async ({ page }) => {
     const boxplotVerticalPage = new BoxplotVerticalPage(page);
     await boxplotVerticalPage.activateMaidr();
