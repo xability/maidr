@@ -74,37 +74,50 @@ const chatSlice = createSlice({
 
 const { reset } = chatSlice.actions;
 
+/**
+ * ViewModel responsible for managing chat state and coordinating with ChatService
+ */
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
   private readonly audioService: AudioService;
-
   constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
     super(store);
     this.chatService = chatService;
     this.audioService = audioService;
-    // Connect the ChatViewModel with ChatService for system messages
-    this.chatService.setViewModel(this);
   }
 
+  /**
+   * Disposes of the ViewModel resources
+   */
   public dispose(): void {
     this.store.dispatch(reset());
   }
 
+  /**
+   * Gets the current chat state
+   */
   public get state(): ChatState {
     return this.snapshot.chat;
   }
 
+  /**
+   * Gets the current application state snapshot
+   */
   private get snapshot(): Readonly<RootState> {
     return this.store.getState();
   }
 
+  /**
+   * Toggles the chat interface and checks for enabled models
+   */
   public toggle(): void {
     this.chatService.toggle();
 
     // Check for enabled models and show appropriate message when chat is opened
     if (this.state.messages.length === 0) {
       const { llm: llmSettings } = this.snapshot.settings;
-      this.chatService.checkEnabledModels(llmSettings);
+      const modelInfo = this.chatService.getEnabledModelsInfo(llmSettings);
+      this.addSystemMessage(modelInfo.systemMessage);
     }
   }
 
@@ -116,6 +129,11 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     }));
   }
 
+  /**
+   * Adds a system message to the chat
+   *
+   * @param text - The text content of the system message
+   */
   public addSystemMessage(text: string): void {
     this.addMessage(text, false);
   }
