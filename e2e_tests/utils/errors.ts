@@ -180,3 +180,17 @@ export class BoxplotHorizontalError extends Error {
     this.name = 'BoxplotHorizontalError';
   }
 }
+
+/**
+ * Error thrown when Multi Lineplot related operations fail
+ */
+export class MultiLineplotError extends Error {
+  /**
+   * Creates a new MultiLineplotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'MultiLineplotError';
+  }
+}

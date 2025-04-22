@@ -48,7 +48,7 @@ const config: PlaywrightTestConfig = {
     baseURL: `file://${getProjectRoot()}/`,
 
     // Browser settings
-    viewport: { width: 1280, height: 720 },
+    viewport: null,
 
     // Capture traces and screenshots on failure
     trace: 'on-first-retry',
