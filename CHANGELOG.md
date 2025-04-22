@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/xability/maidr-ts/compare/v2.5.0...v2.5.1) (2025-04-22)
+
+
+### Bug Fixes
+
+* remove unnecessary verb in heatmap terse mode [#213](https://github.com/xability/maidr-ts/issues/213) ([#214](https://github.com/xability/maidr-ts/issues/214)) ([e91f693](https://github.com/xability/maidr-ts/commit/e91f693b43ed7cab31a4437239f87aa644ceb04d))
+
 # [2.5.0](https://github.com/xability/maidr-ts/compare/v2.4.7...v2.5.0) (2025-04-22)
 
 
