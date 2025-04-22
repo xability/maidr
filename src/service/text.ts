@@ -119,7 +119,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     const terse = new Array<string>();
 
     if (Array.isArray(state.main.value)) {
-      terse.push(state.main.value.join(Constant.COMMA_SPACE));
+      terse.push(Constant.OPEN_BRACKET, state.main.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     } else {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
@@ -130,7 +130,7 @@ export class TextService implements Observer<PlotState>, Disposable {
         terse.push(String(state.cross.value.length), Constant.SPACE);
       }
 
-      terse.push(state.section);
+      terse.push(state.section, Constant.SPACE);
     }
 
     // Format for heatmap and segmented plots.
@@ -140,11 +140,9 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format for cross axis values.
     if (!Array.isArray(state.cross.value)) {
-      terse.push(Constant.IS, String(state.cross.value));
-    } else if (state.cross.value.length > 1) {
-      terse.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
-    } else if (state.cross.value.length > 0) {
-      terse.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+      terse.push(String(state.cross.value));
+    } else {
+      terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
     return terse.join(Constant.EMPTY);

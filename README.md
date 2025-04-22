@@ -452,40 +452,42 @@ We currently provide the following binders, all of which can be found at each re
 To learn more about the theoretical background and user study results, we recommend you read and cite the following papers.
 
 1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://dl.acm.org/doi/10.1145/3613904.3642730):
-  ```tex
-  @inproceedings{seoMAIDRMakingStatistical2024,
-    title      = {{{MAIDR}}: {{Making Statistical Visualizations Accessible}} with {{Multimodal Data Representation}}},
-    shorttitle = {{{MAIDR}}},
-    booktitle  = {Proceedings of the {{CHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
-    author     = {Seo, JooYoung and Xia, Yilin and Lee, Bongshin and Mccurry, Sean and Yam, Yu Jun},
-    year       = {2024},
-    month      = may,
-    series     = {{{CHI}} '24},
-    pages      = {1--22},
-    publisher  = {Association for Computing Machinery},
-    address    = {New York, NY, USA},
-    doi        = {10.1145/3613904.3642730},
-    urldate    = {2024-05-14},
-    abstract   = {This paper investigates new data exploration experiences that enable blind users to interact with statistical data visualizations---bar plots, heat maps, box plots, and scatter plots---leveraging multimodal data representations. In addition to sonification and textual descriptions that are commonly employed by existing accessible visualizations, our MAIDR (multimodal access and interactive data representation) system incorporates two additional modalities (braille and review) that offer complementary benefits. It also provides blind users with the autonomy and control to interactively access and understand data visualizations. In a user study involving 11 blind participants, we found the MAIDR system facilitated the accurate interpretation of statistical visualizations. Participants exhibited a range of strategies in combining multiple modalities, influenced by their past interactions and experiences with data visualizations. This work accentuates the overlooked potential of combining refreshable tactile representation with other modalities and elevates the discussion on the importance of user autonomy when designing accessible data visualizations.},
-    isbn       = {9798400703300},
-    keywords   = {Accessibility,Blind,Braille Display,Multimodality,Screen Readers,Statistical Visualization}
-  }
-  ```
+
+```tex
+@inproceedings{seoMAIDRMakingStatistical2024,
+  title      = {{{MAIDR}}: {{Making Statistical Visualizations Accessible}} with {{Multimodal Data Representation}}},
+  shorttitle = {{{MAIDR}}},
+  booktitle  = {Proceedings of the {{CHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
+  author     = {Seo, JooYoung and Xia, Yilin and Lee, Bongshin and Mccurry, Sean and Yam, Yu Jun},
+  year       = {2024},
+  month      = may,
+  series     = {{{CHI}} '24},
+  pages      = {1--22},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  doi        = {10.1145/3613904.3642730},
+  urldate    = {2024-05-14},
+  abstract   = {This paper investigates new data exploration experiences that enable blind users to interact with statistical data visualizations---bar plots, heat maps, box plots, and scatter plots---leveraging multimodal data representations. In addition to sonification and textual descriptions that are commonly employed by existing accessible visualizations, our MAIDR (multimodal access and interactive data representation) system incorporates two additional modalities (braille and review) that offer complementary benefits. It also provides blind users with the autonomy and control to interactively access and understand data visualizations. In a user study involving 11 blind participants, we found the MAIDR system facilitated the accurate interpretation of statistical visualizations. Participants exhibited a range of strategies in combining multiple modalities, influenced by their past interactions and experiences with data visualizations. This work accentuates the overlooked potential of combining refreshable tactile representation with other modalities and elevates the discussion on the importance of user autonomy when designing accessible data visualizations.},
+  isbn       = {9798400703300},
+  keywords   = {Accessibility,Blind,Braille Display,Multimodality,Screen Readers,Statistical Visualization}
+}
+```
 
 2. [Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students](https://diglib.eg.org/items/5e71b594-3762-4604-a9c4-96623cda8bc3):
-  ```tex
-  @inproceedings{10.2312:eved.20241053,
-    booktitle = {EuroVis 2024 - Education Papers},
-    editor    = {Firat, Elif E. and Laramee, Robert S. and Andersen, Nicklas Sindelv},
-    title     = {{Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors
-                 to Blind Students}},
-    author    = {JooYoung Seo and Sile O'Modhrain and Yilin Xia and Sanchita Kamath and Bongshin Lee and James M. Coughlan},
-    year      = {2024},
-    publisher = {The Eurographics Association},
-    isbn      = {978-3-03868-257-8},
-    doi       = {10.2312/eved.20241053}
-  }
-  ```
+
+```tex
+@inproceedings{10.2312:eved.20241053,
+  booktitle = {EuroVis 2024 - Education Papers},
+  editor    = {Firat, Elif E. and Laramee, Robert S. and Andersen, Nicklas Sindelv},
+  title     = {{Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors
+               to Blind Students}},
+  author    = {JooYoung Seo and Sile O'Modhrain and Yilin Xia and Sanchita Kamath and Bongshin Lee and James M. Coughlan},
+  year      = {2024},
+  publisher = {The Eurographics Association},
+  isbn      = {978-3-03868-257-8},
+  doi       = {10.2312/eved.20241053}
+}
+```
 
 ## License
 
