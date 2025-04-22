@@ -51,6 +51,26 @@ export abstract class Svg {
     }
   }
 
+  public static selectAllElements<T extends SVGElement>(query: string): T[] {
+    return Array
+      .from(document.querySelectorAll<T>(query))
+      .map((element) => {
+        const clone = element.cloneNode(true) as T;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        element.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+  }
+
+  public static selectElement<T extends SVGElement>(query: string): T {
+    const element = document.querySelector<T>(query);
+    const clone = element?.cloneNode(true) as T;
+    clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+
+    element?.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
+  }
+
   public static createEmptyElement(type: string = 'rect'): SVGElement {
     const element = document.createElementNS(this.SVG_NAMESPACE, type) as SVGElement;
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);

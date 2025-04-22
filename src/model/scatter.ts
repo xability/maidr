@@ -1,6 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
+import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 enum NavMode {
@@ -81,8 +82,14 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.xValues.length = 0;
     this.yValues.length = 0;
 
-    this.highlightXValues && (this.highlightXValues.length = 0);
-    this.highlightYValues && (this.highlightYValues.length = 0);
+    if (this.highlightXValues) {
+      this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightXValues.length = 0;
+    }
+    if (this.highlightYValues) {
+      this.highlightYValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightYValues.length = 0;
+    }
 
     super.dispose();
   }
@@ -310,7 +317,7 @@ export class ScatterPlot extends AbstractTrace<number> {
       return [null, null];
     }
 
-    const elements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const elements = Svg.selectAllElements(selector);
     if (elements.length === 0) {
       return [null, null];
     }

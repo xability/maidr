@@ -167,6 +167,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   public dispose(): void {
+    this.values.length = 0;
+    if (this.brailleValues) {
+      this.brailleValues.length = 0;
+    }
+    if (this.highlightValues) {
+      this.highlightValues.forEach(row => row.forEach((el) => {
+        const elements = Array.isArray(el) ? el : [el];
+        elements.forEach(element => element.remove());
+      }));
+      this.highlightValues.length = 0;
+    }
     super.dispose();
   }
 

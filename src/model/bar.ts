@@ -1,6 +1,7 @@
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
@@ -35,10 +36,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 
   public dispose(): void {
     this.points.length = 0;
-    this.barValues.length = 0;
-
-    this.brailleValues.length = 0;
-    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
@@ -119,7 +116,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       return null;
     }
 
-    const svgElements = [Array.from(document.querySelectorAll<SVGElement>(selector))];
+    const svgElements = [Svg.selectAllElements(selector)];
     if (svgElements.length !== this.points.length) {
       return null;
     }

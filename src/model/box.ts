@@ -65,8 +65,6 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
 
   public dispose(): void {
     this.points.length = 0;
-    this.boxValues.length = 0;
-
     this.sections.length = 0;
 
     super.dispose();
@@ -129,18 +127,14 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
-        Array.from(document.querySelectorAll<SVGElement>(s)),
-      );
-      const upperOutliers = selector.upperOutliers.flatMap(s =>
-        Array.from(document.querySelectorAll<SVGElement>(s)),
-      );
+      const lowerOutliers = selector.lowerOutliers.flatMap(s => Svg.selectAllElements(s));
+      const upperOutliers = selector.upperOutliers.flatMap(s => Svg.selectAllElements(s));
 
-      const min = document.querySelector<SVGElement>(selector.min) ?? Svg.createEmptyElement();
-      const max = document.querySelector<SVGElement>(selector.max) ?? Svg.createEmptyElement();
+      const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
+      const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
 
-      const iq = document.querySelector<SVGElement>(selector.iq) ?? Svg.createEmptyElement();
-      const q2 = document.querySelector<SVGElement>(selector.q2) ?? Svg.createEmptyElement();
+      const iq = Svg.selectElement(selector.iq) ?? Svg.createEmptyElement();
+      const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
 
       const [q1, q3] = isVertical
         ? [Svg.createLineElement(iq, 'top'), Svg.createLineElement(iq, 'bottom')]

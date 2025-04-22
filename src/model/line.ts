@@ -32,10 +32,6 @@ export class LinePlot extends AbstractTrace<number> {
 
   public dispose(): void {
     this.points.length = 0;
-    this.lineValues.length = 0;
-
-    this.brailleValues.length = 0;
-    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
@@ -145,7 +141,7 @@ export class LinePlot extends AbstractTrace<number> {
 
     const svgElements = new Array<Array<SVGElement>>();
     for (let r = 0; r < selectors.length; r++) {
-      const domElements = Array.from(document.querySelectorAll<SVGElement>(selectors[r]));
+      const domElements = Svg.selectAllElements(selectors[r]);
       if (domElements.length !== 1) {
         return null;
       }

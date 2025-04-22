@@ -82,7 +82,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
       return new Array<Array<SVGElement>>();
     }
 
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
       return new Array<Array<SVGElement>>();
     }

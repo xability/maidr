@@ -1,5 +1,6 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
+import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 export class Heatmap extends AbstractTrace<number> {
@@ -30,8 +31,6 @@ export class Heatmap extends AbstractTrace<number> {
 
   public dispose(): void {
     this.heatmapValues.length = 0;
-    this.brailleValues.length = 0;
-    this.highlightValues && (this.highlightValues.length = 0);
 
     this.x.length = 0;
     this.y.length = 0;
@@ -94,7 +93,7 @@ export class Heatmap extends AbstractTrace<number> {
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
       return null;
     }
