@@ -166,13 +166,12 @@ export class LinePlot extends AbstractTrace<number> {
         return null;
       }
 
-      const style = window.getComputedStyle(lineElement);
       const linePointElements = new Array<SVGElement>();
       for (const coordinate of coordinates) {
         if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
           return null;
         }
-        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, style, lineElement));
+        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, lineElement));
       }
       svgElements.push(linePointElements);
     }

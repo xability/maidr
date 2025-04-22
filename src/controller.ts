@@ -143,6 +143,7 @@ export class Controller implements Disposable {
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);
+      subplot.addObserver(this.highlightService);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
         trace.addObserver(this.audioService);
         trace.addObserver(this.brailleService);

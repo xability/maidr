@@ -87,8 +87,9 @@ export abstract class Svg {
     return element;
   }
 
-  public static createCircleElement(cx: string | number, cy: string | number, style: CSSStyleDeclaration, parent: SVGElement): SVGElement {
-    const color = style.stroke || Constant.MAIDR_HIGHLIGHT_COLOR;
+  public static createCircleElement(cx: string | number, cy: string | number, parent: SVGElement): SVGElement {
+    const style = window.getComputedStyle(parent);
+    const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
     const radius = Number.parseFloat(strokeWidth) * 2;
     const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
@@ -101,7 +102,7 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
 
-    parent.insertAdjacentElement(Constant.AFTER_END, element);
+    parent.parentElement?.insertAdjacentElement(Constant.AFTER_END, element);
     return element;
   }
 

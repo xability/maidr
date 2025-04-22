@@ -1,10 +1,10 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
-export class HighlightService implements Observer<TraceState>, Disposable {
+export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly highlightedElements: Set<SVGElement>;
 
   public constructor() {
@@ -15,17 +15,18 @@ export class HighlightService implements Observer<TraceState>, Disposable {
     this.unhighlight();
   }
 
-  public update(state: TraceState): void {
+  public update(state: SubplotState | TraceState): void {
     if (state.empty) {
       return;
     }
 
     this.unhighlight();
-    if (state.highlight.empty) {
+    const trace = state.type === 'subplot' ? state.trace : state;
+    if (trace.empty || trace.highlight.empty) {
       return;
     }
 
-    const highlight = state.highlight;
+    const highlight = trace.highlight;
     const elements = Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
     this.highlight(elements);
   }
