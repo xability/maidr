@@ -98,10 +98,6 @@ export class ScatterTrace extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
   }
 
-  protected get brailleValues(): null {
-    return null;
-  }
-
   protected get highlightValues(): SVGElement[][] | null {
     return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }

@@ -1,3 +1,10 @@
+## [2.5.2](https://github.com/xability/maidr-ts/compare/v2.5.1...v2.5.2) (2025-04-22)
+
+
+### Bug Fixes
+
+* set the caret to the first position in review mode ([#215](https://github.com/xability/maidr-ts/issues/215)) ([7390fbb](https://github.com/xability/maidr-ts/commit/7390fbb2b26da0098253999108fcd54a9279fed8))
+
 ## [2.5.1](https://github.com/xability/maidr-ts/compare/v2.5.0...v2.5.1) (2025-04-22)
 
 

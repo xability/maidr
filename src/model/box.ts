@@ -96,18 +96,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   protected braille(): BrailleState {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const row = isHorizontal ? this.row : this.col;
-    const col = isHorizontal ? this.col : this.row;
-
     return {
-      empty: false,
-      id: this.id,
-      values: this.points,
-      min: this.min,
-      max: this.max,
-      row,
-      col,
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
