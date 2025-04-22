@@ -296,7 +296,7 @@ test.describe('Histogram', () => {
   test('should not be able to move up', async ({ page }) => {
     const histogramPage = await setupHistogramPage(page);
 
-    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in histogram
     await histogramPage.moveToDataPointAbove();
 
     const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
@@ -306,7 +306,7 @@ test.describe('Histogram', () => {
   test('should not be able to move down', async ({ page }) => {
     const histogramPage = await setupHistogramPage(page);
 
-    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in histogram
     await histogramPage.moveToDataPointBelow();
 
     const currentDataPoint = await histogramPage.getCurrentDataPointInfo();

@@ -328,6 +328,28 @@ test.describe('Stacked Barplot', () => {
     }
   });
 
+  test('should move to bottom level of stacked bar', async ({ page }) => {
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+    await stackedBarplotPage.moveToDataPointAbove();
+
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
+  test('should move to upper level of stacked bar', async ({ page }) => {
+    const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+    await stackedBarplotPage.moveToDataPointBelow();
+
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
   test('should execute forward autoplay', async ({ page }) => {
     const stackedBarplotPage = await setupStackedBarplotPage(page);
 

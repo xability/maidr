@@ -322,7 +322,7 @@ test.describe('Line Plot', () => {
   test('should not be able to move up', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 
-    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in lineplot
     await linePlotPage.moveToDataPointAbove();
 
     const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
@@ -332,7 +332,7 @@ test.describe('Line Plot', () => {
   test('should not be able to move down', async ({ page }) => {
     const linePlotPage = await setupLinePlotPage(page);
 
-    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in barplot
+    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in lineplot
     await linePlotPage.moveToDataPointBelow();
 
     const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
