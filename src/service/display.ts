@@ -28,7 +28,9 @@ export class DisplayService implements Disposable {
     this.focusStack.push(this.context.scope as Focus);
 
     this.plot = plot;
-    this.reactRoot = createRoot(reactContainer);
+    this.reactRoot = createRoot(reactContainer, {
+      identifierPrefix: this.context.id,
+    });
     this.reactRoot.render(MaidrApp);
 
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
