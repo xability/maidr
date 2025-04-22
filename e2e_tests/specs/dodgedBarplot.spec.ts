@@ -344,6 +344,28 @@ test.describe('Dodged Barplot', () => {
     }
   });
 
+  test('should move to bottom level of dodged bar', async ({ page }) => {
+    const stackedBarplotPage = await setupDodgedBarplotPage(page);
+
+    await stackedBarplotPage.moveToDataPointAbove();
+
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
+  test('should move to upper level of dodged bar', async ({ page }) => {
+    const stackedBarplotPage = await setupDodgedBarplotPage(page);
+
+    await stackedBarplotPage.moveToDataPointBelow();
+
+    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+    const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
+  });
+
   test('should move to the last data point', async ({ page }) => {
     const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
