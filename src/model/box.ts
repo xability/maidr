@@ -14,7 +14,7 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot extends AbstractTrace<number[] | number> {
+export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
 

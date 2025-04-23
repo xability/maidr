@@ -1,12 +1,12 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { Trace } from './plot';
-import { BarPlot } from './bar';
-import { BoxPlot } from './box';
+import { BarTrace } from './bar';
+import { BoxTrace } from './box';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
-import { LinePlot } from './line';
-import { ScatterPlot } from './scatter';
-import { SegmentedPlot } from './segmented';
+import { LineTrace } from './line';
+import { ScatterTrace } from './scatter';
+import { SegmentedTrace } from './segmented';
 
 enum TraceType {
   BAR = 'bar',
@@ -24,10 +24,10 @@ export abstract class TraceFactory {
   public static create(layer: MaidrLayer): Trace {
     switch (layer.type) {
       case TraceType.BAR:
-        return new BarPlot(layer);
+        return new BarTrace(layer);
 
       case TraceType.BOX:
-        return new BoxPlot(layer);
+        return new BoxTrace(layer);
 
       case TraceType.HEATMAP:
         return new Heatmap(layer);
@@ -36,15 +36,15 @@ export abstract class TraceFactory {
         return new Histogram(layer);
 
       case TraceType.LINE:
-        return new LinePlot(layer);
+        return new LineTrace(layer);
 
       case TraceType.SCATTER:
-        return new ScatterPlot(layer);
+        return new ScatterTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:
       case TraceType.STACKED:
-        return new SegmentedPlot(layer);
+        return new SegmentedTrace(layer);
 
       default:
         throw new Error(`Invalid trace type: ${layer.type}`);

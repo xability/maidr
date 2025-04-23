@@ -8,7 +8,7 @@ const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
-export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
+export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();

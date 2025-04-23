@@ -7,7 +7,7 @@ import { AbstractTrace } from './abstract';
 const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
-export class LinePlot extends AbstractTrace<number> {
+export class LineTrace extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
   private readonly lineValues: number[][];
 

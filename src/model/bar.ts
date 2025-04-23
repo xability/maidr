@@ -130,7 +130,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   }
 }
 
-export class BarPlot extends AbstractBarPlot<BarPoint> {
+export class BarTrace extends AbstractBarPlot<BarPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }

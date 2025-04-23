@@ -19,7 +19,7 @@ interface ScatterYPoint {
   x: number[];
 }
 
-export class ScatterPlot extends AbstractTrace<number> {
+export class ScatterTrace extends AbstractTrace<number> {
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[];
