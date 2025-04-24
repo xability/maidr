@@ -2,15 +2,27 @@ import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { TraceState, WeightedBrailleValue } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
+const DEFAULT_BRAILLE_SIZE = 32;
+
+interface BrailleIndex {
+  row: number;
+  col: number;
+}
+
 interface BrailleChangedEvent {
   value: string;
   index: number;
+}
+
+interface EncodedBraille {
+  encoded: string;
+  map: BrailleIndex[];
 }
 
 export class BrailleService implements Observer<TraceState>, Disposable {
@@ -19,6 +31,7 @@ export class BrailleService implements Observer<TraceState>, Disposable {
   private readonly display: DisplayService;
 
   private enabled: boolean;
+  private lastEncoded: EncodedBraille;
 
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
@@ -29,6 +42,7 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     this.display = display;
 
     this.enabled = false;
+    this.lastEncoded = { encoded: Constant.EMPTY, map: [] };
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
@@ -44,20 +58,46 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     }
 
     const braille = state.braille;
-    const value = braille.values
-      .map(row => row.join(Constant.EMPTY))
-      .join(Constant.NEW_LINE);
-    const index = braille.col + braille.values
-      .map(row => row.join(Constant.EMPTY).length + 1)
-      .slice(0, braille.row)
-      .reduce((acc, length) => acc + length, 0);
+    const isWeighted = typeof braille.values[0][0] !== 'string';
+    this.lastEncoded = isWeighted
+      ? this.encodeWeighted(braille.values as WeightedBrailleValue[][], DEFAULT_BRAILLE_SIZE)
+      : this.encodeDefault(braille.values as string[][]);
+
+    const value = this.lastEncoded.encoded;
+    const index = this.lastEncoded.map
+      .findIndex(bIdx => bIdx.row === braille.row && bIdx.col === braille.col);
     this.onChangeEmitter.fire({ value, index });
   }
 
+  private encodeWeighted(_: WeightedBrailleValue[][], __: number): EncodedBraille {
+    return this.lastEncoded;
+  };
+
+  private encodeDefault(values: string[][]): EncodedBraille {
+    const map = new Array<BrailleIndex>();
+    const braille = new Array<string>();
+
+    values.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        braille.push(cell);
+        map.push({ row: rowIndex, col: colIndex });
+      });
+      if (rowIndex !== row.length - 1) {
+        braille.push(Constant.NEW_LINE);
+        map.push({ row: rowIndex, col: row.length });
+      }
+    });
+
+    return { encoded: braille.join(Constant.EMPTY), map };
+  };
+
   public moveToIndex(index: number): void {
-    if (this.enabled) {
-      this.context.moveToIndex(index);
+    if (!this.enabled || this.lastEncoded.map.length === 0) {
+      return;
     }
+
+    const { row, col } = this.lastEncoded.map[Math.max(0, Math.min(index, this.lastEncoded.map.length - 1))];
+    this.context.moveToIndex(row, col);
   }
 
   public toggle(state: TraceState): void {
