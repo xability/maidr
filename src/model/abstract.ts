@@ -2,7 +2,15 @@ import type { Disposable } from '@type/disposable';
 import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
+import type {
+  AudioState,
+  AutoplayState,
+  BrailleState,
+  HighlightState,
+  TextState,
+  TraceState,
+  WeightedBrailleValue,
+} from '@type/state';
 import type { Trace } from './plot';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
@@ -88,18 +96,20 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.notifyStateUpdate();
   }
 
-  public moveToIndex(index: number): void {
-    if (this.isMovable(index)) {
-      this.col = index;
+  public moveToIndex(row: number, col: number): void {
+    if (this.isMovable([row, col])) {
+      this.row = row;
+      this.col = col;
       this.notifyStateUpdate();
     }
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
-    if (typeof target === 'number') {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
+      const [row, col] = target;
       return (
-        this.row >= 0 && this.row < this.values.length
-        && target >= 0 && target < this.values[this.row].length
+        row >= 0 && row < this.values.length
+        && col >= 0 && col < this.values[this.row].length
       );
     }
 
@@ -256,7 +266,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract text(): TextState;
 
-  protected abstract get brailleValues(): string[][] | null;
+  protected abstract get brailleValues(): string[][] | WeightedBrailleValue[][] | null;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 }

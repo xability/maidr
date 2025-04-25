@@ -70,7 +70,7 @@ export class Context implements Disposable {
     return this.scopeContext.peek()!;
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
     return this.active.isMovable(target);
   };
 
@@ -82,8 +82,8 @@ export class Context implements Disposable {
     this.active.moveToExtreme(direction);
   }
 
-  public moveToIndex(index: number): void {
-    this.active.moveToIndex(index);
+  public moveToIndex(row: number, col: number): void {
+    this.active.moveToIndex(row, col);
   }
 
   public stepTrace(direction: MovableDirection): void {

@@ -64,11 +64,16 @@ export interface AudioState {
   index: number;
 }
 
+export interface WeightedBrailleValue {
+  char: string;
+  weight: number;
+}
+
 export type BrailleState =
   | TraceEmptyState
   | {
     empty: false;
-    values: string[][];
+    values: string[][] | WeightedBrailleValue[][];
     row: number;
     col: number;
   };

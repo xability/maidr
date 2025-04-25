@@ -284,8 +284,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
-    if (typeof target === 'number') {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
       return false;
     }
 
