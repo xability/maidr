@@ -42,10 +42,6 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const summaryMax = Math.max(...summaryValues);
     this.min.push(summaryMin);
     this.max.push(summaryMax);
-
-    this.brailleValues.push(
-      this.createBraille(summaryValues, summaryMin, summaryMax),
-    );
   }
 
   protected text(): TextState {

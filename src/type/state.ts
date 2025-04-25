@@ -1,3 +1,4 @@
+import type { TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
@@ -35,7 +36,7 @@ export type SubplotState =
 interface TraceEmptyState {
   empty: true;
   type: 'trace';
-  traceType: string;
+  traceType: TraceType;
 }
 
 export type TraceState =
@@ -43,7 +44,7 @@ export type TraceState =
   | {
     empty: false;
     type: 'trace';
-    traceType: string;
+    traceType: TraceType;
     title: string;
     xAxis: string;
     yAxis: string;
@@ -71,12 +72,37 @@ export interface WeightedBrailleValue {
 
 export type BrailleState =
   | TraceEmptyState
-  | {
-    empty: false;
-    values: string[][] | WeightedBrailleValue[][];
-    row: number;
-    col: number;
-  };
+  | BarBrailleState
+  | LineBrailleState
+  | HeatmapBrailleState
+  | BoxBrailleState;
+
+interface BaseBrailleState {
+  id: string;
+  empty: false;
+  row: number;
+  col: number;
+}
+
+export interface BarBrailleState extends BaseBrailleState {
+  values: number[][];
+  min: number[];
+  max: number[];
+}
+
+export interface LineBrailleState extends BaseBrailleState {
+  values: number[][];
+  min: number[];
+  max: number[];
+}
+
+export interface HeatmapBrailleState extends BaseBrailleState {
+  values: number[][];
+  min: number;
+  max: number;
+}
+
+export interface BoxBrailleState extends BaseBrailleState {}
 
 export interface TextState {
   main: { label: string; value: number | number[] | string };

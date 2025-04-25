@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -126,6 +126,14 @@ export class ScatterTrace extends AbstractTrace<number> {
         value: current.x,
       };
     }
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+    };
   }
 
   protected text(): TextState {

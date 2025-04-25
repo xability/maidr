@@ -1,16 +1,8 @@
 import type { Disposable } from '@type/disposable';
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
-import type {
-  AudioState,
-  AutoplayState,
-  BrailleState,
-  HighlightState,
-  TextState,
-  TraceState,
-  WeightedBrailleValue,
-} from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Trace } from './plot';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
@@ -100,6 +92,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     if (this.isMovable([row, col])) {
       this.row = row;
       this.col = col;
+      this.isInitialEntry = false;
       this.notifyStateUpdate();
     }
   }
@@ -158,7 +151,8 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
-  protected readonly type: string;
+  protected readonly id: string;
+  protected readonly type: TraceType;
   private readonly title: string;
 
   protected readonly xAxis: string;
@@ -168,6 +162,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected constructor(layer: MaidrLayer) {
     super();
 
+    this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
@@ -178,9 +173,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   public dispose(): void {
     this.values.length = 0;
-    if (this.brailleValues) {
-      this.brailleValues.length = 0;
-    }
+
     if (this.highlightValues) {
       this.highlightValues.forEach(row => row.forEach((el) => {
         const elements = Array.isArray(el) ? el : [el];
@@ -188,6 +181,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       }));
       this.highlightValues.length = 0;
     }
+
     super.dispose();
   }
 
@@ -214,23 +208,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       text: this.text(),
       autoplay: this.autoplay(),
       highlight: this.highlight(),
-    };
-  }
-
-  private braille(): BrailleState {
-    if (this.brailleValues === null) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
-    }
-
-    return {
-      empty: false,
-      values: this.brailleValues,
-      row: this.row,
-      col: this.col,
     };
   }
 
@@ -264,9 +241,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract audio(): AudioState;
 
-  protected abstract text(): TextState;
+  protected abstract braille(): BrailleState;
 
-  protected abstract get brailleValues(): string[][] | WeightedBrailleValue[][] | null;
+  protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 }
