@@ -31,6 +31,9 @@ const BRAILLE_KEYMAP = {
   MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
   MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
 
+  MOVE_TO_NEXT_TRACE: `pageup`,
+  MOVE_TO_PREV_TRACE: `pagedown`,
+
   // Modes
   TOGGLE_BRAILLE: `b`,
   TOGGLE_TEXT: `t`,

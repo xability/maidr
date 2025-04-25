@@ -13,11 +13,12 @@ const Braille: React.FC = () => {
 
   useEffect(() => {
     if (brailleRef.current) {
+      brailleRef.current.value = value;
       brailleRef.current.selectionStart = index;
       brailleRef.current.selectionEnd = index;
       lastIndexRef.current = index;
     }
-  }, [index]);
+  }, [value, index]);
 
   const handleSelectionChange = (event: FormEvent<HTMLTextAreaElement>): void => {
     const textArea = event.currentTarget;

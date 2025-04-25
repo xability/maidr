@@ -2,7 +2,14 @@ import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { BarBrailleState, BoxBrailleState, HeatmapBrailleState, LineBrailleState, TraceState } from '@type/state';
+import type {
+  BarBrailleState,
+  BoxBrailleState,
+  HeatmapBrailleState,
+  LineBrailleState,
+  SubplotState,
+  TraceState,
+} from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import { Emitter, Scope } from '@type/event';
@@ -210,7 +217,7 @@ class LineBrailleTransformer extends AbstractBrailleTransformer<LineBrailleState
   }
 }
 
-export class BrailleService implements Observer<TraceState>, Disposable {
+export class BrailleService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
@@ -254,14 +261,19 @@ export class BrailleService implements Observer<TraceState>, Disposable {
     this.transformers.clear();
   }
 
-  public update(state: TraceState): void {
-    if (!this.enabled || state.empty || state.braille.empty || !this.transformers.has(state.traceType)) {
+  public update(state: SubplotState | TraceState): void {
+    if (!this.enabled || state.empty) {
       return;
     }
 
-    const braille = state.braille;
+    const trace = state.type === 'subplot' ? state.trace : state;
+    if (trace.empty || trace.braille.empty || !this.transformers.has(trace.traceType)) {
+      return;
+    }
+
+    const braille = trace.braille;
     if (this.cacheId !== braille.id) {
-      const transformer = this.transformers.get(state.traceType)!;
+      const transformer = this.transformers.get(trace.traceType)!;
       this.cache = transformer.encode(braille as any, DEFAULT_BRAILLE_SIZE);
       this.cacheId = braille.id;
     }
