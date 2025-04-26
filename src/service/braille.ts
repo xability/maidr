@@ -79,29 +79,41 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
 }
 
 class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
-  public encode(state: BoxBrailleState, size: number = DEFAULT_BRAILLE_SIZE): EncodedBraille {
-    const values: string[] = [];
-    const indexToCell: Cell[] = [];
-    const cellToIndex: number[][] = [];
+  private readonly GLOBAL_MIN = 'globalMin';
+  private readonly GLOBAL_MAX = 'globalMax';
+  private readonly BLANK = 'blank';
 
+  private readonly LOWER_OUTLIER = 'lowerOutlier';
+  private readonly UPPER_OUTLIER = 'upperOutlier';
+
+  private readonly MIN = 'min';
+  private readonly MAX = 'max';
+
+  private readonly Q1 = 'q1';
+  private readonly Q2 = 'q2';
+  private readonly Q3 = 'q3';
+
+  public encode(state: BoxBrailleState, size: number = DEFAULT_BRAILLE_SIZE): EncodedBraille {
+    const values = new Array<string>();
+    const indexToCell = new Array<Cell>();
+    const cellToIndex = new Array<Array<number>>();
     const numBoxes = state.values.length;
 
     for (let boxIndex = 0; boxIndex < numBoxes; boxIndex++) {
       const box = state.values[boxIndex];
       const boxValData = [
-        { type: 'global_min', value: state.min },
-        ...box.lowerOutliers.map(v => ({ type: 'lower_outlier' as const, value: v })),
-        { type: 'min', value: box.min },
-        { type: 'q1', value: box.q1 },
-        { type: 'q2', value: box.q2 },
-        { type: 'q3', value: box.q3 },
-        { type: 'max', value: box.max },
-        ...box.upperOutliers.map(v => ({ type: 'upper_outlier' as const, value: v })),
-        { type: 'global_max', value: state.max },
+        { type: this.GLOBAL_MIN, value: state.min },
+        ...box.lowerOutliers.map(v => ({ type: this.LOWER_OUTLIER, value: v })),
+        { type: this.MIN, value: box.min },
+        { type: this.Q1, value: box.q1 },
+        { type: this.Q2, value: box.q2 },
+        { type: this.Q3, value: box.q3 },
+        { type: this.MAX, value: box.max },
+        ...box.upperOutliers.map(v => ({ type: this.UPPER_OUTLIER, value: v })),
+        { type: this.GLOBAL_MAX, value: state.max },
       ];
 
-      // 1. Calculate section lengths
-      const lenData: { type: string; length: number; numChars: number }[] = [];
+      const lenData = new Array<{ type: string; length: number; numChars: number }>();
       let isBeforeMid = true;
       for (let i = 0; i < boxValData.length - 1; i++) {
         const curr = boxValData[i];
@@ -110,65 +122,87 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           ? Math.abs(next.value - curr.value)
           : Math.abs(curr.value - boxValData[i - 1].value);
 
-        if (curr.type === 'lower_outlier' || curr.type === 'upper_outlier') {
+        if (curr.type === this.LOWER_OUTLIER || curr.type === this.UPPER_OUTLIER) {
           lenData.push({ type: curr.type, length: 0, numChars: 1 });
-          lenData.push({ type: 'blank', length: diff, numChars: 0 });
-        } else if (curr.type === 'q2') {
+          lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
+        } else if (curr.type === this.Q2) {
           isBeforeMid = false;
-          lenData.push({ type: 'q2', length: 0, numChars: 2 }); // length 0 because it's the pivot
-        } else if (curr.type === 'global_min' || curr.type === 'global_max') {
-          lenData.push({ type: 'blank', length: diff, numChars: 0 });
+          lenData.push({ type: this.Q2, length: 0, numChars: 2 });
+        } else if (curr.type === this.GLOBAL_MIN || curr.type === this.GLOBAL_MAX) {
+          lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
         } else {
           lenData.push({ type: curr.type, length: diff, numChars: 1 });
         }
       }
 
-      // 2. Preallocate mandatory characters and calculate available space
-      const preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
-      let available = size - preAllocated;
-      if (available < 0)
-        available = 0;
+      let preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
+      let [locMin, locMax, locQ1, locQ3] = [-1, -1, -1, -1];
+      for (let i = 0; i < lenData.length; i++) {
+        if (lenData[i].type === this.MIN && lenData[i].length > 0)
+          locMin = i;
+        if (lenData[i].type === this.MAX && lenData[i].length > 0)
+          locMax = i;
+        if (lenData[i].type === this.Q1)
+          locQ1 = i;
+        if (lenData[i].type === this.Q3)
+          locQ3 = i;
+      }
+      if (locMin !== -1 && locMax !== -1 && lenData[locMin].length !== lenData[locMax].length) {
+        if (lenData[locMin].length > lenData[locMax].length) {
+          lenData[locMin].numChars++;
+          preAllocated++;
+        } else {
+          lenData[locMax].numChars++;
+          preAllocated++;
+        }
+      }
+      if (locQ1 !== -1 && locQ3 !== -1 && lenData[locQ1].length !== lenData[locQ3].length) {
+        if (lenData[locQ1].length > lenData[locQ3].length) {
+          lenData[locQ1].numChars++;
+          preAllocated++;
+        } else {
+          lenData[locQ3].numChars++;
+          preAllocated++;
+        }
+      }
 
+      const available = Math.max(0, size - preAllocated);
       const totalLength = lenData.reduce((sum, l) => sum + (l.type !== 'q2' && l.length > 0 ? l.length : 0), 0);
-
-      // Distribute available space, excluding 'q2' sections
       for (const section of lenData) {
-        if (section.type !== 'q2' && section.length > 0) {
+        if (section.type !== this.Q2 && section.length > 0) {
           const allocated = Math.round((section.length / totalLength) * available);
           section.numChars += allocated;
         }
       }
 
-      // 3. Fix rounding errors
       const totalChars = lenData.reduce((sum, l) => sum + l.numChars, 0);
       let diff = size - totalChars;
       let adjustIndex = 0;
       while (diff !== 0) {
         const section = lenData[adjustIndex % lenData.length];
-        if (section.type !== 'blank' && section.type !== 'q2' && section.length > 0) {
+        if (section.type !== this.BLANK && section.type !== this.Q2 && section.length > 0) {
           section.numChars += diff > 0 ? 1 : -1;
           diff += diff > 0 ? -1 : 1;
         }
         adjustIndex++;
       }
 
-      // 4. Map sections to Braille characters
       const lineStart = values.length;
-      cellToIndex.push([]);
+      cellToIndex.push(new Array<number>());
 
       for (const section of lenData) {
         for (let j = 0; j < section.numChars; j++) {
-          let brailleChar = '⠀'; // blank by default
+          let brailleChar = '⠀';
 
-          if (section.type === 'min' || section.type === 'max') {
+          if (section.type === this.MIN || section.type === this.MAX) {
             brailleChar = '⠒';
-          } else if (section.type === 'q1' || section.type === 'q3') {
+          } else if (section.type === this.Q1 || section.type === this.Q3) {
             brailleChar = '⠿';
-          } else if (section.type === 'q2') {
+          } else if (section.type === this.Q2) {
             brailleChar = (j === 0) ? '⠸' : '⠇';
-          } else if (section.type === 'lower_outlier' || section.type === 'upper_outlier') {
+          } else if (section.type === this.LOWER_OUTLIER || section.type === this.UPPER_OUTLIER) {
             brailleChar = '⠂';
-          } else if (section.type === 'blank') {
+          } else if (section.type === this.BLANK) {
             brailleChar = '⠀';
           }
 
@@ -178,12 +212,11 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         }
       }
 
-      // Add newline at the end of each box
-      values.push('\n');
+      values.push(Constant.NEW_LINE);
     }
 
     return {
-      value: values.join(''),
+      value: values.join(Constant.EMPTY),
       cellToIndex,
       indexToCell,
     };
