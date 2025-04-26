@@ -1,5 +1,5 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState, WeightedBrailleValue } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -90,9 +90,14 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
   protected braille(): BrailleState {
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      id: this.id,
+      values: this.points,
+      sections: this.sections,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
     };
   }
 
@@ -113,10 +118,6 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       cross: { label: crossLabel, value: crossValue },
       section,
     };
-  }
-
-  private mapToBraille(_: BoxPoint[]): WeightedBrailleValue[][] {
-    return [];
   }
 
   private mapToSvgElements(selectors: BoxSelector[]): (SVGElement[] | SVGElement)[][] | null {

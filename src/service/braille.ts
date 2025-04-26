@@ -34,20 +34,11 @@ interface EncodedBraille {
   indexToCell: Cell[];
 }
 
-interface BrailleTransformer<BrailleState> {
+interface BrailleEncoder<BrailleState> {
   encode: (state: BrailleState, size?: number) => EncodedBraille;
-  decode: (encoded: EncodedBraille, index: number) => Cell;
 }
 
-abstract class AbstractBrailleTransformer<T> implements BrailleTransformer<T> {
-  public abstract encode(state: T): EncodedBraille;
-
-  public decode(encoded: EncodedBraille, index: number): Cell {
-    return encoded.indexToCell[index];
-  }
-}
-
-class BarBrailleTransformer extends AbstractBrailleTransformer<BarBrailleState> {
+class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
   public encode(state: BarBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -85,23 +76,15 @@ class BarBrailleTransformer extends AbstractBrailleTransformer<BarBrailleState> 
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
   }
-
-  public decode(encoded: EncodedBraille, index: number): Cell {
-    return encoded.indexToCell[index];
-  }
 }
 
-class BoxBrailleTransformer implements BrailleTransformer<BoxBrailleState> {
-  public encode(state: BoxBrailleState): EncodedBraille {
+class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
+  public encode(_: BoxBrailleState): EncodedBraille {
     return { value: Constant.EMPTY, cellToIndex: [], indexToCell: [] };
   }
-
-  public decode(encoded: EncodedBraille, index: number): Cell {
-    return { row: 0, col: 0 };
-  }
 }
 
-class HeatmapBrailleTransformer extends AbstractBrailleTransformer<HeatmapBrailleState> {
+class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
   public encode(state: HeatmapBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -138,7 +121,7 @@ class HeatmapBrailleTransformer extends AbstractBrailleTransformer<HeatmapBraill
   }
 }
 
-class LineBrailleTransformer extends AbstractBrailleTransformer<LineBrailleState> {
+class LineBrailleEncoder implements BrailleEncoder<LineBrailleState> {
   public encode(state: LineBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -226,7 +209,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
   private cacheId: string;
   private cache: EncodedBraille | null;
 
-  private readonly transformers: Map<TraceType, BrailleTransformer<any>>;
+  private readonly encoders: Map<TraceType, BrailleEncoder<any>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
 
@@ -239,15 +222,15 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     this.cacheId = Constant.EMPTY;
     this.cache = null;
 
-    this.transformers = new Map<TraceType, BrailleTransformer<any>>([
-      [TraceType.BAR, new BarBrailleTransformer()],
-      [TraceType.BOX, new BoxBrailleTransformer()],
-      [TraceType.DODGED, new BarBrailleTransformer()],
-      [TraceType.HEATMAP, new HeatmapBrailleTransformer()],
-      [TraceType.HISTOGRAM, new BarBrailleTransformer()],
-      [TraceType.LINE, new LineBrailleTransformer()],
-      [TraceType.NORMALIZED, new BarBrailleTransformer()],
-      [TraceType.STACKED, new BarBrailleTransformer()],
+    this.encoders = new Map<TraceType, BrailleEncoder<any>>([
+      [TraceType.BAR, new BarBrailleEncoder()],
+      [TraceType.BOX, new BoxBrailleEncoder()],
+      [TraceType.DODGED, new BarBrailleEncoder()],
+      [TraceType.HEATMAP, new HeatmapBrailleEncoder()],
+      [TraceType.HISTOGRAM, new BarBrailleEncoder()],
+      [TraceType.LINE, new LineBrailleEncoder()],
+      [TraceType.NORMALIZED, new BarBrailleEncoder()],
+      [TraceType.STACKED, new BarBrailleEncoder()],
     ]);
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
@@ -258,7 +241,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     this.onChangeEmitter.dispose();
 
     this.cache = null;
-    this.transformers.clear();
+    this.encoders.clear();
   }
 
   public update(state: SubplotState | TraceState): void {
@@ -267,26 +250,26 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     }
 
     const trace = state.type === 'subplot' ? state.trace : state;
-    if (trace.empty || trace.braille.empty || !this.transformers.has(trace.traceType)) {
+    if (trace.empty || trace.braille.empty || !this.encoders.has(trace.traceType)) {
       return;
     }
 
     const braille = trace.braille;
-    if (this.cacheId !== braille.id) {
-      const transformer = this.transformers.get(trace.traceType)!;
-      this.cache = transformer.encode(braille as any, DEFAULT_BRAILLE_SIZE);
+    if (this.cacheId !== braille.id || this.cache === null) {
+      const encoder = this.encoders.get(trace.traceType)!;
+      this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
       this.cacheId = braille.id;
     }
 
-    this.onChangeEmitter.fire({ value: this.cache!.value, index: this.cache!.cellToIndex[braille.row][braille.col] });
+    this.onChangeEmitter.fire({ value: this.cache.value, index: this.cache.cellToIndex[braille.row][braille.col] });
   }
 
   public moveToIndex(index: number): void {
-    if (!this.enabled || this.cache?.indexToCell.length === 0) {
+    if (!this.enabled || this.cache === null || this.cache.indexToCell.length === 0) {
       return;
     }
 
-    const { row, col } = this.cache!.indexToCell[Math.max(0, Math.min(index, this.cache!.indexToCell.length - 1))];
+    const { row, col } = this.cache.indexToCell[Math.max(0, Math.min(index, this.cache.indexToCell.length - 1))];
     this.context.moveToIndex(row, col);
   }
 
