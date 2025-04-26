@@ -102,33 +102,40 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
 
       // 1. Calculate section lengths
       const lenData: { type: string; length: number; numChars: number }[] = [];
+      let isBeforeMid = true;
       for (let i = 0; i < boxValData.length - 1; i++) {
         const curr = boxValData[i];
         const next = boxValData[i + 1];
+        const diff = isBeforeMid
+          ? Math.abs(next.value - curr.value)
+          : Math.abs(curr.value - boxValData[i - 1].value);
 
         if (curr.type === 'lower_outlier' || curr.type === 'upper_outlier') {
           lenData.push({ type: curr.type, length: 0, numChars: 1 });
-          lenData.push({ type: 'blank', length: Math.abs(next.value - curr.value), numChars: 0 });
+          lenData.push({ type: 'blank', length: diff, numChars: 0 });
         } else if (curr.type === 'q2') {
-          lenData.push({ type: 'q2', length: 0, numChars: 2 });
+          isBeforeMid = false;
+          lenData.push({ type: 'q2', length: 0, numChars: 2 }); // length 0 because it's the pivot
         } else if (curr.type === 'global_min' || curr.type === 'global_max') {
-          lenData.push({ type: 'blank', length: Math.abs(next.value - curr.value), numChars: 0 });
+          lenData.push({ type: 'blank', length: diff, numChars: 0 });
         } else {
-          lenData.push({ type: curr.type, length: Math.abs(next.value - curr.value), numChars: 1 });
+          lenData.push({ type: curr.type, length: diff, numChars: 1 });
         }
       }
 
-      // 2. Preallocate mandatory characters
+      // 2. Preallocate mandatory characters and calculate available space
       const preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
       let available = size - preAllocated;
-      if (available < 5)
-        available = 5;
+      if (available < 0)
+        available = 0;
 
-      const totalLength = lenData.reduce((sum, l) => sum + (l.length > 0 ? l.length : 0), 0);
+      const totalLength = lenData.reduce((sum, l) => sum + (l.type !== 'q2' && l.length > 0 ? l.length : 0), 0);
 
+      // Distribute available space, excluding 'q2' sections
       for (const section of lenData) {
-        if (section.length > 0) {
-          section.numChars += Math.max(0, Math.round((section.length / totalLength) * available));
+        if (section.type !== 'q2' && section.length > 0) {
+          const allocated = Math.round((section.length / totalLength) * available);
+          section.numChars += allocated;
         }
       }
 
@@ -138,9 +145,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       let adjustIndex = 0;
       while (diff !== 0) {
         const section = lenData[adjustIndex % lenData.length];
-        if (section.type !== 'blank' && section.length > 0) {
-          section.numChars += (diff > 0) ? 1 : -1;
-          diff += (diff > 0) ? -1 : 1;
+        if (section.type !== 'blank' && section.type !== 'q2' && section.length > 0) {
+          section.numChars += diff > 0 ? 1 : -1;
+          diff += diff > 0 ? -1 : 1;
         }
         adjustIndex++;
       }
