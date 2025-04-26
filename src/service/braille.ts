@@ -79,8 +79,107 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
 }
 
 class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
-  public encode(_: BoxBrailleState): EncodedBraille {
-    return { value: Constant.EMPTY, cellToIndex: [], indexToCell: [] };
+  public encode(state: BoxBrailleState, size: number = DEFAULT_BRAILLE_SIZE): EncodedBraille {
+    const values: string[] = [];
+    const indexToCell: Cell[] = [];
+    const cellToIndex: number[][] = [];
+
+    const numBoxes = state.values.length;
+
+    for (let boxIndex = 0; boxIndex < numBoxes; boxIndex++) {
+      const box = state.values[boxIndex];
+      const boxValData = [
+        { type: 'global_min', value: state.min },
+        ...box.lowerOutliers.map(v => ({ type: 'lower_outlier' as const, value: v })),
+        { type: 'min', value: box.min },
+        { type: 'q1', value: box.q1 },
+        { type: 'q2', value: box.q2 },
+        { type: 'q3', value: box.q3 },
+        { type: 'max', value: box.max },
+        ...box.upperOutliers.map(v => ({ type: 'upper_outlier' as const, value: v })),
+        { type: 'global_max', value: state.max },
+      ];
+
+      // 1. Calculate section lengths
+      const lenData: { type: string; length: number; numChars: number }[] = [];
+      for (let i = 0; i < boxValData.length - 1; i++) {
+        const curr = boxValData[i];
+        const next = boxValData[i + 1];
+
+        if (curr.type === 'lower_outlier' || curr.type === 'upper_outlier') {
+          lenData.push({ type: curr.type, length: 0, numChars: 1 });
+          lenData.push({ type: 'blank', length: Math.abs(next.value - curr.value), numChars: 0 });
+        } else if (curr.type === 'q2') {
+          lenData.push({ type: 'q2', length: 0, numChars: 2 });
+        } else if (curr.type === 'global_min' || curr.type === 'global_max') {
+          lenData.push({ type: 'blank', length: Math.abs(next.value - curr.value), numChars: 0 });
+        } else {
+          lenData.push({ type: curr.type, length: Math.abs(next.value - curr.value), numChars: 1 });
+        }
+      }
+
+      // 2. Preallocate mandatory characters
+      const preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
+      let available = size - preAllocated;
+      if (available < 5)
+        available = 5;
+
+      const totalLength = lenData.reduce((sum, l) => sum + (l.length > 0 ? l.length : 0), 0);
+
+      for (const section of lenData) {
+        if (section.length > 0) {
+          section.numChars += Math.max(0, Math.round((section.length / totalLength) * available));
+        }
+      }
+
+      // 3. Fix rounding errors
+      const totalChars = lenData.reduce((sum, l) => sum + l.numChars, 0);
+      let diff = size - totalChars;
+      let adjustIndex = 0;
+      while (diff !== 0) {
+        const section = lenData[adjustIndex % lenData.length];
+        if (section.type !== 'blank' && section.length > 0) {
+          section.numChars += (diff > 0) ? 1 : -1;
+          diff += (diff > 0) ? -1 : 1;
+        }
+        adjustIndex++;
+      }
+
+      // 4. Map sections to Braille characters
+      const lineStart = values.length;
+      cellToIndex.push([]);
+
+      for (const section of lenData) {
+        for (let j = 0; j < section.numChars; j++) {
+          let brailleChar = '⠀'; // blank by default
+
+          if (section.type === 'min' || section.type === 'max') {
+            brailleChar = '⠒';
+          } else if (section.type === 'q1' || section.type === 'q3') {
+            brailleChar = '⠿';
+          } else if (section.type === 'q2') {
+            brailleChar = (j === 0) ? '⠸' : '⠇';
+          } else if (section.type === 'lower_outlier' || section.type === 'upper_outlier') {
+            brailleChar = '⠂';
+          } else if (section.type === 'blank') {
+            brailleChar = '⠀';
+          }
+
+          values.push(brailleChar);
+          indexToCell.push({ row: boxIndex, col: section.type.startsWith('q') ? 1 : 0 });
+          cellToIndex[boxIndex].push(lineStart + (values.length - lineStart - 1));
+        }
+      }
+
+      // Add newline at the end of each box
+      values.push('\n');
+    }
+
+    return {
+      value: values.join(''),
+      cellToIndex,
+      indexToCell,
+    };
   }
 }
 
