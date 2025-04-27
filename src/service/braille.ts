@@ -97,10 +97,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     const values = new Array<string>();
     const indexToCell = new Array<Cell>();
     const cellToIndex = new Array<Array<number>>();
-    const numBoxes = state.values.length;
 
-    for (let boxIndex = 0; boxIndex < numBoxes; boxIndex++) {
-      const box = state.values[boxIndex];
+    for (let row = 0; row < state.values.length; row++) {
+      const box = state.values[row];
       const boxValData = [
         { type: this.GLOBAL_MIN, value: state.min },
         ...box.lowerOutliers.map(v => ({ type: this.LOWER_OUTLIER, value: v })),
@@ -187,14 +186,12 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         adjustIndex++;
       }
 
-      const lineStart = values.length;
+      let col = -1;
       cellToIndex.push(new Array<number>());
-
-      let currentSectionIndex = -1;
       const sections = [this.LOWER_OUTLIER, this.MIN, this.Q1, this.Q2, this.Q3, this.MAX, this.UPPER_OUTLIER];
       for (const section of lenData) {
         if (section.type !== this.BLANK && section.type !== this.GLOBAL_MIN && section.type !== this.GLOBAL_MAX) {
-          currentSectionIndex = sections.indexOf(section.type);
+          col = sections.indexOf(section.type);
         }
 
         for (let j = 0; j < section.numChars; j++) {
@@ -213,14 +210,14 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           }
 
           values.push(brailleChar);
-          cellToIndex[boxIndex].push(lineStart + (values.length - lineStart - 1));
-          indexToCell.push({ row: boxIndex, col: currentSectionIndex });
+          cellToIndex[row].push(Math.max(col, 0));
+          indexToCell.push({ row, col });
         }
       }
 
       values.push(Constant.NEW_LINE);
-      cellToIndex[boxIndex].push(lineStart + (values.length - lineStart - 1));
-      indexToCell.push({ row: boxIndex, col: currentSectionIndex });
+      cellToIndex[row].push(Math.max(col, 0));
+      indexToCell.push({ row, col });
     }
 
     return {
