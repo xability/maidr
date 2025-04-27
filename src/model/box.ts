@@ -69,6 +69,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
+  public moveToIndex(row: number, col: number): void {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    row = isHorizontal ? row : col;
+    col = isHorizontal ? col : row;
+    super.moveToIndex(row, col);
+  }
+
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
   }
@@ -89,15 +96,18 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   protected braille(): BrailleState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const row = isHorizontal ? this.row : this.col;
+    const col = isHorizontal ? this.col : this.row;
+
     return {
       empty: false,
       id: this.id,
       values: this.points,
-      sections: this.sections,
       min: this.min,
       max: this.max,
-      row: this.row,
-      col: this.col,
+      row,
+      col,
     };
   }
 

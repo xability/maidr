@@ -99,7 +99,6 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 
 export interface BoxBrailleState extends BaseBrailleState {
   values: BoxPoint[];
-  sections: string[];
   min: number;
   max: number;
 }

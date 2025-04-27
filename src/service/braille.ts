@@ -210,13 +210,13 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           }
 
           values.push(brailleChar);
-          cellToIndex[row].push(Math.max(col, 0));
+          cellToIndex[row].push(indexToCell.length);
           indexToCell.push({ row, col });
         }
       }
 
       values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(Math.max(col, 0));
+      cellToIndex[row].push(indexToCell.length);
       indexToCell.push({ row, col });
     }
 
