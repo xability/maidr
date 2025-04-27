@@ -190,7 +190,13 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       const lineStart = values.length;
       cellToIndex.push(new Array<number>());
 
+      let currentSectionIndex = -1;
+      const sections = [this.LOWER_OUTLIER, this.MIN, this.Q1, this.Q2, this.Q3, this.MAX, this.UPPER_OUTLIER];
       for (const section of lenData) {
+        if (section.type !== this.BLANK && section.type !== this.GLOBAL_MIN && section.type !== this.GLOBAL_MAX) {
+          currentSectionIndex = sections.indexOf(section.type);
+        }
+
         for (let j = 0; j < section.numChars; j++) {
           let brailleChar = '⠀';
 
@@ -207,12 +213,14 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           }
 
           values.push(brailleChar);
-          indexToCell.push({ row: boxIndex, col: section.type.startsWith('q') ? 1 : 0 });
           cellToIndex[boxIndex].push(lineStart + (values.length - lineStart - 1));
+          indexToCell.push({ row: boxIndex, col: currentSectionIndex });
         }
       }
 
       values.push(Constant.NEW_LINE);
+      cellToIndex[boxIndex].push(lineStart + (values.length - lineStart - 1));
+      indexToCell.push({ row: boxIndex, col: currentSectionIndex });
     }
 
     return {
