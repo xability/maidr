@@ -1,5 +1,5 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -14,10 +14,9 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot extends AbstractTrace<number[] | number> {
+export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
-
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
   private readonly orientation: Orientation;
@@ -70,12 +69,15 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
-  protected get values(): (number[] | number)[][] {
-    return this.boxValues;
+  public moveToIndex(row: number, col: number): void {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    row = isHorizontal ? row : col;
+    col = isHorizontal ? col : row;
+    super.moveToIndex(row, col);
   }
 
-  protected get brailleValues(): null {
-    return null;
+  protected get values(): (number[] | number)[][] {
+    return this.boxValues;
   }
 
   protected audio(): AudioState {
@@ -90,6 +92,14 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       size,
       index,
       value,
+    };
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 

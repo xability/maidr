@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -19,7 +19,7 @@ interface ScatterYPoint {
   x: number[];
 }
 
-export class ScatterPlot extends AbstractTrace<number> {
+export class ScatterTrace extends AbstractTrace<number> {
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[];
@@ -98,10 +98,6 @@ export class ScatterPlot extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
   }
 
-  protected get brailleValues(): null {
-    return null;
-  }
-
   protected get highlightValues(): SVGElement[][] | null {
     return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }
@@ -126,6 +122,14 @@ export class ScatterPlot extends AbstractTrace<number> {
         value: current.x,
       };
     }
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+    };
   }
 
   protected text(): TextState {
@@ -284,8 +288,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
-    if (typeof target === 'number') {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
       return false;
     }
 

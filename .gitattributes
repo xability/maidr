@@ -2,3 +2,4 @@
 * text=auto eol=lf
 
 examples/* linguist-vendored
+.devcontainer/* linguist-vendored

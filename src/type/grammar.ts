@@ -70,7 +70,8 @@ export enum Orientation {
 }
 
 export interface MaidrLayer {
-  type: string;
+  id: string;
+  type: TraceType;
   title?: string;
   selectors?: string | string[] | BoxSelector[];
   orientation?: Orientation;
@@ -87,4 +88,16 @@ export interface MaidrLayer {
     | LinePoint[][]
     | ScatterPoint[]
     | SegmentedPoint[][];
+}
+
+export enum TraceType {
+  BAR = 'bar',
+  BOX = 'box',
+  DODGED = 'dodged_bar',
+  HEATMAP = 'heat',
+  HISTOGRAM = 'hist',
+  LINE = 'line',
+  NORMALIZED = 'stacked_normalized_bar',
+  SCATTER = 'point',
+  STACKED = 'stacked_bar',
 }
