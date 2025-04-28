@@ -1,3 +1,10 @@
+## [2.7.2](https://github.com/xability/maidr-ts/compare/v2.7.1...v2.7.2) (2025-04-28)
+
+
+### Bug Fixes
+
+* ci build ([#223](https://github.com/xability/maidr-ts/issues/223)) ([7a24727](https://github.com/xability/maidr-ts/commit/7a247273a8145d1c17581aef961e339db0d6f5c3))
+
 ## [2.7.1](https://github.com/xability/maidr-ts/compare/v2.7.0...v2.7.1) (2025-04-28)
 
 
