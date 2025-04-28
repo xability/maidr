@@ -1,3 +1,81 @@
+## [2.7.2](https://github.com/xability/maidr-ts/compare/v2.7.1...v2.7.2) (2025-04-28)
+
+
+### Bug Fixes
+
+* ci build ([#223](https://github.com/xability/maidr-ts/issues/223)) ([7a24727](https://github.com/xability/maidr-ts/commit/7a247273a8145d1c17581aef961e339db0d6f5c3))
+
+## [2.7.1](https://github.com/xability/maidr-ts/compare/v2.7.0...v2.7.1) (2025-04-28)
+
+
+### Bug Fixes
+
+* **chat:** disable user input if no agent is enabled ([#175](https://github.com/xability/maidr-ts/issues/175)) ([26d3f23](https://github.com/xability/maidr-ts/commit/26d3f2350f4d2586437362d6113d8187b6179db5))
+
+# [2.7.0](https://github.com/xability/maidr-ts/compare/v2.6.0...v2.7.0) (2025-04-28)
+
+
+### Features
+
+* support boxplot braille ([#216](https://github.com/xability/maidr-ts/issues/216)) ([fb5f280](https://github.com/xability/maidr-ts/commit/fb5f280424a2304d1bfbbe32abc40c9c5570dee2))
+
+# [2.6.0](https://github.com/xability/maidr-ts/compare/v2.5.2...v2.6.0) (2025-04-28)
+
+
+### Features
+
+* provide audio feedback when moved out of bounds ([#219](https://github.com/xability/maidr-ts/issues/219)) ([3ab065c](https://github.com/xability/maidr-ts/commit/3ab065c79ef62c3fa4d07161e8020d5da891a934))
+
+## [2.5.2](https://github.com/xability/maidr-ts/compare/v2.5.1...v2.5.2) (2025-04-22)
+
+
+### Bug Fixes
+
+* set the caret to the first position in review mode ([#215](https://github.com/xability/maidr-ts/issues/215)) ([7390fbb](https://github.com/xability/maidr-ts/commit/7390fbb2b26da0098253999108fcd54a9279fed8))
+
+## [2.5.1](https://github.com/xability/maidr-ts/compare/v2.5.0...v2.5.1) (2025-04-22)
+
+
+### Bug Fixes
+
+* remove unnecessary verb in heatmap terse mode [#213](https://github.com/xability/maidr-ts/issues/213) ([#214](https://github.com/xability/maidr-ts/issues/214)) ([e91f693](https://github.com/xability/maidr-ts/commit/e91f693b43ed7cab31a4437239f87aa644ceb04d))
+
+# [2.5.0](https://github.com/xability/maidr-ts/compare/v2.4.7...v2.5.0) (2025-04-22)
+
+
+### Features
+
+* support highlight for boxplot ([#202](https://github.com/xability/maidr-ts/issues/202)) ([6d3eb7d](https://github.com/xability/maidr-ts/commit/6d3eb7d2e0c8390d300dc1578910b4dc1d522162))
+
+## [2.4.7](https://github.com/xability/maidr-ts/compare/v2.4.6...v2.4.7) (2025-04-22)
+
+
+### Bug Fixes
+
+* lifecycle in multi figure ([#204](https://github.com/xability/maidr-ts/issues/204)) ([6244802](https://github.com/xability/maidr-ts/commit/6244802d500fd6067d4680efad3ba85a9aced479))
+
+## [2.4.6](https://github.com/xability/maidr-ts/compare/v2.4.5...v2.4.6) (2025-04-17)
+
+
+### Bug Fixes
+
+* audio residue during autoplay ([#191](https://github.com/xability/maidr-ts/issues/191)) ([d96311a](https://github.com/xability/maidr-ts/commit/d96311a3f2633ced0bbb3e94719fa713866fff52))
+
+## [2.4.5](https://github.com/xability/maidr-ts/compare/v2.4.4...v2.4.5) (2025-04-17)
+
+
+### Bug Fixes
+
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([2c829fc](https://github.com/xability/maidr-ts/commit/2c829fcc848dab610c4b2e98f0e9eed3236f14c5))
+* keybindings and edge highlighting ([#190](https://github.com/xability/maidr-ts/issues/190)) ([#194](https://github.com/xability/maidr-ts/issues/194)) ([b4ded63](https://github.com/xability/maidr-ts/commit/b4ded630867312f9438eb1851219937a432a10d0))
+
+## [2.4.4](https://github.com/xability/maidr-ts/compare/v2.4.3...v2.4.4) (2025-04-16)
+
+
+### Bug Fixes
+
+* gpt authorization and react rendering and focus ([#182](https://github.com/xability/maidr-ts/issues/182)) ([767d574](https://github.com/xability/maidr-ts/commit/767d574ec4ebc50c3653e212063a37d3b0d58d1b))
+
 ## [2.4.3](https://github.com/xability/maidr-ts/compare/v2.4.2...v2.4.3) (2025-04-15)
 
 

@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { Figure, Subplot, Trace } from '@type/plot';
 import type { PlotState } from '@type/state';
+import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -9,7 +9,7 @@ import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
 
-export class ContextService implements Disposable {
+export class Context implements Disposable {
   public readonly id: string;
   private readonly instructionContext: Plot;
 
@@ -70,7 +70,7 @@ export class ContextService implements Disposable {
     return this.scopeContext.peek()!;
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
     return this.active.isMovable(target);
   };
 
@@ -82,16 +82,18 @@ export class ContextService implements Disposable {
     this.active.moveToExtreme(direction);
   }
 
-  public moveToIndex(index: number): void {
-    this.active.moveToIndex(index);
+  public moveToIndex(row: number, col: number): void {
+    this.active.moveToIndex(row, col);
   }
 
   public stepTrace(direction: MovableDirection): void {
-    this.plotContext.pop(); // Remove current Trace.
-    const activeSubplot = this.active as Subplot;
-    activeSubplot.moveOnce(direction);
-    this.active.notifyStateUpdate();
-    this.plotContext.push(activeSubplot.activeTrace);
+    if (this.plotContext.size() > 1) {
+      this.plotContext.pop(); // Remove current Trace.
+      const activeSubplot = this.active as Subplot;
+      activeSubplot.moveOnce(direction);
+      this.active.notifyStateUpdate();
+      this.plotContext.push(activeSubplot.activeTrace);
+    }
   }
 
   public enterSubplot(): void {

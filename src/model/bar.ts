@@ -1,14 +1,12 @@
-import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, TextState } from '@type/state';
-import type { BarPoint } from './grammar';
-import { Orientation } from '@type/plot';
-import { AbstractTrace } from './plot';
+import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import { Orientation } from '@type/grammar';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
-
-  protected readonly brailleValues: string[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
   protected readonly orientation: Orientation;
@@ -29,17 +27,11 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     );
     this.min = this.barValues.map(row => Math.min(...row));
     this.max = this.barValues.map(row => Math.max(...row));
-
-    this.brailleValues = this.mapToBraille(this.barValues);
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
   public dispose(): void {
     this.points.length = 0;
-    this.barValues.length = 0;
-
-    this.brailleValues.length = 0;
-    this.highlightValues && (this.highlightValues.length = 0);
 
     this.min.length = 0;
     this.max.length = 0;
@@ -53,11 +45,11 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical ? this.values[this.row].length : this.values.length;
+    const size = isVertical ? this.barValues[this.row].length : this.barValues.length;
     const index = isVertical ? this.col : this.row;
     const value = isVertical
-      ? this.values[this.row][this.col]
-      : this.values[this.col][this.row];
+      ? this.barValues[this.row][this.col]
+      : this.barValues[this.col][this.row];
 
     return {
       min: Math.min(...this.min),
@@ -65,6 +57,18 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       size,
       index,
       value,
+    };
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.barValues,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
     };
   }
 
@@ -84,43 +88,12 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     };
   }
 
-  private mapToBraille(data: number[][]): string[][] {
-    return data.map((row, index) =>
-      this.createBraille(row, this.min[index], this.max[index]),
-    );
-  }
-
-  protected createBraille(data: number[], min: number, max: number): string[] {
-    const braille = new Array<string>();
-
-    const range = (max - min) / 4;
-    const low = min + range;
-    const medium = low + range;
-    const high = medium + range;
-
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] === 0) {
-        braille.push(' ');
-      } else if (data[i] <= low) {
-        braille.push('⣀');
-      } else if (data[i] <= medium) {
-        braille.push('⠤');
-      } else if (data[i] <= high) {
-        braille.push('⠒');
-      } else {
-        braille.push('⠉');
-      }
-    }
-
-    return braille;
-  }
-
   protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;
     }
 
-    const svgElements = [Array.from(document.querySelectorAll<SVGElement>(selector))];
+    const svgElements = [Svg.selectAllElements(selector)];
     if (svgElements.length !== this.points.length) {
       return null;
     }
@@ -134,7 +107,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   }
 }
 
-export class BarPlot extends AbstractBarPlot<BarPoint> {
+export class BarTrace extends AbstractBarPlot<BarPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }

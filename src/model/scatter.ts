@@ -1,8 +1,8 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, AutoplayState, HighlightState, TextState } from '@type/state';
-import type { ScatterPoint } from './grammar';
-import { AbstractTrace } from '@model/plot';
+import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 enum NavMode {
   COL = 'column',
@@ -19,7 +19,7 @@ interface ScatterYPoint {
   x: number[];
 }
 
-export class ScatterPlot extends AbstractTrace<number> {
+export class ScatterTrace extends AbstractTrace<number> {
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[];
@@ -82,26 +82,24 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.xValues.length = 0;
     this.yValues.length = 0;
 
-    this.highlightXValues && (this.highlightXValues.length = 0);
-    this.highlightYValues && (this.highlightYValues.length = 0);
+    if (this.highlightXValues) {
+      this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightXValues.length = 0;
+    }
+    if (this.highlightYValues) {
+      this.highlightYValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightYValues.length = 0;
+    }
 
     super.dispose();
   }
 
   protected get values(): number[][] {
-    return this.mode === NavMode.COL
-      ? [this.xValues]
-      : [this.yValues];
-  }
-
-  protected get brailleValues(): null {
-    return null;
+    return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
   }
 
   protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL
-      ? this.highlightXValues
-      : this.highlightYValues;
+    return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }
 
   protected audio(): AudioState {
@@ -124,6 +122,14 @@ export class ScatterPlot extends AbstractTrace<number> {
         value: current.x,
       };
     }
+  }
+
+  protected braille(): BrailleState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+    };
   }
 
   protected text(): TextState {
@@ -161,8 +167,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     }
 
     const elements = this.mode === NavMode.COL
-      ? this.col < this.highlightValues.length ? this.highlightXValues![this.col] : null
-      : this.row < this.highlightValues.length ? this.highlightYValues![this.row] : null;
+      ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
+      : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
       return {
         empty: true,
@@ -282,8 +288,8 @@ export class ScatterPlot extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
-    if (typeof target === 'number') {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
       return false;
     }
 
@@ -315,7 +321,7 @@ export class ScatterPlot extends AbstractTrace<number> {
       return [null, null];
     }
 
-    const elements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const elements = Svg.selectAllElements(selector);
     if (elements.length === 0) {
       return [null, null];
     }

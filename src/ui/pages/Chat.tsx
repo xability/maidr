@@ -15,7 +15,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -110,10 +110,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 };
 
 const Chat: React.FC = () => {
+  const id = useId();
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
-  const { enabled, messages } = useViewModelState('chat');
+  const { messages } = useViewModelState('chat');
+  const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,13 +146,13 @@ const Chat: React.FC = () => {
 
   return (
     <Dialog
+      id={id}
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="md"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',
@@ -215,21 +217,23 @@ const Chat: React.FC = () => {
             <Grid container spacing={1} alignItems="center">
               <Grid size={{ xs: 10 }}>
                 <TextField
-                  fullWidth
-                  multiline
-                  maxRows={4}
                   value={inputMessage}
+                  disabled={disabled}
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
+                  maxRows={4}
                   placeholder="Type your message..."
                   variant="outlined"
                   size="small"
                   autoFocus
+                  fullWidth
+                  multiline
                 />
               </Grid>
               <Grid size={{ xs: 2 }} container justifyContent="flex-end">
                 <IconButton
                   onClick={handleSend}
+                  disabled={disabled}
                   color="primary"
                   aria-label="Send message"
                   sx={{

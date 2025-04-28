@@ -1,42 +1,40 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { PlotState } from '@type/state';
-import { Color } from '@util/color';
+import type { SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 
-export class HighlightService implements Observer<PlotState>, Disposable {
+export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly highlightedElements: Set<SVGElement>;
 
   public constructor() {
-    this.highlightedElements = new Set<SVGElement>();
+    this.highlightedElements = new Set();
   }
 
   public dispose(): void {
     this.unhighlight();
   }
 
-  public update(state: PlotState): void {
-    this.unhighlight();
-    if (state.empty || state.type !== 'trace' || state.highlight.empty) {
+  public update(state: SubplotState | TraceState): void {
+    if (state.empty) {
       return;
     }
 
-    const elements = Array.isArray(state.highlight.elements)
-      ? state.highlight.elements
-      : [state.highlight.elements];
+    this.unhighlight();
+    const trace = state.type === 'subplot' ? state.trace : state;
+    if (trace.empty || trace.highlight.empty) {
+      return;
+    }
+
+    const highlight = trace.highlight;
+    const elements = Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
     this.highlight(elements);
   }
 
   private highlight(elements: SVGElement[]): void {
     for (const element of elements) {
-      const clone = element.cloneNode(true) as SVGElement;
-      const originalColor = window.getComputedStyle(element).getPropertyValue(Constant.FILL);
-
+      const clone = Svg.createHighlightElement(element, Constant.MAIDR_HIGHLIGHT_COLOR);
       clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
-      clone.style.fill = this.getHighlightColor(originalColor);
-      clone.style.visibility = Constant.VISIBLE;
-
-      element.insertAdjacentElement(Constant.AFTER_END, clone);
       this.highlightedElements.add(clone);
     }
   }
@@ -44,20 +42,5 @@ export class HighlightService implements Observer<PlotState>, Disposable {
   private unhighlight(): void {
     this.highlightedElements.forEach(element => element.remove());
     this.highlightedElements.clear();
-  }
-
-  private getHighlightColor(originalColor: string): string {
-    const originalRgb = Color.parse(originalColor);
-    if (!originalRgb) {
-      return Constant.MAIDR_HIGHLIGHT_COLOR;
-    }
-
-    const invertedRgb = Color.invert(originalRgb);
-    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
-    if (contrastRatio >= 4.5) {
-      return Color.rgbToString(invertedRgb);
-    }
-
-    return Constant.MAIDR_HIGHLIGHT_COLOR;
   }
 }

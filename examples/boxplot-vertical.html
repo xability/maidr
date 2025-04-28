@@ -20,7 +20,7 @@
             version="1.1"
             id="boxplot1"
             tabindex="0"
-            maidr-data='{"id":"boxplot1","subplots":[[{"layers":[{"type":"box","orientation":"vert","selector":"#geom_boxplot\\\\.gTree\\\\.78\\\\.1","axes":{"x":"class","y":"hwy"},"data":[{"fill":"2seater","lowerOutliers":[],"min":23,"q1":24,"q2":0,"q3":25,"max":26,"upperOutliers":[]},{"fill":"compact","lowerOutliers":[],"min":23,"q1":26,"q2":27,"q3":29,"max":33,"upperOutliers":[35,35,37,44]},{"fill":"midsize","lowerOutliers":[],"min":23,"q1":26,"q2":27,"q3":29,"max":32,"upperOutliers":[]},{"fill":"minivan","lowerOutliers":[17],"min":21,"q1":22,"q2":23,"q3":29,"max":32,"upperOutliers":[]},{"fill":"pickup","lowerOutliers":[12,12,12],"min":15,"q1":16,"q2":17,"q3":18,"max":20,"upperOutliers":[22]},{"fill":"subcompact","lowerOutliers":[],"min":20,"q1":24.5,"q2":26,"q3":30.5,"max":36,"upperOutliers":[41,44]},{"fill":"suv","lowerOutliers":[12,12],"min":14,"q1":17,"q2":17.5,"q3":19,"max":22,"upperOutliers":[23,24,25,25,26,27]}]}]}]]}'
+            maidr-data='{"id":"boxplot1","subplots":[[{"layers":[{"id":"0","type":"box","orientation":"vert","selectors":[{"lowerOutliers":[],"min":"polyline[id=\"GRID.segments.12.1.2\"]","q2":"polyline[id=\"GRID.segments.16.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.15.1.1\"]","max":"polyline[id=\"GRID.segments.12.1.1\"]","upperOutliers":[]},{"lowerOutliers":[],"min":"polyline[id=\"GRID.segments.22.1.2\"]","q2":"polyline[id=\"GRID.segments.26.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.25.1.1\"]","max":"polyline[id=\"GRID.segments.22.1.1\"]","upperOutliers":["g[id=\"geom_point.points.20.1\"] > use"]},{"lowerOutliers":[],"min":"polyline[id=\"GRID.segments.30.1.2\"]","q2":"polyline[id=\"GRID.segments.34.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.33.1.1\"]","max":"polyline[id=\"GRID.segments.30.1.1\"]","upperOutliers":[]},{"lowerOutliers":["use[id=\"geom_point.points.38.1.1"],"min":"polyline[id=\"GRID.segments.40.1.2\"]","q2":"polyline[id=\"GRID.segments.44.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.43.1.1\"]","max":"polyline[id=\"GRID.segments.40.1.1\"]","upperOutliers":[]},{"lowerOutliers":["use[id=\"geom_point.points.48.1.1\"]","use[id=\"geom_point.points.48.1.2\"]","use[id=\"geom_point.points.48.1.3\"]"],"min":"polyline[id=\"GRID.segments.50.1.2\"]","q2":"polyline[id=\"GRID.segments.54.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.53.1.1\"]","max":"polyline[id=\"GRID.segments.50.1.1\"]","upperOutliers":["use[id=\"geom_point.points.48.1.4\"]"]},{"lowerOutliers":[],"min":"polyline[id=\"GRID.segments.60.1.2\"]","q2":"polyline[id=\"GRID.segments.64.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.63.1.1\"]","max":"polyline[id=\"GRID.segments.60.1.1\"]","upperOutliers":["g[id=\"geom_point.points.58.1\"] > use"]},{"lowerOutliers":["use[id=\"geom_point.points.68.1.2\"]"],"min":"polyline[id=\"GRID.segments.70.1.2\"]","q2":"polyline[id=\"GRID.segments.74.1.1\"]","iq":"polygon[id=\"geom_polygon.polygon.73.1.1\"]","max":"polyline[id=\"GRID.segments.70.1.1\"]","upperOutliers":["use[id=\"geom_point.points.68.1.1\"]","use[id=\"geom_point.points.68.1.3\"]","use[id=\"geom_point.points.68.1.4\"]","use[id=\"geom_point.points.68.1.5\"]","use[id=\"geom_point.points.68.1.6\"]","use[id=\"geom_point.points.68.1.7\"]","use[id=\"geom_point.points.68.1.8\"]"]}],"axes":{"x":"class","y":"hwy"},"data":[{"fill":"2seater","lowerOutliers":[],"min":23,"q1":24,"q2":0,"q3":25,"max":26,"upperOutliers":[]},{"fill":"compact","lowerOutliers":[],"min":23,"q1":26,"q2":27,"q3":29,"max":33,"upperOutliers":[35,35,37,44]},{"fill":"midsize","lowerOutliers":[],"min":23,"q1":26,"q2":27,"q3":29,"max":32,"upperOutliers":[]},{"fill":"minivan","lowerOutliers":[17],"min":21,"q1":22,"q2":23,"q3":29,"max":32,"upperOutliers":[]},{"fill":"pickup","lowerOutliers":[12,12,12],"min":15,"q1":16,"q2":17,"q3":18,"max":20,"upperOutliers":[22]},{"fill":"subcompact","lowerOutliers":[],"min":20,"q1":24.5,"q2":26,"q3":30.5,"max":36,"upperOutliers":[41,44]},{"fill":"suv","lowerOutliers":[12,12],"min":14,"q1":17,"q2":17.5,"q3":19,"max":22,"upperOutliers":[23,24,25,25,26,27]}]}]}]]}'
           >
             <metadata xmlns:gridsvg="http://www.stat.auckland.ac.nz/~paul/R/gridSVG/">
               <gridsvg:generator name="gridSVG" version="1.7-4" time="2023-02-22 19:47:59" />
@@ -1552,9 +1552,79 @@
             {
               layers: [
                 {
+                  id: '0',
                   type: 'box',
                   orientation: 'vert',
-                  selector: '#geom_boxplot\\.gTree\\.78\\.1',
+                  selectors: [
+                    {
+                      lowerOutliers: [],
+                      min: "polyline[id='GRID.segments.12.1.2']",
+                      q2: "polyline[id='GRID.segments.16.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.15.1.1']",
+                      max: "polyline[id='GRID.segments.12.1.1']",
+                      upperOutliers: [],
+                    },
+                    {
+                      lowerOutliers: [],
+                      min: "polyline[id='GRID.segments.22.1.2']",
+                      q2: "polyline[id='GRID.segments.26.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.25.1.1']",
+                      max: "polyline[id='GRID.segments.22.1.1']",
+                      upperOutliers: ["g[id='geom_point.points.20.1'] > use"],
+                    },
+                    {
+                      lowerOutliers: [],
+                      min: "polyline[id='GRID.segments.30.1.2']",
+                      q2: "polyline[id='GRID.segments.34.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.33.1.1']",
+                      max: "polyline[id='GRID.segments.30.1.1']",
+                      upperOutliers: [],
+                    },
+                    {
+                      lowerOutliers: ["use[id='geom_point.points.38.1.1"],
+                      min: "polyline[id='GRID.segments.40.1.2']",
+                      q2: "polyline[id='GRID.segments.44.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.43.1.1']",
+                      max: "polyline[id='GRID.segments.40.1.1']",
+                      upperOutliers: [],
+                    },
+                    {
+                      lowerOutliers: [
+                        "use[id='geom_point.points.48.1.1']",
+                        "use[id='geom_point.points.48.1.2']",
+                        "use[id='geom_point.points.48.1.3']",
+                      ],
+                      min: "polyline[id='GRID.segments.50.1.2']",
+                      q2: "polyline[id='GRID.segments.54.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.53.1.1']",
+                      max: "polyline[id='GRID.segments.50.1.1']",
+                      upperOutliers: ["use[id='geom_point.points.48.1.4']"],
+                    },
+                    {
+                      lowerOutliers: [],
+                      min: "polyline[id='GRID.segments.60.1.2']",
+                      q2: "polyline[id='GRID.segments.64.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.63.1.1']",
+                      max: "polyline[id='GRID.segments.60.1.1']",
+                      upperOutliers: ["g[id='geom_point.points.58.1'] > use"],
+                    },
+                    {
+                      lowerOutliers: ["use[id='geom_point.points.68.1.2']"],
+                      min: "polyline[id='GRID.segments.70.1.2']",
+                      q2: "polyline[id='GRID.segments.74.1.1']",
+                      iq: "polygon[id='geom_polygon.polygon.73.1.1']",
+                      max: "polyline[id='GRID.segments.70.1.1']",
+                      upperOutliers: [
+                        "use[id='geom_point.points.68.1.1']",
+                        "use[id='geom_point.points.68.1.3']",
+                        "use[id='geom_point.points.68.1.4']",
+                        "use[id='geom_point.points.68.1.5']",
+                        "use[id='geom_point.points.68.1.6']",
+                        "use[id='geom_point.points.68.1.7']",
+                        "use[id='geom_point.points.68.1.8']",
+                      ],
+                    },
+                  ],
                   axes: {
                     x: 'class',
                     y: 'hwy',

@@ -27,12 +27,22 @@ export enum Scope {
   SETTINGS = 'SETTINGS',
 }
 
+export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
+
 export type Keys = keyof Keymap[Scope];
 
 export type Event<T> = (listener: (e: T) => any) => Disposable;
 
 export class Emitter<T> {
-  private listeners: Set<(event: T) => void> = new Set();
+  private readonly listeners: Set<(event: T) => void>;
+
+  public constructor() {
+    this.listeners = new Set();
+  }
+
+  public dispose(): void {
+    this.listeners.clear();
+  }
 
   public event: Event<T> = (listener: (e: T) => any): Disposable => {
     this.listeners.add(listener);
@@ -45,9 +55,5 @@ export class Emitter<T> {
     for (const listener of this.listeners) {
       listener(event);
     }
-  }
-
-  public dispose(): void {
-    this.listeners.clear();
   }
 }

@@ -5,12 +5,9 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings {
-  enabled: boolean;
-}
+interface SettingsState extends Settings {}
 
 const initialState: SettingsState = {
-  enabled: false,
   general: {
     volume: 50,
     highlightColor: '#03c809',
@@ -50,15 +47,12 @@ const settingsSlice = createSlice({
     update: (state, action: PayloadAction<Settings>): SettingsState => {
       return { ...state, ...action.payload };
     },
-    toggle: (state, action: PayloadAction<boolean>): void => {
-      state.enabled = action.payload;
-    },
     reset: (): SettingsState => {
       return initialState;
     },
   },
 });
-const { update, toggle, reset } = settingsSlice.actions;
+const { update, reset } = settingsSlice.actions;
 
 export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   private readonly settingsService: SettingsService;
@@ -66,6 +60,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   public constructor(store: AppStore, settingsService: SettingsService) {
     super(store);
     this.settingsService = settingsService;
+    this.load();
   }
 
   public dispose(): void {
@@ -81,15 +76,14 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.store.dispatch(update(settings));
   }
 
-  public save(settings: Settings): void {
+  public saveAndClose(settings: Settings): void {
     this.settingsService.saveSettings(settings);
     this.store.dispatch(update(settings));
+    this.toggle();
   }
 
   public toggle(): void {
-    const current = this.state.enabled;
-    const enabled = this.settingsService.toggle(current);
-    this.store.dispatch(toggle(enabled));
+    this.settingsService.toggle();
   }
 
   public reset(): void {

@@ -1,7 +1,6 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { HighlightState, TextState } from '@type/state';
-import type { SegmentedPoint } from './grammar';
-import { Orientation } from '@type/plot';
+import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
@@ -9,7 +8,7 @@ const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
-export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
+export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();
@@ -43,10 +42,6 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     const summaryMax = Math.max(...summaryValues);
     this.min.push(summaryMin);
     this.max.push(summaryMax);
-
-    this.brailleValues.push(
-      this.createBraille(summaryValues, summaryMin, summaryMax),
-    );
   }
 
   protected text(): TextState {
@@ -83,7 +78,7 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
       return new Array<Array<SVGElement>>();
     }
 
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
       return new Array<Array<SVGElement>>();
     }

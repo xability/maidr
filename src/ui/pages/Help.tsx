@@ -9,7 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
-import React from 'react';
+import React, { useId } from 'react';
 
 interface HelpRowProps {
   label: string;
@@ -37,8 +37,9 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 );
 
 const Help: React.FC = () => {
+  const id = useId();
   const viewModel = useViewModel('help');
-  const { enabled, items } = viewModel.state;
+  const { items } = viewModel.state;
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -46,13 +47,13 @@ const Help: React.FC = () => {
 
   return (
     <Dialog
+      id={id}
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       {/* Header */}
       <Grid container component={DialogTitle}>
