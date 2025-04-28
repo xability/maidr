@@ -1,4 +1,4 @@
-import type { HeatmapData } from '@model/grammar';
+import type { HeatmapData } from '../../src/type/grammar';
 import { expect } from '@jest/globals';
 
 interface ChartLayer {
@@ -154,7 +154,7 @@ function getAverageForYValue(data: HeatmapData, yIndex: number): number | null {
   }
 
   const row = data.points[yIndex];
-  const sum = row.reduce((acc, val) => acc + val, 0);
+  const sum = row.reduce((acc: any, val: any) => acc + val, 0);
 
   return sum / row.length;
 }
@@ -234,7 +234,7 @@ describe('heatmap Data Tests', () => {
       expect(Array.isArray(heatmapData.points)).toBe(true);
       expect(heatmapData.points.length).toBe(heatmapData.y.length);
 
-      heatmapData.points.forEach((row) => {
+      heatmapData.points.forEach((row: string | any[]) => {
         expect(row.length).toBe(heatmapData.x.length);
       });
     });

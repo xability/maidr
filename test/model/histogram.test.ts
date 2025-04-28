@@ -1,7 +1,13 @@
-import type { HistogramPoint } from '@model/grammar';
+import type { HistogramPoint } from '../../src/type/grammar';
 import { expect } from '@jest/globals';
 
 interface ExtendedHistogramPoint extends HistogramPoint {
+  x: number;
+  y: number;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
   count: number;
   density: number;
   ncount: number;
