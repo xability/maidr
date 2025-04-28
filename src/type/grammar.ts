@@ -27,6 +27,16 @@ export interface BoxPoint {
   upperOutliers: number[];
 }
 
+export interface CandlestickPoint {
+  value: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  trend: string;
+}
+
 export interface BoxSelector {
   lowerOutliers: string[];
   min: string;
@@ -87,12 +97,14 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | CandlestickPoint[];
 }
 
 export enum TraceType {
   BAR = 'bar',
   BOX = 'box',
+  CANDLESTICK = 'candlestick',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',

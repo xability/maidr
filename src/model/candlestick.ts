@@ -1,13 +1,12 @@
-import type { CandlestickPoint } from '@model/grammar';
-import type { MaidrLayer } from '@type/maidr';
+import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type {
   AudioState,
   BrailleState,
   HighlightState,
   TextState,
 } from '@type/state';
-import { Orientation } from '@type/plot';
-import { AbstractTrace } from './plot';
+import { Orientation } from '@type/grammar';
+import { AbstractTrace } from './abstract';
 
 export class Candlestick extends AbstractTrace<number> {
   private readonly candles: CandlestickPoint[];
@@ -16,6 +15,8 @@ export class Candlestick extends AbstractTrace<number> {
     CandlestickPoint,
     'close' | 'low' | 'high' | 'open'
   >)[] = ['close', 'low', 'high', 'open'];
+
+  protected readonly highlightValues: SVGElement[][] | null;
 
   private readonly orientation: Orientation;
 
@@ -31,7 +32,7 @@ export class Candlestick extends AbstractTrace<number> {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // Map the candlestick data to include trend information
-    this.candles = (layer.data as CandlestickPoint[]).map(candle => ({
+    this.candles = (layer.data as CandlestickPoint[]).map((candle) => ({
       ...candle,
       trend:
         candle.close > candle.open
@@ -44,10 +45,10 @@ export class Candlestick extends AbstractTrace<number> {
     this.sections = [...this.keyMap];
 
     this.candleValues = [
-      this.candles.map(c => c.open),
-      this.candles.map(c => c.high),
-      this.candles.map(c => c.low),
-      this.candles.map(c => c.close),
+      this.candles.map((c) => c.open),
+      this.candles.map((c) => c.high),
+      this.candles.map((c) => c.low),
+      this.candles.map((c) => c.close),
     ];
 
     this.min = Math.min(...this.candleValues.flat());
@@ -60,14 +61,17 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = this.sections.length - 1;
       this.col = 0;
     }
+
+    // todo
+    this.highlightValues = null;
   }
 
   protected get values(): number[][] {
     return this.candleValues as number[][];
   }
 
-  protected get brailleValues(): string[][] {
-    return [];
+  protected get brailleValues(): null {
+    return null;
   }
 
   protected audio(): AudioState {
@@ -125,11 +129,5 @@ export class Candlestick extends AbstractTrace<number> {
       section,
       fill: { label: 'trend', value: point.trend },
     };
-  }
-
-  public destroy(): void {
-    this.candles.length = 0;
-    this.sections.length = 0;
-    super.destroy();
   }
 }
