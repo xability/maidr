@@ -19,9 +19,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { loadSettings, resetSettings, saveSettings, toggleSettings } from '@redux/slice/settingsSlice';
-import React, { useEffect, useState } from 'react';
+import { useViewModel } from '@state/hook/useViewModel';
+import React, { useEffect, useId, useState } from 'react';
 
 interface SettingRowProps {
   label: string;
@@ -83,19 +82,16 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 );
 
 const Settings: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { enabled, general, llm } = useAppSelector(state => state.settings);
+  const id = useId();
+  const viewModel = useViewModel('settings');
+  const { general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
-    dispatch(loadSettings());
-  }, [dispatch]);
-  useEffect(() => {
-    setGeneralSettings(general);
-    setLlmSettings(llm);
-  }, [general, llm]);
+    viewModel.load();
+  }, []);
 
   const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
     setGeneralSettings(prev => ({
@@ -127,25 +123,25 @@ const Settings: React.FC = () => {
   };
 
   const handleReset = (): void => {
-    dispatch(resetSettings());
+    viewModel.reset();
     setGeneralSettings(general);
   };
   const handleClose = (): void => {
-    dispatch(toggleSettings());
+    viewModel.toggle();
   };
   const handleSave = (): void => {
-    dispatch(saveSettings({ general: generalSettings, llm: llmSettings }));
+    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
 
   return (
     <Dialog
+      id={id}
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       <DialogContent sx={{ overflow: 'visible' }}>
         {/* Header */}
@@ -393,7 +389,7 @@ const Settings: React.FC = () => {
           </Grid2>
           <Grid2 size="auto">
             <Button variant="contained" color="primary" onClick={handleSave}>
-              Save
+              Save & Close
             </Button>
           </Grid2>
         </Grid2>

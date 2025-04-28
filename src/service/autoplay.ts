@@ -1,8 +1,10 @@
-import type { ContextService } from '@service/context';
+import type { Context } from '@model/context';
+import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
-import type { TextService } from './text';
+import { Emitter } from '@type/event';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
@@ -11,10 +13,13 @@ const MAX_SPEED = 500;
 const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
 
-export class AutoplayService {
-  private readonly context: ContextService;
+interface AutoplayChangeEvent {
+  type: 'start' | 'stop';
+}
+
+export class AutoplayService implements Disposable {
+  private readonly context: Context;
   private readonly notification: NotificationService;
-  private readonly text: TextService;
 
   private playId: NodeJS.Timeout | null;
   private currentDirection: MovableDirection | null;
@@ -28,9 +33,11 @@ export class AutoplayService {
   private readonly totalDuration: number;
   private readonly interval: number;
 
-  public constructor(context: ContextService, notification: NotificationService, text: TextService) {
+  private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
+  public readonly onChange: Event<AutoplayChangeEvent>;
+
+  public constructor(context: Context, notification: NotificationService) {
     this.notification = notification;
-    this.text = text;
     this.context = context;
 
     this.playId = null;
@@ -44,15 +51,19 @@ export class AutoplayService {
     this.autoplayRate = this.defaultSpeed;
     this.totalDuration = TOTAL_DURATION;
     this.interval = DEFAULT_INTERVAL;
+
+    this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.stop();
+    this.onChangeEmitter.dispose();
   }
 
   public start(direction: MovableDirection, state?: TraceState): void {
     this.stop();
-    this.text.mute();
+    this.onChangeEmitter.fire({ type: 'start' });
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
@@ -73,7 +84,7 @@ export class AutoplayService {
 
     this.playId = null;
     this.currentDirection = null;
-    this.text.unmute();
+    this.onChangeEmitter.fire({ type: 'stop' });
   }
 
   private restart(): void {

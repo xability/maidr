@@ -1,13 +1,8 @@
-import type { MaidrLayer } from '@type/maidr';
-import type {
-  AudioState,
-  BrailleState,
-  HighlightState,
-  TextState,
-} from '@type/state';
-import type { BoxPoint } from './grammar';
-import { Orientation } from '@type/plot';
-import { AbstractTrace } from './plot';
+import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import { Orientation } from '@type/grammar';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -19,11 +14,12 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxPlot extends AbstractTrace<number[] | number> {
+export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
-  private readonly orientation: Orientation;
+  protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
+  private readonly orientation: Orientation;
   private readonly sections: string[];
 
   private readonly min: number;
@@ -36,72 +32,84 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
-    this.boxValues = this.points.map(point => [
-      point.lowerOutliers,
-      point.min,
-      point.q1,
-      point.q2,
-      point.q3,
-      point.max,
-      point.upperOutliers,
-    ]);
+    const sectionAccessors = [
+      (p: BoxPoint) => p.lowerOutliers,
+      (p: BoxPoint) => p.min,
+      (p: BoxPoint) => p.q1,
+      (p: BoxPoint) => p.q2,
+      (p: BoxPoint) => p.q3,
+      (p: BoxPoint) => p.max,
+      (p: BoxPoint) => p.upperOutliers,
+    ];
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.boxValues = this.points.map((point) =>
+        sectionAccessors.map((accessor) => accessor(point)),
+      );
+    } else {
+      this.boxValues = sectionAccessors.map((accessor) =>
+        this.points.map((point) => accessor(point)),
+      );
+    }
 
-    const flatBoxValues = this.boxValues.map(row =>
-      row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
+    const flatBoxValues = this.boxValues.map((row) =>
+      row.flatMap((cell) => (Array.isArray(cell) ? cell : [cell])),
     );
     this.min = Math.min(...flatBoxValues.flat());
     this.max = Math.max(...flatBoxValues.flat());
 
     this.row = this.boxValues.length - 1;
+
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as BoxSelector[],
+    );
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.points.length = 0;
-    this.boxValues.length = 0;
-
     this.sections.length = 0;
 
-    super.destroy();
+    super.dispose();
+  }
+
+  public moveToIndex(row: number, col: number): void {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    row = isHorizontal ? row : col;
+    col = isHorizontal ? col : row;
+    super.moveToIndex(row, col);
   }
 
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
   }
 
-  protected get brailleValues(): string[][] {
-    return [];
-  }
-
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-
-    const value = isHorizontal
-      ? this.boxValues[this.row][this.col]
-      : this.boxValues[this.col][this.row];
-    const index = isHorizontal ? this.col : this.row;
+    const value = this.boxValues[this.row][this.col];
+    const size = isHorizontal ? this.sections.length : this.points.length;
+    const index = isHorizontal ? this.col : this.col;
 
     return {
       min: this.min,
       max: this.max,
-      size: this.sections.length,
+      size,
       index,
       value,
     };
   }
 
   protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
-    };
-  }
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const row = isHorizontal ? this.row : this.col;
+    const col = isHorizontal ? this.col : this.row;
 
-  protected highlight(): HighlightState {
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      id: this.id,
+      values: this.points,
+      min: this.min,
+      max: this.max,
+      row,
+      col,
     };
   }
 
@@ -115,14 +123,66 @@ export class BoxPlot extends AbstractTrace<number[] | number> {
       : this.sections[this.row];
 
     const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
-    const crossValue = isHorizontal
-      ? this.boxValues[this.row][this.col]
-      : this.boxValues[this.col][this.row];
+    const crossValue = this.boxValues[this.row][this.col];
 
     return {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
     };
+  }
+
+  private mapToSvgElements(
+    selectors: BoxSelector[],
+  ): (SVGElement[] | SVGElement)[][] | null {
+    if (!selectors || selectors.length !== this.points.length) {
+      return null;
+    }
+
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const svgElements = new Array<Array<SVGElement[] | SVGElement>>();
+
+    if (isVertical) {
+      for (let i = 0; i < this.sections.length; i++) {
+        svgElements.push(Array.from({ length: selectors.length }));
+      }
+    }
+
+    selectors.forEach((selector, boxIdx) => {
+      const lowerOutliers = selector.lowerOutliers.flatMap((s) =>
+        Svg.selectAllElements(s),
+      );
+      const upperOutliers = selector.upperOutliers.flatMap((s) =>
+        Svg.selectAllElements(s),
+      );
+
+      const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
+      const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
+
+      const iq = Svg.selectElement(selector.iq) ?? Svg.createEmptyElement();
+      const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
+
+      const [q1, q3] = isVertical
+        ? [
+            Svg.createLineElement(iq, 'top'),
+            Svg.createLineElement(iq, 'bottom'),
+          ]
+        : [
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
+          ];
+
+      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+
+      if (isVertical) {
+        sections.forEach((section, sectionIdx) => {
+          svgElements[sectionIdx][boxIdx] = section;
+        });
+      } else {
+        svgElements.push(sections);
+      }
+    });
+
+    return svgElements;
   }
 }

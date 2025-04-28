@@ -8,9 +8,8 @@ import {
   Grid2,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { toggleHelpMenu } from '@redux/slice/helpSlice';
-import React from 'react';
+import { useViewModel } from '@state/hook/useViewModel';
+import React, { useId } from 'react';
 
 interface HelpRowProps {
   label: string;
@@ -38,22 +37,23 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 );
 
 const Help: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { enabled, items } = useAppSelector(state => state.help);
+  const id = useId();
+  const viewModel = useViewModel('help');
+  const { items } = viewModel.state;
 
   const handleClose = (): void => {
-    dispatch(toggleHelpMenu());
+    viewModel.toggle();
   };
 
   return (
     <Dialog
+      id={id}
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       {/* Header */}
       <Grid2 container component={DialogTitle}>

@@ -1,4 +1,4 @@
-import type { MaidrLayer } from '@type/maidr';
+import type { MaidrLayer } from '@type/grammar';
 import { TestConstants } from './constant';
 
 export function verifyPlotLoaded(plotId: string): void {

@@ -1,12 +1,11 @@
-import type { Maidr } from '@type/maidr';
-import { ControllerService } from '@service/controller';
-import { ServiceLocator } from '@service/locator';
-import { EventType } from '@type/event';
+import type { Maidr } from '@type/grammar';
+import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
+import { Controller } from './controller';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
-  document.addEventListener(EventType.DOM_LOADED, main);
+  document.addEventListener(DomEventType.DOM_LOADED, main);
 } else {
   // Support for Jupyter Notebook, since it is in `complete` state.
   main();
@@ -48,53 +47,62 @@ function main(): void {
 }
 
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
-  let maidrRoot: HTMLElement | null = null;
-  let controller: ControllerService | null = null;
-  const locator: ServiceLocator = ServiceLocator.instance;
+  let maidrContainer: HTMLElement | null = null;
+  let reactContainer: HTMLElement | null = null;
+  let controller: Controller | null = null;
 
-  const onBlur = (event: FocusEvent): void => {
-    if (!locator.display.shouldDestroy(event)) {
-      return;
-    }
+  const onFocusOut = (): void => {
+    // Allow React to process all the events before focusing out.
+    setTimeout(() => {
+      if (!maidrContainer) {
+        return;
+      }
 
-    controller?.destroy();
-    controller = null;
-
-    locator.setController(controller);
+      const activeElement = document.activeElement as HTMLElement;
+      if (!maidrContainer.contains(activeElement)) {
+        controller?.dispose();
+        controller = null;
+      }
+    }, 0);
   };
-  const onFocus = (): void => {
-    if (!maidrRoot) {
-      return;
-    }
+  const onFocusIn = (): void => {
+    // Allow React to process all the events before focusing in.
+    setTimeout(() => {
+      if (!maidrContainer || !reactContainer) {
+        return;
+      }
 
-    if (!controller) {
-      // Create a deep copy to prevent mutations on the original maidr object.
-      const maidrClone = JSON.parse(JSON.stringify(maidr));
-      controller = new ControllerService(maidrClone, maidrRoot, plot);
-    }
-
-    locator.setController(controller);
+      if (!controller) {
+        // Create a deep copy to prevent mutations on the original maidr object.
+        const maidrClone = JSON.parse(JSON.stringify(maidr));
+        controller = new Controller(maidrClone, plot, reactContainer);
+      }
+    }, 0);
   };
 
   const figureElement = document.createElement(Constant.FIGURE);
-  figureElement.id = Constant.MAIDR_FIGURE + maidr.id;
+  figureElement.id = `${Constant.MAIDR_FIGURE}-${maidr.id}`;
   plot.parentNode!.replaceChild(figureElement, plot);
   figureElement.appendChild(plot);
 
   const articleElement = document.createElement(Constant.ARTICLE);
-  articleElement.id = Constant.MAIDR_ARTICLE + maidr.id;
+  articleElement.id = `${Constant.MAIDR_ARTICLE}-${maidr.id}`;
   figureElement.parentNode!.replaceChild(articleElement, figureElement);
   articleElement.appendChild(figureElement);
 
-  maidrRoot = figureElement;
-  plot.addEventListener(EventType.FOCUS_IN, onFocus);
-  plot.addEventListener(EventType.CLICK, onFocus);
-  plot.addEventListener(EventType.FOCUS_OUT, onBlur);
+  reactContainer = document.createElement(Constant.DIV);
+  reactContainer.id = `${Constant.REACT_CONTAINER}-${maidr.id}`;
+  figureElement.appendChild(reactContainer);
+
+  maidrContainer = figureElement;
+  plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
+  plot.addEventListener(DomEventType.CLICK, onFocusIn);
+  maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
 
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.
     const maidrClone = JSON.parse(JSON.stringify(maidr));
-    const controller = new ControllerService(maidrClone, maidrRoot, plot);
-    controller.destroy();
+    const controller = new Controller(maidrClone, plot, reactContainer);
+    controller.dispose();
   })();
 }

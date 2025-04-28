@@ -1,12 +1,11 @@
-import type { MaidrLayer } from '@type/maidr';
-import type { AudioState, HighlightState, TextState } from '@type/state';
-import type { HeatmapData } from './grammar';
-import { AbstractTrace } from './plot';
+import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 export class Heatmap extends AbstractTrace<number> {
   private readonly heatmapValues: number[][];
-  protected readonly brailleValues: string[][];
-  private readonly highlightValues: SVGElement[][];
+  protected readonly highlightValues: SVGElement[][] | null;
 
   private readonly x: string[];
   private readonly y: string[];
@@ -25,19 +24,16 @@ export class Heatmap extends AbstractTrace<number> {
     this.min = Math.min(...this.heatmapValues.flat());
     this.max = Math.max(...this.heatmapValues.flat());
 
-    this.brailleValues = this.mapToBraille(this.heatmapValues);
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
-  public destroy(): void {
+  public dispose(): void {
     this.heatmapValues.length = 0;
-    this.brailleValues.length = 0;
-    this.highlightValues.length = 0;
 
     this.x.length = 0;
     this.y.length = 0;
 
-    super.destroy();
+    super.dispose();
   }
 
   protected get values(): number[][] {
@@ -54,6 +50,18 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
+  protected braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.heatmapValues,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
+    };
+  }
+
   protected text(): TextState {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
@@ -62,60 +70,19 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
-  protected highlight(): HighlightState {
-    if (this.highlightValues.length === 0) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
-    }
-
-    return {
-      empty: false,
-      elements: this.highlightValues[this.row][this.col],
-    };
-  }
-
-  private mapToBraille(data: number[][]): string[][] {
-    const braille = new Array<Array<string>>();
-
-    const range = (this.max - this.min) / 3;
-    const low = this.min + range;
-    const medium = low + range;
-
-    for (let row = 0; row < this.values.length; row++) {
-      braille.push(new Array<string>());
-
-      for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === 0) {
-          braille[row].push(' ');
-        } else if (data[row][col] <= low) {
-          braille[row].push('⠤');
-        } else if (data[row][col] <= medium) {
-          braille[row].push('⠒');
-        } else {
-          braille[row].push('⠉');
-        }
-      }
-    }
-
-    return braille;
-  }
-
-  private mapToSvgElements(selector?: string): SVGElement[][] {
-    const svgElements = new Array<Array<SVGElement>>();
+  private mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
-      return svgElements;
+      return null;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Array.from(document.querySelectorAll<SVGElement>(selector));
+    const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
-      return svgElements;
+      return null;
     }
 
+    const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
       for (let r = 0; r < numRows; r++) {
         const rowIndex = numRows - 1 - r;

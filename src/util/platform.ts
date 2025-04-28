@@ -6,15 +6,15 @@ export abstract class Platform {
     return userAgent.includes('mac');
   })();
 
-  public static get modifierKey(): string {
+  public static get ctrl(): string {
     return Platform.IS_MAC ? 'command' : 'ctrl';
   }
 
-  public static get altModifierKey(): string {
+  public static get alt(): string {
     return Platform.IS_MAC ? 'option' : 'alt';
   }
 
-  public static get enterKey(): string {
+  public static get enter(): string {
     return Platform.IS_MAC ? 'return' : 'enter';
   }
 }

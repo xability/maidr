@@ -58,9 +58,7 @@ export class SettingsService {
     this.currentSettings = this.defaultSettings;
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(): void {
     this.display.toggleFocus(Scope.SETTINGS);
-
-    return !oldState;
   }
 }

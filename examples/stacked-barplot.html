@@ -16,7 +16,7 @@
         viewBox="0 0 460.8 345.6"
         xmlns="http://www.w3.org/2000/svg"
         version="1.1"
-        maidr-data='{"id":"stacked_bar","title":"Passenger Count by Class and Survival Status on the Titanic","subplots":[[{"layers":[{"type":"stacked_bar","selectors":"path[clip-path=\"url(#p590fc6c652)\"]","axes":{"x":"Class","y":"Number of Passengers","fill":"Survival Status"},"data":[[{"x":"First","y":80,"fill":"Not Survived"},{"x":"Second","y":97,"fill":"Not Survived"},{"x":"Third","y":372,"fill":"Not Survived"}],[{"x":"First","y":136,"fill":"Survived"},{"x":"Second","y":87,"fill":"Survived"},{"x":"Third","y":119,"fill":"Survived"}]]}]}]]}'
+        maidr-data='{"id":"stacked_bar","title":"Passenger Count by Class and Survival Status on the Titanic","subplots":[[{"layers":[{"id":"0","type":"stacked_bar","selectors":"path[clip-path=\"url(#p590fc6c652)\"]","axes":{"x":"Class","y":"Number of Passengers","fill":"Survival Status"},"data":[[{"x":"First","y":80,"fill":"Not Survived"},{"x":"Second","y":97,"fill":"Not Survived"},{"x":"Third","y":372,"fill":"Not Survived"}],[{"x":"First","y":136,"fill":"Survived"},{"x":"Second","y":87,"fill":"Survived"},{"x":"Third","y":119,"fill":"Survived"}]]}]}]]}'
       >
         <metadata>
           <rdf:RDF
@@ -1323,6 +1323,7 @@
             {
               layers: [
                 {
+                  id: '0',
                   type: 'stacked_bar',
                   selectors: "path[clip-path='url(#p590fc6c652)']",
                   axes: {
