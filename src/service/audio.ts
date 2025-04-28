@@ -29,7 +29,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode>;
+  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
   private readonly volume: number;
   private readonly audioContext: AudioContext;
@@ -106,7 +106,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     if (state.empty) {
-      this.playEmpty();
+      this.playEmptyTone();
       return;
     }
 
@@ -114,7 +114,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
-        this.playEmpty();
+        this.playZeroTone();
         return;
       }
 
@@ -132,7 +132,12 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
       playNext();
     } else {
-      this.playTone(audio.min, audio.max, audio.value as number, audio.size, audio.index);
+      const value = audio.value as number;
+      if (value === 0) {
+        this.playZeroTone();
+      } else {
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+      }
     }
   }
 
@@ -225,7 +230,53 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playEmpty(): AudioId {
+  private playEmptyTone(): AudioId {
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const duration = 0.2;
+
+    const frequencies = [500, 1000, 1500, 2100, 2700];
+    const gains = [1, 0.6, 0.4, 0.2, 0.1];
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.3, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    masterGain.connect(this.compressor);
+
+    const oscillators: OscillatorNode[] = [];
+    for (let i = 0; i < frequencies.length; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.frequency.value = frequencies[i];
+      osc.type = 'sine';
+
+      gain.gain.setValueAtTime(gains[i] * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(now);
+      osc.stop(now + duration);
+
+      oscillators.push(osc);
+    }
+
+    const cleanUp = (audioId: AudioId): void => {
+      masterGain.disconnect();
+      oscillators.forEach((osc) => {
+        osc.disconnect();
+      });
+      this.activeAudioIds.delete(audioId);
+    };
+
+    const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
+    this.activeAudioIds.set(audioId, oscillators);
+    return audioId;
+  }
+
+  private playZeroTone(): AudioId {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
@@ -278,8 +329,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
       const activeNode = this.activeAudioIds.get(audioId);
-      activeNode?.disconnect();
-      activeNode?.stop();
+      const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
+      activeNodes.forEach((node) => {
+        node?.disconnect();
+        node?.stop();
+      });
 
       clearTimeout(audioId);
       this.activeAudioIds.delete(audioId);
@@ -289,8 +343,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private stopAll(): void {
     this.activeAudioIds.entries().forEach(([audioId, node]) => {
       clearTimeout(audioId);
-      node.disconnect();
-      node.stop();
+      const nodes = Array.isArray(node) ? node : [node];
+      nodes.forEach((node) => {
+        node.disconnect();
+        node.stop();
+      });
     });
     this.activeAudioIds.clear();
   }
