@@ -4,6 +4,7 @@ import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type {
   BarBrailleState,
+  BoxBrailleState,
   HeatmapBrailleState,
   LineBrailleState,
   SubplotState,
@@ -74,6 +75,175 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+  }
+}
+
+class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
+  private readonly GLOBAL_MIN = 'globalMin';
+  private readonly GLOBAL_MAX = 'globalMax';
+  private readonly BLANK = 'blank';
+
+  private readonly LOWER_OUTLIER = 'lowerOutlier';
+  private readonly UPPER_OUTLIER = 'upperOutlier';
+
+  private readonly MIN = 'min';
+  private readonly MAX = 'max';
+
+  private readonly Q1 = 'q1';
+  private readonly Q2 = 'q2';
+  private readonly Q3 = 'q3';
+
+  public encode(state: BoxBrailleState, size: number = DEFAULT_BRAILLE_SIZE): EncodedBraille {
+    const values = new Array<string>();
+    const indexToCell = new Array<Cell>();
+    const cellToIndex = new Array<Array<number>>();
+
+    for (let row = 0; row < state.values.length; row++) {
+      const box = state.values[row];
+      const boxValData = [
+        { type: this.GLOBAL_MIN, value: state.min },
+        ...box.lowerOutliers.map(v => ({ type: this.LOWER_OUTLIER, value: v })),
+        { type: this.MIN, value: box.min },
+        { type: this.Q1, value: box.q1 },
+        { type: this.Q2, value: box.q2 },
+        { type: this.Q3, value: box.q3 },
+        { type: this.MAX, value: box.max },
+        ...box.upperOutliers.map(v => ({ type: this.UPPER_OUTLIER, value: v })),
+        { type: this.GLOBAL_MAX, value: state.max },
+      ];
+
+      const lenData = new Array<{ type: string; length: number; numChars: number }>();
+      let isBeforeMid = true;
+      for (let i = 0; i < boxValData.length - 1; i++) {
+        const curr = boxValData[i];
+        const next = boxValData[i + 1];
+        const diff = isBeforeMid
+          ? Math.abs(next.value - curr.value)
+          : Math.abs(curr.value - boxValData[i - 1].value);
+
+        if (curr.type === this.LOWER_OUTLIER || curr.type === this.UPPER_OUTLIER) {
+          lenData.push({ type: curr.type, length: 0, numChars: 1 });
+          lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
+        } else if (curr.type === this.Q2) {
+          isBeforeMid = false;
+          lenData.push({ type: this.Q2, length: 0, numChars: 2 });
+        } else if (curr.type === this.GLOBAL_MIN || curr.type === this.GLOBAL_MAX) {
+          lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
+        } else {
+          lenData.push({ type: curr.type, length: diff, numChars: 1 });
+        }
+      }
+
+      let preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
+      let [locMin, locMax, locQ1, locQ3] = [-1, -1, -1, -1];
+      for (let i = 0; i < lenData.length; i++) {
+        if (lenData[i].type === this.MIN && lenData[i].length > 0)
+          locMin = i;
+        if (lenData[i].type === this.MAX && lenData[i].length > 0)
+          locMax = i;
+        if (lenData[i].type === this.Q1)
+          locQ1 = i;
+        if (lenData[i].type === this.Q3)
+          locQ3 = i;
+      }
+      if (locMin !== -1 && locMax !== -1 && lenData[locMin].length !== lenData[locMax].length) {
+        if (lenData[locMin].length > lenData[locMax].length) {
+          lenData[locMin].numChars++;
+          preAllocated++;
+        } else {
+          lenData[locMax].numChars++;
+          preAllocated++;
+        }
+      }
+      if (locQ1 !== -1 && locQ3 !== -1 && lenData[locQ1].length !== lenData[locQ3].length) {
+        if (lenData[locQ1].length > lenData[locQ3].length) {
+          lenData[locQ1].numChars++;
+          preAllocated++;
+        } else {
+          lenData[locQ3].numChars++;
+          preAllocated++;
+        }
+      }
+
+      const available = Math.max(0, size - preAllocated);
+      const totalLength = lenData.reduce((sum, l) => sum + (l.type !== this.Q2 && l.length > 0 ? l.length : 0), 0);
+      for (const section of lenData) {
+        if (section.type !== this.Q2 && section.length > 0) {
+          const allocated = Math.round((section.length / totalLength) * available);
+          section.numChars += allocated;
+        }
+      }
+
+      const totalChars = lenData.reduce((sum, l) => sum + l.numChars, 0);
+      let diff = size - totalChars;
+      let adjustIndex = 0;
+      while (diff !== 0) {
+        const section = lenData[adjustIndex % lenData.length];
+        if (section.type !== this.BLANK && section.type !== this.Q2 && section.length > 0) {
+          section.numChars += diff > 0 ? 1 : -1;
+          diff += diff > 0 ? -1 : 1;
+        }
+        adjustIndex++;
+      }
+
+      let col = -1;
+      const sections = [this.LOWER_OUTLIER, this.MIN, this.Q1, this.Q2, this.Q3, this.MAX, this.UPPER_OUTLIER];
+      cellToIndex.push(Array.from({ length: sections.length }).fill(-1) as number[]);
+      for (const section of lenData) {
+        if (section.type !== this.BLANK && section.type !== this.GLOBAL_MIN && section.type !== this.GLOBAL_MAX) {
+          col = sections.indexOf(section.type);
+          cellToIndex[row][col] = values.length;
+        }
+
+        for (let j = 0; j < section.numChars; j++) {
+          let brailleChar = '⠀';
+
+          if (section.type === this.MIN || section.type === this.MAX) {
+            brailleChar = '⠒';
+          } else if (section.type === this.Q1 || section.type === this.Q3) {
+            brailleChar = '⠿';
+          } else if (section.type === this.Q2) {
+            brailleChar = (j === 0) ? '⠸' : '⠇';
+          } else if (section.type === this.LOWER_OUTLIER || section.type === this.UPPER_OUTLIER) {
+            brailleChar = '⠂';
+          } else if (section.type === this.BLANK) {
+            brailleChar = '⠀';
+          }
+
+          values.push(brailleChar);
+          indexToCell.push({ row, col });
+        }
+      }
+      for (let s = 0; s < 3; s++) {
+        if (cellToIndex[row][s] === -1) {
+          for (let t = s + 1; t <= 3; t++) {
+            if (cellToIndex[row][t] !== -1) {
+              cellToIndex[row][s] = cellToIndex[row][t];
+              break;
+            }
+          }
+        }
+      }
+      for (let s = 6; s > 3; s--) {
+        if (cellToIndex[row][s] === -1) {
+          for (let t = s - 1; t >= 3; t--) {
+            if (cellToIndex[row][t] !== -1) {
+              cellToIndex[row][s] = cellToIndex[row][t];
+              break;
+            }
+          }
+        }
+      }
+
+      values.push(Constant.NEW_LINE);
+      indexToCell.push({ row, col });
+    }
+
+    return {
+      value: values.join(Constant.EMPTY),
+      cellToIndex,
+      indexToCell,
+    };
   }
 }
 
@@ -217,6 +387,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
 
     this.encoders = new Map<TraceType, BrailleEncoder<any>>([
       [TraceType.BAR, new BarBrailleEncoder()],
+      [TraceType.BOX, new BoxBrailleEncoder()],
       [TraceType.DODGED, new BarBrailleEncoder()],
       [TraceType.HEATMAP, new HeatmapBrailleEncoder()],
       [TraceType.HISTOGRAM, new BarBrailleEncoder()],

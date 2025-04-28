@@ -1,4 +1,4 @@
-import type { TraceType } from '@type/grammar';
+import type { BoxPoint, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
@@ -68,6 +68,7 @@ export interface AudioState {
 export type BrailleState =
   | TraceEmptyState
   | BarBrailleState
+  | BoxBrailleState
   | HeatmapBrailleState
   | LineBrailleState;
 
@@ -92,6 +93,12 @@ export interface LineBrailleState extends BaseBrailleState {
 
 export interface HeatmapBrailleState extends BaseBrailleState {
   values: number[][];
+  min: number;
+  max: number;
+}
+
+export interface BoxBrailleState extends BaseBrailleState {
+  values: BoxPoint[];
   min: number;
   max: number;
 }
