@@ -18,11 +18,20 @@ const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    addMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
+    addUserMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
       state.messages.push({
         id: `msg-${Date.now()}`,
         text: action.payload.text,
         isUser: true,
+        timestamp: action.payload.timestamp,
+        status: 'SUCCESS',
+      });
+    },
+    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
+      state.messages.push({
+        id: `system-${Date.now()}`,
+        text: action.payload.text,
+        isUser: false,
         timestamp: action.payload.timestamp,
         status: 'SUCCESS',
       });
@@ -62,7 +71,7 @@ const chatSlice = createSlice({
     },
   },
 });
-const { addMessage, addPendingResponse, updateResponse, updateError, reset } = chatSlice.actions;
+const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -72,6 +81,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     super(store);
     this.chatService = chatService;
     this.audioService = audioService;
+    this.loadInitialMessage();
   }
 
   public dispose(): void {
@@ -86,15 +96,29 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     return this.store.getState();
   }
 
+  public get canSend(): boolean {
+    const { llm } = this.snapshot.settings;
+    return Object.values(llm.models).some(model => model.enabled);
+  }
+
   public toggle(): void {
     this.chatService.toggle();
+  }
+
+  private loadInitialMessage(): void {
+    const timestamp = new Date().toISOString();
+    const text = this.canSend
+      ? 'Welcome to the Chart Assistant. You can ask questions about the chart and get AI-powered responses.'
+      : 'No agents are enabled. Please enable at least one agent in the settings page.';
+
+    this.store.dispatch(addSystemMessage({ text, timestamp }));
   }
 
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
 
-    this.store.dispatch(addMessage({
+    this.store.dispatch(addUserMessage({
       text: newMessage,
       timestamp,
     }));

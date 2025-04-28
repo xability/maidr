@@ -115,6 +115,7 @@ const Chat: React.FC = () => {
 
   const viewModel = useViewModel('chat');
   const { messages } = useViewModelState('chat');
+  const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -216,21 +217,23 @@ const Chat: React.FC = () => {
             <Grid2 container spacing={1} alignItems="center">
               <Grid2 size={{ xs: 10 }}>
                 <TextField
-                  fullWidth
-                  multiline
-                  maxRows={4}
                   value={inputMessage}
+                  disabled={disabled}
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
+                  maxRows={4}
                   placeholder="Type your message..."
                   variant="outlined"
                   size="small"
                   autoFocus
+                  fullWidth
+                  multiline
                 />
               </Grid2>
               <Grid2 size={{ xs: 2 }} container justifyContent="flex-end">
                 <IconButton
                   onClick={handleSend}
+                  disabled={disabled}
                   color="primary"
                   aria-label="Send message"
                   sx={{
