@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/xability/maidr-ts/compare/v2.6.0...v2.7.0) (2025-04-28)
+
+
+### Features
+
+* support boxplot braille ([#216](https://github.com/xability/maidr-ts/issues/216)) ([fb5f280](https://github.com/xability/maidr-ts/commit/fb5f280424a2304d1bfbbe32abc40c9c5570dee2))
+
 # [2.6.0](https://github.com/xability/maidr-ts/compare/v2.5.2...v2.6.0) (2025-04-28)
 
 
