@@ -1,8 +1,9 @@
+import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
-import { createAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
@@ -13,63 +14,55 @@ const initialState: ChatState = {
   messages: [],
 };
 
-const addUserMessage = createAction<{ text: string; timestamp: string }>('chat/addUserMessage');
-const addPendingResponse = createAction<{ model: Llm; timestamp: string }>('chat/addPendingResponse');
-const updateResponse = createAction<{ model: Llm; data: string; timestamp: string }>('chat/updateResponse');
-const updateError = createAction<{ model: Llm; error: string; timestamp: string }>('chat/updateError');
-
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
+    addMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
+      state.messages.push({
+        id: `msg-${Date.now()}`,
+        text: action.payload.text,
+        isUser: true,
+        timestamp: action.payload.timestamp,
+        status: 'SUCCESS',
+      });
+    },
+    addPendingResponse: (state, action: PayloadAction<{ model: Llm; timestamp: string }>) => {
+      state.messages.push({
+        id: `resp-${Date.now()}-${action.payload.model}`,
+        text: 'Processing request...',
+        isUser: false,
+        model: action.payload.model,
+        timestamp: action.payload.timestamp,
+        status: 'PENDING',
+      });
+    },
+    updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
+      const message = state.messages.find(m =>
+        m.model === action.payload.model
+        && m.timestamp === action.payload.timestamp,
+      );
+      if (message) {
+        message.text = action.payload.data;
+        message.status = 'SUCCESS';
+      }
+    },
+    updateError: (state, action: PayloadAction<{ model: Llm; error: string; timestamp: string }>) => {
+      const message = state.messages.find(m =>
+        m.model === action.payload.model
+        && m.timestamp === action.payload.timestamp,
+      );
+      if (message) {
+        message.text = `Error: ${action.payload.error}`;
+        message.status = 'FAILED';
+      }
+    },
     reset() {
       return initialState;
     },
   },
-  extraReducers: (builder) => {
-    builder
-      .addCase(addUserMessage, (state, action) => {
-        state.messages.push({
-          id: `msg-${Date.now()}`,
-          text: action.payload.text,
-          isUser: true,
-          timestamp: action.payload.timestamp,
-          status: 'SUCCESS',
-        });
-      })
-      .addCase(addPendingResponse, (state, action) => {
-        state.messages.push({
-          id: `resp-${Date.now()}-${action.payload.model}`,
-          text: 'Processing request...',
-          isUser: false,
-          model: action.payload.model,
-          timestamp: action.payload.timestamp,
-          status: 'PENDING',
-        });
-      })
-      .addCase(updateResponse, (state, action) => {
-        const message = state.messages.find(m =>
-          m.model === action.payload.model
-          && m.timestamp === action.payload.timestamp,
-        );
-        if (message) {
-          message.text = action.payload.data;
-          message.status = 'SUCCESS';
-        }
-      })
-      .addCase(updateError, (state, action) => {
-        const message = state.messages.find(m =>
-          m.model === action.payload.model
-          && m.timestamp === action.payload.timestamp,
-        );
-        if (message) {
-          message.text = `Error: ${action.payload.error}`;
-          message.status = 'FAILED';
-        }
-      });
-  },
 });
-const { reset } = chatSlice.actions;
+const { addMessage, addPendingResponse, updateResponse, updateError, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -101,7 +94,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
 
-    this.store.dispatch(addUserMessage({
+    this.store.dispatch(addMessage({
       text: newMessage,
       timestamp,
     }));
