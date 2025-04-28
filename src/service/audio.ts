@@ -276,12 +276,12 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playZeroTone(): void {
+  private playZeroTone(): AudioId {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
 
-    this.playOscillator(frequency, panning, wave);
+    return this.playOscillator(frequency, panning, wave);
   }
 
   public playWaitingTone(): AudioId {
