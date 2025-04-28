@@ -166,7 +166,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       const available = Math.max(0, size - preAllocated);
-      const totalLength = lenData.reduce((sum, l) => sum + (l.type !== 'q2' && l.length > 0 ? l.length : 0), 0);
+      const totalLength = lenData.reduce((sum, l) => sum + (l.type !== this.Q2 && l.length > 0 ? l.length : 0), 0);
       for (const section of lenData) {
         if (section.type !== this.Q2 && section.length > 0) {
           const allocated = Math.round((section.length / totalLength) * available);
@@ -187,11 +187,12 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       let col = -1;
-      cellToIndex.push(new Array<number>());
       const sections = [this.LOWER_OUTLIER, this.MIN, this.Q1, this.Q2, this.Q3, this.MAX, this.UPPER_OUTLIER];
+      cellToIndex.push(Array.from({ length: sections.length }).fill(-1) as number[]);
       for (const section of lenData) {
         if (section.type !== this.BLANK && section.type !== this.GLOBAL_MIN && section.type !== this.GLOBAL_MAX) {
           col = sections.indexOf(section.type);
+          cellToIndex[row][col] = values.length;
         }
 
         for (let j = 0; j < section.numChars; j++) {
@@ -210,13 +211,31 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           }
 
           values.push(brailleChar);
-          cellToIndex[row].push(indexToCell.length);
           indexToCell.push({ row, col });
+        }
+      }
+      for (let s = 0; s < 3; s++) {
+        if (cellToIndex[row][s] === -1) {
+          for (let t = s + 1; t <= 3; t++) {
+            if (cellToIndex[row][t] !== -1) {
+              cellToIndex[row][s] = cellToIndex[row][t];
+              break;
+            }
+          }
+        }
+      }
+      for (let s = 6; s > 3; s--) {
+        if (cellToIndex[row][s] === -1) {
+          for (let t = s - 1; t >= 3; t--) {
+            if (cellToIndex[row][t] !== -1) {
+              cellToIndex[row][s] = cellToIndex[row][t];
+              break;
+            }
+          }
         }
       }
 
       values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
       indexToCell.push({ row, col });
     }
 
