@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/xability/maidr-ts/compare/v2.7.2...v2.8.0) (2025-04-28)
+
+
+### Features
+
+* support local storage service ([#225](https://github.com/xability/maidr-ts/issues/225)) ([2009f33](https://github.com/xability/maidr-ts/commit/2009f33cf07a0d8e694156fedbf22c1609296e1c))
+
 ## [2.7.2](https://github.com/xability/maidr-ts/compare/v2.7.1...v2.7.2) (2025-04-28)
 
 
