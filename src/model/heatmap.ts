@@ -1,11 +1,10 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
-import type { AudioState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 export class Heatmap extends AbstractTrace<number> {
   private readonly heatmapValues: number[][];
-  protected readonly brailleValues: string[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
   private readonly x: string[];
@@ -25,7 +24,6 @@ export class Heatmap extends AbstractTrace<number> {
     this.min = Math.min(...this.heatmapValues.flat());
     this.max = Math.max(...this.heatmapValues.flat());
 
-    this.brailleValues = this.mapToBraille(this.heatmapValues);
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
@@ -52,38 +50,24 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
+  protected braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.heatmapValues,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
+    };
+  }
+
   protected text(): TextState {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
       fill: { label: this.fill, value: String(this.heatmapValues[this.row][this.col]) },
     };
-  }
-
-  private mapToBraille(data: number[][]): string[][] {
-    const braille = new Array<Array<string>>();
-
-    const range = (this.max - this.min) / 3;
-    const low = this.min + range;
-    const medium = low + range;
-
-    for (let row = 0; row < this.heatmapValues.length; row++) {
-      braille.push(new Array<string>());
-
-      for (let col = 0; col < data[row].length; col++) {
-        if (data[row][col] === 0) {
-          braille[row].push(' ');
-        } else if (data[row][col] <= low) {
-          braille[row].push('⠤');
-        } else if (data[row][col] <= medium) {
-          braille[row].push('⠒');
-        } else {
-          braille[row].push('⠉');
-        }
-      }
-    }
-
-    return braille;
   }
 
   private mapToSvgElements(selector?: string): SVGElement[][] | null {

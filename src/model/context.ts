@@ -70,7 +70,7 @@ export class Context implements Disposable {
     return this.scopeContext.peek()!;
   }
 
-  public isMovable(target: number | MovableDirection): boolean {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
     return this.active.isMovable(target);
   };
 
@@ -82,16 +82,18 @@ export class Context implements Disposable {
     this.active.moveToExtreme(direction);
   }
 
-  public moveToIndex(index: number): void {
-    this.active.moveToIndex(index);
+  public moveToIndex(row: number, col: number): void {
+    this.active.moveToIndex(row, col);
   }
 
   public stepTrace(direction: MovableDirection): void {
-    this.plotContext.pop(); // Remove current Trace.
-    const activeSubplot = this.active as Subplot;
-    activeSubplot.moveOnce(direction);
-    this.active.notifyStateUpdate();
-    this.plotContext.push(activeSubplot.activeTrace);
+    if (this.plotContext.size() > 1) {
+      this.plotContext.pop(); // Remove current Trace.
+      const activeSubplot = this.active as Subplot;
+      activeSubplot.moveOnce(direction);
+      this.active.notifyStateUpdate();
+      this.plotContext.push(activeSubplot.activeTrace);
+    }
   }
 
   public enterSubplot(): void {

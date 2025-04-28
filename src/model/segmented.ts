@@ -8,7 +8,7 @@ const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
-export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
+export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();
@@ -42,10 +42,6 @@ export class SegmentedPlot extends AbstractBarPlot<SegmentedPoint> {
     const summaryMax = Math.max(...summaryValues);
     this.min.push(summaryMin);
     this.max.push(summaryMax);
-
-    this.brailleValues.push(
-      this.createBraille(summaryValues, summaryMin, summaryMax),
-    );
   }
 
   protected text(): TextState {
