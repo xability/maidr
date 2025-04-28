@@ -105,8 +105,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       return;
     }
 
-    // TODO: Play empty sound.
     if (state.empty) {
+      this.playEmpty();
       return;
     }
 
@@ -114,7 +114,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
-        this.playZero();
+        this.playEmpty();
         return;
       }
 
@@ -132,12 +132,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
       playNext();
     } else {
-      const value = audio.value as number;
-      if (value === 0) {
-        this.playZero();
-      } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
-      }
+      this.playTone(audio.min, audio.max, audio.value as number, audio.size, audio.index);
     }
   }
 
@@ -230,7 +225,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playZero(): AudioId {
+  private playEmpty(): AudioId {
     const frequency = NULL_FREQUENCY;
     const panning = 0;
     const wave = 'triangle';
