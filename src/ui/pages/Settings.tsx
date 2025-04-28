@@ -74,6 +74,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
             value={modelSettings.apiKey}
             onChange={e => onChangeKey(modelKey, e.target.value)}
             placeholder={`Enter ${modelSettings.name} API Key`}
+            type="password"
           />
         </Grid>
       </Grid>
@@ -124,7 +125,9 @@ const Settings: React.FC = () => {
 
   const handleReset = (): void => {
     viewModel.reset();
+    const { general, llm } = viewModel.state;
     setGeneralSettings(general);
+    setLlmSettings(llm);
   };
   const handleClose = (): void => {
     viewModel.toggle();
