@@ -1,6 +1,19 @@
 import type { Message } from '@type/llm';
-import { AccountCircle as AccountCircleIcon, Close, Send as SendIcon, SmartToy } from '@mui/icons-material';
-import { Avatar, Box, CircularProgress, Dialog, DialogContent, DialogTitle, Grid2, IconButton, TextField, Typography, useTheme } from '@mui/material';
+import { Close, Send, SmartToy } from '@mui/icons-material';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import {
+  Avatar,
+  Box,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid2,
+  IconButton,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useRef, useState } from 'react';
 
@@ -35,7 +48,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               : theme.palette.grey[500],
           }}
         >
-          {message.isUser ? <AccountCircleIcon /> : <SmartToy fontSize="small" />}
+          {message.isUser
+            ? (
+                <AccountCircleIcon />
+              )
+            : (
+                <SmartToy fontSize="small" />
+              )}
         </Avatar>
 
         <Box
@@ -45,9 +64,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             bgcolor: message.isUser
               ? theme.palette.primary.light
               : theme.palette.background.paper,
-            border: `1px solid ${message.isUser
-              ? theme.palette.primary.main
-              : theme.palette.divider
+            border: `1px solid ${
+              message.isUser
+                ? theme.palette.primary.main
+                : theme.palette.divider
             }`,
             position: 'relative',
           }}
@@ -94,21 +114,11 @@ const Chat: React.FC = () => {
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
-  const { enabled, messages } = useViewModelState('chat');
-  const settings = useViewModelState('settings');
+  const { messages } = useViewModelState('chat');
+  const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const isAnyAgentEnabled = Object.values(settings.llm.models).some(model => model.enabled && model.apiKey);
-
-  useEffect(() => {
-    if (enabled && messages.length === 0) {
-      // Let the ChatViewModel handle displaying the appropriate message
-      // when chat is opened based on whether any models are enabled
-      viewModel.toggle();
-    }
-  }, [enabled, messages.length, viewModel]);
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,18 +131,12 @@ const Chat: React.FC = () => {
   const handleClose = (): void => {
     viewModel.toggle();
   };
-
   const handleSend = (): void => {
-    if (!isAnyAgentEnabled) {
-      viewModel.addSystemMessage('No agents are enabled. Please enable at least one agent in the settings page.');
-      return;
-    }
     if (inputMessage.trim()) {
       void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
   };
-
   const handleKeyPress = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -213,22 +217,23 @@ const Chat: React.FC = () => {
             <Grid2 container spacing={1} alignItems="center">
               <Grid2 size={{ xs: 10 }}>
                 <TextField
-                  fullWidth
-                  multiline
-                  maxRows={4}
                   value={inputMessage}
+                  disabled={disabled}
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder={isAnyAgentEnabled ? 'Type your message...' : 'Enable at least one agent in settings to chat'}
+                  maxRows={4}
+                  placeholder="Type your message..."
                   variant="outlined"
                   size="small"
                   autoFocus
-                  disabled={!isAnyAgentEnabled}
+                  fullWidth
+                  multiline
                 />
               </Grid2>
               <Grid2 size={{ xs: 2 }} container justifyContent="flex-end">
                 <IconButton
                   onClick={handleSend}
+                  disabled={disabled}
                   color="primary"
                   aria-label="Send message"
                   sx={{
@@ -238,9 +243,8 @@ const Chat: React.FC = () => {
                       bgcolor: theme.palette.primary.dark,
                     },
                   }}
-                  disabled={!isAnyAgentEnabled}
                 >
-                  <SendIcon />
+                  <Send />
                 </IconButton>
               </Grid2>
             </Grid2>
