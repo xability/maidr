@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/xability/maidr-ts/compare/v2.5.2...v2.6.0) (2025-04-28)
+
+
+### Features
+
+* provide audio feedback when moved out of bounds ([#219](https://github.com/xability/maidr-ts/issues/219)) ([3ab065c](https://github.com/xability/maidr-ts/commit/3ab065c79ef62c3fa4d07161e8020d5da891a934))
+
 ## [2.5.2](https://github.com/xability/maidr-ts/compare/v2.5.1...v2.5.2) (2025-04-22)
 
 
