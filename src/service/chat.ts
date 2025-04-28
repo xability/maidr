@@ -1,41 +1,22 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
-import type { LlmSettings } from '@type/settings';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
 
 export class ChatService {
   private readonly display: DisplayService;
-  private readonly maidrData: Maidr;
+
   private readonly models: Record<Llm, LlmModel>;
 
   public constructor(display: DisplayService, maidr: Maidr) {
     this.display = display;
-    this.maidrData = maidr;
+
     this.models = {
       GPT: new Gpt(display.plot, maidr),
       CLAUDE: new Claude(display.plot, maidr),
       GEMINI: new Gemini(display.plot, maidr),
-    };
-  }
-
-  public getEnabledModelsInfo(llmSettings: LlmSettings): {
-    hasEnabledModels: boolean;
-    systemMessage: string;
-  } {
-    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey);
-
-    const hasEnabledModels = enabledModels.length > 0;
-    const systemMessage = hasEnabledModels
-      ? 'Welcome to the Chart Assistant. You can ask questions about the chart and get AI-powered responses.'
-      : 'No agents are enabled. Please enable at least one agent in the settings page.';
-
-    return {
-      hasEnabledModels,
-      systemMessage,
     };
   }
 
@@ -150,6 +131,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
   protected abstract formatResponse(response: T): LlmResponse;
 }
+
 class Gpt extends AbstractLlmModel<GptResponse> {
   public constructor(svg: HTMLElement, maidr: Maidr) {
     super(svg, maidr);
