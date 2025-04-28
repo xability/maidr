@@ -1,3 +1,10 @@
+## [2.7.1](https://github.com/xability/maidr-ts/compare/v2.7.0...v2.7.1) (2025-04-28)
+
+
+### Bug Fixes
+
+* **chat:** disable user input if no agent is enabled ([#175](https://github.com/xability/maidr-ts/issues/175)) ([26d3f23](https://github.com/xability/maidr-ts/commit/26d3f2350f4d2586437362d6113d8187b6179db5))
+
 # [2.7.0](https://github.com/xability/maidr-ts/compare/v2.6.0...v2.7.0) (2025-04-28)
 
 
