@@ -13,6 +13,7 @@ import { KeybindingService } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
 import { SettingsService } from '@service/settings';
+import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
@@ -58,7 +59,7 @@ export class Controller implements Disposable {
 
     this.displayService = new DisplayService(this.context, plot, reactContainer);
     this.notificationService = new NotificationService();
-    this.settingsService = new SettingsService(this.displayService);
+    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state);
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
