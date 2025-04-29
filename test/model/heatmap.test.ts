@@ -1,4 +1,4 @@
-import type { HeatmapData } from '../../src/type/grammar';
+import type { HeatmapData } from '@type/grammar';
 import { expect } from '@jest/globals';
 
 interface ChartLayer {

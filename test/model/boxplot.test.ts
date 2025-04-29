@@ -1,4 +1,4 @@
-import type { BoxPoint } from '../../src/type/grammar';
+import type { BoxPoint } from '@type/grammar';
 import { expect } from '@jest/globals';
 
 interface ChartLayer {

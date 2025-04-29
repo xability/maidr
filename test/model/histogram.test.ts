@@ -1,4 +1,4 @@
-import type { HistogramPoint } from '../../src/type/grammar';
+import type { HistogramPoint } from '@type/grammar';
 import { expect } from '@jest/globals';
 
 interface ExtendedHistogramPoint extends HistogramPoint {
