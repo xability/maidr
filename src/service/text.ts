@@ -124,7 +124,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
 
-    // Format for box plot.
+    // Format for box plot and candlestick.
     if (state.section !== undefined) {
       if (Array.isArray(state.cross.value)) {
         terse.push(String(state.cross.value.length), Constant.SPACE);
