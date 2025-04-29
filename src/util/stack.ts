@@ -34,4 +34,8 @@ export class Stack<T> {
   public size(): number {
     return this.items.length;
   }
+
+  public clear(): void {
+    this.items.length = 0;
+  }
 }

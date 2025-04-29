@@ -1,14 +1,19 @@
 import type { DisplayService } from '@service/display';
+import type { StorageService } from '@service/storage';
 import type { Settings } from '@type/settings';
 import { Scope } from '@type/event';
 
+const SETTINGS_KEY = 'maidr-settings';
+
 export class SettingsService {
+  private readonly storage: StorageService;
   private readonly display: DisplayService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
 
-  public constructor(display: DisplayService) {
+  public constructor(storage: StorageService, display: DisplayService) {
+    this.storage = storage;
     this.display = display;
 
     this.defaultSettings = {
@@ -43,7 +48,9 @@ export class SettingsService {
         },
       },
     };
-    this.currentSettings = this.defaultSettings;
+
+    const saved = this.storage.load<Settings>(SETTINGS_KEY);
+    this.currentSettings = saved ?? this.defaultSettings;
   }
 
   public loadSettings(): Settings {
@@ -52,15 +59,16 @@ export class SettingsService {
 
   public saveSettings(newSettings: Settings): void {
     this.currentSettings = newSettings;
+    this.storage.save(SETTINGS_KEY, this.currentSettings);
   }
 
-  public resetSettings(): void {
+  public resetSettings(): Settings {
     this.currentSettings = this.defaultSettings;
+    this.storage.remove(SETTINGS_KEY);
+    return this.currentSettings;
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(): void {
     this.display.toggleFocus(Scope.SETTINGS);
-
-    return !oldState;
   }
 }

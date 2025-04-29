@@ -1,11 +1,13 @@
+import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
-import type { BrailleService } from '@service/braille';
-import type { ContextService } from '@service/context';
 import type { HighlightService } from '@service/highlight';
-import type { NotificationService } from '@service/notification';
-import type { ReviewService } from '@service/review';
-import type { TextService } from '@service/text';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Keys } from '@type/event';
 import type { Command, CommandContext } from './command';
 import { Scope } from '@type/event';
@@ -48,35 +50,38 @@ import {
   ToggleChatCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
-  ToggleScatterNavigationCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
 
 export class CommandFactory {
-  private readonly context: ContextService;
+  private readonly context: Context;
 
-  private readonly audio: AudioService;
-  private readonly braille: BrailleService;
-  private readonly text: TextService;
-  private readonly review: ReviewService;
+  private readonly audioService: AudioService;
+  private readonly autoplayService: AutoplayService;
+  private readonly highlightService: HighlightService;
 
-  private readonly notification: NotificationService;
-  private readonly autoplay: AutoplayService;
-  private readonly highlight: HighlightService;
+  private readonly brailleViewModel: BrailleViewModel;
+  private readonly chatViewModel: ChatViewModel;
+  private readonly helpViewModel: HelpViewModel;
+  private readonly reviewViewModel: ReviewViewModel;
+  private readonly settingsViewModel: SettingsViewModel;
+  private readonly textViewModel: TextViewModel;
 
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
 
-    this.audio = commandContext.audio;
-    this.braille = commandContext.braille;
-    this.text = commandContext.text;
-    this.review = commandContext.review;
+    this.audioService = commandContext.audioService;
+    this.autoplayService = commandContext.autoplayService;
+    this.highlightService = commandContext.highlightService;
 
-    this.notification = commandContext.notification;
-    this.autoplay = commandContext.autoplay;
-    this.highlight = commandContext.highlight;
+    this.brailleViewModel = commandContext.brailleViewModel;
+    this.chatViewModel = commandContext.chatViewModel;
+    this.helpViewModel = commandContext.helpViewModel;
+    this.reviewViewModel = commandContext.reviewViewModel;
+    this.settingsViewModel = commandContext.settingsViewModel;
+    this.textViewModel = commandContext.textViewModel;
   }
 
   public create(command: Keys): Command {
@@ -108,37 +113,35 @@ export class CommandFactory {
         return new MoveToPrevTraceCommand(this.context);
 
       case 'TOGGLE_AUDIO':
-        return new ToggleAudioCommand(this.audio);
+        return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.braille);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel);
       case 'TOGGLE_TEXT':
-        return new ToggleTextCommand(this.text);
+        return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
-        return new ToggleReviewCommand(this.context, this.review);
+        return new ToggleReviewCommand(this.context, this.reviewViewModel);
 
-      case 'TOGGLE_SCATTER_NAVIGATION':
-        return new ToggleScatterNavigationCommand(this.context, this.notification);
       case 'TOGGLE_HELP':
-        return new ToggleHelpCommand();
+        return new ToggleHelpCommand(this.helpViewModel);
       case 'TOGGLE_CHAT':
-        return new ToggleChatCommand();
+        return new ToggleChatCommand(this.chatViewModel);
       case 'TOGGLE_SETTINGS':
-        return new ToggleSettingsCommand();
+        return new ToggleSettingsCommand(this.settingsViewModel);
 
       case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.text);
+        return new DescribeXCommand(this.context, this.textViewModel);
       case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.text);
+        return new DescribeYCommand(this.context, this.textViewModel);
       case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.text);
+        return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.text, this.audio, this.braille, this.highlight);
+        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
       case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.text);
+        return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.text);
+        return new DescribeSubtitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.text);
+        return new DescribeCaptionCommand(this.context, this.textViewModel);
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
@@ -148,21 +151,21 @@ export class CommandFactory {
         return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
 
       case 'AUTOPLAY_UPWARD':
-        return new AutoplayUpwardCommand(this.context, this.autoplay);
+        return new AutoplayUpwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_DOWNWARD':
-        return new AutoplayDownwardCommand(this.context, this.autoplay);
+        return new AutoplayDownwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_FORWARD':
-        return new AutoplayForwardCommand(this.context, this.autoplay);
+        return new AutoplayForwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_BACKWARD':
-        return new AutoplayBackwardCommand(this.context, this.autoplay);
+        return new AutoplayBackwardCommand(this.context, this.autoplayService);
       case 'STOP_AUTOPLAY':
-        return new StopAutoplayCommand(this.autoplay);
+        return new StopAutoplayCommand(this.autoplayService);
       case 'SPEED_UP_AUTOPLAY':
-        return new SpeedUpAutoplayCommand(this.autoplay);
+        return new SpeedUpAutoplayCommand(this.autoplayService);
       case 'SPEED_DOWN_AUTOPLAY':
-        return new SpeedDownAutoplayCommand(this.autoplay);
+        return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
-        return new ResetAutoplaySpeedCommand(this.autoplay);
+        return new ResetAutoplaySpeedCommand(this.autoplayService);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

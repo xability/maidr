@@ -1,6 +1,6 @@
 import type { DisplayService } from '@service/display';
+import type { Maidr } from '@type/grammar';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
-import type { Maidr } from '@type/maidr';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
@@ -24,9 +24,8 @@ export class ChatService {
     return this.models[model].getLlmResponse(request);
   }
 
-  public toggle(oldState: boolean): boolean {
+  public toggle(): void {
     this.display.toggleFocus(Scope.CHAT);
-    return !oldState;
   }
 }
 
@@ -90,7 +89,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
       const headers: Record<string, string> = request.clientToken
         ? { Authentication: `${request.email} ${request.clientToken}` }
-        : {};
+        : { Authorization: `Bearer ${request.apiKey}` };
 
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {

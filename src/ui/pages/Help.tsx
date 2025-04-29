@@ -5,12 +5,11 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Grid2,
+  Grid,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@redux/hook/useStore';
-import { toggleHelpMenu } from '@redux/slice/helpSlice';
-import React from 'react';
+import { useViewModel } from '@state/hook/useViewModel';
+import React, { useId } from 'react';
 
 interface HelpRowProps {
   label: string;
@@ -18,88 +17,89 @@ interface HelpRowProps {
 }
 
 const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
-  <Grid2
+  <Grid
     container
     spacing={1}
     alignItems="center"
     sx={{ py: 1 }}
   >
-    <Grid2 size={{ xs: 12, sm: 6, md: 7 }}>
+    <Grid size={{ xs: 12, sm: 6, md: 7 }}>
       <Typography variant="body2">
         {label}
       </Typography>
-    </Grid2>
-    <Grid2 size={{ xs: 12, sm: 6, md: 5 }}>
+    </Grid>
+    <Grid size={{ xs: 12, sm: 6, md: 5 }}>
       <Typography variant="body2" fontWeight={300}>
         {shortcut}
       </Typography>
-    </Grid2>
-  </Grid2>
+    </Grid>
+  </Grid>
 );
 
 const Help: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { enabled, items } = useAppSelector(state => state.help);
+  const id = useId();
+  const viewModel = useViewModel('help');
+  const { items } = viewModel.state;
 
   const handleClose = (): void => {
-    dispatch(toggleHelpMenu());
+    viewModel.toggle();
   };
 
   return (
     <Dialog
+      id={id}
       role="dialog"
-      open={enabled}
+      open={true}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
-      closeAfterTransition={false}
     >
       {/* Header */}
-      <Grid2 container component={DialogTitle}>
-        <Grid2 size="grow">
+      <Grid container component={DialogTitle}>
+        <Grid size="grow">
           <Typography variant="h6" fontWeight="bold">
             Keyboard Shortcuts
           </Typography>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
 
       <DialogContent>
-        <Grid2 container spacing={1}>
+        <Grid container spacing={1}>
           {items.map((item, index) => (
             <React.Fragment key={index}>
-              <Grid2 size={12} key={index}>
+              <Grid size={12} key={index}>
                 <HelpRow
                   label={item.description}
                   shortcut={item.key}
                 />
-              </Grid2>
+              </Grid>
               {index !== items.length - 1 && (
-                <Grid2 size={12}>
+                <Grid size={12}>
                   <Divider />
-                </Grid2>
+                </Grid>
               )}
             </React.Fragment>
           ))}
-        </Grid2>
+        </Grid>
       </DialogContent>
 
       {/* Footer Actions */}
-      <Grid2 container component={DialogActions}>
-        <Grid2
+      <Grid container component={DialogActions}>
+        <Grid
           size="grow"
           container
           spacing={1}
           justifyContent="flex-end"
           sx={{ px: 2, py: 1 }}
         >
-          <Grid2 size="auto">
+          <Grid size="auto">
             <Button variant="contained" color="primary" onClick={handleClose}>
               Close
             </Button>
-          </Grid2>
-        </Grid2>
-      </Grid2>
+          </Grid>
+        </Grid>
+      </Grid>
     </Dialog>
   );
 };

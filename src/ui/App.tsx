@@ -1,21 +1,45 @@
-import { useAppSelector } from '@redux/hook/useStore';
-import { store } from '@redux/store';
-import Chat from '@ui/pages/Chat';
-import Help from '@ui/pages/Help';
-import Settings from '@ui/pages/Settings';
+import type { Focus } from '@type/event';
+import { useViewModelState } from '@state/hook/useViewModel';
+import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
+import Braille from './pages/Braille';
+import Chat from './pages/Chat';
+import Help from './pages/Help';
+import Review from './pages/Review';
+import Settings from './pages/Settings';
+import Text from './pages/Text';
 
 const App: React.FC = () => {
-  const { enabled: isHelpEnabled } = useAppSelector(state => state.help);
-  const { enabled: isSettingsEnabled } = useAppSelector(state => state.settings);
-  const { enabled: isChatEnabled } = useAppSelector(state => state.chat);
+  const { enabled, message } = useViewModelState('text');
+  const { focus } = useViewModelState('display');
+
+  const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
+    switch (focused) {
+      case 'BRAILLE':
+        return <Braille />;
+
+      case 'CHAT':
+        return <Chat />;
+
+      case 'HELP':
+        return <Help />;
+
+      case 'REVIEW':
+        return <Review />;
+
+      case 'SETTINGS':
+        return <Settings />;
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
-      {isHelpEnabled && <Help />}
-      {isSettingsEnabled && <Settings />}
-      {isChatEnabled && <Chat />}
+      {(enabled || message) && <Text />}
+      {renderFocusedComponent(focus)}
     </>
   );
 };

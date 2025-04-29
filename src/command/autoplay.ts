@@ -1,12 +1,12 @@
+import type { Context } from '@model/context';
 import type { AutoplayService } from '@service/autoplay';
-import type { ContextService } from '@service/context';
 import type { Command } from './command';
 
 export class AutoplayUpwardCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly autoplay: AutoplayService;
 
-  public constructor(context: ContextService, autoplay: AutoplayService) {
+  public constructor(context: Context, autoplay: AutoplayService) {
     this.context = context;
     this.autoplay = autoplay;
   }
@@ -20,10 +20,10 @@ export class AutoplayUpwardCommand implements Command {
 }
 
 export class AutoplayDownwardCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly autoplay: AutoplayService;
 
-  public constructor(context: ContextService, autoplay: AutoplayService) {
+  public constructor(context: Context, autoplay: AutoplayService) {
     this.autoplay = autoplay;
     this.context = context;
   }
@@ -37,10 +37,10 @@ export class AutoplayDownwardCommand implements Command {
 }
 
 export class AutoplayForwardCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly autoplay: AutoplayService;
 
-  public constructor(context: ContextService, autoplay: AutoplayService) {
+  public constructor(context: Context, autoplay: AutoplayService) {
     this.autoplay = autoplay;
     this.context = context;
   }
@@ -54,10 +54,10 @@ export class AutoplayForwardCommand implements Command {
 }
 
 export class AutoplayBackwardCommand implements Command {
-  private readonly context: ContextService;
+  private readonly context: Context;
   private readonly autoplay: AutoplayService;
 
-  public constructor(context: ContextService, autoplay: AutoplayService) {
+  public constructor(context: Context, autoplay: AutoplayService) {
     this.autoplay = autoplay;
     this.context = context;
   }

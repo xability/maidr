@@ -1,6 +1,9 @@
+import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
+import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -9,34 +12,40 @@ enum TextMode {
   VERBOSE = 'verbose',
 }
 
-export class TextService implements Observer<string | PlotState> {
+interface TextChangedEvent {
+  value: string;
+}
+
+export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
-  private readonly textDiv!: HTMLElement;
 
-  public constructor(notification: NotificationService, textDiv?: HTMLElement) {
+  private readonly onChangeEmitter: Emitter<TextChangedEvent>;
+  public readonly onChange: Event<TextChangedEvent>;
+
+  public constructor(notification: NotificationService) {
     this.notification = notification;
-    if (!textDiv) {
-      this.mode = TextMode.OFF;
-      return;
-    }
 
     this.mode = TextMode.VERBOSE;
-    this.textDiv = textDiv;
+
+    this.onChangeEmitter = new Emitter<TextChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
   }
 
-  public formatText(state: PlotState): string {
-    if (!state || state.empty) {
+  public dispose(): void {
+    this.onChangeEmitter.dispose();
+  }
+
+  public format(state: string | PlotState): string {
+    if (typeof state === 'string') {
+      return state;
+    } else if (!state || state.empty) {
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(
-        state.index,
-        state.size,
-        state.trace.traceType,
-      );
+      return this.formatSubplotText(state.index, state.size, state.trace.traceType);
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {
@@ -44,23 +53,14 @@ export class TextService implements Observer<string | PlotState> {
     }
   }
 
-  private formatFigureText(
-    index: number,
-    size: number,
-    traceTypes: string[],
-  ): string {
-    const details
-      = traceTypes.length === 1
-        ? `This is a ${traceTypes[0]} plot`
-        : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
+  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+    const details = traceTypes.length === 1
+      ? `This is a ${traceTypes[0]} plot`
+      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
     return `Subplot ${index} of ${size}: ${details}`;
   }
 
-  private formatSubplotText(
-    index: number,
-    size: number,
-    traceType: string,
-  ): string {
+  private formatSubplotText(index: number, size: number, traceType: string): string {
     return `Layer ${index} of ${size}: ${traceType} plot`;
   }
 
@@ -72,11 +72,7 @@ export class TextService implements Observer<string | PlotState> {
 
     // Format for histogram and scatter plot.
     if (state.range !== undefined) {
-      verbose.push(
-        String(state.range.min),
-        Constant.THROUGH,
-        String(state.range.max),
-      );
+      verbose.push(String(state.range.min), Constant.THROUGH, String(state.range.max));
     } else if (Array.isArray(state.main.value)) {
       verbose.push(state.main.value.join(Constant.COMMA_SPACE));
     } else {
@@ -123,7 +119,7 @@ export class TextService implements Observer<string | PlotState> {
     const terse = new Array<string>();
 
     if (Array.isArray(state.main.value)) {
-      terse.push(state.main.value.join(Constant.COMMA_SPACE));
+      terse.push(Constant.OPEN_BRACKET, state.main.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     } else {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
@@ -134,7 +130,7 @@ export class TextService implements Observer<string | PlotState> {
         terse.push(String(state.cross.value.length), Constant.SPACE);
       }
 
-      terse.push(state.section);
+      terse.push(state.section, Constant.SPACE);
     }
 
     // Format for heatmap and segmented plots.
@@ -144,40 +140,28 @@ export class TextService implements Observer<string | PlotState> {
 
     // Format for cross axis values.
     if (!Array.isArray(state.cross.value)) {
-      terse.push(Constant.IS, String(state.cross.value));
-    } else if (state.cross.value.length > 1) {
-      terse.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
-    } else if (state.cross.value.length > 0) {
-      terse.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+      terse.push(String(state.cross.value));
+    } else {
+      terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
     return terse.join(Constant.EMPTY);
   }
 
-  public update(state: string | PlotState): void {
+  public update(state: PlotState): void {
     // Show text only if turned on.
     if (this.mode === TextMode.OFF) {
       return;
     }
 
     // Format the text based on the display mode.
-    let text;
-    if (typeof state === 'string') {
-      text = state;
-    } else {
-      text = this.formatText(state);
-    }
-
-    // Display the text.
+    const text = this.format(state);
     if (text) {
-      const paragraph = document.createElement(Constant.P);
-      paragraph.innerHTML = text;
-      this.textDiv.innerHTML = Constant.EMPTY;
-      this.textDiv.append(paragraph);
+      this.onChangeEmitter.fire({ value: text });
     }
   }
 
-  public toggle(): void {
+  public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
         this.mode = TextMode.VERBOSE;
@@ -192,23 +176,9 @@ export class TextService implements Observer<string | PlotState> {
         break;
     }
 
-    if (this.mode === TextMode.OFF) {
-      this.textDiv?.classList.add(Constant.HIDDEN);
-    } else {
-      this.textDiv?.classList.remove(Constant.HIDDEN);
-    }
-
     const message = `Text mode is ${this.mode}`;
     this.notification.notify(message);
-  }
 
-  public mute(): void {
-    this.textDiv?.removeAttribute(Constant.ARIA_LIVE);
-    this.textDiv?.removeAttribute(Constant.ARIA_ATOMIC);
-  }
-
-  public unmute(): void {
-    this.textDiv?.setAttribute(Constant.ARIA_LIVE, Constant.ASSERTIVE);
-    this.textDiv?.setAttribute(Constant.ARIA_ATOMIC, Constant.TRUE);
+    return this.mode !== TextMode.OFF;
   }
 }
