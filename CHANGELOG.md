@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/xability/maidr-ts/compare/v2.8.1...v2.9.0) (2025-04-29)
+
+
+### Features
+
+* support candlestick plot ([#179](https://github.com/xability/maidr-ts/issues/179)) ([7aaeb0b](https://github.com/xability/maidr-ts/commit/7aaeb0b2c09573265de03cdefa537ab9655b3f69))
+
 ## [2.8.1](https://github.com/xability/maidr-ts/compare/v2.8.0...v2.8.1) (2025-04-28)
 
 
