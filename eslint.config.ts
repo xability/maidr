@@ -2,6 +2,9 @@ import antfu from '@antfu/eslint-config';
 
 const config: ReturnType<typeof antfu> = antfu({
   type: 'lib',
+  ignores: [
+    'README.md',
+  ],
   rules: {
     'style/brace-style': ['error', '1tbs'],
     'unused-imports/no-unused-vars': ['error', {

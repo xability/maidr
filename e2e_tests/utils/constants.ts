@@ -34,6 +34,7 @@ export abstract class TestConstants {
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
   static readonly BOXPLOT_HORIZONTAL_ID = 'boxplot_horizontal';
   static readonly MULTI_LINEPLOT_ID = 'line';
+  static readonly MULTI_LAYER_PLOT_ID = 'multi-layer';
 
   /**
    * MAIDR plot identifiers
@@ -81,6 +82,8 @@ export abstract class TestConstants {
   static readonly Y_AXIS_TITLE = 'y';
   static readonly COMMAND_KEY = 'Meta';
   static readonly ESCAPE_KEY = 'Escape';
+  static readonly PAGE_UP_KEY = 'PageUp';
+  static readonly PAGE_DOWN_KEY = 'PageDown';
 
   /**
    * Common selectors and prefixes
@@ -99,6 +102,7 @@ export abstract class TestConstants {
   static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a MAIDR subplot containing 2 layers, and this is layer 1 of 2: bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes
@@ -177,41 +181,15 @@ export abstract class TestConstants {
   static readonly CHAT_DIALOG_TITLE = 'Chart Assistant';
 
   /**
+   * Multi-layer plot identifiers
+   */
+  static readonly MULTI_LAYER_PLOT_UP_SWITCH = 'Layer 2 of 2: line plot';
+  static readonly MULTI_LAYER_PLOT_DOWN_SWITCH = 'Layer 1 of 2: bar plot';
+
+  /**
    * Time constants (in milliseconds)
    */
   static readonly ONE_SECOND = 1000;
   static readonly HALF_SECOND = 500;
   static readonly ONE_MILLISECOND = 100;
-
-  /**
-   * Gets a selector for an element by ID
-   * @param id - The ID of the element
-   * @returns A CSS selector for the element
-   * @example
-   * ```ts
-   * // Returns "#bar"
-   * const selector = TestConstants.getSelector(TestConstants.BAR_ID);
-   * ```
-   */
-  static getSelector(id: string): string {
-    return TestConstants.HASH + id;
-  }
-
-  /**
-   * Gets a selector for a MAIDR container
-   * @param id - The ID of the plot
-   * @returns A CSS selector for the MAIDR container
-   */
-  static getMaidrContainerSelector(id: string): string {
-    return `#${TestConstants.MAIDR_CONTAINER + id}`;
-  }
-
-  /**
-   * Gets a selector for a MAIDR notification container
-   * @param id - The ID of the plot
-   * @returns A CSS selector for the notification container
-   */
-  static getNotificationSelector(id: string): string {
-    return `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + id} ${TestConstants.PARAGRAPH}`;
-  }
 }

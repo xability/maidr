@@ -1,4 +1,4 @@
-import type { Maidr, MaidrLayer } from '../../src/type/maidr';
+import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BoxplotVerticalPage } from '../page-objects/plots/boxplotVertical-page';
 import { TestConstants } from '../utils/constants';

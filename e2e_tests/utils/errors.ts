@@ -194,3 +194,17 @@ export class MultiLineplotError extends Error {
     this.name = 'MultiLineplotError';
   }
 }
+
+/**
+ * Error thrown when Multilayer Plot related operations fail
+ */
+export class MultiLayerPlotError extends Error {
+  /**
+   * Creates a new MultiLayerPlotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'MultiLayerPlotError';
+  }
+}

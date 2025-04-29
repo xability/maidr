@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { Maidr, MaidrLayer } from '../../src/type/maidr';
+import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { HeatmapPage } from '../page-objects/plots/heatmap-page';
 import { TestConstants } from '../utils/constants';

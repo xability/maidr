@@ -35,7 +35,7 @@
     "@commitlint/cli": "^19.7.1",
     "@commitlint/config-conventional": "^19.7.1",
     "@cypress/webpack-preprocessor": "^6.0.2",
-    "@playwright/test": "^1.51.1",
+    "@playwright/test": "^1.52.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/node": "^22.15.2",
