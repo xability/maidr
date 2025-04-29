@@ -60,6 +60,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   public constructor(store: AppStore, settingsService: SettingsService) {
     super(store);
     this.settingsService = settingsService;
+    this.load();
   }
 
   public dispose(): void {
@@ -86,8 +87,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   public reset(): void {
-    this.settingsService.resetSettings();
-    const settings = this.settingsService.loadSettings();
+    const settings = this.settingsService.resetSettings();
     this.store.dispatch(update(settings));
   }
 }

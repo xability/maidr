@@ -10,19 +10,13 @@ export abstract class Constant {
   static readonly TEXT_AREA = 'textarea';
 
   // HTML IDs.
-  static readonly BRAILLE_CONTAINER = 'maidr-braille-container';
   static readonly BRAILLE_TEXT_AREA = 'maidr-braille-textarea';
-  static readonly CHAT_CONTAINER = 'maidr-chat-container';
   static readonly MAIDR_ARTICLE = 'maidr-article';
   static readonly MAIDR_FIGURE = 'maidr-figure';
   static readonly MAIDR_HIGHLIGHT = 'maidr-highlight';
   static readonly REACT_CONTAINER = 'maidr-react-container';
   static readonly REVIEW_INPUT = 'maidr-review-input';
-  static readonly SETTINGS_CONTAINER = 'maidr-settings';
   static readonly TEXT_CONTAINER = 'maidr-text-container';
-
-  // HTML Classes.
-  static readonly BRAILLE_CLASS = 'maidr-braille';
 
   // HTML attributes.
   static readonly ARIA_LABEL = 'aria-label';
@@ -37,23 +31,29 @@ export abstract class Constant {
   static readonly STROKE_WIDTH = 'stroke-width';
   static readonly TITLE = 'title';
   static readonly VISIBILITY = 'visibility';
+  static readonly X1 = 'x1';
+  static readonly X2 = 'x2';
+  static readonly Y1 = 'y1';
+  static readonly Y2 = 'y2';
 
   // Attribute values.
   static readonly AFTER_END = 'afterend';
   static readonly APPLICATION = 'application';
   static readonly ARE = ' are ';
   static readonly CIRCLE = 'circle';
+  static readonly CLOSE_BRACKET = ']';
   static readonly COMMA = ',';
   static readonly COMMA_SPACE = ', ';
   static readonly EMPTY = '';
   static readonly HIDDEN = 'hidden';
   static readonly IS = ' is ';
+  static readonly LINE = 'line';
   static readonly MAIDR_DATA = 'maidr-data';
   static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly NEW_LINE = '\n';
-  static readonly OFF = 'off';
+  static readonly OPEN_BRACKET = '[';
+  static readonly POLYLINE = 'polyline';
   static readonly SPACE = ' ';
-  static readonly TEXT = 'text';
   static readonly THROUGH = ' through ';
   static readonly TRANSPARENT = 'transparent';
   static readonly VISIBLE = 'visible';

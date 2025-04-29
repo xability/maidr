@@ -1,4 +1,7 @@
-import { Constant } from '@util/constant';
+import { Color } from './color';
+import { Constant } from './constant';
+
+type Edge = 'top' | 'bottom' | 'left' | 'right';
 
 export abstract class Svg {
   private constructor() { /* Prevent instantiation */ }
@@ -48,6 +51,34 @@ export abstract class Svg {
     }
   }
 
+  public static selectAllElements<T extends SVGElement>(query: string, shouldClone: boolean = true): T[] {
+    return Array
+      .from(document.querySelectorAll<T>(query))
+      .map((element) => {
+        if (!shouldClone) {
+          return element;
+        }
+
+        const clone = element.cloneNode(true) as T;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        element.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+  }
+
+  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
+    const element = document.querySelector<T>(query);
+    if (!shouldClone) {
+      return element as T;
+    }
+
+    const clone = element?.cloneNode(true) as T;
+    clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+
+    element?.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
+  }
+
   public static createEmptyElement(type: string = 'rect'): SVGElement {
     const element = document.createElementNS(this.SVG_NAMESPACE, type) as SVGElement;
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
@@ -56,11 +87,12 @@ export abstract class Svg {
     return element;
   }
 
-  public static createCircleElement(cx: string | number, cy: string | number, style: CSSStyleDeclaration, parent: SVGElement): SVGElement {
+  public static createCircleElement(cx: string | number, cy: string | number, parent: SVGElement): SVGElement {
+    const style = window.getComputedStyle(parent);
+    const color = style.stroke || style.fill;
+    const strokeWidth = style.strokeWidth || '2';
+    const radius = Number.parseFloat(strokeWidth) * 2;
     const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
-    const color = style.stroke || Constant.MAIDR_HIGHLIGHT_COLOR;
-    const strokeWidth = style.strokeWidth || '3';
-    const radius = Number.parseFloat(strokeWidth) * 3;
 
     element.setAttribute(Constant.CIRCLE_X, String(cx));
     element.setAttribute(Constant.CIRCLE_Y, String(cy));
@@ -69,7 +101,79 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE, color);
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    parent.parentNode?.appendChild(element);
+
+    parent.parentElement?.insertAdjacentElement(Constant.AFTER_END, element);
     return element;
+  }
+
+  public static createLineElement(box: SVGElement, edge: Edge): SVGElement {
+    const svg = box as SVGGraphicsElement;
+    const bBox = svg.getBBox();
+    let x1: number, y1: number, x2: number, y2: number;
+    switch (edge) {
+      case 'top':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
+        break;
+      case 'bottom':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
+        break;
+      case 'left':
+        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
+        break;
+      case 'right':
+        [x1, y1, x2, y2] = [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
+        break;
+    }
+
+    const style = window.getComputedStyle(box);
+    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
+    line.setAttribute(Constant.X1, String(x1));
+    line.setAttribute(Constant.Y1, String(y1));
+    line.setAttribute(Constant.X2, String(x2));
+    line.setAttribute(Constant.Y2, String(y2));
+    line.setAttribute(Constant.STROKE, style.stroke);
+    line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
+    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+
+    box.insertAdjacentElement(Constant.AFTER_END, line);
+    return line;
+  }
+
+  public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
+    const clone = element.cloneNode(true) as SVGElement;
+    const tag = element.tagName.toLowerCase();
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+    const originalColor = isLineElement
+      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
+      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
+    const color = this.getHighlightColor(originalColor, fallbackColor);
+
+    clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+    clone.setAttribute(Constant.STROKE, color);
+    clone.setAttribute(Constant.FILL, color);
+    clone.style.fill = color;
+    clone.style.stroke = color;
+    if (isLineElement) {
+      const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
+      clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
+    }
+
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
+  }
+
+  private static getHighlightColor(originalColor: string, fallbackColor: string): string {
+    const originalRgb = Color.parse(originalColor);
+    if (!originalRgb) {
+      return fallbackColor;
+    }
+
+    const invertedRgb = Color.invert(originalRgb);
+    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
+    if (contrastRatio >= 4.5) {
+      return Color.rgbToString(invertedRgb);
+    }
+
+    return fallbackColor;
   }
 }
