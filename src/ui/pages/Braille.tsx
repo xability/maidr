@@ -20,7 +20,9 @@ const Braille: React.FC = () => {
     }
   }, [value, index]);
 
-  const handleSelectionChange = (event: FormEvent<HTMLTextAreaElement>): void => {
+  const handleSelectionChange = (
+    event: FormEvent<HTMLTextAreaElement>,
+  ): void => {
     const textArea = event.currentTarget;
     const newIndex = textArea.selectionStart;
 
@@ -39,6 +41,8 @@ const Braille: React.FC = () => {
         onSelect={handleSelectionChange}
         autoCapitalize="off"
         autoFocus
+        rows={5}
+        cols={50} // todo: this should match the braille default size from settings
       />
     </div>
   );
