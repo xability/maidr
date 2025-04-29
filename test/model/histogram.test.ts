@@ -1,25 +1,6 @@
 import type { HistogramPoint } from '@type/grammar';
 import { expect } from '@jest/globals';
 
-interface ExtendedHistogramPoint extends HistogramPoint {
-  x: number;
-  y: number;
-  xMin: number;
-  xMax: number;
-  yMin: number;
-  yMax: number;
-  count: number;
-  density: number;
-  ncount: number;
-  ndensity: number;
-  flipped_aes: boolean;
-  PANEL: string;
-  group: number;
-  fill: string;
-  linewidth: number;
-  linetype: number;
-}
-
 interface ChartLayer {
   type: string;
   selector: string;
@@ -27,7 +8,7 @@ interface ChartLayer {
     x: string;
     y: string;
   };
-  data: ExtendedHistogramPoint[];
+  data: HistogramPoint[];
 }
 
 interface ChartSubplot {
@@ -64,363 +45,163 @@ const maidrData: MaidrChart = {
             data: [
               {
                 y: 19,
-                count: 19,
                 x: 1.7053,
                 xMin: 1.5632,
                 xMax: 1.8474,
-                density: 0.2857,
-                ncount: 0.6786,
-                ndensity: 0.6786,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 19,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 24,
-                count: 24,
                 x: 1.9895,
                 xMin: 1.8474,
                 xMax: 2.1316,
-                density: 0.3609,
-                ncount: 0.8571,
-                ndensity: 0.8571,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 24,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 19,
-                count: 19,
                 x: 2.2737,
                 xMin: 2.1316,
                 xMax: 2.4158,
-                density: 0.2857,
-                ncount: 0.6786,
-                ndensity: 0.6786,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 19,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 28,
-                count: 28,
                 x: 2.5579,
                 xMin: 2.4158,
                 xMax: 2.7,
-                density: 0.421,
-                ncount: 1,
-                ndensity: 1,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 28,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 10,
-                count: 10,
                 x: 2.8421,
                 xMin: 2.7,
                 xMax: 2.9842,
-                density: 0.1504,
-                ncount: 0.3571,
-                ndensity: 0.3571,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 10,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 14,
-                count: 14,
                 x: 3.1263,
                 xMin: 2.9842,
                 xMax: 3.2684,
-                density: 0.2105,
-                ncount: 0.5,
-                ndensity: 0.5,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 14,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 18,
-                count: 18,
                 x: 3.4105,
                 xMin: 3.2684,
                 xMax: 3.5526,
-                density: 0.2707,
-                ncount: 0.6429,
-                ndensity: 0.6429,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 18,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 13,
-                count: 13,
                 x: 3.6947,
                 xMin: 3.5526,
                 xMax: 3.8368,
-                density: 0.1955,
-                ncount: 0.4643,
-                ndensity: 0.4643,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 13,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 18,
-                count: 18,
                 x: 3.9789,
                 xMin: 3.8368,
                 xMax: 4.1211,
-                density: 0.2707,
-                ncount: 0.6429,
-                ndensity: 0.6429,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 18,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 5,
-                count: 5,
                 x: 4.2632,
                 xMin: 4.1211,
                 xMax: 4.4053,
-                density: 0.0752,
-                ncount: 0.1786,
-                ndensity: 0.1786,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 5,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 11,
-                count: 11,
                 x: 4.5474,
                 xMin: 4.4053,
                 xMax: 4.6895,
-                density: 0.1654,
-                ncount: 0.3929,
-                ndensity: 0.3929,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 11,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 17,
-                count: 17,
                 x: 4.8316,
                 xMin: 4.6895,
                 xMax: 4.9737,
-                density: 0.2556,
-                ncount: 0.6071,
-                ndensity: 0.6071,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 17,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 7,
-                count: 7,
                 x: 5.1158,
                 xMin: 4.9737,
                 xMax: 5.2579,
-                density: 0.1053,
-                ncount: 0.25,
-                ndensity: 0.25,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 7,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 14,
-                count: 14,
                 x: 5.4,
                 xMin: 5.2579,
                 xMax: 5.5421,
-                density: 0.2105,
-                ncount: 0.5,
-                ndensity: 0.5,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 14,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 9,
-                count: 9,
                 x: 5.6842,
                 xMin: 5.5421,
                 xMax: 5.8263,
-                density: 0.1353,
-                ncount: 0.3214,
-                ndensity: 0.3214,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 9,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 4,
-                count: 4,
                 x: 5.9684,
                 xMin: 5.8263,
                 xMax: 6.1105,
-                density: 0.0601,
-                ncount: 0.1429,
-                ndensity: 0.1429,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 4,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 2,
-                count: 2,
                 x: 6.2526,
                 xMin: 6.1105,
                 xMax: 6.3947,
-                density: 0.0301,
-                ncount: 0.0714,
-                ndensity: 0.0714,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 2,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 1,
-                count: 1,
                 x: 6.5368,
                 xMin: 6.3947,
                 xMax: 6.6789,
-                density: 0.015,
-                ncount: 0.0357,
-                ndensity: 0.0357,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 1,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 0,
-                count: 0,
                 x: 6.8211,
                 xMin: 6.6789,
                 xMax: 6.9632,
-                density: 0,
-                ncount: 0,
-                ndensity: 0,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 0,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
               {
                 y: 1,
-                count: 1,
                 x: 7.1053,
                 xMin: 6.9632,
                 xMax: 7.2474,
-                density: 0.015,
-                ncount: 0.0357,
-                ndensity: 0.0357,
-                flipped_aes: false,
-                PANEL: '1',
-                group: -1,
                 yMin: 0,
                 yMax: 1,
-                fill: 'grey35',
-                linewidth: 0.5,
-                linetype: 1,
               },
             ],
           },
@@ -435,7 +216,7 @@ function getHistogramData(
   subplotIndex = 0,
   subplotColIndex = 0,
   layerIndex = 0,
-): ExtendedHistogramPoint[] {
+): HistogramPoint[] {
   if (!chart.subplots[subplotIndex]
     || !chart.subplots[subplotIndex][subplotColIndex]
     || !chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex]) {
@@ -519,7 +300,7 @@ function findModeIndex(data: HistogramPoint[]): number {
 }
 
 describe('histogram Data Tests', () => {
-  let histData: ExtendedHistogramPoint[];
+  let histData: HistogramPoint[];
 
   beforeEach(() => {
     histData = getHistogramData(maidrData);
@@ -543,12 +324,11 @@ describe('histogram Data Tests', () => {
         expect(point).toHaveProperty('y');
         expect(point).toHaveProperty('xMin');
         expect(point).toHaveProperty('xMax');
-        expect(point).toHaveProperty('count');
-        expect(point).toHaveProperty('density');
+        expect(point).toHaveProperty('yMin');
+        expect(point).toHaveProperty('yMax');
         expect(point.xMin).toBeLessThan(point.xMax);
         expect(point.x).toBeGreaterThanOrEqual(point.xMin);
         expect(point.x).toBeLessThanOrEqual(point.xMax);
-        expect(point.count).toBe(point.y);
       });
     });
 
@@ -570,14 +350,6 @@ describe('histogram Data Tests', () => {
       expect(histData.length).toBe(20);
     });
 
-    it('should have correct count values in each bin', () => {
-      expect(histData[0].count).toBe(19);
-      expect(histData[1].count).toBe(24);
-      expect(histData[2].count).toBe(19);
-      expect(histData[3].count).toBe(28);
-      expect(histData[18].count).toBe(0);
-    });
-
     it('should identify maximum count correctly', () => {
       const maxCount = getMaximumCount(histData);
       expect(maxCount).toBe(28);
@@ -586,13 +358,6 @@ describe('histogram Data Tests', () => {
     it('should identify minimum count correctly', () => {
       const minCount = getMinimumCount(histData);
       expect(minCount).toBe(0);
-    });
-
-    it('should calculate total count correctly', () => {
-      const expectedTotal = histData.reduce((sum, bin) => sum + bin.count, 0);
-      const totalCount = getTotalCount(histData);
-      expect(totalCount).toBe(expectedTotal);
-      expect(totalCount).toBe(234);
     });
 
     it('should calculate bin width correctly', () => {
@@ -653,7 +418,6 @@ describe('histogram Data Tests', () => {
       const expectedModeIndex = 3;
       const modeIndex = findModeIndex(histData);
       expect(modeIndex).toBe(expectedModeIndex);
-      expect(histData[modeIndex].count).toBe(28);
     });
   });
 
@@ -675,9 +439,7 @@ describe('histogram Data Tests', () => {
 
     it('should correctly handle bins with zero count', () => {
       const zeroBinIndex = 18;
-      expect(histData[zeroBinIndex].count).toBe(0);
       expect(histData[zeroBinIndex].y).toBe(0);
-      expect(histData[zeroBinIndex].density).toBe(0);
     });
 
     it('should throw error for invalid subplot or layer indices', () => {
@@ -700,21 +462,11 @@ describe('histogram Data Tests', () => {
             axes: { x: 'X', y: 'Y' },
             data: [{
               y: 10,
-              count: 10,
               x: 5,
               xMin: 0,
               xMax: 10,
-              density: 0.1,
-              ncount: 1,
-              ndensity: 1,
-              flipped_aes: false,
-              PANEL: '1',
-              group: -1,
               yMin: 0,
               yMax: 10,
-              fill: 'grey35',
-              linewidth: 0.5,
-              linetype: 1,
             }],
           }],
         }]],
