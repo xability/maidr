@@ -14,9 +14,9 @@
     "lint:fix": "eslint . --fix",
     "test": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",
     "semantic-release": "semantic-release",
-    "test:e2e": "playwright test --config=e2e_tests/config/test-config.ts",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug"
+    "e2e": "playwright test --config=e2e_tests/config/test-config.ts",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
