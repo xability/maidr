@@ -161,5 +161,14 @@ cypress/screenshots/
 test-results/
 playwright-report/
 
+# VSCode
+.vscode/*
+# Keep specific VSCode configurations that should be shared
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/mcp.json
+
 # Qodo AI
 .qodo
