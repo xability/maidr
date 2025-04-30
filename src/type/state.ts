@@ -103,12 +103,6 @@ export interface BoxBrailleState extends BaseBrailleState {
   max: number;
 }
 
-export interface CandlestickBrailleState extends BaseBrailleState {
-  values: number[][];
-  min: number;
-  max: number;
-}
-
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };

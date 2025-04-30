@@ -159,7 +159,6 @@ cypress/screenshots/
 
 # VS Code
 .vscode
-.qodo
 
 # Qodo AI
 .qodo

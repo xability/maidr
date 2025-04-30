@@ -59,9 +59,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     this.row = this.boxValues.length - 1;
 
-    this.highlightValues = this.mapToSvgElements(
-      layer.selectors as BoxSelector[],
-    );
+    this.highlightValues = this.mapToSvgElements(layer.selectors as BoxSelector[]);
   }
 
   public dispose(): void {
@@ -132,9 +130,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
-  private mapToSvgElements(
-    selectors: BoxSelector[],
-  ): (SVGElement[] | SVGElement)[][] | null {
+  private mapToSvgElements(selectors: BoxSelector[]): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.points.length) {
       return null;
     }
@@ -149,12 +145,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
-        Svg.selectAllElements(s),
-      );
-      const upperOutliers = selector.upperOutliers.flatMap(s =>
-        Svg.selectAllElements(s),
-      );
+      const lowerOutliers = selector.lowerOutliers.flatMap(s => Svg.selectAllElements(s));
+      const upperOutliers = selector.upperOutliers.flatMap(s => Svg.selectAllElements(s));
 
       const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
       const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
@@ -163,15 +155,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
 
       const [q1, q3] = isVertical
-        ? [
-            Svg.createLineElement(iq, 'top'),
-            Svg.createLineElement(iq, 'bottom'),
-          ]
-        : [
-            Svg.createLineElement(iq, 'left'),
-            Svg.createLineElement(iq, 'right'),
-          ];
-
+        ? [Svg.createLineElement(iq, 'top'), Svg.createLineElement(iq, 'bottom')]
+        : [Svg.createLineElement(iq, 'left'), Svg.createLineElement(iq, 'right')];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
