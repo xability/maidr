@@ -85,6 +85,18 @@ export interface BarBrailleState extends BaseBrailleState {
   max: number[];
 }
 
+export interface BoxBrailleState extends BaseBrailleState {
+  values: BoxPoint[];
+  min: number;
+  max: number;
+}
+
+export interface CandlestickBrailleState extends BaseBrailleState {
+  values: number[][];
+  min: number;
+  max: number;
+}
+
 export interface LineBrailleState extends BaseBrailleState {
   values: number[][];
   min: number[];
@@ -93,12 +105,6 @@ export interface LineBrailleState extends BaseBrailleState {
 
 export interface HeatmapBrailleState extends BaseBrailleState {
   values: number[][];
-  min: number;
-  max: number;
-}
-
-export interface BoxBrailleState extends BaseBrailleState {
-  values: BoxPoint[];
   min: number;
   max: number;
 }
