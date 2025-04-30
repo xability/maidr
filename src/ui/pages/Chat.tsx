@@ -8,7 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Grid2,
+  Grid,
   IconButton,
   TextField,
   Typography,
@@ -115,6 +115,7 @@ const Chat: React.FC = () => {
 
   const viewModel = useViewModel('chat');
   const { messages } = useViewModelState('chat');
+  const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -160,27 +161,27 @@ const Chat: React.FC = () => {
       }}
     >
       <DialogTitle>
-        <Grid2 container justifyContent="space-between" alignItems="center">
-          <Grid2 size="auto">
+        <Grid container justifyContent="space-between" alignItems="center">
+          <Grid size="auto">
             <Typography variant="h6" fontWeight="bold">
               Chart Assistant
             </Typography>
-          </Grid2>
-          <Grid2 size="auto">
+          </Grid>
+          <Grid size="auto">
             <IconButton
               onClick={handleClose}
               aria-label="Close"
             >
               <Close />
             </IconButton>
-          </Grid2>
-        </Grid2>
+          </Grid>
+        </Grid>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
-        <Grid2 container direction="column" sx={{ height: '100%' }}>
+        <Grid container direction="column" sx={{ height: '100%' }}>
           {/* Messages Container */}
-          <Grid2
+          <Grid
             size={12}
             sx={{
               'flex': 1,
@@ -203,34 +204,36 @@ const Chat: React.FC = () => {
               <MessageBubble key={message.id} message={message} />
             ))}
             <div ref={messagesEndRef} />
-          </Grid2>
+          </Grid>
 
           {/* Input Container */}
-          <Grid2
+          <Grid
             size={12}
             sx={{
               p: 2,
               borderTop: `1px solid ${theme.palette.divider}`,
             }}
           >
-            <Grid2 container spacing={1} alignItems="center">
-              <Grid2 size={{ xs: 10 }}>
+            <Grid container spacing={1} alignItems="center">
+              <Grid size={{ xs: 10 }}>
                 <TextField
-                  fullWidth
-                  multiline
-                  maxRows={4}
                   value={inputMessage}
+                  disabled={disabled}
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
+                  maxRows={4}
                   placeholder="Type your message..."
                   variant="outlined"
                   size="small"
                   autoFocus
+                  fullWidth
+                  multiline
                 />
-              </Grid2>
-              <Grid2 size={{ xs: 2 }} container justifyContent="flex-end">
+              </Grid>
+              <Grid size={{ xs: 2 }} container justifyContent="flex-end">
                 <IconButton
                   onClick={handleSend}
+                  disabled={disabled}
                   color="primary"
                   aria-label="Send message"
                   sx={{
@@ -243,10 +246,10 @@ const Chat: React.FC = () => {
                 >
                   <Send />
                 </IconButton>
-              </Grid2>
-            </Grid2>
-          </Grid2>
-        </Grid2>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
       </DialogContent>
     </Dialog>
   );

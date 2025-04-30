@@ -27,16 +27,6 @@ export interface BoxPoint {
   upperOutliers: number[];
 }
 
-export interface CandlestickPoint {
-  value: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  trend: string;
-}
-
 export interface BoxSelector {
   lowerOutliers: string[];
   min: string;
@@ -44,6 +34,16 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+}
+
+export interface CandlestickPoint {
+  value: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  trend: 'Bull' | 'Bear' | 'Neutral';
 }
 
 export interface HeatmapData {
@@ -93,12 +93,12 @@ export interface MaidrLayer {
   data:
     | BarPoint[]
     | BoxPoint[]
+    | CandlestickPoint[]
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][]
-    | CandlestickPoint[];
+    | SegmentedPoint[][];
 }
 
 export enum TraceType {

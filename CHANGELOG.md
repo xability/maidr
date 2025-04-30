@@ -1,3 +1,38 @@
+# [2.9.0](https://github.com/xability/maidr-ts/compare/v2.8.1...v2.9.0) (2025-04-29)
+
+
+### Features
+
+* support candlestick plot ([#179](https://github.com/xability/maidr-ts/issues/179)) ([7aaeb0b](https://github.com/xability/maidr-ts/commit/7aaeb0b2c09573265de03cdefa537ab9655b3f69))
+
+## [2.8.1](https://github.com/xability/maidr-ts/compare/v2.8.0...v2.8.1) (2025-04-28)
+
+
+### Bug Fixes
+
+* braille onclick to move the plot ([#220](https://github.com/xability/maidr-ts/issues/220)) ([5c60780](https://github.com/xability/maidr-ts/commit/5c6078036f0b267baa12f0beaed6ec30e8d2a012))
+
+# [2.8.0](https://github.com/xability/maidr-ts/compare/v2.7.2...v2.8.0) (2025-04-28)
+
+
+### Features
+
+* support local storage service ([#225](https://github.com/xability/maidr-ts/issues/225)) ([2009f33](https://github.com/xability/maidr-ts/commit/2009f33cf07a0d8e694156fedbf22c1609296e1c))
+
+## [2.7.2](https://github.com/xability/maidr-ts/compare/v2.7.1...v2.7.2) (2025-04-28)
+
+
+### Bug Fixes
+
+* ci build ([#223](https://github.com/xability/maidr-ts/issues/223)) ([7a24727](https://github.com/xability/maidr-ts/commit/7a247273a8145d1c17581aef961e339db0d6f5c3))
+
+## [2.7.1](https://github.com/xability/maidr-ts/compare/v2.7.0...v2.7.1) (2025-04-28)
+
+
+### Bug Fixes
+
+* **chat:** disable user input if no agent is enabled ([#175](https://github.com/xability/maidr-ts/issues/175)) ([26d3f23](https://github.com/xability/maidr-ts/commit/26d3f2350f4d2586437362d6113d8187b6179db5))
+
 # [2.7.0](https://github.com/xability/maidr-ts/compare/v2.6.0...v2.7.0) (2025-04-28)
 
 
