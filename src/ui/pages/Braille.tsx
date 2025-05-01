@@ -14,6 +14,10 @@ const Braille: React.FC = () => {
   const handleSelectionChange = (event: Event): void => {
     const textArea = event.target as HTMLTextAreaElement;
     const newIndex = textArea.selectionStart;
+    if (newIndex >= value.trim().length) {
+      textArea.setSelectionRange(lastIndexRef.current, lastIndexRef.current);
+      return;
+    }
 
     if (newIndex !== lastIndexRef.current) {
       lastIndexRef.current = newIndex;
