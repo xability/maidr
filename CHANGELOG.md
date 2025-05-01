@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/xability/maidr/compare/v2.10.0...v2.10.1) (2025-05-01)
+
+
+### Bug Fixes
+
+* prevent braille onclick to move out of bounds ([#230](https://github.com/xability/maidr/issues/230)) ([a6509b7](https://github.com/xability/maidr/commit/a6509b70fe84db4693ff4224281e8b00a7bc74ec))
+
 # [2.10.0](https://github.com/xability/maidr-ts/compare/v2.9.0...v2.10.0) (2025-05-01)
 
 
