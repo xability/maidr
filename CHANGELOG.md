@@ -1,3 +1,15 @@
+# [3.0.0](https://github.com/xability/maidr/compare/v2.10.1...v3.0.0) (2025-05-01)
+
+
+* feat!: release v3 ([#232](https://github.com/xability/maidr/issues/232)) ([ca6c18b](https://github.com/xability/maidr/commit/ca6c18b046d2a40a09a5bfa78c01cd9f151cfc41))
+* feat!: release v3 ([#233](https://github.com/xability/maidr/issues/233)) ([de13d2d](https://github.com/xability/maidr/commit/de13d2d337e8a72709895e88abeae871614e1071))
+
+
+### BREAKING CHANGES
+
+* Move maidr-ts to maidr
+* Move maidr-ts to maidr
+
 ## [2.10.1](https://github.com/xability/maidr/compare/v2.10.0...v2.10.1) (2025-05-01)
 
 
