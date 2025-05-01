@@ -482,7 +482,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
       return;
     }
 
-    const { row, col } = this.cache.indexToCell[this.cache.indexToCell.length - 1];
+    const { row, col } = this.cache.indexToCell[index];
     this.context.moveToIndex(row, col);
   }
 
