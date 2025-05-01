@@ -124,5 +124,4 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState>, Disposable {
-}
+export interface Trace extends Movable, Observable<TraceState>, Disposable {}

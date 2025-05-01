@@ -1,3 +1,17 @@
+# [2.10.0](https://github.com/xability/maidr-ts/compare/v2.9.0...v2.10.0) (2025-05-01)
+
+
+### Features
+
+* support candlestick braille ([#226](https://github.com/xability/maidr-ts/issues/226)) ([879b3a2](https://github.com/xability/maidr-ts/commit/879b3a254270d8671a83ea6bb6c865c9c213ab38))
+
+# [2.9.0](https://github.com/xability/maidr-ts/compare/v2.8.1...v2.9.0) (2025-04-29)
+
+
+### Features
+
+* support candlestick plot ([#179](https://github.com/xability/maidr-ts/issues/179)) ([7aaeb0b](https://github.com/xability/maidr-ts/commit/7aaeb0b2c09573265de03cdefa537ab9655b3f69))
+
 ## [2.8.1](https://github.com/xability/maidr-ts/compare/v2.8.0...v2.8.1) (2025-04-28)
 
 

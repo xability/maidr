@@ -136,11 +136,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
 
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const svgElements = new Array<Array<(SVGElement[] | SVGElement)>>();
+    const svgElements = new Array<Array<SVGElement[] | SVGElement>>();
 
     if (isVertical) {
       for (let i = 0; i < this.sections.length; i++) {
-        svgElements.push(Array.from({ length: (selectors.length) }));
+        svgElements.push(Array.from({ length: selectors.length }));
       }
     }
 
@@ -157,16 +157,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       const [q1, q3] = isVertical
         ? [Svg.createLineElement(iq, 'top'), Svg.createLineElement(iq, 'bottom')]
         : [Svg.createLineElement(iq, 'left'), Svg.createLineElement(iq, 'right')];
-
-      const sections = [
-        lowerOutliers,
-        min,
-        q1,
-        q2,
-        q3,
-        max,
-        upperOutliers,
-      ];
+      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
         sections.forEach((section, sectionIdx) => {

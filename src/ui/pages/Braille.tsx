@@ -41,6 +41,7 @@ const Braille: React.FC = () => {
     textArea.value = value;
     textArea.selectionStart = index;
     textArea.selectionEnd = index;
+    textArea.focus();
     lastIndexRef.current = index;
   }, [value, index]);
 
@@ -51,7 +52,8 @@ const Braille: React.FC = () => {
         ref={brailleRef}
         defaultValue={value}
         autoCapitalize="off"
-        autoFocus
+        rows={5}
+        cols={50}
       />
     </div>
   );
