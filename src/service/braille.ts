@@ -251,11 +251,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       indexToCell.push({ row, col });
     }
 
-    return {
-      value: values.join(Constant.EMPTY),
-      cellToIndex,
-      indexToCell,
-    };
+    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
   }
 }
 
@@ -472,7 +468,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     }
 
     this.onChangeEmitter.fire({
-      value: this.cache.value,
+      value: this.cache.value.trim(),
       index: this.cache.cellToIndex[braille.row][braille.col],
     });
   }
