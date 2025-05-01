@@ -6,7 +6,6 @@ export enum DomEventType {
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS_IN = 'focusin',
   FOCUS_OUT = 'focusout',
-  KEY_DOWN = 'keydown',
   SELECTION_CHANGE = 'selectionchange',
 }
 

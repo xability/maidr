@@ -5,6 +5,7 @@ import type { Observer } from '@type/observable';
 import type {
   BarBrailleState,
   BoxBrailleState,
+  CandlestickBrailleState,
   HeatmapBrailleState,
   LineBrailleState,
   SubplotState,
@@ -32,6 +33,10 @@ interface EncodedBraille {
   value: string;
   cellToIndex: number[][];
   indexToCell: Cell[];
+}
+
+interface TimeSeries {
+  values: number[][];
 }
 
 interface BrailleEncoder<BrailleState> {
@@ -112,7 +117,11 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         { type: this.GLOBAL_MAX, value: state.max },
       ];
 
-      const lenData = new Array<{ type: string; length: number; numChars: number }>();
+      const lenData = new Array<{
+        type: string;
+        length: number;
+        numChars: number;
+      }>();
       let isBeforeMid = true;
       for (let i = 0; i < boxValData.length - 1; i++) {
         const curr = boxValData[i];
@@ -166,7 +175,10 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       const available = Math.max(0, size - preAllocated);
-      const totalLength = lenData.reduce((sum, l) => sum + (l.type !== this.Q2 && l.length > 0 ? l.length : 0), 0);
+      const totalLength = lenData.reduce(
+        (sum, l) => sum + (l.type !== this.Q2 && l.length > 0 ? l.length : 0),
+        0,
+      );
       for (const section of lenData) {
         if (section.type !== this.Q2 && section.length > 0) {
           const allocated = Math.round((section.length / totalLength) * available);
@@ -203,7 +215,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           } else if (section.type === this.Q1 || section.type === this.Q3) {
             brailleChar = '⠿';
           } else if (section.type === this.Q2) {
-            brailleChar = (j === 0) ? '⠸' : '⠇';
+            brailleChar = j === 0 ? '⠸' : '⠇';
           } else if (section.type === this.LOWER_OUTLIER || section.type === this.UPPER_OUTLIER) {
             brailleChar = '⠂';
           } else if (section.type === this.BLANK) {
@@ -284,71 +296,22 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
   }
 }
 
-class LineBrailleEncoder implements BrailleEncoder<LineBrailleState> {
-  public encode(state: LineBrailleState): EncodedBraille {
+abstract class AbstractTimeSeriesEncoder<T extends TimeSeries> implements BrailleEncoder<T> {
+  public encode(state: T): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
 
     for (let row = 0; row < state.values.length; row++) {
       cellToIndex.push(new Array<number>());
-
-      const range = (state.max[row] - state.min[row]) / 4;
-      const low = state.min[row] + range;
-      const medium = low + range;
-      const mediumHigh = medium + range;
-      const high = medium + range;
+      const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
 
       for (let col = 0; col < state.values[row].length; col++) {
-        if (state.values[row][col] <= low && col - 1 >= 0 && state.values[row][col - 1] > low) {
-          if (state.values[row][col - 1] <= medium) {
-            values.push('⢄');
-          } else if (state.values[row][col - 1] <= mediumHigh) {
-            values.push('⢆');
-          } else if (state.values[row][col - 1] > mediumHigh) {
-            values.push('⢇');
-          }
-        } else if (state.values[row][col] <= low) {
-          values.push('⣀');
-        } else if (col - 1 >= 0 && state.values[row][col - 1] <= low) {
-          if (state.values[row][col] <= medium) {
-            values.push('⡠');
-          } else if (state.values[row][col] <= mediumHigh) {
-            values.push('⡰');
-          } else if (state.values[row][col] > mediumHigh) {
-            values.push('⡸');
-          }
-        } else if (
-          state.values[row][col] <= medium
-          && col - 1 >= 0
-          && state.values[row][col - 1] > medium
-        ) {
-          if (state.values[row][col - 1] <= mediumHigh) {
-            values.push('⠢');
-          } else if (state.values[row][col - 1] > mediumHigh) {
-            values.push('⠣');
-          }
-        } else if (state.values[row][col] <= medium) {
-          values.push('⠤');
-        } else if (col - 1 >= 0 && state.values[row][col - 1] <= medium) {
-          if (state.values[row][col] <= mediumHigh) {
-            values.push('⠔');
-          } else if (state.values[row][col] > mediumHigh) {
-            values.push('⠜');
-          }
-        } else if (
-          state.values[row][col] <= mediumHigh
-          && col - 1 >= 0
-          && state.values[row][col - 1] > mediumHigh
-        ) {
-          values.push('⠑');
-        } else if (state.values[row][col] <= mediumHigh) {
-          values.push('⠒');
-        } else if (col - 1 >= 0 && state.values[row][col - 1] <= mediumHigh) {
-          values.push('⠊');
-        } else if (state.values[row][col] <= high) {
-          values.push('⠉');
-        }
+        const currentValue = state.values[row][col];
+        const prevValue = col > 0 ? state.values[row][col - 1] : null;
+
+        const brailleChar = this.getBrailleChar(currentValue, prevValue, low, medium, mediumHigh, high);
+        values.push(brailleChar);
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
@@ -360,6 +323,89 @@ class LineBrailleEncoder implements BrailleEncoder<LineBrailleState> {
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+  }
+
+  protected abstract getThresholds(row: number, state: T): {
+    low: number;
+    medium: number;
+    mediumHigh: number;
+    high: number;
+  };
+
+  private getBrailleChar(
+    current: number,
+    prev: number | null,
+    low: number,
+    medium: number,
+    mediumHigh: number,
+    high: number,
+  ): string {
+    if (current <= low && prev !== null && prev > low) {
+      if (prev <= medium)
+        return '⢄';
+      else if (prev <= mediumHigh)
+        return '⢆';
+      else return '⢇';
+    } else if (current <= low) {
+      return '⣀';
+    } else if (prev !== null && prev <= low) {
+      if (current <= medium)
+        return '⡠';
+      else if (current <= mediumHigh)
+        return '⡰';
+      else return '⡸';
+    } else if (current <= medium && prev !== null && prev > medium) {
+      if (prev <= mediumHigh)
+        return '⠢';
+      else return '⠣';
+    } else if (current <= medium) {
+      return '⠤';
+    } else if (prev !== null && prev <= medium) {
+      if (current <= mediumHigh)
+        return '⠔';
+      else return '⠜';
+    } else if (current <= mediumHigh && prev !== null && prev > mediumHigh) {
+      return '⠑';
+    } else if (current <= mediumHigh) {
+      return '⠒';
+    } else if (prev !== null && prev <= mediumHigh) {
+      return '⠊';
+    } else if (current <= high) {
+      return '⠉';
+    }
+    return '';
+  }
+}
+
+class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBrailleState> {
+  protected getThresholds(_: number, state: CandlestickBrailleState): {
+    low: number;
+    medium: number;
+    mediumHigh: number;
+    high: number;
+  } {
+    const range = (state.max - state.min) / 4;
+    const low = state.min + range;
+    const medium = low + range;
+    const mediumHigh = medium + range;
+    const high = state.max;
+    return { low, medium, mediumHigh, high };
+  }
+}
+
+class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
+  protected getThresholds(row: number, state: LineBrailleState): {
+    low: number;
+    medium: number;
+    mediumHigh: number;
+    high: number;
+  } {
+    const range = (state.max[row] - state.min[row]) / 4;
+    const low = state.min[row] + range;
+    const medium = low + range;
+    const mediumHigh = medium + range;
+    const high = state.max[row];
+    return { low, medium, mediumHigh, high };
   }
 }
 
@@ -388,6 +434,7 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     this.encoders = new Map<TraceType, BrailleEncoder<any>>([
       [TraceType.BAR, new BarBrailleEncoder()],
       [TraceType.BOX, new BoxBrailleEncoder()],
+      [TraceType.CANDLESTICK, new CandlestickBrailleEncoder()],
       [TraceType.DODGED, new BarBrailleEncoder()],
       [TraceType.HEATMAP, new HeatmapBrailleEncoder()],
       [TraceType.HISTOGRAM, new BarBrailleEncoder()],
@@ -424,7 +471,10 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
       this.cacheId = braille.id;
     }
 
-    this.onChangeEmitter.fire({ value: this.cache.value, index: this.cache.cellToIndex[braille.row][braille.col] });
+    this.onChangeEmitter.fire({
+      value: this.cache.value,
+      index: this.cache.cellToIndex[braille.row][braille.col],
+    });
   }
 
   public moveToIndex(index: number): void {

@@ -51,6 +51,3 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
 }
 
 export default helpSlice.reducer;
-
-export class toggleHelpMenu {
-}

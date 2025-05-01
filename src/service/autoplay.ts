@@ -17,11 +17,13 @@ interface AutoplayChangeEvent {
   type: 'start' | 'stop';
 }
 
+type AutoplayId = ReturnType<typeof setInterval>;
+
 export class AutoplayService implements Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
 
-  private playId: NodeJS.Timeout | null;
+  private autoplayId: AutoplayId | null;
   private currentDirection: MovableDirection | null;
 
   private userSpeed: number | null;
@@ -40,7 +42,7 @@ export class AutoplayService implements Disposable {
     this.notification = notification;
     this.context = context;
 
-    this.playId = null;
+    this.autoplayId = null;
     this.currentDirection = null;
 
     this.userSpeed = null;
@@ -68,7 +70,7 @@ export class AutoplayService implements Disposable {
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
 
-    this.playId = setInterval(() => {
+    this.autoplayId = setInterval(() => {
       if (this.context.isMovable(direction)) {
         this.context.moveOnce(direction);
       } else {
@@ -78,18 +80,18 @@ export class AutoplayService implements Disposable {
   }
 
   public stop(): void {
-    if (this.playId) {
-      clearInterval(this.playId);
+    if (this.autoplayId) {
+      clearInterval(this.autoplayId);
     }
 
-    this.playId = null;
+    this.autoplayId = null;
     this.currentDirection = null;
     this.onChangeEmitter.fire({ type: 'stop' });
   }
 
   private restart(): void {
-    if (this.playId) {
-      clearInterval(this.playId);
+    if (this.autoplayId) {
+      clearInterval(this.autoplayId);
     }
 
     if (this.currentDirection) {

@@ -68,9 +68,13 @@ export class Candlestick extends AbstractTrace<number> {
 
   protected braille(): BrailleState {
     return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
+      empty: false,
+      id: this.id,
+      values: this.candleValues,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
     };
   }
 
