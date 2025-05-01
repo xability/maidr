@@ -478,11 +478,11 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
   }
 
   public moveToIndex(index: number): void {
-    if (!this.enabled || this.cache === null || this.cache.indexToCell.length === 0) {
+    if (!this.enabled || this.cache === null || index < 0 || index >= this.cache.indexToCell.length) {
       return;
     }
 
-    const { row, col } = this.cache.indexToCell[Math.max(0, Math.min(index, this.cache.indexToCell.length - 1))];
+    const { row, col } = this.cache.indexToCell[this.cache.indexToCell.length - 1];
     this.context.moveToIndex(row, col);
   }
 
