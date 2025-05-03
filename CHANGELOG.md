@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/xability/maidr/compare/v3.0.0...v3.0.1) (2025-05-03)
+
+
+### Bug Fixes
+
+* retain the same aria label for llm toggle checkboxes in settings ([#236](https://github.com/xability/maidr/issues/236)) ([c045beb](https://github.com/xability/maidr/commit/c045beb0f8281bccf1a6a7ef7b032aaba8f092f2))
+
 # [3.0.0](https://github.com/xability/maidr/compare/v2.10.1...v3.0.0) (2025-05-01)
 
 
