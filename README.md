@@ -6,13 +6,14 @@
 
 # maidr: Multimodal Access and Interactive Data Representation
 
-* **Note:** `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
+- **Note:** `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
 
 `maidr` (pronounced as 'mader') is a system for non-visual access and control of statistical plots.
 It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction:
 braille, text, and sonification (BTS).
 This comprehensive approach enhances the accessibility of data visualization
 and encourages a multi-modal exploration on visualization.
+
 <!-- Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html). -->
 
 ## Table of Contents
@@ -292,7 +293,6 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Toggle Text Mode                        | R                           | R                           |
 | Repeat current sound                    | Space                       | Space                       |
 | Auto-play outward in direction of arrow | Control + Shift + Arrow key | Command + Shift + Arrow key |
-<!-- | Auto-play inward in direction of arrow  | Alt + Shift + Arrow key     | Option + Shift + Arrow key  | -->
 | Stop Auto-play                          | Control                     | Command                     |
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
