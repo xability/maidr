@@ -18,5 +18,23 @@
   "githubPullRequests.pullRequestDescription": "Copilot",
   "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
     { "file": ".github/PULL_REQUEST_TEMPLATE.md" }
+  ],
+  "githubPullRequests.queries": [
+    {
+      "label": "Waiting For My Review",
+      "query": "repo:${owner}/${repository} is:open review-requested:${user}"
+    },
+    {
+      "label": "Assigned To Me",
+      "query": "repo:${owner}/${repository} is:open assignee:${user}"
+    },
+    {
+      "label": "Created By Me",
+      "query": "repo:${owner}/${repository} is:open author:${user}"
+    },
+    {
+      "label": "Mentioned Me",
+      "query": "repo:${owner}/${repository} is:open mentions:${user}"
+    }
   ]
 }

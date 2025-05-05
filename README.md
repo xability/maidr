@@ -4,14 +4,16 @@
   <br />
 </div>
 
-# MAIDR: Multimodal Access and Interactive Data Representation
+# maidr: Multimodal Access and Interactive Data Representation
 
-MAIDR (pronounced as 'mader') is a system for non-visual access and control of statistical plots.
+* **Note:** `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
+
+`maidr` (pronounced as 'mader') is a system for non-visual access and control of statistical plots.
 It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction:
 braille, text, and sonification (BTS).
 This comprehensive approach enhances the accessibility of data visualization
 and encourages a multi-modal exploration on visualization.
-Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html).
+<!-- Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html). -->
 
 ## Table of Contents
 
@@ -290,12 +292,12 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Toggle Text Mode                        | R                           | R                           |
 | Repeat current sound                    | Space                       | Space                       |
 | Auto-play outward in direction of arrow | Control + Shift + Arrow key | Command + Shift + Arrow key |
-| Auto-play inward in direction of arrow  | Alt + Shift + Arrow key     | Option + Shift + Arrow key  |
+<!-- | Auto-play inward in direction of arrow  | Alt + Shift + Arrow key     | Option + Shift + Arrow key  | -->
 | Stop Auto-play                          | Control                     | Command                     |
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
 
-### Scatter Plot Controls
+<!-- ### Scatter Plot Controls
 
 In the scatter plot, there are two layers: point mode (layer 1) and line mode (layer 2).
 To switch between these layers, use the Page Up and Page Down keys:
@@ -303,7 +305,7 @@ To switch between these layers, use the Page Up and Page Down keys:
 - Press Page Up to move from point mode to line mode
 - Press Page Down to move from line mode to point mode
 
-Note that this control scheme can be used by any plot with multiple types.
+Note that this control scheme can be used by any plot with multiple types. -->
 
 ### Segmented Bar Controls
 
@@ -443,9 +445,9 @@ Learn more about the usage at [maidr-api](https://github.com/xability/maidr-api)
 
 We currently provide the following binders, all of which can be found at each repo:
 
-- [x] Python binder for matplotlib and seaborn: [py_maidr](https://github.com/xability/py_maidr).
+- [x] Python binder for matplotlib and seaborn: [Py maidr](https://github.com/xability/py-maidr).
 
-- [ ] R binder for ggplot2: [r_maidr](https://github.com/xability/r_maidr).
+- [ ] R binder for ggplot2: [r maidr](https://github.com/xability/r-maidr).
 
 ## Papers
 
@@ -502,6 +504,8 @@ JooYoung Seo - jseo1005@illinois.edu
 ## Acknowledgments
 
 This project is conducted through the (x)Ability Design Lab at the University of Illinois at Urbana-Champaign, and funded by multiple grants, including:
+
+- The National Science Foundation (NSF) \#2348166
 
 - The Institute of Museum and Library Services (IMLS) \#RE-254891-OLS-23
 

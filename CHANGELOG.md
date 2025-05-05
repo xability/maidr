@@ -1,3 +1,29 @@
+## [3.0.1](https://github.com/xability/maidr/compare/v3.0.0...v3.0.1) (2025-05-03)
+
+
+### Bug Fixes
+
+* retain the same aria label for llm toggle checkboxes in settings ([#236](https://github.com/xability/maidr/issues/236)) ([c045beb](https://github.com/xability/maidr/commit/c045beb0f8281bccf1a6a7ef7b032aaba8f092f2))
+
+# [3.0.0](https://github.com/xability/maidr/compare/v2.10.1...v3.0.0) (2025-05-01)
+
+
+* feat!: release v3 ([#232](https://github.com/xability/maidr/issues/232)) ([ca6c18b](https://github.com/xability/maidr/commit/ca6c18b046d2a40a09a5bfa78c01cd9f151cfc41))
+* feat!: release v3 ([#233](https://github.com/xability/maidr/issues/233)) ([de13d2d](https://github.com/xability/maidr/commit/de13d2d337e8a72709895e88abeae871614e1071))
+
+
+### BREAKING CHANGES
+
+* Move maidr-ts to maidr
+* Move maidr-ts to maidr
+
+## [2.10.1](https://github.com/xability/maidr/compare/v2.10.0...v2.10.1) (2025-05-01)
+
+
+### Bug Fixes
+
+* prevent braille onclick to move out of bounds ([#230](https://github.com/xability/maidr/issues/230)) ([a6509b7](https://github.com/xability/maidr/commit/a6509b70fe84db4693ff4224281e8b00a7bc74ec))
+
 # [2.10.0](https://github.com/xability/maidr-ts/compare/v2.9.0...v2.10.0) (2025-05-01)
 
 
