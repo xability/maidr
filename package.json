@@ -21,7 +21,6 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
-    "@jest/globals": "^29.7.0",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.7.0",
@@ -34,6 +33,7 @@
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
     "@cypress/webpack-preprocessor": "^6.0.4",
+    "@jest/globals": "^29.7.0",
     "@jest/types": "^29.6.3",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",

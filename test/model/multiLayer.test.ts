@@ -123,7 +123,7 @@ describe('Multi-Layer Data Tests', () => {
 
   describe('Data Extraction', () => {
     beforeEach(() => {
-      multiLayerData = getMultiLayerData(multiLayerData);
+      multiLayerData = getMultiLayerData(maidrData);
     });
 
     it('should extract data correctly from multiple layers', () => {
@@ -138,7 +138,9 @@ describe('Multi-Layer Data Tests', () => {
 
     it('should have unique selectors for each layer', () => {
       const layers = multiLayerData.subplots[0][0].layers;
-      const selectors = layers.map(layer => layer.selectors);
+      const selectors = layers.flatMap(layer =>
+        Array.isArray(layer.selectors) ? layer.selectors : [layer.selectors],
+      );
 
       const uniqueSelectors = new Set(selectors);
       expect(uniqueSelectors.size).toBe(layers.length);
