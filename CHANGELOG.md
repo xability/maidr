@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/xability/maidr/compare/v3.0.1...v3.0.2) (2025-05-06)
+
+
+### Bug Fixes
+
+* enhance subplot text to include selection instruction ([#241](https://github.com/xability/maidr/issues/241)) ([b4aefbd](https://github.com/xability/maidr/commit/b4aefbd3d5b884b7fd5b761ef4d7bc971dc7971d))
+
 ## [3.0.1](https://github.com/xability/maidr/compare/v3.0.0...v3.0.1) (2025-05-03)
 
 
