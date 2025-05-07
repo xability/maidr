@@ -4,6 +4,7 @@ import type { Maidr } from '@type/maidr';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
+import { SettingsService } from './settings';
 
 export class ChatService {
   private readonly display: DisplayService;
@@ -12,11 +13,12 @@ export class ChatService {
 
   public constructor(display: DisplayService, maidr: Maidr) {
     this.display = display;
+    const settings = new SettingsService(display).loadSettings();
 
     this.models = {
-      GPT: new Gpt(display.plot, maidr),
-      CLAUDE: new Claude(display.plot, maidr),
-      GEMINI: new Gemini(display.plot, maidr),
+      GPT: new Gpt(display.plot, maidr, settings.llm.models.GPT.version),
+      CLAUDE: new Claude(display.plot, maidr, settings.llm.models.CLAUDE.version),
+      GEMINI: new Gemini(display.plot, maidr, settings.llm.models.GEMINI.version),
     };
   }
 
@@ -32,6 +34,7 @@ export class ChatService {
 
 interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
+  version: string;
 }
 
 interface GptResponse {
@@ -59,18 +62,21 @@ interface GeminiResponse {
 }
 
 abstract class AbstractLlmModel<T> implements LlmModel {
+  public readonly version: string;
+
   protected readonly svg: HTMLElement;
   protected readonly json: string;
 
   private readonly maidrBaseUrl: string;
   private readonly codeQueryParam: string;
 
-  protected constructor(svg: HTMLElement, maidr: Maidr) {
+  protected constructor(svg: HTMLElement, maidr: Maidr, version: string) {
     this.svg = svg;
     this.json = JSON.stringify(maidr);
 
     this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
+    this.version = version;
   }
 
   public async getLlmResponse(request: LlmRequest): Promise<LlmResponse> {
@@ -134,8 +140,8 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 }
 
 class Gpt extends AbstractLlmModel<GptResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
-    super(svg, maidr);
+  constructor(svg: HTMLElement, maidr: Maidr, version: string) {
+    super(svg, maidr, version);
   }
 
   protected getApiUrl(): string {
@@ -154,7 +160,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     message: string,
   ): string {
     return JSON.stringify({
-      model: 'gpt-4o-2024-11-20',
+      model: this.version,
       max_tokens: 1000,
       messages: [
         {
@@ -202,8 +208,8 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 }
 
 class Claude extends AbstractLlmModel<ClaudeResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
-    super(svg, maidr);
+  public constructor(svg: HTMLElement, maidr: Maidr, version: string) {
+    super(svg, maidr, version);
   }
 
   protected getApiUrl(): string {
@@ -222,7 +228,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     message: string,
   ): string {
     return JSON.stringify({
-      anthropic_version: 'vertex-2023-10-16',
+      anthropic_version: this.version,
       max_tokens: 256,
       messages: [
         {
@@ -267,8 +273,8 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 }
 
 class Gemini extends AbstractLlmModel<GeminiResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
-    super(svg, maidr);
+  public constructor(svg: HTMLElement, maidr: Maidr, version: string) {
+    super(svg, maidr, version);
   }
 
   protected getApiUrl(apiKey?: string): string {
