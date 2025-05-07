@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 // --- Shared Types ---
 
@@ -3462,74 +3462,36 @@ const multiLineData: MaidrChart = {
 
 // --- Helper Functions ---
 
-function getLineData(
-  chart: MaidrChart,
-  subplotIndex = 0,
-  subplotColIndex = 0,
-  layerIndex = 0,
-  seriesIndex = 0
-): TimeSeriesPoint[] {
-  const layer = chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex];
-  if (!layer.data[seriesIndex]) {
-    throw new Error(`Series index ${seriesIndex} does not exist`);
-  }
-  return layer.data[seriesIndex];
-}
-
 function getAllLayers(chart: MaidrChart): ChartLayer[] {
   return chart.subplots[0][0].layers;
 }
 
 function getMaximumValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) throw new Error('Cannot get maximum value from empty data array');
+  if (data.length === 0)
+    throw new Error('Cannot get maximum value from empty data array');
   return Math.max(...data.map(point => point.y));
 }
 
 function getMinimumValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) throw new Error('Cannot get minimum value from empty data array');
+  if (data.length === 0)
+    throw new Error('Cannot get minimum value from empty data array');
   return Math.min(...data.map(point => point.y));
 }
 
 function getAverageValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) throw new Error('Cannot calculate average from empty data array');
+  if (data.length === 0)
+    throw new Error('Cannot calculate average from empty data array');
   const sum = data.reduce((total, point) => total + point.y, 0);
   return sum / data.length;
 }
 
-function findDataPointByX(data: TimeSeriesPoint[], x: string | number): TimeSeriesPoint | undefined {
-  return data.find(point => point.x === x);
-}
-
 function navigateLine(data: TimeSeriesPoint[], currentIndex: number, direction: 1 | -1): number {
   const newIndex = currentIndex + direction;
-  if (newIndex < 0) return data.length - 1;
-  if (newIndex >= data.length) return 0;
+  if (newIndex < 0)
+    return data.length - 1;
+  if (newIndex >= data.length)
+    return 0;
   return newIndex;
-}
-
-function extractYear(x: string | number): number {
-  if (typeof x === 'string') return Number.parseInt(x.split('-')[0], 10);
-  return -1;
-}
-
-function findPointsByYear(data: TimeSeriesPoint[], year: number): TimeSeriesPoint[] {
-  return data.filter(point => extractYear(point.x) === year);
-}
-
-function calculateYearlyAverages(data: TimeSeriesPoint[]): Map<number, number> {
-  if (data.length === 0) throw new Error('Cannot calculate yearly averages from empty data array');
-  const yearlyGroups: Map<number, TimeSeriesPoint[]> = new Map();
-  data.forEach((point) => {
-    const year = extractYear(point.x);
-    if (!yearlyGroups.has(year)) yearlyGroups.set(year, []);
-    yearlyGroups.get(year)?.push(point);
-  });
-  const yearlyAverages: Map<number, number> = new Map();
-  yearlyGroups.forEach((points, year) => {
-    const sum = points.reduce((total, point) => total + point.y, 0);
-    yearlyAverages.set(year, sum / points.length);
-  });
-  return yearlyAverages;
 }
 
 // --- Parameterized Test Suite ---
@@ -3549,13 +3511,11 @@ const testCases = [
   },
 ];
 
-describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCount }) => {
+describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti }) => {
   let layers: ChartLayer[];
-  let seriesCount: number;
 
   beforeEach(() => {
     layers = getAllLayers(chart);
-    seriesCount = getSeriesCount(chart);
   });
 
   describe('Data Structure Validation', () => {
@@ -3588,7 +3548,8 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
       data.forEach((point: TimeSeriesPoint) => {
         expect(typeof point.x === 'number' || typeof point.x === 'string').toBe(true);
         expect(typeof point.y).toBe('number');
-        if (isMulti) expect(typeof point.fill).toBe('string');
+        if (isMulti)
+          expect(typeof point.fill).toBe('string');
       });
     });
   });
@@ -3607,7 +3568,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
     it('should have consistent x-axis values across different lineplots', () => {
       const xValues = layers[0].data[0].map(point => point.x);
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           const layerXValues = series.map(point => point.x);
           expect(layerXValues).toEqual(xValues);
         });
@@ -3616,7 +3577,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
 
     it('should have valid y-axis values for each lineplot', () => {
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           const yValues = series.map(point => point.y);
           yValues.forEach((yValue) => {
             expect(typeof yValue).toBe('number');
@@ -3630,7 +3591,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
   describe('Data Value Verification', () => {
     it('should identify maximum and minimum values correctly', () => {
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           const maxValue = getMaximumValue(series);
           const minValue = getMinimumValue(series);
           expect(maxValue).toBeGreaterThanOrEqual(minValue);
@@ -3640,7 +3601,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
 
     it('should calculate average value correctly', () => {
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           const avgValue = getAverageValue(series);
           expect(avgValue).toBeGreaterThan(0);
           expect(typeof avgValue).toBe('number');
@@ -3652,7 +3613,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
   describe('Navigation Operations', () => {
     it('should navigate to the next and previous point correctly', () => {
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           if (series.length > 1) {
             const nextIndex = navigateLine(series, 0, 1);
             expect(nextIndex).toBe(1);
@@ -3665,7 +3626,7 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti, getSeriesCo
 
     it('should wrap around navigation at boundaries', () => {
       layers.forEach((layer) => {
-        layer.data.forEach(series => {
+        layer.data.forEach((series) => {
           const lastIdx = series.length - 1;
           const nextIndex = navigateLine(series, lastIdx, 1);
           expect(nextIndex).toBe(0);
