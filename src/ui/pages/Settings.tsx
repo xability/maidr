@@ -27,6 +27,23 @@ interface SettingRowProps {
   input: React.ReactNode;
 }
 
+const GPT_VERSIONS = [
+  { value: 'gpt-4', label: 'GPT-4' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+];
+
+const CLAUDE_VERSIONS = [
+  { value: 'claude-3-opus', label: 'Claude 3 Opus' },
+  { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
+  { value: 'claude-3-haiku', label: 'Claude 3 Haiku' },
+];
+
+const GEMINI_VERSIONS = [
+  { value: 'gemini-pro', label: 'Gemini Pro' },
+  { value: 'gemini-pro-vision', label: 'Gemini Pro Vision' },
+];
+
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
   <Grid2 container spacing={1} alignItems="center" sx={{ py: 1 }}>
     <Grid2 size={{ xs: 12, sm: 6, md: 4 }}>
@@ -45,6 +62,7 @@ interface LlmModelSettingRowProps {
   modelSettings: LlmModelSettings;
   onToggle: (key: Llm, enabled: boolean) => void;
   onChangeKey: (key: Llm, value: string) => void;
+  onChangeVersion: (key: Llm, value: string) => void;
 }
 
 const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
@@ -52,34 +70,58 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   modelSettings,
   onToggle,
   onChangeKey,
-}) => (
-  <SettingRow
-    label={modelSettings.name}
-    input={(
-      <Grid2 container spacing={1} alignItems="center">
-        <Grid2 size="auto">
-          <Switch
-            checked={modelSettings.enabled}
-            onChange={e => onToggle(modelKey, e.target.checked)}
-            slotProps={{
-              input: { 'aria-label': `${!modelSettings.enabled ? 'Enable' : 'Disable'} ${modelSettings.name}` },
-            }}
-          />
+  onChangeVersion,
+}) => {
+  const versions = {
+    GPT: GPT_VERSIONS,
+    CLAUDE: CLAUDE_VERSIONS,
+    GEMINI: GEMINI_VERSIONS,
+  }[modelKey];
+
+  return (
+    <SettingRow
+      label={modelSettings.name}
+      input={(
+        <Grid2 container spacing={1} alignItems="center">
+          <Grid2 size="auto">
+            <Switch
+              checked={modelSettings.enabled}
+              onChange={e => onToggle(modelKey, e.target.checked)}
+              slotProps={{
+                input: { 'aria-label': `${!modelSettings.enabled ? 'Enable' : 'Disable'} ${modelSettings.name}` },
+              }}
+            />
+          </Grid2>
+          <Grid2 size="grow">
+            <TextField
+              disabled={!modelSettings.enabled}
+              fullWidth
+              size="small"
+              value={modelSettings.apiKey}
+              onChange={e => onChangeKey(modelKey, e.target.value)}
+              placeholder={`Enter ${modelSettings.name} API Key`}
+            />
+          </Grid2>
+          <Grid2 size="auto">
+            <FormControl size="small">
+              <Select
+                disabled={!modelSettings.enabled}
+                value={modelSettings.version}
+                onChange={e => onChangeVersion(modelKey, e.target.value)}
+              >
+                {versions.map(version => (
+                  <MenuItem key={version.value} value={version.value}>
+                    {version.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid2>
         </Grid2>
-        <Grid2 size="grow">
-          <TextField
-            disabled={!modelSettings.enabled}
-            fullWidth
-            size="small"
-            value={modelSettings.apiKey}
-            onChange={e => onChangeKey(modelKey, e.target.value)}
-            placeholder={`Enter ${modelSettings.name} API Key`}
-          />
-        </Grid2>
-      </Grid2>
-    )}
-  />
-);
+      )}
+    />
+  );
+};
 
 const Settings: React.FC = () => {
   const viewModel = useViewModel('settings');
@@ -303,7 +345,6 @@ const Settings: React.FC = () => {
           {/* LLM Model Toggles */}
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
-
             return (
               <Grid2 size={12} key={modelKey}>
                 <LlmModelSettingRow
@@ -311,6 +352,7 @@ const Settings: React.FC = () => {
                   modelSettings={model}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
                 />
               </Grid2>
             );
