@@ -5,6 +5,16 @@ export type Llm =
   | 'CLAUDE'
   | 'GEMINI';
 
+export type GptVersion = 'gpt-4' | 'gpt-3.5-turbo' | 'gpt-4-turbo';
+export type ClaudeVersion = 'claude-3-opus' | 'claude-3-sonnet' | 'claude-3-haiku';
+export type GeminiVersion = 'gemini-pro' | 'gemini-pro-vision';
+
+export interface ModelVersion {
+  GPT: GptVersion;
+  CLAUDE: ClaudeVersion;
+  GEMINI: GeminiVersion;
+}
+
 export interface LlmRequest {
   message: string;
   customInstruction: string;
