@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/xability/maidr/compare/v3.0.2...v3.1.0) (2025-05-07)
+
+
+### Features
+
+* add audio cue while waiting for llm response ([#242](https://github.com/xability/maidr/issues/242)) ([e7971a6](https://github.com/xability/maidr/commit/e7971a6e664208d6487df52a65fb1178495b96c8))
+
 ## [3.0.2](https://github.com/xability/maidr/compare/v3.0.1...v3.0.2) (2025-05-06)
 
 
