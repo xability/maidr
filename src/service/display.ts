@@ -34,12 +34,10 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
-    this.removeInstruction();
+    this.addInstruction();
   }
 
   public dispose(): void {
-    this.addInstruction();
-
     this.onChangeEmitter.dispose();
 
     this.reactRoot?.unmount();
