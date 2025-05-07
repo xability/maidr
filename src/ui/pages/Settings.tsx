@@ -1,5 +1,5 @@
-import type { Llm } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm } from '../../type/llm';
 import {
   Button,
   Dialog,
@@ -27,21 +27,25 @@ interface SettingRowProps {
   input: React.ReactNode;
 }
 
-const GPT_VERSIONS = [
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+const GPT_VERSIONS: GptVersion[] = [
+  'gpt-4-vision-preview',
+  'gpt-4-turbo',
+  'gpt-4',
+  'gpt-3.5-turbo',
 ];
 
-const CLAUDE_VERSIONS = [
-  { value: 'claude-3-opus', label: 'Claude 3 Opus' },
-  { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-  { value: 'claude-3-haiku', label: 'Claude 3 Haiku' },
+const CLAUDE_VERSIONS: ClaudeVersion[] = [
+  'claude-3-opus',
+  'claude-3-sonnet',
+  'claude-3-haiku',
+  'claude-2.1',
 ];
 
-const GEMINI_VERSIONS = [
-  { value: 'gemini-pro', label: 'Gemini Pro' },
-  { value: 'gemini-pro-vision', label: 'Gemini Pro Vision' },
+const GEMINI_VERSIONS: GeminiVersion[] = [
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+  'gemini-pro-vision',
+  'gemini-pro',
 ];
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
@@ -110,8 +114,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 onChange={e => onChangeVersion(modelKey, e.target.value)}
               >
                 {versions.map(version => (
-                  <MenuItem key={version.value} value={version.value}>
-                    {version.label}
+                  <MenuItem key={version} value={version}>
+                    {version}
                   </MenuItem>
                 ))}
               </Select>

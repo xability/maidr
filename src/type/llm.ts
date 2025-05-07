@@ -5,9 +5,23 @@ export type Llm =
   | 'CLAUDE'
   | 'GEMINI';
 
-export type GptVersion = 'gpt-4' | 'gpt-3.5-turbo' | 'gpt-4-turbo';
-export type ClaudeVersion = 'claude-3-opus' | 'claude-3-sonnet' | 'claude-3-haiku';
-export type GeminiVersion = 'gemini-pro' | 'gemini-pro-vision';
+export type GptVersion =
+  | 'gpt-4-vision-preview'
+  | 'gpt-4-turbo'
+  | 'gpt-4'
+  | 'gpt-3.5-turbo';
+
+export type ClaudeVersion =
+  | 'claude-3-opus'
+  | 'claude-3-sonnet'
+  | 'claude-3-haiku'
+  | 'claude-2.1';
+
+export type GeminiVersion =
+  | 'gemini-pro-vision'
+  | 'gemini-pro'
+  | 'gemini-1.5-pro'
+  | 'gemini-1.5-flash';
 
 export interface ModelVersion {
   GPT: GptVersion;

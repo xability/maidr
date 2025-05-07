@@ -19,7 +19,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.6",
-    "@mui/material": "^6.4.6",
+    "@mui/material": "^6.4.11",
     "@reduxjs/toolkit": "^2.6.0",
     "hotkeys-js": "^3.13.9",
     "react": "^19.0.0",
