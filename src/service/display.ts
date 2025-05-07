@@ -34,6 +34,16 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
+    // Add click handler to remove tooltip when plot is activated
+    this.plot.addEventListener('click', () => {
+      const figureElement = this.plot.closest(Constant.FIGURE);
+      const articleElement = this.plot.closest(Constant.ARTICLE);
+      if (figureElement)
+        figureElement.removeAttribute(Constant.TITLE);
+      if (articleElement)
+        articleElement.removeAttribute(Constant.TITLE);
+    });
+
     this.addInstruction();
   }
 
@@ -47,16 +57,56 @@ export class DisplayService implements Disposable {
   public addInstruction(): void {
     const maidrInstruction = this.context.getInstruction(true);
     this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
-    this.plot.setAttribute(Constant.TITLE, maidrInstruction);
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
+
+    // Set title on both figure and article elements
+    const figureElement = this.plot.closest(Constant.FIGURE);
+    const articleElement = this.plot.closest(Constant.ARTICLE);
+
+    if (figureElement) {
+      figureElement.setAttribute(Constant.TITLE, maidrInstruction);
+      // Add mouse events to handle tooltip visibility
+      figureElement.addEventListener('mouseenter', () => {
+        figureElement.setAttribute(Constant.TITLE, maidrInstruction);
+      });
+      figureElement.addEventListener('mouseleave', () => {
+        figureElement.removeAttribute(Constant.TITLE);
+      });
+    }
+    if (articleElement) {
+      articleElement.setAttribute(Constant.TITLE, maidrInstruction);
+      // Add mouse events to handle tooltip visibility
+      articleElement.addEventListener('mouseenter', () => {
+        articleElement.setAttribute(Constant.TITLE, maidrInstruction);
+      });
+      articleElement.addEventListener('mouseleave', () => {
+        articleElement.removeAttribute(Constant.TITLE);
+      });
+    }
   }
 
   private removeInstruction(): void {
     this.plot.removeAttribute(Constant.ARIA_LABEL);
-    this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot.tabIndex = -1;
+
+    // Remove title and event listeners from both figure and article elements
+    const figureElement = this.plot.closest(Constant.FIGURE);
+    const articleElement = this.plot.closest(Constant.ARTICLE);
+
+    if (figureElement) {
+      figureElement.removeAttribute(Constant.TITLE);
+      // Remove event listeners
+      figureElement.removeEventListener('mouseenter', () => {});
+      figureElement.removeEventListener('mouseleave', () => {});
+    }
+    if (articleElement) {
+      articleElement.removeAttribute(Constant.TITLE);
+      // Remove event listeners
+      articleElement.removeEventListener('mouseenter', () => {});
+      articleElement.removeEventListener('mouseleave', () => {});
+    }
   }
 
   public toggleFocus(focus: Focus): void {
@@ -64,10 +114,12 @@ export class DisplayService implements Disposable {
       this.focusStack.push(focus);
     }
     this.context.toggleScope(focus);
+    this.addInstruction();
     this.updateFocus(this.focusStack.peek()!);
   }
 
   private updateFocus(newScope: Focus): void {
+    this.addInstruction();
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
       this.plot.focus();
     }
