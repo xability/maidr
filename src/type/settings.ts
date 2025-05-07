@@ -8,6 +8,7 @@ export interface LlmModelSettings {
   name: string;
   apiKey: string;
   enabled: boolean;
+  version: string;
 }
 
 export interface LlmSettings {
