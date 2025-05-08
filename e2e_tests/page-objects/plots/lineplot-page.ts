@@ -5,151 +5,72 @@ import { LinePlotError } from '../../utils/errors';
 import { BasePage } from '../base-page';
 
 /**
- * Page object representing the LinePlot plot page
- * Handles all lineplot plot specific interactions and verifications
+ * Page object for the line plot page
+ * Provides methods for interacting with the line plot
  */
 export class LinePlotPage extends BasePage {
   /**
-   * The ID of the plot being tested
+   * Selectors for various UI elements
    */
-  private readonly plotId: string;
+  protected readonly selectors = {
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.LINEPLOT_ID} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.LINEPLOT_ID} ${TestConstants.PARAGRAPH}`,
+    speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.LINEPLOT_ID}`,
+    svg: `svg#${TestConstants.LINEPLOT_ID}`,
+    helpModal: TestConstants.MAIDR_HELP_MODAL,
+    helpModalTitle: TestConstants.MAIDR_HELP_MODAL_TITLE,
+    helpModalClose: TestConstants.HELP_MENU_CLOSE_BUTTON,
+    settingsModal: TestConstants.MAIDR_SETTINGS_MODAL,
+    chatModal: TestConstants.MAIDR_CHAT_MODAL,
+  };
+
+  /**
+   * The ID of the line plot
+   */
+  private readonly plotId = TestConstants.LINEPLOT_ID;
 
   /**
    * Creates a new LinePlotPage instance
    * @param page - The Playwright page object
-   * @param plotId - ID of the LinePlot plot (default: TestConstants.LINEPLOT_ID)
    */
-  constructor(page: Page, plotId: string = TestConstants.LINEPLOT_ID) {
+  constructor(page: Page) {
     super(page);
-    this.plotId = plotId;
   }
 
   /**
-   * Navigates to the LinePlot plot page
-   * @returns Promise resolving when navigation completes
+   * Navigates to the line plot page
    * @throws LinePlotError if navigation fails
    */
   public async navigateToLinePlot(): Promise<void> {
     try {
-      const absolutePath = '/examples/lineplot.html';
-      await this.navigateTo(absolutePath);
+      await super.navigateTo('examples/lineplot.html');
+      await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(`Failed to navigate to Line Plot: ${errorMessage}`);
+      throw new LinePlotError('Failed to navigate to line plot');
     }
   }
 
   /**
-   * Waits for an element to contain specific content
-   *
-   * @param selector - CSS selector for the target element
-   * @param expectedContent - The expected text content to wait for
-   * @param options - Configuration options for the wait operation
-   * @returns Promise resolving when the condition is met
-   * @throws LinePlotError if timeout is reached before the condition is met
-   *
-   * @example
-   * // Wait for data point info to show specific content
-   * await waitForElementContent('#info-container p', 'Expected text', { timeout: 5000 });
-   */
-  public async waitForElementContent(
-    selector: string,
-    expectedContent: string,
-  options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    const timeout = options.timeout || 10000;
-    const pollInterval = options.pollInterval || 100;
-
-    try {
-      await this.page.waitForSelector(selector, { timeout: Math.min(5000, timeout / 2) });
-
-      await this.page.waitForFunction(
-        ({ selector, expectedContent }) => {
-          const element = document.querySelector(selector);
-          return element && element.textContent?.includes(expectedContent);
-        },
-        { selector, expectedContent },
-        { timeout, polling: pollInterval },
-      );
-    } catch (error) {
-      let actualContent = '';
-      try {
-        actualContent = await this.page.$eval(selector, el => el.textContent || '');
-      } catch {
-        actualContent = 'Element not found';
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(
-        `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
-        + `Actual content: "${actualContent}". ${errorMessage}`,
-      );
-    }
-  }
-
-  /**
-   * Verifies the plot has loaded correctly
-   * @returns Promise resolving when verification is complete
-   * @throws LinePlotError if plot is not loaded correctly
-   */
-  public async verifyPlotLoaded(): Promise<void> {
-    try {
-      await this.page.waitForLoadState('domcontentloaded');
-      await expect(this.page.locator(`svg#${this.plotId}`)).toBeVisible({
-        timeout: 10000,
-      });
-    } catch (error) {
-      throw new LinePlotError('LinePlot plot failed to load correctly');
-    }
-  }
-
-  /**
-   * Activates MAIDR by clicking on the plot
-   * @returns Promise resolving when MAIDR is activated
+   * Activates MAIDR on the line plot
    * @throws LinePlotError if MAIDR cannot be activated
    */
   public async activateMaidr(): Promise<void> {
     try {
-      await this.verifyPlotLoaded();
-
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
-
-      const activeElementInfo = await this.getActiveElementInfo();
-
-      if (activeElementInfo.tagName !== 'svg' || activeElementInfo.id !== this.plotId) {
-        throw new Error(`Expected SVG element with ID "${this.plotId}" to be focused,
-          but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`);
-      }
+      await super.activateMaidr(this.selectors.svg, this.plotId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(`Failed to navigate to bar plot: ${errorMessage}`);
+      throw new LinePlotError('Failed to activate MAIDR');
     }
   }
 
   /**
-   * Activates MAIDR by clicking directly on the SVG element
-   * @returns Promise resolving when MAIDR is activated via click
+   * Activates MAIDR by clicking on the line plot
    * @throws LinePlotError if MAIDR cannot be activated by clicking
    */
   public async activateMaidrOnClick(): Promise<void> {
     try {
-      await this.verifyPlotLoaded();
-
-      const svgSelector = `svg#${this.plotId}`;
-
-      await this.page.click(svgSelector);
-
-      const activeElementInfo = await this.getActiveElementInfo();
-
-      if (activeElementInfo.tagName !== 'svg' || activeElementInfo.id !== this.plotId) {
-        throw new Error(
-          `Expected SVG element with ID "${this.plotId}" to be focused after click, `
-          + `but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`,
-        );
-      }
+      await super.activateMaidrOnClick(this.selectors.svg, this.plotId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`);
+      throw new LinePlotError('Failed to activate MAIDR by clicking');
     }
   }
 
@@ -159,51 +80,31 @@ export class LinePlotPage extends BasePage {
    * @throws LinePlotError if instruction text cannot be retrieved
    */
   public async getInstructionText(): Promise<string> {
-    const notificationSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
-
     try {
-      const text = await this.getElementText(notificationSelector);
-      return text.replace(/\s+/g, ' ').trim();
+      return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
       throw new LinePlotError('Failed to get instruction text');
     }
   }
 
   /**
-   * Gets the current notification text (data point information)
-   * @returns Promise resolving to the notification text
-   * @throws LinePlotError if notification text cannot be retrieved
-   */
-  public async getNotificationText(): Promise<string> {
-    const notificationSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
-
-    try {
-      return await this.getElementText(notificationSelector);
-    } catch (error) {
-      throw new LinePlotError('Failed to get notification text');
-    }
-  }
-
-  /**
    * Checks if text mode is active
+   * @param textMode - The text mode to check
    * @returns Promise resolving to true if text mode is active, false otherwise
+   * @throws LinePlotError if text mode status cannot be checked
    */
   public async isTextModeActive(textMode: string): Promise<boolean> {
-    const notificationSelector
-    = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
     try {
-      const notification_text = await this.getElementText(notificationSelector);
-      if (textMode === TestConstants.TEXT_MODE_TERSE) {
-        return notification_text === TestConstants.TEXT_MODE_TERSE_MESSAGE;
-      } else if (textMode === TestConstants.TEXT_MODE_VERBOSE) {
-        return notification_text === TestConstants.TEXT_MODE_VERBOSE_MESSAGE;
-      } else if (textMode === TestConstants.TEXT_MODE_OFF) {
-        return notification_text === TestConstants.TEXT_MODE_OFF_MESSAGE;
-      } else {
-        throw new LinePlotError('Invalid text mode specified');
-      }
+      const modeMessages: Record<string, string> = {
+        [TestConstants.TEXT_MODE_TERSE]: TestConstants.TEXT_MODE_TERSE_MESSAGE,
+        [TestConstants.TEXT_MODE_VERBOSE]: TestConstants.TEXT_MODE_VERBOSE_MESSAGE,
+        [TestConstants.TEXT_MODE_OFF]: TestConstants.TEXT_MODE_OFF_MESSAGE,
+      };
+      return await super.isModeActive(
+        this.selectors.notification,
+        textMode,
+        modeMessages,
+      );
     } catch (error) {
       throw new LinePlotError('Failed to check text mode status');
     }
@@ -211,93 +112,91 @@ export class LinePlotPage extends BasePage {
 
   /**
    * Checks if braille mode is active
+   * @param brailleMode - The braille mode to check
    * @returns Promise resolving to true if braille mode is active, false otherwise
+   * @throws LinePlotError if braille mode status cannot be checked
    */
-  public async isBrailleModeActive(braille_mode: string): Promise<boolean> {
-    const notificationSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+  public async isBrailleModeActive(brailleMode: string): Promise<boolean> {
     try {
-      const notification_text = await this.getElementText(notificationSelector);
-      if (braille_mode === TestConstants.BRAILLE_ON) {
-        return notification_text === TestConstants.BRAILLE_MODE_ON;
-      } else if (braille_mode === TestConstants.BRAILLE_OFF) {
-        return notification_text === TestConstants.BRAILLE_MODE_OFF;
-      } else {
-        throw new LinePlotError('Invalid braille mode specified');
-      }
+      const modeMessages: Record<string, string> = {
+        [TestConstants.BRAILLE_ON]: TestConstants.BRAILLE_MODE_ON,
+        [TestConstants.BRAILLE_OFF]: TestConstants.BRAILLE_MODE_OFF,
+      };
+      return await super.isModeActive(
+        this.selectors.notification,
+        brailleMode,
+        modeMessages,
+      );
     } catch (error) {
       throw new LinePlotError('Failed to check braille mode status');
     }
   }
 
   /**
-   * Checks if sonification is active
-   * @returns Promise resolving to true if sonification is active, false otherwise
+   * Checks if sonification mode is active
+   * @param sonificationMode - The sonification mode to check
+   * @returns Promise resolving to true if sonification mode is active, false otherwise
+   * @throws LinePlotError if sonification mode status cannot be checked
    */
-  public async isSonificationActive(sonification_mode: string): Promise<boolean> {
-    const notificationSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+  public async isSonificationActive(sonificationMode: string): Promise<boolean> {
     try {
-      const notification_text = await this.getElementText(notificationSelector);
-      if (sonification_mode === TestConstants.SOUND_ON) {
-        return notification_text === TestConstants.SOUND_MODE_ON;
-      } else if (sonification_mode === TestConstants.SOUND_OFF) {
-        return notification_text === TestConstants.SOUND_MODE_OFF;
-      } else {
-        throw new LinePlotError('Invalid sonification mode specified');
-      }
+      const modeMessages: Record<string, string> = {
+        [TestConstants.SOUND_ON]: TestConstants.SOUND_MODE_ON,
+        [TestConstants.SOUND_OFF]: TestConstants.SOUND_MODE_OFF,
+      };
+      return await super.isModeActive(
+        this.selectors.notification,
+        sonificationMode,
+        modeMessages,
+      );
     } catch (error) {
-      throw new LinePlotError('Failed to check sonification status');
+      throw new LinePlotError('Failed to check sonification mode status');
     }
   }
 
   /**
    * Checks if review mode is active
+   * @param reviewMode - The review mode to check
    * @returns Promise resolving to true if review mode is active, false otherwise
+   * @throws LinePlotError if review mode status cannot be checked
    */
-  public async isReviewModeActive(review_mode: string): Promise<boolean> {
-    const notificationSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
+  public async isReviewModeActive(reviewMode: string): Promise<boolean> {
     try {
-      const notification_text = await this.getElementText(notificationSelector);
-      if (review_mode === TestConstants.REVIEW_MODE_ON) {
-        return notification_text === TestConstants.REVIEW_MODE_ON_MESSAGE;
-      } else if (review_mode === TestConstants.REVIEW_MODE_OFF) {
-        return notification_text === TestConstants.REVIEW_MODE_OFF_MESSAGE;
-      } else {
-        throw new LinePlotError('Invalid review mode specified');
-      }
+      const modeMessages: Record<string, string> = {
+        [TestConstants.REVIEW_MODE_ON]: TestConstants.REVIEW_MODE_ON_MESSAGE,
+        [TestConstants.REVIEW_MODE_OFF]: TestConstants.REVIEW_MODE_OFF_MESSAGE,
+      };
+      return await super.isModeActive(
+        this.selectors.notification,
+        reviewMode,
+        modeMessages,
+      );
     } catch (error) {
       throw new LinePlotError('Failed to check review mode status');
     }
   }
 
   /**
-   * Get X-Axis title
-   * @returns X-axis title text
-   * @throws LinePlotError if title cannot be retrieved
+   * Gets the X-axis title
+   * @returns Promise resolving to the X-axis title
+   * @throws LinePlotError if X-axis title cannot be retrieved
    */
-
   public async getXAxisTitle(): Promise<string> {
-    const xAxisTitleSelector = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
     try {
-      const xAxisTitle = await this.getElementText(xAxisTitleSelector);
-      return xAxisTitle;
+      return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
       throw new LinePlotError('Failed to get X-axis title');
     }
   }
 
   /**
-   * Get Y-Axis title
-   * @returns Y-axis title text
-   * @throws LinePlotError if title cannot be retrieved
+   * Gets the Y-axis title
+   * @returns Promise resolving to the Y-axis title
+   * @throws LinePlotError if Y-axis title cannot be retrieved
    */
   public async getYAxisTitle(): Promise<string> {
-    const yAxisTitleSelector = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
     try {
-      const yAxisTitle = await this.getElementText(yAxisTitleSelector);
-      return yAxisTitle;
+      return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
       throw new LinePlotError('Failed to get Y-axis title');
     }
@@ -310,12 +209,72 @@ export class LinePlotPage extends BasePage {
    */
   public async getPlaybackSpeed(): Promise<number> {
     try {
-      const speedText = await this.getElementText(
-        `#${TestConstants.MAIDR_SPEED_INDICATOR + this.plotId}`,
-      );
-      return Number.parseFloat(speedText);
+      return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
       throw new LinePlotError('Failed to get playback speed');
+    }
+  }
+
+  /**
+   * Gets the current data point information
+   * @returns Promise resolving to the current data point information
+   * @throws LinePlotError if data point information cannot be retrieved
+   */
+  public async getCurrentDataPointInfo(): Promise<string> {
+    try {
+      return await super.getCurrentDataPointInfo(this.selectors.info);
+    } catch (error) {
+      throw new LinePlotError('Failed to get current data point information');
+    }
+  }
+
+  /**
+   * Starts forward autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws LinePlotError if autoplay fails
+   */
+  public async startForwardAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new LinePlotError('Failed to start forward autoplay');
+    }
+  }
+
+  /**
+   * Starts reverse autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws LinePlotError if autoplay fails
+   */
+  public async startReverseAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new LinePlotError('Failed to start reverse autoplay');
+    }
+  }
+
+  /**
+   * Verifies the plot has loaded correctly
+   * @returns Promise resolving when verification is complete
+   * @throws LinePlotError if plot is not loaded correctly
+   */
+  public async verifyPlotLoaded(): Promise<void> {
+    try {
+      await this.page.waitForLoadState('domcontentloaded');
+      await expect(this.page.locator(this.selectors.svg)).toBeVisible({
+        timeout: 10000,
+      });
+    } catch (error) {
+      throw new LinePlotError('LinePlot plot failed to load correctly');
     }
   }
 
@@ -325,106 +284,10 @@ export class LinePlotPage extends BasePage {
    * @throws LinePlotError if speed toggle information cannot be retrieved
    */
   public async getSpeedToggleInfo(): Promise<string> {
-    const speedToggleSelector
-      = `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
     try {
-      return await this.getElementText(speedToggleSelector);
+      return await this.getElementText(this.selectors.notification);
     } catch (error) {
       throw new LinePlotError('Failed to get speed toggle information');
-    }
-  }
-
-  /**
-   * Get the current data point information
-   * @returns Promise resolving to the current data point information
-   * @throws LinePlotError if data point information cannot be retrieved
-   */
-
-  public async getCurrentDataPointInfo(): Promise<string> {
-    const dataPointSelector
-      = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
-    try {
-      return await this.getElementText(dataPointSelector);
-    } catch (error) {
-      throw new LinePlotError('Failed to get current data point information');
-    }
-  }
-
-  /**
-   * Starts forward autoplay and waits for completion
-   * @param expectedContent - Expected content to wait for upon completion
-   * @param options - Optional timeout configuration
-   * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws LinePlotError if autoplay fails or times out
-   *
-   * @example
-   * // Start autoplay and wait for data point info to reach expected text
-   * await startForwardAutoplay('Last data point reached', { timeout: 10000 });
-   */
-  public async startForwardAutoplay(
-    expectedContent?: string,
-  options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
-      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.pressKey(TestConstants.RIGHT_ARROW_KEY, 'start forward autoplay');
-
-      await this.page.keyboard.up(TestConstants.META_KEY);
-      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.up(TestConstants.RIGHT_ARROW_KEY);
-
-      if (expectedContent) {
-        const dataPointSelector
-        = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
-        await this.waitForElementContent(
-          dataPointSelector,
-          expectedContent,
-          options,
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(`Failed to complete forward autoplay: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Starts reverse autoplay and waits for completion
-   * @param expectedContent - Expected content to wait for upon completion
-   * @param options - Optional timeout configuration
-   * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws LinePlotError if autoplay fails or times out
-   *
-   * @example
-   * // Start autoplay and wait for data point info to reach expected text
-   * await startReverseAutoplay('First data point reached', { timeout: 10000 });
-   */
-  public async startReverseAutoplay(
-    expectedContent?: string,
-  options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
-      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.pressKey(TestConstants.LEFT_ARROW_KEY, 'start reverse autoplay');
-
-      await this.page.keyboard.up(TestConstants.META_KEY);
-      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.up(TestConstants.LEFT_ARROW_KEY);
-
-      if (expectedContent) {
-        const dataPointSelector
-        = `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`;
-        await this.waitForElementContent(
-          dataPointSelector,
-          expectedContent,
-          options,
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new LinePlotError(`Failed to complete reverse autoplay: ${errorMessage}`);
     }
   }
 }

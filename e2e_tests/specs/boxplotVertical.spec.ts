@@ -1,7 +1,25 @@
+import type { Page } from '@playwright/test';
 import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BoxplotVerticalPage } from '../page-objects/plots/boxplotVertical-page';
 import { TestConstants } from '../utils/constants';
+
+/**
+ * Helper function to create and initialize a boxplot vertical page
+ * @param page - The Playwright page
+ * @param activateMaidr - Whether to activate MAIDR
+ * @returns Initialized BoxplotVerticalPage instance
+ */
+async function setupBoxplotVerticalPage(
+  page: Page,
+  activateMaidr = true,
+): Promise<BoxplotVerticalPage> {
+  const boxplotVerticalPage = new BoxplotVerticalPage(page);
+  if (activateMaidr) {
+    await boxplotVerticalPage.activateMaidr();
+  }
+  return boxplotVerticalPage;
+}
 
 /**
  * Safely extracts the display value from a vertical boxplot data point
@@ -102,265 +120,243 @@ test.describe('Boxplot Vertical', () => {
     await boxplotVerticalPage.navigateToBoxplotVertical();
   });
 
-  test('should load the boxplot vertical with maidr data', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the boxplot vertical with maidr data', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page, false);
+      await boxplotVerticalPage.verifyPlotLoaded();
+    });
 
-    await boxplotVerticalPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page, false);
+      await boxplotVerticalPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      const instructionText = await boxplotVerticalPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.BOXPLOT_VERTICAL_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-    await boxplotVerticalPage.activateMaidrOnClick();
+      await boxplotVerticalPage.toggleTextMode();
+      const isTextModeTerse = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await boxplotVerticalPage.toggleTextMode();
+      const isTextModeOff = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      expect(isTextModeOff).toBe(true);
+
+      await boxplotVerticalPage.toggleTextMode();
+      const isTextModeVerbose = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeVerbose).toBe(true);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+      expect(isTextModeOff).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.toggleBrailleMode();
+      const isBrailleModeOn = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await boxplotVerticalPage.toggleBrailleMode();
+      const isBrailleModeOff = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOff).toBe(false);
+      expect(isBrailleModeOn).toBe(false);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.toggleSonification();
+      const isSoundModeOff = await boxplotVerticalPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await boxplotVerticalPage.toggleSonification();
+      const isSoundModeOn = await boxplotVerticalPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.toggleReviewMode();
+      const isReviewModeOn = await boxplotVerticalPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await boxplotVerticalPage.toggleReviewMode();
+      const isReviewModeOff = await boxplotVerticalPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      await boxplotVerticalPage.toggleXAxisTitle();
 
-    const instructionText = await boxplotVerticalPage.getInstructionText();
+      const xAxisTitle = await boxplotVerticalPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(boxplotVerticalLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.BOXPLOT_VERTICAL_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      await boxplotVerticalPage.toggleYAxisTitle();
+
+      const yAxisTitle = await boxplotVerticalPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(boxplotVerticalLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      await boxplotVerticalPage.showHelpMenu();
+    });
 
-    await boxplotVerticalPage.toggleTextMode();
-    const isTextModeTerse = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      await boxplotVerticalPage.showSettingsMenu();
+    });
 
-    await boxplotVerticalPage.toggleTextMode();
-    const isTextModeOff = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await boxplotVerticalPage.toggleTextMode();
-    const isTextModeVerbose = await boxplotVerticalPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+      await boxplotVerticalPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-    await boxplotVerticalPage.toggleBrailleMode();
-    const isBrailleModeOn = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await boxplotVerticalPage.increaseSpeed();
+      const speed = await boxplotVerticalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await boxplotVerticalPage.toggleBrailleMode();
-    const isBrailleModeOff = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+    test('should be able to slow down', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-    expect(isBrailleModeOff).toBe(false);
-    expect(isBrailleModeOn).toBe(false);
+      await boxplotVerticalPage.decreaseSpeed();
+      const speed = await boxplotVerticalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
+
+    test('should be able to reset speed', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.resetSpeed();
+      const speed = await boxplotVerticalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-    await boxplotVerticalPage.toggleSonification();
-    const isSoundModeOff = await boxplotVerticalPage.isSonificationActive(TestConstants.SOUND_OFF);
+      for (let i = 0; i <= dataLength; i++) {
+        await boxplotVerticalPage.moveToNextDataPoint();
+      }
 
-    await boxplotVerticalPage.toggleSonification();
-    const isSoundModeOn = await boxplotVerticalPage.isSonificationActive(TestConstants.SOUND_ON);
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
+    test('should move from right to left', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-  test('should toggle review mode on and off', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
+      for (let i = 0; i <= dataLength; i++) {
+        await boxplotVerticalPage.moveToPreviousDataPoint();
+      }
 
-    await boxplotVerticalPage.toggleReviewMode();
-    const isReviewModeOn = await boxplotVerticalPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-    await boxplotVerticalPage.toggleReviewMode();
-    const isReviewModeOff = await boxplotVerticalPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+    test('should move to the first data point', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
+      await boxplotVerticalPage.moveToFirstDataPoint();
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
 
-  test('should display X-axis Title', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-    await boxplotVerticalPage.toggleXAxisTitle();
+      try {
+        const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
 
-    const xAxisTitle = await boxplotVerticalPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(boxplotVerticalLayer?.axes?.x ?? '');
-  });
-
-  test('should display Y-Axis Title', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-    await boxplotVerticalPage.toggleYAxisTitle();
-
-    const yAxisTitle = await boxplotVerticalPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(boxplotVerticalLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const barPlotPage = new BoxplotVerticalPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const barPlotPage = new BoxplotVerticalPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.increaseSpeed();
-    const speed = await boxplotVerticalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.decreaseSpeed();
-    const speed = await boxplotVerticalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.resetSpeed();
-    const speed = await boxplotVerticalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    for (let i = 0; i <= dataLength; i++) {
-      await boxplotVerticalPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    for (let i = 0; i <= dataLength; i++) {
-      await boxplotVerticalPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.moveToFirstDataPoint();
-    const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
-    try {
-      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    await boxplotVerticalPage.moveToLastDataPoint();
-    const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the box above', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotVerticalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToDataPointAbove();
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should move to the box below', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotVerticalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToDataPointBelow();
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    try {
-      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
-
-      await boxplotVerticalPage.startForwardAutoplay(
-        lastDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const boxplotVerticalPage = new BoxplotVerticalPage(page);
-    await boxplotVerticalPage.activateMaidr();
-
-    try {
-      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+    test('should move to the last data point', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
 
       await boxplotVerticalPage.moveToLastDataPoint();
-      await boxplotVerticalPage.startReverseAutoplay(
-        firstDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+
+      try {
+        const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should move to the box above', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.moveToDataPointAbove();
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to the box below', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      await boxplotVerticalPage.moveToDataPointBelow();
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      try {
+        const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
+        await boxplotVerticalPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+
+      try {
+        const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+        await boxplotVerticalPage.moveToLastDataPoint();
+        await boxplotVerticalPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });

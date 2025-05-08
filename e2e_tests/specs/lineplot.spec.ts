@@ -130,243 +130,209 @@ test.describe('Line Plot', () => {
     await linePlotPage.navigateToLinePlot();
   });
 
-  test('should load the lineplot with maidr data', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the lineplot with maidr data', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.verifyPlotLoaded();
+    });
 
-    await linePlotPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      const instructionText = await linePlotPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.LINEPLOT_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleTextMode();
+      const isTextModeTerse = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+      await linePlotPage.toggleTextMode();
+      const isTextModeOff = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      await linePlotPage.toggleTextMode();
+      const isTextModeVerbose = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeOff).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+    });
 
-    await linePlotPage.activateMaidrOnClick();
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleBrailleMode();
+      const isBrailleModeOn = await linePlotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await linePlotPage.toggleBrailleMode();
+      const isBrailleModeOff = await linePlotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+      expect(isBrailleModeOn).toBe(true);
+      expect(isBrailleModeOff).toBe(true);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleSonification();
+      const isSoundModeOff = await linePlotPage.isSonificationActive(TestConstants.SOUND_OFF);
+      await linePlotPage.toggleSonification();
+      const isSoundModeOn = await linePlotPage.isSonificationActive(TestConstants.SOUND_ON);
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleReviewMode();
+      const isReviewModeOn = await linePlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+      await linePlotPage.toggleReviewMode();
+      const isReviewModeOff = await linePlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleXAxisTitle();
+      const xAxisTitle = await linePlotPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(linePlotLayer?.axes?.x ?? '');
+    });
 
-    const instructionText = await linePlotPage.getInstructionText();
-
-    expect(instructionText).toBe(TestConstants.LINEPLOT_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.toggleYAxisTitle();
+      const yAxisTitle = await linePlotPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(linePlotLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.showHelpMenu();
+    });
 
-    await linePlotPage.toggleTextMode();
-    const isTextModeTerse = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.showSettingsMenu();
+    });
 
-    await linePlotPage.toggleTextMode();
-    const isTextModeOff = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await linePlotPage.toggleTextMode();
-    const isTextModeVerbose = await linePlotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.increaseSpeed();
+      const speed = await linePlotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await linePlotPage.toggleBrailleMode();
-    const isBrailleModeOn = await linePlotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+    test('should be able to slow down', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.decreaseSpeed();
+      const speed = await linePlotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
 
-    await linePlotPage.toggleBrailleMode();
-    const isBrailleModeOff = await linePlotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
-
-    expect(isBrailleModeOff).toBe(true);
-    expect(isBrailleModeOn).toBe(true);
+    test('should be able to reset speed', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.resetSpeed();
+      const speed = await linePlotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      for (let i = 0; i <= dataLength; i++) {
+        await linePlotPage.moveToNextDataPoint();
+      }
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-    await linePlotPage.toggleSonification();
-    const isSoundModeOff = await linePlotPage.isSonificationActive(TestConstants.SOUND_OFF);
+    test('should move from right to left', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      for (let i = 0; i <= dataLength; i++) {
+        await linePlotPage.moveToPreviousDataPoint();
+      }
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-    await linePlotPage.toggleSonification();
-    const isSoundModeOn = await linePlotPage.isSonificationActive(TestConstants.SOUND_ON);
+    test('should move to the first data point', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.moveToFirstDataPoint();
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      try {
+        const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
-
-  test('should toggle review mode on and off', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.toggleReviewMode();
-    const isReviewModeOn = await linePlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
-
-    await linePlotPage.toggleReviewMode();
-    const isReviewModeOff = await linePlotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
-
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
-
-  test('should display X-axis Title', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.toggleXAxisTitle();
-
-    const xAxisTitle = await linePlotPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(linePlotLayer?.axes?.x ?? '');
-  });
-
-  test('should display Y-Axis Title', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.toggleYAxisTitle();
-
-    const yAxisTitle = await linePlotPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(linePlotLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.increaseSpeed();
-    const speed = await linePlotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.decreaseSpeed();
-    const speed = await linePlotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.resetSpeed();
-    const speed = await linePlotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await linePlotPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await linePlotPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.moveToFirstDataPoint();
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    try {
-      const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.moveToLastDataPoint();
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}, ${dataLength}`);
-    }
-  });
-
-  test('should not be able to move up', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in lineplot
-    await linePlotPage.moveToDataPointAbove();
-
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should not be able to move down', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    await linePlotPage.moveToNextDataPoint(); // Remove once up arrow key is handled in lineplot
-    await linePlotPage.moveToDataPointBelow();
-
-    const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    try {
-      const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
-
-      await linePlotPage.startForwardAutoplay(
-        lastDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const linePlotPage = await setupLinePlotPage(page);
-
-    try {
-      const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
-
+    test('should move to the last data point', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
       await linePlotPage.moveToLastDataPoint();
-      await linePlotPage.startReverseAutoplay(
-        firstDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      try {
+        const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should not be able to move up', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.moveToNextDataPoint();
+      await linePlotPage.moveToDataPointAbove();
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+
+    test('should not be able to move down', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      await linePlotPage.moveToNextDataPoint();
+      await linePlotPage.moveToDataPointBelow();
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      try {
+        const lastDataPointValue = getLinePlotDisplayValue(linePlotLayer, dataLength - 1);
+        await linePlotPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+      try {
+        const firstDataPointValue = getLinePlotDisplayValue(linePlotLayer, 0);
+        await linePlotPage.moveToLastDataPoint();
+        await linePlotPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });

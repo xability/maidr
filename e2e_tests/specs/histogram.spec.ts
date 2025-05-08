@@ -103,257 +103,236 @@ test.describe('Histogram', () => {
     await histogramPage.navigateToHistogram();
   });
 
-  test('should load the histogram with maidr data', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the histogram with maidr data', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page, false);
+      await histogramPage.verifyPlotLoaded();
+    });
 
-    await histogramPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page, false);
+      await histogramPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      const instructionText = await histogramPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.HISTOGRAM_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
 
-    await histogramPage.activateMaidrOnClick();
+      await histogramPage.toggleTextMode();
+      const isTextModeTerse = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await histogramPage.toggleTextMode();
+      const isTextModeOff = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+
+      await histogramPage.toggleTextMode();
+      const isTextModeVerbose = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeOff).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      await histogramPage.toggleBrailleMode();
+      const isBrailleModeOn = await histogramPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await histogramPage.toggleBrailleMode();
+      const isBrailleModeOff = await histogramPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOn).toBe(true);
+      expect(isBrailleModeOff).toBe(true);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      await histogramPage.toggleSonification();
+      const isSoundModeOff = await histogramPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await histogramPage.toggleSonification();
+      const isSoundModeOn = await histogramPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      await histogramPage.toggleReviewMode();
+      const isReviewModeOn = await histogramPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await histogramPage.toggleReviewMode();
+      const isReviewModeOff = await histogramPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.toggleXAxisTitle();
 
-    const instructionText = await histogramPage.getInstructionText();
+      const xAxisTitle = await histogramPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(histogramLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.HISTOGRAM_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.toggleYAxisTitle();
+
+      const yAxisTitle = await histogramPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(histogramLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.showHelpMenu();
+    });
 
-    await histogramPage.toggleTextMode();
-    const isTextModeTerse = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.showSettingsMenu();
+    });
 
-    await histogramPage.toggleTextMode();
-    const isTextModeOff = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await histogramPage.toggleTextMode();
-    const isTextModeVerbose = await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.increaseSpeed();
+      const speed = await histogramPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await histogramPage.toggleBrailleMode();
-    const isBrailleModeOn = await histogramPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+    test('should be able to slow down', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.decreaseSpeed();
+      const speed = await histogramPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
 
-    await histogramPage.toggleBrailleMode();
-    const isBrailleModeOff = await histogramPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
-
-    expect(isBrailleModeOff).toBe(true);
-    expect(isBrailleModeOn).toBe(true);
+    test('should be able to reset speed', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.resetSpeed();
+      const speed = await histogramPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
 
-    await histogramPage.toggleSonification();
-    const isSoundModeOff = await histogramPage.isSonificationActive(TestConstants.SOUND_OFF);
-
-    await histogramPage.toggleSonification();
-    const isSoundModeOn = await histogramPage.isSonificationActive(TestConstants.SOUND_ON);
-
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
-
-  test('should toggle review mode on and off', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.toggleReviewMode();
-    const isReviewModeOn = await histogramPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
-
-    await histogramPage.toggleReviewMode();
-    const isReviewModeOff = await histogramPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
-
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
-
-  test('should display X-axis Title', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.toggleXAxisTitle();
-
-    const xAxisTitle = await histogramPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(histogramLayer?.axes?.x ?? '');
-  });
-
-  test('should display Y-Axis Title', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.toggleYAxisTitle();
-
-    const yAxisTitle = await histogramPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(histogramLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.increaseSpeed();
-    const speed = await histogramPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.decreaseSpeed();
-    const speed = await histogramPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.resetSpeed();
-    const speed = await histogramPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await histogramPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await histogramPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.moveToFirstDataPoint();
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-
-    try {
-      const firstDataPointValue = getHistogramDisplayValue(histogramLayer, 0);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.moveToLastDataPoint();
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getHistogramDisplayValue(histogramLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should not be able to move up', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in histogram
-    await histogramPage.moveToDataPointAbove();
-
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should not be able to move down', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    await histogramPage.moveToNextDataPoint(); // Remove once up arrow key is handled in histogram
-    await histogramPage.moveToDataPointBelow();
-
-    const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
-
-    let expectedDataPoint: string;
-
-    try {
-      if (Array.isArray(histogramLayer?.data) && dataLength > 0) {
-        const lastDataPointValue = getHistogramDisplayValue(histogramLayer, dataLength - 1);
-        expectedDataPoint = lastDataPointValue;
-      } else {
-        throw new Error('Invalid data format in histogramLayer');
+      for (let i = 0; i <= dataLength; i++) {
+        await histogramPage.moveToNextDataPoint();
       }
 
-      await histogramPage.startForwardAutoplay(
-        expectedDataPoint,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-  test('should execute reverse autoplay', async ({ page }) => {
-    const histogramPage = await setupHistogramPage(page);
+    test('should move from right to left', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
 
-    let expectedDataPoint: string;
-
-    try {
-      if (Array.isArray(histogramLayer?.data) && dataLength > 0) {
-        expectedDataPoint = getHistogramDisplayValue(histogramLayer, 0);
-      } else {
-        throw new Error('Invalid data format in histogramLayer');
+      for (let i = 0; i <= dataLength; i++) {
+        await histogramPage.moveToPreviousDataPoint();
       }
+
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+
+    test('should move to the first data point', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      await histogramPage.moveToFirstDataPoint();
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
+
+      try {
+        const firstDataPointValue = getHistogramDisplayValue(histogramLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should move to the last data point', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
       await histogramPage.moveToLastDataPoint();
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
 
-      await histogramPage.startReverseAutoplay(
-        expectedDataPoint,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      try {
+        const lastDataPointValue = getHistogramDisplayValue(histogramLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should not be able to move up', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.moveToNextDataPoint();
+      await histogramPage.moveToDataPointAbove();
+
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+
+    test('should not be able to move down', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+      await histogramPage.moveToNextDataPoint();
+      await histogramPage.moveToDataPointBelow();
+
+      const currentDataPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      try {
+        const lastDataPointValue = getHistogramDisplayValue(histogramLayer, dataLength - 1);
+        await histogramPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      try {
+        const firstDataPointValue = getHistogramDisplayValue(histogramLayer, 0);
+        await histogramPage.moveToLastDataPoint();
+        await histogramPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });

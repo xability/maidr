@@ -87,6 +87,7 @@ function getStackedBarplotDisplayValue(layer: MaidrLayer | undefined, index: num
 
   throw new TypeError('Layer data is not in expected format');
 }
+
 test.describe('Stacked Barplot', () => {
   let maidrData: Maidr;
   let stackedBarplotLayer: MaidrLayer;
@@ -138,246 +139,252 @@ test.describe('Stacked Barplot', () => {
     await stackedBarplotPage.navigateToStackedBarplot();
   });
 
-  test('should load the Stacked Barplot with maidr data', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the stacked barplot with maidr data', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page, false);
+      await stackedBarplotPage.verifyPlotLoaded();
+    });
 
-    await StackedBarplotPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page, false);
+      await stackedBarplotPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      const instructionText = await stackedBarplotPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.STACKED_BARPLOT_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.activateMaidrOnClick();
+      await stackedBarplotPage.toggleTextMode();
+      const isTextModeTerse = await stackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await stackedBarplotPage.toggleTextMode();
+      const isTextModeOff = await stackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      expect(isTextModeOff).toBe(true);
+
+      await stackedBarplotPage.toggleTextMode();
+      const isTextModeVerbose = await stackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeVerbose).toBe(true);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+      expect(isTextModeOff).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.toggleBrailleMode();
+      const isBrailleModeOn = await stackedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await stackedBarplotPage.toggleBrailleMode();
+      const isBrailleModeOff = await stackedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOff).toBe(true);
+      expect(isBrailleModeOn).toBe(true);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.toggleSonification();
+      const isSoundModeOff = await stackedBarplotPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await stackedBarplotPage.toggleSonification();
+      const isSoundModeOn = await stackedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.toggleReviewMode();
+      const isReviewModeOn = await stackedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await stackedBarplotPage.toggleReviewMode();
+      const isReviewModeOff = await stackedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      await stackedBarplotPage.toggleXAxisTitle();
 
-    const instructionText = await StackedBarplotPage.getInstructionText();
+      const xAxisTitle = await stackedBarplotPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.STACKED_BARPLOT_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      await stackedBarplotPage.toggleYAxisTitle();
+
+      const yAxisTitle = await stackedBarplotPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      await stackedBarplotPage.showHelpMenu();
+    });
 
-    await StackedBarplotPage.toggleTextMode();
-    const isTextModeTerse = await StackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      await stackedBarplotPage.showSettingsMenu();
+    });
 
-    await StackedBarplotPage.toggleTextMode();
-    const isTextModeOff = await StackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await StackedBarplotPage.toggleTextMode();
-    const isTextModeVerbose = await StackedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+      await stackedBarplotPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.toggleBrailleMode();
-    const isBrailleModeOn = await StackedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await stackedBarplotPage.increaseSpeed();
+      const speed = await stackedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await StackedBarplotPage.toggleBrailleMode();
-    const isBrailleModeOff = await StackedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+    test('should be able to slow down', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    expect(isBrailleModeOff).toBe(true);
-    expect(isBrailleModeOn).toBe(true);
+      await stackedBarplotPage.decreaseSpeed();
+      const speed = await stackedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
+
+    test('should be able to reset speed', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.resetSpeed();
+      const speed = await stackedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.toggleSonification();
-    const isSoundModeOff = await StackedBarplotPage.isSonificationActive(TestConstants.SOUND_OFF);
+      await stackedBarplotPage.moveToFirstDataPoint();
 
-    await StackedBarplotPage.toggleSonification();
-    const isSoundModeOn = await StackedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
+      for (let i = 0; i < dataLength; i++) {
+        await stackedBarplotPage.moveToNextDataPoint();
+      }
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
 
-  test('should toggle review mode on and off', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+      try {
+        const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Move from left to right verification failed: ${errorMessage}`);
+      }
+    });
 
-    await StackedBarplotPage.toggleReviewMode();
-    const isReviewModeOn = await StackedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+    test('should move from right to left', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.toggleReviewMode();
-    const isReviewModeOff = await StackedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+      for (let i = 0; i <= dataLength; i++) {
+        await stackedBarplotPage.moveToPreviousDataPoint();
+      }
 
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-  test('should display X-axis Title', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
+    test('should move to the first data point', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
-    await StackedBarplotPage.toggleXAxisTitle();
+      await stackedBarplotPage.moveToFirstDataPoint();
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
 
-    const xAxisTitle = await StackedBarplotPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x ?? '');
-  });
+      try {
+        const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
 
-  test('should display Y-Axis Title', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.toggleYAxisTitle();
-
-    const yAxisTitle = await StackedBarplotPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.increaseSpeed();
-    const speed = await StackedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.decreaseSpeed();
-    const speed = await StackedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await StackedBarplotPage.resetSpeed();
-    const speed = await StackedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    for (let i = 0; i <= dataLength + 1; i++) {
-      await StackedBarplotPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await StackedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const StackedBarplotPage = await setupStackedBarplotPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await StackedBarplotPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await StackedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await stackedBarplotPage.moveToFirstDataPoint();
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    try {
-      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await stackedBarplotPage.moveToLastDataPoint();
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to bottom level of stacked bar', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await stackedBarplotPage.moveToDataPointAbove();
-
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should move to upper level of stacked bar', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    await stackedBarplotPage.moveToDataPointBelow();
-
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    try {
-      const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
-
-      await stackedBarplotPage.startForwardAutoplay(
-        lastDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const stackedBarplotPage = await setupStackedBarplotPage(page);
-
-    try {
-      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+    test('should move to the last data point', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
 
       await stackedBarplotPage.moveToLastDataPoint();
-      await stackedBarplotPage.startReverseAutoplay(
-        firstDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+      try {
+        const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should move to bottom level of stacked bar', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.moveToDataPointAbove();
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to upper level of stacked bar', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.moveToDataPointBelow();
+      const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      try {
+        const lastDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, dataLength - 1);
+        await stackedBarplotPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      try {
+        const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
+        await stackedBarplotPage.moveToLastDataPoint();
+        await stackedBarplotPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });

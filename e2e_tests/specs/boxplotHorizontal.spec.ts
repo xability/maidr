@@ -1,7 +1,25 @@
+import type { Page } from '@playwright/test';
 import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BoxplotHorizontalPage } from '../page-objects/plots/boxplotHorizontal-page';
 import { TestConstants } from '../utils/constants';
+
+/**
+ * Helper function to create and initialize a boxplot horizontal page
+ * @param page - The Playwright page
+ * @param activateMaidr - Whether to activate MAIDR
+ * @returns Initialized BoxplotHorizontalPage instance
+ */
+async function setupBoxplotHorizontalPage(
+  page: Page,
+  activateMaidr = true,
+): Promise<BoxplotHorizontalPage> {
+  const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
+  if (activateMaidr) {
+    await boxplotHorizontalPage.activateMaidr();
+  }
+  return boxplotHorizontalPage;
+}
 
 /**
  * Safely extracts the display value from a horizontal boxplot data point
@@ -103,275 +121,252 @@ test.describe('Boxplot Horizontal', () => {
     await boxplotHorizontalPage.navigateToBoxplotHorizontal();
   });
 
-  test('should load the boxplot Horizontal with maidr data', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the boxplot horizontal with maidr data', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page, false);
+      await boxplotHorizontalPage.verifyPlotLoaded();
+    });
 
-    await boxplotHorizontalPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page, false);
+      await boxplotHorizontalPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      const instructionText = await boxplotHorizontalPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    await boxplotHorizontalPage.activateMaidrOnClick();
+      await boxplotHorizontalPage.toggleTextMode();
+      const isTextModeTerse = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await boxplotHorizontalPage.toggleTextMode();
+      const isTextModeOff = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      expect(isTextModeOff).toBe(true);
+
+      await boxplotHorizontalPage.toggleTextMode();
+      const isTextModeVerbose = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeVerbose).toBe(true);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+      expect(isTextModeOff).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.toggleBrailleMode();
+      const isBrailleModeOn = await boxplotHorizontalPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await boxplotHorizontalPage.toggleBrailleMode();
+      const isBrailleModeOff = await boxplotHorizontalPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOff).toBe(false);
+      expect(isBrailleModeOn).toBe(false);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.toggleSonification();
+      const isSoundModeOff = await boxplotHorizontalPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await boxplotHorizontalPage.toggleSonification();
+      const isSoundModeOn = await boxplotHorizontalPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.toggleReviewMode();
+      const isReviewModeOn = await boxplotHorizontalPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await boxplotHorizontalPage.toggleReviewMode();
+      const isReviewModeOff = await boxplotHorizontalPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      await boxplotHorizontalPage.toggleXAxisTitle();
 
-    const instructionText = await boxplotHorizontalPage.getInstructionText();
+      const xAxisTitle = await boxplotHorizontalPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(boxplotHorizontalLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      await boxplotHorizontalPage.toggleYAxisTitle();
+
+      const yAxisTitle = await boxplotHorizontalPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(boxplotHorizontalLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      await boxplotHorizontalPage.showHelpMenu();
+    });
 
-    await boxplotHorizontalPage.toggleTextMode();
-    const isTextModeTerse = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      await boxplotHorizontalPage.showSettingsMenu();
+    });
 
-    await boxplotHorizontalPage.toggleTextMode();
-    const isTextModeOff = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await boxplotHorizontalPage.toggleTextMode();
-    const isTextModeVerbose = await boxplotHorizontalPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+      await boxplotHorizontalPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    await boxplotHorizontalPage.toggleBrailleMode();
-    const isBrailleModeOn = await boxplotHorizontalPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await boxplotHorizontalPage.increaseSpeed();
+      const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await boxplotHorizontalPage.toggleBrailleMode();
-    const isBrailleModeOff = await boxplotHorizontalPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+    test('should be able to slow down', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    expect(isBrailleModeOff).toBe(false);
-    expect(isBrailleModeOn).toBe(false);
+      await boxplotHorizontalPage.decreaseSpeed();
+      const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
+
+    test('should be able to reset speed', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.resetSpeed();
+      const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    await boxplotHorizontalPage.toggleSonification();
-    const isSoundModeOff = await boxplotHorizontalPage.isSonificationActive(TestConstants.SOUND_OFF);
+      await boxplotHorizontalPage.moveToFirstDataPoint();
 
-    await boxplotHorizontalPage.toggleSonification();
-    const isSoundModeOn = await boxplotHorizontalPage.isSonificationActive(TestConstants.SOUND_ON);
+      for (let i = 0; i < dataLength; i++) {
+        await boxplotHorizontalPage.moveToNextDataPoint();
+      }
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
 
-  test('should toggle review mode on and off', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
+      try {
+        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Move from left to right verification failed: ${errorMessage}`);
+      }
+    });
 
-    await boxplotHorizontalPage.toggleReviewMode();
-    const isReviewModeOn = await boxplotHorizontalPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+    test('should move from right to left', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    await boxplotHorizontalPage.toggleReviewMode();
-    const isReviewModeOff = await boxplotHorizontalPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+      for (let i = 0; i <= dataLength; i++) {
+        await boxplotHorizontalPage.moveToPreviousDataPoint();
+      }
 
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-  test('should display X-axis Title', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-    await boxplotHorizontalPage.toggleXAxisTitle();
+    test('should move to the first data point', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-    const xAxisTitle = await boxplotHorizontalPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(boxplotHorizontalLayer?.axes?.x ?? '');
-  });
+      await boxplotHorizontalPage.moveToFirstDataPoint();
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
 
-  test('should display Y-Axis Title', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-    await boxplotHorizontalPage.toggleYAxisTitle();
+      try {
+        const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
 
-    const yAxisTitle = await boxplotHorizontalPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(boxplotHorizontalLayer?.axes?.y ?? '');
-  });
+    test('should move to the last data point', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
 
-  test('should show help menu', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.increaseSpeed();
-    const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.decreaseSpeed();
-    const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.resetSpeed();
-    const speed = await boxplotHorizontalPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToFirstDataPoint();
-
-    for (let i = 0; i < dataLength; i++) {
-      await boxplotHorizontalPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Move from left to right verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    for (let i = 0; i <= dataLength; i++) {
-      await boxplotHorizontalPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToFirstDataPoint();
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    try {
-      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToLastDataPoint();
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to the box above', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToDataPointAbove();
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should move to the box below', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    await boxplotHorizontalPage.moveToDataPointBelow();
-
-    const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    try {
-      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-
-      await boxplotHorizontalPage.startForwardAutoplay(
-        lastDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
-    await boxplotHorizontalPage.activateMaidr();
-
-    try {
-      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       await boxplotHorizontalPage.moveToLastDataPoint();
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
 
-      await boxplotHorizontalPage.startReverseAutoplay(
-        firstDataPointValue,
-        { timeout: 15000 },
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      try {
+        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should move to the box above', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.moveToDataPointAbove();
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to the box below', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      await boxplotHorizontalPage.moveToDataPointBelow();
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      try {
+        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+        await boxplotHorizontalPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      try {
+        const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+        await boxplotHorizontalPage.moveToLastDataPoint();
+        await boxplotHorizontalPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });

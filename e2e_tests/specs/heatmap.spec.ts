@@ -8,7 +8,7 @@ import { TestConstants } from '../utils/constants';
  * Helper function to create and initialize a heatmap page
  * @param page - The Playwright page
  * @param activateMaidr - Whether to activate MAIDR
- * @returns Initialized HistogramPage instance
+ * @returns Initialized HeatmapPage instance
  */
 async function setupHeatmapPage(
   page: Page,
@@ -21,7 +21,7 @@ async function setupHeatmapPage(
   return heatmapPage;
 }
 
-test.describe('Histogram', () => {
+test.describe('Heatmap', () => {
   let maidrData: Maidr;
   let heatmapLayer: MaidrLayer;
   let dataLength: number;
@@ -72,221 +72,219 @@ test.describe('Histogram', () => {
     await heatmapPage.navigateToHeatmap();
   });
 
-  test('should load the heatmap with maidr data', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the heatmap with maidr data', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page, false);
+      await heatmapPage.verifyPlotLoaded();
+    });
 
-    await heatmapPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page, false);
+      await heatmapPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+      const instructionText = await heatmapPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.HEATMAP_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    await heatmapPage.activateMaidrOnClick();
+      await heatmapPage.toggleTextMode();
+      const isTextModeTerse = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await heatmapPage.toggleTextMode();
+      const isTextModeOff = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      expect(isTextModeOff).toBe(true);
+
+      await heatmapPage.toggleTextMode();
+      const isTextModeVerbose = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeVerbose).toBe(true);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+      expect(isTextModeOff).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.toggleBrailleMode();
+      const isBrailleModeOn = await heatmapPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await heatmapPage.toggleBrailleMode();
+      const isBrailleModeOff = await heatmapPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOff).toBe(true);
+      expect(isBrailleModeOn).toBe(true);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.toggleSonification();
+      const isSoundModeOff = await heatmapPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await heatmapPage.toggleSonification();
+      const isSoundModeOn = await heatmapPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.toggleReviewMode();
+      const isReviewModeOn = await heatmapPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await heatmapPage.toggleReviewMode();
+      const isReviewModeOff = await heatmapPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    const instructionText = await heatmapPage.getInstructionText();
+      await heatmapPage.toggleXAxisTitle();
+      const xAxisTitle = await heatmapPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(heatmapLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.HEATMAP_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.toggleYAxisTitle();
+      const yAxisTitle = await heatmapPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(heatmapLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+      await heatmapPage.showHelpMenu();
+    });
 
-    await heatmapPage.toggleTextMode();
-    const isTextModeTerse = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+      await heatmapPage.showSettingsMenu();
+    });
 
-    await heatmapPage.toggleTextMode();
-    const isTextModeOff = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await heatmapPage.toggleTextMode();
-    const isTextModeVerbose = await heatmapPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+      await heatmapPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    await heatmapPage.toggleBrailleMode();
-    const isBrailleModeOn = await heatmapPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await heatmapPage.increaseSpeed();
+      const speed = await heatmapPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await heatmapPage.toggleBrailleMode();
-    const isBrailleModeOff = await heatmapPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+    test('should be able to slow down', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    expect(isBrailleModeOff).toBe(true);
-    expect(isBrailleModeOn).toBe(true);
+      await heatmapPage.decreaseSpeed();
+      const speed = await heatmapPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
+
+    test('should be able to reset speed', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.resetSpeed();
+      const speed = await heatmapPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    await heatmapPage.toggleSonification();
-    const isSoundModeOff = await heatmapPage.isSonificationActive(TestConstants.SOUND_OFF);
+      for (let i = 0; i <= dataLength; i++) {
+        await heatmapPage.moveToNextDataPoint();
+      }
 
-    await heatmapPage.toggleSonification();
-    const isSoundModeOn = await heatmapPage.isSonificationActive(TestConstants.SOUND_ON);
+      const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
+    test('should move from right to left', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      for (let i = 0; i <= dataLength; i++) {
+        await heatmapPage.moveToPreviousDataPoint();
+      }
+
+      const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
+
+    test('should move to the first data point', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.moveToFirstDataPoint();
+      const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
+      if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
+        expect(currentDataPoint).toContain((heatmapLayer.data[0] as { x: string }).x);
+      } else {
+        throw new Error('Invalid data format in heatmapLayer');
+      }
+    });
+
+    test('should move to the last data point', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      await heatmapPage.moveToLastDataPoint();
+      const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
+      if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
+        expect(currentDataPoint).toContain((heatmapLayer.data[dataLength - 1] as { x: string }).x);
+      } else {
+        throw new Error('Invalid data format in heatmapLayer');
+      }
+    });
   });
 
-  test('should toggle review mode on and off', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-    await heatmapPage.toggleReviewMode();
-    const isReviewModeOn = await heatmapPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+      let expectedDataPoint: string;
+      if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
+        expectedDataPoint = (heatmapLayer.data[dataLength - 1] as { x: string }).x;
+      } else {
+        throw new Error('Invalid data format in heatmapLayer');
+      }
 
-    await heatmapPage.toggleReviewMode();
-    const isReviewModeOff = await heatmapPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+      await heatmapPage.startForwardAutoplay(expectedDataPoint);
+    });
 
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
+    test('should execute backward autoplay', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
 
-  test('should display X-axis Title', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
+      let expectedDataPoint: string;
+      if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
+        expectedDataPoint = (heatmapLayer.data[0] as { x: string }).x;
+      } else {
+        throw new Error('Invalid data format in heatmapLayer');
+      }
 
-    await heatmapPage.toggleXAxisTitle();
-
-    const xAxisTitle = await heatmapPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(heatmapLayer?.axes?.x ?? '');
-  });
-
-  test('should display Y-Axis Title', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.toggleYAxisTitle();
-
-    const yAxisTitle = await heatmapPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(heatmapLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const barPlotPage = await setupHeatmapPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const barPlotPage = await setupHeatmapPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.increaseSpeed();
-    const speed = await heatmapPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.decreaseSpeed();
-    const speed = await heatmapPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.resetSpeed();
-    const speed = await heatmapPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await heatmapPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await heatmapPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.moveToFirstDataPoint();
-    const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-    if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-      expect(currentDataPoint).toContain((heatmapLayer.data[0] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in heatmapLayer');
-    }
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    await heatmapPage.moveToLastDataPoint();
-    const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-    if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-      expect(currentDataPoint).toContain((heatmapLayer.data[dataLength - 1] as { x: string }).x);
-    } else {
-      throw new Error('Invalid data format in heatmapLayer');
-    }
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    let expectedDataPoint: string;
-    if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-      expectedDataPoint = (heatmapLayer.data[dataLength - 1] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in heatmapLayer');
-    }
-
-    await heatmapPage.startForwardAutoplay(
-      expectedDataPoint,
-    );
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const heatmapPage = await setupHeatmapPage(page);
-
-    let expectedDataPoint: string;
-    if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-      expectedDataPoint = (heatmapLayer.data[0] as { x: string }).x;
-    } else {
-      throw new Error('Invalid data format in heatmapLayer');
-    }
-
-    await heatmapPage.moveToLastDataPoint();
-
-    await heatmapPage.startReverseAutoplay(
-      expectedDataPoint,
-    );
+      await heatmapPage.moveToLastDataPoint();
+      await heatmapPage.startReverseAutoplay(expectedDataPoint);
+    });
   });
 });

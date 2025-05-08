@@ -167,248 +167,252 @@ test.describe('Dodged Barplot', () => {
     await dodgedBarplotPage.navigateToDodgedBarplot();
   });
 
-  test('should load the dodged barplot with maidr data', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Basic Plot Functionality', () => {
+    test('should load the dodged barplot with maidr data', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page, false);
+      await dodgedBarplotPage.verifyPlotLoaded();
+    });
 
-    await dodgedBarplotPage.verifyPlotLoaded();
+    test('should activate maidr on click', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page, false);
+      await dodgedBarplotPage.activateMaidrOnClick();
+    });
+
+    test('should display instruction text', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      const instructionText = await dodgedBarplotPage.getInstructionText();
+      expect(instructionText).toBe(TestConstants.DODGED_BARPLOT_INSTRUCTION_TEXT);
+    });
   });
 
-  test('should activate maidr on click', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Mode Controls', () => {
+    test('should toggle text mode on and off', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    await dodgedBarplotPage.activateMaidrOnClick();
+      await dodgedBarplotPage.toggleTextMode();
+      const isTextModeTerse = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+
+      await dodgedBarplotPage.toggleTextMode();
+      const isTextModeOff = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
+      expect(isTextModeOff).toBe(true);
+
+      await dodgedBarplotPage.toggleTextMode();
+      const isTextModeVerbose = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
+      expect(isTextModeVerbose).toBe(true);
+
+      expect(isTextModeTerse).toBe(true);
+      expect(isTextModeVerbose).toBe(true);
+      expect(isTextModeOff).toBe(true);
+    });
+
+    test('should toggle braille mode on and off', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.toggleBrailleMode();
+      const isBrailleModeOn = await dodgedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      await dodgedBarplotPage.toggleBrailleMode();
+      const isBrailleModeOff = await dodgedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+
+      expect(isBrailleModeOff).toBe(true);
+      expect(isBrailleModeOn).toBe(true);
+    });
+
+    test('should toggle sound mode on and off', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.toggleSonification();
+      const isSoundModeOff = await dodgedBarplotPage.isSonificationActive(TestConstants.SOUND_OFF);
+
+      await dodgedBarplotPage.toggleSonification();
+      const isSoundModeOn = await dodgedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
+
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
+    });
+
+    test('should toggle review mode on and off', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.toggleReviewMode();
+      const isReviewModeOn = await dodgedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+
+      await dodgedBarplotPage.toggleReviewMode();
+      const isReviewModeOff = await dodgedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+
+      expect(isReviewModeOn).toBe(true);
+      expect(isReviewModeOff).toBe(true);
+    });
   });
 
-  test('should display instruction text', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Axis Controls', () => {
+    test('should display X-axis Title', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.toggleXAxisTitle();
 
-    const instructionText = await dodgedBarplotPage.getInstructionText();
+      const xAxisTitle = await dodgedBarplotPage.getXAxisTitle();
+      expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x ?? '');
+    });
 
-    expect(instructionText).toBe(TestConstants.DODGED_BARPLOT_INSTRUCTION_TEXT);
+    test('should display Y-Axis Title', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.toggleYAxisTitle();
+
+      const yAxisTitle = await dodgedBarplotPage.getYAxisTitle();
+      expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y ?? '');
+    });
   });
 
-  test('should toggle text mode on and off', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Menu Controls', () => {
+    test('should show help menu', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.showHelpMenu();
+    });
 
-    await dodgedBarplotPage.toggleTextMode();
-    const isTextModeTerse = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE);
+    test('should show settings menu', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.showSettingsMenu();
+    });
 
-    await dodgedBarplotPage.toggleTextMode();
-    const isTextModeOff = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_OFF);
-    expect(isTextModeOff).toBe(true);
-
-    await dodgedBarplotPage.toggleTextMode();
-    const isTextModeVerbose = await dodgedBarplotPage.isTextModeActive(TestConstants.TEXT_MODE_VERBOSE);
-    expect(isTextModeVerbose).toBe(true);
-
-    expect(isTextModeTerse).toBe(true);
-    expect(isTextModeVerbose).toBe(true);
-    expect(isTextModeOff).toBe(true);
+    test('should show chat dialog', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.showChatDialog();
+    });
   });
 
-  test('should toggle braille mode on and off', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Speed Controls', () => {
+    test('should be able to speed up', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    await dodgedBarplotPage.toggleBrailleMode();
-    const isBrailleModeOn = await dodgedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+      await dodgedBarplotPage.increaseSpeed();
+      const speed = await dodgedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_UP);
+    });
 
-    await dodgedBarplotPage.toggleBrailleMode();
-    const isBrailleModeOff = await dodgedBarplotPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
+    test('should be able to slow down', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    expect(isBrailleModeOff).toBe(true);
-    expect(isBrailleModeOn).toBe(true);
+      await dodgedBarplotPage.decreaseSpeed();
+      const speed = await dodgedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_DOWN);
+    });
+
+    test('should be able to reset speed', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.resetSpeed();
+      const speed = await dodgedBarplotPage.getSpeedToggleInfo();
+      expect(speed).toEqual(TestConstants.SPEED_RESET);
+    });
   });
 
-  test('should toggle sound mode on and off', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+  test.describe('Navigation Controls', () => {
+    test('should move from left to right', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    await dodgedBarplotPage.toggleSonification();
-    const isSoundModeOff = await dodgedBarplotPage.isSonificationActive(TestConstants.SOUND_OFF);
+      await dodgedBarplotPage.moveToFirstDataPoint();
 
-    await dodgedBarplotPage.toggleSonification();
-    const isSoundModeOn = await dodgedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
+      for (let i = 0; i < dataLength; i++) {
+        await dodgedBarplotPage.moveToNextDataPoint();
+      }
 
-    expect(isSoundModeOff).toBe(true);
-    expect(isSoundModeOn).toBe(true);
-  });
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
 
-  test('should toggle review mode on and off', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      try {
+        const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Move from left to right verification failed: ${errorMessage}`);
+      }
+    });
 
-    await dodgedBarplotPage.toggleReviewMode();
-    const isReviewModeOn = await dodgedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_ON);
+    test('should move from right to left', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    await dodgedBarplotPage.toggleReviewMode();
-    const isReviewModeOff = await dodgedBarplotPage.isReviewModeActive(TestConstants.REVIEW_MODE_OFF);
+      for (let i = 0; i <= dataLength; i++) {
+        await dodgedBarplotPage.moveToPreviousDataPoint();
+      }
 
-    expect(isReviewModeOn).toBe(true);
-    expect(isReviewModeOff).toBe(true);
-  });
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
+    });
 
-  test('should display X-axis Title', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+    test('should move to the first data point', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
-    await dodgedBarplotPage.toggleXAxisTitle();
+      await dodgedBarplotPage.moveToFirstDataPoint();
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
 
-    const xAxisTitle = await dodgedBarplotPage.getXAxisTitle();
-    expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x ?? '');
-  });
+      try {
+        const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+        expect(currentDataPoint).toContain(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`First data point verification failed: ${errorMessage}`);
+      }
+    });
 
-  test('should display Y-Axis Title', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.toggleYAxisTitle();
-
-    const yAxisTitle = await dodgedBarplotPage.getYAxisTitle();
-    expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y ?? '');
-  });
-
-  test('should show help menu', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.showHelpMenu();
-  });
-
-  test('should show settings menu', async ({ page }) => {
-    const barPlotPage = await setupDodgedBarplotPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showSettingsMenu();
-  });
-
-  test('should show chat dialog', async ({ page }) => {
-    const barPlotPage = await setupDodgedBarplotPage(page);
-    await barPlotPage.activateMaidr();
-
-    await barPlotPage.showChatDialog();
-  });
-
-  test('should be able to speed up', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.increaseSpeed();
-    const speed = await dodgedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_UP);
-  });
-
-  test('should be able to slow down', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.decreaseSpeed();
-    const speed = await dodgedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_DOWN);
-  });
-
-  test('should be able to reset speed', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.resetSpeed();
-    const speed = await dodgedBarplotPage.getSpeedToggleInfo();
-    expect(speed).toEqual(TestConstants.SPEED_RESET);
-  });
-
-  test('should move from left to right', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await dodgedBarplotPage.moveToNextDataPoint();
-    }
-
-    const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toContain(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move from right to left', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    for (let i = 0; i <= dataLength; i++) {
-      await dodgedBarplotPage.moveToPreviousDataPoint();
-    }
-
-    const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-    expect(currentDataPoint).toContain(TestConstants.PLOT_EXTREME_VERIFICATION);
-  });
-
-  test('should move to the first data point', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.moveToFirstDataPoint();
-    const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-
-    try {
-      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
-      expect(currentDataPoint).toContain(firstDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`First data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should move to bottom level of dodged bar', async ({ page }) => {
-    const stackedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await stackedBarplotPage.moveToDataPointAbove();
-
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should move to upper level of dodged bar', async ({ page }) => {
-    const stackedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await stackedBarplotPage.moveToDataPointBelow();
-
-    const currentDataPoint = await stackedBarplotPage.getCurrentDataPointInfo();
-
-    const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
-    expect(currentDataPoint).toContain(firstDataPointValue); // Change validation text if modified upon fixing up and down arrow keys
-  });
-
-  test('should move to the last data point', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    await dodgedBarplotPage.moveToLastDataPoint();
-    const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
-
-    try {
-      const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(lastDataPointValue);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Last data point verification failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute forward autoplay', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    try {
-      const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
-
-      await dodgedBarplotPage.startForwardAutoplay(
-        lastDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-    }
-  });
-
-  test('should execute backward autoplay', async ({ page }) => {
-    const dodgedBarplotPage = await setupDodgedBarplotPage(page);
-
-    try {
-      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+    test('should move to the last data point', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
       await dodgedBarplotPage.moveToLastDataPoint();
-      await dodgedBarplotPage.startReverseAutoplay(
-        firstDataPointValue,
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-    }
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+
+      try {
+        const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
+        expect(currentDataPoint).toContain(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Last data point verification failed: ${errorMessage}`);
+      }
+    });
+
+    test('should move to bottom level of dodged bar', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.moveToDataPointAbove();
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to upper level of dodged bar', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.moveToDataPointBelow();
+      const currentDataPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+
+      const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+  });
+
+  test.describe('Autoplay Controls', () => {
+    test('should execute forward autoplay', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      try {
+        const lastDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, dataLength - 1);
+        await dodgedBarplotPage.startForwardAutoplay(lastDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
+      }
+    });
+
+    test('should execute backward autoplay', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      try {
+        const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
+        await dodgedBarplotPage.moveToLastDataPoint();
+        await dodgedBarplotPage.startReverseAutoplay(firstDataPointValue);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
+      }
+    });
   });
 });
