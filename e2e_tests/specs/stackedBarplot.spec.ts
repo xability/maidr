@@ -284,7 +284,7 @@ test.describe('Stacked Barplot', () => {
 
       await stackedBarplotPage.moveToFirstDataPoint();
 
-      for (let i = 0; i < dataLength; i++) {
+      for (let i = 0; i < dataLength - 1; i++) {
         await stackedBarplotPage.moveToNextDataPoint();
       }
 
