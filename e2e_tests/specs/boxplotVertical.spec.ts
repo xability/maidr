@@ -22,6 +22,34 @@ async function setupBoxplotVerticalPage(
 }
 
 /**
+ * Helper function to extract MAIDR data from the page
+ * @param page - The Playwright page
+ * @param plotId - The ID of the plot to extract data from
+ * @returns The extracted MAIDR data
+ * @throws Error if data extraction fails
+ */
+async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
+  return await page.evaluate((id) => {
+    const svgElement = document.querySelector(`svg#${id}`);
+    if (!svgElement) {
+      throw new Error(`SVG element with ID ${id} not found`);
+    }
+
+    const maidrDataAttr = svgElement.getAttribute('maidr-data');
+    if (!maidrDataAttr) {
+      throw new Error('maidr-data attribute not found on SVG element');
+    }
+
+    try {
+      return JSON.parse(maidrDataAttr);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
+    }
+  }, plotId);
+}
+
+/**
  * Safely extracts the display value from a vertical boxplot data point
  * @param layer - The boxplot vertical layer containing data points
  * @param index - Index of the data point to extract value from
@@ -83,27 +111,7 @@ test.describe('Boxplot Vertical', () => {
       await boxplotVerticalPage.navigateToBoxplotVertical();
       await page.waitForSelector(`svg#${TestConstants.BOXPLOT_VERTICAL_ID}`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.BOXPLOT_VERTICAL_ID);
-
+      maidrData = await extractMaidrData(page, TestConstants.BOXPLOT_VERTICAL_ID);
       boxplotVerticalLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getBoxplotVerticalDataLength(boxplotVerticalLayer);
     } catch (error) {
@@ -260,9 +268,13 @@ test.describe('Boxplot Vertical', () => {
   });
 
   test.describe('Navigation Controls', () => {
-    test('should move from left to right', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+    let boxplotVerticalPage: BoxplotVerticalPage;
 
+    test.beforeEach(async ({ page }) => {
+      boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+    });
+
+    test('should move from left to right', async () => {
       for (let i = 0; i <= dataLength; i++) {
         await boxplotVerticalPage.moveToNextDataPoint();
       }
@@ -271,9 +283,7 @@ test.describe('Boxplot Vertical', () => {
       expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
     });
 
-    test('should move from right to left', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
-
+    test('should move from right to left', async () => {
       for (let i = 0; i <= dataLength; i++) {
         await boxplotVerticalPage.moveToPreviousDataPoint();
       }
@@ -282,81 +292,62 @@ test.describe('Boxplot Vertical', () => {
       expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
     });
 
-    test('should move to the first data point', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
-
+    test('should move to the first data point of first box', async () => {
       await boxplotVerticalPage.moveToFirstDataPoint();
       const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
-      try {
-        const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
-        expect(currentDataPoint).toContain(firstDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`First data point verification failed: ${errorMessage}`);
-      }
-    });
-
-    test('should move to the last data point', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
-
-      await boxplotVerticalPage.moveToLastDataPoint();
-      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
-      try {
-        const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
-        expect(currentDataPoint).toContain(lastDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Last data point verification failed: ${errorMessage}`);
-      }
-    });
-
-    test('should move to the box above', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
-
-      await boxplotVerticalPage.moveToDataPointAbove();
-      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
       const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
 
-    test('should move to the box below', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+    test('should move to the last data point of last box', async () => {
+      await boxplotVerticalPage.moveToLastDataPoint();
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
+    });
 
+    test('should move to topmost point of current box', async () => {
+      await boxplotVerticalPage.moveToDataPointAbove();
+      const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
+      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to bottommost point of current box', async () => {
       await boxplotVerticalPage.moveToDataPointBelow();
       const currentDataPoint = await boxplotVerticalPage.getCurrentDataPointInfo();
-
       const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
   });
 
   test.describe('Autoplay Controls', () => {
-    test('should execute forward autoplay', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+    let boxplotVerticalPage: BoxplotVerticalPage;
 
-      try {
-        const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
-        await boxplotVerticalPage.startForwardAutoplay(lastDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-      }
+    test.beforeEach(async ({ page }) => {
+      boxplotVerticalPage = await setupBoxplotVerticalPage(page);
     });
 
-    test('should execute backward autoplay', async ({ page }) => {
-      const boxplotVerticalPage = await setupBoxplotVerticalPage(page);
+    test('should execute forward autoplay', async () => {
+      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, dataLength - 1);
+      await boxplotVerticalPage.startForwardAutoplay(lastDataPointValue);
+    });
 
-      try {
-        const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
-        await boxplotVerticalPage.moveToLastDataPoint();
-        await boxplotVerticalPage.startReverseAutoplay(firstDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-      }
+    test('should execute backward autoplay', async () => {
+      const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      await boxplotVerticalPage.moveToLastDataPoint();
+      await boxplotVerticalPage.startReverseAutoplay(firstDataPointValue);
+    });
+
+    test('should execute downward autoplay', async () => {
+      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      await boxplotVerticalPage.startDownwardAutoplay(lastDataPointValue);
+    });
+
+    test('should execute upward autoplay', async () => {
+      await boxplotVerticalPage.moveToDataPointBelow();
+      const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      await boxplotVerticalPage.startUpwardAutoplay(lastDataPointValue);
     });
   });
 });

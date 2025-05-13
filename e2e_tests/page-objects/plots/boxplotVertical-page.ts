@@ -257,6 +257,40 @@ export class BoxplotVerticalPage extends BasePage {
   }
 
   /**
+   * Starts downward autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws BoxplotVerticalError if autoplay fails
+   */
+  public async startDownwardAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('downward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BoxplotVerticalError('Failed to start downward autoplay');
+    }
+  }
+
+  /**
+   * Starts upward autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws BoxplotVerticalError if autoplay fails
+   */
+  public async startUpwardAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('upward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BoxplotVerticalError('Failed to start upward autoplay');
+    }
+  }
+
+  /**
    * Verifies the plot has loaded correctly
    * @returns Promise resolving when verification is complete
    * @throws BoxplotVerticalError if plot is not loaded correctly
@@ -266,6 +300,30 @@ export class BoxplotVerticalPage extends BasePage {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
       throw new BoxplotVerticalError('Boxplot Vertical failed to load correctly');
+    }
+  }
+
+  /**
+   * Moves to the data point below the current position
+   * @throws BoxplotVerticalError if movement fails
+   */
+  public async moveToDataPointBelow(): Promise<void> {
+    try {
+      await this.page.keyboard.press('ArrowDown');
+    } catch (error) {
+      throw new BoxplotVerticalError('Failed to move to data point below');
+    }
+  }
+
+  /**
+   * Moves to the last box in the plot
+   * @throws BoxplotVerticalError if movement fails
+   */
+  public async moveToLastBox(): Promise<void> {
+    try {
+      await this.page.keyboard.press('End');
+    } catch (error) {
+      throw new BoxplotVerticalError('Failed to move to last box');
     }
   }
 }
