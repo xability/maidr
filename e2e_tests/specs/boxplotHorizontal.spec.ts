@@ -22,6 +22,34 @@ async function setupBoxplotHorizontalPage(
 }
 
 /**
+ * Helper function to extract MAIDR data from the page
+ * @param page - The Playwright page
+ * @param plotId - The ID of the plot to extract data from
+ * @returns The extracted MAIDR data
+ * @throws Error if data extraction fails
+ */
+async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
+  return await page.evaluate((id) => {
+    const svgElement = document.querySelector(`svg#${id}`);
+    if (!svgElement) {
+      throw new Error(`SVG element with ID ${id} not found`);
+    }
+
+    const maidrDataAttr = svgElement.getAttribute('maidr-data');
+    if (!maidrDataAttr) {
+      throw new Error('maidr-data attribute not found on SVG element');
+    }
+
+    try {
+      return JSON.parse(maidrDataAttr);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
+    }
+  }, plotId);
+}
+
+/**
  * Safely extracts the display value from a horizontal boxplot data point
  * @param layer - The boxplot horizontal layer containing data points
  * @param index - Index of the data point to extract value from
@@ -84,27 +112,7 @@ test.describe('Boxplot Horizontal', () => {
       await boxplotHorizontalPage.navigateToBoxplotHorizontal();
       await page.waitForSelector(`svg#${TestConstants.BOXPLOT_HORIZONTAL_ID}`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.BOXPLOT_HORIZONTAL_ID);
-
+      maidrData = await extractMaidrData(page, TestConstants.BOXPLOT_HORIZONTAL_ID);
       boxplotHorizontalLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getBoxplotHorizontalDataLength(boxplotHorizontalLayer);
     } catch (error) {
@@ -261,9 +269,13 @@ test.describe('Boxplot Horizontal', () => {
   });
 
   test.describe('Navigation Controls', () => {
-    test('should move from left to right', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+    let boxplotHorizontalPage: BoxplotHorizontalPage;
 
+    test.beforeEach(async ({ page }) => {
+      boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+    });
+
+    test('should move from left to right', async () => {
       await boxplotHorizontalPage.moveToFirstDataPoint();
 
       for (let i = 0; i < dataLength; i++) {
@@ -271,19 +283,11 @@ test.describe('Boxplot Horizontal', () => {
       }
 
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-      try {
-        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-        expect(currentDataPoint).toContain(lastDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Move from left to right verification failed: ${errorMessage}`);
-      }
+      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
     });
 
-    test('should move from right to left', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
-
+    test('should move from right to left', async () => {
       for (let i = 0; i <= dataLength; i++) {
         await boxplotHorizontalPage.moveToPreviousDataPoint();
       }
@@ -292,81 +296,69 @@ test.describe('Boxplot Horizontal', () => {
       expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
     });
 
-    test('should move to the first data point', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
-
+    test('should move to the leftmost data point of current box', async () => {
       await boxplotHorizontalPage.moveToFirstDataPoint();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-      try {
-        const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
-        expect(currentDataPoint).toContain(firstDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`First data point verification failed: ${errorMessage}`);
-      }
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(firstDataPointValue);
     });
 
-    test('should move to the last data point', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
-
+    test('should move to the rightmost data point of current box', async () => {
       await boxplotHorizontalPage.moveToLastDataPoint();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-      try {
-        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-        expect(currentDataPoint).toContain(lastDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Last data point verification failed: ${errorMessage}`);
-      }
+      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(lastDataPointValue);
     });
 
-    test('should move to the box above', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
-
+    test('should move to the box above', async () => {
       await boxplotHorizontalPage.moveToDataPointAbove();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
 
-    test('should move to the box below', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
-
+    test('should move to the box below', async () => {
       await boxplotHorizontalPage.moveToDataPointBelow();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-
-      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       expect(currentDataPoint).toContain(firstDataPointValue);
+    });
+
+    test('should move to last downward box', async () => {
+      await boxplotHorizontalPage.moveToLastBox();
+      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      const expectedDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      expect(currentDataPoint).toContain(expectedDataPointValue);
     });
   });
 
   test.describe('Autoplay Controls', () => {
-    test('should execute forward autoplay', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+    let boxplotHorizontalPage: BoxplotHorizontalPage;
 
-      try {
-        const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-        await boxplotHorizontalPage.startForwardAutoplay(lastDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Forward autoplay test failed: ${errorMessage}`);
-      }
+    test.beforeEach(async ({ page }) => {
+      boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
     });
 
-    test('should execute backward autoplay', async ({ page }) => {
-      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+    test('should execute forward autoplay', async () => {
+      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      await boxplotHorizontalPage.startForwardAutoplay(lastDataPointValue);
+    });
 
-      try {
-        const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
-        await boxplotHorizontalPage.moveToLastDataPoint();
-        await boxplotHorizontalPage.startReverseAutoplay(firstDataPointValue);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Backward autoplay test failed: ${errorMessage}`);
-      }
+    test('should execute backward autoplay', async () => {
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      await boxplotHorizontalPage.moveToLastDataPoint();
+      await boxplotHorizontalPage.startReverseAutoplay(firstDataPointValue);
+    });
+
+    test('should execute downward autoplay', async () => {
+      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      await boxplotHorizontalPage.startDownwardAutoplay(lastDataPointValue);
+    });
+
+    test('should execute upward autoplay', async () => {
+      await boxplotHorizontalPage.moveToLastBox();
+      const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      await boxplotHorizontalPage.startUpwardAutoplay(lastDataPointValue);
     });
   });
 });

@@ -477,6 +477,18 @@ export class BasePage {
   }
 
   /**
+   * Moves to the last downward box in the chart
+   * @throws KeypressError if operation fails
+   */
+  public async moveToLastBox(): Promise<void> {
+    await this.moveToDataPoint(
+      TestConstants.DOWN_ARROW_KEY,
+      'move to last downward box',
+      true,
+    );
+  }
+
+  /**
    * Waits for a specified time period
    * @param milliseconds - The time to wait in milliseconds
    */
@@ -666,13 +678,13 @@ export class BasePage {
    * @throws Error if autoplay fails or times out
    */
   protected async startAutoplay(
-    direction: 'forward' | 'reverse',
+    direction: 'forward' | 'reverse' | 'downward' | 'upward',
     infoSelector: string,
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
-    const directionName = direction === 'forward' ? 'forward' : 'reverse';
+    const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : direction === 'reverse' ? TestConstants.LEFT_ARROW_KEY : direction === 'downward' ? TestConstants.DOWN_ARROW_KEY : TestConstants.UP_ARROW_KEY;
+    const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
     try {
       await this.page.keyboard.down(TestConstants.META_KEY);

@@ -257,6 +257,41 @@ export class BoxplotHorizontalPage extends BasePage {
   }
 
   /**
+   * Starts downward autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws BoxplotHorizontalError if autoplay fails
+   */
+  public async startDownwardAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('downward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BoxplotHorizontalError('Failed to start downward autoplay');
+    }
+  }
+
+  /**
+   * Starts upward autoplay
+   * @param expectedContent - Expected content to wait for upon completion
+   * @param options - Optional timeout configuration
+   * @throws BoxplotHorizontalError if autoplay fails
+   */
+  public async startUpwardAutoplay(
+    expectedContent?: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    try {
+      await super.startAutoplay('upward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BoxplotHorizontalError('Failed to start upward autoplay');
+    }
+  }
+
+  /**
+  /**
    * Verifies the plot has loaded correctly
    * @returns Promise resolving when verification is complete
    * @throws BoxplotHorizontalError if plot is not loaded correctly

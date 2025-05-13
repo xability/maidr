@@ -21,9 +21,38 @@ async function setupHeatmapPage(
   return heatmapPage;
 }
 
+/**
+ * Helper function to extract MAIDR data from the page
+ * @param page - The Playwright page
+ * @param plotId - The ID of the plot to extract data from
+ * @returns The extracted MAIDR data
+ * @throws Error if data extraction fails
+ */
+async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
+  return await page.evaluate((id) => {
+    const svgElement = document.querySelector(`svg#${id}`);
+    if (!svgElement) {
+      throw new Error(`SVG element with ID ${id} not found`);
+    }
+
+    const maidrDataAttr = svgElement.getAttribute('maidr-data');
+    if (!maidrDataAttr) {
+      throw new Error('maidr-data attribute not found on SVG element');
+    }
+
+    try {
+      return JSON.parse(maidrDataAttr);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
+    }
+  }, plotId);
+}
+
 test.describe('Heatmap', () => {
   let maidrData: Maidr;
   let heatmapLayer: MaidrLayer;
+  let heatmapData: HeatmapData;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -34,28 +63,9 @@ test.describe('Heatmap', () => {
       await heatmapPage.navigateToHeatmap();
       await page.waitForSelector(`svg#${TestConstants.HEATMAP_ID}`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.HEATMAP_ID);
-
+      maidrData = await extractMaidrData(page, TestConstants.HEATMAP_ID);
       heatmapLayer = maidrData.subplots[0][0].layers[0];
+      heatmapData = heatmapLayer.data as HeatmapData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -211,11 +221,9 @@ test.describe('Heatmap', () => {
 
   test.describe('Navigation Controls', () => {
     let heatmapPage: HeatmapPage;
-    let heatmapData: HeatmapData;
 
     test.beforeEach(async ({ page }) => {
       heatmapPage = await setupHeatmapPage(page);
-      heatmapData = heatmapLayer.data as HeatmapData;
     });
 
     test('should move from left to right', async () => {
@@ -228,7 +236,6 @@ test.describe('Heatmap', () => {
     });
 
     test('should move from right to left', async () => {
-      // Move to the last data point first
       await heatmapPage.moveToLastDataPoint();
 
       for (let i = 0; i <= heatmapData.x.length; i++) {
@@ -254,11 +261,9 @@ test.describe('Heatmap', () => {
 
   test.describe('Autoplay Controls', () => {
     let heatmapPage: HeatmapPage;
-    let heatmapData: HeatmapData;
 
     test.beforeEach(async ({ page }) => {
       heatmapPage = await setupHeatmapPage(page);
-      heatmapData = heatmapLayer.data as HeatmapData;
     });
 
     test('should execute forward autoplay', async () => {
