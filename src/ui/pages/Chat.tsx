@@ -108,6 +108,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               <Button
                 variant="text"
                 onClick={handleGoToSettings}
+                aria-label="Open settings"
               >
                 Open Settings
               </Button>
