@@ -1,3 +1,17 @@
+# [3.1.0](https://github.com/xability/maidr/compare/v3.0.2...v3.1.0) (2025-05-07)
+
+
+### Features
+
+* add audio cue while waiting for llm response ([#242](https://github.com/xability/maidr/issues/242)) ([e7971a6](https://github.com/xability/maidr/commit/e7971a6e664208d6487df52a65fb1178495b96c8))
+
+## [3.0.2](https://github.com/xability/maidr/compare/v3.0.1...v3.0.2) (2025-05-06)
+
+
+### Bug Fixes
+
+* enhance subplot text to include selection instruction ([#241](https://github.com/xability/maidr/issues/241)) ([b4aefbd](https://github.com/xability/maidr/commit/b4aefbd3d5b884b7fd5b761ef4d7bc971dc7971d))
+
 ## [3.0.1](https://github.com/xability/maidr/compare/v3.0.0...v3.0.1) (2025-05-03)
 
 

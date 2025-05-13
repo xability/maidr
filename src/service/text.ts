@@ -57,7 +57,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
-    return `Subplot ${index} of ${size}: ${details}`;
+    return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
   private formatSubplotText(index: number, size: number, traceType: string): string {
