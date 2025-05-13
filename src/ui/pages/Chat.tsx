@@ -31,6 +31,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         justifyContent: message.isUser ? 'flex-end' : 'flex-start',
         mb: 2,
       }}
+      {...(!message.isUser ? { 'aria-live': 'assertive' } : {})}
     >
       <Box
         sx={{
