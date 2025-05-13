@@ -312,7 +312,7 @@ test.describe('Dodged Barplot', () => {
 
       await dodgedBarplotPage.moveToFirstDataPoint();
 
-      for (let i = 0; i < dataLength; i++) {
+      for (let i = 0; i < dataLength - 1; i++) {
         await dodgedBarplotPage.moveToNextDataPoint();
       }
 
