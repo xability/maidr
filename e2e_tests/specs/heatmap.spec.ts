@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { Maidr, MaidrLayer } from '../../src/type/grammar';
+import type { HeatmapData, Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { HeatmapPage } from '../page-objects/plots/heatmap-page';
 import { TestConstants } from '../utils/constants';
@@ -24,7 +24,6 @@ async function setupHeatmapPage(
 test.describe('Heatmap', () => {
   let maidrData: Maidr;
   let heatmapLayer: MaidrLayer;
-  let dataLength: number;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -57,7 +56,6 @@ test.describe('Heatmap', () => {
       }, TestConstants.HEATMAP_ID);
 
       heatmapLayer = maidrData.subplots[0][0].layers[0];
-      dataLength = (heatmapLayer.data as { x: string; y: number }[]).length;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -212,10 +210,16 @@ test.describe('Heatmap', () => {
   });
 
   test.describe('Navigation Controls', () => {
-    test('should move from left to right', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
+    let heatmapPage: HeatmapPage;
+    let heatmapData: HeatmapData;
 
-      for (let i = 0; i <= dataLength; i++) {
+    test.beforeEach(async ({ page }) => {
+      heatmapPage = await setupHeatmapPage(page);
+      heatmapData = heatmapLayer.data as HeatmapData;
+    });
+
+    test('should move from left to right', async () => {
+      for (let i = 0; i <= heatmapData.x.length; i++) {
         await heatmapPage.moveToNextDataPoint();
       }
 
@@ -223,10 +227,11 @@ test.describe('Heatmap', () => {
       expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
     });
 
-    test('should move from right to left', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
+    test('should move from right to left', async () => {
+      // Move to the last data point first
+      await heatmapPage.moveToLastDataPoint();
 
-      for (let i = 0; i <= dataLength; i++) {
+      for (let i = 0; i <= heatmapData.x.length; i++) {
         await heatmapPage.moveToPreviousDataPoint();
       }
 
@@ -234,55 +239,35 @@ test.describe('Heatmap', () => {
       expect(currentDataPoint).toEqual(TestConstants.PLOT_EXTREME_VERIFICATION);
     });
 
-    test('should move to the first data point', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
-
+    test('should move to the first data point', async () => {
       await heatmapPage.moveToFirstDataPoint();
       const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-      if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-        expect(currentDataPoint).toContain((heatmapLayer.data[0] as { x: string }).x);
-      } else {
-        throw new Error('Invalid data format in heatmapLayer');
-      }
+      expect(currentDataPoint).toContain(heatmapData.x[0].toString());
     });
 
-    test('should move to the last data point', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
-
+    test('should move to the last data point', async () => {
       await heatmapPage.moveToLastDataPoint();
       const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
-      if (Array.isArray(heatmapLayer?.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-        expect(currentDataPoint).toContain((heatmapLayer.data[dataLength - 1] as { x: string }).x);
-      } else {
-        throw new Error('Invalid data format in heatmapLayer');
-      }
+      expect(currentDataPoint).toContain(heatmapData.x[heatmapData.x.length - 1].toString());
     });
   });
 
   test.describe('Autoplay Controls', () => {
-    test('should execute forward autoplay', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
+    let heatmapPage: HeatmapPage;
+    let heatmapData: HeatmapData;
 
-      let expectedDataPoint: string;
-      if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-        expectedDataPoint = (heatmapLayer.data[dataLength - 1] as { x: string }).x;
-      } else {
-        throw new Error('Invalid data format in heatmapLayer');
-      }
+    test.beforeEach(async ({ page }) => {
+      heatmapPage = await setupHeatmapPage(page);
+      heatmapData = heatmapLayer.data as HeatmapData;
+    });
 
+    test('should execute forward autoplay', async () => {
+      const expectedDataPoint = heatmapData.x[heatmapData.x.length - 1].toString();
       await heatmapPage.startForwardAutoplay(expectedDataPoint);
     });
 
-    test('should execute backward autoplay', async ({ page }) => {
-      const heatmapPage = await setupHeatmapPage(page);
-
-      let expectedDataPoint: string;
-      if (Array.isArray(heatmapLayer.data) && dataLength > 0 && 'x' in heatmapLayer.data[0]) {
-        expectedDataPoint = (heatmapLayer.data[0] as { x: string }).x;
-      } else {
-        throw new Error('Invalid data format in heatmapLayer');
-      }
-
+    test('should execute backward autoplay', async () => {
+      const expectedDataPoint = heatmapData.x[0].toString();
       await heatmapPage.moveToLastDataPoint();
       await heatmapPage.startReverseAutoplay(expectedDataPoint);
     });
