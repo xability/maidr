@@ -340,13 +340,13 @@ textarea {
 }
 
 /* Tooltip styles */
-[title] {
+[data-tooltip] {
   position: relative;
   cursor: help;
 }
 
-[title]:hover::after {
-  content: attr(title);
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
   position: fixed;
   bottom: auto;
   top: 50%;
