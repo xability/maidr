@@ -98,14 +98,14 @@ export class DisplayService implements Disposable {
     if (figureElement) {
       figureElement.removeAttribute(Constant.TITLE);
       // Remove event listeners
-      figureElement.removeEventListener('mouseenter', () => {});
-      figureElement.removeEventListener('mouseleave', () => {});
+      figureElement.removeEventListener('mouseenter', this.handleMouseEnter);
+      figureElement.removeEventListener('mouseleave', this.handleMouseLeave);
     }
     if (articleElement) {
       articleElement.removeAttribute(Constant.TITLE);
       // Remove event listeners
-      articleElement.removeEventListener('mouseenter', () => {});
-      articleElement.removeEventListener('mouseleave', () => {});
+      articleElement.removeEventListener('mouseenter', this.handleMouseEnter);
+      articleElement.removeEventListener('mouseleave', this.handleMouseLeave);
     }
   }
 
