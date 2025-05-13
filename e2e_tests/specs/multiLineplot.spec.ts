@@ -275,7 +275,7 @@ test.describe('Multi Lineplot', () => {
 
       await multiLineplotPage.moveToFirstDataPoint();
 
-      for (let i = 0; i < dataLength; i++) {
+      for (let i = 0; i < dataLength - 1; i++) {
         await multiLineplotPage.moveToNextDataPoint();
       }
 
