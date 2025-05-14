@@ -6,15 +6,23 @@ export type Llm =
   | 'GEMINI';
 
 export type GptVersion =
-  | 'gpt-4-vision-preview';
+  | 'gpt-4o'
+  | 'gpt-4o-mini'
+  | 'gpt-4.1'
+  | 'o1-mini'
+  | 'o3'
+  | 'o4-mini';
 
 export type ClaudeVersion =
-  | 'claude-3-opus'
-  | 'claude-3-sonnet'
-  | 'claude-3-haiku';
+  | 'claude-3-5-haiku-latest'
+  | 'claude-3-5-sonnet-latest'
+  | 'claude-3-7-sonnet-latest';
 
 export type GeminiVersion =
-  | 'gemini-pro-vision';
+  | 'gemini-2.0-flash'
+  | 'gemini-2.0-flash-lite'
+  | 'gemini-2.5-flash-preview-04-17'
+  | 'gemini-2.5-pro-preview-05-06';
 
 export interface ModelVersion {
   GPT: GptVersion;
