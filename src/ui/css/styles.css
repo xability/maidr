@@ -338,3 +338,28 @@ textarea {
   flex-direction: column;
   align-items: flex-end;
 }
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: fixed;
+  bottom: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 300px;
+  text-align: center;
+}
