@@ -69,6 +69,8 @@ export class BarPlotPage extends BasePage {
    * @param selector - CSS selector for the target element
    * @param expectedContent - The expected text content to wait for
    * @param options - Configuration options for the wait operation
+   * @param options.timeout - Maximum time to wait for content in milliseconds
+   * @param options.pollInterval - Time between content checks in milliseconds
    * @returns Promise resolving when the condition is met
    * @throws BarPlotError if timeout is reached before the condition is met
    */
@@ -345,6 +347,8 @@ export class BarPlotPage extends BasePage {
    * @param infoSelector - The selector for the info element
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @returns Promise resolving when autoplay completes and expected content is displayed
    * @throws BarPlotError if autoplay fails or times out
    */
@@ -383,6 +387,8 @@ export class BarPlotPage extends BasePage {
    * Starts forward autoplay and waits for completion
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @returns Promise resolving when autoplay completes and expected content is displayed
    * @throws BarPlotError if autoplay fails or times out
    */
@@ -397,6 +403,8 @@ export class BarPlotPage extends BasePage {
    * Starts reverse autoplay and waits for completion
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @returns Promise resolving when autoplay completes and expected content is displayed
    * @throws BarPlotError if autoplay fails or times out
    */

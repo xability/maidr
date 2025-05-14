@@ -226,6 +226,8 @@ export class BoxplotHorizontalPage extends BasePage {
    * Starts forward autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws BoxplotHorizontalError if autoplay fails
    */
   public async startForwardAutoplay(
@@ -243,6 +245,8 @@ export class BoxplotHorizontalPage extends BasePage {
    * Starts reverse autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws BoxplotHorizontalError if autoplay fails
    */
   public async startReverseAutoplay(
@@ -260,6 +264,8 @@ export class BoxplotHorizontalPage extends BasePage {
    * Starts downward autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws BoxplotHorizontalError if autoplay fails
    */
   public async startDownwardAutoplay(
@@ -277,6 +283,8 @@ export class BoxplotHorizontalPage extends BasePage {
    * Starts upward autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws BoxplotHorizontalError if autoplay fails
    */
   public async startUpwardAutoplay(

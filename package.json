@@ -18,7 +18,8 @@
     "test:coverage": "jest --coverage",
     "e2e": "playwright test --config=e2e_tests/config/test-config.ts",
     "e2e:ui": "playwright test --ui",
-    "e2e:debug": "playwright test --debug"
+    "e2e:debug": "playwright test --debug",
+    "e2e:install": "playwright install --with-deps"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

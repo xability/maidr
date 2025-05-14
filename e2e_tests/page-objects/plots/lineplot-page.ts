@@ -232,6 +232,8 @@ export class LinePlotPage extends BasePage {
    * Starts forward autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws LinePlotError if autoplay fails
    */
   public async startForwardAutoplay(
@@ -249,6 +251,8 @@ export class LinePlotPage extends BasePage {
    * Starts reverse autoplay
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
    * @throws LinePlotError if autoplay fails
    */
   public async startReverseAutoplay(
