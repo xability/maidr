@@ -22,6 +22,9 @@ export class DisplayService implements Disposable {
   private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
   public readonly onChange: Event<FocusChangedEvent>;
 
+  // Store current instruction for mouse handlers
+  private currentInstruction: string = '';
+
   public constructor(context: Context, plot: HTMLElement, reactContainer: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
@@ -56,6 +59,7 @@ export class DisplayService implements Disposable {
 
   public addInstruction(): void {
     const maidrInstruction = this.context.getInstruction(true);
+    this.currentInstruction = maidrInstruction;
     this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
@@ -67,24 +71,26 @@ export class DisplayService implements Disposable {
     if (figureElement) {
       figureElement.setAttribute(Constant.TITLE, maidrInstruction);
       // Add mouse events to handle tooltip visibility
-      figureElement.addEventListener('mouseenter', () => {
-        figureElement.setAttribute(Constant.TITLE, maidrInstruction);
-      });
-      figureElement.addEventListener('mouseleave', () => {
-        figureElement.removeAttribute(Constant.TITLE);
-      });
+      figureElement.addEventListener('mouseenter', this.handleMouseEnter);
+      figureElement.addEventListener('mouseleave', this.handleMouseLeave);
     }
     if (articleElement) {
       articleElement.setAttribute(Constant.TITLE, maidrInstruction);
       // Add mouse events to handle tooltip visibility
-      articleElement.addEventListener('mouseenter', () => {
-        articleElement.setAttribute(Constant.TITLE, maidrInstruction);
-      });
-      articleElement.addEventListener('mouseleave', () => {
-        articleElement.removeAttribute(Constant.TITLE);
-      });
+      articleElement.addEventListener('mouseenter', this.handleMouseEnter);
+      articleElement.addEventListener('mouseleave', this.handleMouseLeave);
     }
   }
+
+  private handleMouseEnter = (event: MouseEvent): void => {
+    const target = event.currentTarget as HTMLElement;
+    target.setAttribute(Constant.TITLE, this.currentInstruction);
+  };
+
+  private handleMouseLeave = (event: MouseEvent): void => {
+    const target = event.currentTarget as HTMLElement;
+    target.removeAttribute(Constant.TITLE);
+  };
 
   private removeInstruction(): void {
     this.plot.removeAttribute(Constant.ARIA_LABEL);
