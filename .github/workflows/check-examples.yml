@@ -1,11 +1,11 @@
-name: Check Example Plots
+name: Check Examples Directory
 
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
-  check-example-plots:
+  check-examples:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # Required to add comments to PRs
@@ -48,7 +48,7 @@ jobs:
               '2. Verify that all examples still work as expected',
               '3. Update any relevant documentation if needed',
               '',
-              `If you need help running the tests, please refer to our [testing documentation](https://github.com/${owner}/${repo}/blob/main/docs/testing.md).`
+              `If you need help running the tests, please refer to our [testing documentation](https://github.com/${owner}/${repo}/blob/main/E2E_TESTING.md).`
             ].join('\n');
 
             await github.rest.issues.createComment({

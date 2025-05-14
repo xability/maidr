@@ -4,6 +4,7 @@ const config: ReturnType<typeof antfu> = antfu({
   type: 'lib',
   ignores: [
     'README.md',
+    'E2E_TESTING.md',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],
