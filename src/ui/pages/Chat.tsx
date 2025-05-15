@@ -23,7 +23,6 @@ interface MessageBubbleProps {
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const theme = useTheme();
-
   return (
     <Box
       sx={{
@@ -31,6 +30,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         justifyContent: message.isUser ? 'flex-end' : 'flex-start',
         mb: 2,
       }}
+      /* Use 'aria-live' so screen readers announce AI updates */
+      {...(!message.isUser ? { 'aria-live': 'assertive' } : {})}
     >
       <Box
         sx={{
