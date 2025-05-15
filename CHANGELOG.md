@@ -1,3 +1,10 @@
+## [3.2.2](https://github.com/xability/maidr/compare/v3.2.1...v3.2.2) (2025-05-15)
+
+
+### Bug Fixes
+
+* tooltip text rendering ([#252](https://github.com/xability/maidr/issues/252)) ([f6548ba](https://github.com/xability/maidr/commit/f6548ba4929a628fe330d8d5b7290144b7505509))
+
 ## [3.2.1](https://github.com/xability/maidr/compare/v3.2.0...v3.2.1) (2025-05-15)
 
 
