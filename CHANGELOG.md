@@ -1,3 +1,10 @@
+## [3.2.1](https://github.com/xability/maidr/compare/v3.2.0...v3.2.1) (2025-05-15)
+
+
+### Bug Fixes
+
+* announce new chat responses ([#246](https://github.com/xability/maidr/issues/246)) ([0e40ab2](https://github.com/xability/maidr/commit/0e40ab2dd5af937ef7ad6354cf4d8e2c62254f1c))
+
 # [3.2.0](https://github.com/xability/maidr/compare/v3.1.0...v3.2.0) (2025-05-14)
 
 
