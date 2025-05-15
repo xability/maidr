@@ -45,6 +45,7 @@ interface LlmModelSettingRowProps {
   modelSettings: LlmModelSettings;
   onToggle: (key: Llm, enabled: boolean) => void;
   onChangeKey: (key: Llm, value: string) => void;
+  onChangeVersion: (key: Llm, value: string) => void;
 }
 
 const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
@@ -52,6 +53,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   modelSettings,
   onToggle,
   onChangeKey,
+  onChangeVersion,
 }) => (
   <SettingRow
     label={modelSettings.name}
@@ -75,7 +77,49 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
             onChange={e => onChangeKey(modelKey, e.target.value)}
             placeholder={`Enter ${modelSettings.name} API Key`}
             type="password"
+            inputProps={{ autoComplete: 'off' }}
           />
+        </Grid>
+        <Grid size="auto">
+          <FormControl size="small" disabled={!modelSettings.enabled}>
+            <Select
+              value={modelSettings.version}
+              onChange={e => onChangeVersion(modelKey, e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 200,
+                  },
+                },
+              }}
+            >
+              {modelKey === 'GPT' && (
+                <>
+                  <MenuItem value="gpt-4o">GPT-4o</MenuItem>
+                  <MenuItem value="gpt-4o-mini">GPT-4o Mini</MenuItem>
+                  <MenuItem value="gpt-4.1">GPT-4.1</MenuItem>
+                  <MenuItem value="o1-mini">o1-mini</MenuItem>
+                  <MenuItem value="o3">o3</MenuItem>
+                  <MenuItem value="o4-mini">o4-mini</MenuItem>
+                </>
+              )}
+              {modelKey === 'CLAUDE' && (
+                <>
+                  <MenuItem value="claude-3-5-haiku-latest">Claude 3.5 Haiku</MenuItem>
+                  <MenuItem value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet</MenuItem>
+                  <MenuItem value="claude-3-7-sonnet-latest">Claude 3.7 Sonnet</MenuItem>
+                </>
+              )}
+              {modelKey === 'GEMINI' && (
+                <>
+                  <MenuItem value="gemini-2.0-flash">Gemini 2.0 Flash</MenuItem>
+                  <MenuItem value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</MenuItem>
+                  <MenuItem value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview</MenuItem>
+                  <MenuItem value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro Preview</MenuItem>
+                </>
+              )}
+            </Select>
+          </FormControl>
         </Grid>
       </Grid>
     )}
@@ -124,7 +168,7 @@ const Settings: React.FC = () => {
   };
 
   const handleReset = (): void => {
-    viewModel.reset();
+    viewModel.resetSettings();
     const { general, llm } = viewModel.state;
     setGeneralSettings(general);
     setLlmSettings(llm);
@@ -132,6 +176,7 @@ const Settings: React.FC = () => {
   const handleClose = (): void => {
     viewModel.toggle();
   };
+
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
@@ -311,6 +356,7 @@ const Settings: React.FC = () => {
                   modelSettings={model}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
@@ -345,6 +391,8 @@ const Settings: React.FC = () => {
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 8 }}>
                 <TextareaAutosize
+                  minRows={3}
+                  maxRows={6}
                   value={llmSettings.customInstruction}
                   onChange={e => handleLlmChange('customInstruction', e.target.value)}
                   style={{

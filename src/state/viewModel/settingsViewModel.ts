@@ -1,5 +1,6 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { SettingsService } from '@service/settings';
+import type { Llm, LlmVersion } from '@type/llm';
 import type { Settings } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
@@ -25,16 +26,19 @@ const initialState: SettingsState = {
         enabled: false,
         apiKey: '',
         name: 'GPT',
+        version: 'gpt-4o',
       },
       CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Claude',
+        version: 'claude-3.5-haiku-latest',
       },
       GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Gemini',
+        version: 'gemini-2.0-flash',
       },
     },
   },
@@ -82,13 +86,27 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.toggle();
   }
 
-  public toggle(): void {
-    this.settingsService.toggle();
+  public updateApiKey(model: Llm, apiKey: string): void {
+    const settings = this.settingsService.loadSettings();
+    settings.llm.models[model].apiKey = apiKey;
+    this.settingsService.saveSettings(settings);
+    this.store.dispatch(update(settings));
   }
 
-  public reset(): void {
+  public updateModelVersion(model: Llm, version: LlmVersion): void {
+    const settings = this.settingsService.loadSettings();
+    settings.llm.models[model].version = version;
+    this.settingsService.saveSettings(settings);
+    this.store.dispatch(update(settings));
+  }
+
+  public resetSettings(): void {
     const settings = this.settingsService.resetSettings();
     this.store.dispatch(update(settings));
+  }
+
+  public toggle(): void {
+    this.settingsService.toggle();
   }
 }
 
