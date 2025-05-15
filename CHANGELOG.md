@@ -1,3 +1,22 @@
+## [3.2.1](https://github.com/xability/maidr/compare/v3.2.0...v3.2.1) (2025-05-15)
+
+
+### Bug Fixes
+
+* announce new chat responses ([#246](https://github.com/xability/maidr/issues/246)) ([0e40ab2](https://github.com/xability/maidr/commit/0e40ab2dd5af937ef7ad6354cf4d8e2c62254f1c))
+
+# [3.2.0](https://github.com/xability/maidr/compare/v3.1.0...v3.2.0) (2025-05-14)
+
+
+### Bug Fixes
+
+* implementation of missing handler methods and cleanup of event listeners ([#251](https://github.com/xability/maidr/issues/251)) ([fe27acb](https://github.com/xability/maidr/commit/fe27acb579c75b919318be88c959a7e4bb35a245))
+
+
+### Features
+
+* add instruction message tooltip on plot hover  ([#244](https://github.com/xability/maidr/issues/244)) ([44966d4](https://github.com/xability/maidr/commit/44966d48f7a7a9462615162653cdae0e5a83c1dc))
+
 # [3.1.0](https://github.com/xability/maidr/compare/v3.0.2...v3.1.0) (2025-05-07)
 
 

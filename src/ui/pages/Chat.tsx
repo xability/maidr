@@ -25,7 +25,9 @@ interface MessageBubbleProps {
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const theme = useTheme();
   const settingsViewModel = useViewModel('settings');
+
   const chatViewModel = useViewModel('chat');
+  const disabled = !chatViewModel.canSend;
 
   const handleGoToSettings = (): void => {
     settingsViewModel.toggle();
@@ -38,6 +40,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         justifyContent: message.isUser ? 'flex-end' : 'flex-start',
         mb: 2,
       }}
+      /* Use 'aria-live' so screen readers announce AI updates */
+      {...(!message.isUser ? { 'aria-live': 'assertive' } : {})}
     >
       <Box
         sx={{
@@ -104,7 +108,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               mt: 0.5,
             }}
           >
-            {!chatViewModel.canSend && (
+            {disabled && (
               <Button
                 variant="text"
                 onClick={handleGoToSettings}
