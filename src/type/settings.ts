@@ -1,4 +1,4 @@
-import type { Llm } from './llm';
+import type { Llm, LlmVersion } from './llm';
 
 export type AriaMode = 'assertive' | 'polite';
 
@@ -8,6 +8,7 @@ export interface LlmModelSettings {
   name: string;
   apiKey: string;
   enabled: boolean;
+  version: LlmVersion;
 }
 
 export interface LlmSettings {
