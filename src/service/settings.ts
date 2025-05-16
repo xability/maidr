@@ -40,7 +40,7 @@ export class SettingsService {
             enabled: false,
             apiKey: '',
             name: 'Claude',
-            version: 'claude-3.5-haiku-latest',
+            version: 'claude-3-5-haiku-latest',
           },
           GEMINI: {
             enabled: false,

@@ -1,6 +1,6 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
-import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion } from '@type/llm';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse } from '@type/llm';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
@@ -21,21 +21,6 @@ export class ChatService {
 
   public async sendMessage(model: Llm, request: LlmRequest): Promise<LlmResponse> {
     return this.models[model].getLlmResponse(request);
-  }
-
-  public updateModelVersion(model: Llm, version: LlmVersion): void {
-    const maidr = (this.display.plot as any).maidr as Maidr;
-    switch (model) {
-      case 'GPT':
-        this.models[model] = new Gpt(this.display.plot, maidr, version as GptVersion);
-        break;
-      case 'CLAUDE':
-        this.models[model] = new Claude(this.display.plot, maidr, version as ClaudeVersion);
-        break;
-      case 'GEMINI':
-        this.models[model] = new Gemini(this.display.plot, maidr, version as GeminiVersion);
-        break;
-    }
   }
 
   public toggle(): void {
