@@ -1,3 +1,10 @@
+# [3.3.0](https://github.com/xability/maidr/compare/v3.2.2...v3.3.0) (2025-05-17)
+
+
+### Features
+
+* add smooth layer ([#255](https://github.com/xability/maidr/issues/255)) ([86fb3f7](https://github.com/xability/maidr/commit/86fb3f782a25cb3a0976176f6f100cf83921d99c))
+
 ## [3.2.2](https://github.com/xability/maidr/compare/v3.2.1...v3.2.2) (2025-05-15)
 
 
