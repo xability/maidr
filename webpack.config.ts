@@ -27,6 +27,10 @@ const config: Configuration = {
         use: 'ts-loader', // Use ts-loader to transpile TypeScript files
         exclude: /node_modules/, // Exclude node_modules from transpilation
       },
+      {
+        test: /\.css$/, // Apply this rule to .css files
+        use: ['style-loader', 'css-loader'], // Use style-loader and css-loader
+      },
     ],
   },
   devtool: 'source-map', // Enable source maps for debugging
