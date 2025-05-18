@@ -4,6 +4,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
   Avatar,
   Box,
+  Button,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -23,6 +24,15 @@ interface MessageBubbleProps {
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const theme = useTheme();
+  const settingsViewModel = useViewModel('settings');
+
+  const chatViewModel = useViewModel('chat');
+  const disabled = !chatViewModel.canSend;
+
+  const handleGoToSettings = (): void => {
+    settingsViewModel.toggle();
+  };
+
   return (
     <Box
       sx={{
@@ -90,14 +100,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           >
             {message.text}
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 0.5,
+            }}
           >
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </Typography>
-
+            {disabled && (
+              <Button
+                variant="text"
+                onClick={handleGoToSettings}
+                aria-label="Open settings"
+              >
+                Open Settings
+              </Button>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+            >
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </Typography>
+          </Box>
           {/* Status Indicator */}
           {!message.isUser && message.status === 'PENDING' && (
             <Box>
