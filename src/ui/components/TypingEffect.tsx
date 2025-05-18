@@ -1,9 +1,10 @@
 import { Box } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import rehypeKatex from 'rehype-katex';
+import rehypeMathjax from 'rehype-mathjax/svg';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
 interface TypingEffectProps {
   text: string;
@@ -56,8 +57,41 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
         aria-atomic="true"
       >
         <ReactMarkdown
-          rehypePlugins={[rehypeKatex, rehypeSanitize]}
-          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[
+            rehypeMathjax,
+            [rehypeSanitize, {
+              attributes: {
+                '*': ['className', 'aria-label', 'aria-hidden', 'role', 'aria-busy', 'aria-live', 'aria-atomic'],
+                'a': ['href', 'target'],
+                'img': ['src', 'alt'],
+                'math': ['display'],
+                'span': ['style'],
+                'svg': ['aria-hidden', 'role', 'xmlns', 'width', 'height', 'viewBox'],
+                'path': ['d'],
+              },
+              tagNames: [
+                'p',
+                'br',
+                'b',
+                'i',
+                'em',
+                'strong',
+                'a',
+                'pre',
+                'code',
+                'ul',
+                'ol',
+                'li',
+                'blockquote',
+                'img',
+                'math',
+                'span',
+                'svg',
+                'path',
+              ],
+            }],
+          ]}
+          remarkPlugins={[remarkGfm, remarkMath]}
           components={{
             pre: ({ node, ...props }) => (
               <pre {...props} role="text" aria-label="Code block" />
