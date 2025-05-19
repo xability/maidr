@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.1.0",
+  "version": "3.3.0",
   "main": "dist/maidr.js",
   "files": [
     "dist"
@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite build && vite preview",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
@@ -34,6 +33,7 @@
     "@antfu/eslint-config": "^4.16.2",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "@jest/globals": "^30.0.1",
     "@jest/types": "^30.0.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
