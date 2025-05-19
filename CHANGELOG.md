@@ -1,3 +1,50 @@
+# [3.3.0](https://github.com/xability/maidr/compare/v3.2.2...v3.3.0) (2025-05-17)
+
+
+### Features
+
+* add smooth layer ([#255](https://github.com/xability/maidr/issues/255)) ([86fb3f7](https://github.com/xability/maidr/commit/86fb3f782a25cb3a0976176f6f100cf83921d99c))
+
+## [3.2.2](https://github.com/xability/maidr/compare/v3.2.1...v3.2.2) (2025-05-15)
+
+
+### Bug Fixes
+
+* tooltip text rendering ([#252](https://github.com/xability/maidr/issues/252)) ([f6548ba](https://github.com/xability/maidr/commit/f6548ba4929a628fe330d8d5b7290144b7505509))
+
+## [3.2.1](https://github.com/xability/maidr/compare/v3.2.0...v3.2.1) (2025-05-15)
+
+
+### Bug Fixes
+
+* announce new chat responses ([#246](https://github.com/xability/maidr/issues/246)) ([0e40ab2](https://github.com/xability/maidr/commit/0e40ab2dd5af937ef7ad6354cf4d8e2c62254f1c))
+
+# [3.2.0](https://github.com/xability/maidr/compare/v3.1.0...v3.2.0) (2025-05-14)
+
+
+### Bug Fixes
+
+* implementation of missing handler methods and cleanup of event listeners ([#251](https://github.com/xability/maidr/issues/251)) ([fe27acb](https://github.com/xability/maidr/commit/fe27acb579c75b919318be88c959a7e4bb35a245))
+
+
+### Features
+
+* add instruction message tooltip on plot hover  ([#244](https://github.com/xability/maidr/issues/244)) ([44966d4](https://github.com/xability/maidr/commit/44966d48f7a7a9462615162653cdae0e5a83c1dc))
+
+# [3.1.0](https://github.com/xability/maidr/compare/v3.0.2...v3.1.0) (2025-05-07)
+
+
+### Features
+
+* add audio cue while waiting for llm response ([#242](https://github.com/xability/maidr/issues/242)) ([e7971a6](https://github.com/xability/maidr/commit/e7971a6e664208d6487df52a65fb1178495b96c8))
+
+## [3.0.2](https://github.com/xability/maidr/compare/v3.0.1...v3.0.2) (2025-05-06)
+
+
+### Bug Fixes
+
+* enhance subplot text to include selection instruction ([#241](https://github.com/xability/maidr/issues/241)) ([b4aefbd](https://github.com/xability/maidr/commit/b4aefbd3d5b884b7fd5b761ef4d7bc971dc7971d))
+
 ## [3.0.1](https://github.com/xability/maidr/compare/v3.0.0...v3.0.1) (2025-05-03)
 
 

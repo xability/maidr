@@ -149,7 +149,7 @@ describe('Multi-Layer Data Tests', () => {
 
   describe('Data Integrity', () => {
     beforeEach(() => {
-      multiLayerData = getMultiLayerData(multiLayerData);
+      multiLayerData = getMultiLayerData(maidrData);
     });
 
     it('should have consistent x-axis values across layers', () => {

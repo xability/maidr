@@ -154,6 +154,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
             data: response.data!,
             timestamp,
           }));
+          this.audioService.playCompleteTone();
         }
       } catch (error) {
         this.audioService.stop(audioId);
