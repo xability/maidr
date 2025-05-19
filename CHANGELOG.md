@@ -1,3 +1,10 @@
+## [3.3.1](https://github.com/xability/maidr/compare/v3.3.0...v3.3.1) (2025-05-19)
+
+
+### Bug Fixes
+
+* modify filename of vite bundle post build ([#262](https://github.com/xability/maidr/issues/262)) ([949e4ca](https://github.com/xability/maidr/commit/949e4ca0b0028e223af7b9a6914133ad82ff18bb))
+
 # [3.3.0](https://github.com/xability/maidr/compare/v3.2.2...v3.3.0) (2025-05-17)
 
 
