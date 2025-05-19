@@ -28,8 +28,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         mb: 2,
       }}
       role="listitem"
-      aria-label={getAriaLabel()}
-      {...(!message.isUser ? { 'aria-live': 'polite' } : {})}
     >
       <Box
         sx={{
