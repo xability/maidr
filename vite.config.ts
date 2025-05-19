@@ -6,8 +6,8 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
       name: 'maidr',
-      formats: ['es'],
-      fileName: () => `maidr.js`,
+      formats: ['es', 'umd'],
+      fileName: format => `maidr.${format}.js`,
     },
     sourcemap: true,
     outDir: 'dist',
