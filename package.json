@@ -1,12 +1,12 @@
 {
   "name": "maidr",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "main": "dist/maidr.js",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "webpack",
+    "build": "vite build",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
@@ -54,11 +54,8 @@
     "semantic-release": "^24.2.3",
     "start-server-and-test": "^2.0.11",
     "ts-jest": "^29.3.2",
-    "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "webpack": "^5.99.7",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.1"
+    "vite": "^5.0.0"
   }
 }

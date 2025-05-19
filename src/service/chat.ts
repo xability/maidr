@@ -1,9 +1,11 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
 import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
+import type { PromptContext } from './prompts';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
+import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 export class ChatService {
   private readonly display: DisplayService;
@@ -152,26 +154,27 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
       model: 'gpt-4o-2024-11-20',
       max_tokens: 1000,
       messages: [
         {
           role: 'system',
-          content:
-            'You are a helpful assistant describing the chart to a blind person.',
+          content: formatSystemPrompt(customInstruction),
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text:
-                `Describe this chart to a blind person who has a basic understanding of statistical charts.
-                \n${customInstruction}\n
-                Here is a chart in image format and raw data in json format: \n${maidrJson}\n
-                Also currently this point is selected: ${currentPositionText}\n.
-                My question is: ${message}`,
+              text: formatUserPrompt(context),
             },
             {
               type: 'image_url',
@@ -220,6 +223,13 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
       anthropic_version: 'vertex-2023-10-16',
       max_tokens: 256,
@@ -237,12 +247,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
             },
             {
               type: 'text',
-              text:
-                `You are a helpful assistant describing the chart to a blind person.\n${customInstruction}\n.
-                Here is the raw data in json format: ${maidrJson}\n\n\n
-                Here is the current position in the chart; no response necessarily needed,
-                use this info only if its relevant to future questions: ${currentPositionText}.
-                My question is: ${message}`,
+              text: `${formatSystemPrompt(customInstruction)}\n\n${formatUserPrompt(context)}`,
             },
           ],
         },
@@ -285,6 +290,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
       generationConfig: {},
       safetySettings: [],
@@ -293,7 +305,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
           role: 'user',
           parts: [
             {
-              text: 'You are a helpful assistant describing the chart to a blind person.',
+              text: formatSystemPrompt(customInstruction),
             },
           ],
         },
@@ -301,27 +313,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
           role: 'user',
           parts: [
             {
-              text:
-                `You are a helpful assistant describing the chart to a blind person.\n${customInstruction}\n\n
-                Describe this chart to a blind person who has a basic understanding of statistical charts.
-                Here is a chart in image format and raw data in json format: ${maidrJson}`,
+              text: formatUserPrompt(context),
             },
             {
               inlineData: {
                 data: image.split(',')[1],
                 mimeType: 'image/svg+xml',
               },
-            },
-          ],
-        },
-        {
-          role: 'user',
-          parts: [
-            {
-              text:
-                `Here is the current position in the chart; no response necessarily needed,
-                use this info only if it's relevant to future questions: ${currentPositionText}\n.
-                My question is: ${message}`,
             },
           ],
         },
