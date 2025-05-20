@@ -300,7 +300,7 @@ export class BasePage {
     try {
       await this.pressKeyCombination(
         TestConstants.COMMAND_KEY,
-        TestConstants.PERIOD_KEY,
+        TestConstants.COMMA_KEY,
         'show settings menu',
         100,
       );

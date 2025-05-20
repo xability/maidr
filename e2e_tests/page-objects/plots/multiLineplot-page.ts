@@ -12,8 +12,8 @@ export class MultiLineplotPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.MULTI_LINEPLOT_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.MULTI_LINEPLOT_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.MULTI_LINEPLOT_ID}`,
     svg: `svg#${TestConstants.MULTI_LINEPLOT_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,

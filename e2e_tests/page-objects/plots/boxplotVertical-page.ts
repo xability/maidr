@@ -12,8 +12,8 @@ export class BoxplotVerticalPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.BOXPLOT_VERTICAL_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.BOXPLOT_VERTICAL_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.BOXPLOT_VERTICAL_ID}`,
     svg: `svg#${TestConstants.BOXPLOT_VERTICAL_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
