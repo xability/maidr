@@ -113,7 +113,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     const audio = state.audio;
-    if (Array.isArray(audio.value)) {
+    if (audio.isContinuous) {
+      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index);
+    } else if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
         this.playZeroTone();
@@ -230,6 +232,61 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
     this.activeAudioIds.set(audioId, oscillator);
     return audioId;
+  }
+
+  private playSmooth(
+    values: number[],
+    min: number,
+    max: number,
+    size: number,
+    index: number,
+    wave: OscillatorType = 'sine',
+  ): void {
+    const ctx = this.audioContext;
+    const startTime = ctx.currentTime;
+    const duration = DEFAULT_DURATION;
+
+    // Normalize values to frequency
+    const freqs = values.map(v => this.interpolate(v, { min, max }, { min: MIN_FREQUENCY, max: MAX_FREQUENCY }));
+
+    // Ensure minimum of 2 frequencies
+    if (freqs.length < 2) {
+      freqs.push(freqs[0]);
+    }
+
+    // Calculate stereo pan (-1 to 1)
+    const pan = this.clamp(this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }), -1, 1);
+
+    // Oscillator
+    const oscillator = ctx.createOscillator();
+    oscillator.type = wave;
+    oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
+
+    // Gain envelope
+    const gainNode = ctx.createGain();
+    const gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
+    gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
+
+    // Panner
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = pan;
+
+    // Connect and play
+    oscillator.connect(gainNode);
+    gainNode.connect(panner);
+    panner.connect(this.compressor);
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+
+    const audioId = setTimeout(() => {
+      oscillator.disconnect();
+      gainNode.disconnect();
+      panner.disconnect();
+      this.activeAudioIds.delete(audioId);
+    }, duration * 1000 * 2);
+
+    this.activeAudioIds.set(audioId, oscillator);
   }
 
   private playEmptyTone(): AudioId {
