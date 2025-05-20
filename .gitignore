@@ -154,8 +154,8 @@ out
 # Jetbrains
 .idea
 
-# Cypress content
-cypress/screenshots/
+# Local Netlify folder
+.netlify
 
 # Playwright
 test-results/
