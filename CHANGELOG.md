@@ -1,3 +1,10 @@
+## [3.3.2](https://github.com/xability/maidr/compare/v3.3.1...v3.3.2) (2025-05-20)
+
+
+### Bug Fixes
+
+* address e2e test failures ([#267](https://github.com/xability/maidr/issues/267)) ([aed1870](https://github.com/xability/maidr/commit/aed1870d4839b944214fb529c2bb09c999e5d583))
+
 ## [3.3.1](https://github.com/xability/maidr/compare/v3.3.0...v3.3.1) (2025-05-19)
 
 
