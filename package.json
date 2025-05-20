@@ -12,11 +12,14 @@
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "e2e": "start-server-and-test 'http-server -p 8080' http://localhost:8080 'cypress run'",
     "semantic-release": "semantic-release",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "e2e": "playwright test --config=e2e_tests/config/test-config.ts",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:install": "playwright install --with-deps"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -35,6 +38,7 @@
     "@cypress/webpack-preprocessor": "^6.0.4",
     "@jest/globals": "^29.7.0",
     "@jest/types": "^29.6.3",
+    "@playwright/test": "^1.52.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.5.14",
