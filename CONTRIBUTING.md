@@ -121,11 +121,11 @@ We use ESLint to enforce a consistent code style and formatting. Please run `npm
 
 ### Tests
 
-We use Cypress for testing. Please refer to the [documentation](https://docs.cypress.io/app/get-started/why-cypress) in case you are new to Cypress.
+We use Playwright for end-to-end testing. Please refer to the [documentation](https://playwright.dev/docs/intro) if you are new to Playwright.
 
-1. Use `npx cypress open` to proactively test the testcases that are in development.
-
-2. Use `npm run test` to execute all tests on the updated build.
+1. Use `npm run e2e` to run the end-to-end tests
+2. Use `npm run e2e:ui` to run tests with UI mode
+3. Use `npm run e2e:debug` to debug tests
 
 ### Committing Your Changes
 
