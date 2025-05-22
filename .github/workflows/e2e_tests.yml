@@ -37,6 +37,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const { repo, owner } = context.repo;
             const run_id = context.runId;
             const run_url = `https://github.com/${owner}/${repo}/actions/runs/${run_id}`;
