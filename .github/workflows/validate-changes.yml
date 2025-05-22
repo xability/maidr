@@ -15,21 +15,23 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for proper diff
 
-      - name: Check for changes in examples/
-        id: check-examples
+      - name: Detect changes
+        id: detect-changes
         run: |
-          if git diff --name-only origin/main | grep -E '^(examples/|src/ui/)'; then
-            echo "examples_changes=true" >> $GITHUB_OUTPUT
+          # Get all changed files
+          CHANGED_FILES=$(git diff --name-only origin/main)
+
+          # Check for UI/example changes
+          if echo "$CHANGED_FILES" | grep -E '^(examples/|src/ui/)' > /dev/null; then
+            echo "ui_examples_changes=true" >> $GITHUB_OUTPUT
             echo "Changes detected in examples/ or src/ui/"
           else
-            echo "examples_changes=false" >> $GITHUB_OUTPUT
+            echo "ui_examples_changes=false" >> $GITHUB_OUTPUT
             echo "No changes in examples/ or src/ui/"
           fi
 
-      - name: Check for changes in model-related files
-        id: check-model
-        run: |
-          if git diff --name-only origin/main | grep -E '^src/(model|type|service|ui|util)/'; then
+          # Check for model changes (excluding UI)
+          if echo "$CHANGED_FILES" | grep -E '^src/(model|type|service|util)/' > /dev/null; then
             echo "model_changes=true" >> $GITHUB_OUTPUT
             echo "Changes detected in model-related files"
           else
@@ -37,8 +39,8 @@ jobs:
             echo "No changes in model-related files"
           fi
 
-      - name: Add comment for examples changes
-        if: steps.check-examples.outputs.examples_changes == 'true'
+      - name: Add comment for UI/example changes
+        if: steps.detect-changes.outputs.ui_examples_changes == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -69,7 +71,7 @@ jobs:
             });
 
       - name: Add comment for model changes
-        if: steps.check-model.outputs.model_changes == 'true'
+        if: steps.detect-changes.outputs.model_changes == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -77,7 +79,7 @@ jobs:
             const prNumber = context.issue.number;
 
             const comment = [
-              '⚠️ **Changes detected in object structure files**',
+              '⚠️ **Changes detected in model-related files**',
               '',
               'This PR contains changes to files that affect the model layer and unit tests. Before merging, please ensure:',
               '',
