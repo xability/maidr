@@ -9,11 +9,11 @@ const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
-  private readonly lineValues: number[][];
+  protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
-  private readonly min: number[];
-  private readonly max: number[];
+  protected readonly min: number[];
+  protected readonly max: number[];
 
   public constructor(layer: MaidrLayer) {
     super(layer);
