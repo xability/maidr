@@ -63,6 +63,7 @@ export interface AudioState {
   size: number;
   value: number | number[];
   index: number;
+  isContinuous?: boolean;
 }
 
 export type BrailleState
