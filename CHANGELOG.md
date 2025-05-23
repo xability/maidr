@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/xability/maidr/compare/v3.3.2...v3.4.0) (2025-05-23)
+
+
+### Features
+
+* support smooth continuous audio ([#268](https://github.com/xability/maidr/issues/268)) ([7ef714d](https://github.com/xability/maidr/commit/7ef714d5ff6fe0b4a97791696b5f5f4276e992cb))
+
 ## [3.3.2](https://github.com/xability/maidr/compare/v3.3.1...v3.3.2) (2025-05-20)
 
 
