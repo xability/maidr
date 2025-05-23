@@ -12,8 +12,8 @@ export class HeatmapPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.HEATMAP_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.HEATMAP_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.HEATMAP_ID}`,
     svg: `svg#${TestConstants.HEATMAP_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,

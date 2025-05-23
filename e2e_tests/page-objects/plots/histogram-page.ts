@@ -12,8 +12,8 @@ export class HistogramPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.HISTOGRAM_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.HISTOGRAM_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.HISTOGRAM_ID}`,
     svg: `svg#${TestConstants.HISTOGRAM_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,

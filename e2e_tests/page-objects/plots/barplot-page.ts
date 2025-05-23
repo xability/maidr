@@ -38,8 +38,8 @@ export class BarPlotPage extends BasePage {
     super(page);
     this.plotId = plotId;
     this.selectors = {
-      notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`,
-      info: `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`,
+      notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+      info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
       speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR + this.plotId}`,
       svg: `svg#${this.plotId}`,
       helpModal: TestConstants.MAIDR_HELP_MODAL,

@@ -16,7 +16,7 @@ const config: Config.InitialOptions = {
   coverageDirectory: '<rootDir>/coverage',
   collectCoverageFrom: ['src/**/*.ts'],
   testMatch: ['**/test/**/*.test.ts'], // Matches .test.ts files in test folder
-  testPathIgnorePatterns: ['/node_modules/', '/cypress/'],
+  testPathIgnorePatterns: ['/node_modules/'],
 };
 
 export default config;

@@ -383,10 +383,10 @@ test.describe('Multi Layer Plot', () => {
         await multiLayerPlotPage.activateMaidrOnClick();
       });
 
-      test('should display instruction text', async ({ page }) => {
+      test('should display current layer info', async ({ page }) => {
         const multiLayerPlotPage = await setupSecondLayerTest(page);
-        const instructionText = await multiLayerPlotPage.getInstructionText();
-        expect(instructionText).toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
+        const layerInfoText = await multiLayerPlotPage.getCurrentLayerInfo();
+        expect(layerInfoText).not.toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
       });
     });
 
