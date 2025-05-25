@@ -2,6 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import { AudioPaletteService, type AudioPaletteEntry } from './audioPalette';
 
 interface Range {
   min: number;
@@ -27,6 +28,7 @@ enum AudioMode {
 
 export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
+  private readonly audioPalette: AudioPaletteService;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
@@ -39,6 +41,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
   public constructor(notification: NotificationService, state: PlotState) {
     this.notification = notification;
+    this.audioPalette = new AudioPaletteService();
 
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
@@ -53,6 +56,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
   public dispose(): void {
     this.stopAll();
+    this.audioPalette.dispose();
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       void this.audioContext.close();
@@ -113,8 +117,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     const audio = state.audio;
+    const groupIndex = audio.groupIndex ?? 0;
+    const paletteEntry = this.audioPalette.getPaletteEntry(groupIndex);
+
     if (audio.isContinuous) {
-      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index);
+      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index, paletteEntry);
     } else if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
@@ -127,7 +134,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++, paletteEntry);
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -138,9 +145,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     } else {
       const value = audio.value as number;
       if (value === 0) {
-        this.playZeroTone();
+        this.playZeroTone(paletteEntry);
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index, paletteEntry);
       }
     }
   }
@@ -151,6 +158,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
+    paletteEntry: AudioPaletteEntry,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -160,35 +168,102 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    return this.playOscillator(frequency, panning);
+    return this.playOscillator(frequency, panning, paletteEntry);
   }
 
   private playOscillator(
     frequency: number,
     panning: number = 0,
-    wave: OscillatorType = 'sine',
+    paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
 
-    // Start with a constant tone.
-    const oscillator = this.audioContext.createOscillator();
-    oscillator.type = wave;
-    oscillator.frequency.value = frequency;
+    // Use default sine wave if no palette entry provided (for backwards compatibility)
+    if (!paletteEntry) {
+      paletteEntry = { waveType: 'sine' };
+    }
 
-    // Add volume.
-    const gainNode = this.audioContext.createGain();
+    let oscillators: OscillatorNode[] = [];
+    let gainNodes: GainNode[] = [];
+
+    // Create primary oscillator
+    const primaryOscillator = this.audioContext.createOscillator();
+    primaryOscillator.type = paletteEntry.waveType;
+    primaryOscillator.frequency.value = frequency;
+    oscillators.push(primaryOscillator);
+
+    // Create harmonic oscillators if harmonic mix is present
+    if (paletteEntry.harmonicMix) {
+      for (const harmonic of paletteEntry.harmonicMix.harmonics) {
+        const harmonicOscillator = this.audioContext.createOscillator();
+        harmonicOscillator.type = paletteEntry.waveType; // Use same wave type for harmonics
+        harmonicOscillator.frequency.value = harmonic.frequency * frequency;
+        oscillators.push(harmonicOscillator);
+      }
+    }
+
+    // Create gain nodes for each oscillator
     const startTime = this.audioContext.currentTime;
-    const valueCurve = [
-      0.5 * volume,
-      volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.1 * volume,
-      1e-4 * volume,
-    ];
-    gainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
+    for (let i = 0; i < oscillators.length; i++) {
+      const gainNode = this.audioContext.createGain();
+
+      // Apply timbre modulation envelope or use default
+      let envelope: number[];
+      let oscillatorVolume = volume;
+
+      if (i === 0) {
+        // Primary oscillator - use fundamental amplitude if specified
+        if (paletteEntry.harmonicMix) {
+          oscillatorVolume *= paletteEntry.harmonicMix.fundamental;
+        }
+      } else {
+        // Harmonic oscillator - use harmonic amplitude
+        const harmonic = paletteEntry.harmonicMix!.harmonics[i - 1];
+        oscillatorVolume *= harmonic.amplitude;
+      }
+
+      if (paletteEntry.timbreModulation) {
+        // Create ADSR envelope
+        const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
+        const attackTime = duration * attack;
+        const decayTime = duration * decay;
+        const releaseTime = duration * release;
+        const sustainTime = duration - attackTime - decayTime - releaseTime;
+
+        envelope = [];
+        const steps = 7; // Match original envelope curve complexity
+
+        // Attack phase
+        envelope.push(0.1 * oscillatorVolume);
+        envelope.push(oscillatorVolume);
+
+        // Decay phase
+        envelope.push(sustain * oscillatorVolume);
+
+        // Sustain phase
+        envelope.push(sustain * oscillatorVolume);
+        envelope.push(sustain * oscillatorVolume);
+
+        // Release phase
+        envelope.push(0.1 * oscillatorVolume);
+        envelope.push(1e-4 * oscillatorVolume);
+      } else {
+        // Use default envelope
+        envelope = [
+          0.5 * oscillatorVolume,
+          oscillatorVolume,
+          0.5 * oscillatorVolume,
+          0.5 * oscillatorVolume,
+          0.5 * oscillatorVolume,
+          0.1 * oscillatorVolume,
+          1e-4 * oscillatorVolume,
+        ];
+      }
+
+      gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
+      gainNodes.push(gainNode);
+    }
 
     // Pane the audio.
     const stereoPannerNode = this.audioContext.createStereoPanner();
@@ -212,25 +287,31 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     });
 
     // Create and start the audio graph.
-    oscillator.connect(gainNode);
-    gainNode.connect(stereoPannerNode);
+    for (let i = 0; i < oscillators.length; i++) {
+      oscillators[i].connect(gainNodes[i]);
+      gainNodes[i].connect(stereoPannerNode);
+    }
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
-    oscillator.start();
+
+    // Start all oscillators
+    oscillators.forEach(osc => osc.start());
 
     // Clean up after the audio stops.
     const cleanUp = (audioId: AudioId): void => {
       pannerNode.disconnect(this.compressor);
       stereoPannerNode.disconnect(pannerNode);
-      gainNode.disconnect(stereoPannerNode);
 
-      oscillator.stop();
-      oscillator.disconnect(gainNode);
+      for (let i = 0; i < oscillators.length; i++) {
+        gainNodes[i].disconnect(stereoPannerNode);
+        oscillators[i].stop();
+        oscillators[i].disconnect(gainNodes[i]);
+      }
 
       this.activeAudioIds.delete(audioId);
     };
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
-    this.activeAudioIds.set(audioId, oscillator);
+    this.activeAudioIds.set(audioId, oscillators);
     return audioId;
   }
 
@@ -240,11 +321,14 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     max: number,
     size: number,
     index: number,
-    wave: OscillatorType = 'sine',
+    paletteEntry?: AudioPaletteEntry,
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
+
+    // Use default sine wave if no palette entry provided
+    const waveType = paletteEntry?.waveType || 'sine';
 
     // Normalize values to frequency
     const freqs = values.map(v => this.interpolate(v, { min, max }, { min: MIN_FREQUENCY, max: MAX_FREQUENCY }));
@@ -259,12 +343,25 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
     // Oscillator
     const oscillator = ctx.createOscillator();
-    oscillator.type = wave;
+    oscillator.type = waveType;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
 
-    // Gain envelope
+    // Gain envelope - apply custom envelope if available
     const gainNode = ctx.createGain();
-    const gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
+    let gainCurve: number[];
+
+    if (paletteEntry?.timbreModulation) {
+      const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
+      const attackLevel = 0.5 * this.volume;
+      const peakLevel = this.volume;
+      const sustainLevel = sustain * this.volume;
+      const releaseLevel = 1e-4 * this.volume;
+
+      gainCurve = [attackLevel, peakLevel, sustainLevel];
+    } else {
+      gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
+    }
+
     gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
 
     // Panner
@@ -335,16 +432,17 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playZeroTone(): AudioId {
-    return this.playOscillator(NULL_FREQUENCY, 0, 'triangle');
+  private playZeroTone(paletteEntry?: AudioPaletteEntry): AudioId {
+    const entry = paletteEntry || { waveType: 'triangle' };
+    return this.playOscillator(NULL_FREQUENCY, 0, entry);
   }
 
   public playWaitingTone(): AudioId {
-    return setInterval(() => this.playOscillator(WAITING_FREQUENCY), 1000);
+    return setInterval(() => this.playOscillator(WAITING_FREQUENCY, 0, { waveType: 'sine' }), 1000);
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY);
+    return this.playOscillator(COMPLETE_FREQUENCY, 0, { waveType: 'sine' });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {

@@ -111,6 +111,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         size: current.y.length,
         index: this.col,
         value: current.y,
+        groupIndex: this.col, // Use column as group index in column mode
       };
     } else {
       const current = this.yPoints[this.row];
@@ -120,6 +121,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         size: current.x.length,
         index: this.row,
         value: current.x,
+        groupIndex: this.row, // Use row as group index in row mode
       };
     }
   }
