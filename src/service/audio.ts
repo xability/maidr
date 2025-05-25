@@ -1,8 +1,9 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
-import { AudioPaletteService, type AudioPaletteEntry } from './audioPalette';
+import { AudioPaletteService } from './audioPalette';
 
 interface Range {
   min: number;
@@ -188,8 +189,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       paletteEntry = { waveType: 'sine' };
     }
 
-    let oscillators: OscillatorNode[] = [];
-    let gainNodes: GainNode[] = [];
+    const oscillators: OscillatorNode[] = [];
+    const gainNodes: GainNode[] = [];
 
     // Create primary oscillator
     const primaryOscillator = this.audioContext.createOscillator();
@@ -230,13 +231,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       if (paletteEntry.timbreModulation) {
         // Create ADSR envelope
         const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
-        const attackTime = duration * attack;
-        const decayTime = duration * decay;
-        const releaseTime = duration * release;
-        const sustainTime = duration - attackTime - decayTime - releaseTime;
+        const _attackTime = duration * attack;
+        const _decayTime = duration * decay;
+        const _releaseTime = duration * release;
+        const _sustainTime = duration - _attackTime - _decayTime - _releaseTime;
 
         envelope = [];
-        const steps = 7; // Match original envelope curve complexity
+        const _steps = 7; // Match original envelope curve complexity
 
         // Attack phase
         envelope.push(0.1 * oscillatorVolume);
@@ -355,11 +356,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     let gainCurve: number[];
 
     if (paletteEntry?.timbreModulation) {
-      const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
+      const { attack: _attack, decay: _decay, sustain, release: _release } = paletteEntry.timbreModulation;
       const attackLevel = 0.5 * this.volume;
       const peakLevel = this.volume;
       const sustainLevel = sustain * this.volume;
-      const releaseLevel = 1e-4 * this.volume;
+      const _releaseLevel = 1e-4 * this.volume;
 
       gainCurve = [attackLevel, peakLevel, sustainLevel];
     } else {
