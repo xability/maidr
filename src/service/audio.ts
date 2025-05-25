@@ -118,14 +118,18 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
     const audio = state.audio;
     const groupIndex = audio.groupIndex ?? 0;
-    const paletteEntry = this.audioPalette.getPaletteEntry(groupIndex);
+
+    // Determine if we need to use multiclass audio based on actual group count
+    // Only use audio palette if there are multiple groups (groupIndex > 0) or if it's explicitly needed
+    const shouldUseMulticlassAudio = groupIndex > 0;
+    const paletteEntry = shouldUseMulticlassAudio ? this.audioPalette.getPaletteEntry(groupIndex) : undefined;
 
     if (audio.isContinuous) {
       this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index, paletteEntry);
     } else if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
-        this.playZeroTone();
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
         return;
       }
 
@@ -145,7 +149,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     } else {
       const value = audio.value as number;
       if (value === 0) {
-        this.playZeroTone(paletteEntry);
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
       } else {
         this.playTone(audio.min, audio.max, value, audio.size, audio.index, paletteEntry);
       }
@@ -158,7 +162,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
-    paletteEntry: AudioPaletteEntry,
+    paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -432,9 +436,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
-  private playZeroTone(paletteEntry?: AudioPaletteEntry): AudioId {
-    const entry = paletteEntry || { waveType: 'triangle' };
-    return this.playOscillator(NULL_FREQUENCY, 0, entry);
+  private playZeroTone(): AudioId {
+    // Always use original triangle wave for zero values, regardless of groups
+    return this.playOscillator(NULL_FREQUENCY, 0, { waveType: 'triangle' });
   }
 
   public playWaitingTone(): AudioId {

@@ -57,7 +57,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       size,
       index,
       value,
-      groupIndex: this.row, // Use row as group index for multiclass bar plots
+      // Only use groupIndex if there are multiple groups (rows > 1 for stacked/dodged bars)
+      ...(this.barValues.length > 1 ? { groupIndex: this.row } : {}),
     };
   }
 

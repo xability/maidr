@@ -25,7 +25,8 @@ export class SmoothTrace extends LineTrace {
       index: col,
       value: [prev, curr, next],
       isContinuous: true,
-      groupIndex: this.row, // Use row as group index for smooth line plots
+      // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
+      ...(this.lineValues.length > 1 ? { groupIndex: this.row } : {}),
     };
   }
 }

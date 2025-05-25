@@ -47,7 +47,8 @@ export class LineTrace extends AbstractTrace<number> {
       size: this.points[this.row].length,
       index: this.col,
       value: this.points[this.row][this.col].y,
-      groupIndex: this.row, // Use row as group index for multiline plots
+      // Only use groupIndex if there are multiple lines (actual multiline plot)
+      ...(this.lineValues.length > 1 ? { groupIndex: this.row } : {}),
     };
   }
 
