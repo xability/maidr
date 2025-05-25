@@ -34,6 +34,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
   private readonly volume: number;
+  private readonly waves: OscillatorType[];
+
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -47,6 +49,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds = new Map();
 
     this.volume = DEFAULT_VOLUME;
+    this.waves = ['sine', 'triangle', 'square', 'sawtooth'];
+
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
@@ -114,7 +118,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
     const audio = state.audio;
     if (audio.isContinuous) {
-      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index);
+      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.col);
     } else if (Array.isArray(audio.value)) {
       const values = audio.value as number[];
       if (values.length === 0) {
@@ -140,7 +144,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       if (value === 0) {
         this.playZeroTone();
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+        this.playTone(audio.min, audio.max, value, audio.size, audio.col, audio.row);
       }
     }
   }
@@ -151,6 +155,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
+    waveType: number = 0,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -160,7 +165,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    return this.playOscillator(frequency, panning);
+    return this.playOscillator(frequency, panning, this.waves[waveType % this.waves.length]);
   }
 
   private playOscillator(
@@ -168,6 +173,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     panning: number = 0,
     wave: OscillatorType = 'sine',
   ): AudioId {
+    console.error(wave);
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
 

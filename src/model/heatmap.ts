@@ -45,7 +45,7 @@ export class Heatmap extends AbstractTrace<number> {
       min: this.min,
       max: this.max,
       size: this.heatmapValues.length,
-      index: this.col,
+      col: this.col,
       value: this.heatmapValues[this.row][this.col],
     };
   }

@@ -55,7 +55,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       min: Math.min(...this.min),
       max: Math.max(...this.max),
       size,
-      index,
+      col: index,
       value,
     };
   }

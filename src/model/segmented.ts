@@ -1,5 +1,5 @@
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
-import type { HighlightState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
@@ -51,6 +51,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         label: LEVEL,
         value: this.points[this.row][this.col].fill ?? UNDEFINED,
       },
+    };
+  }
+
+  protected audio(): AudioState {
+    return {
+      ...super.audio(),
+      row: this.row,
     };
   }
 

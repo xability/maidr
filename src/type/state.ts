@@ -62,13 +62,15 @@ export interface AudioState {
   max: number;
   size: number;
   value: number | number[];
-  index: number;
+  col: number;
+  row?: number;
   /**
    * Indicates whether the audio is continuous.
    * If true, the audio plays without interruption.
    * If false or undefined, the audio may have discrete segments.
    */
   isContinuous?: boolean;
+
 }
 
 export type BrailleState =

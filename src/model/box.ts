@@ -90,7 +90,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       min: this.min,
       max: this.max,
       size,
-      index,
+      col: index,
       value,
     };
   }

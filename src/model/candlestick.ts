@@ -61,7 +61,7 @@ export class Candlestick extends AbstractTrace<number> {
       min: this.min,
       max: this.max,
       size: this.candles.length,
-      index,
+      col: index,
       value,
     };
   }

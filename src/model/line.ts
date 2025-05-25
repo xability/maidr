@@ -45,7 +45,8 @@ export class LineTrace extends AbstractTrace<number> {
       min: this.min[this.row],
       max: this.max[this.row],
       size: this.points[this.row].length,
-      index: this.col,
+      col: this.col,
+      row: this.row,
       value: this.points[this.row][this.col].y,
     };
   }

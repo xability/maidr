@@ -22,7 +22,7 @@ export class SmoothTrace extends LineTrace {
       min: this.min[this.row],
       max: this.max[this.row],
       size: rowYValues.length,
-      index: col,
+      col,
       value: [prev, curr, next],
       isContinuous: true,
     };

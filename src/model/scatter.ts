@@ -109,7 +109,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         min: this.minY,
         max: this.maxY,
         size: current.y.length,
-        index: this.col,
+        col: this.col,
         value: current.y,
       };
     } else {
@@ -118,7 +118,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         min: this.minX,
         max: this.maxX,
         size: current.x.length,
-        index: this.row,
+        col: this.row,
         value: current.x,
       };
     }
