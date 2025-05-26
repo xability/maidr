@@ -25,6 +25,10 @@ export interface AudioPaletteEntry {
  * distinguishable audio per group level.
  */
 export class AudioPaletteService implements Disposable {
+  // Harmonic generation constants
+  private static readonly MIN_HARMONICS = 2;
+  private static readonly HARMONIC_VARIATION = 3;
+  
   private readonly basePalette: AudioPaletteEntry[];
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
@@ -222,8 +226,8 @@ export class AudioPaletteService implements Disposable {
   private generateHarmonics(variation: number): Array<{ frequency: number; amplitude: number }> {
     const harmonics: Array<{ frequency: number; amplitude: number }> = [];
 
-    // Generate 2-4 harmonics based on variation
-    const numHarmonics = 2 + (variation % 3);
+    // Generate harmonics based on variation
+    const numHarmonics = AudioPaletteService.MIN_HARMONICS + (variation % AudioPaletteService.HARMONIC_VARIATION);
 
     for (let i = 0; i < numHarmonics; i++) {
       const frequency = 1.0 + (i + 1) * (0.5 + (variation * 0.3) % 1.0);
