@@ -214,7 +214,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const gainNode = this.audioContext.createGain();
 
       // Apply timbre modulation envelope or use default
-      let envelope: number[];
+      let envelope: number[] | null;
       let oscillatorVolume = volume;
 
       if (i === 0) {
@@ -229,32 +229,34 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       }
 
       if (paletteEntry.timbreModulation) {
-        // Create ADSR envelope
+        // Create ADSR envelope with proper timing
         const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
-        const _attackTime = duration * attack;
-        const _decayTime = duration * decay;
-        const _releaseTime = duration * release;
-        const _sustainTime = duration - _attackTime - _decayTime - _releaseTime;
+        const attackTime = duration * attack;
+        const decayTime = duration * decay;
+        const releaseTime = duration * release;
+        const sustainTime = duration - attackTime - decayTime - releaseTime;
 
-        envelope = [];
-        const _steps = 7; // Match original envelope curve complexity
+        // Use Web Audio API's precise ADSR envelope scheduling
+        gainNode.gain.setValueAtTime(1e-4 * oscillatorVolume, startTime);
 
-        // Attack phase
-        envelope.push(0.1 * oscillatorVolume);
-        envelope.push(oscillatorVolume);
+        // Attack phase - ramp up to full volume
+        gainNode.gain.linearRampToValueAtTime(oscillatorVolume, startTime + attackTime);
 
-        // Decay phase
-        envelope.push(sustain * oscillatorVolume);
+        // Decay phase - ramp down to sustain level
+        gainNode.gain.linearRampToValueAtTime(sustain * oscillatorVolume, startTime + attackTime + decayTime);
 
-        // Sustain phase
-        envelope.push(sustain * oscillatorVolume);
-        envelope.push(sustain * oscillatorVolume);
+        // Sustain phase - hold at sustain level (only if sustainTime > 0)
+        if (sustainTime > 0) {
+          gainNode.gain.setValueAtTime(sustain * oscillatorVolume, startTime + attackTime + decayTime + sustainTime);
+        }
 
-        // Release phase
-        envelope.push(0.1 * oscillatorVolume);
-        envelope.push(1e-4 * oscillatorVolume);
+        // Release phase - ramp down to silence
+        gainNode.gain.linearRampToValueAtTime(1e-4 * oscillatorVolume, startTime + duration);
+
+        // Skip the setValueCurveAtTime since we're using precise scheduling
+        envelope = null;
       } else {
-        // Use default envelope
+        // Use default envelope curve for simple audio
         envelope = [
           0.5 * oscillatorVolume,
           oscillatorVolume,
@@ -266,7 +268,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
         ];
       }
 
-      gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
+      // Apply envelope curve only if we haven't already used precise scheduling
+      if (envelope !== null) {
+        gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
+      }
       gainNodes.push(gainNode);
     }
 
