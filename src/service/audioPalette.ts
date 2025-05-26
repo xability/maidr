@@ -28,7 +28,7 @@ export class AudioPaletteService implements Disposable {
   // Harmonic generation constants
   private static readonly MIN_HARMONICS = 2;
   private static readonly HARMONIC_VARIATION = 3;
-  
+
   private readonly basePalette: AudioPaletteEntry[];
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
