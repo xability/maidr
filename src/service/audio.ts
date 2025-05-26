@@ -179,21 +179,14 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return this.playOscillator(frequency, panning, paletteEntry);
   }
 
-  private playOscillator(
-    frequency: number,
-    panning: number = 0,
-    paletteEntry?: AudioPaletteEntry,
-  ): AudioId {
-    const duration = DEFAULT_DURATION;
-    const volume = this.volume;
-
-    // Use default sine wave if no palette entry provided (for backwards compatibility)
-    if (!paletteEntry) {
-      paletteEntry = { waveType: 'sine' };
-    }
-
+  /**
+   * Creates oscillators for the given palette entry and frequency.
+   * @param paletteEntry - The audio palette entry defining wave type and harmonics
+   * @param frequency - The base frequency for the primary oscillator
+   * @returns Array of configured oscillator nodes
+   */
+  private createOscillators(paletteEntry: AudioPaletteEntry, frequency: number): OscillatorNode[] {
     const oscillators: OscillatorNode[] = [];
-    const gainNodes: GainNode[] = [];
 
     // Create primary oscillator
     const primaryOscillator = this.audioContext.createOscillator();
@@ -211,8 +204,26 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       }
     }
 
-    // Create gain nodes for each oscillator
+    return oscillators;
+  }
+
+  /**
+   * Creates gain nodes with ADSR envelopes for the given oscillators.
+   * @param oscillators - Array of oscillator nodes to create gain nodes for
+   * @param paletteEntry - The audio palette entry defining envelope and harmonic amplitudes
+   * @param volume - The base volume level
+   * @param duration - The duration of the audio in seconds
+   * @returns Array of configured gain nodes
+   */
+  private createGainNodes(
+    oscillators: OscillatorNode[],
+    paletteEntry: AudioPaletteEntry,
+    volume: number,
+    duration: number,
+  ): GainNode[] {
+    const gainNodes: GainNode[] = [];
     const startTime = this.audioContext.currentTime;
+
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
 
@@ -239,6 +250,25 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       }
       gainNodes.push(gainNode);
     }
+
+    return gainNodes;
+  }
+
+  private playOscillator(
+    frequency: number,
+    panning: number = 0,
+    paletteEntry?: AudioPaletteEntry,
+  ): AudioId {
+    const duration = DEFAULT_DURATION;
+    const volume = this.volume;
+
+    // Use default sine wave if no palette entry provided (for backwards compatibility)
+    if (!paletteEntry) {
+      paletteEntry = { waveType: 'sine' };
+    }
+
+    const oscillators: OscillatorNode[] = this.createOscillators(paletteEntry, frequency);
+    const gainNodes: GainNode[] = this.createGainNodes(oscillators, paletteEntry, volume, duration);
 
     // Pane the audio.
     const stereoPannerNode = this.audioContext.createStereoPanner();
