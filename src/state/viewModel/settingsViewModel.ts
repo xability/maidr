@@ -5,7 +5,7 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings {}
+interface SettingsState extends Settings { }
 
 const initialState: SettingsState = {
   general: {
@@ -65,6 +65,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
 
   public dispose(): void {
     this.store.dispatch(reset());
+    super.dispose();
   }
 
   public get state(): SettingsState {

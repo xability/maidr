@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -21,8 +22,8 @@ export class LineTrace extends AbstractTrace<number> {
     this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
-    this.min = this.lineValues.map(row => Math.min(...row));
-    this.max = this.lineValues.map(row => Math.max(...row));
+    this.min = this.lineValues.map(row => MathUtil.safeMin(row));
+    this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
   }

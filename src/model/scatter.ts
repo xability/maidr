@@ -1,6 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -67,10 +68,10 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.xValues = this.xPoints.map(p => p.x);
     this.yValues = this.yPoints.map(p => p.y);
 
-    this.minX = Math.min(...this.xValues);
-    this.maxX = Math.max(...this.xValues);
-    this.minY = Math.min(...this.yValues);
-    this.maxY = Math.max(...this.yValues);
+    this.minX = MathUtil.safeMin(this.xValues);
+    this.maxX = MathUtil.safeMax(this.xValues);
+    this.minY = MathUtil.safeMin(this.yValues);
+    this.maxY = MathUtil.safeMax(this.yValues);
 
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
   }

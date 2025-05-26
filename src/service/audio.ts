@@ -214,7 +214,6 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const gainNode = this.audioContext.createGain();
 
       // Apply timbre modulation envelope or use default
-      let envelope: number[] | null;
       let oscillatorVolume = volume;
 
       if (i === 0) {
@@ -228,45 +227,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
         oscillatorVolume *= harmonic.amplitude;
       }
 
-      if (paletteEntry.timbreModulation) {
-        // Create ADSR envelope with proper timing
-        const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
-        const attackTime = duration * attack;
-        const decayTime = duration * decay;
-        const releaseTime = duration * release;
-        const sustainTime = duration - attackTime - decayTime - releaseTime;
-
-        // Use Web Audio API's precise ADSR envelope scheduling
-        gainNode.gain.setValueAtTime(1e-4 * oscillatorVolume, startTime);
-
-        // Attack phase - ramp up to full volume
-        gainNode.gain.linearRampToValueAtTime(oscillatorVolume, startTime + attackTime);
-
-        // Decay phase - ramp down to sustain level
-        gainNode.gain.linearRampToValueAtTime(sustain * oscillatorVolume, startTime + attackTime + decayTime);
-
-        // Sustain phase - hold at sustain level (only if sustainTime > 0)
-        if (sustainTime > 0) {
-          gainNode.gain.setValueAtTime(sustain * oscillatorVolume, startTime + attackTime + decayTime + sustainTime);
-        }
-
-        // Release phase - ramp down to silence
-        gainNode.gain.linearRampToValueAtTime(1e-4 * oscillatorVolume, startTime + duration);
-
-        // Skip the setValueCurveAtTime since we're using precise scheduling
-        envelope = null;
-      } else {
-        // Use default envelope curve for simple audio
-        envelope = [
-          0.5 * oscillatorVolume,
-          oscillatorVolume,
-          0.5 * oscillatorVolume,
-          0.5 * oscillatorVolume,
-          0.5 * oscillatorVolume,
-          0.1 * oscillatorVolume,
-          1e-4 * oscillatorVolume,
-        ];
-      }
+      // Create ADSR envelope using the shared helper function
+      const envelope = this.createAdsrEnvelope(gainNode, paletteEntry, oscillatorVolume, startTime, duration);
 
       // Apply envelope curve only if we haven't already used precise scheduling
       if (envelope !== null) {
@@ -325,6 +287,54 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     return audioId;
   }
 
+  private createAdsrEnvelope(
+    gainNode: GainNode,
+    paletteEntry: AudioPaletteEntry | undefined,
+    volume: number,
+    startTime: number,
+    duration: number,
+  ): number[] | null {
+    if (paletteEntry?.timbreModulation) {
+      // Create ADSR envelope with proper timing
+      const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
+      const attackTime = duration * attack;
+      const decayTime = duration * decay;
+      const releaseTime = duration * release;
+      const sustainTime = duration - attackTime - decayTime - releaseTime;
+
+      // Use Web Audio API's precise ADSR envelope scheduling
+      gainNode.gain.setValueAtTime(1e-4 * volume, startTime);
+
+      // Attack phase - ramp up to full volume
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + attackTime);
+
+      // Decay phase - ramp down to sustain level
+      gainNode.gain.linearRampToValueAtTime(sustain * volume, startTime + attackTime + decayTime);
+
+      // Sustain phase - hold at sustain level (only if sustainTime > 0)
+      if (sustainTime > 0) {
+        gainNode.gain.setValueAtTime(sustain * volume, startTime + attackTime + decayTime + sustainTime);
+      }
+
+      // Release phase - ramp down to silence
+      gainNode.gain.linearRampToValueAtTime(1e-4 * volume, startTime + duration);
+
+      // Return null to indicate we used precise scheduling
+      return null;
+    } else {
+      // Use default envelope curve for simple audio
+      return [
+        0.5 * volume,
+        volume,
+        0.5 * volume,
+        0.5 * volume,
+        0.5 * volume,
+        0.1 * volume,
+        1e-4 * volume,
+      ];
+    }
+  }
+
   private playSmooth(
     values: number[],
     min: number,
@@ -356,23 +366,14 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     oscillator.type = waveType;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
 
-    // Gain envelope - apply custom envelope if available
+    // Gain envelope - use shared ADSR helper function
     const gainNode = ctx.createGain();
-    let gainCurve: number[];
+    const envelope = this.createAdsrEnvelope(gainNode, paletteEntry, this.volume, startTime, duration);
 
-    if (paletteEntry?.timbreModulation) {
-      const { attack: _attack, decay: _decay, sustain, release: _release } = paletteEntry.timbreModulation;
-      const attackLevel = 0.5 * this.volume;
-      const peakLevel = this.volume;
-      const sustainLevel = sustain * this.volume;
-      const _releaseLevel = 1e-4 * this.volume;
-
-      gainCurve = [attackLevel, peakLevel, sustainLevel];
-    } else {
-      gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
+    // Apply envelope curve only if we haven't already used precise scheduling
+    if (envelope !== null) {
+      gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
     }
-
-    gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
 
     // Panner
     const panner = ctx.createStereoPanner();
