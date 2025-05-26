@@ -34,7 +34,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
+  private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
 
   private readonly volume: number;
   private readonly audioContext: AudioContext;
@@ -388,7 +388,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       this.activeAudioIds.delete(audioId);
     }, duration * 1000 * 2);
 
-    this.activeAudioIds.set(audioId, oscillator);
+    this.activeAudioIds.set(audioId, [oscillator]);
   }
 
   private playEmptyTone(): AudioId {
@@ -490,13 +490,12 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
-      const activeNode = this.activeAudioIds.get(audioId);
-      if (!activeNode) {
+      const activeNodes = this.activeAudioIds.get(audioId);
+      if (!activeNodes) {
         clearInterval(audioId);
         return;
       }
 
-      const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
         node?.disconnect();
         node?.stop();
@@ -508,9 +507,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   private stopAll(): void {
-    this.activeAudioIds.entries().forEach(([audioId, node]) => {
+    this.activeAudioIds.entries().forEach(([audioId, nodes]) => {
       clearTimeout(audioId);
-      const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {
         node.disconnect();
         node.stop();
