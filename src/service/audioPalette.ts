@@ -231,7 +231,7 @@ export class AudioPaletteService implements Disposable {
 
     for (let i = 0; i < numHarmonics; i++) {
       const frequency = 1.0 + (i + 1) * (0.5 + (variation * 0.3) % 1.0);
-      const amplitude = 0.4 / (i + 1) * (1.0 - (variation * 0.1) % 0.3);
+      const amplitude = (0.4 / (i + 1)) * (1.0 - ((variation * 0.1) % 0.3));
 
       harmonics.push({ frequency, amplitude });
     }
