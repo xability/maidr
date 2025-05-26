@@ -102,6 +102,22 @@ export class ScatterTrace extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }
 
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // ScatterTrace has different logic based on navigation mode
+    if (this.mode === NavMode.COL) {
+      // Only use groupIndex if there are multiple x-points (actual groups)
+      if (this.xPoints.length > 1) {
+        return { groupIndex: this.col };
+      }
+    } else {
+      // Only use groupIndex if there are multiple y-points (actual groups)
+      if (this.yPoints.length > 1) {
+        return { groupIndex: this.row };
+      }
+    }
+    return {};
+  }
+
   protected audio(): AudioState {
     if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
@@ -112,7 +128,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         index: this.col,
         value: current.y,
         // Only use groupIndex if there are multiple x-points (actual groups)
-        ...(this.xPoints.length > 1 ? { groupIndex: this.col } : {}),
+        ...this.getAudioGroupIndex(),
       };
     } else {
       const current = this.yPoints[this.row];
@@ -123,7 +139,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         index: this.row,
         value: current.x,
         // Only use groupIndex if there are multiple y-points (actual groups)
-        ...(this.yPoints.length > 1 ? { groupIndex: this.row } : {}),
+        ...this.getAudioGroupIndex(),
       };
     }
   }
@@ -152,7 +168,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  protected autoplay(): AutoplayState {
+  public get autoplay(): AutoplayState {
     return {
       UPWARD: this.yValues.length,
       DOWNWARD: this.yValues.length,

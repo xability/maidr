@@ -58,7 +58,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       index,
       value,
       // Only use groupIndex if there are multiple groups (rows > 1 for stacked/dodged bars)
-      ...(this.barValues.length > 1 ? { groupIndex: this.row } : {}),
+      ...this.getAudioGroupIndex(),
     };
   }
 
