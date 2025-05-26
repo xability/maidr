@@ -7,22 +7,24 @@ export abstract class MathUtil {
 
   /**
    * Safely finds the minimum value from an array of numbers.
-   * Handles empty arrays by returning 0.
+   * Returns Infinity for empty arrays (mathematically correct: empty set has no minimum).
+   * This prevents subtle bugs where 0 might be confused with actual data.
    * @param values - Array of numbers to find minimum from
-   * @returns The minimum value or 0 if array is empty
+   * @returns The minimum value or Infinity if array is empty
    */
   static safeMin(values: number[]): number {
-    return values.length === 0 ? 0 : Math.min(...values);
+    return values.length === 0 ? Infinity : Math.min(...values);
   }
 
   /**
    * Safely finds the maximum value from an array of numbers.
-   * Handles empty arrays by returning 0.
+   * Returns -Infinity for empty arrays (mathematically correct: empty set has no maximum).
+   * This prevents subtle bugs where 0 might be confused with actual data.
    * @param values - Array of numbers to find maximum from
-   * @returns The maximum value or 0 if array is empty
+   * @returns The maximum value or -Infinity if array is empty
    */
   static safeMax(values: number[]): number {
-    return values.length === 0 ? 0 : Math.max(...values);
+    return values.length === 0 ? -Infinity : Math.max(...values);
   }
 
   /**
@@ -48,12 +50,13 @@ export abstract class MathUtil {
   /**
    * Finds min and max from an array in a single pass.
    * More efficient than separate min/max calls for large arrays.
+   * Returns { min: Infinity, max: -Infinity } for empty arrays.
    * @param values - Array of numbers
    * @returns Object with min and max properties
    */
   static minMax(values: number[]): { min: number; max: number } {
     if (values.length === 0) {
-      return { min: 0, max: 0 };
+      return { min: Infinity, max: -Infinity };
     }
 
     let min = values[0];

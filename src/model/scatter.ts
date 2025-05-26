@@ -105,7 +105,7 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   protected getAudioGroupIndex(): { groupIndex?: number } {
     // Rationale for returning empty object instead of groupIndex:
-    // 
+    //
     // Scatterplots fundamentally differ from other plot types in their grouping semantics:
     // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
     // - Heatmaps: groupIndex can represent different data dimensions
