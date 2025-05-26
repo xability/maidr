@@ -206,7 +206,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
-      autoplay: this.autoplay(),
+      autoplay: this.autoplay, // Remove parentheses
       highlight: this.highlight(),
     };
   }
@@ -226,7 +226,25 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Assuming `this.values` holds the data that determines if there are multiple lines/groups.
+    // The actual condition might need to be adapted based on how `this.values` is structured
+    // in concrete classes (e.g., `this.lineValues.length > 1` in LineTrace).
+    // This is a generalized placeholder.
+    if (this.values && Array.isArray(this.values) && this.values.length > 1 && Array.isArray(this.values[0]) && this.values[0].length > 0) {
+      // Check if the items in values are themselves arrays (e.g. for multi-line)
+      // or if there's another property to check for multiple groups.
+      // For now, we assume if `this.values` has more than one primary element, it's a multi-group scenario.
+      // This might need refinement based on the specific structure of `this.values` in subclasses.
+      const firstLevelArray = this.values as unknown[][];
+      if (firstLevelArray.length > 1) {
+        return { groupIndex: this.row };
+      }
+    }
+    return {};
+  }
+
+  public get autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
       DOWNWARD: this.values.length,
