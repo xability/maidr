@@ -118,12 +118,15 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     const audio = state.audio;
-    const groupIndex = audio.groupIndex ?? 0;
+    const groupIndex = audio.groupIndex;
 
-    // Determine if we need to use multiclass audio based on actual group count
-    // Only use audio palette if there are multiple groups (groupIndex > 0) or if it's explicitly needed
-    const shouldUseMulticlassAudio = groupIndex > 0;
-    const paletteEntry = shouldUseMulticlassAudio ? this.audioPalette.getPaletteEntry(groupIndex) : undefined;
+    // Determine if we need to use multiclass audio based on whether groupIndex is defined
+    // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
+    // If groupIndex is undefined, we have a single group and should use default audio
+    //
+    // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
+    const shouldUseMulticlassAudio = groupIndex !== undefined;
+    const paletteEntry = shouldUseMulticlassAudio ? this.audioPalette.getPaletteEntry(groupIndex!) : undefined;
 
     if (audio.isContinuous) {
       this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index, paletteEntry);
