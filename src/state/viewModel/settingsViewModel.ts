@@ -64,8 +64,8 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   public dispose(): void {
-    this.store.dispatch(reset());
     super.dispose();
+    this.store.dispatch(reset());
   }
 
   public get state(): SettingsState {

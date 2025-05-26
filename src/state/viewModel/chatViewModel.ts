@@ -85,6 +85,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   public dispose(): void {
+    super.dispose();
     this.store.dispatch(reset());
   }
 
