@@ -103,18 +103,9 @@ export class ScatterTrace extends AbstractTrace<number> {
   }
 
   protected getAudioGroupIndex(): { groupIndex?: number } {
-    // ScatterTrace has different logic based on navigation mode
-    if (this.mode === NavMode.COL) {
-      // Only use groupIndex if there are multiple x-points (actual groups)
-      if (this.xPoints.length > 1) {
-        return { groupIndex: this.col };
-      }
-    } else {
-      // Only use groupIndex if there are multiple y-points (actual groups)
-      if (this.yPoints.length > 1) {
-        return { groupIndex: this.row };
-      }
-    }
+    // For scatterplots, groupIndex should only be used when there are multiple series/groups
+    // A single layer with multiple unique X/Y coordinates doesn't constitute multiple groups
+    // For now, scatterplots don't use groupIndex unless there's a clear multi-series structure
     return {};
   }
 
