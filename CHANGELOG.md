@@ -1,3 +1,10 @@
+# [3.5.0](https://github.com/xability/maidr/compare/v3.4.1...v3.5.0) (2025-05-27)
+
+
+### Features
+
+* support audio palette for multiclass plots ([#279](https://github.com/xability/maidr/issues/279)) ([3d70841](https://github.com/xability/maidr/commit/3d7084147130ac5c75097f279456e2f3186f2faa))
+
 ## [3.4.1](https://github.com/xability/maidr/compare/v3.4.0...v3.4.1) (2025-05-25)
 
 
