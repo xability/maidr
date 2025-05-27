@@ -1,6 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -67,10 +68,10 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.xValues = this.xPoints.map(p => p.x);
     this.yValues = this.yPoints.map(p => p.y);
 
-    this.minX = Math.min(...this.xValues);
-    this.maxX = Math.max(...this.xValues);
-    this.minY = Math.min(...this.yValues);
-    this.maxY = Math.max(...this.yValues);
+    this.minX = MathUtil.safeMin(this.xValues);
+    this.maxX = MathUtil.safeMax(this.xValues);
+    this.minY = MathUtil.safeMin(this.yValues);
+    this.maxY = MathUtil.safeMax(this.yValues);
 
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
   }
@@ -102,6 +103,24 @@ export class ScatterTrace extends AbstractTrace<number> {
     return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
   }
 
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Rationale for returning empty object instead of groupIndex:
+    //
+    // Scatterplots fundamentally differ from other plot types in their grouping semantics:
+    // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
+    // - Heatmaps: groupIndex can represent different data dimensions
+    // - Scatterplots: Each point represents an individual observation, not a group
+    //
+    // Using groupIndex for scatterplots would cause different audio tones for what should be
+    // conceptually similar data points, potentially confusing users who expect consistent
+    // audio feedback when exploring point-by-point data.
+    //
+    // Future enhancement: When scatterplots support explicit multi-series data (e.g., different
+    // colors/shapes for distinct categories), this method should be updated to return the
+    // appropriate groupIndex for true categorical distinctions.
+    return {};
+  }
+
   protected audio(): AudioState {
     if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
@@ -111,6 +130,8 @@ export class ScatterTrace extends AbstractTrace<number> {
         size: current.y.length,
         index: this.col,
         value: current.y,
+        // Only use groupIndex if there are multiple x-points (actual groups)
+        ...this.getAudioGroupIndex(),
       };
     } else {
       const current = this.yPoints[this.row];
@@ -120,6 +141,8 @@ export class ScatterTrace extends AbstractTrace<number> {
         size: current.x.length,
         index: this.row,
         value: current.x,
+        // Only use groupIndex if there are multiple y-points (actual groups)
+        ...this.getAudioGroupIndex(),
       };
     }
   }
@@ -148,7 +171,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  protected autoplay(): AutoplayState {
+  public get autoplay(): AutoplayState {
     return {
       UPWARD: this.yValues.length,
       DOWNWARD: this.yValues.length,

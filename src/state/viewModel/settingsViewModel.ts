@@ -5,7 +5,7 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings {}
+interface SettingsState extends Settings { }
 
 const initialState: SettingsState = {
   general: {
@@ -31,7 +31,7 @@ const initialState: SettingsState = {
         enabled: false,
         apiKey: '',
         name: 'Claude',
-        version: 'claude-3-5-haiku-latest',
+        version: 'claude-3-7-sonnet-latest',
       },
       GEMINI: {
         enabled: false,
@@ -67,6 +67,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   public dispose(): void {
+    super.dispose();
     this.store.dispatch(reset());
   }
 

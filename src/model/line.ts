@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -9,11 +10,11 @@ const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
-  private readonly lineValues: number[][];
+  protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
-  private readonly min: number[];
-  private readonly max: number[];
+  protected readonly min: number[];
+  protected readonly max: number[];
 
   public constructor(layer: MaidrLayer) {
     super(layer);
@@ -21,8 +22,8 @@ export class LineTrace extends AbstractTrace<number> {
     this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
-    this.min = this.lineValues.map(row => Math.min(...row));
-    this.max = this.lineValues.map(row => Math.max(...row));
+    this.min = this.lineValues.map(row => MathUtil.safeMin(row));
+    this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
   }
@@ -47,6 +48,7 @@ export class LineTrace extends AbstractTrace<number> {
       size: this.points[this.row].length,
       index: this.col,
       value: this.points[this.row][this.col].y,
+      ...this.getAudioGroupIndex(),
     };
   }
 

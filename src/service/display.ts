@@ -37,7 +37,6 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
-    // Add click handler to remove tooltip when plot is activated
     this.plot.addEventListener('click', () => {
       const figureElement = this.plot.closest(Constant.FIGURE);
       const articleElement = this.plot.closest(Constant.ARTICLE);
@@ -47,10 +46,12 @@ export class DisplayService implements Disposable {
         articleElement.removeAttribute(Constant.TITLE);
     });
 
-    this.addInstruction();
+    this.removeInstruction();
   }
 
   public dispose(): void {
+    this.addInstruction();
+
     this.onChangeEmitter.dispose();
 
     this.reactRoot?.unmount();
@@ -64,19 +65,16 @@ export class DisplayService implements Disposable {
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
 
-    // Set title on both figure and article elements
     const figureElement = this.plot.closest(Constant.FIGURE);
     const articleElement = this.plot.closest(Constant.ARTICLE);
 
     if (figureElement) {
       figureElement.setAttribute(Constant.TITLE, maidrInstruction);
-      // Add mouse events to handle tooltip visibility
       figureElement.addEventListener('mouseenter', this.handleMouseEnter);
       figureElement.addEventListener('mouseleave', this.handleMouseLeave);
     }
     if (articleElement) {
       articleElement.setAttribute(Constant.TITLE, maidrInstruction);
-      // Add mouse events to handle tooltip visibility
       articleElement.addEventListener('mouseenter', this.handleMouseEnter);
       articleElement.addEventListener('mouseleave', this.handleMouseLeave);
     }
@@ -97,19 +95,16 @@ export class DisplayService implements Disposable {
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot.tabIndex = -1;
 
-    // Remove title and event listeners from both figure and article elements
     const figureElement = this.plot.closest(Constant.FIGURE);
     const articleElement = this.plot.closest(Constant.ARTICLE);
 
     if (figureElement) {
       figureElement.removeAttribute(Constant.TITLE);
-      // Remove event listeners
       figureElement.removeEventListener('mouseenter', this.handleMouseEnter);
       figureElement.removeEventListener('mouseleave', this.handleMouseLeave);
     }
     if (articleElement) {
       articleElement.removeAttribute(Constant.TITLE);
-      // Remove event listeners
       articleElement.removeEventListener('mouseenter', this.handleMouseEnter);
       articleElement.removeEventListener('mouseleave', this.handleMouseLeave);
     }
@@ -120,12 +115,10 @@ export class DisplayService implements Disposable {
       this.focusStack.push(focus);
     }
     this.context.toggleScope(focus);
-    this.addInstruction();
     this.updateFocus(this.focusStack.peek()!);
   }
 
   private updateFocus(newScope: Focus): void {
-    this.addInstruction();
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
       this.plot.focus();
     }
