@@ -1,6 +1,7 @@
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
@@ -38,8 +39,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.points.push(summaryPoints);
     this.barValues.push(summaryValues);
 
-    const summaryMin = Math.min(...summaryValues);
-    const summaryMax = Math.max(...summaryValues);
+    const { min: summaryMin, max: summaryMax } = MathUtil.minMax(summaryValues);
     this.min.push(summaryMin);
     this.max.push(summaryMax);
   }

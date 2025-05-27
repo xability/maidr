@@ -37,8 +37,8 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   }
 
   public dispose(): void {
-    this.store.dispatch(reset());
     super.dispose();
+    this.store.dispatch(reset());
   }
 
   private registerListeners(): void {

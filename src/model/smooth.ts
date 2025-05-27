@@ -25,6 +25,8 @@ export class SmoothTrace extends LineTrace {
       index: col,
       value: [prev, curr, next],
       isContinuous: true,
+      // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
+      ...this.getAudioGroupIndex(),
     };
   }
 }

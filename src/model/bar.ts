@@ -1,6 +1,7 @@
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -25,8 +26,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
         : Number(point.x),
       ),
     );
-    this.min = this.barValues.map(row => Math.min(...row));
-    this.max = this.barValues.map(row => Math.max(...row));
+    this.min = this.barValues.map(row => MathUtil.safeMin(row));
+    this.max = this.barValues.map(row => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
@@ -52,11 +53,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       : this.barValues[this.col][this.row];
 
     return {
-      min: Math.min(...this.min),
-      max: Math.max(...this.max),
+      min: MathUtil.safeMin(this.min),
+      max: MathUtil.safeMax(this.max),
       size,
       index,
       value,
+      // Only use groupIndex if there are multiple groups (rows > 1 for stacked/dodged bars)
+      ...this.getAudioGroupIndex(),
     };
   }
 

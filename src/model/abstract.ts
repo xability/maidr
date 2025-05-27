@@ -206,7 +206,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       audio: this.audio(),
       braille: this.braille(),
       text: this.text(),
-      autoplay: this.autoplay(),
+      autoplay: this.autoplay, // Remove parentheses
       highlight: this.highlight(),
     };
   }
@@ -226,7 +226,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Default implementation checks if there are multiple groups/lines
+    // Uses this.values.length > 1 as the condition and this.row as the groupIndex
+    // Subclasses can override this method if they need different logic
+    if (this.values && this.values.length > 1) {
+      return { groupIndex: this.row };
+    }
+    return {};
+  }
+
+  public get autoplay(): AutoplayState {
     return {
       UPWARD: this.values.length,
       DOWNWARD: this.values.length,

@@ -60,8 +60,8 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   }
 
   public dispose(): void {
-    this.store.dispatch(reset());
     super.dispose();
+    this.store.dispatch(reset());
   }
 
   private registerListeners(notification: NotificationService, autoplay: AutoplayService): void {

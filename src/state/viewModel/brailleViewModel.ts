@@ -39,8 +39,8 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   }
 
   public dispose(): void {
-    this.store.dispatch(reset());
     super.dispose();
+    this.store.dispatch(reset());
   }
 
   private registerListener(): void {

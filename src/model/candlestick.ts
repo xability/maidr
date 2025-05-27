@@ -2,6 +2,7 @@ import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 
 const TREND = 'Trend';
 
@@ -32,8 +33,8 @@ export class Candlestick extends AbstractTrace<number> {
       this.candles.map(c => c[key]),
     );
 
-    this.min = Math.min(...this.candleValues.flat());
-    this.max = Math.max(...this.candleValues.flat());
+    this.min = MathUtil.minFrom2D(this.candleValues);
+    this.max = MathUtil.maxFrom2D(this.candleValues);
 
     if (this.orientation === Orientation.HORIZONTAL) {
       this.col = this.sections.length - 1;
