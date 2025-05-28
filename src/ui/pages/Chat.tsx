@@ -20,18 +20,16 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
+  disabled: boolean;
+  onOpenSettings: () => void;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  disabled,
+  onOpenSettings,
+}) => {
   const theme = useTheme();
-  const settingsViewModel = useViewModel('settings');
-
-  const chatViewModel = useViewModel('chat');
-  const disabled = !chatViewModel.canSend;
-
-  const handleGoToSettings = (): void => {
-    settingsViewModel.toggle();
-  };
 
   return (
     <Box
@@ -111,7 +109,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             {disabled && (
               <Button
                 variant="text"
-                onClick={handleGoToSettings}
+                onClick={onOpenSettings}
                 aria-label="Open settings"
               >
                 Open Settings
@@ -141,11 +139,16 @@ const Chat: React.FC = () => {
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
+  const settingsViewModel = useViewModel('settings');
   const { messages } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenSettings = (): void => {
+    settingsViewModel.toggle();
+  };
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -228,7 +231,12 @@ const Chat: React.FC = () => {
             }}
           >
             {messages.map(message => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                disabled={disabled}
+                onOpenSettings={handleOpenSettings}
+              />
             ))}
             <div ref={messagesEndRef} />
           </Grid>
