@@ -1,8 +1,9 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
-import { Check as CheckIcon } from '@mui/icons-material';
+import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,6 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { LlmValidationService } from '@service/llmValidation';
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useState } from 'react';
 
@@ -116,6 +118,33 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeVersion,
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+
+  const validateApiKey = async (apiKey: string): Promise<void> => {
+    if (!modelSettings.enabled || !apiKey.trim()) {
+      setIsValid(null);
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const result = await LlmValidationService.validateApiKey(modelKey, apiKey);
+      setIsValid(result.isValid);
+    } catch (error) {
+      setIsValid(false);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      validateApiKey(modelSettings.apiKey);
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
@@ -148,7 +177,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               }}
             />
           </Grid>
-          <Grid size="grow">
+          <Grid size={6}>
             <TextField
               disabled={!modelSettings.enabled}
               fullWidth
@@ -157,29 +186,73 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               onChange={e => onChangeKey(modelKey, e.target.value)}
               placeholder={`Enter ${modelSettings.name} API Key`}
               type="password"
+              error={isValid === false}
+              helperText={
+                !modelSettings.enabled
+                  ? ''
+                  : isValidating
+                    ? 'Validating API key...'
+                    : isValid === false
+                      ? `${modelSettings.name} API key is invalid`
+                      : isValid === true
+                        ? `${modelSettings.name} API key is valid`
+                        : ''
+              }
+              inputProps={{
+                'aria-label': `${modelSettings.name} API key input`,
+                'aria-describedby': `${modelKey}-status`,
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <div
+                      id={`${modelKey}-status`}
+                      role="status"
+                      aria-live="polite"
+                      aria-label={
+                        isValidating
+                          ? 'Validating API key'
+                          : isValid === true
+                            ? 'API key is valid'
+                            : isValid === false
+                              ? 'API key is invalid'
+                              : ''
+                      }
+                    >
+                      {isValidating ? (
+                        <CircularProgress size={20} />
+                      ) : isValid === true ? (
+                        <CheckIcon color="success" />
+                      ) : isValid === false ? (
+                        <ErrorIcon color="error" />
+                      ) : null}
+                    </div>
+                  ),
+                },
+              }}
             />
           </Grid>
-          <Grid size="auto">
-            <Grid size="auto">
-              <Select
-                value={validVersion}
-                onChange={(e) => {
-                  const newVersion = e.target.value as LlmVersion;
-                  onChangeVersion(modelKey, newVersion);
-                }}
-                disabled={!modelSettings.enabled || !modelSettings.apiKey.trim()}
-                MenuProps={{
-                  disablePortal: true,
-                  PaperProps: {
-                    sx: {
-                      maxHeight: 200,
-                    },
+          <Grid size={6}>
+            <Select
+              value={validVersion}
+              onChange={(e) => {
+                const newVersion = e.target.value as LlmVersion;
+                onChangeVersion(modelKey, newVersion);
+              }}
+              disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
+              fullWidth
+              size="small"
+              MenuProps={{
+                disablePortal: true,
+                PaperProps: {
+                  sx: {
+                    maxHeight: 200,
                   },
-                }}
-              >
-                {renderMenuItems()}
-              </Select>
-            </Grid>
+                },
+              }}
+            >
+              {renderMenuItems()}
+            </Select>
           </Grid>
         </Grid>
       )}
