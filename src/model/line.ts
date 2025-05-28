@@ -144,19 +144,19 @@ export class LineTrace extends AbstractTrace<number> {
    */
   private findNearestLineByYValue(direction: 'UPWARD' | 'DOWNWARD'): number | null {
     const currentCol = this.col;
-    const currentY = this.points[this.row][currentCol].y;
+    const currentY = this.values[this.row][currentCol];
 
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
     // Check all lines that have data at the current x position
-    for (let row = 0; row < this.points.length; row++) {
+    for (let row = 0; row < this.values.length; row++) {
       // Skip current row and check if this line has data at current column
-      if (row === this.row || currentCol >= this.points[row].length) {
+      if (row === this.row || currentCol >= this.values[row].length) {
         continue;
       }
 
-      const lineY = this.points[row][currentCol].y;
+      const lineY = this.values[row][currentCol];
 
       // Check if this line's y value is in the desired direction
       const isValidDirection = direction === 'UPWARD' ? lineY > currentY : lineY < currentY;
