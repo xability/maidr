@@ -1,3 +1,10 @@
+## [3.7.1](https://github.com/xability/maidr/compare/v3.7.0...v3.7.1) (2025-05-28)
+
+
+### Bug Fixes
+
+* optimize candlestick navigation with value-based sorting ([#286](https://github.com/xability/maidr/issues/286)) ([6dce5df](https://github.com/xability/maidr/commit/6dce5df281e0d117cfbdf29ee1cc293a9ccf49ec))
+
 # [3.7.0](https://github.com/xability/maidr/compare/v3.6.0...v3.7.0) (2025-05-28)
 
 
