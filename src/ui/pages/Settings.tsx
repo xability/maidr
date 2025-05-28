@@ -229,7 +229,7 @@ const Settings: React.FC = () => {
         ...prev.models,
         [modelKey]: {
           ...prev.models[modelKey],
-          [propKey]: value,
+          [propKey]: propKey === 'apiKey' && typeof value === 'string' ? value.trim() : value,
         },
       },
     }));
