@@ -7,6 +7,8 @@ import { MathUtil } from '@util/math';
 
 const TREND = 'Trend';
 
+type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
+
 export class Candlestick extends AbstractTrace<number> {
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
@@ -15,12 +17,12 @@ export class Candlestick extends AbstractTrace<number> {
   private readonly sections = ['open', 'high', 'low', 'close'] as const;
 
   // Track navigation state separately from visual highlighting state
-  private currentSegmentType: 'open' | 'high' | 'low' | 'close' = 'open';
+  private currentSegmentType: CandlestickSegmentType = 'open';
   private currentPointIndex: number = 0;
 
   // Performance optimization: Pre-computed lookup tables
-  private readonly sortedSegmentsByPoint: ('open' | 'high' | 'low' | 'close')[][];
-  private readonly segmentPositionMaps: Map<string, number>[];
+  private readonly sortedSegmentsByPoint: CandlestickSegmentType[][];
+  private readonly segmentPositionMaps: Map<CandlestickSegmentType, number>[];
 
   private readonly min: number;
   private readonly max: number;
@@ -64,10 +66,10 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Pre-compute sorted segments for all candlestick points for O(1) lookup
    */
-  private precomputeSortedSegments(): ('open' | 'high' | 'low' | 'close')[][] {
+  private precomputeSortedSegments(): CandlestickSegmentType[][] {
     return this.candles.map((candle) => {
       // Create array of [segmentType, value] pairs
-      const segmentPairs: [('open' | 'high' | 'low' | 'close'), number][]
+      const segmentPairs: [CandlestickSegmentType, number][]
         = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
 
       // Sort by value and return just the segment types
@@ -80,35 +82,52 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Pre-compute position maps for O(1) lookup of segment positions
    */
-  private precomputePositionMaps(): Map<string, number>[] {
+  private precomputePositionMaps(): Map<CandlestickSegmentType, number>[] {
     return this.sortedSegmentsByPoint.map((sortedSegments) => {
-      const positionMap = new Map<string, number>();
+      const positionMap = new Map<CandlestickSegmentType, number>();
       sortedSegments.forEach((segmentType, index) => {
         positionMap.set(segmentType, index);
       });
       return positionMap;
     });
-  } /**
-     * Get segments sorted by value for a specific candlestick point (O(1) lookup)
-     */
-
-  private getSortedSegmentsForPoint(pointIndex: number): ('open' | 'high' | 'low' | 'close')[] {
-    return this.sortedSegmentsByPoint[pointIndex];
   }
 
   /**
    * Get the position index of a segment type in the sorted segments for a point (O(1) lookup)
    */
-  private getSegmentPositionInSortedOrder(pointIndex: number, segmentType: 'open' | 'high' | 'low' | 'close'): number {
+  private getSegmentPositionInSortedOrder(pointIndex: number, segmentType: CandlestickSegmentType): number {
     return this.segmentPositionMaps[pointIndex].get(segmentType) ?? 0;
   }
 
   /**
    * Get the segment type at a specific position in the sorted order for a point (O(1) lookup)
    */
-  private getSegmentTypeAtSortedPosition(pointIndex: number, position: number): 'open' | 'high' | 'low' | 'close' {
+  private getSegmentTypeAtSortedPosition(pointIndex: number, position: number): CandlestickSegmentType {
     const sortedSegments = this.sortedSegmentsByPoint[pointIndex];
     return sortedSegments[position] ?? 'open';
+  }
+
+  /**
+   * Update visual position for segment highlighting
+   */
+  private updateVisualSegmentPosition(): void {
+    const segmentIndex = this.sections.indexOf(this.currentSegmentType);
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.col = segmentIndex;
+    } else {
+      this.row = segmentIndex;
+    }
+  }
+
+  /**
+   * Update visual position for point highlighting
+   */
+  private updateVisualPointPosition(): void {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.row = this.currentPointIndex;
+    } else {
+      this.col = this.currentPointIndex;
+    }
   }
 
   /**
@@ -135,14 +154,7 @@ export class Candlestick extends AbstractTrace<number> {
 
         if (newSegmentPosition >= 0 && newSegmentPosition < this.sections.length) {
           this.currentSegmentType = this.getSegmentTypeAtSortedPosition(this.currentPointIndex, newSegmentPosition);
-
-          // Update visual position for highlighting (this.row/this.col should reflect the original segments array)
-          const segmentIndex = this.sections.indexOf(this.currentSegmentType);
-          if (this.orientation === Orientation.HORIZONTAL) {
-            this.col = segmentIndex;
-          } else {
-            this.row = segmentIndex;
-          }
+          this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
           return;
@@ -157,21 +169,8 @@ export class Candlestick extends AbstractTrace<number> {
 
         if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
           this.currentPointIndex = newPointIndex;
-
-          // Update visual position for highlighting (this.row/this.col should reflect the point index)
-          if (this.orientation === Orientation.HORIZONTAL) {
-            this.row = newPointIndex;
-          } else {
-            this.col = newPointIndex;
-          }
-
-          // Keep the same segment type, update visual segment position
-          const segmentIndex = this.sections.indexOf(this.currentSegmentType);
-          if (this.orientation === Orientation.HORIZONTAL) {
-            this.col = segmentIndex;
-          } else {
-            this.row = segmentIndex;
-          }
+          this.updateVisualPointPosition();
+          this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
           return;
@@ -193,68 +192,28 @@ export class Candlestick extends AbstractTrace<number> {
         // Move to the highest value segment in current candlestick
         const currentSorted = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
-
-        // Update visual position for highlighting
-        const segmentIndex = this.sections.indexOf(this.currentSegmentType);
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.col = segmentIndex;
-        } else {
-          this.row = segmentIndex;
-        }
+        this.updateVisualSegmentPosition();
         break;
       }
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
         const currentSortedDown = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
-
-        // Update visual position for highlighting
-        const segmentIndexDown = this.sections.indexOf(this.currentSegmentType);
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.col = segmentIndexDown;
-        } else {
-          this.row = segmentIndexDown;
-        }
+        this.updateVisualSegmentPosition();
         break;
       }
       case 'FORWARD': {
         // Move to the last candlestick (rightmost)
         this.currentPointIndex = this.candles.length - 1;
-
-        // Update visual position for highlighting
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.row = this.currentPointIndex;
-        } else {
-          this.col = this.currentPointIndex;
-        }
-
-        // Keep the same segment type, update visual segment position
-        const segmentIndexForward = this.sections.indexOf(this.currentSegmentType);
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.col = segmentIndexForward;
-        } else {
-          this.row = segmentIndexForward;
-        }
+        this.updateVisualPointPosition();
+        this.updateVisualSegmentPosition();
         break;
       }
       case 'BACKWARD': {
         // Move to the first candlestick (leftmost)
         this.currentPointIndex = 0;
-
-        // Update visual position for highlighting
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.row = this.currentPointIndex;
-        } else {
-          this.col = this.currentPointIndex;
-        }
-
-        // Keep the same segment type, update visual segment position
-        const segmentIndexBackward = this.sections.indexOf(this.currentSegmentType);
-        if (this.orientation === Orientation.HORIZONTAL) {
-          this.col = segmentIndexBackward;
-        } else {
-          this.row = segmentIndexBackward;
-        }
+        this.updateVisualPointPosition();
+        this.updateVisualSegmentPosition();
         break;
       }
     }
