@@ -1,3 +1,10 @@
+# [3.6.0](https://github.com/xability/maidr/compare/v3.5.0...v3.6.0) (2025-05-28)
+
+
+### Features
+
+* let users choose specific llm models within providers ([#253](https://github.com/xability/maidr/issues/253)) ([7803099](https://github.com/xability/maidr/commit/7803099358e96cce6622daf68700f5f2783c682b))
+
 # [3.5.0](https://github.com/xability/maidr/compare/v3.4.1...v3.5.0) (2025-05-27)
 
 
