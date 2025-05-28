@@ -23,6 +23,65 @@ import {
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useState } from 'react';
 
+type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
+type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
+type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
+
+interface ModelConfig<T extends LlmVersion> {
+  default: T;
+  options: readonly T[];
+  labels: Record<T, string>;
+}
+
+interface ModelVersions {
+  GPT: ModelConfig<GptVersion>;
+  CLAUDE: ModelConfig<ClaudeVersion>;
+  GEMINI: ModelConfig<GeminiVersion>;
+}
+
+const MODEL_VERSIONS: ModelVersions = {
+  GPT: {
+    default: 'gpt-4o',
+    options: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o1-mini', 'o3', 'o4-mini'] as const,
+    labels: {
+      'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini',
+      'gpt-4.1': 'GPT-4.1',
+      'o1-mini': 'o1-mini',
+      'o3': 'o3',
+      'o4-mini': 'o4-mini',
+    },
+  },
+  CLAUDE: {
+    default: 'claude-3-7-sonnet-latest',
+    options: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest'] as const,
+    labels: {
+      'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
+      'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
+      'claude-3-7-sonnet-latest': 'Claude 3.7 Sonnet',
+    },
+  },
+  GEMINI: {
+    default: 'gemini-2.0-flash',
+    options: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-preview-04-17', 'gemini-2.5-pro-preview-05-06'] as const,
+    labels: {
+      'gemini-2.0-flash': 'Gemini 2.0 Flash',
+      'gemini-2.0-flash-lite': 'Gemini 2.0 Flash Lite',
+      'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash Preview',
+      'gemini-2.5-pro-preview-05-06': 'Gemini 2.5 Pro Preview',
+    },
+  },
+};
+
+function getValidVersion(modelKey: Llm, currentVersion: string | undefined): LlmVersion {
+  const config = MODEL_VERSIONS[modelKey];
+  const validOptions = config.options as readonly LlmVersion[];
+  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
+    return config.default;
+  }
+  return currentVersion as LlmVersion;
+}
+
 interface SettingRowProps {
   label: string;
   input: React.ReactNode;
@@ -56,13 +115,31 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeKey,
   onChangeVersion,
 }) => {
+  const validVersion = getValidVersion(modelKey, modelSettings.version);
+
+  const renderMenuItems = (): React.ReactNode[] => {
+    const config = MODEL_VERSIONS[modelKey];
+    return config.options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels];
+      return (
+        <MenuItem
+          key={version}
+          value={version}
+          sx={{ fontWeight: modelSettings.version === version ? 'bold' : 'normal' }}
+        >
+          {modelSettings.version === version && <CheckIcon sx={{ mr: 1 }} />}
+          {label}
+        </MenuItem>
+      );
+    });
+  };
+
   return (
     <SettingRow
       label={modelSettings.name}
       input={(
         <Grid container spacing={1} alignItems="center">
           <Grid size="auto">
-            {' '}
             <Switch
               checked={modelSettings.enabled}
               onChange={e => onToggle(modelKey, e.target.checked)}
@@ -72,7 +149,6 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
             />
           </Grid>
           <Grid size="grow">
-            {' '}
             <TextField
               disabled={!modelSettings.enabled}
               fullWidth
@@ -86,11 +162,12 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           <Grid size="auto">
             <Grid size="auto">
               <Select
-                value={modelSettings.version}
+                value={validVersion}
                 onChange={(e) => {
                   const newVersion = e.target.value as LlmVersion;
                   onChangeVersion(modelKey, newVersion);
                 }}
+                disabled={!modelSettings.enabled || !modelSettings.apiKey.trim()}
                 MenuProps={{
                   disablePortal: true,
                   PaperProps: {
@@ -100,70 +177,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                   },
                 }}
               >
-                {modelKey === 'GPT' && (
-                  <>
-                    <MenuItem value="gpt-4o" sx={{ fontWeight: modelSettings.version === 'gpt-4o' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gpt-4o' && <CheckIcon sx={{ mr: 1 }} />}
-                      GPT-4o
-                    </MenuItem>
-                    <MenuItem value="gpt-4o-mini" sx={{ fontWeight: modelSettings.version === 'gpt-4o-mini' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gpt-4o-mini' && <CheckIcon sx={{ mr: 1 }} />}
-                      GPT-4o Mini
-                    </MenuItem>
-                    <MenuItem value="gpt-4.1" sx={{ fontWeight: modelSettings.version === 'gpt-4.1' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gpt-4.1' && <CheckIcon sx={{ mr: 1 }} />}
-                      GPT-4.1
-                    </MenuItem>
-                    <MenuItem value="o1-mini" sx={{ fontWeight: modelSettings.version === 'o1-mini' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'o1-mini' && <CheckIcon sx={{ mr: 1 }} />}
-                      o1-mini
-                    </MenuItem>
-                    <MenuItem value="o3" sx={{ fontWeight: modelSettings.version === 'o3' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'o3' && <CheckIcon sx={{ mr: 1 }} />}
-                      o3
-                    </MenuItem>
-                    <MenuItem value="o4-mini" sx={{ fontWeight: modelSettings.version === 'o4-mini' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'o4-mini' && <CheckIcon sx={{ mr: 1 }} />}
-                      o4-mini
-                    </MenuItem>
-                  </>
-                )}
-                {modelKey === 'CLAUDE' && (
-                  <>
-                    <MenuItem value="claude-3-5-haiku-latest" sx={{ fontWeight: modelSettings.version === 'claude-3-5-haiku-latest' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'claude-3-5-haiku-latest' && <CheckIcon sx={{ mr: 1 }} />}
-                      Claude 3.5 Haiku
-                    </MenuItem>
-                    <MenuItem value="claude-3-5-sonnet-latest" sx={{ fontWeight: modelSettings.version === 'claude-3-5-sonnet-latest' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'claude-3-5-sonnet-latest' && <CheckIcon sx={{ mr: 1 }} />}
-                      Claude 3.5 Sonnet
-                    </MenuItem>
-                    <MenuItem value="claude-3-7-sonnet-latest" sx={{ fontWeight: modelSettings.version === 'claude-3-7-sonnet-latest' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'claude-3-7-sonnet-latest' && <CheckIcon sx={{ mr: 1 }} />}
-                      Claude 3.7 Sonnet
-                    </MenuItem>
-                  </>
-                )}
-                {modelKey === 'GEMINI' && (
-                  <>
-                    <MenuItem value="gemini-2.0-flash" sx={{ fontWeight: modelSettings.version === 'gemini-2.0-flash' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gemini-2.0-flash' && <CheckIcon sx={{ mr: 1 }} />}
-                      Gemini 2.0 Flash
-                    </MenuItem>
-                    <MenuItem value="gemini-2.0-flash-lite" sx={{ fontWeight: modelSettings.version === 'gemini-2.0-flash-lite' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gemini-2.0-flash-lite' && <CheckIcon sx={{ mr: 1 }} />}
-                      Gemini 2.0 Flash Lite
-                    </MenuItem>
-                    <MenuItem value="gemini-2.5-flash-preview-04-17" sx={{ fontWeight: modelSettings.version === 'gemini-2.5-flash-preview-04-17' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gemini-2.5-flash-preview-04-17' && <CheckIcon sx={{ mr: 1 }} />}
-                      Gemini 2.5 Flash Preview
-                    </MenuItem>
-                    <MenuItem value="gemini-2.5-pro-preview-05-06" sx={{ fontWeight: modelSettings.version === 'gemini-2.5-pro-preview-05-06' ? 'bold' : 'normal' }}>
-                      {modelSettings.version === 'gemini-2.5-pro-preview-05-06' && <CheckIcon sx={{ mr: 1 }} />}
-                      Gemini 2.5 Pro Preview
-                    </MenuItem>
-                  </>
-                )}
+                {renderMenuItems()}
               </Select>
             </Grid>
           </Grid>
