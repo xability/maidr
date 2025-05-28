@@ -1,6 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -54,8 +55,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
-    this.min = Math.min(...flatBoxValues.flat());
-    this.max = Math.max(...flatBoxValues.flat());
+    this.min = MathUtil.minFrom2D(flatBoxValues);
+    this.max = MathUtil.maxFrom2D(flatBoxValues);
 
     this.row = this.boxValues.length - 1;
 

@@ -1,22 +1,23 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
-import type { Llm, LlmRequest, LlmResponse } from '@type/llm';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse } from '@type/llm';
+import type { PromptContext } from './prompts';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
+import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 export class ChatService {
   private readonly display: DisplayService;
-
   private readonly models: Record<Llm, LlmModel>;
 
   public constructor(display: DisplayService, maidr: Maidr) {
     this.display = display;
 
     this.models = {
-      GPT: new Gpt(display.plot, maidr),
-      CLAUDE: new Claude(display.plot, maidr),
-      GEMINI: new Gemini(display.plot, maidr),
+      GPT: new Gpt(display.plot, maidr, 'gpt-4o'),
+      CLAUDE: new Claude(display.plot, maidr, 'claude-3-7-sonnet-latest'),
+      GEMINI: new Gemini(display.plot, maidr, 'gemini-2.0-flash'),
     };
   }
 
@@ -87,10 +88,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         ? this.getMaidrUrl()
         : this.getApiUrl(request.apiKey);
 
-      const headers: Record<string, string> = request.clientToken
-        ? { Authentication: `${request.email} ${request.clientToken}` }
-        : { Authorization: `Bearer ${request.apiKey}` };
-
+      const headers = this.getHeaders(request);
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {
         return {
@@ -117,6 +115,20 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     return `${this.maidrBaseUrl}/${this.getEndPoint()}?code=${this.codeQueryParam}`;
   }
 
+  protected getHeaders(request: LlmRequest): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (request.clientToken) {
+      headers.Authentication = `${request.email} ${request.clientToken}`;
+    } else {
+      headers.Authorization = `Bearer ${request.apiKey}`;
+    }
+
+    return headers;
+  }
+
   protected abstract getApiUrl(apiKey?: string): string;
 
   protected abstract getEndPoint(): string;
@@ -133,8 +145,11 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 }
 
 class Gpt extends AbstractLlmModel<GptResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
+  private readonly version: GptVersion;
+
+  public constructor(svg: HTMLElement, maidr: Maidr, version: GptVersion) {
     super(svg, maidr);
+    this.version = version;
   }
 
   protected getApiUrl(): string {
@@ -152,26 +167,27 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
-      model: 'gpt-4o-2024-11-20',
+      model: this.version,
       max_tokens: 1000,
       messages: [
         {
           role: 'system',
-          content:
-            'You are a helpful assistant describing the chart to a blind person.',
+          content: formatSystemPrompt(customInstruction),
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text:
-                `Describe this chart to a blind person who has a basic understanding of statistical charts.
-                \n${customInstruction}\n
-                Here is a chart in image format and raw data in json format: \n${maidrJson}\n
-                Also currently this point is selected: ${currentPositionText}\n.
-                My question is: ${message}`,
+              text: formatUserPrompt(context),
             },
             {
               type: 'image_url',
@@ -198,11 +214,19 @@ class Gpt extends AbstractLlmModel<GptResponse> {
       data: response.choices[0].message.content,
     };
   }
+
+  protected getHeaders(request: LlmRequest): Record<string, string> {
+    const headers = super.getHeaders(request);
+    return headers;
+  }
 }
 
 class Claude extends AbstractLlmModel<ClaudeResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
+  private readonly version: ClaudeVersion;
+
+  public constructor(svg: HTMLElement, maidr: Maidr, version: ClaudeVersion) {
     super(svg, maidr);
+    this.version = version;
   }
 
   protected getApiUrl(): string {
@@ -220,8 +244,15 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
-      anthropic_version: 'vertex-2023-10-16',
+      anthropic_version: this.version,
       max_tokens: 256,
       messages: [
         {
@@ -237,12 +268,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
             },
             {
               type: 'text',
-              text:
-                `You are a helpful assistant describing the chart to a blind person.\n${customInstruction}\n.
-                Here is the raw data in json format: ${maidrJson}\n\n\n
-                Here is the current position in the chart; no response necessarily needed,
-                use this info only if its relevant to future questions: ${currentPositionText}.
-                My question is: ${message}`,
+              text: `${formatSystemPrompt(customInstruction)}\n\n${formatUserPrompt(context)}`,
             },
           ],
         },
@@ -263,15 +289,27 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
       data: response.content[0].text,
     };
   }
+
+  protected getHeaders(request: LlmRequest): Record<string, string> {
+    const headers = super.getHeaders(request);
+    headers['anthropic-version'] = this.version;
+    return headers;
+  }
 }
 
 class Gemini extends AbstractLlmModel<GeminiResponse> {
-  public constructor(svg: HTMLElement, maidr: Maidr) {
+  private readonly version: GeminiVersion;
+
+  public constructor(svg: HTMLElement, maidr: Maidr, version: GeminiVersion) {
     super(svg, maidr);
+    this.version = version;
   }
 
-  protected getApiUrl(apiKey?: string): string {
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+  protected getApiUrl(apiKey: string): string {
+    if (!apiKey) {
+      throw new Error('API key is required for Gemini API');
+    }
+    return `https://generativelanguage.googleapis.com/v1beta/models/${this.version}:generateContent?key=${apiKey}`;
   }
 
   protected getEndPoint(): string {
@@ -285,6 +323,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     currentPositionText: string,
     message: string,
   ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+    };
+
     return JSON.stringify({
       generationConfig: {},
       safetySettings: [],
@@ -293,7 +338,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
           role: 'user',
           parts: [
             {
-              text: 'You are a helpful assistant describing the chart to a blind person.',
+              text: formatSystemPrompt(customInstruction),
             },
           ],
         },
@@ -301,27 +346,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
           role: 'user',
           parts: [
             {
-              text:
-                `You are a helpful assistant describing the chart to a blind person.\n${customInstruction}\n\n
-                Describe this chart to a blind person who has a basic understanding of statistical charts.
-                Here is a chart in image format and raw data in json format: ${maidrJson}`,
+              text: formatUserPrompt(context),
             },
             {
               inlineData: {
                 data: image.split(',')[1],
                 mimeType: 'image/svg+xml',
               },
-            },
-          ],
-        },
-        {
-          role: 'user',
-          parts: [
-            {
-              text:
-                `Here is the current position in the chart; no response necessarily needed,
-                use this info only if it's relevant to future questions: ${currentPositionText}\n.
-                My question is: ${message}`,
             },
           ],
         },
@@ -341,5 +372,12 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
       success: true,
       data: response.candidates[0].content.parts[0].text,
     };
+  }
+
+  protected getHeaders(request: LlmRequest): Record<string, string> {
+    const headers = super.getHeaders(request);
+    // Gemini uses API key in URL, so we don't need to add it to headers
+    delete headers.Authorization;
+    return headers;
   }
 }

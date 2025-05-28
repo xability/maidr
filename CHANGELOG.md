@@ -1,3 +1,73 @@
+## [3.7.1](https://github.com/xability/maidr/compare/v3.7.0...v3.7.1) (2025-05-28)
+
+
+### Bug Fixes
+
+* optimize candlestick navigation with value-based sorting ([#286](https://github.com/xability/maidr/issues/286)) ([6dce5df](https://github.com/xability/maidr/commit/6dce5df281e0d117cfbdf29ee1cc293a9ccf49ec))
+
+# [3.7.0](https://github.com/xability/maidr/compare/v3.6.0...v3.7.0) (2025-05-28)
+
+
+### Features
+
+* enhance navigation with y-value-based movement for UPWARD/DOWNWARD directions ([#285](https://github.com/xability/maidr/issues/285)) ([4b94f17](https://github.com/xability/maidr/commit/4b94f176e31d3c0807663335169986091dfc5834))
+
+# [3.6.0](https://github.com/xability/maidr/compare/v3.5.0...v3.6.0) (2025-05-28)
+
+
+### Features
+
+* let users choose specific llm models within providers ([#253](https://github.com/xability/maidr/issues/253)) ([7803099](https://github.com/xability/maidr/commit/7803099358e96cce6622daf68700f5f2783c682b))
+
+# [3.5.0](https://github.com/xability/maidr/compare/v3.4.1...v3.5.0) (2025-05-27)
+
+
+### Features
+
+* support audio palette for multiclass plots ([#279](https://github.com/xability/maidr/issues/279)) ([3d70841](https://github.com/xability/maidr/commit/3d7084147130ac5c75097f279456e2f3186f2faa))
+
+## [3.4.1](https://github.com/xability/maidr/compare/v3.4.0...v3.4.1) (2025-05-25)
+
+
+### Bug Fixes
+
+* assign application role to svg upon activation ([#277](https://github.com/xability/maidr/issues/277)) ([e0a5a43](https://github.com/xability/maidr/commit/e0a5a43b03036c283276ef1659a0d1b10e5a31d4))
+
+# [3.4.0](https://github.com/xability/maidr/compare/v3.3.2...v3.4.0) (2025-05-23)
+
+
+### Features
+
+* support smooth continuous audio ([#268](https://github.com/xability/maidr/issues/268)) ([7ef714d](https://github.com/xability/maidr/commit/7ef714d5ff6fe0b4a97791696b5f5f4276e992cb))
+
+## [3.3.2](https://github.com/xability/maidr/compare/v3.3.1...v3.3.2) (2025-05-20)
+
+
+### Bug Fixes
+
+* address e2e test failures ([#267](https://github.com/xability/maidr/issues/267)) ([aed1870](https://github.com/xability/maidr/commit/aed1870d4839b944214fb529c2bb09c999e5d583))
+
+## [3.3.1](https://github.com/xability/maidr/compare/v3.3.0...v3.3.1) (2025-05-19)
+
+
+### Bug Fixes
+
+* modify filename of vite bundle post build ([#262](https://github.com/xability/maidr/issues/262)) ([949e4ca](https://github.com/xability/maidr/commit/949e4ca0b0028e223af7b9a6914133ad82ff18bb))
+
+# [3.3.0](https://github.com/xability/maidr/compare/v3.2.2...v3.3.0) (2025-05-17)
+
+
+### Features
+
+* add smooth layer ([#255](https://github.com/xability/maidr/issues/255)) ([86fb3f7](https://github.com/xability/maidr/commit/86fb3f782a25cb3a0976176f6f100cf83921d99c))
+
+## [3.2.2](https://github.com/xability/maidr/compare/v3.2.1...v3.2.2) (2025-05-15)
+
+
+### Bug Fixes
+
+* tooltip text rendering ([#252](https://github.com/xability/maidr/issues/252)) ([f6548ba](https://github.com/xability/maidr/commit/f6548ba4929a628fe330d8d5b7290144b7505509))
+
 ## [3.2.1](https://github.com/xability/maidr/compare/v3.2.0...v3.2.1) (2025-05-15)
 
 

@@ -111,5 +111,6 @@ export enum TraceType {
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
   SCATTER = 'point',
+  SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
 }
