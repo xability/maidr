@@ -25,16 +25,19 @@ const initialState: SettingsState = {
         enabled: false,
         apiKey: '',
         name: 'GPT',
+        version: 'gpt-4o',
       },
       CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Claude',
+        version: 'claude-3-7-sonnet-latest',
       },
       GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Gemini',
+        version: 'gemini-2.0-flash',
       },
     },
   },
@@ -83,13 +86,13 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.toggle();
   }
 
-  public toggle(): void {
-    this.settingsService.toggle();
-  }
-
   public reset(): void {
     const settings = this.settingsService.resetSettings();
     this.store.dispatch(update(settings));
+  }
+
+  public toggle(): void {
+    this.settingsService.toggle();
   }
 }
 
