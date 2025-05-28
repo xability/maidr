@@ -1,3 +1,10 @@
+# [3.7.0](https://github.com/xability/maidr/compare/v3.6.0...v3.7.0) (2025-05-28)
+
+
+### Features
+
+* enhance navigation with y-value-based movement for UPWARD/DOWNWARD directions ([#285](https://github.com/xability/maidr/issues/285)) ([4b94f17](https://github.com/xability/maidr/commit/4b94f176e31d3c0807663335169986091dfc5834))
+
 # [3.6.0](https://github.com/xability/maidr/compare/v3.5.0...v3.6.0) (2025-05-28)
 
 
