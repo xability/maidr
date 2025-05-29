@@ -1,3 +1,10 @@
+# [3.8.0](https://github.com/xability/maidr/compare/v3.7.1...v3.8.0) (2025-05-29)
+
+
+### Features
+
+* show settings button when no agents are enabled ([#248](https://github.com/xability/maidr/issues/248)) ([27ba2ca](https://github.com/xability/maidr/commit/27ba2cabf0bf616bc6dccb45dc83798769de0b7c))
+
 ## [3.7.1](https://github.com/xability/maidr/compare/v3.7.0...v3.7.1) (2025-05-28)
 
 
