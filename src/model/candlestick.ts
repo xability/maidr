@@ -31,17 +31,20 @@ export class Candlestick extends AbstractTrace<number> {
     super(layer);
 
     const data = layer.data as CandlestickPoint[];
-    this.candles = data.map(candle => ({
+    this.candles = data.map((candle) => ({
       ...candle,
-      trend: candle.close > candle.open
-        ? 'Bull'
-        : candle.close < candle.open ? 'Bear' : 'Neutral',
+      trend:
+        candle.close > candle.open
+          ? 'Bull'
+          : candle.close < candle.open
+            ? 'Bear'
+            : 'Neutral',
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.candleValues = this.sections.map(key =>
-      this.candles.map(c => c[key]),
+    this.candleValues = this.sections.map((key) =>
+      this.candles.map((c) => c[key]),
     );
 
     this.min = MathUtil.minFrom2D(this.candleValues);
@@ -69,13 +72,11 @@ export class Candlestick extends AbstractTrace<number> {
   private precomputeSortedSegments(): CandlestickSegmentType[][] {
     return this.candles.map((candle) => {
       // Create array of [segmentType, value] pairs
-      const segmentPairs: [CandlestickSegmentType, number][]
-        = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
+      const segmentPairs: [CandlestickSegmentType, number][] =
+        this.sections.map((segmentType) => [segmentType, candle[segmentType]]);
 
       // Sort by value and return just the segment types
-      return segmentPairs
-        .sort((a, b) => a[1] - b[1])
-        .map(pair => pair[0]);
+      return segmentPairs.sort((a, b) => a[1] - b[1]).map((pair) => pair[0]);
     });
   }
 
@@ -95,14 +96,20 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Get the position index of a segment type in the sorted segments for a point (O(1) lookup)
    */
-  private getSegmentPositionInSortedOrder(pointIndex: number, segmentType: CandlestickSegmentType): number {
+  private getSegmentPositionInSortedOrder(
+    pointIndex: number,
+    segmentType: CandlestickSegmentType,
+  ): number {
     return this.segmentPositionMaps[pointIndex].get(segmentType) ?? 0;
   }
 
   /**
    * Get the segment type at a specific position in the sorted order for a point (O(1) lookup)
    */
-  private getSegmentTypeAtSortedPosition(pointIndex: number, position: number): CandlestickSegmentType {
+  private getSegmentTypeAtSortedPosition(
+    pointIndex: number,
+    position: number,
+  ): CandlestickSegmentType {
     const sortedSegments = this.sortedSegmentsByPoint[pointIndex];
     return sortedSegments[position] ?? 'open';
   }
@@ -149,11 +156,23 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: navigate between segments within the same candlestick (value-sorted)
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(this.currentPointIndex, this.currentSegmentType);
-        const newSegmentPosition = direction === 'UPWARD' ? currentSegmentPosition + 1 : currentSegmentPosition - 1;
+        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
+          this.currentPointIndex,
+          this.currentSegmentType,
+        );
+        const newSegmentPosition =
+          direction === 'UPWARD'
+            ? currentSegmentPosition + 1
+            : currentSegmentPosition - 1;
 
-        if (newSegmentPosition >= 0 && newSegmentPosition < this.sections.length) {
-          this.currentSegmentType = this.getSegmentTypeAtSortedPosition(this.currentPointIndex, newSegmentPosition);
+        if (
+          newSegmentPosition >= 0 &&
+          newSegmentPosition < this.sections.length
+        ) {
+          this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
+            this.currentPointIndex,
+            newSegmentPosition,
+          );
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
@@ -165,7 +184,10 @@ export class Candlestick extends AbstractTrace<number> {
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: navigate between candlesticks while preserving segment type
-        const newPointIndex = direction === 'FORWARD' ? this.currentPointIndex + 1 : this.currentPointIndex - 1;
+        const newPointIndex =
+          direction === 'FORWARD'
+            ? this.currentPointIndex + 1
+            : this.currentPointIndex - 1;
 
         if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
           this.currentPointIndex = newPointIndex;
@@ -190,14 +212,16 @@ export class Candlestick extends AbstractTrace<number> {
     switch (direction) {
       case 'UPWARD': {
         // Move to the highest value segment in current candlestick
-        const currentSorted = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSorted =
+          this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
         this.updateVisualSegmentPosition();
         break;
       }
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
-        const currentSortedDown = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSortedDown =
+          this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
         this.updateVisualSegmentPosition();
         break;
@@ -238,15 +262,26 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: check if we can move between segments within the same candlestick
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(this.currentPointIndex, this.currentSegmentType);
-        const newSegmentPosition = target === 'UPWARD' ? currentSegmentPosition + 1 : currentSegmentPosition - 1;
-        return newSegmentPosition >= 0 && newSegmentPosition < this.sections.length;
+        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
+          this.currentPointIndex,
+          this.currentSegmentType,
+        );
+        const newSegmentPosition =
+          target === 'UPWARD'
+            ? currentSegmentPosition + 1
+            : currentSegmentPosition - 1;
+        return (
+          newSegmentPosition >= 0 && newSegmentPosition < this.sections.length
+        );
       }
 
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: check if we can move between candlesticks
-        const newPointIndex = target === 'FORWARD' ? this.currentPointIndex + 1 : this.currentPointIndex - 1;
+        const newPointIndex =
+          target === 'FORWARD'
+            ? this.currentPointIndex + 1
+            : this.currentPointIndex - 1;
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
       }
     }
@@ -264,12 +299,17 @@ export class Candlestick extends AbstractTrace<number> {
   protected audio(): AudioState {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
 
+    // set mood: 2 (saw) for Bear, 0 (default sine) for Bull. From AudioPalette.
+    const groupIndex =
+      this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 2;
+
     return {
       min: this.min,
       max: this.max,
       size: this.candles.length,
       index: this.currentPointIndex,
       value,
+      groupIndex: groupIndex,
     };
   }
 
@@ -294,8 +334,16 @@ export class Candlestick extends AbstractTrace<number> {
     const crossValue = point[this.currentSegmentType];
 
     return {
-      main: { label: this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis, value: point.value },
-      cross: { label: this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis, value: crossValue },
+      main: {
+        label:
+          this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
+        value: point.value,
+      },
+      cross: {
+        label:
+          this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
+        value: crossValue,
+      },
       section: this.currentSegmentType,
       fill: { label: TREND, value: point.trend },
     };

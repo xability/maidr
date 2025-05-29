@@ -5,33 +5,33 @@ export type PlotState = FigureState | SubplotState | TraceState;
 
 export type FigureState =
   | {
-    empty: true;
-    type: 'figure';
-  }
+      empty: true;
+      type: 'figure';
+    }
   | {
-    empty: false;
-    type: 'figure';
-    title: string;
-    subtitle: string;
-    caption: string;
-    size: number;
-    index: number;
-    subplot: SubplotState;
-    traceTypes: string[];
-  };
+      empty: false;
+      type: 'figure';
+      title: string;
+      subtitle: string;
+      caption: string;
+      size: number;
+      index: number;
+      subplot: SubplotState;
+      traceTypes: string[];
+    };
 
 export type SubplotState =
   | {
-    empty: true;
-    type: 'subplot';
-  }
+      empty: true;
+      type: 'subplot';
+    }
   | {
-    empty: false;
-    type: 'subplot';
-    size: number;
-    index: number;
-    trace: TraceState;
-  };
+      empty: false;
+      type: 'subplot';
+      size: number;
+      index: number;
+      trace: TraceState;
+    };
 
 interface TraceEmptyState {
   empty: true;
@@ -42,20 +42,20 @@ interface TraceEmptyState {
 export type TraceState =
   | TraceEmptyState
   | {
-    empty: false;
-    type: 'trace';
-    traceType: TraceType;
-    title: string;
-    xAxis: string;
-    yAxis: string;
-    fill: string;
-    hasMultiPoints: boolean;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-    highlight: HighlightState;
-  };
+      empty: false;
+      type: 'trace';
+      traceType: TraceType;
+      title: string;
+      xAxis: string;
+      yAxis: string;
+      fill: string;
+      hasMultiPoints: boolean;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+      highlight: HighlightState;
+    };
 
 export interface AudioState {
   min: number;
@@ -136,6 +136,6 @@ export type AutoplayState = {
 export type HighlightState =
   | TraceEmptyState
   | {
-    empty: false;
-    elements: SVGElement | SVGElement[];
-  };
+      empty: false;
+      elements: SVGElement | SVGElement[];
+    };
