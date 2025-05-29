@@ -38,7 +38,7 @@ export class LlmValidationService {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-      }).catch(() => ({ ok: false }));
+      });
 
       if (response.ok) {
         return { isValid: true };

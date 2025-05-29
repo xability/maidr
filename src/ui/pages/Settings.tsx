@@ -11,6 +11,7 @@ import {
   FormControl,
   FormControlLabel,
   Grid,
+  InputAdornment,
   MenuItem,
   Radio,
   RadioGroup,
@@ -121,6 +122,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
 
+  const getHelperText = (): string => {
+    if (!modelSettings.enabled)
+      return '';
+    if (isValidating)
+      return 'Validating API key...';
+    if (isValid === false)
+      return `${modelSettings.name} API key is invalid`;
+    if (isValid === true)
+      return `${modelSettings.name} API key is valid`;
+    return '';
+  };
+
   const validateApiKey = async (apiKey: string): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
       setIsValid(null);
@@ -187,52 +200,42 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               placeholder={`Enter ${modelSettings.name} API Key`}
               type="password"
               error={isValid === false}
-              helperText={
-                !modelSettings.enabled
-                  ? ''
-                  : isValidating
-                    ? 'Validating API key...'
-                    : isValid === false
-                      ? `${modelSettings.name} API key is invalid`
-                      : isValid === true
-                        ? `${modelSettings.name} API key is valid`
-                        : ''
-              }
-              inputProps={{
-                'aria-label': `${modelSettings.name} API key input`,
-                'aria-describedby': `${modelKey}-status`,
-              }}
+              helperText={getHelperText()}
               slotProps={{
                 input: {
-                  endAdornment: (
-                    <div
-                      id={`${modelKey}-status`}
-                      role="status"
-                      aria-live="polite"
-                      aria-label={
-                        isValidating
-                          ? 'Validating API key'
-                          : isValid === true
-                            ? 'API key is valid'
-                            : isValid === false
-                              ? 'API key is invalid'
-                              : ''
-                      }
-                    >
-                      {isValidating
-                        ? (
-                            <CircularProgress size={20} />
-                          )
-                        : isValid === true
+                  'aria-label': `${modelSettings.name} API key input`,
+                  'aria-describedby': `${modelKey}-status`,
+                  'endAdornment': (
+                    <InputAdornment position="end">
+                      <div
+                        id={`${modelKey}-status`}
+                        role="status"
+                        aria-live="polite"
+                        aria-label={
+                          isValidating
+                            ? 'Validating API key'
+                            : isValid === true
+                              ? 'API key is valid'
+                              : isValid === false
+                                ? 'API key is invalid'
+                                : ''
+                        }
+                      >
+                        {isValidating
                           ? (
-                              <CheckIcon color="success" />
+                              <CircularProgress size={20} />
                             )
-                          : isValid === false
+                          : isValid === true
                             ? (
-                                <ErrorIcon color="error" />
+                                <CheckIcon color="success" />
                               )
-                            : null}
-                    </div>
+                            : isValid === false
+                              ? (
+                                  <ErrorIcon color="error" />
+                                )
+                              : null}
+                      </div>
+                    </InputAdornment>
                   ),
                 },
               }}
@@ -276,7 +279,7 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     viewModel.load();
-  }, [viewModel]); // Added viewModel to dependency array if `load` relies on the viewModel instance
+  }, [viewModel]);
 
   useEffect(() => {
     setGeneralSettings(general);
