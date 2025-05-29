@@ -4,6 +4,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
   Avatar,
   Box,
+  Button,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -19,10 +20,17 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface MessageBubbleProps {
   message: Message;
+  disabled: boolean;
+  onOpenSettings: () => void;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  disabled,
+  onOpenSettings,
+}) => {
   const theme = useTheme();
+
   return (
     <Box
       sx={{
@@ -90,14 +98,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           >
             {message.text}
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 0.5,
+            }}
           >
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </Typography>
-
+            {disabled && message.id.startsWith('system-') && (
+              <Button
+                variant="text"
+                onClick={onOpenSettings}
+                aria-label="Open settings"
+              >
+                Open Settings
+              </Button>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+            >
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </Typography>
+          </Box>
           {/* Status Indicator */}
           {!message.isUser && message.status === 'PENDING' && (
             <Box>
@@ -115,11 +139,16 @@ const Chat: React.FC = () => {
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
+  const settingsViewModel = useViewModel('settings');
   const { messages } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenSettings = (): void => {
+    settingsViewModel.toggle();
+  };
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,7 +231,12 @@ const Chat: React.FC = () => {
             }}
           >
             {messages.map(message => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                disabled={disabled}
+                onOpenSettings={handleOpenSettings}
+              />
             ))}
             <div ref={messagesEndRef} />
           </Grid>
