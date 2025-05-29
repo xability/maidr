@@ -12,7 +12,25 @@
         "$tsc"
       ],
       "label": "npm: build",
-      "detail": "webpack"
+      "detail": "vite build"
+    },
+    {
+      "type": "npm",
+      "script": "lint:fix",
+      "label": "npm: lint:fix",
+      "detail": "eslint . --fix"
+    },
+    {
+      "type": "npm",
+      "script": "test",
+      "label": "npm: test",
+      "detail": "jest"
+    },
+    {
+      "type": "npm",
+      "script": "e2e",
+      "label": "npm: e2e",
+      "detail": "playwright test"
     }
   ]
 }
