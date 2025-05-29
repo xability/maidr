@@ -6,9 +6,11 @@ import { TypingEffect } from './TypingEffect';
 
 interface MessageBubbleProps {
   message: Message;
+  _disabled?: boolean;
+  _onOpenSettings?: () => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, _disabled, _onOpenSettings }) => {
   const getLLMAvatar = (): React.ReactElement => {
     return message.isUser ? <AccountCircle /> : <SmartToy fontSize="small" />;
   };
