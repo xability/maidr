@@ -1,5 +1,6 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -21,8 +22,9 @@ export class Heatmap extends AbstractTrace<number> {
     this.y = data.y;
 
     this.heatmapValues = data.points;
-    this.min = Math.min(...this.heatmapValues.flat());
-    this.max = Math.max(...this.heatmapValues.flat());
+    const { min, max } = MathUtil.minMaxFrom2D(this.heatmapValues);
+    this.min = min;
+    this.max = max;
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }

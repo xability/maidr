@@ -1,5 +1,9 @@
 import { Close, Send } from '@mui/icons-material';
 import {
+  Avatar,
+  Box,
+  Button,
+  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -13,16 +17,137 @@ import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
 
+interface MessageBubbleProps {
+  message: Message;
+  disabled: boolean;
+  onOpenSettings: () => void;
+}
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  disabled,
+  onOpenSettings,
+}) => {
+  const theme = useTheme();
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: message.isUser ? 'flex-end' : 'flex-start',
+        mb: 2,
+      }}
+      /* Use 'aria-live' so screen readers announce AI updates */
+      {...(!message.isUser ? { 'aria-live': 'assertive' } : {})}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1.5,
+          maxWidth: '80%',
+          flexDirection: message.isUser ? 'row-reverse' : 'row',
+        }}
+      >
+        <Avatar
+          sx={{
+            bgcolor: message.isUser
+              ? theme.palette.primary.main
+              : theme.palette.grey[500],
+          }}
+        >
+          {message.isUser
+            ? (
+                <AccountCircleIcon />
+              )
+            : (
+                <SmartToy fontSize="small" />
+              )}
+        </Avatar>
+
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: message.isUser
+              ? theme.palette.primary.light
+              : theme.palette.background.paper,
+            border: `1px solid ${
+              message.isUser
+                ? theme.palette.primary.main
+                : theme.palette.divider
+            }`,
+            position: 'relative',
+          }}
+        >
+          {!message.isUser && (
+            <Typography
+              variant="caption"
+              fontWeight="medium"
+              color="text.secondary"
+              gutterBottom
+            >
+              {message.model || 'AI Assistant'}
+            </Typography>
+          )}
+          <Typography
+            variant="body1"
+            color={message.isUser ? 'primary.contrastText' : 'text.primary'}
+            sx={{ whiteSpace: 'pre-wrap' }}
+          >
+            {message.text}
+          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 0.5,
+            }}
+          >
+            {disabled && message.id.startsWith('system-') && (
+              <Button
+                variant="text"
+                onClick={onOpenSettings}
+                aria-label="Open settings"
+              >
+                Open Settings
+              </Button>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+            >
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </Typography>
+          </Box>
+          {/* Status Indicator */}
+          {!message.isUser && message.status === 'PENDING' && (
+            <Box>
+              <CircularProgress size={16} />
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
 const Chat: React.FC = () => {
   const id = useId();
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
+  const settingsViewModel = useViewModel('settings');
   const { messages } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenSettings = (): void => {
+    settingsViewModel.toggle();
+  };
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -107,7 +232,12 @@ const Chat: React.FC = () => {
             }}
           >
             {messages.map(message => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                disabled={disabled}
+                onOpenSettings={handleOpenSettings}
+              />
             ))}
             <div ref={messagesEndRef} />
           </Grid>

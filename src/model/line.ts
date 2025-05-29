@@ -1,6 +1,8 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
@@ -21,8 +23,8 @@ export class LineTrace extends AbstractTrace<number> {
     this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
-    this.min = this.lineValues.map(row => Math.min(...row));
-    this.max = this.lineValues.map(row => Math.max(...row));
+    this.min = this.lineValues.map(row => MathUtil.safeMin(row));
+    this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
   }
@@ -47,6 +49,7 @@ export class LineTrace extends AbstractTrace<number> {
       size: this.points[this.row].length,
       index: this.col,
       value: this.points[this.row][this.col].y,
+      ...this.getAudioGroupIndex(),
     };
   }
 
@@ -73,6 +76,105 @@ export class LineTrace extends AbstractTrace<number> {
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
     };
+  }
+
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
+    if (direction === 'UPWARD' || direction === 'DOWNWARD') {
+      const targetRow = this.findNearestLineByYValue(direction);
+      if (targetRow !== null && targetRow !== this.row) {
+        this.row = targetRow;
+        this.notifyStateUpdate();
+        return;
+      } else {
+        // No valid line found based on y values - hit boundary
+        this.notifyOutOfBounds();
+        return;
+      }
+    }
+
+    // Default navigation for FORWARD/BACKWARD only
+    switch (direction) {
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
+  }
+
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
+      const [row, col] = target;
+      return (
+        row >= 0 && row < this.values.length
+        && col >= 0 && col < this.values[this.row].length
+      );
+    }
+
+    switch (target) {
+      case 'UPWARD':
+      case 'DOWNWARD':
+        // For y-value-based navigation, check if there's a valid target line
+        return this.findNearestLineByYValue(target) !== null;
+      case 'FORWARD':
+        return this.col < this.values[this.row].length - 1;
+      case 'BACKWARD':
+        return this.col > 0;
+    }
+  }
+
+  /**
+   * Finds the nearest line based on y values at the current x position (column)
+   * @param direction The direction to search (UPWARD for higher y values, DOWNWARD for lower y values)
+   * @returns The row index of the nearest line, or null if no suitable line is found
+   */
+  private findNearestLineByYValue(direction: 'UPWARD' | 'DOWNWARD'): number | null {
+    const currentCol = this.col;
+    const currentY = this.values[this.row][currentCol];
+
+    let bestRow: number | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    // Check all lines that have data at the current x position
+    for (let row = 0; row < this.values.length; row++) {
+      // Skip current row and check if this line has data at current column
+      if (row === this.row || currentCol >= this.values[row].length) {
+        continue;
+      }
+
+      const lineY = this.values[row][currentCol];
+
+      // Check if this line's y value is in the desired direction
+      const isValidDirection = direction === 'UPWARD' ? lineY > currentY : lineY < currentY;
+      if (!isValidDirection) {
+        continue;
+      }
+
+      // Calculate distance (absolute difference in y values)
+      const distance = Math.abs(lineY - currentY);
+
+      // Update best candidate if this is closer
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestRow = row;
+      }
+    }
+
+    return bestRow;
   }
 
   private mapToSvgElements(selectors?: string[]): SVGElement[][] | null {

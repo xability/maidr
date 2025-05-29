@@ -500,3 +500,101 @@ textarea {
   flex-direction: column;
   align-items: flex-end;
 }
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: fixed;
+  bottom: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 300px;
+  text-align: center;
+}
+
+/* Settings component styles */
+.settings-dialog {
+  z-index: 9998;
+  max-height: 90vh;
+}
+
+.settings-dialog-content {
+  overflow: auto;
+}
+
+.settings-slider-value-label {
+  background-color: var(--primary-main);
+  border-radius: 4px;
+}
+
+.settings-custom-instruction {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+}
+
+.settings-footer-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 8px 16px;
+}
+
+.settings-model-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-model-input {
+  flex-grow: 1;
+}
+
+.settings-model-select {
+  min-width: 200px;
+}
+
+.settings-divider {
+  padding: 4px 0;
+}
+
+.settings-section {
+  margin-top: 16px;
+}
+
+.settings-section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.settings-row {
+  padding: 8px 0;
+}
+
+.settings-row-label {
+  font-weight: normal;
+}
+
+.settings-row-input {
+  width: 100%;
+}

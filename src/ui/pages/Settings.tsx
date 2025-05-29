@@ -1,5 +1,6 @@
-import type { Llm } from '@type/llm';
+import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
+import { Check as CheckIcon } from '@mui/icons-material';
 import {
   Button,
   Dialog,
@@ -21,6 +22,65 @@ import {
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useState } from 'react';
+
+type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
+type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
+type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
+
+interface ModelConfig<T extends LlmVersion> {
+  default: T;
+  options: readonly T[];
+  labels: Record<T, string>;
+}
+
+interface ModelVersions {
+  GPT: ModelConfig<GptVersion>;
+  CLAUDE: ModelConfig<ClaudeVersion>;
+  GEMINI: ModelConfig<GeminiVersion>;
+}
+
+const MODEL_VERSIONS: ModelVersions = {
+  GPT: {
+    default: 'gpt-4o',
+    options: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o1-mini', 'o3', 'o4-mini'] as const,
+    labels: {
+      'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini',
+      'gpt-4.1': 'GPT-4.1',
+      'o1-mini': 'o1-mini',
+      'o3': 'o3',
+      'o4-mini': 'o4-mini',
+    },
+  },
+  CLAUDE: {
+    default: 'claude-3-7-sonnet-latest',
+    options: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest'] as const,
+    labels: {
+      'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
+      'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
+      'claude-3-7-sonnet-latest': 'Claude 3.7 Sonnet',
+    },
+  },
+  GEMINI: {
+    default: 'gemini-2.0-flash',
+    options: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-preview-04-17', 'gemini-2.5-pro-preview-05-06'] as const,
+    labels: {
+      'gemini-2.0-flash': 'Gemini 2.0 Flash',
+      'gemini-2.0-flash-lite': 'Gemini 2.0 Flash Lite',
+      'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash Preview',
+      'gemini-2.5-pro-preview-05-06': 'Gemini 2.5 Pro Preview',
+    },
+  },
+};
+
+function getValidVersion(modelKey: Llm, currentVersion: string | undefined): LlmVersion {
+  const config = MODEL_VERSIONS[modelKey];
+  const validOptions = config.options as readonly LlmVersion[];
+  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
+    return config.default;
+  }
+  return currentVersion as LlmVersion;
+}
 
 interface SettingRowProps {
   label: string;
@@ -45,6 +105,7 @@ interface LlmModelSettingRowProps {
   modelSettings: LlmModelSettings;
   onToggle: (key: Llm, enabled: boolean) => void;
   onChangeKey: (key: Llm, value: string) => void;
+  onChangeVersion: (key: Llm, value: LlmVersion) => void;
 }
 
 const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
@@ -52,35 +113,79 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   modelSettings,
   onToggle,
   onChangeKey,
-}) => (
-  <SettingRow
-    label={modelSettings.name}
-    input={(
-      <Grid container spacing={1} alignItems="center">
-        <Grid size="auto">
-          <Switch
-            checked={modelSettings.enabled}
-            onChange={e => onToggle(modelKey, e.target.checked)}
-            slotProps={{
-              input: { 'aria-label': `Enable ${modelSettings.name}` },
-            }}
-          />
+  onChangeVersion,
+}) => {
+  const validVersion = getValidVersion(modelKey, modelSettings.version);
+
+  const renderMenuItems = (): React.ReactNode[] => {
+    const config = MODEL_VERSIONS[modelKey];
+    return config.options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels];
+      return (
+        <MenuItem
+          key={version}
+          value={version}
+          sx={{ fontWeight: modelSettings.version === version ? 'bold' : 'normal' }}
+        >
+          {modelSettings.version === version && <CheckIcon sx={{ mr: 1 }} />}
+          {label}
+        </MenuItem>
+      );
+    });
+  };
+
+  return (
+    <SettingRow
+      label={modelSettings.name}
+      input={(
+        <Grid container spacing={1} alignItems="center">
+          <Grid size="auto">
+            <Switch
+              checked={modelSettings.enabled}
+              onChange={e => onToggle(modelKey, e.target.checked)}
+              slotProps={{
+                input: { 'aria-label': `Enable ${modelSettings.name}` },
+              }}
+            />
+          </Grid>
+          <Grid size="grow">
+            <TextField
+              disabled={!modelSettings.enabled}
+              fullWidth
+              size="small"
+              value={modelSettings.apiKey}
+              onChange={e => onChangeKey(modelKey, e.target.value)}
+              placeholder={`Enter ${modelSettings.name} API Key`}
+              type="password"
+            />
+          </Grid>
+          <Grid size="auto">
+            <Grid size="auto">
+              <Select
+                value={validVersion}
+                onChange={(e) => {
+                  const newVersion = e.target.value as LlmVersion;
+                  onChangeVersion(modelKey, newVersion);
+                }}
+                disabled={!modelSettings.enabled || !modelSettings.apiKey.trim()}
+                MenuProps={{
+                  disablePortal: true,
+                  PaperProps: {
+                    sx: {
+                      maxHeight: 200,
+                    },
+                  },
+                }}
+              >
+                {renderMenuItems()}
+              </Select>
+            </Grid>
+          </Grid>
         </Grid>
-        <Grid size="grow">
-          <TextField
-            disabled={!modelSettings.enabled}
-            fullWidth
-            size="small"
-            value={modelSettings.apiKey}
-            onChange={e => onChangeKey(modelKey, e.target.value)}
-            placeholder={`Enter ${modelSettings.name} API Key`}
-            type="password"
-          />
-        </Grid>
-      </Grid>
-    )}
-  />
-);
+      )}
+    />
+  );
+};
 
 const Settings: React.FC = () => {
   const id = useId();
@@ -92,24 +197,31 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     viewModel.load();
-  }, []);
+  }, [viewModel]); // Added viewModel to dependency array if `load` relies on the viewModel instance
 
-  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number): void => {
+  useEffect(() => {
+    setGeneralSettings(general);
+    setLlmSettings(llm);
+  }, [general, llm]);
+
+  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number | AriaMode): void => { // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
+
   const handleLlmChange = (key: keyof LlmSettings, value: string): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
+
   const handleLlmModelChange = (
     modelKey: Llm,
     propKey: keyof LlmModelSettings,
-    value: string | boolean,
+    value: string | boolean | LlmVersion,
   ): void => {
     setLlmSettings(prev => ({
       ...prev,
@@ -129,9 +241,11 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
     setLlmSettings(llm);
   };
+
   const handleClose = (): void => {
     viewModel.toggle();
   };
+
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
@@ -141,13 +255,22 @@ const Settings: React.FC = () => {
       id={id}
       role="dialog"
       open={true}
-      onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disablePortal
+      disableEnforceFocus
+      onClick={e => e.stopPropagation()}
+      sx={{
+        '& .MuiDialog-paper': {
+          zIndex: 9998,
+          maxHeight: '90vh',
+        },
+        '& .MuiDialogContent-root': {
+          overflow: 'auto',
+        },
+      }}
     >
-      <DialogContent sx={{ overflow: 'visible' }}>
-        {/* Header */}
+      <DialogContent>
         <Grid size="grow">
           <Typography variant="h6" fontWeight="bold" gutterBottom>
             Settings
@@ -156,8 +279,6 @@ const Settings: React.FC = () => {
 
         {/* General Settings */}
         <Grid container spacing={0.5}>
-
-          {/* Volume Slider */}
           <Grid size={12}>
             <SettingRow
               label="Volume"
@@ -179,8 +300,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Highlight Color Picker */}
           <Grid size={12}>
             <SettingRow
               label="Outline Color"
@@ -195,8 +314,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Braille Display Size Input */}
           <Grid size={12}>
             <SettingRow
               label="Braille Display Size"
@@ -211,8 +328,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Min Frequency Input */}
           <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
@@ -227,8 +342,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Max Frequency Input */}
           <Grid size={12}>
             <SettingRow
               label="Max Frequency (Hz)"
@@ -243,8 +356,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Autoplay Duration Input */}
           <Grid size={12}>
             <SettingRow
               label="Autoplay Duration (ms)"
@@ -259,8 +370,6 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-
-          {/* Aria Mode Radio */}
           <Grid size={12}>
             <SettingRow
               label="ARIA Mode"
@@ -300,10 +409,8 @@ const Settings: React.FC = () => {
             </Typography>
           </Grid>
 
-          {/* LLM Model Toggles */}
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
-
             return (
               <Grid size={12} key={modelKey}>
                 <LlmModelSettingRow
@@ -311,6 +418,7 @@ const Settings: React.FC = () => {
                   modelSettings={model}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
@@ -335,16 +443,17 @@ const Settings: React.FC = () => {
             />
           </Grid>
 
-          {/* Custom Instructions */}
           <Grid size={12}>
             <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={{ py: 1 }}>
+              <Grid size={12} sx={{ py: 1 }}>
                 <Typography variant="body2" fontWeight="normal">
                   Custom Instructions
                 </Typography>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 8 }}>
+              <Grid size={12}>
                 <TextareaAutosize
+                  minRows={3}
+                  maxRows={6}
                   value={llmSettings.customInstruction}
                   onChange={e => handleLlmChange('customInstruction', e.target.value)}
                   style={{
@@ -365,15 +474,13 @@ const Settings: React.FC = () => {
         </Grid>
       </DialogContent>
 
-      {/* Footer Actions */}
+      {/* Footer Actions  */}
       <Grid
         container
         component={DialogActions}
+        alignItems="center"
       >
-        <Grid
-          size="auto"
-          sx={{ px: 1 }}
-        >
+        <Grid size="auto" sx={{ px: 1 }}>
           <Button variant="text" color="inherit" onClick={handleReset}>
             Reset
           </Button>
