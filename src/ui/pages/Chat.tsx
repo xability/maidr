@@ -106,7 +106,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               mt: 0.5,
             }}
           >
-            {disabled && (
+            {disabled && message.id.startsWith('system-') && (
               <Button
                 variant="text"
                 onClick={onOpenSettings}
