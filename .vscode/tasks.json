@@ -2,35 +2,57 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm run lint -- --fix",
       "group": {
         "kind": "build",
-        "isDefault": true
+        "isDefault": false
       },
-      "problemMatcher": [
-        "$tsc"
-      ],
-      "label": "npm: build",
-      "detail": "vite build"
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "npm build",
+      "type": "shell",
+      "command": "npm run build",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
     },
     {
-      "type": "npm",
-      "script": "lint:fix",
-      "label": "npm: lint:fix",
-      "detail": "eslint . --fix"
+      "label": "npm test",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
     },
     {
-      "type": "npm",
-      "script": "test",
-      "label": "npm: test",
-      "detail": "jest"
-    },
-    {
-      "type": "npm",
-      "script": "e2e",
-      "label": "npm: e2e",
-      "detail": "playwright test"
+      "label": "npm e2e",
+      "type": "shell",
+      "command": "npm run e2e",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
     }
   ]
 }
