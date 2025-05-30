@@ -62,7 +62,7 @@ export interface AudioState {
   max: number;
   size: number;
   value: number | number[];
-  index: number;
+  index: number | number[];
   /**
    * Indicates whether the audio is continuous.
    * If true, the audio plays without interruption.

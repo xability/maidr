@@ -27,7 +27,8 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
+export class AudioService
+implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
 
@@ -87,7 +88,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     const traceState = state.type === 'subplot' ? state.trace : state;
-    if (traceState.empty || traceState.hasMultiPoints === this.isCombinedAudio) {
+    if (
+      traceState.empty
+      || traceState.hasMultiPoints === this.isCombinedAudio
+    ) {
       return;
     }
 
@@ -126,13 +130,25 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     //
     // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
     const shouldUseMulticlassAudio = groupIndex !== undefined;
-    const paletteEntry = shouldUseMulticlassAudio ? this.audioPalette.getPaletteEntry(groupIndex!) : undefined;
+    const paletteEntry = shouldUseMulticlassAudio
+      ? this.audioPalette.getPaletteEntry(groupIndex!)
+      : undefined;
 
     if (audio.isContinuous) {
-      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index, paletteEntry);
+      // continuous
+      this.playSmooth(
+        audio.value as number[],
+        audio.min,
+        audio.max,
+        audio.size,
+        Array.isArray(audio.index) ? audio.index[0] : audio.index,
+        paletteEntry,
+      );
     } else if (Array.isArray(audio.value)) {
+      // multiple discrete values
       const values = audio.value as number[];
       if (values.length === 0) {
+        // no tone to play
         this.playZeroTone(); // Always use original zero tone, regardless of groups
         return;
       }
@@ -141,8 +157,19 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
+        // queue up next tone
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++, paletteEntry);
+          const index = Array.isArray(audio.index)
+            ? audio.index[currentIndex]
+            : audio.index;
+          this.playTone(
+            audio.min,
+            audio.max,
+            values[currentIndex++],
+            audio.size,
+            index,
+            paletteEntry,
+          );
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -151,11 +178,20 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
       playNext();
     } else {
+      // just one discrete value
       const value = audio.value as number;
       if (value === 0) {
         this.playZeroTone(); // Always use original zero tone, regardless of groups
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index, paletteEntry);
+        const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
+        this.playTone(
+          audio.min,
+          audio.max,
+          value,
+          audio.size,
+          index,
+          paletteEntry,
+        );
       }
     }
   }
@@ -174,7 +210,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
     const fromPanning = { min: 0, max: panningSize };
     const toPanning = { min: -1, max: 1 };
-    const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
+    const panning = this.clamp(
+      this.interpolate(rawPanning, fromPanning, toPanning),
+      -1,
+      1,
+    );
 
     return this.playOscillator(frequency, panning, paletteEntry);
   }
@@ -185,7 +225,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
    * @param frequency - The base frequency for the primary oscillator
    * @returns Array of configured oscillator nodes
    */
-  private createOscillators(paletteEntry: AudioPaletteEntry, frequency: number): OscillatorNode[] {
+  private createOscillators(
+    paletteEntry: AudioPaletteEntry,
+    frequency: number,
+  ): OscillatorNode[] {
     const oscillators: OscillatorNode[] = [];
 
     // Create primary oscillator
@@ -242,7 +285,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       }
 
       // Create ADSR envelope using the shared helper function
-      const envelope = this.createAdsrEnvelope(gainNode, paletteEntry, oscillatorVolume, startTime, duration);
+      const envelope = this.createAdsrEnvelope(
+        gainNode,
+        paletteEntry,
+        oscillatorVolume,
+        startTime,
+        duration,
+      );
 
       // Apply envelope curve only if we haven't already used precise scheduling
       if (envelope !== null) {
@@ -267,8 +316,16 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       paletteEntry = { waveType: 'sine' };
     }
 
-    const oscillators: OscillatorNode[] = this.createOscillators(paletteEntry, frequency);
-    const gainNodes: GainNode[] = this.createGainNodes(oscillators, paletteEntry, volume, duration);
+    const oscillators: OscillatorNode[] = this.createOscillators(
+      paletteEntry,
+      frequency,
+    );
+    const gainNodes: GainNode[] = this.createGainNodes(
+      oscillators,
+      paletteEntry,
+      volume,
+      duration,
+    );
 
     // Pane the audio.
     const stereoPannerNode = this.audioContext.createStereoPanner();
@@ -342,15 +399,24 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       gainNode.gain.linearRampToValueAtTime(volume, startTime + attackTime);
 
       // Decay phase - ramp down to sustain level
-      gainNode.gain.linearRampToValueAtTime(sustain * volume, startTime + attackTime + decayTime);
+      gainNode.gain.linearRampToValueAtTime(
+        sustain * volume,
+        startTime + attackTime + decayTime,
+      );
 
       // Sustain phase - hold at sustain level (only if sustainTime > 0)
       if (sustainTime > 0) {
-        gainNode.gain.setValueAtTime(sustain * volume, startTime + attackTime + decayTime + sustainTime);
+        gainNode.gain.setValueAtTime(
+          sustain * volume,
+          startTime + attackTime + decayTime + sustainTime,
+        );
       }
 
       // Release phase - ramp down to silence
-      gainNode.gain.linearRampToValueAtTime(1e-4 * volume, startTime + duration);
+      gainNode.gain.linearRampToValueAtTime(
+        1e-4 * volume,
+        startTime + duration,
+      );
 
       // Return null to indicate we used precise scheduling
       return null;
@@ -384,7 +450,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const waveType = paletteEntry?.waveType || 'sine';
 
     // Normalize values to frequency
-    const freqs = values.map(v => this.interpolate(v, { min, max }, { min: MIN_FREQUENCY, max: MAX_FREQUENCY }));
+    const freqs = values.map(v =>
+      this.interpolate(
+        v,
+        { min, max },
+        { min: MIN_FREQUENCY, max: MAX_FREQUENCY },
+      ),
+    );
 
     // Ensure minimum of 2 frequencies
     if (freqs.length < 2) {
@@ -392,7 +464,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     // Calculate stereo pan (-1 to 1)
-    const pan = this.clamp(this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }), -1, 1);
+    const pan = this.clamp(
+      this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }),
+      -1,
+      1,
+    );
 
     // Oscillator
     const oscillator = ctx.createOscillator();
@@ -401,7 +477,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
     // Gain envelope - use shared ADSR helper function
     const gainNode = ctx.createGain();
-    const envelope = this.createAdsrEnvelope(gainNode, paletteEntry, this.volume, startTime, duration);
+    const envelope = this.createAdsrEnvelope(
+      gainNode,
+      paletteEntry,
+      this.volume,
+      startTime,
+      duration,
+    );
 
     // Apply envelope curve only if we haven't already used precise scheduling
     if (envelope !== null) {
@@ -420,12 +502,15 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     oscillator.start(startTime);
     oscillator.stop(startTime + duration);
 
-    const audioId = setTimeout(() => {
-      oscillator.disconnect();
-      gainNode.disconnect();
-      panner.disconnect();
-      this.activeAudioIds.delete(audioId);
-    }, duration * 1000 * 2);
+    const audioId = setTimeout(
+      () => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+        panner.disconnect();
+        this.activeAudioIds.delete(audioId);
+      },
+      duration * 1000 * 2,
+    );
 
     this.activeAudioIds.set(audioId, [oscillator]);
   }
@@ -482,7 +567,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   public playWaitingTone(): AudioId {
-    return setInterval(() => this.playOscillator(WAITING_FREQUENCY, 0, { waveType: 'sine' }), 1000);
+    return setInterval(
+      () => this.playOscillator(WAITING_FREQUENCY, 0, { waveType: 'sine' }),
+      1000,
+    );
   }
 
   public playCompleteTone(): AudioId {
@@ -506,7 +594,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
-        this.mode = this.isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
+        this.mode = this.isCombinedAudio
+          ? AudioMode.COMBINED
+          : AudioMode.SEPARATE;
         break;
 
       case AudioMode.SEPARATE:
