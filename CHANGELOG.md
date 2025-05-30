@@ -1,3 +1,10 @@
+# [3.9.0](https://github.com/xability/maidr/compare/v3.8.0...v3.9.0) (2025-05-30)
+
+
+### Features
+
+* enable markdown rendering for LLM agent messages ([#257](https://github.com/xability/maidr/issues/257)) ([48f2081](https://github.com/xability/maidr/commit/48f2081175ad82157c288f98de085315decd1ac4))
+
 # [3.8.0](https://github.com/xability/maidr/compare/v3.7.1...v3.8.0) (2025-05-29)
 
 
