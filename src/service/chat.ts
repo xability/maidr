@@ -73,6 +73,22 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
   }
 
+  protected validateExpertise(expertise: string): 'basic' | 'intermediate' | 'advanced' {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+      return 'basic';
+    }
+
+    return expertise;
+  }
+
   public async getLlmResponse(request: LlmRequest): Promise<LlmResponse> {
     try {
       const image = await Svg.toBase64(this.svg);
@@ -140,7 +156,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     image: string,
     currentText: string,
     message: string,
-    expertise: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
   ): string;
 
   protected abstract formatResponse(response: T): LlmResponse;
@@ -168,26 +184,14 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     image: string,
     currentPositionText: string,
     message: string,
-    expertise: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
   ): string {
-    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
-    type ExpertiseLevel = typeof validExpertiseLevels[number];
-
-    const isValidExpertise = (value: string): value is ExpertiseLevel => {
-      return validExpertiseLevels.includes(value as any);
-    };
-
-    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
-    if (!isValidExpertise(expertise)) {
-      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
-    }
-
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: validatedExpertise,
+      expertiseLevel: this.validateExpertise(expertise),
     };
 
     return JSON.stringify({
@@ -259,26 +263,14 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     image: string,
     currentPositionText: string,
     message: string,
-    expertise: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
   ): string {
-    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
-    type ExpertiseLevel = typeof validExpertiseLevels[number];
-
-    const isValidExpertise = (value: string): value is ExpertiseLevel => {
-      return validExpertiseLevels.includes(value as any);
-    };
-
-    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
-    if (!isValidExpertise(expertise)) {
-      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
-    }
-
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: validatedExpertise,
+      expertiseLevel: this.validateExpertise(expertise),
     };
 
     return JSON.stringify({
@@ -352,26 +344,14 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     image: string,
     currentPositionText: string,
     message: string,
-    expertise: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
   ): string {
-    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
-    type ExpertiseLevel = typeof validExpertiseLevels[number];
-
-    const isValidExpertise = (value: string): value is ExpertiseLevel => {
-      return validExpertiseLevels.includes(value as any);
-    };
-
-    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
-    if (!isValidExpertise(expertise)) {
-      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
-    }
-
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: validatedExpertise,
+      expertiseLevel: this.validateExpertise(expertise),
     };
 
     return JSON.stringify({
