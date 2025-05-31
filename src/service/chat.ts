@@ -82,6 +82,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         image,
         '',
         request.message,
+        request.expertise,
       );
 
       const url = request.clientToken
@@ -139,6 +140,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     image: string,
     currentText: string,
     message: string,
+    expertise: string,
   ): string;
 
   protected abstract formatResponse(response: T): LlmResponse;
@@ -166,12 +168,26 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({
@@ -180,7 +196,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
       messages: [
         {
           role: 'system',
-          content: formatSystemPrompt(customInstruction),
+          content: formatSystemPrompt(customInstruction, context.expertiseLevel),
         },
         {
           role: 'user',
@@ -243,12 +259,26 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({
@@ -268,7 +298,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
             },
             {
               type: 'text',
-              text: `${formatSystemPrompt(customInstruction)}\n\n${formatUserPrompt(context)}`,
+              text: `${formatSystemPrompt(customInstruction, context.expertiseLevel)}\n\n${formatUserPrompt(context)}`,
             },
           ],
         },
@@ -322,12 +352,26 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({
@@ -338,7 +382,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
           role: 'user',
           parts: [
             {
-              text: formatSystemPrompt(customInstruction),
+              text: formatSystemPrompt(customInstruction, context.expertiseLevel),
             },
           ],
         },

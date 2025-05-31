@@ -432,7 +432,20 @@ const Settings: React.FC = () => {
                 <FormControl fullWidth size="small">
                   <Select
                     value={llmSettings.expertiseLevel}
-                    onChange={e => handleLlmChange('expertiseLevel', e.target.value)}
+                    onChange={(e) => {
+                      // Prevent event bubbling to parent Dialog to avoid unintended dialog closure
+                      e.stopPropagation();
+                      handleLlmChange('expertiseLevel', e.target.value);
+                    }}
+                    onClick={e => e.stopPropagation()} // Prevent click events from bubbling to parent Dialog
+                    MenuProps={{
+                      disablePortal: true,
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 200,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>
