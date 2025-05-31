@@ -170,12 +170,24 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     message: string,
     expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: expertise as 'basic' | 'intermediate' | 'advanced',
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({
@@ -249,12 +261,24 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     message: string,
     expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: expertise as 'basic' | 'intermediate' | 'advanced',
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({
@@ -330,12 +354,24 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     message: string,
     expertise: string,
   ): string {
+    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
+    type ExpertiseLevel = typeof validExpertiseLevels[number];
+
+    const isValidExpertise = (value: string): value is ExpertiseLevel => {
+      return validExpertiseLevels.includes(value as any);
+    };
+
+    const validatedExpertise: ExpertiseLevel = isValidExpertise(expertise) ? expertise : 'basic';
+    if (!isValidExpertise(expertise)) {
+      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
+    }
+
     const context: PromptContext = {
       customInstruction,
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: expertise as 'basic' | 'intermediate' | 'advanced',
+      expertiseLevel: validatedExpertise,
     };
 
     return JSON.stringify({

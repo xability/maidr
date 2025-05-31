@@ -433,10 +433,11 @@ const Settings: React.FC = () => {
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={(e) => {
+                      // Prevent event bubbling to parent Dialog to avoid unintended dialog closure
                       e.stopPropagation();
                       handleLlmChange('expertiseLevel', e.target.value);
                     }}
-                    onClick={e => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()} // Prevent click events from bubbling to parent Dialog
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {

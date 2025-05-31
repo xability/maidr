@@ -51,6 +51,8 @@ function getSystemPromptForExpertiseLevel(expertiseLevel: 'basic' | 'intermediat
       return INTERMEDIATE_SYSTEM_PROMPT;
     case 'advanced':
       return ADVANCED_SYSTEM_PROMPT;
+    default:
+      return BASIC_SYSTEM_PROMPT;
   }
 }
 
