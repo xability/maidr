@@ -59,9 +59,11 @@ export class Controller implements Disposable {
 
     this.displayService = new DisplayService(this.context, plot, reactContainer);
     this.notificationService = new NotificationService();
-    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state);
+
+    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService, this.audioService);
+
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
