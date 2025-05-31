@@ -36,7 +36,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
   private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
 
-  private readonly volume: number;
+  private volume: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -554,5 +554,9 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       });
     });
     this.activeAudioIds.clear();
+  }
+
+  public setVolume(volumePercent: number): void {
+    this.volume = Math.min(Math.max(volumePercent / 100, 0), 1);
   }
 }

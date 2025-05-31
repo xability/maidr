@@ -1,3 +1,4 @@
+import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
 import type { Settings } from '@type/settings';
@@ -8,13 +9,15 @@ const SETTINGS_KEY = 'maidr-settings';
 export class SettingsService {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
+  private readonly audio: AudioService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
 
-  public constructor(storage: StorageService, display: DisplayService) {
+  public constructor(storage: StorageService, display: DisplayService, audio: AudioService) {
     this.storage = storage;
     this.display = display;
+    this.audio = audio;
 
     this.defaultSettings = {
       general: {
@@ -54,6 +57,7 @@ export class SettingsService {
 
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     this.currentSettings = saved ?? this.defaultSettings;
+    this.audio.setVolume(this.currentSettings.general.volume);
   }
 
   public loadSettings(): Settings {
@@ -63,11 +67,13 @@ export class SettingsService {
   public saveSettings(newSettings: Settings): void {
     this.currentSettings = newSettings;
     this.storage.save(SETTINGS_KEY, this.currentSettings);
+    this.audio.setVolume(newSettings.general.volume);
   }
 
   public resetSettings(): Settings {
     this.currentSettings = this.defaultSettings;
     this.storage.remove(SETTINGS_KEY);
+    this.audio.setVolume(this.defaultSettings.general.volume);
     return this.currentSettings;
   }
 
