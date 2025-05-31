@@ -14,6 +14,10 @@ export class SettingsService {
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
 
+  private updateVolume(volume: number): void {
+    this.audio.setVolume(volume);
+  }
+
   public constructor(storage: StorageService, display: DisplayService, audio: AudioService) {
     this.storage = storage;
     this.display = display;
@@ -57,7 +61,7 @@ export class SettingsService {
 
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     this.currentSettings = saved ?? this.defaultSettings;
-    this.audio.setVolume(this.currentSettings.general.volume);
+    this.updateVolume(this.currentSettings.general.volume);
   }
 
   public loadSettings(): Settings {
@@ -67,13 +71,13 @@ export class SettingsService {
   public saveSettings(newSettings: Settings): void {
     this.currentSettings = newSettings;
     this.storage.save(SETTINGS_KEY, this.currentSettings);
-    this.audio.setVolume(newSettings.general.volume);
+    this.updateVolume(newSettings.general.volume);
   }
 
   public resetSettings(): Settings {
     this.currentSettings = this.defaultSettings;
     this.storage.remove(SETTINGS_KEY);
-    this.audio.setVolume(this.defaultSettings.general.volume);
+    this.updateVolume(this.defaultSettings.general.volume);
     return this.currentSettings;
   }
 
