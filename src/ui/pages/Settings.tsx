@@ -432,7 +432,19 @@ const Settings: React.FC = () => {
                 <FormControl fullWidth size="small">
                   <Select
                     value={llmSettings.expertiseLevel}
-                    onChange={e => handleLlmChange('expertiseLevel', e.target.value)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleLlmChange('expertiseLevel', e.target.value);
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    MenuProps={{
+                      disablePortal: true,
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 200,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>
