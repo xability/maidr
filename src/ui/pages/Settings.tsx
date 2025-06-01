@@ -1,3 +1,6 @@
+import type {
+  SelectChangeEvent,
+} from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import { Check as CheckIcon } from '@mui/icons-material';
@@ -21,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 
 type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
 type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
@@ -250,6 +253,15 @@ const Settings: React.FC = () => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
 
+  const handleSelectClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced'>) => {
+    e.stopPropagation();
+    handleLlmChange('expertiseLevel', e.target.value);
+  }, [handleLlmChange]);
+
   return (
     <Dialog
       id={id}
@@ -432,12 +444,8 @@ const Settings: React.FC = () => {
                 <FormControl fullWidth size="small">
                   <Select
                     value={llmSettings.expertiseLevel}
-                    onChange={(e) => {
-                      // Prevent event bubbling to parent Dialog to avoid unintended dialog closure
-                      e.stopPropagation();
-                      handleLlmChange('expertiseLevel', e.target.value);
-                    }}
-                    onClick={e => e.stopPropagation()} // Prevent click events from bubbling to parent Dialog
+                    onChange={handleSelectChange}
+                    onClick={handleSelectClick}
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {

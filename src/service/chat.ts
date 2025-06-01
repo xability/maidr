@@ -73,21 +73,6 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
   }
 
-  protected validateExpertise(expertise: string): 'basic' | 'intermediate' | 'advanced' {
-    const validExpertiseLevels = ['basic', 'intermediate', 'advanced'] as const;
-    type ExpertiseLevel = typeof validExpertiseLevels[number];
-
-    const isValidExpertise = (value: string): value is ExpertiseLevel => {
-      return validExpertiseLevels.includes(value as ExpertiseLevel);
-    };
-
-    if (!isValidExpertise(expertise)) {
-      return 'basic';
-    }
-
-    return expertise;
-  }
-
   public async getLlmResponse(request: LlmRequest): Promise<LlmResponse> {
     try {
       const image = await Svg.toBase64(this.svg);
@@ -190,7 +175,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: this.validateExpertise(expertise),
+      expertiseLevel: expertise,
     };
 
     return JSON.stringify({
@@ -269,7 +254,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: this.validateExpertise(expertise),
+      expertiseLevel: expertise,
     };
 
     return JSON.stringify({
@@ -350,7 +335,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
       maidrJson,
       currentPositionText,
       message,
-      expertiseLevel: this.validateExpertise(expertise),
+      expertiseLevel: expertise,
     };
 
     return JSON.stringify({
