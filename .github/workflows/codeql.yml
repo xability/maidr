@@ -1,12 +1,12 @@
-name: "CodeQL Analysis"
+name: CodeQL Analysis
 
 on:
   workflow_dispatch:
     inputs:
       languages:
-        description: "Languages to analyze"
+        description: Languages to analyze
         required: true
-        default: "typescript"
+        default: typescript
         type: choice
         options:
           - typescript
@@ -40,7 +40,7 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'
 
       - name: Create GitHub Issues for Critical Findings
         if: failure()
