@@ -1,6 +1,5 @@
 import type { BoxPoint, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
-import * as querystring from "node:querystring";
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
