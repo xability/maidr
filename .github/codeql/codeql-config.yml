@@ -1,8 +1,8 @@
-name: "CodeQL Custom Configuration"
+name: CodeQL Custom Configuration
 
 queries:
-  - uses: security-extended
-  - uses: security-and-quality
+  - uses: security-extended # Broad security coverage
+  - uses: security-and-quality # Code quality checks
 
 paths:
   - src
@@ -12,43 +12,3 @@ paths-ignore:
   - '**/node_modules'
   - '**/dist'
   - '**/build'
-
-query-filters:
-  - include:
-      tags contain: security
-      tags contain: external/cwe/cwe-798   # Hardcoded credentials
-      tags contain: external/cwe/cwe-312   # Cleartext storage of sensitive info
-      tags contain: external/cwe/cwe-522   # Insufficiently protected credentials
-      tags contain: external/cwe/cwe-200   # Information exposure
-      tags contain: external/cwe/cwe-79    # XSS
-      tags contain: external/cwe/cwe-601   # URL Redirection to Untrusted Site
-      tags contain: external/cwe/cwe-201   # Information Exposure Through Sent Data
-      tags contain: external/cwe/cwe-598   # Information Exposure Through Query Strings in GET Request
-      tags contain: external/cwe/cwe-295   # Improper Certificate Validation
-      tags contain: external/cwe/cwe-918   # Server-Side Request Forgery (if relevant)
-      tags contain: external/cwe/cwe-611   # XML External Entity (XXE) Injection (if relevant)
-      tags contain: external/cwe/cwe-89    # SQL Injection (if relevant)
-      tags contain: external/cwe/cwe-20    # Input Validation
-      tags contain: external/cwe/cwe-287   # Improper Authentication
-      tags contain: external/cwe/cwe-285   # Improper Authorization
-      tags contain: external/cwe/cwe-732   # Incorrect Permission Assignment for Critical Resource
-      tags contain: external/cwe/cwe-434   # Unrestricted Upload of File with Dangerous Type
-      tags contain: external/cwe/cwe-502   # Deserialization of Untrusted Data
-      tags contain: external/cwe/cwe-611   # XXE
-      tags contain: external/cwe/cwe-352   # CSRF
-      tags contain: external/cwe/cwe-601   # Open Redirect
-      tags contain: external/cwe/cwe-94    # Code Injection
-      tags contain: external/cwe/cwe-22    # Path Traversal
-      tags contain: external/cwe/cwe-863   # Incorrect Authorization
-      tags contain: external/cwe/cwe-732   # Incorrect Permission Assignment
-      tags contain: external/cwe/cwe-522   # Insufficiently Protected Credentials
-      tags contain: external/cwe/cwe-311   # Missing Encryption of Sensitive Data
-      tags contain: external/cwe/cwe-319   # Cleartext Transmission of Sensitive Information
-      tags contain: external/cwe/cwe-327   # Use of a Broken or Risky Crypto Algorithm
-      tags contain: external/cwe/cwe-330   # Use of Insufficiently Random Values
-      tags contain: external/cwe/cwe-601   # URL Redirection to Untrusted Site
-      tags contain: external/cwe/cwe-918   # SSRF
-      tags contain: external/cwe/cwe-352   # CSRF
-      tags contain: external/cwe/cwe-79    # XSS
-      tags contain: external/cwe/cwe-20    # Input Validation
-      tags contain: external/cwe/cwe-798   # Hardcoded Secrets
