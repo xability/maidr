@@ -556,6 +556,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds.clear();
   }
 
+  /**
+   * Sets the volume of the audio element.
+   * @param volumePercent - The volume as a percentage (0 to 100), which is normalized to a [0,1] range.
+   */
   public setVolume(volumePercent: number): void {
     this.volume = Math.min(Math.max(volumePercent / 100, 0), 1);
   }
