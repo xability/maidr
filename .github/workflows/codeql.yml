@@ -1,0 +1,94 @@
+name: "CodeQL Analysis"
+
+on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: "Languages to analyze"
+        required: true
+        default: "typescript"
+        type: choice
+        options:
+          - typescript
+          - javascript
+          - typescript,javascript
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      issues: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ github.event.inputs.languages }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      - name: Create GitHub Issues for Critical Findings
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read the CodeQL results
+            const resultsPath = path.join(process.env.GITHUB_WORKSPACE, 'codeql-analysis-results.json');
+            if (!fs.existsSync(resultsPath)) {
+              console.log('No CodeQL results found');
+              return;
+            }
+
+            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+
+            // Filter for critical findings
+            const criticalFindings = results.filter(result =>
+              result.severity === 'critical' ||
+              result.severity === 'high'
+            );
+
+            // Create issues for each critical finding
+            for (const finding of criticalFindings) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[CodeQL] ${finding.rule.id}: ${finding.message}`,
+                body: `
+                  ## CodeQL Security Finding
+
+                  **Severity:** ${finding.severity}
+                  **Rule:** ${finding.rule.id}
+                  **Message:** ${finding.message}
+
+                  **Location:** ${finding.location.file}:${finding.location.startLine}
+
+                  **Description:**
+                  ${finding.rule.description}
+
+                  **Recommendation:**
+                  ${finding.rule.recommendation || 'Please review this finding and fix if necessary.'}
+
+                  ---
+                  *This issue was automatically created by CodeQL analysis.*
+                `,
+                labels: ['security', 'codeql', finding.severity]
+              });
+            }
