@@ -78,7 +78,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     type ExpertiseLevel = typeof validExpertiseLevels[number];
 
     const isValidExpertise = (value: string): value is ExpertiseLevel => {
-      return validExpertiseLevels.includes(value as any);
+      return validExpertiseLevels.includes(value as ExpertiseLevel);
     };
 
     if (!isValidExpertise(expertise)) {

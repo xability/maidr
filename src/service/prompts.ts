@@ -43,17 +43,14 @@ export interface PromptContext {
   expertiseLevel: 'basic' | 'intermediate' | 'advanced';
 }
 
+const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
+  basic: BASIC_SYSTEM_PROMPT,
+  intermediate: INTERMEDIATE_SYSTEM_PROMPT,
+  advanced: ADVANCED_SYSTEM_PROMPT,
+};
+
 function getSystemPromptForExpertiseLevel(expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
-  switch (expertiseLevel) {
-    case 'basic':
-      return BASIC_SYSTEM_PROMPT;
-    case 'intermediate':
-      return INTERMEDIATE_SYSTEM_PROMPT;
-    case 'advanced':
-      return ADVANCED_SYSTEM_PROMPT;
-    default:
-      return BASIC_SYSTEM_PROMPT;
-  }
+  return SYSTEM_PROMPTS[expertiseLevel] || BASIC_SYSTEM_PROMPT;
 }
 
 export function formatSystemPrompt(customInstruction: string, expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
