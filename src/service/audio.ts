@@ -113,7 +113,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
 
     if (state.empty) {
-      this.playEmptyTone();
+      this.playEmptyTone(state.audio.size, state.audio.index);
       return;
     }
 
@@ -430,7 +430,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds.set(audioId, [oscillator]);
   }
 
-  private playEmptyTone(): AudioId {
+  private playEmptyTone(size: number, index: number): AudioId {
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
@@ -443,10 +443,30 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     masterGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
     masterGain.connect(this.compressor);
 
+    const fromPanning = { min: 0, max: size };
+    const toPanning = { min: -1, max: 1 };
+    const panning = this.clamp(this.interpolate(index, fromPanning, toPanning), -1, 1);
+
     const oscillators: OscillatorNode[] = [];
     for (let i = 0; i < frequencies.length; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      const stereoPannerNode = this.audioContext.createStereoPanner();
+      const pannerNode = new PannerNode(this.audioContext, {
+        distanceModel: 'linear',
+        positionX: 0.0,
+        positionY: 0.0,
+        positionZ: 0.0,
+        orientationX: 0.0,
+        orientationY: 0.0,
+        orientationZ: -1.0,
+        refDistance: 1,
+        maxDistance: 1e4,
+        rolloffFactor: 10,
+        coneInnerAngle: 40,
+        coneOuterAngle: 50,
+        coneOuterGain: 0.4,
+      });
 
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
@@ -454,8 +474,12 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       gain.gain.setValueAtTime(gains[i] * this.volume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
+      stereoPannerNode.pan.value = panning;
+
       osc.connect(gain);
-      gain.connect(masterGain);
+      gain.connect(stereoPannerNode);
+      stereoPannerNode.connect(pannerNode);
+      pannerNode.connect(masterGain);
 
       osc.start(now);
       osc.stop(now + duration);
