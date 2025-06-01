@@ -30,6 +30,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
+      issues: write
 
     steps:
       - name: Checkout repository
@@ -88,27 +89,20 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     title: `[CodeQL] ${alert.rule.id}: ${alert.rule.description.substring(0, 100)}`,
-                    body: |
-                      ### CodeQL Security Finding
-
-                      **Severity:** ${alert.rule.severity}
-                      **Rule:** ${alert.rule.id}
-                      **State:** ${alert.state}
-
-                      **Location:**
-                      ${alert.most_recent_instance.location.path}:${alert.most_recent_instance.location.start_line}
-
-                      **Description:**
-                      ${alert.rule.description}
-
-                      **Recommendation:**
-                      ${alert.rule.tags.includes('security') ? 'Security vulnerability - please address immediately.' : 'Please review this finding.'}
-
-                      **View in Code Scanning:**
-                      ${alert.html_url}
-
-                      ---
-                      *Automatically created by CodeQL analysis (Workflow Run: ${context.runId})*
+                    body: '### CodeQL Security Finding\n\n' +
+                      '**Severity:** ' + alert.rule.severity + '\n' +
+                      '**Rule:** ' + alert.rule.id + '\n' +
+                      '**State:** ' + alert.state + '\n\n' +
+                      '**Location:**\n' +
+                      alert.most_recent_instance.location.path + ':' + alert.most_recent_instance.location.start_line + '\n\n' +
+                      '**Description:**\n' +
+                      alert.rule.description + '\n\n' +
+                      '**Recommendation:**\n' +
+                      (alert.rule.tags.includes('security') ? 'Security vulnerability - please address immediately.' : 'Please review this finding.') + '\n\n' +
+                      '**View in Code Scanning:**\n' +
+                      alert.html_url + '\n\n' +
+                      '---\n' +
+                      '*Automatically created by CodeQL analysis (Workflow Run: ' + context.runId + ')*',
                     labels: [
                       'security',
                       'codeql',
