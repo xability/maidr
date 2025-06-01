@@ -82,7 +82,6 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     };
 
     if (!isValidExpertise(expertise)) {
-      console.warn(`Invalid expertise level: ${expertise}, defaulting to basic`);
       return 'basic';
     }
 
