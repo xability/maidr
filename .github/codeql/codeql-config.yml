@@ -1,8 +1,9 @@
 name: CodeQL Custom Configuration
 
 queries:
-  - uses: security-extended
-  - uses: security-and-quality
+  - uses: security-extended # Broad security coverage
+  - uses: security-and-quality # Code quality checks
+  - uses: ./custom-queries # (Optional) Add project-specific queries later
 
 paths:
   - src
@@ -12,34 +13,3 @@ paths-ignore:
   - '**/node_modules'
   - '**/dist'
   - '**/build'
-
-query-filters:
-  - include:
-      tags:
-        - security
-        - external/cwe/cwe-798 # Hardcoded credentials
-        - external/cwe/cwe-312 # Cleartext storage of sensitive info
-        - external/cwe/cwe-522 # Insufficiently protected credentials
-        - external/cwe/cwe-200 # Information exposure
-        - external/cwe/cwe-79 # XSS
-        - external/cwe/cwe-601 # URL Redirection to Untrusted Site
-        - external/cwe/cwe-201 # Information Exposure Through Sent Data
-        - external/cwe/cwe-598 # Information Exposure Through Query Strings in GET Request
-        - external/cwe/cwe-295 # Improper Certificate Validation
-        - external/cwe/cwe-918 # Server-Side Request Forgery
-        - external/cwe/cwe-611 # XML External Entity (XXE) Injection
-        - external/cwe/cwe-89 # SQL Injection
-        - external/cwe/cwe-20 # Input Validation
-        - external/cwe/cwe-287 # Improper Authentication
-        - external/cwe/cwe-285 # Improper Authorization
-        - external/cwe/cwe-732 # Incorrect Permission Assignment for Critical Resource
-        - external/cwe/cwe-434 # Unrestricted Upload of File with Dangerous Type
-        - external/cwe/cwe-502 # Deserialization of Untrusted Data
-        - external/cwe/cwe-352 # CSRF
-        - external/cwe/cwe-94 # Code Injection
-        - external/cwe/cwe-22 # Path Traversal
-        - external/cwe/cwe-863 # Incorrect Authorization
-        - external/cwe/cwe-311 # Missing Encryption of Sensitive Data
-        - external/cwe/cwe-319 # Cleartext Transmission of Sensitive Information
-        - external/cwe/cwe-327 # Use of a Broken or Risky Crypto Algorithm
-        - external/cwe/cwe-330 # Use of Insufficiently Random Values
