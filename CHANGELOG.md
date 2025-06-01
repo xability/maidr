@@ -1,3 +1,10 @@
+## [3.9.1](https://github.com/xability/maidr/compare/v3.9.0...v3.9.1) (2025-06-01)
+
+
+### Bug Fixes
+
+* integrate volume toggle with audioservice ([#299](https://github.com/xability/maidr/issues/299)) ([d8f27fd](https://github.com/xability/maidr/commit/d8f27fde9717640e8ff5fc40239500b30f212f14))
+
 # [3.9.0](https://github.com/xability/maidr/compare/v3.8.0...v3.9.0) (2025-05-30)
 
 
