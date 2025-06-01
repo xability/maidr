@@ -38,17 +38,17 @@ jobs:
           fetch-depth: 2
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ github.event.inputs.languages }}
-          config-file: ./.github/codeql-config.yml
+          config-file: ./.github/codeql/codeql-config.yml
           queries: +security-extended, security-and-quality # Include additional security queries and override default queries
 
-      - name: Autobuild (if needed)
-        uses: github/codeql-action/autobuild@v2
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         with:
           category: '/language:${{ github.event.inputs.languages }}'
 
