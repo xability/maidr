@@ -3,7 +3,6 @@ name: CodeQL Custom Configuration
 queries:
   - uses: security-extended # Broad security coverage
   - uses: security-and-quality # Code quality checks
-  - uses: ./custom-queries # (Optional) Add project-specific queries later
 
 paths:
   - src
