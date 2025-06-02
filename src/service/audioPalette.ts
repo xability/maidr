@@ -88,6 +88,86 @@ export class AudioPaletteService implements Disposable {
           release: 0.5, // longer tail for emotional weight
         },
       },
+      {
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.15 },
+            { frequency: 4, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.02,
+          decay: 0.2,
+          sustain: 0.6,
+          release: 0.3,
+        },
+      },
+      {
+        waveType: 'triangle',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 3, amplitude: 0.2 },
+            { frequency: 6, amplitude: 0.1 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.1,
+          sustain: 0.8,
+          release: 0.2,
+        },
+      },
+      {
+        waveType: 'square',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 3, amplitude: 0.1 },
+            { frequency: 7, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.005,
+          decay: 0.05,
+          sustain: 0.5,
+          release: 0.1,
+        },
+      },
+      {
+        waveType: 'triangle',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2.5, amplitude: 0.15 },
+            { frequency: 4.5, amplitude: 0.08 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.4,
+          sustain: 0.3,
+          release: 0.5,
+        },
+      },
+      {
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.1 },
+            { frequency: 3, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.02,
+          decay: 0.1,
+          sustain: 0.9,
+          release: 0.15,
+        },
+      },
     ];
 
     this.extendedPalette = new Map();
