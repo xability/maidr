@@ -49,12 +49,12 @@ const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
   advanced: ADVANCED_SYSTEM_PROMPT,
 };
 
-function getSystemPromptForExpertiseLevel(expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
+function selectPromptByLevel(expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
   return SYSTEM_PROMPTS[expertiseLevel];
 }
 
 export function formatSystemPrompt(customInstruction: string, expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
-  const basePrompt = getSystemPromptForExpertiseLevel(expertiseLevel);
+  const basePrompt = selectPromptByLevel(expertiseLevel);
   return `${basePrompt}\n\n${customInstruction}`;
 }
 

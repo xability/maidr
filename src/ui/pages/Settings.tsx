@@ -214,7 +214,7 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleLlmChange = (key: keyof LlmSettings, value: string): void => {
+  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced'): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
