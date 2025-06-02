@@ -1,3 +1,10 @@
+## [3.9.2](https://github.com/xability/maidr/compare/v3.9.1...v3.9.2) (2025-06-02)
+
+
+### Bug Fixes
+
+* integrate prompt level into chat flow ([#297](https://github.com/xability/maidr/issues/297)) ([6a1f126](https://github.com/xability/maidr/commit/6a1f12688345c859cc72e774ce6e93779719a967))
+
 ## [3.9.1](https://github.com/xability/maidr/compare/v3.9.0...v3.9.1) (2025-06-01)
 
 
