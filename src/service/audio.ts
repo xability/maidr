@@ -430,6 +430,14 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds.set(audioId, [oscillator]);
   }
 
+  /**
+   * Plays a spatialized tone indicating an "empty" or out-of-bounds state.
+   *
+   * Panning Calculation:
+   * The `index` is interpolated within the range `[0, size]` to a stereo pan range `[-1, 1]`.
+   * This allows the tone to be played with directional spatial cues, helping users infer
+   * where the empty state occurs within the overall layout.
+   */
   private playEmptyTone(size: number, index: number): AudioId {
     const ctx = this.audioContext;
     const now = ctx.currentTime;
