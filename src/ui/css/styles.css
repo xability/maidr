@@ -182,14 +182,22 @@
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: #000000;
   color: white;
   border-radius: 4px;
   font-size: 14px;
-  white-space: pre-wrap;
+  width: 300px;
+  max-width: 300px;
+  min-width: 200px;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   z-index: 9999;
   pointer-events: none;
-  max-width: 300px;
   text-align: center;
 }
 
@@ -274,6 +282,7 @@ button.close {
   background-color: transparent;
   border: 0;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .close {
@@ -515,14 +524,22 @@ textarea {
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: #000000;
   color: white;
   border-radius: 4px;
   font-size: 14px;
-  white-space: pre-wrap;
+  width: 300px;
+  max-width: 300px;
+  min-width: 200px;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   z-index: 9999;
   pointer-events: none;
-  max-width: 300px;
   text-align: center;
 }
 
