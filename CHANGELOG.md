@@ -1,3 +1,10 @@
+## [3.10.1](https://github.com/xability/maidr/compare/v3.10.0...v3.10.1) (2025-06-03)
+
+
+### Bug Fixes
+
+* validate llm agent api key ([#287](https://github.com/xability/maidr/issues/287)) ([ddf12d0](https://github.com/xability/maidr/commit/ddf12d07030debbaf528ec7c7f1f7e351eebac13))
+
 # [3.10.0](https://github.com/xability/maidr/compare/v3.9.2...v3.10.0) (2025-06-03)
 
 
