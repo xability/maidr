@@ -1,3 +1,10 @@
+## [3.10.2](https://github.com/xability/maidr/compare/v3.10.1...v3.10.2) (2025-06-03)
+
+
+### Bug Fixes
+
+* correct panning for multiple tones like in boxplot and smooth ([#295](https://github.com/xability/maidr/issues/295)) ([9d2d7e6](https://github.com/xability/maidr/commit/9d2d7e6a58dac6672148df16fc7980958304175b))
+
 ## [3.10.1](https://github.com/xability/maidr/compare/v3.10.0...v3.10.1) (2025-06-03)
 
 
