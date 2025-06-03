@@ -1,3 +1,10 @@
+# [3.10.0](https://github.com/xability/maidr/compare/v3.9.2...v3.10.0) (2025-06-03)
+
+
+### Features
+
+* made boundary audio spatial ([#306](https://github.com/xability/maidr/issues/306)) ([93e7744](https://github.com/xability/maidr/commit/93e774498931b86bc8e19a2021add373387af6c1))
+
 ## [3.9.2](https://github.com/xability/maidr/compare/v3.9.1...v3.9.2) (2025-06-02)
 
 
