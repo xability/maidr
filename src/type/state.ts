@@ -37,6 +37,7 @@ interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
+  audio: AudioEmptyState;
 }
 
 export type TraceState =
@@ -56,6 +57,11 @@ export type TraceState =
     autoplay: AutoplayState;
     highlight: HighlightState;
   };
+
+export interface AudioEmptyState {
+  index: number;
+  size: number;
+}
 
 export interface AudioState {
   min: number;
