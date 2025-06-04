@@ -1,3 +1,10 @@
+# [3.11.0](https://github.com/xability/maidr/compare/v3.10.2...v3.11.0) (2025-06-04)
+
+
+### Features
+
+* support sonification differences between bull and bear states in candlestick charts ([#288](https://github.com/xability/maidr/issues/288)) ([053910e](https://github.com/xability/maidr/commit/053910eaad6d811fc6e45167de3c5188f5fcfa73))
+
 ## [3.10.2](https://github.com/xability/maidr/compare/v3.10.1...v3.10.2) (2025-06-03)
 
 
