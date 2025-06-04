@@ -2,17 +2,57 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm run lint -- --fix",
       "group": {
         "kind": "build",
-        "isDefault": true
+        "isDefault": false
       },
-      "problemMatcher": [
-        "$tsc"
-      ],
-      "label": "npm: build",
-      "detail": "webpack"
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "npm build",
+      "type": "shell",
+      "command": "npm run build",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "npm test",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "npm e2e",
+      "type": "shell",
+      "command": "npm run e2e",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
     }
   ]
 }

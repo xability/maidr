@@ -1,8 +1,12 @@
+import type {
+  SelectChangeEvent,
+} from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
-import { Check as CheckIcon } from '@mui/icons-material';
+import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -10,6 +14,7 @@ import {
   FormControl,
   FormControlLabel,
   Grid,
+  InputAdornment,
   MenuItem,
   Radio,
   RadioGroup,
@@ -20,8 +25,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { LlmValidationService } from '@service/llmValidation';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 
 type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
 type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
@@ -116,6 +122,45 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeVersion,
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+
+  const getHelperText = (): string => {
+    if (!modelSettings.enabled)
+      return '';
+    if (isValidating)
+      return 'Validating API key...';
+    if (isValid === false)
+      return `${modelSettings.name} API key is invalid`;
+    if (isValid === true)
+      return `${modelSettings.name} API key is valid`;
+    return '';
+  };
+
+  const validateApiKey = async (apiKey: string): Promise<void> => {
+    if (!modelSettings.enabled || !apiKey.trim()) {
+      setIsValid(null);
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const result = await LlmValidationService.validateApiKey(modelKey, apiKey);
+      setIsValid(result.isValid);
+    } catch (error) {
+      setIsValid(false);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      validateApiKey(modelSettings.apiKey);
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
@@ -148,7 +193,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               }}
             />
           </Grid>
-          <Grid size="grow">
+          <Grid size={6}>
             <TextField
               disabled={!modelSettings.enabled}
               fullWidth
@@ -157,29 +202,69 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               onChange={e => onChangeKey(modelKey, e.target.value)}
               placeholder={`Enter ${modelSettings.name} API Key`}
               type="password"
+              error={isValid === false}
+              helperText={getHelperText()}
+              slotProps={{
+                input: {
+                  'aria-label': `${modelSettings.name} API key input`,
+                  'aria-describedby': `${modelKey}-status`,
+                  'endAdornment': (
+                    <InputAdornment position="end">
+                      <div
+                        id={`${modelKey}-status`}
+                        role="status"
+                        aria-live="polite"
+                        aria-label={
+                          isValidating
+                            ? 'Validating API key'
+                            : isValid === true
+                              ? 'API key is valid'
+                              : isValid === false
+                                ? 'API key is invalid'
+                                : ''
+                        }
+                      >
+                        {isValidating
+                          ? (
+                              <CircularProgress size={20} />
+                            )
+                          : isValid === true
+                            ? (
+                                <CheckIcon color="success" />
+                              )
+                            : isValid === false
+                              ? (
+                                  <ErrorIcon color="error" />
+                                )
+                              : null}
+                      </div>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           </Grid>
-          <Grid size="auto">
-            <Grid size="auto">
-              <Select
-                value={validVersion}
-                onChange={(e) => {
-                  const newVersion = e.target.value as LlmVersion;
-                  onChangeVersion(modelKey, newVersion);
-                }}
-                disabled={!modelSettings.enabled || !modelSettings.apiKey.trim()}
-                MenuProps={{
-                  disablePortal: true,
-                  PaperProps: {
-                    sx: {
-                      maxHeight: 200,
-                    },
+          <Grid size={6}>
+            <Select
+              value={validVersion}
+              onChange={(e) => {
+                const newVersion = e.target.value as LlmVersion;
+                onChangeVersion(modelKey, newVersion);
+              }}
+              disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
+              fullWidth
+              size="small"
+              MenuProps={{
+                disablePortal: true,
+                PaperProps: {
+                  sx: {
+                    maxHeight: 200,
                   },
-                }}
-              >
-                {renderMenuItems()}
-              </Select>
-            </Grid>
+                },
+              }}
+            >
+              {renderMenuItems()}
+            </Select>
           </Grid>
         </Grid>
       )}
@@ -197,7 +282,7 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     viewModel.load();
-  }, [viewModel]); // Added viewModel to dependency array if `load` relies on the viewModel instance
+  }, [viewModel]);
 
   useEffect(() => {
     setGeneralSettings(general);
@@ -211,7 +296,7 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleLlmChange = (key: keyof LlmSettings, value: string): void => {
+  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced'): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
@@ -229,7 +314,7 @@ const Settings: React.FC = () => {
         ...prev.models,
         [modelKey]: {
           ...prev.models[modelKey],
-          [propKey]: value,
+          [propKey]: propKey === 'apiKey' && typeof value === 'string' ? value.trim() : value,
         },
       },
     }));
@@ -249,6 +334,15 @@ const Settings: React.FC = () => {
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
+
+  const handleSelectClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced'>) => {
+    e.stopPropagation();
+    handleLlmChange('expertiseLevel', e.target.value);
+  }, [handleLlmChange]);
 
   return (
     <Dialog
@@ -432,7 +526,16 @@ const Settings: React.FC = () => {
                 <FormControl fullWidth size="small">
                   <Select
                     value={llmSettings.expertiseLevel}
-                    onChange={e => handleLlmChange('expertiseLevel', e.target.value)}
+                    onChange={handleSelectChange}
+                    onClick={handleSelectClick}
+                    MenuProps={{
+                      disablePortal: true,
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 200,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>

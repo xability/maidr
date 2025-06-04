@@ -37,6 +37,7 @@ interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
+  audio: AudioEmptyState;
 }
 
 export type TraceState =
@@ -57,12 +58,17 @@ export type TraceState =
     highlight: HighlightState;
   };
 
+export interface AudioEmptyState {
+  index: number;
+  size: number;
+}
+
 export interface AudioState {
   min: number;
   max: number;
   size: number;
   value: number | number[];
-  index: number;
+  index: number | number[];
   /**
    * Indicates whether the audio is continuous.
    * If true, the audio plays without interruption.

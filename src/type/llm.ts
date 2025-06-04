@@ -14,7 +14,7 @@ export type LlmVersion = GptVersion | ClaudeVersion | GeminiVersion;
 export interface LlmRequest {
   message: string;
   customInstruction: string;
-  expertise: string;
+  expertise: 'basic' | 'intermediate' | 'advanced';
   apiKey?: string;
   email?: string;
   clientToken?: string;
