@@ -71,6 +71,103 @@ export class AudioPaletteService implements Disposable {
           release: 0.18,
         },
       },
+      {
+        waveType: 'sawtooth', // duller and darker than 'sine' or 'square'
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.2 }, // subtle overtones
+            { frequency: 3, amplitude: 0.1 },
+            { frequency: 5, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.005, // sharp entry for tension
+          decay: 0.3, // slow fade to create unease
+          sustain: 0.4, // keep it low and brooding
+          release: 0.5, // longer tail for emotional weight
+        },
+      },
+      {
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.15 },
+            { frequency: 4, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.02,
+          decay: 0.2,
+          sustain: 0.6,
+          release: 0.3,
+        },
+      },
+      {
+        waveType: 'triangle',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 3, amplitude: 0.2 },
+            { frequency: 6, amplitude: 0.1 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.1,
+          sustain: 0.8,
+          release: 0.2,
+        },
+      },
+      {
+        waveType: 'square',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 3, amplitude: 0.1 },
+            { frequency: 7, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.005,
+          decay: 0.05,
+          sustain: 0.5,
+          release: 0.1,
+        },
+      },
+      {
+        waveType: 'triangle',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2.5, amplitude: 0.15 },
+            { frequency: 4.5, amplitude: 0.08 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.4,
+          sustain: 0.3,
+          release: 0.5,
+        },
+      },
+      {
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.1 },
+            { frequency: 3, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.02,
+          decay: 0.1,
+          sustain: 0.9,
+          release: 0.15,
+        },
+      },
     ];
 
     this.extendedPalette = new Map();
@@ -202,13 +299,18 @@ export class AudioPaletteService implements Disposable {
     const baseEntry = this.basePalette[baseIndex];
 
     // Use the group index to create variations
-    const variation = Math.floor((groupIndex - this.basePalette.length) / this.basePalette.length);
+    const variation = Math.floor(
+      (groupIndex - this.basePalette.length) / this.basePalette.length,
+    );
 
     // Generate harmonic mix based on variation
     const harmonics = this.generateHarmonics(variation);
 
     // Generate unique timbre modulation
-    const timbreModulation = this.generateTimbreModulation(variation, baseEntry.timbreModulation!);
+    const timbreModulation = this.generateTimbreModulation(
+      variation,
+      baseEntry.timbreModulation!,
+    );
 
     return {
       waveType: baseEntry.waveType,
@@ -223,14 +325,18 @@ export class AudioPaletteService implements Disposable {
   /**
    * Generates harmonic series for extended palette entries
    */
-  private generateHarmonics(variation: number): Array<{ frequency: number; amplitude: number }> {
+  private generateHarmonics(
+    variation: number,
+  ): Array<{ frequency: number; amplitude: number }> {
     const harmonics: Array<{ frequency: number; amplitude: number }> = [];
 
     // Generate harmonics based on variation
-    const numHarmonics = AudioPaletteService.MIN_HARMONICS + (variation % AudioPaletteService.HARMONIC_VARIATION);
+    const numHarmonics
+      = AudioPaletteService.MIN_HARMONICS
+        + (variation % AudioPaletteService.HARMONIC_VARIATION);
 
     for (let i = 0; i < numHarmonics; i++) {
-      const frequency = 1.0 + (i + 1) * (0.5 + (variation * 0.3) % 1.0);
+      const frequency = 1.0 + (i + 1) * (0.5 + ((variation * 0.3) % 1.0));
       const amplitude = (0.4 / (i + 1)) * (1.0 - ((variation * 0.1) % 0.3));
 
       harmonics.push({ frequency, amplitude });
@@ -242,13 +348,19 @@ export class AudioPaletteService implements Disposable {
   /**
    * Generates unique timbre modulation for extended palette entries
    */
-  private generateTimbreModulation(variation: number, base: { attack: number; decay: number; sustain: number; release: number }): { attack: number; decay: number; sustain: number; release: number } {
-    const factor = 1.0 + (variation * 0.2) % 0.5;
+  private generateTimbreModulation(
+    variation: number,
+    base: { attack: number; decay: number; sustain: number; release: number },
+  ): { attack: number; decay: number; sustain: number; release: number } {
+    const factor = 1.0 + ((variation * 0.2) % 0.5);
 
     return {
       attack: Math.max(0.005, Math.min(0.05, base.attack * factor)),
       decay: Math.max(0.05, Math.min(0.3, base.decay * factor)),
-      sustain: Math.max(0.4, Math.min(0.9, base.sustain + (variation * 0.1) % 0.2)),
+      sustain: Math.max(
+        0.4,
+        Math.min(0.9, base.sustain + ((variation * 0.1) % 0.2)),
+      ),
       release: Math.max(0.1, Math.min(0.5, base.release * factor)),
     };
   }
