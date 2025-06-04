@@ -331,9 +331,9 @@ export class AudioPaletteService implements Disposable {
     const harmonics: Array<{ frequency: number; amplitude: number }> = [];
 
     // Generate harmonics based on variation
-    const numHarmonics =
-      AudioPaletteService.MIN_HARMONICS +
-      (variation % AudioPaletteService.HARMONIC_VARIATION);
+    const numHarmonics
+      = AudioPaletteService.MIN_HARMONICS
+        + (variation % AudioPaletteService.HARMONIC_VARIATION);
 
     for (let i = 0; i < numHarmonics; i++) {
       const frequency = 1.0 + (i + 1) * (0.5 + ((variation * 0.3) % 1.0));

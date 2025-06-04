@@ -4,7 +4,6 @@ import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
-import { group } from 'console';
 
 const TREND = 'Trend';
 
@@ -32,7 +31,7 @@ export class Candlestick extends AbstractTrace<number> {
     super(layer);
 
     const data = layer.data as CandlestickPoint[];
-    this.candles = data.map((candle) => ({
+    this.candles = data.map(candle => ({
       ...candle,
       trend:
         candle.close > candle.open
@@ -44,8 +43,8 @@ export class Candlestick extends AbstractTrace<number> {
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.candleValues = this.sections.map((key) =>
-      this.candles.map((c) => c[key]),
+    this.candleValues = this.sections.map(key =>
+      this.candles.map(c => c[key]),
     );
 
     this.min = MathUtil.minFrom2D(this.candleValues);
@@ -73,11 +72,11 @@ export class Candlestick extends AbstractTrace<number> {
   private precomputeSortedSegments(): CandlestickSegmentType[][] {
     return this.candles.map((candle) => {
       // Create array of [segmentType, value] pairs
-      const segmentPairs: [CandlestickSegmentType, number][] =
-        this.sections.map((segmentType) => [segmentType, candle[segmentType]]);
+      const segmentPairs: [CandlestickSegmentType, number][]
+        = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
 
       // Sort by value and return just the segment types
-      return segmentPairs.sort((a, b) => a[1] - b[1]).map((pair) => pair[0]);
+      return segmentPairs.sort((a, b) => a[1] - b[1]).map(pair => pair[0]);
     });
   }
 
@@ -161,14 +160,14 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentPointIndex,
           this.currentSegmentType,
         );
-        const newSegmentPosition =
-          direction === 'UPWARD'
+        const newSegmentPosition
+          = direction === 'UPWARD'
             ? currentSegmentPosition + 1
             : currentSegmentPosition - 1;
 
         if (
-          newSegmentPosition >= 0 &&
-          newSegmentPosition < this.sections.length
+          newSegmentPosition >= 0
+          && newSegmentPosition < this.sections.length
         ) {
           this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
             this.currentPointIndex,
@@ -185,8 +184,8 @@ export class Candlestick extends AbstractTrace<number> {
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: navigate between candlesticks while preserving segment type
-        const newPointIndex =
-          direction === 'FORWARD'
+        const newPointIndex
+          = direction === 'FORWARD'
             ? this.currentPointIndex + 1
             : this.currentPointIndex - 1;
 
@@ -213,16 +212,16 @@ export class Candlestick extends AbstractTrace<number> {
     switch (direction) {
       case 'UPWARD': {
         // Move to the highest value segment in current candlestick
-        const currentSorted =
-          this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSorted
+          = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
         this.updateVisualSegmentPosition();
         break;
       }
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
-        const currentSortedDown =
-          this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSortedDown
+          = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
         this.updateVisualSegmentPosition();
         break;
@@ -267,8 +266,8 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentPointIndex,
           this.currentSegmentType,
         );
-        const newSegmentPosition =
-          target === 'UPWARD'
+        const newSegmentPosition
+          = target === 'UPWARD'
             ? currentSegmentPosition + 1
             : currentSegmentPosition - 1;
         return (
@@ -279,8 +278,8 @@ export class Candlestick extends AbstractTrace<number> {
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: check if we can move between candlesticks
-        const newPointIndex =
-          target === 'FORWARD'
+        const newPointIndex
+          = target === 'FORWARD'
             ? this.currentPointIndex + 1
             : this.currentPointIndex - 1;
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
@@ -301,8 +300,8 @@ export class Candlestick extends AbstractTrace<number> {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
 
     // set mood: 9 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
-    let groupIndex =
-      this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 9;
+    const groupIndex
+      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 9;
 
     return {
       min: this.min,
