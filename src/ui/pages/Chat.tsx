@@ -1,10 +1,5 @@
-import type { Message } from '@type/llm';
-import { Close, Send, SmartToy } from '@mui/icons-material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { Close, Send } from '@mui/icons-material';
 import {
-  Avatar,
-  Box,
-  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -16,110 +11,23 @@ import {
 } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useRef, useState } from 'react';
-
-interface MessageBubbleProps {
-  message: Message;
-}
-
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const theme = useTheme();
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: message.isUser ? 'flex-end' : 'flex-start',
-        mb: 2,
-      }}
-      /* Use 'aria-live' so screen readers announce AI updates */
-      {...(!message.isUser ? { 'aria-live': 'assertive' } : {})}
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1.5,
-          maxWidth: '80%',
-          flexDirection: message.isUser ? 'row-reverse' : 'row',
-        }}
-      >
-        <Avatar
-          sx={{
-            bgcolor: message.isUser
-              ? theme.palette.primary.main
-              : theme.palette.grey[500],
-          }}
-        >
-          {message.isUser
-            ? (
-                <AccountCircleIcon />
-              )
-            : (
-                <SmartToy fontSize="small" />
-              )}
-        </Avatar>
-
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: 2,
-            bgcolor: message.isUser
-              ? theme.palette.primary.light
-              : theme.palette.background.paper,
-            border: `1px solid ${
-              message.isUser
-                ? theme.palette.primary.main
-                : theme.palette.divider
-            }`,
-            position: 'relative',
-          }}
-        >
-          {!message.isUser && (
-            <Typography
-              variant="caption"
-              fontWeight="medium"
-              color="text.secondary"
-              gutterBottom
-            >
-              {message.model || 'AI Assistant'}
-            </Typography>
-          )}
-          <Typography
-            variant="body1"
-            color={message.isUser ? 'primary.contrastText' : 'text.primary'}
-            sx={{ whiteSpace: 'pre-wrap' }}
-          >
-            {message.text}
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
-          >
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </Typography>
-
-          {/* Status Indicator */}
-          {!message.isUser && message.status === 'PENDING' && (
-            <Box>
-              <CircularProgress size={16} />
-            </Box>
-          )}
-        </Box>
-      </Box>
-    </Box>
-  );
-};
+import { MessageBubble } from '../components/MessageBubble';
 
 const Chat: React.FC = () => {
   const id = useId();
   const theme = useTheme();
 
   const viewModel = useViewModel('chat');
+  const settingsViewModel = useViewModel('settings');
   const { messages } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenSettings = (): void => {
+    settingsViewModel.toggle();
+  };
 
   const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -132,12 +40,14 @@ const Chat: React.FC = () => {
   const handleClose = (): void => {
     viewModel.toggle();
   };
+
   const handleSend = (): void => {
     if (inputMessage.trim()) {
       void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
   };
+
   const handleKeyPress = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -202,7 +112,12 @@ const Chat: React.FC = () => {
             }}
           >
             {messages.map(message => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                _disabled={disabled}
+                _onOpenSettings={handleOpenSettings}
+              />
             ))}
             <div ref={messagesEndRef} />
           </Grid>

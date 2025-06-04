@@ -191,6 +191,10 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
         empty: true,
         type: 'trace',
         traceType: this.type,
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
       };
     }
 
@@ -217,6 +221,10 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
         empty: true,
         type: 'trace',
         traceType: this.type,
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
       };
     }
 

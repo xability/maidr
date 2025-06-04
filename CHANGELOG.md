@@ -1,3 +1,52 @@
+## [3.10.2](https://github.com/xability/maidr/compare/v3.10.1...v3.10.2) (2025-06-03)
+
+
+### Bug Fixes
+
+* correct panning for multiple tones like in boxplot and smooth ([#295](https://github.com/xability/maidr/issues/295)) ([9d2d7e6](https://github.com/xability/maidr/commit/9d2d7e6a58dac6672148df16fc7980958304175b))
+
+## [3.10.1](https://github.com/xability/maidr/compare/v3.10.0...v3.10.1) (2025-06-03)
+
+
+### Bug Fixes
+
+* validate llm agent api key ([#287](https://github.com/xability/maidr/issues/287)) ([ddf12d0](https://github.com/xability/maidr/commit/ddf12d07030debbaf528ec7c7f1f7e351eebac13))
+
+# [3.10.0](https://github.com/xability/maidr/compare/v3.9.2...v3.10.0) (2025-06-03)
+
+
+### Features
+
+* made boundary audio spatial ([#306](https://github.com/xability/maidr/issues/306)) ([93e7744](https://github.com/xability/maidr/commit/93e774498931b86bc8e19a2021add373387af6c1))
+
+## [3.9.2](https://github.com/xability/maidr/compare/v3.9.1...v3.9.2) (2025-06-02)
+
+
+### Bug Fixes
+
+* integrate prompt level into chat flow ([#297](https://github.com/xability/maidr/issues/297)) ([6a1f126](https://github.com/xability/maidr/commit/6a1f12688345c859cc72e774ce6e93779719a967))
+
+## [3.9.1](https://github.com/xability/maidr/compare/v3.9.0...v3.9.1) (2025-06-01)
+
+
+### Bug Fixes
+
+* integrate volume toggle with audioservice ([#299](https://github.com/xability/maidr/issues/299)) ([d8f27fd](https://github.com/xability/maidr/commit/d8f27fde9717640e8ff5fc40239500b30f212f14))
+
+# [3.9.0](https://github.com/xability/maidr/compare/v3.8.0...v3.9.0) (2025-05-30)
+
+
+### Features
+
+* enable markdown rendering for LLM agent messages ([#257](https://github.com/xability/maidr/issues/257)) ([48f2081](https://github.com/xability/maidr/commit/48f2081175ad82157c288f98de085315decd1ac4))
+
+# [3.8.0](https://github.com/xability/maidr/compare/v3.7.1...v3.8.0) (2025-05-29)
+
+
+### Features
+
+* show settings button when no agents are enabled ([#248](https://github.com/xability/maidr/issues/248)) ([27ba2ca](https://github.com/xability/maidr/commit/27ba2cabf0bf616bc6dccb45dc83798769de0b7c))
+
 ## [3.7.1](https://github.com/xability/maidr/compare/v3.7.0...v3.7.1) (2025-05-28)
 
 
