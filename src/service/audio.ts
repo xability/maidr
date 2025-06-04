@@ -3,6 +3,7 @@ import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { AudioPaletteService } from './audioPalette';
 
 interface Range {
@@ -12,8 +13,6 @@ interface Range {
 
 type AudioId = ReturnType<typeof setTimeout>;
 
-const MIN_FREQUENCY = 200;
-const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
@@ -31,6 +30,7 @@ export class AudioService
 implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
+  private settings: SettingsService | null = null;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
@@ -54,6 +54,21 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.volume = DEFAULT_VOLUME;
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
+  }
+
+  public initializeSettings(settings: SettingsService): void {
+    this.settings = settings;
+  }
+
+  private getFrequencyRange(): { min: number; max: number } {
+    if (!this.settings) {
+      return { min: 200, max: 1000 };
+    }
+    const settings = this.settings.loadSettings();
+    return {
+      min: settings.general.minFrequency,
+      max: settings.general.maxFrequency,
+    };
   }
 
   public dispose(): void {
@@ -205,7 +220,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
-    const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
+    const toFreq = this.getFrequencyRange();
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
     const fromPanning = { min: 0, max: panningSize };
@@ -445,6 +460,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
+    const freqRange = this.getFrequencyRange();
 
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
@@ -454,7 +470,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.interpolate(
         v,
         { min, max },
-        { min: MIN_FREQUENCY, max: MAX_FREQUENCY },
+        freqRange,
       ),
     );
 
@@ -684,5 +700,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public setVolume(volumePercent: number): void {
     this.volume = Math.min(Math.max(volumePercent / 100, 0), 1);
+  }
+
+  public updateSettings(settings: SettingsService): void {
+    this.settings = settings;
   }
 }
