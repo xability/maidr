@@ -204,13 +204,15 @@
   padding-left: 1.5rem;
 }
 
-/* Tooltip styles */
+/* Tooltip styles */ /* Moved from later in the file to consolidate */
 [data-tooltip] {
+  /* Moved from later in the file */
   position: relative;
   cursor: help;
 }
 
 [data-tooltip]:hover::after {
+  /* This is the existing block from lines 220-239, now part of the consolidated tooltip styles */
   content: attr(data-tooltip);
   position: fixed;
   bottom: auto;
@@ -544,39 +546,6 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-}
-
-/* Tooltip styles */
-[data-tooltip] {
-  position: relative;
-  cursor: help;
-}
-
-[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: fixed;
-  bottom: auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: var(--tooltip-padding);
-  background-color: var(--tooltip-bg-color);
-  color: var(--tooltip-text-color);
-  border-radius: var(--tooltip-border-radius);
-  font-size: var(--tooltip-font-size);
-  width: var(--tooltip-width);
-  max-width: var(--tooltip-max-width);
-  min-width: var(--tooltip-min-width);
-  white-space: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: var(--tooltip-line-clamp);
-  line-clamp: var(--tooltip-line-clamp);
-  -webkit-box-orient: vertical;
-  z-index: var(--tooltip-z-index);
-  pointer-events: none;
-  text-align: center;
 }
 
 /* Settings component styles */
