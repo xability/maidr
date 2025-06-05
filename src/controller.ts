@@ -62,8 +62,8 @@ export class Controller implements Disposable {
 
     const storageService = new LocalStorageService();
     this.audioService = new AudioService(this.notificationService, this.context.state);
-    this.settingsService = new SettingsService(storageService, this.displayService, this.audioService);
-    this.audioService.updateSettings(this.settingsService);
+    this.settingsService = new SettingsService(storageService, this.displayService);
+    this.audioService.settings = this.settingsService;
 
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);

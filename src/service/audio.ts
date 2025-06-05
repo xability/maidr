@@ -18,7 +18,6 @@ const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
-const DEFAULT_VOLUME = 0.5;
 
 enum AudioMode {
   OFF = 'off',
@@ -30,21 +29,23 @@ export class AudioService
 implements Observer<SubplotState | TraceState>, Disposable {
   private static readonly DEFAULT_MIN_FREQUENCY = 200;
   private static readonly DEFAULT_MAX_FREQUENCY = 1000;
+  private static readonly DEFAULT_VOLUME = 0.5;
 
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
-  private settings: SettingsService | null = null;
+  public settings: SettingsService | null = null;
   private cachedFrequencyRange: { min: number; max: number } = {
     min: AudioService.DEFAULT_MIN_FREQUENCY,
     max: AudioService.DEFAULT_MAX_FREQUENCY,
   };
+
+  private cachedVolume: number = AudioService.DEFAULT_VOLUME;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
   private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
 
-  private volume: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -58,28 +59,27 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.activeAudioIds = new Map();
 
-    this.volume = DEFAULT_VOLUME;
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
 
-  private updateCachedFrequencyRange(): void {
+  private getVolume(): number {
     if (!this.settings) {
-      this.cachedFrequencyRange = {
-        min: AudioService.DEFAULT_MIN_FREQUENCY,
-        max: AudioService.DEFAULT_MAX_FREQUENCY,
-      };
-      return;
+      return this.cachedVolume;
     }
     const settings = this.settings.loadSettings();
-    this.cachedFrequencyRange = {
-      min: settings.general.minFrequency,
-      max: settings.general.maxFrequency,
-    };
+    return Math.min(Math.max(settings.general.volume / 100, 0), 1);
   }
 
   private getFrequencyRange(): { min: number; max: number } {
-    return this.cachedFrequencyRange;
+    if (!this.settings) {
+      return this.cachedFrequencyRange;
+    }
+    const settings = this.settings.loadSettings();
+    return {
+      min: settings.general.minFrequency,
+      max: settings.general.maxFrequency,
+    };
   }
 
   public dispose(): void {
@@ -292,12 +292,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
   ): GainNode[] {
     const gainNodes: GainNode[] = [];
     const startTime = this.audioContext.currentTime;
+    const currentVolume = this.getVolume();
 
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
 
       // Apply timbre modulation envelope or use default
-      let oscillatorVolume = volume;
+      let oscillatorVolume = currentVolume;
 
       if (i === 0) {
         // Primary oscillator - use fundamental amplitude if specified
@@ -335,7 +336,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const duration = DEFAULT_DURATION;
-    const volume = this.volume;
+    const volume = this.getVolume();
 
     // Use default sine wave if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
@@ -472,6 +473,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
     const freqRange = this.getFrequencyRange();
+    const currentVolume = this.getVolume();
 
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
@@ -507,7 +509,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const envelope = this.createAdsrEnvelope(
       gainNode,
       paletteEntry,
-      this.volume,
+      currentVolume,
       startTime,
       duration,
     );
@@ -554,13 +556,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
+    const currentVolume = this.getVolume();
 
     const frequencies = [500, 1000, 1500, 2100, 2700];
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
 
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.3, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    masterGain.gain.setValueAtTime(0.3 * currentVolume, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.01 * currentVolume, now + duration);
     masterGain.connect(this.compressor);
 
     const fromPanning = { min: 0, max: size };
@@ -591,8 +594,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
 
-      gain.gain.setValueAtTime(gains[i] * this.volume, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.setValueAtTime(gains[i] * currentVolume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001 * currentVolume, now + duration);
 
       stereoPannerNode.pan.value = panning;
 
@@ -703,18 +706,5 @@ implements Observer<SubplotState | TraceState>, Disposable {
       });
     });
     this.activeAudioIds.clear();
-  }
-
-  /**
-   * Sets the volume of the audio element.
-   * @param volumePercent - The volume as a percentage (0 to 100), which is normalized to a [0,1] range.
-   */
-  public setVolume(volumePercent: number): void {
-    this.volume = Math.min(Math.max(volumePercent / 100, 0), 1);
-  }
-
-  public updateSettings(settings: SettingsService): void {
-    this.settings = settings;
-    this.updateCachedFrequencyRange();
   }
 }
