@@ -4,6 +4,7 @@ import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
+import { Svg } from '@util/svg';
 
 const TREND = 'Trend';
 
@@ -26,6 +27,7 @@ export class Candlestick extends AbstractTrace<number> {
 
   private readonly min: number;
   private readonly max: number;
+  protected readonly highlightValues: SVGElement[][] | null;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -64,6 +66,8 @@ export class Candlestick extends AbstractTrace<number> {
     } else {
       this.row = 0; // Points to 'open' segment index in sections array
     }
+
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
   }
 
   /**
@@ -287,6 +291,15 @@ export class Candlestick extends AbstractTrace<number> {
     }
   }
 
+  protected mapToSvgElements(selector: string): SVGElement[][] | null {
+    if (!selector) {
+      return null;
+    }
+
+    const svgElements = [Svg.selectAllElements(selector)];
+    return svgElements;
+  }
+
   public dispose(): void {
     this.candles.length = 0;
     super.dispose();
@@ -324,11 +337,6 @@ export class Candlestick extends AbstractTrace<number> {
       col: this.col,
     };
   }
-
-  protected get highlightValues(): null {
-    return null;
-  }
-
   protected text(): TextState {
     const point = this.candles[this.currentPointIndex];
     const crossValue = point[this.currentSegmentType];
