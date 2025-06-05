@@ -13,6 +13,8 @@
   --tooltip-padding: var(--padding-sm-px) var(--padding-md-px); /* 8px 12px */
   --tooltip-font-size: 14px;
   --tooltip-width: 300px; 
+  --tooltip-max-width: 300px; 
+  --tooltip-min-width: 200px; 
   --tooltip-border-radius: var(--border-radius-sm-px); /* 4px */
   --tooltip-z-index: 9999;
   --tooltip-line-clamp: 2;
@@ -558,9 +560,9 @@ textarea {
   color: var(--tooltip-text-color);
   border-radius: var(--tooltip-border-radius);
   font-size: var(--tooltip-font-size);
-  width: 300px;
-  max-width: 300px;
-  min-width: 200px;
+  width: var(--tooltip-width);
+  max-width: var(--tooltip-max-width);
+  min-width: var(--tooltip-min-width);
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
