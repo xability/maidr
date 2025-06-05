@@ -28,9 +28,16 @@ enum AudioMode {
 
 export class AudioService
 implements Observer<SubplotState | TraceState>, Disposable {
+  private static readonly DEFAULT_MIN_FREQUENCY = 200;
+  private static readonly DEFAULT_MAX_FREQUENCY = 1000;
+
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private settings: SettingsService | null = null;
+  private cachedFrequencyRange: { min: number; max: number } = {
+    min: AudioService.DEFAULT_MIN_FREQUENCY,
+    max: AudioService.DEFAULT_MAX_FREQUENCY,
+  };
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
@@ -56,19 +63,23 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.compressor = this.initCompressor();
   }
 
-  public initializeSettings(settings: SettingsService): void {
-    this.settings = settings;
-  }
-
-  private getFrequencyRange(): { min: number; max: number } {
+  private updateCachedFrequencyRange(): void {
     if (!this.settings) {
-      return { min: 200, max: 1000 };
+      this.cachedFrequencyRange = {
+        min: AudioService.DEFAULT_MIN_FREQUENCY,
+        max: AudioService.DEFAULT_MAX_FREQUENCY,
+      };
+      return;
     }
     const settings = this.settings.loadSettings();
-    return {
+    this.cachedFrequencyRange = {
       min: settings.general.minFrequency,
       max: settings.general.maxFrequency,
     };
+  }
+
+  private getFrequencyRange(): { min: number; max: number } {
+    return this.cachedFrequencyRange;
   }
 
   public dispose(): void {
@@ -704,5 +715,6 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
   public updateSettings(settings: SettingsService): void {
     this.settings = settings;
+    this.updateCachedFrequencyRange();
   }
 }
