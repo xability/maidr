@@ -227,9 +227,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: var(--tooltip-line-clamp);
-  line-clamp: var(--tooltip-line-clamp);
+  -webkit-line-clamp: var(--tooltip-line-clamp); /* Supported in WebKit-based browsers */
+  line-clamp: var(--tooltip-line-clamp); /* Not widely supported yet */
   -webkit-box-orient: vertical;
+  /* Fallback for browsers that do not support line-clamp */
+  max-height: calc(var(--tooltip-line-clamp) * 1.2em); /* Approximate line height */
+  overflow: hidden;
+  white-space: normal;
   z-index: var(--tooltip-z-index);
   pointer-events: none;
   text-align: center;
