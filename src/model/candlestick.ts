@@ -120,13 +120,17 @@ export class Candlestick extends AbstractTrace<number> {
 
   /**
    * Update visual position for segment highlighting
+   * Use the dynamic position based on value-sorted order, not fixed section index
    */
   private updateVisualSegmentPosition(): void {
-    const segmentIndex = this.sections.indexOf(this.currentSegmentType);
+    const dynamicSegmentPosition = this.getSegmentPositionInSortedOrder(
+      this.currentPointIndex,
+      this.currentSegmentType,
+    );
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.col = segmentIndex;
+      this.col = dynamicSegmentPosition;
     } else {
-      this.row = segmentIndex;
+      this.row = dynamicSegmentPosition;
     }
   }
 
@@ -334,8 +338,26 @@ export class Candlestick extends AbstractTrace<number> {
       return null;
     }
 
-    const svgElements = [Svg.selectAllElements(selector)];
-    return svgElements;
+    const allElements = Svg.selectAllElements(selector);
+
+    // Create a 2D array structure that matches the dynamic value-sorted navigation:
+    // - Rows represent value-sorted positions (0=lowest, 3=highest)
+    // - Cols represent candlestick points
+    // This ensures highlightValues[dynamicRow][col] works correctly
+    const segmentElements: SVGElement[][] = [];
+
+    for (let sortedPosition = 0; sortedPosition < this.sections.length; sortedPosition++) {
+      segmentElements[sortedPosition] = [];
+
+      for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {
+        // For each candlestick point, assign the corresponding SVG element
+        // All segments of a candlestick typically share the same SVG element
+        const elementIndex = pointIndex < allElements.length ? pointIndex : 0;
+        segmentElements[sortedPosition][pointIndex] = allElements[elementIndex];
+      }
+    }
+
+    return segmentElements;
   }
 
   protected text(): TextState {
