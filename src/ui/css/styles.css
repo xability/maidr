@@ -219,7 +219,7 @@
   color: var(--tooltip-text-color);
   border-radius: var(--tooltip-border-radius);
   font-size: var(--tooltip-font-size);
-  width: 300px;
+  width: var(--tooltip-width);
   max-width: 300px;
   min-width: 200px;
   white-space: normal;
