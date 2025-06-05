@@ -12,9 +12,9 @@
   --tooltip-text-color: #ffffff;
   --tooltip-padding: var(--padding-sm-px) var(--padding-md-px); /* 8px 12px */
   --tooltip-font-size: 14px;
-  --tooltip-width: 300px; 
-  --tooltip-max-width: 300px; 
-  --tooltip-min-width: 200px; 
+  --tooltip-width: 300px;
+  --tooltip-max-width: 300px;
+  --tooltip-min-width: 200px;
   --tooltip-border-radius: var(--border-radius-sm-px); /* 4px */
   --tooltip-z-index: 9999;
   --tooltip-line-clamp: 2;
