@@ -223,6 +223,8 @@
   border-radius: var(--tooltip-border-radius);
   font-size: var(--tooltip-font-size);
   width: var(--tooltip-width);
+  max-width: var(--tooltip-max-width);
+  min-width: var(--tooltip-min-width);
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -232,8 +234,6 @@
   -webkit-box-orient: vertical;
   /* Fallback for browsers that do not support line-clamp */
   max-height: calc(var(--tooltip-line-clamp) * 1.2em); /* Approximate line height */
-  overflow: hidden;
-  white-space: normal;
   z-index: var(--tooltip-z-index);
   pointer-events: none;
   text-align: center;
