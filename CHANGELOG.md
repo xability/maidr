@@ -1,3 +1,10 @@
+## [3.11.1](https://github.com/xability/maidr/compare/v3.11.0...v3.11.1) (2025-06-06)
+
+
+### Bug Fixes
+
+* integrate min and max frequency into settings flow ([#310](https://github.com/xability/maidr/issues/310)) ([f903d5c](https://github.com/xability/maidr/commit/f903d5cbb9c9535624020350895514544ab21062))
+
 # [3.11.0](https://github.com/xability/maidr/compare/v3.10.2...v3.11.0) (2025-06-04)
 
 
