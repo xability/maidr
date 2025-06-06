@@ -34,11 +34,6 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   public settings: SettingsService | null = null;
-  private cachedFrequencyRange: { min: number; max: number } = {
-    min: AudioService.DEFAULT_MIN_FREQUENCY,
-    max: AudioService.DEFAULT_MAX_FREQUENCY,
-  };
-
   private cachedVolume: number = AudioService.DEFAULT_VOLUME;
 
   private isCombinedAudio: boolean;
@@ -73,7 +68,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
   private getFrequencyRange(): { min: number; max: number } {
     if (!this.settings) {
-      return this.cachedFrequencyRange;
+      return {
+        min: AudioService.DEFAULT_MIN_FREQUENCY,
+        max: AudioService.DEFAULT_MAX_FREQUENCY,
+      };
     }
     const settings = this.settings.loadSettings();
     return {
