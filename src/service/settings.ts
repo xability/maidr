@@ -1,20 +1,23 @@
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
+import type { Observable, Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { Scope } from '@type/event';
 
 const SETTINGS_KEY = 'maidr-settings';
 
-export class SettingsService {
+export class SettingsService implements Observable<Settings> {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
+  private observers: Observer<Settings>[];
 
   public constructor(storage: StorageService, display: DisplayService) {
     this.storage = storage;
     this.display = display;
+    this.observers = [];
 
     this.defaultSettings = {
       general: {
@@ -56,6 +59,24 @@ export class SettingsService {
     this.currentSettings = saved ?? this.defaultSettings;
   }
 
+  public get state(): Settings {
+    return this.currentSettings;
+  }
+
+  public addObserver(observer: Observer<Settings>): void {
+    this.observers.push(observer);
+  }
+
+  public removeObserver(observer: Observer<Settings>): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  public notifyStateUpdate(): void {
+    for (const observer of this.observers) {
+      observer.update(this.currentSettings);
+    }
+  }
+
   public loadSettings(): Settings {
     return this.currentSettings;
   }
@@ -63,11 +84,13 @@ export class SettingsService {
   public saveSettings(newSettings: Settings): void {
     this.currentSettings = newSettings;
     this.storage.save(SETTINGS_KEY, this.currentSettings);
+    this.notifyStateUpdate();
   }
 
   public resetSettings(): Settings {
     this.currentSettings = this.defaultSettings;
     this.storage.remove(SETTINGS_KEY);
+    this.notifyStateUpdate();
     return this.currentSettings;
   }
 
