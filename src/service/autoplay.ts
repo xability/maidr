@@ -4,13 +4,13 @@ import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
 const MAX_SPEED = 500;
 
-const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
 
 interface AutoplayChangeEvent {
@@ -22,6 +22,7 @@ type AutoplayId = ReturnType<typeof setInterval>;
 export class AutoplayService implements Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
+  private readonly settings: SettingsService;
 
   private autoplayId: AutoplayId | null;
   private currentDirection: MovableDirection | null;
@@ -32,15 +33,15 @@ export class AutoplayService implements Disposable {
   private readonly maxSpeed: number;
 
   private autoplayRate: number;
-  private readonly totalDuration: number;
   private readonly interval: number;
 
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
 
-  public constructor(context: Context, notification: NotificationService) {
+  public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
     this.notification = notification;
     this.context = context;
+    this.settings = settings;
 
     this.autoplayId = null;
     this.currentDirection = null;
@@ -51,7 +52,6 @@ export class AutoplayService implements Disposable {
     this.maxSpeed = MAX_SPEED;
 
     this.autoplayRate = this.defaultSpeed;
-    this.totalDuration = TOTAL_DURATION;
     this.interval = DEFAULT_INTERVAL;
 
     this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
@@ -136,8 +136,9 @@ export class AutoplayService implements Disposable {
     }
 
     if (state && !state.empty) {
+      const currentDuration = this.settings.loadSettings().general.autoplayDuration;
       const calculatedRate = Math.ceil(
-        this.totalDuration / state.autoplay[direction],
+        currentDuration / state.autoplay[direction],
       );
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);
