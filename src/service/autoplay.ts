@@ -71,6 +71,10 @@ export class AutoplayService implements Disposable, Observer<Settings> {
   }
 
   public update(settings: Settings): void {
+    this.updateSettings(settings);
+  }
+
+  private updateSettings(settings: Settings): void {
     this.currentDuration = settings.general.autoplayDuration;
     if (this.currentDirection) {
       this.restart();

@@ -78,95 +78,103 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   public update(state: Settings | SubplotState | TraceState): void {
     if ('general' in state) {
-      this.currentVolume = state.general.volume / 100;
-      this.currentMinFrequency = state.general.minFrequency;
-      this.currentMaxFrequency = state.general.maxFrequency;
+      this.onSettingsChange(state);
     } else {
-      this.updateMode(state);
-      // TODO: Clean up previous audio state once syncing with Autoplay interval.
+      this.onStateChange(state);
+    }
+  }
 
-      // Play audio only if turned on.
-      if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+  private onSettingsChange(settings: Settings): void {
+    this.currentVolume = settings.general.volume / 100;
+    this.currentMinFrequency = settings.general.minFrequency;
+    this.currentMaxFrequency = settings.general.maxFrequency;
+  }
+
+  private onStateChange(state: SubplotState | TraceState): void {
+    this.updateMode(state);
+    // TODO: Clean up previous audio state once syncing with Autoplay interval.
+
+    // Play audio only if turned on.
+    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+      return;
+    }
+
+    if (state.empty) {
+      this.playEmptyTone(state.audio.size, state.audio.index);
+      return;
+    }
+
+    const audio = state.audio;
+    const groupIndex = audio.groupIndex;
+
+    // Determine if we need to use multiclass audio based on whether groupIndex is defined
+    // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
+    // If groupIndex is undefined, we have a single group and should use default audio
+    //
+    // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
+    const shouldUseMulticlassAudio = groupIndex !== undefined;
+    const paletteEntry = shouldUseMulticlassAudio
+      ? this.audioPalette.getPaletteEntry(groupIndex!)
+      : undefined;
+
+    if (audio.isContinuous) {
+      // continuous
+      this.playSmooth(
+        audio.value as number[],
+        audio.min,
+        audio.max,
+        audio.size,
+        Array.isArray(audio.index) ? audio.index[0] : audio.index,
+        paletteEntry,
+      );
+    } else if (Array.isArray(audio.value)) {
+      // multiple discrete values
+      const values = audio.value as number[];
+      if (values.length === 0) {
+        // no tone to play
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
         return;
       }
 
-      if (state.empty) {
-        this.playEmptyTone(state.audio.size, state.audio.index);
-        return;
-      }
-
-      const audio = state.audio;
-      const groupIndex = audio.groupIndex;
-
-      // Determine if we need to use multiclass audio based on whether groupIndex is defined
-      // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
-      // If groupIndex is undefined, we have a single group and should use default audio
-      //
-      // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
-      const shouldUseMulticlassAudio = groupIndex !== undefined;
-      const paletteEntry = shouldUseMulticlassAudio
-        ? this.audioPalette.getPaletteEntry(groupIndex!)
-        : undefined;
-
-      if (audio.isContinuous) {
-        // continuous
-        this.playSmooth(
-          audio.value as number[],
-          audio.min,
-          audio.max,
-          audio.size,
-          Array.isArray(audio.index) ? audio.index[0] : audio.index,
-          paletteEntry,
-        );
-      } else if (Array.isArray(audio.value)) {
-        // multiple discrete values
-        const values = audio.value as number[];
-        if (values.length === 0) {
-          // no tone to play
-          this.playZeroTone(); // Always use original zero tone, regardless of groups
-          return;
-        }
-
-        let currentIndex = 0;
-        const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
-        const activeIds = new Array<AudioId>();
-        const playNext = (): void => {
-          // queue up next tone
-          if (currentIndex < values.length) {
-            const index = Array.isArray(audio.index)
-              ? audio.index[currentIndex]
-              : audio.index;
-            this.playTone(
-              audio.min,
-              audio.max,
-              values[currentIndex++],
-              audio.size,
-              index,
-              paletteEntry,
-            );
-            activeIds.push(setTimeout(playNext, playRate));
-          } else {
-            this.stop(activeIds);
-          }
-        };
-
-        playNext();
-      } else {
-        // just one discrete value
-        const value = audio.value as number;
-        if (value === 0) {
-          this.playZeroTone(); // Always use original zero tone, regardless of groups
-        } else {
-          const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
+      let currentIndex = 0;
+      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
+      const activeIds = new Array<AudioId>();
+      const playNext = (): void => {
+        // queue up next tone
+        if (currentIndex < values.length) {
+          const index = Array.isArray(audio.index)
+            ? audio.index[currentIndex]
+            : audio.index;
           this.playTone(
             audio.min,
             audio.max,
-            value,
+            values[currentIndex++],
             audio.size,
             index,
             paletteEntry,
           );
+          activeIds.push(setTimeout(playNext, playRate));
+        } else {
+          this.stop(activeIds);
         }
+      };
+
+      playNext();
+    } else {
+      // just one discrete value
+      const value = audio.value as number;
+      if (value === 0) {
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
+      } else {
+        const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
+        this.playTone(
+          audio.min,
+          audio.max,
+          value,
+          audio.size,
+          index,
+          paletteEntry,
+        );
       }
     }
   }
