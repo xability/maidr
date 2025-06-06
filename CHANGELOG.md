@@ -1,3 +1,10 @@
+## [3.11.2](https://github.com/xability/maidr/compare/v3.11.1...v3.11.2) (2025-06-06)
+
+
+### Bug Fixes
+
+* implement observer on settings for audio and autoplay services ([#313](https://github.com/xability/maidr/issues/313)) ([c0a952a](https://github.com/xability/maidr/commit/c0a952af8aa600d9ce40f8ff1d37ab9345b728d1))
+
 ## [3.11.1](https://github.com/xability/maidr/compare/v3.11.0...v3.11.1) (2025-06-06)
 
 
