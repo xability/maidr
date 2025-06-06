@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../src/ui/css/styles.css" type="text/css" />
     <script src="../dist/maidr.js"></script>
   </head>
+
   <body>
     <div class="container mt-3">
       <div id="container">
@@ -2806,7 +2807,7 @@ z
                 {
                   type: 'candlestick',
                   orientation: 'vert',
-                  selector: '#geom_boxplot\\.gTree\\.78\\.1',
+                  selectors: "g[id^='patch_'] > path[clip-path='url(#p80c1f95e50)']",
                   axes: {
                     x: 'date',
                     y: 'price',
