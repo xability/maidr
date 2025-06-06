@@ -1,5 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
@@ -26,15 +27,10 @@ enum AudioMode {
 }
 
 export class AudioService
-implements Observer<SubplotState | TraceState>, Disposable {
-  private static readonly DEFAULT_MIN_FREQUENCY = 200;
-  private static readonly DEFAULT_MAX_FREQUENCY = 1000;
-  private static readonly DEFAULT_VOLUME = 0.5;
-
+implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
-  public settings: SettingsService | null = null;
-  private cachedVolume: number = AudioService.DEFAULT_VOLUME;
+  private readonly settings: SettingsService;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
@@ -44,9 +40,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  public constructor(notification: NotificationService, state: PlotState) {
+  private currentVolume: number;
+  private currentMinFrequency: number;
+  private currentMaxFrequency: number;
+
+  public constructor(notification: NotificationService, state: PlotState, settings: SettingsService) {
     this.notification = notification;
     this.audioPalette = new AudioPaletteService();
+    this.settings = settings;
 
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
@@ -56,28 +57,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
-  }
 
-  private getVolume(): number {
-    if (!this.settings) {
-      return this.cachedVolume;
-    }
-    const settings = this.settings.loadSettings();
-    return Math.min(Math.max(settings.general.volume / 100, 0), 1);
-  }
+    const initialSettings = this.settings.loadSettings();
+    this.currentVolume = initialSettings.general.volume / 100;
+    this.currentMinFrequency = initialSettings.general.minFrequency;
+    this.currentMaxFrequency = initialSettings.general.maxFrequency;
 
-  private getFrequencyRange(): { min: number; max: number } {
-    if (!this.settings) {
-      return {
-        min: AudioService.DEFAULT_MIN_FREQUENCY,
-        max: AudioService.DEFAULT_MAX_FREQUENCY,
-      };
-    }
-    const settings = this.settings.loadSettings();
-    return {
-      min: settings.general.minFrequency,
-      max: settings.general.maxFrequency,
-    };
+    this.settings.addObserver(this);
   }
 
   public dispose(): void {
@@ -87,6 +73,113 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
+    this.settings.removeObserver(this);
+  }
+
+  public update(state: Settings | SubplotState | TraceState): void {
+    if ('general' in state) {
+      this.currentVolume = state.general.volume / 100;
+      this.currentMinFrequency = state.general.minFrequency;
+      this.currentMaxFrequency = state.general.maxFrequency;
+    } else {
+      this.updateMode(state);
+      // TODO: Clean up previous audio state once syncing with Autoplay interval.
+
+      // Play audio only if turned on.
+      if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+        return;
+      }
+
+      if (state.empty) {
+        this.playEmptyTone(state.audio.size, state.audio.index);
+        return;
+      }
+
+      const audio = state.audio;
+      const groupIndex = audio.groupIndex;
+
+      // Determine if we need to use multiclass audio based on whether groupIndex is defined
+      // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
+      // If groupIndex is undefined, we have a single group and should use default audio
+      //
+      // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
+      const shouldUseMulticlassAudio = groupIndex !== undefined;
+      const paletteEntry = shouldUseMulticlassAudio
+        ? this.audioPalette.getPaletteEntry(groupIndex!)
+        : undefined;
+
+      if (audio.isContinuous) {
+        // continuous
+        this.playSmooth(
+          audio.value as number[],
+          audio.min,
+          audio.max,
+          audio.size,
+          Array.isArray(audio.index) ? audio.index[0] : audio.index,
+          paletteEntry,
+        );
+      } else if (Array.isArray(audio.value)) {
+        // multiple discrete values
+        const values = audio.value as number[];
+        if (values.length === 0) {
+          // no tone to play
+          this.playZeroTone(); // Always use original zero tone, regardless of groups
+          return;
+        }
+
+        let currentIndex = 0;
+        const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
+        const activeIds = new Array<AudioId>();
+        const playNext = (): void => {
+          // queue up next tone
+          if (currentIndex < values.length) {
+            const index = Array.isArray(audio.index)
+              ? audio.index[currentIndex]
+              : audio.index;
+            this.playTone(
+              audio.min,
+              audio.max,
+              values[currentIndex++],
+              audio.size,
+              index,
+              paletteEntry,
+            );
+            activeIds.push(setTimeout(playNext, playRate));
+          } else {
+            this.stop(activeIds);
+          }
+        };
+
+        playNext();
+      } else {
+        // just one discrete value
+        const value = audio.value as number;
+        if (value === 0) {
+          this.playZeroTone(); // Always use original zero tone, regardless of groups
+        } else {
+          const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
+          this.playTone(
+            audio.min,
+            audio.max,
+            value,
+            audio.size,
+            index,
+            paletteEntry,
+          );
+        }
+      }
+    }
+  }
+
+  private getVolume(): number {
+    return Math.min(Math.max(this.currentVolume, 0), 1);
+  }
+
+  private getFrequencyRange(): { min: number; max: number } {
+    return {
+      min: this.currentMinFrequency,
+      max: this.currentMaxFrequency,
+    };
   }
 
   private initCompressor(): DynamicsCompressorNode {
@@ -128,95 +221,6 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.mode = AudioMode.COMBINED;
     } else {
       this.mode = AudioMode.SEPARATE;
-    }
-  }
-
-  public update(state: SubplotState | TraceState): void {
-    this.updateMode(state);
-    // TODO: Clean up previous audio state once syncing with Autoplay interval.
-
-    // Play audio only if turned on.
-    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
-      return;
-    }
-
-    if (state.empty) {
-      this.playEmptyTone(state.audio.size, state.audio.index);
-      return;
-    }
-
-    const audio = state.audio;
-    const groupIndex = audio.groupIndex;
-
-    // Determine if we need to use multiclass audio based on whether groupIndex is defined
-    // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
-    // If groupIndex is undefined, we have a single group and should use default audio
-    //
-    // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
-    const shouldUseMulticlassAudio = groupIndex !== undefined;
-    const paletteEntry = shouldUseMulticlassAudio
-      ? this.audioPalette.getPaletteEntry(groupIndex!)
-      : undefined;
-
-    if (audio.isContinuous) {
-      // continuous
-      this.playSmooth(
-        audio.value as number[],
-        audio.min,
-        audio.max,
-        audio.size,
-        Array.isArray(audio.index) ? audio.index[0] : audio.index,
-        paletteEntry,
-      );
-    } else if (Array.isArray(audio.value)) {
-      // multiple discrete values
-      const values = audio.value as number[];
-      if (values.length === 0) {
-        // no tone to play
-        this.playZeroTone(); // Always use original zero tone, regardless of groups
-        return;
-      }
-
-      let currentIndex = 0;
-      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
-      const activeIds = new Array<AudioId>();
-      const playNext = (): void => {
-        // queue up next tone
-        if (currentIndex < values.length) {
-          const index = Array.isArray(audio.index)
-            ? audio.index[currentIndex]
-            : audio.index;
-          this.playTone(
-            audio.min,
-            audio.max,
-            values[currentIndex++],
-            audio.size,
-            index,
-            paletteEntry,
-          );
-          activeIds.push(setTimeout(playNext, playRate));
-        } else {
-          this.stop(activeIds);
-        }
-      };
-
-      playNext();
-    } else {
-      // just one discrete value
-      const value = audio.value as number;
-      if (value === 0) {
-        this.playZeroTone(); // Always use original zero tone, regardless of groups
-      } else {
-        const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
-        this.playTone(
-          audio.min,
-          audio.max,
-          value,
-          audio.size,
-          index,
-          paletteEntry,
-        );
-      }
     }
   }
 

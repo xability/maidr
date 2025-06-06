@@ -2,6 +2,8 @@ import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
+import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
@@ -19,7 +21,7 @@ interface AutoplayChangeEvent {
 
 type AutoplayId = ReturnType<typeof setInterval>;
 
-export class AutoplayService implements Disposable {
+export class AutoplayService implements Disposable, Observer<Settings> {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly settings: SettingsService;
@@ -34,6 +36,7 @@ export class AutoplayService implements Disposable {
 
   private autoplayRate: number;
   private readonly interval: number;
+  private currentDuration: number;
 
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
@@ -53,14 +56,25 @@ export class AutoplayService implements Disposable {
 
     this.autoplayRate = this.defaultSpeed;
     this.interval = DEFAULT_INTERVAL;
+    this.currentDuration = this.settings.loadSettings().general.autoplayDuration;
 
     this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
     this.onChange = this.onChangeEmitter.event;
+
+    this.settings.addObserver(this);
   }
 
   public dispose(): void {
     this.stop();
     this.onChangeEmitter.dispose();
+    this.settings.removeObserver(this);
+  }
+
+  public update(settings: Settings): void {
+    this.currentDuration = settings.general.autoplayDuration;
+    if (this.currentDirection) {
+      this.restart();
+    }
   }
 
   public start(direction: MovableDirection, state?: TraceState): void {
@@ -136,9 +150,8 @@ export class AutoplayService implements Disposable {
     }
 
     if (state && !state.empty) {
-      const currentDuration = this.settings.loadSettings().general.autoplayDuration;
       const calculatedRate = Math.ceil(
-        currentDuration / state.autoplay[direction],
+        this.currentDuration / state.autoplay[direction],
       );
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);
