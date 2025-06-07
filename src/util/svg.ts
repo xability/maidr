@@ -170,7 +170,7 @@ export abstract class Svg {
 
     const white = { r: 255, g: 255, b: 255 };
     const contrastWithWhite = Color.getContrastRatio(originalRgb, white);
-    const isLight = contrastWithWhite < 3.0;
+    const isLight = contrastWithWhite < 2.0;
 
     // For dark colors, just use the fallback color
     if (!isLight) {
@@ -178,12 +178,22 @@ export abstract class Svg {
     }
 
     const modifiedRgb = { ...originalRgb };
-    if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
+
+    // Check if the color is grayscale (R=G=B)
+    if (originalRgb.r === originalRgb.g && originalRgb.g === originalRgb.b) {
+      // For grayscale, modify all channels uniformly
       modifiedRgb.r = Math.min(255, Math.floor(originalRgb.r * 0.6));
-    } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
       modifiedRgb.g = Math.min(255, Math.floor(originalRgb.g * 0.6));
-    } else {
       modifiedRgb.b = Math.min(255, Math.floor(originalRgb.b * 0.6));
+    } else {
+      // For non-grayscale colors, modify only the dominant channel
+      if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
+        modifiedRgb.r = Math.min(255, Math.floor(originalRgb.r * 0.6));
+      } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
+        modifiedRgb.g = Math.min(255, Math.floor(originalRgb.g * 0.6));
+      } else {
+        modifiedRgb.b = Math.min(255, Math.floor(originalRgb.b * 0.6));
+      }
     }
 
     return Color.rgbToString(modifiedRgb);
