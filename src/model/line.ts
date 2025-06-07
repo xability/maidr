@@ -209,7 +209,6 @@ export class LineTrace extends AbstractTrace<number> {
         }
       }
       if (coordinates.length !== this.lineValues[r].length) {
-        // console.warn(`Mismatch: SVG has ${coordinates.length} points, data has ${this.lineValues[r].length} points for line ${r}. Slicing/padding data.`);
         if (coordinates.length < this.lineValues[r].length) {
           while (coordinates.length < this.lineValues[r].length) {
             coordinates.push({ x: Number.NaN, y: Number.NaN });
