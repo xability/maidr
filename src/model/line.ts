@@ -7,7 +7,7 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 const TYPE = 'Type';
-const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
+const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
   private readonly points: LinePoint[][];
@@ -182,19 +182,22 @@ export class LineTrace extends AbstractTrace<number> {
       return null;
     }
 
-    const svgElements = new Array<Array<SVGElement>>();
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
     for (let r = 0; r < selectors.length; r++) {
       const lineElement = Svg.selectElement(selectors[r], false);
       if (!lineElement) {
-        return null;
+        svgElements.push([]);
+        continue;
       }
 
-      const coordinates = new Array<LinePoint>();
+      const coordinates: LinePoint[] = [];
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        let match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
+        SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
+        let match: RegExpExecArray | null = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         while (match !== null) {
-          coordinates.push({ x: Number.parseFloat(match[1]), y: Number.parseFloat(match[3]) });
+          coordinates.push({ x: Number.parseFloat(match[1]), y: Number.parseFloat(match[2]) });
           match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         }
       } else if (lineElement instanceof SVGPolylineElement) {
@@ -206,19 +209,37 @@ export class LineTrace extends AbstractTrace<number> {
         }
       }
       if (coordinates.length !== this.lineValues[r].length) {
-        return null;
+        if (coordinates.length < this.lineValues[r].length) {
+          while (coordinates.length < this.lineValues[r].length) {
+            coordinates.push({ x: Number.NaN, y: Number.NaN });
+          }
+        } else if (coordinates.length > this.lineValues[r].length) {
+          coordinates.length = this.lineValues[r].length;
+        }
       }
 
-      const linePointElements = new Array<SVGElement>();
+      const linePointElements: SVGElement[] = [];
+      let lineFailed = false;
       for (const coordinate of coordinates) {
         if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
-          return null;
+          lineFailed = true;
+          break;
         }
         linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, lineElement));
+      }
+      if (lineFailed) {
+        svgElements.push([]);
+        continue;
+      }
+      if (linePointElements.length > 0) {
+        allFailed = false;
       }
       svgElements.push(linePointElements);
     }
 
+    if (allFailed) {
+      return null;
+    }
     return svgElements;
   }
 }
