@@ -168,12 +168,24 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    const invertedRgb = Color.invert(originalRgb);
-    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
-    if (contrastRatio >= 4.5) {
-      return Color.rgbToString(invertedRgb);
+    const white = { r: 255, g: 255, b: 255 };
+    const contrastWithWhite = Color.getContrastRatio(originalRgb, white);
+    const isLight = contrastWithWhite < 3.0;
+
+    // For dark colors, just use the fallback color
+    if (!isLight) {
+      return fallbackColor;
     }
 
-    return fallbackColor;
+    const modifiedRgb = { ...originalRgb };
+    if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
+      modifiedRgb.r = Math.min(255, Math.floor(originalRgb.r * 0.6));
+    } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
+      modifiedRgb.g = Math.min(255, Math.floor(originalRgb.g * 0.6));
+    } else {
+      modifiedRgb.b = Math.min(255, Math.floor(originalRgb.b * 0.6));
+    }
+
+    return Color.rgbToString(modifiedRgb);
   }
 }
