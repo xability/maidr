@@ -1,3 +1,10 @@
+## [3.11.3](https://github.com/xability/maidr/compare/v3.11.2...v3.11.3) (2025-06-07)
+
+
+### Bug Fixes
+
+* address visual highlighting on multi lineplot ([#317](https://github.com/xability/maidr/issues/317)) ([feb3dc4](https://github.com/xability/maidr/commit/feb3dc4fb61b7b8c1f52f2c972e4f26bf59633ff))
+
 ## [3.11.2](https://github.com/xability/maidr/compare/v3.11.1...v3.11.2) (2025-06-06)
 
 
