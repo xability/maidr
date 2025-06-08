@@ -1,3 +1,10 @@
+## [3.11.4](https://github.com/xability/maidr/compare/v3.11.3...v3.11.4) (2025-06-08)
+
+
+### Bug Fixes
+
+* adapt highlight color for heatmap cell based on cell color ([#318](https://github.com/xability/maidr/issues/318)) ([f285b64](https://github.com/xability/maidr/commit/f285b64711ff5a46d2126a3cd2562e971c962ede))
+
 ## [3.11.3](https://github.com/xability/maidr/compare/v3.11.2...v3.11.3) (2025-06-07)
 
 
