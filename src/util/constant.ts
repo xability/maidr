@@ -62,7 +62,7 @@ export abstract class Constant {
 
   // Highlight values
   static readonly HIGHLIGHT_BASE_COLOR = { r: 255, g: 255, b: 255 };
-  static readonly HIGHLIGHT_CONSTRAT = 2.0;
+  static readonly HIGHLIGHT_CONTRAST_RATIO = 2.0;
   static readonly HIGHLIGHT_COLOR_RATIO = 0.6;
   static readonly HIGHLIGHT_MAX_COLOR = 255;
 }
