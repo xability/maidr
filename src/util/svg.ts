@@ -168,12 +168,33 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    const invertedRgb = Color.invert(originalRgb);
-    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
-    if (contrastRatio >= 4.5) {
-      return Color.rgbToString(invertedRgb);
+    const contrastWithWhite = Color.getContrastRatio(originalRgb, Constant.HIGHLIGHT_BASE_COLOR);
+    const isLight = contrastWithWhite < Constant.HIGHLIGHT_CONTRAST_RATIO;
+
+    // For dark colors, just use the fallback color
+    if (!isLight) {
+      return fallbackColor;
     }
 
-    return fallbackColor;
+    const modifiedRgb = { ...originalRgb };
+
+    // Check if the color is grayscale (R=G=B)
+    if (originalRgb.r === originalRgb.g && originalRgb.g === originalRgb.b) {
+      // For grayscale, modify all channels uniformly
+      modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
+      modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+      modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+    } else {
+      // For non-grayscale colors, modify only the dominant channel
+      if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
+        modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
+      } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
+        modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+      } else {
+        modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+      }
+    }
+
+    return Color.rgbToString(modifiedRgb);
   }
 }
