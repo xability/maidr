@@ -24,6 +24,10 @@ export const HELP_GROUP_FILTERS = {
   'Label Announcements': (item: { description: string }) =>
     item.description.toLowerCase().includes('announce'),
 
-  'General Controls': (item: { description: string }, otherGroups: any[]) =>
-    !otherGroups.some(group => group.includes(item)),
+  'General Controls': (item: { description: string; key: string }, otherGroups: any[]) =>
+    !otherGroups.some(group =>
+      group.some((otherItem: { description: string; key: string }) =>
+        otherItem.description === item.description && otherItem.key === item.key,
+      ),
+    ),
 };
