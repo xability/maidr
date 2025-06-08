@@ -9,6 +9,7 @@ const TRACE_HELP_MENU = [
   { description: 'Move to Next Layer', key: 'page up' },
   { description: 'Move to Previous Layer', key: 'page down' },
   { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.ctrl} + arrow keys` },
+  { description: 'Replay Current Point', key: 'space' },
 
   { description: 'Toggle Braille Mode', key: 'b' },
   { description: 'Toggle Text Mode', key: 't' },
@@ -20,7 +21,6 @@ const TRACE_HELP_MENU = [
   { description: 'Speed Up Autoplay', key: '. (period)' },
   { description: 'Speed Down Autoplay', key: ', (comma)' },
   { description: 'Reset Autoplay Speed', key: '/ (slash)' },
-  { description: 'Replay Current Point', key: 'space' },
 
   { description: 'Announce Plot Title', key: 'l t' },
   { description: 'Announce X Label', key: 'l x' },
@@ -28,7 +28,8 @@ const TRACE_HELP_MENU = [
   { description: 'Announce Fill (Z) Label', key: 'l f' },
 
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
-  { description: 'Open Chat', key: `?` },
+  { description: 'Open Chat', key: `shift + /` },
+  { description: 'Open Help', key: `${Platform.ctrl} + /` },
 ];
 
 const SUBPLOT_HELP_MENU = [

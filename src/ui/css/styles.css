@@ -598,3 +598,61 @@ textarea {
 .settings-row-input {
   width: 100%;
 }
+
+/* Help Dialog Styles */
+.help-dialog {
+  z-index: 9998;
+}
+
+.help-search {
+  margin-bottom: 1rem;
+}
+
+.help-group {
+  margin-top: 0.2rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.help-group-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0.5rem 0;
+}
+
+.help-group-title {
+  font-weight: bold;
+  margin-left: 0.5rem;
+}
+
+.help-row {
+  padding: 0.5rem 0;
+  margin-left: 0.5rem;
+}
+
+.help-row-label {
+  font-weight: bold;
+}
+
+.help-row-shortcut {
+  font-weight: 300;
+}
+
+.help-no-results {
+  text-align: center;
+  padding: 2rem 0;
+  color: var(--text-secondary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .help-row {
+    flex-direction: column;
+  }
+
+  .help-row-shortcut {
+    margin-top: 0.25rem;
+  }
+}
