@@ -4,7 +4,8 @@
     "jsx": "react",
 
     "baseUrl": "./src",
-    "module": "CommonJS",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "paths": {
       "@command/*": ["command/*"],
       "@model/*": ["model/*"],

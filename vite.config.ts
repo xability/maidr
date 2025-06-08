@@ -1,5 +1,9 @@
-import path from 'node:path';
+import path, { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
   build: {
@@ -12,6 +16,15 @@ export default defineConfig({
     sourcemap: true,
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.message.includes('Module level directives cause errors when bundled')
+          || warning.message.includes('Error when using sourcemap for reporting an error')) {
+          return;
+        }
+        warn(warning);
+      },
+    },
   },
   define: {
     'process.env': {},
