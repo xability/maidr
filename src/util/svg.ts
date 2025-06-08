@@ -169,10 +169,10 @@ export abstract class Svg {
     }
 
     const contrastWithWhite = Color.getContrastRatio(originalRgb, Constant.HIGHLIGHT_BASE_COLOR);
-    const isDark = contrastWithWhite < Constant.HIGHLIGHT_CONTRAST_RATIO;
+    const isLight = contrastWithWhite < Constant.HIGHLIGHT_CONTRAST_RATIO;
 
     // For dark colors, just use the fallback color
-    if (!isDark) {
+    if (!isLight) {
       return fallbackColor;
     }
 
