@@ -12,6 +12,15 @@ export default defineConfig({
     sourcemap: true,
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.message.includes('Module level directives cause errors when bundled')
+          || warning.message.includes('Error when using sourcemap for reporting an error')) {
+          return;
+        }
+        warn(warning);
+      },
+    },
   },
   define: {
     'process.env': {},
