@@ -1,6 +1,5 @@
 {
   "name": "maidr",
-  "type": "module",
   "version": "3.11.3",
   "main": "dist/maidr.js",
   "files": [
