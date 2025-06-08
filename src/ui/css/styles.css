@@ -632,18 +632,14 @@ textarea {
   margin-left: 0.5rem;
 }
 
-.help-row-label {
-  font-weight: bold;
-}
-
-.help-row-shortcut {
-  font-weight: 300;
-}
-
 .help-no-results {
   text-align: center;
   padding: 2rem 0;
   color: var(--text-secondary);
+}
+
+.search-description {
+  display: none;
 }
 
 /* Responsive adjustments */

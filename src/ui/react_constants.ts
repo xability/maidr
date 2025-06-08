@@ -7,22 +7,30 @@ export const HELP_GROUPS = [
 ] as const;
 
 export const HELP_GROUP_FILTERS = {
-  'Navigation': (item: { description: string }) =>
-    item.description.toLowerCase().includes('navigate')
-    || item.description.toLowerCase().includes('move')
-    || item.description.toLowerCase().includes('go to')
-    || item.description.toLowerCase().includes('replay'),
+  'Navigation': (item: { description: string }) => {
+    const normalizedDesc = item.description.toLowerCase();
+    return normalizedDesc.includes('navigate')
+      || normalizedDesc.includes('move')
+      || normalizedDesc.includes('go to')
+      || normalizedDesc.includes('replay');
+  },
 
-  'Modes': (item: { description: string }) =>
-    item.description.toLowerCase().includes('toggle')
-    && !item.description.toLowerCase().includes('autoplay'),
+  'Modes': (item: { description: string }) => {
+    const normalizedDesc = item.description.toLowerCase();
+    return normalizedDesc.includes('toggle')
+      && !normalizedDesc.includes('autoplay');
+  },
 
-  'Autoplay Controls': (item: { description: string }) =>
-    item.description.toLowerCase().includes('autoplay')
-    || item.description.toLowerCase().includes('speed'),
+  'Autoplay Controls': (item: { description: string }) => {
+    const normalizedDesc = item.description.toLowerCase();
+    return normalizedDesc.includes('autoplay')
+      || normalizedDesc.includes('speed');
+  },
 
-  'Label Announcements': (item: { description: string }) =>
-    item.description.toLowerCase().includes('announce'),
+  'Label Announcements': (item: { description: string }) => {
+    const normalizedDesc = item.description.toLowerCase();
+    return normalizedDesc.includes('announce');
+  },
 
   'General Controls': (item: { description: string; key: string }, otherGroups: any[]) =>
     !otherGroups.some(group =>

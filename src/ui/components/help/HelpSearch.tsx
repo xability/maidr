@@ -8,24 +8,29 @@ interface HelpSearchProps {
 }
 
 export const HelpSearch: React.FC<HelpSearchProps> = ({ value, onChange }) => (
-  <TextField
-    fullWidth
-    variant="outlined"
-    placeholder="Type a few letters to search..."
-    value={value}
-    onChange={onChange}
-    className="help-search"
-    slotProps={{
-      input: {
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon aria-hidden="true" />
-          </InputAdornment>
-        ),
-      },
-    }}
-    aria-label="Search keyboard shortcuts"
-    aria-describedby="search-description"
-    role="searchbox"
-  />
+  <>
+    <TextField
+      fullWidth
+      variant="outlined"
+      placeholder="Type a few letters to search..."
+      value={value}
+      onChange={onChange}
+      className="help-search"
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon aria-hidden="true" />
+            </InputAdornment>
+          ),
+        },
+      }}
+      aria-label="Search keyboard shortcuts"
+      aria-describedby="search-description"
+      role="searchbox"
+    />
+    <div className="search-description">
+      Enter characters to search for keyboard shortcuts.
+    </div>
+  </>
 );
