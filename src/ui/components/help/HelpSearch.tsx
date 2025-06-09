@@ -29,7 +29,12 @@ export const HelpSearch: React.FC<HelpSearchProps> = ({ value, onChange }) => (
       aria-describedby="search-description"
       role="searchbox"
     />
-    <div id="search-description">
+    <div
+      id="search-description"
+      style={{
+
+      }}
+    >
       Enter characters to search for keyboard shortcuts.
     </div>
   </>

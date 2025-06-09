@@ -1,3 +1,8 @@
+interface HelpMenuItem {
+  description: string;
+  key: string;
+}
+
 export const HELP_GROUPS = [
   'Navigation',
   'Modes',
@@ -7,7 +12,7 @@ export const HELP_GROUPS = [
 ] as const;
 
 export const HELP_GROUP_FILTERS = {
-  'Navigation': (item: { description: string }) => {
+  'Navigation': (item: HelpMenuItem) => {
     const normalizedDesc = item.description.toLowerCase();
     return normalizedDesc.includes('navigate')
       || normalizedDesc.includes('move')
@@ -15,26 +20,26 @@ export const HELP_GROUP_FILTERS = {
       || normalizedDesc.includes('replay');
   },
 
-  'Modes': (item: { description: string }) => {
+  'Modes': (item: HelpMenuItem) => {
     const normalizedDesc = item.description.toLowerCase();
     return normalizedDesc.includes('toggle')
       && !normalizedDesc.includes('autoplay');
   },
 
-  'Autoplay Controls': (item: { description: string }) => {
+  'Autoplay Controls': (item: HelpMenuItem) => {
     const normalizedDesc = item.description.toLowerCase();
     return normalizedDesc.includes('autoplay')
       || normalizedDesc.includes('speed');
   },
 
-  'Label Announcements': (item: { description: string }) => {
+  'Label Announcements': (item: HelpMenuItem) => {
     const normalizedDesc = item.description.toLowerCase();
     return normalizedDesc.includes('announce');
   },
 
-  'General Controls': (item: { description: string; key: string }, otherGroups: any[]) =>
+  'General Controls': (item: HelpMenuItem, otherGroups: HelpMenuItem[][]) =>
     !otherGroups.some(group =>
-      group.some((otherItem: { description: string; key: string }) =>
+      group.some((otherItem: HelpMenuItem) =>
         otherItem.description === item.description && otherItem.key === item.key,
       ),
     ),

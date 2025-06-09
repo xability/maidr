@@ -64,7 +64,7 @@ export const HelpGroup: React.FC<HelpGroupProps> = ({ title, items, isExpanded, 
             aria-label={`${title} shortcuts`}
           >
             <Grid container spacing={1}>
-              {filteredItems.map(item => (
+              {filteredItems.map((item, index) => (
                 <React.Fragment key={`${item.key}-${item.description}`}>
                   <Grid size={12} className="help-row">
                     <HelpRow
@@ -72,7 +72,7 @@ export const HelpGroup: React.FC<HelpGroupProps> = ({ title, items, isExpanded, 
                       shortcut={item.key}
                     />
                   </Grid>
-                  {filteredItems.indexOf(item) !== filteredItems.length - 1 && (
+                  {index !== filteredItems.length - 1 && (
                     <Grid size={12}>
                       <Divider />
                     </Grid>
