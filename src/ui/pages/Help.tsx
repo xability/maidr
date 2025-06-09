@@ -139,7 +139,7 @@ const Help: React.FC = () => {
           id="help-groups"
           role="region"
           aria-label="Keyboard shortcuts groups"
-          className="help-group"
+          className="help-group-list"
         >
           {HELP_GROUPS.map(groupTitle => (
             <Grid key={groupTitle} size={12} className="help-group">

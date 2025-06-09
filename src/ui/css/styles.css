@@ -608,7 +608,7 @@ textarea {
   margin-bottom: 1rem;
 }
 
-.help-group {
+.help-group-list {
   margin-top: 0.2rem;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
@@ -638,7 +638,7 @@ textarea {
   color: var(--text-secondary);
 }
 
-.search-description {
+#search-description {
   display: none;
 }
 
@@ -646,9 +646,5 @@ textarea {
 @media (max-width: 600px) {
   .help-row {
     flex-direction: column;
-  }
-
-  .help-row-shortcut {
-    margin-top: 0.25rem;
   }
 }
