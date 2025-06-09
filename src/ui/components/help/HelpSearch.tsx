@@ -31,9 +31,6 @@ export const HelpSearch: React.FC<HelpSearchProps> = ({ value, onChange }) => (
     />
     <div
       id="search-description"
-      style={{
-
-      }}
     >
       Enter characters to search for keyboard shortcuts.
     </div>

@@ -48,10 +48,26 @@ export const HelpGroup: React.FC<HelpGroupProps> = ({ title, items, isExpanded, 
         </IconButton>
         <Typography
           variant="subtitle1"
-          component="span"
+          component="button"
           className="help-group-title"
           fontWeight="bold"
           onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggle();
+            }
+          }}
+          sx={{
+            'border': 'none',
+            'background': 'none',
+            'padding': 0,
+            'cursor': 'pointer',
+            '&:focus-visible': {
+              outline: '2px solid',
+              outlineOffset: '2px',
+            },
+          }}
         >
           {title}
         </Typography>

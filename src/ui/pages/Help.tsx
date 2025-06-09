@@ -23,16 +23,25 @@ const Help: React.FC = () => {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Group items by purpose
-  const navigationItems = items.filter(item => HELP_GROUP_FILTERS.Navigation(item));
-  const modeItems = items.filter(item => HELP_GROUP_FILTERS.Modes(item));
-  const autoplayItems = items.filter(item => HELP_GROUP_FILTERS['Autoplay Controls'](item));
-  const labelItems = items.filter(item => HELP_GROUP_FILTERS['Label Announcements'](item));
-  const generalItems = items.filter(item =>
-    HELP_GROUP_FILTERS['General Controls'](item, [navigationItems, modeItems, autoplayItems, labelItems]),
-  );
+  // Memoize grouped items
+  const navigationItems = useMemo(() =>
+    items.filter(item => HELP_GROUP_FILTERS.Navigation(item)), [items]);
 
-  const getGroupItems = (groupTitle: string): HelpMenuItem[] => {
+  const modeItems = useMemo(() =>
+    items.filter(item => HELP_GROUP_FILTERS.Modes(item)), [items]);
+
+  const autoplayItems = useMemo(() =>
+    items.filter(item => HELP_GROUP_FILTERS['Autoplay Controls'](item)), [items]);
+
+  const labelItems = useMemo(() =>
+    items.filter(item => HELP_GROUP_FILTERS['Label Announcements'](item)), [items]);
+
+  const generalItems = useMemo(() =>
+    items.filter(item =>
+      HELP_GROUP_FILTERS['General Controls'](item, [navigationItems, modeItems, autoplayItems, labelItems]),
+    ), [items, navigationItems, modeItems, autoplayItems, labelItems]);
+
+  const getGroupItems = useMemo(() => (groupTitle: string): HelpMenuItem[] => {
     switch (groupTitle) {
       case 'Navigation':
         return navigationItems;
@@ -47,7 +56,7 @@ const Help: React.FC = () => {
       default:
         return [];
     }
-  };
+  }, [navigationItems, modeItems, autoplayItems, labelItems, generalItems]);
 
   const handleClose = (): void => {
     viewModel.toggle();
