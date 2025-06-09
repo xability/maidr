@@ -61,11 +61,12 @@ const Help: React.FC = () => {
     setSearchQuery(event.target.value);
     // Auto-expand groups that have matching items
     if (event.target.value) {
+      const lowercasedQuery = event.target.value.toLowerCase();
       const matchingGroups = HELP_GROUPS.filter((groupTitle) => {
         const groupItems = getGroupItems(groupTitle);
         return groupItems.some(item =>
-          item.description.toLowerCase().includes(event.target.value.toLowerCase())
-          || item.key.toLowerCase().includes(event.target.value.toLowerCase()),
+          item.description.toLowerCase().includes(lowercasedQuery)
+          || item.key.toLowerCase().includes(lowercasedQuery),
         );
       });
       if (matchingGroups.length > 0) {
