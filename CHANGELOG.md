@@ -1,3 +1,10 @@
+## [3.12.1](https://github.com/xability/maidr/compare/v3.12.0...v3.12.1) (2025-06-10)
+
+
+### Bug Fixes
+
+* improve tooltip text formatting and appearance ([#307](https://github.com/xability/maidr/issues/307)) ([23859a7](https://github.com/xability/maidr/commit/23859a794e444543f0be327fe48d733a822b1715))
+
 # [3.12.0](https://github.com/xability/maidr/compare/v3.11.4...v3.12.0) (2025-06-10)
 
 
