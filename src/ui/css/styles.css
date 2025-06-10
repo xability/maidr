@@ -14,6 +14,9 @@
   --tooltip-font-size: 14px;
   --tooltip-width: 300px;
   --tooltip-min-width: 200px;
+  --tooltip-max-width: 400px;
+  --tooltip-line-height: 1.2;
+  --tooltip-max-height: 3.6em;
   --tooltip-border-radius: var(--border-radius-sm-px); /* 4px */
   --tooltip-z-index: 9999;
   --tooltip-line-clamp: 2;
