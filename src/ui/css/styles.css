@@ -228,6 +228,7 @@
   max-width: var(--tooltip-max-width);
   min-width: var(--tooltip-min-width);
   white-space: normal;
+  box-sizing: border-box; /* Ensures padding and borders are included in width/height calculations */
   overflow: hidden; /* Crucial for all truncation methods */
   text-overflow: ellipsis; /* Primarily for single-line or when line-clamp works */
   position: relative; /* Required for positioning the ::before pseudo-element */
