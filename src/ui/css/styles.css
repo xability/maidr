@@ -228,14 +228,26 @@
   max-width: var(--tooltip-max-width);
   min-width: var(--tooltip-min-width);
   white-space: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
+  overflow: hidden; /* Crucial for all truncation methods */
+  text-overflow: ellipsis; /* Primarily for single-line or when line-clamp works */
+  
+  /* Fallback display: Ensures max-height fallback works if -webkit-box is not supported. */
+  /* ::after is inline by default; max-height needs block or inline-block. */
+  display: block; 
+  
+  /* WebKit-specific line clamping */
+  display: -webkit-box; /* Required for -webkit-line-clamp. Overrides 'display: block;' in supporting browsers. */
   -webkit-line-clamp: var(--tooltip-line-clamp); /* Supported in WebKit-based browsers */
-  line-clamp: var(--tooltip-line-clamp); /* Not widely supported yet */
   -webkit-box-orient: vertical;
-  /* Fallback for browsers that do not support line-clamp */
-  max-height: calc(var(--tooltip-line-clamp) * 1.2em); /* Approximate line height */
+  
+  /* Standard line clamping */
+  line-clamp: var(--tooltip-line-clamp); /* Not widely supported yet. Works with block/inline-block. */
+  
+  /* Fallback for browsers that do not support line-clamp (either version) */
+  /* Relies on the element being block-level (achieved by 'display: block;' or 'display: -webkit-box;') */
+  /* and 'overflow: hidden;' */
+  max-height: calc(var(--tooltip-line-clamp) * 1.2em); /* Approximate line height (assumes line-height ~1.2) */
+  
   z-index: var(--tooltip-z-index);
   pointer-events: none;
   text-align: center;
