@@ -4,6 +4,7 @@ import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
+import { MODEL_VERSIONS } from '@ui/pages/Settings';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
@@ -112,13 +113,11 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
     const enabledModels = Object.entries(llmModels)
       .filter(([_, cfg]) => cfg.enabled)
-      .map(([name, cfg]) => {
-        const modelName = cfg.modelName || 'default';
-        return `${name} (${modelName})`;
+      .map(([modelKey, cfg]) => {
+        const labelMap = MODEL_VERSIONS[modelKey as keyof typeof MODEL_VERSIONS]?.labels;
+        const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
+        return `${cfg.name} (${versionLabel})`;
       });
-    // const enabledModels = Object.entries(this.snapshot.settings.llm.models)
-    //   .filter(([_, cfg]) => cfg.enabled)
-    //   .map(([name]) => name);
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. Enabled agents: ${enabledModels.join(', ')}. You can ask questions about the chart and get AI-powered responses.`
       : 'No agents are enabled. Please enable at least one agent in the settings page.';
