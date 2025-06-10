@@ -14,6 +14,13 @@ import { HelpSearch } from '@ui/components/help/HelpSearch';
 import { HELP_GROUP_FILTERS, HELP_GROUPS } from '@ui/react_constants';
 import React, { useId, useMemo, useState } from 'react';
 
+function filterHelpItems(items: HelpMenuItem[], filterFn: ((item: HelpMenuItem) => boolean) | ((item: HelpMenuItem, otherGroups: HelpMenuItem[][]) => boolean), otherGroups?: HelpMenuItem[][]): HelpMenuItem[] {
+  if (otherGroups) {
+    return items.filter(item => (filterFn as (item: HelpMenuItem, otherGroups: HelpMenuItem[][]) => boolean)(item, otherGroups));
+  }
+  return items.filter(item => (filterFn as (item: HelpMenuItem) => boolean)(item));
+}
+
 const Help: React.FC = () => {
   const id = useId();
   const titleId = useId();
@@ -23,22 +30,23 @@ const Help: React.FC = () => {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Memoize grouped items
   const navigationItems = useMemo(() =>
-    items.filter(item => HELP_GROUP_FILTERS.Navigation(item)), [items]);
+    filterHelpItems(items, HELP_GROUP_FILTERS.Navigation), [items]);
 
   const modeItems = useMemo(() =>
-    items.filter(item => HELP_GROUP_FILTERS.Modes(item)), [items]);
+    filterHelpItems(items, HELP_GROUP_FILTERS.Modes), [items]);
 
   const autoplayItems = useMemo(() =>
-    items.filter(item => HELP_GROUP_FILTERS['Autoplay Controls'](item)), [items]);
+    filterHelpItems(items, HELP_GROUP_FILTERS['Autoplay Controls']), [items]);
 
   const labelItems = useMemo(() =>
-    items.filter(item => HELP_GROUP_FILTERS['Label Announcements'](item)), [items]);
+    filterHelpItems(items, HELP_GROUP_FILTERS['Label Announcements']), [items]);
 
   const generalItems = useMemo(() =>
-    items.filter(item =>
-      HELP_GROUP_FILTERS['General Controls'](item, [navigationItems, modeItems, autoplayItems, labelItems]),
+    filterHelpItems(
+      items,
+      HELP_GROUP_FILTERS['General Controls'],
+      [navigationItems, modeItems, autoplayItems, labelItems],
     ), [items, navigationItems, modeItems, autoplayItems, labelItems]);
 
   const getGroupItems = useMemo(() => (groupTitle: string): HelpMenuItem[] => {
