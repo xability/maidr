@@ -233,7 +233,7 @@
 
   /* Fallback display: Ensures max-height fallback works if -webkit-box is not supported. */
   /* ::after is inline by default; max-height needs block or inline-block. */
-  display: block;
+  display: block; /* Fallback for browsers that do not support -webkit-box. Ensures proper block-level behavior. */
 
   /* WebKit-specific line clamping */
   display: -webkit-box; /* Required for -webkit-line-clamp. Overrides 'display: block;' in supporting browsers. */
