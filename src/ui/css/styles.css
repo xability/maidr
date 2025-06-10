@@ -246,7 +246,9 @@
   /* Fallback for browsers that do not support line-clamp (either version) */
   /* Relies on the element being block-level (achieved by 'display: block;' or 'display: -webkit-box;') */
   /* and 'overflow: hidden;' */
-  max-height: calc(var(--tooltip-line-clamp) * var(--tooltip-line-height)); /* Dynamically reflects the actual line height */
+  max-height: calc(
+    var(--tooltip-line-clamp) * var(--tooltip-line-height)
+  ); /* Dynamically reflects the actual line height */
 
   z-index: var(--tooltip-z-index);
   pointer-events: none;
