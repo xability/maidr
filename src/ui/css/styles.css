@@ -1,4 +1,42 @@
 /* Base styles */
+:root {
+  /* Common Values */
+  --border-radius-sm-px: 4px;
+  --border-radius-std-rem: 0.25rem; /* Standard for form controls etc. (4px if 1rem=16px) */
+
+  --padding-sm-px: 8px;
+  --padding-md-px: 12px;
+
+  /* Tooltip Specific */
+  --tooltip-bg-color: #000000;
+  --tooltip-text-color: #ffffff;
+  --tooltip-padding: var(--padding-sm-px) var(--padding-md-px); /* 8px 12px */
+  --tooltip-font-size: 14px;
+  --tooltip-width: 300px;
+  --tooltip-min-width: 200px;
+  --tooltip-max-width: 400px;
+  --tooltip-line-height: 1.2;
+  --tooltip-max-height: 3.6em;
+  --tooltip-border-radius: var(--border-radius-sm-px); /* 4px */
+  --tooltip-z-index: 9999;
+  --tooltip-line-clamp: 2;
+
+  /* Form Control Specific */
+  --form-control-padding: 0.375rem 0.75rem;
+  --form-control-font-size: 1rem;
+  --form-control-line-height: 1.5;
+  --form-control-text-color: #495057;
+  --form-control-bg-color: #ffffff;
+  --form-control-border-color: #ced4da;
+  --form-control-border-radius: var(--border-radius-std-rem); /* 0.25rem */
+  --form-control-transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+  /* Settings Custom Instruction Specific */
+  --settings-textarea-padding: var(--padding-sm-px); /* 8px */
+  --settings-textarea-border-color: #ccc;
+  --settings-textarea-border-radius: var(--border-radius-sm-px); /* 4px */
+}
+
 *,
 ::after,
 ::before {
@@ -168,7 +206,6 @@
   padding-left: 1.5rem;
 }
 
-/* Tooltip styles */
 [data-tooltip] {
   position: relative;
   cursor: help;
@@ -181,15 +218,41 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  border-radius: 4px;
-  font-size: 14px;
-  white-space: pre-wrap;
-  z-index: 9999;
+  padding: var(--tooltip-padding);
+  background-color: var(--tooltip-bg-color);
+  color: var(--tooltip-text-color);
+  border-radius: var(--tooltip-border-radius);
+  font-size: var(--tooltip-font-size);
+  line-height: var(--tooltip-line-height); /* Explicit line-height to match max-height calculation */
+  max-width: var(--tooltip-max-width);
+  min-width: var(--tooltip-min-width);
+  white-space: normal;
+  box-sizing: border-box; /* Ensures padding and borders are included in width/height calculations */
+  overflow: hidden; /* Crucial for all truncation methods */
+  text-overflow: ellipsis; /* Primarily for single-line or when line-clamp works */
+  position: relative; /* Required for positioning the ::before pseudo-element */
+
+  /* Fallback display: Ensures max-height fallback works if -webkit-box is not supported. */
+  /* ::after is inline by default; max-height needs block or inline-block. */
+  display: block; /* Fallback for browsers that do not support -webkit-box. Ensures proper block-level behavior. */
+
+  /* WebKit-specific line clamping */
+  display: -webkit-box; /* Required for -webkit-line-clamp. Overrides 'display: block;' in supporting browsers. */
+  -webkit-line-clamp: var(--tooltip-line-clamp); /* Supported in WebKit-based browsers */
+  -webkit-box-orient: vertical;
+
+  /* Standard line clamping */
+  line-clamp: var(--tooltip-line-clamp); /* Not widely supported yet. Works with block/inline-block. */
+
+  /* Fallback for browsers that do not support line-clamp (either version) */
+  /* Relies on the element being block-level (achieved by 'display: block;' or 'display: -webkit-box;') */
+  /* and 'overflow: hidden;' */
+  max-height: calc(
+    var(--tooltip-line-clamp) * var(--tooltip-line-height)
+  ); /* Dynamically reflects the actual line height */
+
+  z-index: var(--tooltip-z-index);
   pointer-events: none;
-  max-width: 300px;
   text-align: center;
 }
 
@@ -274,6 +337,7 @@ button.close {
   background-color: transparent;
   border: 0;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .close {
@@ -419,17 +483,15 @@ label {
 .form-control {
   display: block;
   width: 100%;
-  padding: 0.375rem 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: #495057;
-  background-color: #fff;
+  padding: var(--form-control-padding);
+  font-size: var(--form-control-font-size);
+  line-height: var(--form-control-line-height);
+  color: var(--form-control-text-color);
+  background-color: var(--form-control-bg-color);
   background-clip: padding-box;
-  border: 1px solid #ced4da;
-  border-radius: 0.25rem;
-  transition:
-    border-color 0.15s ease-in-out,
-    box-shadow 0.15s ease-in-out;
+  border: 1px solid var(--form-control-border-color);
+  border-radius: var(--form-control-border-radius);
+  transition: var(--form-control-transition);
 }
 button,
 input,
@@ -499,31 +561,6 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-}
-
-/* Tooltip styles */
-[data-tooltip] {
-  position: relative;
-  cursor: help;
-}
-
-[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: fixed;
-  bottom: auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  border-radius: 4px;
-  font-size: 14px;
-  white-space: pre-wrap;
-  z-index: 9999;
-  pointer-events: none;
-  max-width: 300px;
-  text-align: center;
 }
 
 /* Settings component styles */
