@@ -223,7 +223,7 @@
   color: var(--tooltip-text-color);
   border-radius: var(--tooltip-border-radius);
   font-size: var(--tooltip-font-size);
-  line-height: 1.2; /* Explicit line-height to match max-height calculation */
+  line-height: var(--tooltip-line-height); /* Explicit line-height to match max-height calculation */
   width: var(--tooltip-width);
   max-width: var(--tooltip-max-width);
   min-width: var(--tooltip-min-width);
