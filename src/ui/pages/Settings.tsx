@@ -333,6 +333,7 @@ const Settings: React.FC = () => {
 
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
+    useViewModel('chat').loadInitialMessage();
   };
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {

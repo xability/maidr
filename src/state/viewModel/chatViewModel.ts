@@ -106,10 +106,21 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.chatService.toggle();
   }
 
-  private loadInitialMessage(): void {
+  public loadInitialMessage(): void {
     const timestamp = new Date().toISOString();
-    const text = this.canSend
-      ? 'Welcome to the Chart Assistant. You can ask questions about the chart and get AI-powered responses.'
+    const llmModels = this.snapshot.settings.llm.models;
+
+    const enabledModels = Object.entries(llmModels)
+      .filter(([_, cfg]) => cfg.enabled)
+      .map(([name, cfg]) => {
+        const modelName = cfg.modelName || 'default';
+        return `${name} (${modelName})`;
+      });
+    // const enabledModels = Object.entries(this.snapshot.settings.llm.models)
+    //   .filter(([_, cfg]) => cfg.enabled)
+    //   .map(([name]) => name);
+    const text = enabledModels.length > 0
+      ? `Welcome to the Chart Assistant. Enabled agents: ${enabledModels.join(', ')}. You can ask questions about the chart and get AI-powered responses.`
       : 'No agents are enabled. Please enable at least one agent in the settings page.';
 
     this.store.dispatch(addSystemMessage({ text, timestamp }));

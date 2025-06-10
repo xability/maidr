@@ -115,7 +115,7 @@ const Chat: React.FC = () => {
               <MessageBubble
                 key={message.id}
                 message={message}
-                _disabled={disabled}
+                disabled={disabled}
                 _onOpenSettings={handleOpenSettings}
               />
             ))}
