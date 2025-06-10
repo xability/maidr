@@ -230,6 +230,7 @@
   white-space: normal;
   overflow: hidden; /* Crucial for all truncation methods */
   text-overflow: ellipsis; /* Primarily for single-line or when line-clamp works */
+  position: relative; /* Required for positioning the ::before pseudo-element */
 
   /* Fallback display: Ensures max-height fallback works if -webkit-box is not supported. */
   /* ::after is inline by default; max-height needs block or inline-block. */
