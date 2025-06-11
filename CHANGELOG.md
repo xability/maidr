@@ -1,3 +1,10 @@
+## [3.12.2](https://github.com/xability/maidr/compare/v3.12.1...v3.12.2) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove redundant tooltip styles ([#328](https://github.com/xability/maidr/issues/328)) ([859f371](https://github.com/xability/maidr/commit/859f3715ad8a752606542851855b2d4a8ca2f465))
+
 ## [3.11.4](https://github.com/xability/maidr/compare/v3.11.3...v3.11.4) (2025-06-08)
 
 
