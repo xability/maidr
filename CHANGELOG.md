@@ -1,3 +1,10 @@
+## [3.12.5](https://github.com/xability/maidr/compare/v3.12.4...v3.12.5) (2025-06-11)
+
+
+### Bug Fixes
+
+* revert hotkeys to 3.13.10 ([#331](https://github.com/xability/maidr/issues/331)) ([be10503](https://github.com/xability/maidr/commit/be105039aaab953e03bb987d2d733a0563a62d38))
+
 ## [3.12.4](https://github.com/xability/maidr/compare/v3.12.3...v3.12.4) (2025-06-11)
 
 
