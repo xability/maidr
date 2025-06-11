@@ -1,3 +1,10 @@
+## [3.12.4](https://github.com/xability/maidr/compare/v3.12.3...v3.12.4) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove warning suppression in vite config ([#330](https://github.com/xability/maidr/issues/330)) ([da5f280](https://github.com/xability/maidr/commit/da5f280fcd45f02b97ec751e342e862f21d926b7))
+
 ## [3.12.3](https://github.com/xability/maidr/compare/v3.12.2...v3.12.3) (2025-06-11)
 
 
