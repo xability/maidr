@@ -1,3 +1,10 @@
+## [3.12.3](https://github.com/xability/maidr/compare/v3.12.2...v3.12.3) (2025-06-11)
+
+
+### Bug Fixes
+
+* restore css ([#329](https://github.com/xability/maidr/issues/329)) ([4c90168](https://github.com/xability/maidr/commit/4c90168c4b009bd3971d31f0dc79e784c1f8ffdc))
+
 ## [3.12.2](https://github.com/xability/maidr/compare/v3.12.1...v3.12.2) (2025-06-11)
 
 
