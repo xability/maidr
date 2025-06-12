@@ -9,8 +9,8 @@ export enum DomEventType {
   SELECTION_CHANGE = 'selectionchange',
 }
 
-export type Status =
-  | 'PENDING'
+export type Status
+  = 'PENDING'
   | 'SUCCESS'
   | 'FAILED';
 
@@ -43,12 +43,13 @@ export class Emitter<T> {
     this.listeners.clear();
   }
 
-  public event: Event<T> = (listener: (e: T) => any): Disposable => {
-    this.listeners.add(listener);
-    return {
-      dispose: () => this.listeners.delete(listener),
+  public event: Event<T>
+    = (listener: (e: T) => any): Disposable => {
+      this.listeners.add(listener);
+      return {
+        dispose: () => this.listeners.delete(listener),
+      };
     };
-  };
 
   public fire(event: T): void {
     for (const listener of this.listeners) {
