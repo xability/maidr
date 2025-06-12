@@ -1,3 +1,38 @@
+## [3.12.5](https://github.com/xability/maidr/compare/v3.12.4...v3.12.5) (2025-06-11)
+
+
+### Bug Fixes
+
+* revert hotkeys to 3.13.10 ([#331](https://github.com/xability/maidr/issues/331)) ([be10503](https://github.com/xability/maidr/commit/be105039aaab953e03bb987d2d733a0563a62d38))
+
+## [3.12.4](https://github.com/xability/maidr/compare/v3.12.3...v3.12.4) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove warning suppression in vite config ([#330](https://github.com/xability/maidr/issues/330)) ([da5f280](https://github.com/xability/maidr/commit/da5f280fcd45f02b97ec751e342e862f21d926b7))
+
+## [3.12.3](https://github.com/xability/maidr/compare/v3.12.2...v3.12.3) (2025-06-11)
+
+
+### Bug Fixes
+
+* restore css ([#329](https://github.com/xability/maidr/issues/329)) ([4c90168](https://github.com/xability/maidr/commit/4c90168c4b009bd3971d31f0dc79e784c1f8ffdc))
+
+## [3.12.2](https://github.com/xability/maidr/compare/v3.12.1...v3.12.2) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove redundant tooltip styles ([#328](https://github.com/xability/maidr/issues/328)) ([859f371](https://github.com/xability/maidr/commit/859f3715ad8a752606542851855b2d4a8ca2f465))
+
+## [3.11.4](https://github.com/xability/maidr/compare/v3.11.3...v3.11.4) (2025-06-08)
+
+
+### Bug Fixes
+
+* adapt highlight color for heatmap cell based on cell color ([#318](https://github.com/xability/maidr/issues/318)) ([f285b64](https://github.com/xability/maidr/commit/f285b64711ff5a46d2126a3cd2562e971c962ede))
+
 ## [3.11.3](https://github.com/xability/maidr/compare/v3.11.2...v3.11.3) (2025-06-07)
 
 

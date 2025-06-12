@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.11.3",
+  "version": "3.12.5",
   "main": "dist/maidr.js",
   "files": [
     "dist"
@@ -27,7 +27,7 @@
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.7.0",
-    "hotkeys-js": "^3.13.9",
+    "hotkeys-js": "3.13.10",
     "react": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-redux": "^9.2.0",
