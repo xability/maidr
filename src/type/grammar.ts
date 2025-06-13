@@ -74,6 +74,13 @@ export interface SegmentedPoint extends BarPoint {
   fill: string;
 }
 
+export interface SmoothPoint {
+  x: number;
+  y: number;
+  svg_x: number;
+  svg_y: number;
+}
+
 export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
