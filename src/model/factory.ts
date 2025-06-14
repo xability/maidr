@@ -9,7 +9,7 @@ import { Histogram } from './histogram';
 import { LineTrace } from './line';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
-import { SmoothTrace } from './smooth';
+import { createSmoothTrace } from './smoothtraceFactory';
 
 export abstract class TraceFactory {
   public static create(layer: MaidrLayer): Trace {
@@ -36,7 +36,7 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return new SmoothTrace(layer);
+        return createSmoothTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:
