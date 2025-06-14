@@ -12,6 +12,14 @@ export default defineConfig({
     sourcemap: true,
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') {
+          return;
+        }
+        warn(warning);
+      },
+    },
   },
   define: {
     'process.env': {},
