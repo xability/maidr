@@ -172,6 +172,7 @@
 [data-tooltip] {
   position: relative;
   cursor: help;
+  z-index: 9999;
 }
 
 [data-tooltip]:hover::after {
@@ -186,7 +187,6 @@
   border-radius: 4px;
   font-size: 14px;
   white-space: pre-wrap;
-  z-index: 9999;
   pointer-events: none;
   max-width: 300px;
   text-align: center;
