@@ -1,11 +1,11 @@
 import { Box } from '@mui/material';
+import { useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeMathjax from 'rehype-mathjax/svg';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import { useViewModelState } from '@state/hook/useViewModel';
 
 interface TypingEffectProps {
   text: string;
