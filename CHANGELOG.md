@@ -1,3 +1,11 @@
+# [3.13.0](https://github.com/xability/maidr/compare/v3.12.6...v3.13.0) (2025-06-14)
+
+
+### Features
+
+* add fallback svg highlight for smooth line trace ([#336](https://github.com/xability/maidr/issues/336)) ([9b18427](https://github.com/xability/maidr/commit/9b18427c25aaa3e27ed25eb1ea21353f32da28eb))
+* store aria-live config in state and fix chat  ([#338](https://github.com/xability/maidr/issues/338)) ([3eadad3](https://github.com/xability/maidr/commit/3eadad358929952dc3c940de8f33819d1a511b26))
+
 ## [3.12.6](https://github.com/xability/maidr/compare/v3.12.5...v3.12.6) (2025-06-14)
 
 
