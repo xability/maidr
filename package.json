@@ -1,17 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.12.4",
-  "description": "<div align=\"center\">   <img src=\"docs/logo/logo.svg\" width=\"350px\" alt=\"A stylized MAIDR logo, with curved characters for M A, a hand pointing for an I, the D character, and R represented in braille.\"/>   <hr style=\"color:transparent\" />   <br /> </div>",
-  "author": "",
-  "license": "ISC",
-  "homepage": "https://github.com/xability/maidr#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xability/maidr.git"
-  },
-  "bugs": {
-    "url": "https://github.com/xability/maidr/issues"
-  },
+  "version": "3.12.6",
   "main": "dist/maidr.js",
   "files": [
     "dist"
