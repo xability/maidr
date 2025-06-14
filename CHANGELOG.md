@@ -1,3 +1,10 @@
+# [3.14.0](https://github.com/xability/maidr/compare/v3.13.0...v3.14.0) (2025-06-14)
+
+
+### Features
+
+* support highlight on candlestick ([#343](https://github.com/xability/maidr/issues/343)) ([e17497b](https://github.com/xability/maidr/commit/e17497ba5846e5c8860fe3c163cd2c8524e99e8a))
+
 # [3.13.0](https://github.com/xability/maidr/compare/v3.12.6...v3.13.0) (2025-06-14)
 
 
