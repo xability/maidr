@@ -176,13 +176,12 @@
 
 [data-tooltip]:hover::after {
   content: attr(data-tooltip);
-  position: fixed;
-  bottom: auto;
-  top: 50%;
+  position: absolute;
+  bottom: 100%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.9);
   color: white;
   border-radius: 4px;
   font-size: 14px;
@@ -191,6 +190,21 @@
   pointer-events: none;
   max-width: 300px;
   text-align: center;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
+  z-index: 9999;
+  pointer-events: none;
 }
 
 .invis_button {
@@ -499,31 +513,6 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-}
-
-/* Tooltip styles */
-[data-tooltip] {
-  position: relative;
-  cursor: help;
-}
-
-[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: fixed;
-  bottom: auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  border-radius: 4px;
-  font-size: 14px;
-  white-space: pre-wrap;
-  z-index: 9999;
-  pointer-events: none;
-  max-width: 300px;
-  text-align: center;
 }
 
 /* Settings component styles */
