@@ -5,6 +5,7 @@ import rehypeMathjax from 'rehype-mathjax/svg';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import { useViewModelState } from '@state/hook/useViewModel';
 
 interface TypingEffectProps {
   text: string;
@@ -15,6 +16,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const messageRef = useRef<HTMLDivElement>(null);
+  const settings = useViewModelState('settings');
 
   useEffect(() => {
     if (isUser) {
@@ -48,14 +50,8 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
 
   return (
     <Box>
-      <div
-        ref={messageRef}
-        className={`chat-message-content ${isUser ? 'user' : ''}`}
-        role="text"
-        aria-busy="false"
-        aria-live="off"
-        aria-atomic="true"
-      >
+      {/* Visual typing effect for users */}
+      <div className={`chat-message-content ${isUser ? 'user' : ''}`}>
         <ReactMarkdown
           rehypePlugins={[
             rehypeMathjax,
@@ -106,6 +102,14 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
         >
           {displayedText}
         </ReactMarkdown>
+      </div>
+      {/* Visually hidden live region for screen readers */}
+      <div
+        style={{ position: 'absolute', left: '-9999px', height: '1px', width: '1px', overflow: 'hidden' }}
+        aria-live={settings.general.ariaMode}
+        aria-atomic="true"
+      >
+        {isTyping ? '' : text}
       </div>
       {isTyping && (
         <span

@@ -226,16 +226,16 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                       >
                         {isValidating
                           ? (
-                              <CircularProgress size={20} />
-                            )
+                            <CircularProgress size={20} />
+                          )
                           : isValid === true
                             ? (
-                                <CheckIcon color="success" />
-                              )
+                              <CheckIcon color="success" />
+                            )
                             : isValid === false
                               ? (
-                                  <ErrorIcon color="error" />
-                                )
+                                <ErrorIcon color="error" />
+                              )
                               : null}
                       </div>
                     </InputAdornment>
