@@ -1,3 +1,10 @@
+## [3.12.6](https://github.com/xability/maidr/compare/v3.12.5...v3.12.6) (2025-06-14)
+
+
+### Bug Fixes
+
+* organize tooltip styling ([#337](https://github.com/xability/maidr/issues/337)) ([d7beaa7](https://github.com/xability/maidr/commit/d7beaa7bfc272db4ddf78c7289fbe44ef45b65db))
+
 ## [3.12.5](https://github.com/xability/maidr/compare/v3.12.4...v3.12.5) (2025-06-11)
 
 
