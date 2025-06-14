@@ -14,8 +14,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       onwarn(warning, warn) {
-        if (warning.message.includes('Module level directives cause errors when bundled')
-          || warning.message.includes('Error when using sourcemap for reporting an error')) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') {
           return;
         }
         warn(warning);
