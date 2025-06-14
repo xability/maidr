@@ -105,7 +105,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
       </div>
       {/* Visually hidden live region for screen readers */}
       <div
-        style={{ position: 'absolute', left: '-9999px', height: '1px', width: '1px', overflow: 'hidden' }}
+        className="sr-only"
         aria-live={settings.general.ariaMode}
         aria-atomic="true"
       >
