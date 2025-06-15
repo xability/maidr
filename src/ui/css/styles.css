@@ -587,3 +587,37 @@ textarea {
 .settings-row-input {
   width: 100%;
 }
+
+.llm-model-setting-row-check-icon {
+  margin-right: 1px;
+}
+
+.llm-model-setting-row-menu-item {
+  font-weight: normal;
+}
+
+.llm-model-setting-row-menu-item.selected {
+  font-weight: bold;
+}
+
+.llm-model-setting-row-check-icon {
+  margin-right: 8px;
+}
+
+.llm-model-setting-select-menu {
+  max-height: 200px;
+}
+
+.settings-grid-padding {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.settings-menu-paper {
+  max-height: 200px;
+}
+
+.settings-grid-container {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
