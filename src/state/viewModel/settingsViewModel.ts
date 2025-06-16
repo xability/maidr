@@ -86,6 +86,11 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.toggle();
   }
 
+  public saveSettings(settings: Settings): void {
+    this.settingsService.saveSettings(settings);
+    this.store.dispatch(update(settings));
+  }
+
   public reset(): void {
     const settings = this.settingsService.resetSettings();
     this.store.dispatch(update(settings));

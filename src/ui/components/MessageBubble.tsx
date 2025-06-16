@@ -2,6 +2,7 @@ import type { Message } from '@type/llm';
 import { AccountCircle, SmartToy } from '@mui/icons-material';
 import { Avatar, Box, Button, CircularProgress, Typography } from '@mui/material';
 import React from 'react';
+import { ModelSelection } from './ModelSelection';
 import { TypingEffect } from './TypingEffect';
 
 interface MessageBubbleProps {
@@ -65,6 +66,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
             </Typography>
           )}
           <TypingEffect text={message.text} isUser={message.isUser} />
+
+          {message.isWelcomeMessage && message.modelSelections && (
+            <ModelSelection enabledModels={message.modelSelections} />
+          )}
+
           <Box
             sx={{
               display: 'flex',

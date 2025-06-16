@@ -33,6 +33,12 @@ export interface Message {
   model?: Llm;
   timestamp: string;
   status: Status;
+  modelSelections?: {
+    modelKey: Llm;
+    name: string;
+    version: string;
+  }[];
+  isWelcomeMessage?: boolean;
 }
 
 export interface LlmModelSettings {

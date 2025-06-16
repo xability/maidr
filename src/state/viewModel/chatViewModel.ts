@@ -28,13 +28,15 @@ const chatSlice = createSlice({
         status: 'SUCCESS',
       });
     },
-    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
+    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }>) => {
       state.messages.push({
         id: `system-${Date.now()}`,
         text: action.payload.text,
         isUser: false,
         timestamp: action.payload.timestamp,
         status: 'SUCCESS',
+        modelSelections: action.payload.modelSelections,
+        isWelcomeMessage: action.payload.isWelcomeMessage,
       });
     },
     addPendingResponse: (state, action: PayloadAction<{ model: Llm; timestamp: string }>) => {
@@ -118,11 +120,25 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
         return `${cfg.name} (${versionLabel})`;
       });
+
+    const modelSelections = Object.entries(llmModels)
+      .filter(([_, cfg]) => cfg.enabled)
+      .map(([modelKey, cfg]) => ({
+        modelKey: modelKey as Llm,
+        name: cfg.name,
+        version: cfg.version,
+      }));
+
     const text = enabledModels.length > 0
-      ? `Welcome to the Chart Assistant. Enabled agents: ${enabledModels.join(', ')}. You can ask questions about the chart and get AI-powered responses.`
+      ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
       : 'No agents are enabled. Please enable at least one agent in the settings page.';
 
-    this.store.dispatch(addSystemMessage({ text, timestamp }));
+    this.store.dispatch(addSystemMessage({
+      text,
+      timestamp,
+      modelSelections,
+      isWelcomeMessage: true,
+    }));
   }
 
   public async sendMessage(newMessage: string): Promise<void> {
