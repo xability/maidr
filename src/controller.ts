@@ -24,6 +24,7 @@ import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { CommandExecutor } from '@service/commandExecutor';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -52,6 +53,7 @@ export class Controller implements Disposable {
   private readonly settingsViewModel: SettingsViewModel;
 
   private readonly keybinding: KeybindingService;
+  private readonly commandExecutor: CommandExecutor;
 
   public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
     this.figure = new Figure(maidr);
@@ -100,6 +102,22 @@ export class Controller implements Disposable {
       },
     );
 
+    this.commandExecutor = new CommandExecutor(
+      {
+        context: this.context,
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+      },
+      this.context.scope
+    );
+
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);
@@ -139,6 +157,7 @@ export class Controller implements Disposable {
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register('commandExecutor', this.commandExecutor);
   }
 
   private registerObservers(): void {

@@ -2,6 +2,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
+import type { CommandExecutor } from '@service/commandExecutor';
 import type { ChatViewModel } from './chatViewModel';
 import type { HelpViewModel } from './helpViewModel';
 import type { SettingsViewModel } from './settingsViewModel';
@@ -10,6 +11,7 @@ import type { TextViewModel } from './textViewModel';
 export interface ViewModelMap {
   braille: BrailleViewModel;
   chat: ChatViewModel;
+  commandExecutor: CommandExecutor;
   display: DisplayViewModel;
   help: HelpViewModel;
   review: ReviewViewModel;
