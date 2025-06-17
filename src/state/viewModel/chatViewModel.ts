@@ -6,12 +6,19 @@ import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
+interface Suggestion {
+  text: string;
+  type: 'followup' | 'clarification' | 'analysis';
+}
+
 interface ChatState {
   messages: Message[];
+  suggestions: Suggestion[];
 }
 
 const initialState: ChatState = {
   messages: [],
+  suggestions: [],
 };
 
 const chatSlice = createSlice({
@@ -66,12 +73,15 @@ const chatSlice = createSlice({
         message.status = 'FAILED';
       }
     },
+    updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
+      state.suggestions = action.payload;
+    },
     reset() {
       return initialState;
     },
   },
 });
-const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, reset } = chatSlice.actions;
+const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -115,6 +125,56 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.store.dispatch(addSystemMessage({ text, timestamp }));
   }
 
+  private generateSuggestions(): Suggestion[] {
+    try {
+      const lastMessage = this.state.messages[this.state.messages.length - 1];
+      if (!lastMessage || lastMessage.isUser)
+        return [];
+
+      const { llm } = this.snapshot.settings;
+      const expertise = llm.expertiseLevel;
+
+      const baseSuggestions: Suggestion[] = [
+        {
+          text: 'Can you explain that in more detail?',
+          type: 'clarification',
+        },
+        {
+          text: 'What can you say about the current datapoint?',
+          type: 'analysis',
+        },
+        {
+          text: 'How does this compare to other data points?',
+          type: 'analysis',
+        },
+      ];
+
+      // Add expertise-specific suggestions
+      if (expertise === 'advanced') {
+        baseSuggestions.push(
+          {
+            text: 'Can you perform a statistical analysis of this data?',
+            type: 'analysis',
+          },
+          {
+            text: 'What are the potential outliers in this dataset?',
+            type: 'analysis',
+          },
+        );
+      }
+
+      return baseSuggestions;
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      return [];
+    }
+  }
+
+  public updateSuggestions(): void {
+    const suggestions = this.generateSuggestions();
+    this.store.dispatch(updateSuggestions(suggestions));
+  }
+
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
@@ -138,7 +198,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: (llmSettings.customExpertise ?? llmSettings.expertiseLevel) as "basic" | "intermediate" | "advanced",
+          expertise: (llmSettings.customExpertise ?? llmSettings.expertiseLevel) as 'basic' | 'intermediate' | 'advanced',
           apiKey: config.apiKey,
         });
 
@@ -156,6 +216,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
             timestamp,
           }));
           this.audioService.playCompleteTone();
+          this.updateSuggestions();
         }
       } catch (error) {
         this.audioService.stop(audioId);

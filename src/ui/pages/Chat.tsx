@@ -8,12 +8,11 @@ import {
   TextField,
   Typography,
   useTheme,
-  Chip,
-  Box,
 } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
+import { Suggestions } from '../components/Suggestions';
 
 const Chat: React.FC = () => {
   const id = useId();
@@ -21,30 +20,11 @@ const Chat: React.FC = () => {
 
   const viewModel = useViewModel('chat');
   const settingsViewModel = useViewModel('settings');
-  const { messages } = useViewModelState('chat');
+  const { messages, suggestions } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Example suggestions - in a real implementation, these would come from the viewModel
-  const generateSuggestions = () => {
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.isUser) return [];
-
-    // Example suggestions based on the last AI message
-    return [
-      "Can you explain that in more detail?",
-      "What does this mean for the data?",
-      "Show me a different perspective",
-      "How does this compare to other data points?"
-    ];
-  };
-
-  useEffect(() => {
-    setSuggestions(generateSuggestions());
-  }, [messages]);
 
   const handleOpenSettings = (): void => {
     settingsViewModel.toggle();
@@ -69,8 +49,8 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleSuggestionClick = (suggestion: string): void => {
-    setInputMessage(suggestion);
+  const handleSuggestionClick = (suggestion: { text: string; type: string }): void => {
+    setInputMessage(suggestion.text);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent): void => {
@@ -147,29 +127,11 @@ const Chat: React.FC = () => {
             <div ref={messagesEndRef} />
           </Grid>
 
-          {/* Suggestions Container */}
-          {suggestions.length > 0 && (
-            <Box sx={{ p: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
-              <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1 }}>
-                Suggested responses:
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', px: 2, pb: 1 }}>
-                {suggestions.map((suggestion, index) => (
-                  <Chip
-                    key={index}
-                    label={suggestion}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    sx={{
-                      '&:hover': {
-                        bgcolor: theme.palette.primary.light,
-                        color: theme.palette.primary.contrastText,
-                      },
-                    }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          )}
+          {/* Suggestions */}
+          <Suggestions
+            suggestions={suggestions}
+            onSuggestionClick={handleSuggestionClick}
+          />
 
           {/* Input Container */}
           <Grid
@@ -187,7 +149,7 @@ const Chat: React.FC = () => {
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
                   maxRows={4}
-                  placeholder="Type your message..."
+                  placeholder="What can I help you with?"
                   variant="outlined"
                   size="small"
                   autoFocus

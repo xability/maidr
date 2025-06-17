@@ -5,6 +5,7 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
+  Alert,
   Button,
   CircularProgress,
   Dialog,
@@ -331,18 +332,21 @@ const Settings: React.FC = () => {
     viewModel.toggle();
   };
 
-  const handleSave = (): void => {
-    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
-  };
-
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
   }, []);
 
-  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced'>) => {
+  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>) => {
     e.stopPropagation();
     handleLlmChange('expertiseLevel', e.target.value);
   }, [handleLlmChange]);
+
+  const handleSave = (): void => {
+    if (llmSettings.expertiseLevel === 'custom' && llmSettings.customInstruction.length < 10) {
+      return;
+    }
+    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
+  };
 
   return (
     <Dialog
@@ -540,36 +544,47 @@ const Settings: React.FC = () => {
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>
                     <MenuItem value="advanced">Advanced</MenuItem>
+                    <MenuItem value="custom">Custom</MenuItem>
                   </Select>
                 </FormControl>
               )}
             />
           </Grid>
 
-          <Grid size={12}>
-            <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid size={12} sx={{ py: 1 }}>
-                <Typography variant="body2" fontWeight="normal">
-                  Custom Instructions
-                </Typography>
-              </Grid>
-              <Grid size={12}>
-                <TextareaAutosize
-                  minRows={3}
-                  maxRows={6}
-                  value={llmSettings.customInstruction}
-                  onChange={e => handleLlmChange('customInstruction', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                  }}
-                  placeholder="Enter custom instruction..."
-                />
+          {/* Custom Instructions - Only show when custom is selected */}
+          {llmSettings.expertiseLevel === 'custom' && (
+            <Grid size={12}>
+              <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+                <Grid size={12} sx={{ py: 1 }}>
+                  <Typography variant="body2" fontWeight="normal">
+                    Custom Instructions
+                  </Typography>
+                </Grid>
+                <Grid size={12}>
+                  <TextareaAutosize
+                    minRows={3}
+                    maxRows={6}
+                    value={llmSettings.customInstruction}
+                    onChange={e => handleLlmChange('customInstruction', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                    }}
+                    placeholder="Enter custom instruction..."
+                  />
+                </Grid>
+                {llmSettings.customInstruction.length < 10 && (
+                  <Grid size={12} sx={{ mt: 1 }}>
+                    <Alert severity="warning">
+                      Custom instructions must be at least 10 characters long
+                    </Alert>
+                  </Grid>
+                )}
               </Grid>
             </Grid>
-          </Grid>
+          )}
         </Grid>
 
         <Grid size={12}>
