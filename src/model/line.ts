@@ -10,7 +10,7 @@ const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
-  private readonly points: LinePoint[][];
+  protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
@@ -177,7 +177,7 @@ export class LineTrace extends AbstractTrace<number> {
     return bestRow;
   }
 
-  private mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length !== this.lineValues.length) {
       return null;
     }

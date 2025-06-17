@@ -6,8 +6,8 @@ export interface Movable {
   isMovable: (target: [number, number] | MovableDirection) => boolean;
 }
 
-export type MovableDirection =
-  | 'UPWARD'
-  | 'DOWNWARD'
-  | 'FORWARD'
-  | 'BACKWARD';
+export type MovableDirection
+  = | 'UPWARD'
+    | 'DOWNWARD'
+    | 'FORWARD'
+    | 'BACKWARD';

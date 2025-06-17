@@ -1,3 +1,53 @@
+# [3.14.0](https://github.com/xability/maidr/compare/v3.13.0...v3.14.0) (2025-06-14)
+
+
+### Features
+
+* support highlight on candlestick ([#343](https://github.com/xability/maidr/issues/343)) ([e17497b](https://github.com/xability/maidr/commit/e17497ba5846e5c8860fe3c163cd2c8524e99e8a))
+
+# [3.13.0](https://github.com/xability/maidr/compare/v3.12.6...v3.13.0) (2025-06-14)
+
+
+### Features
+
+* add fallback svg highlight for smooth line trace ([#336](https://github.com/xability/maidr/issues/336)) ([9b18427](https://github.com/xability/maidr/commit/9b18427c25aaa3e27ed25eb1ea21353f32da28eb))
+* store aria-live config in state and fix chat  ([#338](https://github.com/xability/maidr/issues/338)) ([3eadad3](https://github.com/xability/maidr/commit/3eadad358929952dc3c940de8f33819d1a511b26))
+
+## [3.12.6](https://github.com/xability/maidr/compare/v3.12.5...v3.12.6) (2025-06-14)
+
+
+### Bug Fixes
+
+* organize tooltip styling ([#337](https://github.com/xability/maidr/issues/337)) ([d7beaa7](https://github.com/xability/maidr/commit/d7beaa7bfc272db4ddf78c7289fbe44ef45b65db))
+
+## [3.12.5](https://github.com/xability/maidr/compare/v3.12.4...v3.12.5) (2025-06-11)
+
+
+### Bug Fixes
+
+* revert hotkeys to 3.13.10 ([#331](https://github.com/xability/maidr/issues/331)) ([be10503](https://github.com/xability/maidr/commit/be105039aaab953e03bb987d2d733a0563a62d38))
+
+## [3.12.4](https://github.com/xability/maidr/compare/v3.12.3...v3.12.4) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove warning suppression in vite config ([#330](https://github.com/xability/maidr/issues/330)) ([da5f280](https://github.com/xability/maidr/commit/da5f280fcd45f02b97ec751e342e862f21d926b7))
+
+## [3.12.3](https://github.com/xability/maidr/compare/v3.12.2...v3.12.3) (2025-06-11)
+
+
+### Bug Fixes
+
+* restore css ([#329](https://github.com/xability/maidr/issues/329)) ([4c90168](https://github.com/xability/maidr/commit/4c90168c4b009bd3971d31f0dc79e784c1f8ffdc))
+
+## [3.12.2](https://github.com/xability/maidr/compare/v3.12.1...v3.12.2) (2025-06-11)
+
+
+### Bug Fixes
+
+* remove redundant tooltip styles ([#328](https://github.com/xability/maidr/issues/328)) ([859f371](https://github.com/xability/maidr/commit/859f3715ad8a752606542851855b2d4a8ca2f465))
+
 ## [3.11.4](https://github.com/xability/maidr/compare/v3.11.3...v3.11.4) (2025-06-08)
 
 
