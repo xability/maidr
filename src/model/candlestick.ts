@@ -314,6 +314,11 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   protected braille(): BrailleState {
+    // Return the braille state with the current candle values and segment type
+
+    // get an array for bear or bull
+    const bearOrBull = this.candles.map(candle => candle.trend);
+
     return {
       empty: false,
       id: this.id,
@@ -322,6 +327,7 @@ export class Candlestick extends AbstractTrace<number> {
       max: this.max,
       row: this.row,
       col: this.col,
+      custom: bearOrBull,
     };
   }
 
