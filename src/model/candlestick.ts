@@ -68,7 +68,8 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = 0; // Points to 'open' segment index in sections array
     }
 
-    const selectors = typeof layer.selectors === 'string' ? layer.selectors : '';
+    const selectors
+      = typeof layer.selectors === 'string' ? layer.selectors : '';
     this.highlightValues = this.mapToSvgElements(selectors);
   }
 
@@ -309,9 +310,9 @@ export class Candlestick extends AbstractTrace<number> {
   protected audio(): AudioState {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
 
-    // set mood: 9 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
+    // set mood: 5 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
     const groupIndex
-      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 9;
+      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 5;
 
     return {
       min: this.min,
@@ -348,7 +349,11 @@ export class Candlestick extends AbstractTrace<number> {
     // This ensures highlightValues[dynamicRow][col] works correctly
     const segmentElements: SVGElement[][] = [];
 
-    for (let sortedPosition = 0; sortedPosition < this.sections.length; sortedPosition++) {
+    for (
+      let sortedPosition = 0;
+      sortedPosition < this.sections.length;
+      sortedPosition++
+    ) {
       segmentElements[sortedPosition] = [];
 
       for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {

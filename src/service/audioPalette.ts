@@ -89,7 +89,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine',
+        waveType: 'sine', // 5
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -105,7 +105,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle',
+        waveType: 'triangle', // 6
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -121,7 +121,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'square',
+        waveType: 'square', // 7
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -137,7 +137,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle',
+        waveType: 'triangle', // 8
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -153,7 +153,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine',
+        waveType: 'sine', // 9
         harmonicMix: {
           fundamental: 1,
           harmonics: [
