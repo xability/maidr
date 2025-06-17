@@ -33,7 +33,7 @@ const maidrData: MaidrPlot = {
     layers: [{
       id: '0',
       type: 'dodged_bar',
-      selectors: "#dodged_bar g:nth-of-type(2) rect[style*='butt']",
+      selectors: '#dodged_bar g:nth-of-type(2) rect[style*=\'butt\']',
       axes: {
         x: 'Class',
         y: 'Count',
