@@ -342,11 +342,10 @@ const Settings: React.FC = () => {
   }, [handleLlmChange]);
 
   const handleSave = (): void => {
-    if (llmSettings.expertiseLevel === 'custom' && llmSettings.customInstruction.length < 10) {
-      return;
-    }
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
+
+  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= 10;
 
   return (
     <Dialog
@@ -616,7 +615,13 @@ const Settings: React.FC = () => {
             </Button>
           </Grid>
           <Grid size="auto">
-            <Button variant="contained" color="primary" onClick={handleSave}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSave}
+              disabled={!isCustomInstructionValid}
+              title={!isCustomInstructionValid ? 'Custom instructions must be at least 10 characters long' : ''}
+            >
               Save & Close
             </Button>
           </Grid>

@@ -134,20 +134,21 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
       const { llm } = this.snapshot.settings;
       const expertise = llm.expertiseLevel;
+      const timestamp = Date.now();
 
       const baseSuggestions: Suggestion[] = [
         {
-          id: `suggestion-${Date.now()}-1`,
+          id: `suggestion-${timestamp}-1`,
           text: 'Can you explain that in more detail?',
           type: 'clarification',
         },
         {
-          id: `suggestion-${Date.now()}-2`,
+          id: `suggestion-${timestamp}-2`,
           text: 'What can you say about the current datapoint?',
           type: 'analysis',
         },
         {
-          id: `suggestion-${Date.now()}-3`,
+          id: `suggestion-${timestamp}-3`,
           text: 'How does this compare to other data points?',
           type: 'analysis',
         },
@@ -157,12 +158,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       if (expertise === 'advanced') {
         baseSuggestions.push(
           {
-            id: `suggestion-${Date.now()}-4`,
+            id: `suggestion-${timestamp}-4`,
             text: 'Can you perform a statistical analysis of this data?',
             type: 'analysis',
           },
           {
-            id: `suggestion-${Date.now()}-5`,
+            id: `suggestion-${timestamp}-5`,
             text: 'What are the potential outliers in this dataset?',
             type: 'analysis',
           },
