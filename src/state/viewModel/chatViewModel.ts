@@ -1,16 +1,11 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
+import type { Suggestion } from '@type/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
-
-interface Suggestion {
-  id: string;
-  text: string;
-  type: 'followup' | 'clarification' | 'analysis';
-}
 
 interface ChatState {
   messages: Message[];

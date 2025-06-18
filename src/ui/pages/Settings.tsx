@@ -30,6 +30,8 @@ import { LlmValidationService } from '@service/llmValidation';
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
+const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
+
 type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
 type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
 type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
@@ -345,7 +347,7 @@ const Settings: React.FC = () => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
   };
 
-  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= 10;
+  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
   return (
     <Dialog
@@ -574,10 +576,14 @@ const Settings: React.FC = () => {
                     placeholder="Enter custom instruction..."
                   />
                 </Grid>
-                {llmSettings.customInstruction.length < 10 && (
+                {llmSettings.customInstruction.length < MIN_CUSTOM_INSTRUCTION_LENGTH && (
                   <Grid size={12} sx={{ mt: 1 }}>
                     <Alert severity="warning">
-                      Custom instructions must be at least 10 characters long
+                      Custom instructions must be at least
+                      {' '}
+                      {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                      {' '}
+                      characters long
                     </Alert>
                   </Grid>
                 )}
@@ -620,7 +626,7 @@ const Settings: React.FC = () => {
               color="primary"
               onClick={handleSave}
               disabled={!isCustomInstructionValid}
-              title={!isCustomInstructionValid ? 'Custom instructions must be at least 10 characters long' : ''}
+              title={!isCustomInstructionValid ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long` : ''}
             >
               Save & Close
             </Button>
