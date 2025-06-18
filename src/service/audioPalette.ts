@@ -168,6 +168,22 @@ export class AudioPaletteService implements Disposable {
           release: 0.15,
         },
       },
+      {
+        waveType: 'sawtooth', // 10
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.05 },
+            { frequency: 6, amplitude: 0.02 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.005,
+          decay: 0.4,
+          sustain: 0.2,
+          release: 0.6,
+        },
+      },
     ];
 
     this.extendedPalette = new Map();
