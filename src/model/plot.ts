@@ -2,7 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, SubplotState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
@@ -59,6 +59,9 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
 
     const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
       .reduce((sum, r) => sum + r.length, 0);
+
+    const activeSubplot = this.activeSubplot;
+
     return {
       empty: false,
       type: 'figure',
@@ -67,8 +70,72 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       caption: this.caption,
       size: this.size,
       index: currentIndex,
-      subplot: this.activeSubplot.state,
-      traceTypes: this.activeSubplot.traceTypes,
+      subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
+      traceTypes: activeSubplot.traceTypes,
+      highlight: this.highlight(), // Figure determines which subplot to highlight
+    };
+  }
+
+  protected highlight(): HighlightState {
+    // Check if this is a multi-plot scenario (more than one subplot)
+    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
+
+    if (totalSubplots <= 1) {
+      // No highlighting needed for single plot
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    // For multi-plot scenarios, find the subplot container element
+    try {
+      // Calculate the subplot index based on the figure's current position
+      const subplotIndex = this.row + 1; // 1-based index
+      const subplotSelector = `g[id="axes_${subplotIndex}"]`;
+
+      const subplotElement = document.querySelector(subplotSelector) as SVGElement;
+
+      if (subplotElement) {
+        return {
+          empty: false,
+          elements: subplotElement,
+        };
+      }
+
+      // Fallback: try to find by position in the subplot grid
+      const allSubplots = document.querySelectorAll('g[id^="axes_"]');
+
+      if (allSubplots.length > 0 && this.row < allSubplots.length) {
+        return {
+          empty: false,
+          elements: allSubplots[this.row] as SVGElement,
+        };
+      }
+    } catch (error) {
+      // No subplot element found
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    // No subplot element found
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
     };
   }
 }
@@ -106,6 +173,19 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     return this.traces[this.row][this.col];
   }
 
+  protected highlight(): HighlightState {
+    // Subplot highlighting is now managed by the Figure
+    // This method only handles trace-level highlighting
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
+    };
+  }
+
   public get state(): SubplotState {
     if (this.isOutOfBounds) {
       return {
@@ -120,8 +200,14 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
+      highlight: this.highlight(),
     };
+  }
+
+  // Add a method to get state with figure position for highlighting
+  public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
+    return this.state; // Simplified since Figure now manages highlighting
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState>, Disposable {}
+export interface Trace extends Movable, Observable<TraceState>, Disposable { }

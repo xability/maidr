@@ -18,6 +18,7 @@ export type FigureState
     index: number;
     subplot: SubplotState;
     traceTypes: string[];
+    highlight: HighlightState; // Figure manages subplot highlighting
   };
 
 export type SubplotState
@@ -31,6 +32,7 @@ export type SubplotState
     size: number;
     index: number;
     trace: TraceState;
+    highlight: HighlightState;
   };
 
 interface TraceEmptyState {
@@ -140,8 +142,13 @@ export type AutoplayState = {
 };
 
 export type HighlightState
-  = | TraceEmptyState
-    | {
-      empty: false;
-      elements: SVGElement | SVGElement[];
-    };
+  = | {
+    empty: true;
+    type: 'trace';
+    traceType?: TraceType;
+    audio: AudioEmptyState;
+  }
+  | {
+    empty: false;
+    elements: SVGElement | SVGElement[];
+  };
