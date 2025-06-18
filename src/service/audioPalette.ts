@@ -5,6 +5,28 @@ import type { Disposable } from '@type/disposable';
  */
 export type WaveType = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
+/**
+ * Predefined palette indices for base audio signatures.
+ * These constants provide semantic meaning to palette positions
+ * and make the code more maintainable than magic numbers.
+ */
+export const AudioPaletteIndex = {
+  // Basic wave types (0-3)
+  SINE_BASIC: 0,
+  SQUARE_BASIC: 1,
+  SAWTOOTH_BASIC: 2,
+  TRIANGLE_BASIC: 3,
+
+  // Harmonic variations (4+)
+  SAWTOOTH_DARK: 4,
+  SINE_HARMONIC: 5,
+  TRIANGLE_HARMONIC: 6,
+  SQUARE_HARMONIC: 7,
+  TRIANGLE_MELLOW: 8,
+  SINE_SUBTLE: 9,
+  SAWTOOTH_SOFT: 10,
+} as const;
+
 export interface AudioPaletteEntry {
   waveType: WaveType;
   harmonicMix?: {
@@ -72,7 +94,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // duller and darker than 'sine' or 'square'
+        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_DARK - duller and darker than basic sawtooth
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -89,7 +111,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // 5
+        waveType: 'sine', // AudioPaletteIndex.SINE_HARMONIC
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -105,7 +127,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // 6
+        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_HARMONIC
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -121,7 +143,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'square', // 7
+        waveType: 'square', // AudioPaletteIndex.SQUARE_HARMONIC
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -137,7 +159,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // 8
+        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_MELLOW
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -153,7 +175,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // 9
+        waveType: 'sine', // AudioPaletteIndex.SINE_SUBTLE
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -169,7 +191,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // 10
+        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_SOFT
         harmonicMix: {
           fundamental: 1,
           harmonics: [
