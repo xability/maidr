@@ -318,12 +318,12 @@ export class Candlestick extends AbstractTrace<number> {
   protected getAudioGroupIndex(): { groupIndex?: number } {
     const trend = this.candles[this.currentPointIndex].trend;
 
-    // Bull trend uses basic sine, Bear trend uses harmonic sine
+    // Bull trend uses basic sine, Bear trend uses soft sawtooth
     // This provides distinct audio signatures for different market conditions
     return {
       groupIndex: trend === 'Bull'
         ? AudioPaletteIndex.SINE_BASIC
-        : AudioPaletteIndex.SINE_HARMONIC,
+        : AudioPaletteIndex.SAWTOOTH_SOFT,
     };
   }
 
