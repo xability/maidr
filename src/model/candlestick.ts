@@ -307,12 +307,25 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candleValues;
   }
 
+  /**
+   * Determines the audio group index based on candlestick trend.
+   * This method encapsulates the business logic for mapping market trends
+   * to appropriate audio palette entries.
+   *
+   * @returns Object containing groupIndex if applicable, empty object otherwise
+   */
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    const trend = this.candles[this.currentPointIndex].trend;
+
+    // Bull trend uses basic sine (index 0), Bear trend uses harmonic sine (index 5)
+    // This provides distinct audio signatures for different market conditions
+    return {
+      groupIndex: trend === 'Bull' ? 0 : 5,
+    };
+  }
+
   protected audio(): AudioState {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
-
-    // set mood: 5 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
-    const groupIndex
-      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 5;
 
     return {
       min: this.min,
@@ -320,7 +333,7 @@ export class Candlestick extends AbstractTrace<number> {
       size: this.candles.length,
       index: this.currentPointIndex,
       value,
-      groupIndex,
+      ...this.getAudioGroupIndex(),
     };
   }
 
