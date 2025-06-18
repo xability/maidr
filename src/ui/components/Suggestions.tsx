@@ -2,6 +2,7 @@ import { Box, Chip, useTheme } from '@mui/material';
 import React, { memo } from 'react';
 
 interface Suggestion {
+  id: string;
   text: string;
   type: 'followup' | 'clarification' | 'analysis';
 }
@@ -51,9 +52,9 @@ export const Suggestions: React.FC<SuggestionsProps> = memo(({ suggestions, onSu
         bgcolor: theme.palette.background.paper,
       }}
     >
-      {suggestions.map((suggestion, index) => (
+      {suggestions.map(suggestion => (
         <SuggestionChip
-          key={index}
+          key={suggestion.id}
           suggestion={suggestion}
           onClick={() => onSuggestionClick(suggestion)}
         />

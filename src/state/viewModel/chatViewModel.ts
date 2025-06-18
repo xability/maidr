@@ -7,6 +7,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 interface Suggestion {
+  id: string;
   text: string;
   type: 'followup' | 'clarification' | 'analysis';
 }
@@ -136,14 +137,17 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
       const baseSuggestions: Suggestion[] = [
         {
+          id: `suggestion-${Date.now()}-1`,
           text: 'Can you explain that in more detail?',
           type: 'clarification',
         },
         {
+          id: `suggestion-${Date.now()}-2`,
           text: 'What can you say about the current datapoint?',
           type: 'analysis',
         },
         {
+          id: `suggestion-${Date.now()}-3`,
           text: 'How does this compare to other data points?',
           type: 'analysis',
         },
@@ -153,10 +157,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       if (expertise === 'advanced') {
         baseSuggestions.push(
           {
+            id: `suggestion-${Date.now()}-4`,
             text: 'Can you perform a statistical analysis of this data?',
             type: 'analysis',
           },
           {
+            id: `suggestion-${Date.now()}-5`,
             text: 'What are the potential outliers in this dataset?',
             type: 'analysis',
           },
@@ -173,6 +179,10 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   public updateSuggestions(): void {
     const suggestions = this.generateSuggestions();
     this.store.dispatch(updateSuggestions(suggestions));
+  }
+
+  private isValidExpertiseLevel(level: string): level is 'basic' | 'intermediate' | 'advanced' {
+    return ['basic', 'intermediate', 'advanced'].includes(level);
   }
 
   public async sendMessage(newMessage: string): Promise<void> {
@@ -195,10 +205,18 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         }));
 
         const config = llmSettings.models[model];
+        const expertiseLevel = llmSettings.expertiseLevel === 'custom'
+          ? (llmSettings.customExpertise ?? 'basic')
+          : llmSettings.expertiseLevel;
+
+        if (!this.isValidExpertiseLevel(expertiseLevel)) {
+          throw new Error('Invalid expertise level');
+        }
+
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: (llmSettings.customExpertise ?? llmSettings.expertiseLevel) as 'basic' | 'intermediate' | 'advanced',
+          expertise: expertiseLevel,
           apiKey: config.apiKey,
         });
 
