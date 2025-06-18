@@ -312,7 +312,7 @@ export class Candlestick extends AbstractTrace<number> {
 
     // set mood: 5 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
     const groupIndex
-      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 10;
+      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 5;
 
     return {
       min: this.min,
