@@ -2,6 +2,7 @@ import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
+import { AudioPaletteIndex } from '@service/audioPalette';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -317,10 +318,12 @@ export class Candlestick extends AbstractTrace<number> {
   protected getAudioGroupIndex(): { groupIndex?: number } {
     const trend = this.candles[this.currentPointIndex].trend;
 
-    // Bull trend uses basic sine (index 0), Bear trend uses harmonic sine (index 5)
+    // Bull trend uses basic sine, Bear trend uses harmonic sine
     // This provides distinct audio signatures for different market conditions
     return {
-      groupIndex: trend === 'Bull' ? 0 : 5,
+      groupIndex: trend === 'Bull'
+        ? AudioPaletteIndex.SINE_BASIC
+        : AudioPaletteIndex.SINE_HARMONIC,
     };
   }
 
