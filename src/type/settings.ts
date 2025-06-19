@@ -2,7 +2,7 @@ import type { Llm, LlmVersion } from './llm';
 
 export type AriaMode = 'assertive' | 'polite';
 
-export type ExpertiseLevel = 'basic' | 'intermediate' | 'advanced';
+export type ExpertiseLevel = 'basic' | 'intermediate' | 'advanced' | 'custom';
 
 export interface LlmModelSettings {
   name: string;

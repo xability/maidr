@@ -1,6 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
+import type { Suggestion } from '@type/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
@@ -8,10 +9,12 @@ import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
   messages: Message[];
+  suggestions: Suggestion[];
 }
 
 const initialState: ChatState = {
   messages: [],
+  suggestions: [],
 };
 
 const chatSlice = createSlice({
@@ -66,12 +69,15 @@ const chatSlice = createSlice({
         message.status = 'FAILED';
       }
     },
+    updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
+      state.suggestions = action.payload;
+    },
     reset() {
       return initialState;
     },
   },
 });
-const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, reset } = chatSlice.actions;
+const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -115,6 +121,66 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.store.dispatch(addSystemMessage({ text, timestamp }));
   }
 
+  private generateSuggestions(): Suggestion[] {
+    try {
+      const lastMessage = this.state.messages[this.state.messages.length - 1];
+      if (!lastMessage || lastMessage.isUser)
+        return [];
+
+      const { llm } = this.snapshot.settings;
+      const expertise = llm.expertiseLevel;
+      const timestamp = Date.now();
+
+      const baseSuggestions: Suggestion[] = [
+        {
+          id: `suggestion-${timestamp}-1`,
+          text: 'Can you explain that in more detail?',
+          type: 'clarification',
+        },
+        {
+          id: `suggestion-${timestamp}-2`,
+          text: 'What can you say about the current datapoint?',
+          type: 'analysis',
+        },
+        {
+          id: `suggestion-${timestamp}-3`,
+          text: 'How does this compare to other data points?',
+          type: 'analysis',
+        },
+      ];
+
+      // Add expertise-specific suggestions
+      if (expertise === 'advanced') {
+        baseSuggestions.push(
+          {
+            id: `suggestion-${timestamp}-4`,
+            text: 'Can you perform a statistical analysis of this data?',
+            type: 'analysis',
+          },
+          {
+            id: `suggestion-${timestamp}-5`,
+            text: 'What are the potential outliers in this dataset?',
+            type: 'analysis',
+          },
+        );
+      }
+
+      return baseSuggestions;
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      return [];
+    }
+  }
+
+  public updateSuggestions(): void {
+    const suggestions = this.generateSuggestions();
+    this.store.dispatch(updateSuggestions(suggestions));
+  }
+
+  private isValidExpertiseLevel(level: string): level is 'basic' | 'intermediate' | 'advanced' {
+    return ['basic', 'intermediate', 'advanced'].includes(level);
+  }
+
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
@@ -135,10 +201,18 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         }));
 
         const config = llmSettings.models[model];
+        const expertiseLevel = llmSettings.expertiseLevel === 'custom'
+          ? (llmSettings.customExpertise ?? 'basic')
+          : llmSettings.expertiseLevel;
+
+        if (!this.isValidExpertiseLevel(expertiseLevel)) {
+          throw new Error('Invalid expertise level');
+        }
+
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
+          expertise: expertiseLevel,
           apiKey: config.apiKey,
         });
 
@@ -156,6 +230,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
             timestamp,
           }));
           this.audioService.playCompleteTone();
+          this.updateSuggestions();
         }
       } catch (error) {
         this.audioService.stop(audioId);
