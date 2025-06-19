@@ -2,7 +2,6 @@ import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
-import { AudioPaletteIndex } from '@service/audioPalette';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -316,15 +315,10 @@ export class Candlestick extends AbstractTrace<number> {
    * @returns Object containing groupIndex if applicable, empty object otherwise
    */
   protected getAudioGroupIndex(): { groupIndex?: number } {
-    const trend = this.candles[this.currentPointIndex].trend;
-
-    // Bull trend uses basic sine, Bear trend uses soft sawtooth
-    // This provides distinct audio signatures for different market conditions
-    return {
-      groupIndex: trend === 'Bull'
-        ? AudioPaletteIndex.SINE_BASIC
-        : AudioPaletteIndex.SAWTOOTH_SOFT,
-    };
+    // For candlesticks, groupIndex is determined by trend analysis
+    // This logic is handled by the AudioPaletteService to maintain
+    // proper architectural separation of concerns
+    return {};
   }
 
   protected audio(): AudioState {
@@ -336,6 +330,7 @@ export class Candlestick extends AbstractTrace<number> {
       size: this.candles.length,
       index: this.currentPointIndex,
       value,
+      trend: this.candles[this.currentPointIndex].trend,
       ...this.getAudioGroupIndex(),
     };
   }
@@ -401,5 +396,15 @@ export class Candlestick extends AbstractTrace<number> {
       section: this.currentSegmentType,
       fill: { label: TREND, value: point.trend },
     };
+  }
+
+  /**
+   * Gets the current candlestick trend for audio palette selection.
+   * This provides raw data that services can use for business logic.
+   *
+   * @returns The trend of the current candlestick point
+   */
+  public getCurrentTrend(): 'Bull' | 'Bear' | 'Neutral' {
+    return this.candles[this.currentPointIndex].trend;
   }
 }

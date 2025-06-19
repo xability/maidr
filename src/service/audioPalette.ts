@@ -245,6 +245,25 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
+   * Determines the appropriate audio palette index for candlestick trends.
+   * This encapsulates the business logic for mapping market conditions
+   * to distinct audio signatures.
+   *
+   * @param trend The candlestick trend (Bull, Bear, or Neutral)
+   * @returns The palette index for the specified trend
+   */
+  public getCandlestickGroupIndex(trend: 'Bull' | 'Bear' | 'Neutral'): number {
+    switch (trend) {
+      case 'Bull':
+        return AudioPaletteIndex.SINE_BASIC; // Basic sine for positive market trends
+      case 'Bear':
+        return AudioPaletteIndex.SAWTOOTH_SOFT; // Soft sawtooth for negative market trends
+      case 'Neutral':
+        return AudioPaletteIndex.TRIANGLE_BASIC; // Triangle for neutral market trends
+    }
+  }
+
+  /**
    * Generates extended palette entries by creating unique combinations
    * of harmonic mixes and timbre modulations
    */

@@ -105,7 +105,12 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     }
 
     const audio = state.audio;
-    const groupIndex = audio.groupIndex;
+    let groupIndex = audio.groupIndex;
+
+    // Handle candlestick trend-based audio selection
+    if (audio.trend && groupIndex === undefined) {
+      groupIndex = this.audioPalette.getCandlestickGroupIndex(audio.trend);
+    }
 
     // Determine if we need to use multiclass audio based on whether groupIndex is defined
     // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
