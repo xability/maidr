@@ -245,6 +245,27 @@ export class Candlestick extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
+  public moveToIndex(row: number, col: number): void {
+    // move to a specific currentSegmentType and currentPointIndex
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.currentPointIndex = row;
+      this.currentSegmentType = this.sections[col];
+      this.row = row;
+      this.col = col;
+    } else {
+      this.currentPointIndex = col;
+      this.currentSegmentType = this.sections[row];
+      this.row = row;
+      this.col = col;
+    }
+    this.updateVisualSegmentPosition();
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
   /**
    * Override isMovable to handle custom navigation boundaries for value-based sorting
    */
