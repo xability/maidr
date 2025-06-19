@@ -139,6 +139,7 @@
   to {
     opacity: 1;
   }
+
   50% {
     opacity: 0;
   }
@@ -423,13 +424,16 @@ label {
   margin: 0 1.5rem;
   vertical-align: middle;
 }
+
 .form-group {
   margin-bottom: 1rem;
 }
+
 .form-group label {
   display: inline-block;
   margin-bottom: 0.5rem;
 }
+
 .form-control {
   display: block;
   width: 100%;
@@ -445,6 +449,7 @@ label {
     border-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out;
 }
+
 button,
 input,
 optgroup,
@@ -462,6 +467,7 @@ textarea {
   padding: 0.5rem;
   background-color: #fff;
 }
+
 #chatLLM_chat_history {
   padding: 0.5rem;
   padding-bottom: 4rem;
@@ -472,6 +478,7 @@ textarea {
   align-items: column;
   justify-content: center;
 }
+
 .chatLLM_message_self,
 .chatLLM_message_other {
   padding: 0.5rem 1.5rem;
@@ -480,9 +487,11 @@ textarea {
   max-width: 70%;
   word-wrap: break-word;
 }
+
 .chatLLM_message_self {
   align-self: flex-end;
 }
+
 .chatLLM_message_other {
   align-self: flex-start;
 }
@@ -505,6 +514,7 @@ textarea {
   right: 1.5rem;
   margin: 0.5rem;
 }
+
 .chatLLM_message_copy_button {
   font-weight: normal;
 }
@@ -586,4 +596,12 @@ textarea {
 
 .settings-row-input {
   width: 100%;
+}
+
+/* Simple subplot highlighting - only for multi-plot scenarios */
+.maidr-subplot-active {
+  outline: 2px solid #155084;
+  outline-offset: 3px;
+  border-radius: 3px;
+  overflow: visible;
 }
