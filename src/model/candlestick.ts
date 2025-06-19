@@ -68,7 +68,8 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = 0; // Points to 'open' segment index in sections array
     }
 
-    const selectors = typeof layer.selectors === 'string' ? layer.selectors : '';
+    const selectors
+      = typeof layer.selectors === 'string' ? layer.selectors : '';
     this.highlightValues = this.mapToSvgElements(selectors);
   }
 
@@ -306,12 +307,22 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candleValues;
   }
 
+  /**
+   * Determines the audio group index based on candlestick trend.
+   * This method encapsulates the business logic for mapping market trends
+   * to appropriate audio palette entries.
+   *
+   * @returns Object containing groupIndex if applicable, empty object otherwise
+   */
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // For candlesticks, groupIndex is determined by trend analysis
+    // This logic is handled by the AudioPaletteService to maintain
+    // proper architectural separation of concerns
+    return {};
+  }
+
   protected audio(): AudioState {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
-
-    // set mood: 9 (fancy sine) for Bear, 0 (default sine) for Bull. From AudioPalette.
-    const groupIndex
-      = this.candles[this.currentPointIndex].trend === 'Bull' ? 0 : 9;
 
     return {
       min: this.min,
@@ -319,7 +330,8 @@ export class Candlestick extends AbstractTrace<number> {
       size: this.candles.length,
       index: this.currentPointIndex,
       value,
-      groupIndex,
+      trend: this.candles[this.currentPointIndex].trend,
+      ...this.getAudioGroupIndex(),
     };
   }
 
@@ -348,7 +360,11 @@ export class Candlestick extends AbstractTrace<number> {
     // This ensures highlightValues[dynamicRow][col] works correctly
     const segmentElements: SVGElement[][] = [];
 
-    for (let sortedPosition = 0; sortedPosition < this.sections.length; sortedPosition++) {
+    for (
+      let sortedPosition = 0;
+      sortedPosition < this.sections.length;
+      sortedPosition++
+    ) {
       segmentElements[sortedPosition] = [];
 
       for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {
@@ -380,5 +396,15 @@ export class Candlestick extends AbstractTrace<number> {
       section: this.currentSegmentType,
       fill: { label: TREND, value: point.trend },
     };
+  }
+
+  /**
+   * Gets the current candlestick trend for audio palette selection.
+   * This provides raw data that services can use for business logic.
+   *
+   * @returns The trend of the current candlestick point
+   */
+  public getCurrentTrend(): 'Bull' | 'Bear' | 'Neutral' {
+    return this.candles[this.currentPointIndex].trend;
   }
 }
