@@ -1,3 +1,10 @@
+## [3.15.2](https://github.com/xability/maidr/compare/v3.15.1...v3.15.2) (2025-06-19)
+
+
+### Bug Fixes
+
+* address 2D layout plot highlight ([#360](https://github.com/xability/maidr/issues/360)) ([8fd89e7](https://github.com/xability/maidr/commit/8fd89e7b746ed7458ec049ad7262a7a764da07ae))
+
 ## [3.15.1](https://github.com/xability/maidr/compare/v3.15.0...v3.15.1) (2025-06-19)
 
 
