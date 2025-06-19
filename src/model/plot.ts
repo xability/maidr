@@ -91,9 +91,9 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     }
 
     try {
-      const subplotIndex = this.row + 1;
+      const numCols = this.subplots[0]?.length || 1;
+      const subplotIndex = this.row * numCols + this.col + 1;
       const subplotSelector = `g[id="axes_${subplotIndex}"]`;
-
       const subplotElement = document.querySelector(subplotSelector) as SVGElement;
 
       if (subplotElement) {
@@ -104,11 +104,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       }
 
       const allSubplots = document.querySelectorAll('g[id^="axes_"]');
-
-      if (allSubplots.length > 0 && this.row < allSubplots.length) {
+      if (allSubplots.length > 0 && subplotIndex - 1 < allSubplots.length) {
         return {
           empty: false,
-          elements: allSubplots[this.row] as SVGElement,
+          elements: allSubplots[subplotIndex - 1] as SVGElement,
         };
       }
     } catch (error) {

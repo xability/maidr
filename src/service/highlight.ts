@@ -98,6 +98,7 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
     this.unhighlightSubplotElements();
     const figure = document.querySelector('g[id^="maidr-"] > path[style*="fill"]')?.parentElement as SVGElement | null;
     const figureBgElement = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    console.log('Highlighting subplot elements:', elements.map(e => e.id || e.getAttribute('maidr') || e.tagName));
     for (const element of elements) {
       Svg.setSubplotHighlightSvgWithAdaptiveColor(element, Constant.MAIDR_HIGHLIGHT_COLOR, figureBgElement);
       this.highlightedSubplots.add(element);
