@@ -1,8 +1,10 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { AudioPaletteService } from './audioPalette';
 
 interface Range {
@@ -12,14 +14,11 @@ interface Range {
 
 type AudioId = ReturnType<typeof setTimeout>;
 
-const MIN_FREQUENCY = 200;
-const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
-const DEFAULT_VOLUME = 0.5;
 
 enum AudioMode {
   OFF = 'off',
@@ -28,22 +27,27 @@ enum AudioMode {
 }
 
 export class AudioService
-implements Observer<SubplotState | TraceState>, Disposable {
+implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
+  private readonly settings: SettingsService;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
 
   private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
 
-  private volume: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  public constructor(notification: NotificationService, state: PlotState) {
+  private currentVolume: number;
+  private currentMinFrequency: number;
+  private currentMaxFrequency: number;
+
+  public constructor(notification: NotificationService, state: PlotState, settings: SettingsService) {
     this.notification = notification;
     this.audioPalette = new AudioPaletteService();
+    this.settings = settings;
 
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
@@ -51,9 +55,15 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.activeAudioIds = new Map();
 
-    this.volume = DEFAULT_VOLUME;
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
+
+    const initialSettings = this.settings.loadSettings();
+    this.currentVolume = initialSettings.general.volume / 100;
+    this.currentMinFrequency = initialSettings.general.minFrequency;
+    this.currentMaxFrequency = initialSettings.general.maxFrequency;
+
+    this.settings.addObserver(this);
   }
 
   public dispose(): void {
@@ -63,51 +73,24 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
+    this.settings.removeObserver(this);
   }
 
-  private initCompressor(): DynamicsCompressorNode {
-    const compressor = this.audioContext.createDynamicsCompressor();
-    compressor.threshold.value = -50;
-    compressor.knee.value = 40;
-    compressor.ratio.value = 12;
-    compressor.attack.value = 0;
-    compressor.release.value = 0.25;
-
-    const smoothGain = this.audioContext.createGain();
-    smoothGain.gain.value = 0.5;
-
-    compressor.connect(smoothGain);
-    smoothGain.connect(this.audioContext.destination);
-
-    return compressor;
-  }
-
-  private updateMode(state: PlotState): void {
-    if (state.empty || state.type === 'figure') {
-      return;
-    }
-
-    const traceState = state.type === 'subplot' ? state.trace : state;
-    if (
-      traceState.empty
-      || traceState.hasMultiPoints === this.isCombinedAudio
-    ) {
-      return;
-    }
-
-    this.isCombinedAudio = traceState.hasMultiPoints;
-    if (this.mode === AudioMode.OFF) {
-      return;
-    }
-
-    if (this.isCombinedAudio) {
-      this.mode = AudioMode.COMBINED;
+  public update(state: Settings | SubplotState | TraceState): void {
+    if ('general' in state) {
+      this.onSettingsChange(state);
     } else {
-      this.mode = AudioMode.SEPARATE;
+      this.onStateChange(state);
     }
   }
 
-  public update(state: SubplotState | TraceState): void {
+  private onSettingsChange(settings: Settings): void {
+    this.currentVolume = settings.general.volume / 100;
+    this.currentMinFrequency = settings.general.minFrequency;
+    this.currentMaxFrequency = settings.general.maxFrequency;
+  }
+
+  private onStateChange(state: SubplotState | TraceState): void {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
@@ -196,6 +179,59 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
   }
 
+  private getVolume(): number {
+    return Math.min(Math.max(this.currentVolume, 0), 1);
+  }
+
+  private getFrequencyRange(): { min: number; max: number } {
+    return {
+      min: this.currentMinFrequency,
+      max: this.currentMaxFrequency,
+    };
+  }
+
+  private initCompressor(): DynamicsCompressorNode {
+    const compressor = this.audioContext.createDynamicsCompressor();
+    compressor.threshold.value = -50;
+    compressor.knee.value = 40;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.25;
+
+    const smoothGain = this.audioContext.createGain();
+    smoothGain.gain.value = 0.5;
+
+    compressor.connect(smoothGain);
+    smoothGain.connect(this.audioContext.destination);
+
+    return compressor;
+  }
+
+  private updateMode(state: PlotState): void {
+    if (state.empty || state.type === 'figure') {
+      return;
+    }
+
+    const traceState = state.type === 'subplot' ? state.trace : state;
+    if (
+      traceState.empty
+      || traceState.hasMultiPoints === this.isCombinedAudio
+    ) {
+      return;
+    }
+
+    this.isCombinedAudio = traceState.hasMultiPoints;
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+
+    if (this.isCombinedAudio) {
+      this.mode = AudioMode.COMBINED;
+    } else {
+      this.mode = AudioMode.SEPARATE;
+    }
+  }
+
   private playTone(
     minFrequency: number,
     maxFrequency: number,
@@ -205,7 +241,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
-    const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
+    const toFreq = this.getFrequencyRange();
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
     const fromPanning = { min: 0, max: panningSize };
@@ -266,12 +302,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
   ): GainNode[] {
     const gainNodes: GainNode[] = [];
     const startTime = this.audioContext.currentTime;
+    const currentVolume = this.getVolume();
 
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
 
       // Apply timbre modulation envelope or use default
-      let oscillatorVolume = volume;
+      let oscillatorVolume = currentVolume;
 
       if (i === 0) {
         // Primary oscillator - use fundamental amplitude if specified
@@ -309,7 +346,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     paletteEntry?: AudioPaletteEntry,
   ): AudioId {
     const duration = DEFAULT_DURATION;
-    const volume = this.volume;
+    const volume = this.getVolume();
 
     // Use default sine wave if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
@@ -445,6 +482,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
+    const freqRange = this.getFrequencyRange();
+    const currentVolume = this.getVolume();
 
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
@@ -454,7 +493,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.interpolate(
         v,
         { min, max },
-        { min: MIN_FREQUENCY, max: MAX_FREQUENCY },
+        freqRange,
       ),
     );
 
@@ -480,7 +519,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const envelope = this.createAdsrEnvelope(
       gainNode,
       paletteEntry,
-      this.volume,
+      currentVolume,
       startTime,
       duration,
     );
@@ -527,13 +566,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
+    const currentVolume = this.getVolume();
 
     const frequencies = [500, 1000, 1500, 2100, 2700];
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
 
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.3, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    masterGain.gain.setValueAtTime(0.3 * currentVolume, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.01 * currentVolume, now + duration);
     masterGain.connect(this.compressor);
 
     const fromPanning = { min: 0, max: size };
@@ -564,8 +604,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
 
-      gain.gain.setValueAtTime(gains[i] * this.volume, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.setValueAtTime(gains[i] * currentVolume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001 * currentVolume, now + duration);
 
       stereoPannerNode.pan.value = panning;
 
@@ -676,13 +716,5 @@ implements Observer<SubplotState | TraceState>, Disposable {
       });
     });
     this.activeAudioIds.clear();
-  }
-
-  /**
-   * Sets the volume of the audio element.
-   * @param volumePercent - The volume as a percentage (0 to 100), which is normalized to a [0,1] range.
-   */
-  public setVolume(volumePercent: number): void {
-    this.volume = Math.min(Math.max(volumePercent / 100, 0), 1);
   }
 }

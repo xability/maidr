@@ -3,8 +3,8 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export type FigureState =
-  | {
+export type FigureState
+  = | {
     empty: true;
     type: 'figure';
   }
@@ -18,10 +18,11 @@ export type FigureState =
     index: number;
     subplot: SubplotState;
     traceTypes: string[];
+    highlight: HighlightState; // Figure manages subplot highlighting
   };
 
-export type SubplotState =
-  | {
+export type SubplotState
+  = | {
     empty: true;
     type: 'subplot';
   }
@@ -31,6 +32,7 @@ export type SubplotState =
     size: number;
     index: number;
     trace: TraceState;
+    highlight: HighlightState;
   };
 
 interface TraceEmptyState {
@@ -40,23 +42,23 @@ interface TraceEmptyState {
   audio: AudioEmptyState;
 }
 
-export type TraceState =
-  | TraceEmptyState
-  | {
-    empty: false;
-    type: 'trace';
-    traceType: TraceType;
-    title: string;
-    xAxis: string;
-    yAxis: string;
-    fill: string;
-    hasMultiPoints: boolean;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-    highlight: HighlightState;
-  };
+export type TraceState
+  = | TraceEmptyState
+    | {
+      empty: false;
+      type: 'trace';
+      traceType: TraceType;
+      title: string;
+      xAxis: string;
+      yAxis: string;
+      fill: string;
+      hasMultiPoints: boolean;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+      highlight: HighlightState;
+    };
 
 export interface AudioEmptyState {
   index: number;
@@ -83,12 +85,12 @@ export interface AudioState {
   groupIndex?: number;
 }
 
-export type BrailleState =
-  | TraceEmptyState
-  | BarBrailleState
-  | BoxBrailleState
-  | HeatmapBrailleState
-  | LineBrailleState;
+export type BrailleState
+  = | TraceEmptyState
+    | BarBrailleState
+    | BoxBrailleState
+    | HeatmapBrailleState
+    | LineBrailleState;
 
 interface BaseBrailleState {
   id: string;
@@ -139,8 +141,13 @@ export type AutoplayState = {
   [key in MovableDirection]: number;
 };
 
-export type HighlightState =
-  | TraceEmptyState
+export type HighlightState
+  = | {
+    empty: true;
+    type: 'trace';
+    traceType?: TraceType;
+    audio: AudioEmptyState;
+  }
   | {
     empty: false;
     elements: SVGElement | SVGElement[];

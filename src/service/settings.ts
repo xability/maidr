@@ -1,27 +1,23 @@
-import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
+import type { Observable, Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { Scope } from '@type/event';
 
 const SETTINGS_KEY = 'maidr-settings';
 
-export class SettingsService {
+export class SettingsService implements Observable<Settings> {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
-  private readonly audio: AudioService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
+  private observers: Observer<Settings>[];
 
-  private updateVolume(volume: number): void {
-    this.audio.setVolume(volume);
-  }
-
-  public constructor(storage: StorageService, display: DisplayService, audio: AudioService) {
+  public constructor(storage: StorageService, display: DisplayService) {
     this.storage = storage;
     this.display = display;
-    this.audio = audio;
+    this.observers = [];
 
     this.defaultSettings = {
       general: {
@@ -61,7 +57,24 @@ export class SettingsService {
 
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     this.currentSettings = saved ?? this.defaultSettings;
-    this.updateVolume(this.currentSettings.general.volume);
+  }
+
+  public get state(): Settings {
+    return this.currentSettings;
+  }
+
+  public addObserver(observer: Observer<Settings>): void {
+    this.observers.push(observer);
+  }
+
+  public removeObserver(observer: Observer<Settings>): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  public notifyStateUpdate(): void {
+    for (const observer of this.observers) {
+      observer.update(this.currentSettings);
+    }
   }
 
   public loadSettings(): Settings {
@@ -71,13 +84,13 @@ export class SettingsService {
   public saveSettings(newSettings: Settings): void {
     this.currentSettings = newSettings;
     this.storage.save(SETTINGS_KEY, this.currentSettings);
-    this.updateVolume(newSettings.general.volume);
+    this.notifyStateUpdate();
   }
 
   public resetSettings(): Settings {
     this.currentSettings = this.defaultSettings;
     this.storage.remove(SETTINGS_KEY);
-    this.updateVolume(this.defaultSettings.general.volume);
+    this.notifyStateUpdate();
     return this.currentSettings;
   }
 

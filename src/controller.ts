@@ -60,15 +60,15 @@ export class Controller implements Disposable {
     this.displayService = new DisplayService(this.context, plot, reactContainer);
     this.notificationService = new NotificationService();
 
-    this.audioService = new AudioService(this.notificationService, this.context.state);
-
-    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService, this.audioService);
+    const storageService = new LocalStorageService();
+    this.settingsService = new SettingsService(storageService, this.displayService);
+    this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
 
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
-    this.autoplayService = new AutoplayService(this.context, this.notificationService);
+    this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
     this.highlightService = new HighlightService();
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
@@ -143,6 +143,7 @@ export class Controller implements Disposable {
 
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
+    this.figure.addObserver(this.highlightService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);
