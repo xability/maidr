@@ -197,4 +197,53 @@ export abstract class Svg {
 
     return Color.rgbToString(modifiedRgb);
   }
+
+  public static getContrastingColorForElement(element: SVGElement): string {
+    const fill = window.getComputedStyle(element).fill || 'rgb(255,255,255)';
+    const rgb = Color.parse(fill);
+    if (!rgb)
+      return '#000';
+    const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    return luminance > 0.5 ? '#000' : '#fff';
+  }
+
+  public static setSubplotHighlightCss(element: SVGElement, color: string): void {
+    element.style.outline = `4px solid ${color}`;
+    element.style.outlineOffset = '3px';
+    element.style.borderRadius = '3px';
+    element.style.overflow = 'visible';
+  }
+
+  public static removeSubplotHighlightCss(element: SVGElement): void {
+    element.style.removeProperty('outline');
+    element.style.removeProperty('outline-offset');
+    element.style.removeProperty('border-radius');
+    element.style.removeProperty('overflow');
+  }
+
+  public static setSubplotHighlightSvgWithAdaptiveColor(group: SVGElement, fallbackColor: string, figureBgElement?: SVGElement): void {
+    const bg = group.querySelector('rect, path') as SVGElement | null;
+    let originalColor = '';
+    if (bg) {
+      originalColor = window.getComputedStyle(bg).getPropertyValue('fill');
+      if (!originalColor || originalColor === 'none' || originalColor === 'transparent' || originalColor === 'rgba(0, 0, 0, 0)') {
+        if (figureBgElement) {
+          originalColor = window.getComputedStyle(figureBgElement).getPropertyValue('fill');
+        } else {
+          originalColor = fallbackColor;
+        }
+      }
+      const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+      bg.setAttribute('stroke', highlightColor);
+      bg.setAttribute('stroke-width', '4');
+    }
+  }
+
+  public static removeSubplotHighlightSvg(group: SVGElement): void {
+    const bg = group.querySelector('rect, path') as SVGElement | null;
+    if (bg) {
+      bg.removeAttribute('stroke');
+      bg.removeAttribute('stroke-width');
+    }
+  }
 }
