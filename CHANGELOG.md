@@ -1,3 +1,10 @@
+## [3.14.1](https://github.com/xability/maidr/compare/v3.14.0...v3.14.1) (2025-06-19)
+
+
+### Bug Fixes
+
+* use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350)) ([120274b](https://github.com/xability/maidr/commit/120274b438c1866fbd86fc5cbb63e5ea28be4633))
+
 # [3.14.0](https://github.com/xability/maidr/compare/v3.13.0...v3.14.0) (2025-06-14)
 
 
