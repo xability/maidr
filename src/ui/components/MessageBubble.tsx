@@ -1,7 +1,8 @@
 import type { Message } from '@type/llm';
-import { AccountCircle, SmartToy } from '@mui/icons-material';
+import { AccountCircle } from '@mui/icons-material';
 import { Avatar, Box, Button, CircularProgress, Typography } from '@mui/material';
 import React from 'react';
+import { ModelIcon } from './ModelIcon';
 import { ModelSelection } from './ModelSelection';
 import { TypingEffect } from './TypingEffect';
 
@@ -13,7 +14,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings }) => {
   const getLLMAvatar = (): React.ReactElement => {
-    return message.isUser ? <AccountCircle /> : <SmartToy fontSize="small" />;
+    return message.isUser ? <AccountCircle /> : <ModelIcon model={message.model} />;
   };
 
   const getAriaLabel = (): string => {
