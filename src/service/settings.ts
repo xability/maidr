@@ -37,22 +37,22 @@ export class SettingsService {
         expertiseLevel: 'basic',
         customInstruction: '',
         models: {
-          GPT: {
+          OPENAI: {
             enabled: false,
             apiKey: '',
-            name: 'GPT',
+            name: 'OpenAI',
             version: 'gpt-4o',
           },
-          CLAUDE: {
+          ANTHROPIC_CLAUDE: {
             enabled: false,
             apiKey: '',
-            name: 'Claude',
+            name: 'Anthropic Claude',
             version: 'claude-3-7-sonnet-latest',
           },
-          GEMINI: {
+          GOOGLE_GEMINI: {
             enabled: false,
             apiKey: '',
-            name: 'Gemini',
+            name: 'Google Gemini',
             version: 'gemini-2.0-flash',
           },
         },

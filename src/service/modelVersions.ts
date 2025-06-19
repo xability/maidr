@@ -11,13 +11,13 @@ export interface ModelConfig<T extends LlmVersion> {
 }
 
 export interface ModelVersions {
-  GPT: ModelConfig<GptVersion>;
-  CLAUDE: ModelConfig<ClaudeVersion>;
-  GEMINI: ModelConfig<GeminiVersion>;
+  OPENAI: ModelConfig<GptVersion>;
+  ANTHROPIC_CLAUDE: ModelConfig<ClaudeVersion>;
+  GOOGLE_GEMINI: ModelConfig<GeminiVersion>;
 }
 
 export const MODEL_VERSIONS: ModelVersions = {
-  GPT: {
+  OPENAI: {
     default: 'gpt-4o',
     options: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o1-mini', 'o3', 'o4-mini'] as const,
     labels: {
@@ -29,7 +29,7 @@ export const MODEL_VERSIONS: ModelVersions = {
       'o4-mini': 'o4-mini',
     },
   },
-  CLAUDE: {
+  ANTHROPIC_CLAUDE: {
     default: 'claude-3-7-sonnet-latest',
     options: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest'] as const,
     labels: {
@@ -38,7 +38,7 @@ export const MODEL_VERSIONS: ModelVersions = {
       'claude-3-7-sonnet-latest': 'Claude 3.7 Sonnet',
     },
   },
-  GEMINI: {
+  GOOGLE_GEMINI: {
     default: 'gemini-2.0-flash',
     options: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-preview-04-17', 'gemini-2.5-pro-preview-05-06'] as const,
     labels: {
