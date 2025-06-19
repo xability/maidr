@@ -1,7 +1,7 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
+import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
-import { MODEL_VERSIONS } from '@ui/pages/Settings';
 import React from 'react';
 
 interface ModelSelectionProps {

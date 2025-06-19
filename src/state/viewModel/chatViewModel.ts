@@ -4,7 +4,7 @@ import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
-import { MODEL_VERSIONS } from '@ui/pages/Settings';
+import { MODEL_VERSIONS } from '@service/modelVersions';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
@@ -161,10 +161,13 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         }));
 
         const config = llmSettings.models[model];
+        const expertise = (llmSettings.customExpertise && ['basic', 'intermediate', 'advanced'].includes(llmSettings.customExpertise))
+          ? llmSettings.customExpertise as 'basic' | 'intermediate' | 'advanced'
+          : llmSettings.expertiseLevel;
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
+          expertise,
           apiKey: config.apiKey,
         });
 
