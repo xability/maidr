@@ -226,16 +226,16 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                       >
                         {isValidating
                           ? (
-                              <CircularProgress size={20} />
-                            )
+                            <CircularProgress size={20} />
+                          )
                           : isValid === true
                             ? (
-                                <CheckIcon color="success" />
-                              )
+                              <CheckIcon color="success" />
+                            )
                             : isValid === false
                               ? (
-                                  <ErrorIcon color="error" />
-                                )
+                                <ErrorIcon color="error" />
+                              )
                               : null}
                       </div>
                     </InputAdornment>
@@ -275,6 +275,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 const Settings: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('settings');
+  const chatViewModel = useViewModel('chat');
   const { general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
@@ -333,7 +334,7 @@ const Settings: React.FC = () => {
 
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
-    useViewModel('chat').loadInitialMessage();
+    chatViewModel.loadInitialMessage();
   };
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {

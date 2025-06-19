@@ -14,6 +14,7 @@ interface ModelSelectionProps {
 
 export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels }) => {
   const settingsViewModel = useViewModel('settings');
+  const chatViewModel = useViewModel('chat');
   const currentSettings = settingsViewModel.state;
 
   const handleModelChange = (modelKey: Llm, version: LlmVersion): void => {
@@ -33,9 +34,10 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
         },
       },
     };
-    // Create a deep copy of the settings to ensure all changes are preserved
-    const newSettings = JSON.parse(JSON.stringify(updatedSettings));
-    settingsViewModel.saveSettings(newSettings);
+    // The spread operator already creates a proper immutable update
+    settingsViewModel.saveSettings(updatedSettings);
+    // Reload the welcome message to reflect the new model version
+    chatViewModel.loadInitialMessage();
   };
 
   const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
