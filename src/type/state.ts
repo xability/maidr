@@ -83,12 +83,6 @@ export interface AudioState {
    * If undefined, defaults to 0 (single group).
    */
   groupIndex?: number;
-  /**
-   * Candlestick trend information for audio palette selection.
-   * Used by AudioService to determine appropriate audio characteristics.
-   * Only applicable for candlestick traces.
-   */
-  trend?: 'Bull' | 'Bear' | 'Neutral';
 }
 
 export type BrailleState
