@@ -5,28 +5,6 @@ import type { Disposable } from '@type/disposable';
  */
 export type WaveType = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
-/**
- * Predefined palette indices for base audio signatures.
- * These constants provide semantic meaning to palette positions
- * and make the code more maintainable than magic numbers.
- */
-export const AudioPaletteIndex = {
-  // Basic wave types (0-3)
-  SINE_BASIC: 0,
-  SQUARE_BASIC: 1,
-  SAWTOOTH_BASIC: 2,
-  TRIANGLE_BASIC: 3,
-
-  // Harmonic variations (4+)
-  SAWTOOTH_DARK: 4,
-  SINE_HARMONIC: 5,
-  TRIANGLE_HARMONIC: 6,
-  SQUARE_HARMONIC: 7,
-  TRIANGLE_MELLOW: 8,
-  SINE_SUBTLE: 9,
-  SAWTOOTH_SOFT: 10,
-} as const;
-
 export interface AudioPaletteEntry {
   waveType: WaveType;
   harmonicMix?: {
@@ -94,7 +72,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_DARK - duller and darker than basic sawtooth
+        waveType: 'sawtooth', // duller and darker than 'sine' or 'square'
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -111,7 +89,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // AudioPaletteIndex.SINE_HARMONIC
+        waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -127,7 +105,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_HARMONIC
+        waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -143,7 +121,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'square', // AudioPaletteIndex.SQUARE_HARMONIC
+        waveType: 'square',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -159,7 +137,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_MELLOW
+        waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -175,7 +153,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // AudioPaletteIndex.SINE_SUBTLE
+        waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -188,22 +166,6 @@ export class AudioPaletteService implements Disposable {
           decay: 0.1,
           sustain: 0.9,
           release: 0.15,
-        },
-      },
-      {
-        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_SOFT
-        harmonicMix: {
-          fundamental: 1,
-          harmonics: [
-            { frequency: 2, amplitude: 0.05 },
-            { frequency: 6, amplitude: 0.02 },
-          ],
-        },
-        timbreModulation: {
-          attack: 0.005,
-          decay: 0.4,
-          sustain: 0.2,
-          release: 0.6,
         },
       },
     ];
@@ -242,25 +204,6 @@ export class AudioPaletteService implements Disposable {
    */
   public get basePaletteSize(): number {
     return this.basePalette.length;
-  }
-
-  /**
-   * Determines the appropriate audio palette index for candlestick trends.
-   * This encapsulates the business logic for mapping market conditions
-   * to distinct audio signatures.
-   *
-   * @param trend The candlestick trend (Bull, Bear, or Neutral)
-   * @returns The palette index for the specified trend
-   */
-  public getCandlestickGroupIndex(trend: 'Bull' | 'Bear' | 'Neutral'): number {
-    switch (trend) {
-      case 'Bull':
-        return AudioPaletteIndex.SINE_BASIC; // Basic sine for positive market trends
-      case 'Bear':
-        return AudioPaletteIndex.SAWTOOTH_SOFT; // Soft sawtooth for negative market trends
-      case 'Neutral':
-        return AudioPaletteIndex.TRIANGLE_BASIC; // Triangle for neutral market trends
-    }
   }
 
   /**
