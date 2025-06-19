@@ -5,8 +5,8 @@ import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
 export class HighlightService implements Observer<SubplotState | TraceState | FigureState>, Disposable {
-  private readonly highlightedElements: Set<SVGElement>; // Track trace highlight clones
-  private readonly highlightedSubplots: Set<SVGElement>; // Track subplot highlight elements
+  private readonly highlightedElements: Set<SVGElement>;
+  private readonly highlightedSubplots: Set<SVGElement>;
 
   public constructor() {
     this.highlightedElements = new Set();
@@ -95,10 +95,11 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
   }
 
   private highlightSubplotElements(elements: SVGElement[]): void {
-    this.unhighlightSubplotElements(); // Remove previous subplot highlights
-
+    this.unhighlightSubplotElements();
+    const figure = document.querySelector('g[id^="maidr-"] > path[style*="fill"]')?.parentElement as SVGElement | null;
+    const figureBgElement = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {
-      element.classList.add('maidr-subplot-active'); // Add CSS class for subplot highlighting
+      Svg.setSubplotHighlightSvgWithAdaptiveColor(element, Constant.MAIDR_HIGHLIGHT_COLOR, figureBgElement);
       this.highlightedSubplots.add(element);
     }
   }
@@ -110,7 +111,7 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
 
   private unhighlightSubplotElements(): void {
     this.highlightedSubplots.forEach((element) => {
-      element.classList.remove('maidr-subplot-active'); // Remove CSS class from subplot elements
+      Svg.removeSubplotHighlightSvg(element);
     });
     this.highlightedSubplots.clear();
   }

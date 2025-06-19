@@ -72,16 +72,14 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       index: currentIndex,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
       traceTypes: activeSubplot.traceTypes,
-      highlight: this.highlight(), // Figure determines which subplot to highlight
+      highlight: this.highlight(),
     };
   }
 
   protected highlight(): HighlightState {
-    // Check if this is a multi-plot scenario (more than one subplot)
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
 
     if (totalSubplots <= 1) {
-      // No highlighting needed for single plot
       return {
         empty: true,
         type: 'trace',
@@ -92,10 +90,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       };
     }
 
-    // For multi-plot scenarios, find the subplot container element
     try {
-      // Calculate the subplot index based on the figure's current position
-      const subplotIndex = this.row + 1; // 1-based index
+      const subplotIndex = this.row + 1;
       const subplotSelector = `g[id="axes_${subplotIndex}"]`;
 
       const subplotElement = document.querySelector(subplotSelector) as SVGElement;
@@ -107,7 +103,6 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         };
       }
 
-      // Fallback: try to find by position in the subplot grid
       const allSubplots = document.querySelectorAll('g[id^="axes_"]');
 
       if (allSubplots.length > 0 && this.row < allSubplots.length) {
@@ -117,7 +112,6 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         };
       }
     } catch (error) {
-      // No subplot element found
       return {
         empty: true,
         type: 'trace',
@@ -128,7 +122,6 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       };
     }
 
-    // No subplot element found
     return {
       empty: true,
       type: 'trace',
@@ -174,8 +167,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   protected highlight(): HighlightState {
-    // Subplot highlighting is now managed by the Figure
-    // This method only handles trace-level highlighting
     return {
       empty: true,
       type: 'trace',
@@ -204,9 +195,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
-  // Add a method to get state with figure position for highlighting
   public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
-    return this.state; // Simplified since Figure now manages highlighting
+    return this.state;
   }
 }
 
