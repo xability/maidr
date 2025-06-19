@@ -1,3 +1,10 @@
+## [3.15.1](https://github.com/xability/maidr/compare/v3.15.0...v3.15.1) (2025-06-19)
+
+
+### Reverts
+
+* Revert "fix: use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350))" ([#359](https://github.com/xability/maidr/issues/359)) ([18016a2](https://github.com/xability/maidr/commit/18016a2fee9b887c1b886c47d5bdcc825f57b294))
+
 # [3.15.0](https://github.com/xability/maidr/compare/v3.14.1...v3.15.0) (2025-06-19)
 
 
