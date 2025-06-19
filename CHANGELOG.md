@@ -1,3 +1,10 @@
+# [3.15.0](https://github.com/xability/maidr/compare/v3.14.1...v3.15.0) (2025-06-19)
+
+
+### Features
+
+* support multi-panel plot highlight ([#357](https://github.com/xability/maidr/issues/357)) ([0b94828](https://github.com/xability/maidr/commit/0b948284bb6fd06628fcd9d1824b4add35df1a0b))
+
 ## [3.14.1](https://github.com/xability/maidr/compare/v3.14.0...v3.14.1) (2025-06-19)
 
 
