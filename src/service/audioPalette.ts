@@ -56,7 +56,40 @@ export class AudioPaletteService implements Disposable {
   private readonly basePalette: AudioPaletteEntry[];
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
+  /**
+   * Helper method to create a base palette entry with guaranteed index consistency.
+   * Use this when adding new entries to ensure index property matches array position.
+   *
+   * @param index - The index from AudioPaletteIndex constants
+   * @param waveType - The wave type for this entry
+   * @param additionalProps - Additional properties (harmonicMix, timbreModulation, etc.)
+   * @returns AudioPaletteEntry with guaranteed index consistency
+   */
+  private static createBasePaletteEntry(
+    index: number,
+    waveType: WaveType,
+    additionalProps: Partial<Omit<AudioPaletteEntry, 'index' | 'waveType'>> = {},
+  ): AudioPaletteEntry {
+    return {
+      index,
+      waveType,
+      ...additionalProps,
+    };
+  }
+
   public constructor() {
+    // IMPORTANT: Base palette index consistency requirement
+    // When modifying this basePalette array:
+    // 1. Each entry's `index` property MUST match its array position (0-based)
+    // 2. Use AudioPaletteIndex constants for semantic clarity
+    // 3. Update AudioPaletteIndex constants if adding/removing entries
+    // 4. The validateBasePalette() method will enforce this at runtime
+    //
+    // Example: basePalette[0] must have index: AudioPaletteIndex.SINE_BASIC (0)
+    //          basePalette[1] must have index: AudioPaletteIndex.SQUARE_BASIC (1)
+    //
+    // This consistency is critical for proper audio palette group mapping.
+
     // Base palette with fundamental wave types
     this.basePalette = [
       {
@@ -449,6 +482,12 @@ export class AudioPaletteService implements Disposable {
   /**
    * Validates that the base palette entries have correct indices
    * to prevent silent mismatches when reordering
+   */
+  /**
+   * Validates that all base palette entries have index properties that match their array positions.
+   * This method should be called in the constructor and whenever the basePalette is modified.
+   *
+   * @throws Error if any entry's index doesn't match its array position
    */
   private validateBasePalette(): void {
     this.basePalette.forEach((entry, arrayIndex) => {
