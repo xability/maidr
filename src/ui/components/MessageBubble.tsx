@@ -73,7 +73,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
               variant="caption"
               fontWeight="medium"
               color="text.secondary"
-              component="div"
+              component="h3"
+              sx={{ fontSize: '0.8rem', margin: 0, marginBottom: 0.5 }}
               aria-label={`Model: ${getModelDisplayName(message.model)}`}
             >
               {getModelDisplayName(message.model)}
