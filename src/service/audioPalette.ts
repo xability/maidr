@@ -29,6 +29,7 @@ export const AudioPaletteIndex = {
 } as const;
 
 export interface AudioPaletteEntry {
+  index: number;
   waveType: WaveType;
   harmonicMix?: {
     fundamental: number;
@@ -59,6 +60,7 @@ export class AudioPaletteService implements Disposable {
     // Base palette with fundamental wave types
     this.basePalette = [
       {
+        index: AudioPaletteIndex.SINE_BASIC,
         waveType: 'sine',
         timbreModulation: {
           attack: 0.01,
@@ -68,6 +70,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SQUARE_BASIC,
         waveType: 'square',
         timbreModulation: {
           attack: 0.005,
@@ -77,6 +80,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SAWTOOTH_BASIC,
         waveType: 'sawtooth',
         timbreModulation: {
           attack: 0.02,
@@ -86,6 +90,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.TRIANGLE_BASIC,
         waveType: 'triangle',
         timbreModulation: {
           attack: 0.015,
@@ -95,7 +100,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_DARK - duller and darker than basic sawtooth
+        index: AudioPaletteIndex.SAWTOOTH_DARK,
+        waveType: 'sawtooth',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -112,7 +118,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // AudioPaletteIndex.SINE_HARMONIC
+        index: AudioPaletteIndex.SINE_HARMONIC,
+        waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -128,7 +135,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_HARMONIC
+        index: AudioPaletteIndex.TRIANGLE_HARMONIC,
+        waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -144,7 +152,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'square', // AudioPaletteIndex.SQUARE_HARMONIC
+        index: AudioPaletteIndex.SQUARE_HARMONIC,
+        waveType: 'square',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -160,7 +169,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'triangle', // AudioPaletteIndex.TRIANGLE_MELLOW
+        index: AudioPaletteIndex.TRIANGLE_MELLOW,
+        waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -176,7 +186,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sine', // AudioPaletteIndex.SINE_SUBTLE
+        index: AudioPaletteIndex.SINE_SUBTLE,
+        waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -192,7 +203,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // AudioPaletteIndex.SAWTOOTH_SOFT
+        index: AudioPaletteIndex.SAWTOOTH_SOFT,
+        waveType: 'sawtooth',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -209,8 +221,13 @@ export class AudioPaletteService implements Disposable {
       },
     ];
 
+    // Validate that array indices match the index properties
+    this.validateBasePalette();
+
     this.extendedPalette = new Map();
     this.generateExtendedPalette();
+
+    this.validateBasePalette();
   }
 
   public dispose(): void {
@@ -276,6 +293,7 @@ export class AudioPaletteService implements Disposable {
     const extendedDefinitions: AudioPaletteEntry[] = [
       // Harmonic variations of sine wave
       {
+        index: this.basePalette.length + 0,
         waveType: 'sine',
         harmonicMix: {
           fundamental: 1.0,
@@ -293,6 +311,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Harmonic variations of square wave
       {
+        index: this.basePalette.length + 1,
         waveType: 'square',
         harmonicMix: {
           fundamental: 1.0,
@@ -310,6 +329,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Complex harmonic mix with sawtooth
       {
+        index: this.basePalette.length + 2,
         waveType: 'sawtooth',
         harmonicMix: {
           fundamental: 1.0,
@@ -328,6 +348,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Triangle with unique modulation
       {
+        index: this.basePalette.length + 3,
         waveType: 'triangle',
         harmonicMix: {
           fundamental: 1.0,
@@ -374,6 +395,7 @@ export class AudioPaletteService implements Disposable {
     );
 
     return {
+      index: groupIndex,
       waveType: baseEntry.waveType,
       harmonicMix: {
         fundamental: 1.0,
@@ -424,5 +446,20 @@ export class AudioPaletteService implements Disposable {
       ),
       release: Math.max(0.1, Math.min(0.5, base.release * factor)),
     };
+  }
+
+  /**
+   * Validates that the base palette entries have correct indices
+   * to prevent silent mismatches when reordering
+   */
+  private validateBasePalette(): void {
+    this.basePalette.forEach((entry, arrayIndex) => {
+      if (entry.index !== arrayIndex) {
+        throw new Error(
+          `AudioPalette validation error: Entry at array position ${arrayIndex} has index ${entry.index}. `
+          + `Array position must match the index property to prevent audio palette mismatches.`,
+        );
+      }
+    });
   }
 }
