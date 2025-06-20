@@ -599,7 +599,7 @@ textarea {
 }
 
 .llm-model-setting-row-check-icon {
-  margin-right: 1px;
+  margin-right: 8px;
 }
 
 .llm-model-setting-row-menu-item {
@@ -608,10 +608,6 @@ textarea {
 
 .llm-model-setting-row-menu-item.selected {
   font-weight: bold;
-}
-
-.llm-model-setting-row-check-icon {
-  margin-right: 8px;
 }
 
 .llm-model-setting-select-menu {
