@@ -4,6 +4,7 @@ import type { ChatService } from '@service/chat';
 import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
+import { MODEL_VERSIONS } from '@service/modelVersions';
 import { AbstractViewModel } from './viewModel';
 
 interface ChatState {
@@ -13,6 +14,19 @@ interface ChatState {
 const initialState: ChatState = {
   messages: [],
 };
+
+function getModelDisplayName(modelKey: string): string {
+  switch (modelKey) {
+    case 'OPENAI':
+      return 'OpenAI';
+    case 'ANTHROPIC_CLAUDE':
+      return 'Anthropic Claude';
+    case 'GOOGLE_GEMINI':
+      return 'Google Gemini';
+    default:
+      return 'AI Assistant';
+  }
+}
 
 const chatSlice = createSlice({
   name: 'chat',
@@ -27,13 +41,15 @@ const chatSlice = createSlice({
         status: 'SUCCESS',
       });
     },
-    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
+    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }>) => {
       state.messages.push({
         id: `system-${Date.now()}`,
         text: action.payload.text,
         isUser: false,
         timestamp: action.payload.timestamp,
         status: 'SUCCESS',
+        modelSelections: action.payload.modelSelections,
+        isWelcomeMessage: action.payload.isWelcomeMessage,
       });
     },
     addPendingResponse: (state, action: PayloadAction<{ model: Llm; timestamp: string }>) => {
@@ -106,13 +122,37 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.chatService.toggle();
   }
 
-  private loadInitialMessage(): void {
+  public loadInitialMessage(): void {
     const timestamp = new Date().toISOString();
-    const text = this.canSend
-      ? 'Welcome to the Chart Assistant. You can ask questions about the chart and get AI-powered responses.'
+    const llmModels = this.snapshot.settings.llm.models;
+
+    const enabledModels = Object.entries(llmModels)
+      .filter(([_, cfg]) => cfg.enabled)
+      .map(([modelKey, cfg]) => {
+        const labelMap = MODEL_VERSIONS[modelKey as keyof typeof MODEL_VERSIONS]?.labels;
+        const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
+        const displayName = getModelDisplayName(modelKey);
+        return `${displayName} (${versionLabel})`;
+      });
+
+    const modelSelections = Object.entries(llmModels)
+      .filter(([_, cfg]) => cfg.enabled)
+      .map(([modelKey, cfg]) => ({
+        modelKey: modelKey as Llm,
+        name: getModelDisplayName(modelKey),
+        version: cfg.version,
+      }));
+
+    const text = enabledModels.length > 0
+      ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
       : 'No agents are enabled. Please enable at least one agent in the settings page.';
 
-    this.store.dispatch(addSystemMessage({ text, timestamp }));
+    this.store.dispatch(addSystemMessage({
+      text,
+      timestamp,
+      modelSelections,
+      isWelcomeMessage: true,
+    }));
   }
 
   public async sendMessage(newMessage: string): Promise<void> {
@@ -135,10 +175,13 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         }));
 
         const config = llmSettings.models[model];
+        const expertise = (llmSettings.customExpertise && ['basic', 'intermediate', 'advanced'].includes(llmSettings.customExpertise))
+          ? llmSettings.customExpertise as 'basic' | 'intermediate' | 'advanced'
+          : llmSettings.expertiseLevel;
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
+          expertise,
           apiKey: config.apiKey,
         });
 

@@ -21,19 +21,19 @@ const initialState: SettingsState = {
     expertiseLevel: 'basic',
     customInstruction: '',
     models: {
-      GPT: {
+      OPENAI: {
         enabled: false,
         apiKey: '',
-        name: 'GPT',
+        name: 'OPENAI',
         version: 'gpt-4o',
       },
-      CLAUDE: {
+      ANTHROPIC_CLAUDE: {
         enabled: false,
         apiKey: '',
-        name: 'Claude',
+        name: 'ANTHROPIC_CLAUDE',
         version: 'claude-3-7-sonnet-latest',
       },
-      GEMINI: {
+      GOOGLE_GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Gemini',
@@ -84,6 +84,11 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.settingsService.saveSettings(settings);
     this.store.dispatch(update(settings));
     this.toggle();
+  }
+
+  public saveSettings(settings: Settings): void {
+    this.settingsService.saveSettings(settings);
+    this.store.dispatch(update(settings));
   }
 
   public reset(): void {
