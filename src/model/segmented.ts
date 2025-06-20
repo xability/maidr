@@ -63,6 +63,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         audio: {
           index: 0,
           size: 0,
+          groupIndex: 0,
         },
       };
     }

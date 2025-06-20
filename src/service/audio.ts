@@ -355,7 +355,16 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
     // Use default sine wave if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
-      paletteEntry = { index: 0, waveType: 'sine' };
+      paletteEntry = {
+        index: 0,
+        waveType: 'sine',
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.1,
+          sustain: 0.8,
+          release: 0.2,
+        },
+      };
     }
 
     const oscillators: OscillatorNode[] = this.createOscillators(

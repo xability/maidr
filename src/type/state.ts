@@ -63,6 +63,7 @@ export type TraceState
 export interface AudioEmptyState {
   index: number;
   size: number;
+  groupIndex?: number;
 }
 
 export interface AudioState {
