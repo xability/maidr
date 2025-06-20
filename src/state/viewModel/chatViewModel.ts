@@ -15,6 +15,19 @@ const initialState: ChatState = {
   messages: [],
 };
 
+function getModelDisplayName(modelKey: string): string {
+  switch (modelKey) {
+    case 'OPENAI':
+      return 'OpenAI';
+    case 'ANTHROPIC_CLAUDE':
+      return 'Anthropic Claude';
+    case 'GOOGLE_GEMINI':
+      return 'Google Gemini';
+    default:
+      return 'AI Assistant';
+  }
+}
+
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
@@ -118,14 +131,15 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       .map(([modelKey, cfg]) => {
         const labelMap = MODEL_VERSIONS[modelKey as keyof typeof MODEL_VERSIONS]?.labels;
         const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
-        return `${cfg.name} (${versionLabel})`;
+        const displayName = getModelDisplayName(modelKey);
+        return `${displayName} (${versionLabel})`;
       });
 
     const modelSelections = Object.entries(llmModels)
       .filter(([_, cfg]) => cfg.enabled)
       .map(([modelKey, cfg]) => ({
         modelKey: modelKey as Llm,
-        name: cfg.name,
+        name: getModelDisplayName(modelKey),
         version: cfg.version,
       }));
 

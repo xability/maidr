@@ -12,6 +12,19 @@ interface MessageBubbleProps {
   _onOpenSettings?: () => void;
 }
 
+function getModelDisplayName(model?: string): string {
+  switch (model) {
+    case 'OPENAI':
+      return 'OpenAI';
+    case 'ANTHROPIC_CLAUDE':
+      return 'Anthropic Claude';
+    case 'GOOGLE_GEMINI':
+      return 'Google Gemini';
+    default:
+      return 'AI Assistant';
+  }
+}
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings }) => {
   const getLLMAvatar = (): React.ReactElement => {
     return message.isUser ? <AccountCircle /> : <ModelIcon model={message.model} />;
@@ -19,7 +32,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
 
   const getAriaLabel = (): string => {
     const role = message.isUser ? 'Your message' : 'AI Assistant message';
-    const model = !message.isUser ? ` from ${message.model || 'AI Assistant'}` : '';
+    const model = !message.isUser ? ` from ${getModelDisplayName(message.model)}` : '';
     const status = !message.isUser && message.status === 'PENDING' ? ' (typing)' : '';
     return `${role}${model}${status}`;
   };
@@ -61,9 +74,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
               fontWeight="medium"
               color="text.secondary"
               component="div"
-              aria-label={`Model: ${message.model || 'AI Assistant'}`}
+              aria-label={`Model: ${getModelDisplayName(message.model)}`}
             >
-              {message.model || 'AI Assistant'}
+              {getModelDisplayName(message.model)}
             </Typography>
           )}
           <TypingEffect text={message.text} isUser={message.isUser} />
