@@ -176,6 +176,7 @@ export class HighlightService implements Observer<HighlightStateUnion>, Disposab
         highlightElement.remove();
       });
       this.highlightedElements.clear();
+      this.unhighlightSubplotElements();
     } catch (error) {
       console.error('Failed to clear highlights:', error);
     }
