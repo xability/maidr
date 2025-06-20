@@ -56,27 +56,6 @@ export class AudioPaletteService implements Disposable {
   private readonly basePalette: AudioPaletteEntry[];
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
-  /**
-   * Helper method to create a base palette entry with guaranteed index consistency.
-   * Use this when adding new entries to ensure index property matches array position.
-   *
-   * @param index - The index from AudioPaletteIndex constants
-   * @param waveType - The wave type for this entry
-   * @param additionalProps - Additional properties (harmonicMix, timbreModulation, etc.)
-   * @returns AudioPaletteEntry with guaranteed index consistency
-   */
-  private static createBasePaletteEntry(
-    index: number,
-    waveType: WaveType,
-    additionalProps: Partial<Omit<AudioPaletteEntry, 'index' | 'waveType'>> = {},
-  ): AudioPaletteEntry {
-    return {
-      index,
-      waveType,
-      ...additionalProps,
-    };
-  }
-
   public constructor() {
     // IMPORTANT: Base palette index consistency requirement
     // When modifying this basePalette array:
