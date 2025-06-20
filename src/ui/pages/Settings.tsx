@@ -541,8 +541,6 @@ const Settings: React.FC = () => {
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
                   onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
-                  aria-label={`${modelKey} API key input`}
-                  aria-describedby={`${modelKey}-status`}
                 />
               </Grid>
             );
@@ -620,6 +618,15 @@ const Settings: React.FC = () => {
           </div>
           <div id="save-settings-description">
             Save all current settings and close the dialog. Changes will be applied immediately.
+          </div>
+          <div id="GPT-version-description">
+            Select the GPT model version to use for AI assistance. Different versions offer varying levels of capability and performance.
+          </div>
+          <div id="CLAUDE-version-description">
+            Select the Claude model version to use for AI assistance. Different versions offer varying levels of capability and performance.
+          </div>
+          <div id="GEMINI-version-description">
+            Select the Gemini model version to use for AI assistance. Different versions offer varying levels of capability and performance.
           </div>
         </div>
       </DialogContent>
