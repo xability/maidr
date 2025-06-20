@@ -5,7 +5,7 @@ import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
-import { AudioPaletteService } from './audioPalette';
+import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 
 interface Range {
   min: number;
@@ -19,6 +19,7 @@ const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
+const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
 enum AudioMode {
   OFF = 'off',
@@ -105,7 +106,12 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     }
 
     const audio = state.audio;
-    const groupIndex = audio.groupIndex;
+    let groupIndex = audio.groupIndex;
+
+    // Handle candlestick trend-based audio selection
+    if (audio.trend && groupIndex === undefined) {
+      groupIndex = this.audioPalette.getCandlestickGroupIndex(audio.trend);
+    }
 
     // Determine if we need to use multiclass audio based on whether groupIndex is defined
     // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
@@ -348,9 +354,9 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     const duration = DEFAULT_DURATION;
     const volume = this.getVolume();
 
-    // Use default sine wave if no palette entry provided (for backwards compatibility)
+    // Use base palette entry (index 0) if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
-      paletteEntry = { waveType: 'sine' };
+      paletteEntry = this.audioPalette.getPaletteEntry(0);
     }
 
     const oscillators: OscillatorNode[] = this.createOscillators(
@@ -635,18 +641,18 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   private playZeroTone(): AudioId {
     // Always use original triangle wave for zero values, regardless of groups
-    return this.playOscillator(NULL_FREQUENCY, 0, { waveType: 'triangle' });
+    return this.playOscillator(NULL_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
 
   public playWaitingTone(): AudioId {
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, 0, { waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
       1000,
     );
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, 0, { waveType: 'sine' });
+    return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
