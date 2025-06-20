@@ -5,7 +5,7 @@ import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
-import { AudioPaletteService } from './audioPalette';
+import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 
 interface Range {
   min: number;
@@ -19,7 +19,7 @@ const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
-const DEFAULT_PALETTE_INDEX = -1;
+const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
 enum AudioMode {
   OFF = 'off',
