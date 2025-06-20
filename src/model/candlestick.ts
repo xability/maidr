@@ -68,8 +68,7 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = 0; // Points to 'open' segment index in sections array
     }
 
-    const selectors
-      = typeof layer.selectors === 'string' ? layer.selectors : '';
+    const selectors = typeof layer.selectors === 'string' ? layer.selectors : '';
     this.highlightValues = this.mapToSvgElements(selectors);
   }
 
