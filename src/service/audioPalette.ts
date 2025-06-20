@@ -291,7 +291,7 @@ export class AudioPaletteService implements Disposable {
     const extendedDefinitions: AudioPaletteEntry[] = [
       // Harmonic variations of sine wave
       {
-        index: this.basePalette.length + 0,
+        index: this.basePalette.length,
         waveType: 'sine',
         harmonicMix: {
           fundamental: 1.0,
@@ -414,7 +414,7 @@ export class AudioPaletteService implements Disposable {
     // Generate harmonics based on variation
     const numHarmonics
       = AudioPaletteService.MIN_HARMONICS
-        + (variation % AudioPaletteService.HARMONIC_VARIATION);
+      + (variation % AudioPaletteService.HARMONIC_VARIATION);
 
     for (let i = 0; i < numHarmonics; i++) {
       const frequency = 1.0 + (i + 1) * (0.5 + ((variation * 0.3) % 1.0));
