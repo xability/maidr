@@ -261,6 +261,9 @@ export class AudioPaletteService implements Disposable {
         return AudioPaletteIndex.SAWTOOTH_SOFT; // Soft sawtooth for negative market trends
       case 'Neutral':
         return AudioPaletteIndex.TRIANGLE_BASIC; // Triangle for neutral market trends
+      default:
+        // Defensive fallback for unexpected trend values
+        return AudioPaletteIndex.SINE_BASIC;
     }
   }
 
