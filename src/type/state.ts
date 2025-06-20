@@ -1,4 +1,4 @@
-import type { BoxPoint, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
@@ -88,7 +88,7 @@ export interface AudioState {
    * Used by AudioService to determine appropriate audio characteristics.
    * Only applicable for candlestick traces.
    */
-  trend?: 'Bull' | 'Bear' | 'Neutral';
+  trend?: CandlestickTrend;
 }
 
 export type BrailleState

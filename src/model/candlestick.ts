@@ -1,4 +1,4 @@
-import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
+import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
@@ -404,7 +404,7 @@ export class Candlestick extends AbstractTrace<number> {
    *
    * @returns The trend of the current candlestick point
    */
-  public getCurrentTrend(): 'Bull' | 'Bear' | 'Neutral' {
+  public getCurrentTrend(): CandlestickTrend {
     return this.candles[this.currentPointIndex].trend;
   }
 }

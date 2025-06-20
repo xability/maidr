@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { CandlestickTrend } from '@type/grammar';
 
 /**
  * Audio palette types for distinguishing groups in multiclass plots
@@ -252,7 +253,7 @@ export class AudioPaletteService implements Disposable {
    * @param trend The candlestick trend (Bull, Bear, or Neutral)
    * @returns The palette index for the specified trend
    */
-  public getCandlestickGroupIndex(trend: 'Bull' | 'Bear' | 'Neutral'): number {
+  public getCandlestickGroupIndex(trend: CandlestickTrend): number {
     switch (trend) {
       case 'Bull':
         return AudioPaletteIndex.SINE_BASIC; // Basic sine for positive market trends
