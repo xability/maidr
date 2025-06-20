@@ -307,20 +307,6 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candleValues;
   }
 
-  /**
-   * Determines the audio group index based on candlestick trend.
-   * This method encapsulates the business logic for mapping market trends
-   * to appropriate audio palette entries.
-   *
-   * @returns Object containing groupIndex if applicable, empty object otherwise
-   */
-  protected getAudioGroupIndex(): { groupIndex?: number } {
-    // For candlesticks, groupIndex is determined by trend analysis
-    // This logic is handled by the AudioPaletteService to maintain
-    // proper architectural separation of concerns
-    return {};
-  }
-
   protected audio(): AudioState {
     const value = this.candles[this.currentPointIndex][this.currentSegmentType];
 
@@ -331,7 +317,6 @@ export class Candlestick extends AbstractTrace<number> {
       index: this.currentPointIndex,
       value,
       trend: this.candles[this.currentPointIndex].trend,
-      ...this.getAudioGroupIndex(),
     };
   }
 
