@@ -459,11 +459,8 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Validates that the base palette entries have correct indices
-   * to prevent silent mismatches when reordering
-   */
-  /**
-   * Validates that all base palette entries have index properties that match their array positions.
+   * Validates that all base palette entries have correct indices to prevent silent mismatches
+   * when reordering. Ensures that each entry's index property matches its array position.
    * This method should be called in the constructor and whenever the basePalette is modified.
    *
    * @throws Error if any entry's index doesn't match its array position
