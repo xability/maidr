@@ -2,27 +2,29 @@ import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import type { SubplotState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
-type HighlightState = SubplotState | TraceState | Settings;
+type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
-export class HighlightService implements Observer<HighlightState>, Disposable {
+export class HighlightService implements Observer<HighlightStateUnion>, Disposable {
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
+  private readonly highlightedSubplots: Set<SVGElement>;
   private currentHighlightColor: string;
 
   public constructor(settings: SettingsService) {
     this.highlightedElements = new Map();
+    this.highlightedSubplots = new Set();
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
   }
 
   public dispose(): void {
-    this.clear();
+    this.unhighlightAll();
   }
 
-  private isSettings(state: HighlightState): state is Settings {
+  private isSettings(state: HighlightStateUnion): state is Settings {
     return 'general' in state;
   }
 
@@ -40,32 +42,92 @@ export class HighlightService implements Observer<HighlightState>, Disposable {
     this.currentHighlightColor = settings.general.highlightColor;
   }
 
-  private handleStateUpdate(state: SubplotState | TraceState): void {
+  private handleStateUpdate(state: SubplotState | TraceState | FigureState): void {
     if (state.empty) {
       return;
     }
 
-    this.clear();
-    const trace = state.type === Constant.MAIDR_SUBPLOT ? state.trace : state;
-    if (trace.empty || trace.highlight.empty) {
+    this.unhighlightTraceElements();
+
+    if (state.type === 'figure') {
+      this.handleFigureState(state);
+    } else if (state.type === 'subplot') {
+      this.handleSubplotState(state);
+    } else {
+      this.handleTraceState(state);
+    }
+  }
+
+  private handleFigureState(state: FigureState): void {
+    if (!state.empty) {
+      this.processHighlighting(state.highlight);
+    }
+  }
+
+  private handleSubplotState(state: SubplotState): void {
+    if (!state.empty) {
+      this.processHighlighting(state.highlight);
+    }
+  }
+
+  private handleTraceState(state: TraceState): void {
+    if (state.empty || state.highlight.empty) {
       return;
     }
 
-    const elements = Array.isArray(trace.highlight.elements)
-      ? trace.highlight.elements
-      : [trace.highlight.elements];
+    const elements = this.getElementsFromHighlight(state.highlight);
+    this.highlightTraceElements(elements);
+  }
 
-    elements.forEach((element) => {
+  private processHighlighting(highlight: HighlightState): void {
+    if (highlight.empty) {
+      return;
+    }
+
+    const elements = this.getElementsFromHighlight(highlight);
+    const isMultiPlot = this.isMultiPlotScenario();
+
+    if (isMultiPlot) {
+      this.highlightSubplotElements(elements);
+    } else {
+      this.unhighlightSubplotElements();
+    }
+  }
+
+  private getElementsFromHighlight(highlight: HighlightState): SVGElement[] {
+    if (highlight.empty) {
+      return [];
+    }
+    return Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
+  }
+
+  private isMultiPlotScenario(): boolean {
+    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
+    return totalSubplots > 1;
+  }
+
+  private highlightTraceElements(elements: SVGElement[]): void {
+    for (const element of elements) {
       try {
         const highlightElement = this.createHighlightElement(element);
         this.highlightedElements.set(element, highlightElement);
       } catch (error) {
         console.error('Failed to highlight element:', error);
       }
-    });
+    }
   }
 
-  public update(state: HighlightState): void {
+  private highlightSubplotElements(elements: SVGElement[]): void {
+    this.unhighlightSubplotElements();
+    const figure = document.querySelector('g[id^="maidr-"] > path[style*="fill"]')?.parentElement as SVGElement | null;
+    const figureBgElement = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    for (const element of elements) {
+      Svg.setSubplotHighlightSvgWithAdaptiveColor(element, this.currentHighlightColor, figureBgElement);
+      this.highlightedSubplots.add(element);
+    }
+  }
+
+  public update(state: HighlightStateUnion): void {
     try {
       if (this.isSettings(state)) {
         this.handleSettingsUpdate(state);
@@ -117,5 +179,24 @@ export class HighlightService implements Observer<HighlightState>, Disposable {
     } catch (error) {
       console.error('Failed to clear highlights:', error);
     }
+  }
+
+  private unhighlightTraceElements(): void {
+    this.highlightedElements.forEach((highlightElement) => {
+      highlightElement.remove();
+    });
+    this.highlightedElements.clear();
+  }
+
+  private unhighlightSubplotElements(): void {
+    this.highlightedSubplots.forEach((element) => {
+      Svg.removeSubplotHighlightSvg(element);
+    });
+    this.highlightedSubplots.clear();
+  }
+
+  private unhighlightAll(): void {
+    this.unhighlightTraceElements();
+    this.unhighlightSubplotElements();
   }
 }
