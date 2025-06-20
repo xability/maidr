@@ -155,7 +155,7 @@ export class ScatterTrace extends AbstractTrace<number> {
       audio: {
         index: 0,
         size: 0,
-        groupIndex: undefined,
+        groupIndex: 0,
       },
     };
   }
@@ -194,7 +194,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         audio: {
           index: 0,
           size: 0,
-          groupIndex: undefined,
+          groupIndex: 0,
         },
       };
     }
@@ -210,7 +210,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         audio: {
           index: 0,
           size: 0,
-          groupIndex: undefined,
+          groupIndex: 0,
         },
       };
     }
