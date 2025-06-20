@@ -152,6 +152,10 @@ export class ScatterTrace extends AbstractTrace<number> {
       empty: true,
       type: 'trace',
       traceType: this.type,
+      audio: {
+        index: 0,
+        size: 0,
+      },
     };
   }
 
@@ -186,6 +190,10 @@ export class ScatterTrace extends AbstractTrace<number> {
         empty: true,
         type: 'trace',
         traceType: this.type,
+        audio: {
+          index: 0,
+          size: 0,
+        },
       };
     }
 
@@ -197,6 +205,10 @@ export class ScatterTrace extends AbstractTrace<number> {
         empty: true,
         type: 'trace',
         traceType: this.type,
+        audio: {
+          index: 0,
+          size: 0,
+        },
       };
     }
 

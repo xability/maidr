@@ -355,7 +355,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
     // Use default sine wave if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
-      paletteEntry = { waveType: 'sine' };
+      paletteEntry = { index: 0, waveType: 'sine' };
     }
 
     const oscillators: OscillatorNode[] = this.createOscillators(
@@ -640,18 +640,18 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   private playZeroTone(): AudioId {
     // Always use original triangle wave for zero values, regardless of groups
-    return this.playOscillator(NULL_FREQUENCY, 0, { waveType: 'triangle' });
+    return this.playOscillator(NULL_FREQUENCY, 0, { index: -1, waveType: 'triangle' });
   }
 
   public playWaitingTone(): AudioId {
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, 0, { waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, 0, { index: -1, waveType: 'sine' }),
       1000,
     );
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, 0, { waveType: 'sine' });
+    return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: -1, waveType: 'sine' });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {

@@ -138,7 +138,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         const response = await this.chatService.sendMessage(model, {
           message: newMessage,
           customInstruction: llmSettings.customInstruction,
-          expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
+          expertise: llmSettings.expertiseLevel,
           apiKey: config.apiKey,
         });
 

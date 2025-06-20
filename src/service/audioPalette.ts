@@ -226,8 +226,6 @@ export class AudioPaletteService implements Disposable {
 
     this.extendedPalette = new Map();
     this.generateExtendedPalette();
-
-    this.validateBasePalette();
   }
 
   public dispose(): void {
