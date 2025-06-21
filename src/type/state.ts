@@ -104,6 +104,7 @@ interface BaseBrailleState {
   empty: false;
   row: number;
   col: number;
+  custom?: string[];
 }
 
 export interface BarBrailleState extends BaseBrailleState {
