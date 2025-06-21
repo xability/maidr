@@ -260,20 +260,41 @@ export class Candlestick extends AbstractTrace<number> {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.currentPointIndex = row;
-      this.currentSegmentType = this.sections[col];
-      this.row = row;
-      this.col = col;
-    } else {
-      this.currentPointIndex = col;
-      this.currentSegmentType = this.sections[row];
-      this.row = row;
-      this.col = col;
-    }
+
+    // Compute normalized index and segment type based on orientation
+    const { pointIndex, segmentType } = this.computeIndexAndSegment(row, col);
+
+    this.currentPointIndex = pointIndex;
+    this.currentSegmentType = segmentType;
+    this.row = row;
+    this.col = col;
+
     this.updateVisualSegmentPosition();
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
+  }
+
+  /**
+   * Compute normalized point index and segment type based on orientation
+   * @param row The row coordinate
+   * @param col The column coordinate
+   * @returns Object containing pointIndex and segmentType
+   */
+  private computeIndexAndSegment(row: number, col: number): {
+    pointIndex: number;
+    segmentType: CandlestickSegmentType;
+  } {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      return {
+        pointIndex: row,
+        segmentType: this.sections[col],
+      };
+    } else {
+      return {
+        pointIndex: col,
+        segmentType: this.sections[row],
+      };
+    }
   }
 
   /**

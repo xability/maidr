@@ -455,31 +455,20 @@ implements BrailleEncoder<T> {
     const currLevel = level(current);
     const prevLevel = prev !== null ? level(prev) : null;
 
-    if (currLevel === 'low') {
-      if (prevLevel === 'medium')
-        return '⠢'; // down from med
-      if (prevLevel === 'high')
-        return '⠣'; // down from high
-      return '⠤'; // steady low
-    }
+    const brailleMap: Record<string, string> = {
+      'low,medium': '⠢', // down from med
+      'low,high': '⠣', // down from high
+      'low,null': '⠤', // steady low
+      'medium,low': '⠔', // up from low
+      'medium,high': '⠑', // down from high
+      'medium,null': '⠒', // steady medium
+      'high,low': '⠜', // up from low
+      'high,medium': '⠊', // up from med
+      'high,null': '⠉', // steady high
+    };
 
-    if (currLevel === 'medium') {
-      if (prevLevel === 'low')
-        return '⠔'; // up from low
-      if (prevLevel === 'high')
-        return '⠑'; // down from high
-      return '⠒'; // steady medium
-    }
-
-    if (currLevel === 'high') {
-      if (prevLevel === 'low')
-        return '⠜'; // up from low
-      if (prevLevel === 'medium')
-        return '⠊'; // up from med
-      return '⠉'; // steady high
-    }
-
-    return '';
+    const key = `${currLevel},${prevLevel}`;
+    return brailleMap[key] || '';
   }
 
   public addDot8(char: string): string {
