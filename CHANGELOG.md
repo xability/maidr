@@ -1,3 +1,53 @@
+## [3.15.2](https://github.com/xability/maidr/compare/v3.15.1...v3.15.2) (2025-06-19)
+
+
+### Bug Fixes
+
+* address 2D layout plot highlight ([#360](https://github.com/xability/maidr/issues/360)) ([8fd89e7](https://github.com/xability/maidr/commit/8fd89e7b746ed7458ec049ad7262a7a764da07ae))
+
+## [3.15.1](https://github.com/xability/maidr/compare/v3.15.0...v3.15.1) (2025-06-19)
+
+
+### Reverts
+
+* Revert "fix: use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350))" ([#359](https://github.com/xability/maidr/issues/359)) ([18016a2](https://github.com/xability/maidr/commit/18016a2fee9b887c1b886c47d5bdcc825f57b294))
+
+# [3.15.0](https://github.com/xability/maidr/compare/v3.14.1...v3.15.0) (2025-06-19)
+
+
+### Features
+
+* support multi-panel plot highlight ([#357](https://github.com/xability/maidr/issues/357)) ([0b94828](https://github.com/xability/maidr/commit/0b948284bb6fd06628fcd9d1824b4add35df1a0b))
+
+## [3.14.1](https://github.com/xability/maidr/compare/v3.14.0...v3.14.1) (2025-06-19)
+
+
+### Bug Fixes
+
+* use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350)) ([120274b](https://github.com/xability/maidr/commit/120274b438c1866fbd86fc5cbb63e5ea28be4633))
+
+# [3.14.0](https://github.com/xability/maidr/compare/v3.13.0...v3.14.0) (2025-06-14)
+
+
+### Features
+
+* support highlight on candlestick ([#343](https://github.com/xability/maidr/issues/343)) ([e17497b](https://github.com/xability/maidr/commit/e17497ba5846e5c8860fe3c163cd2c8524e99e8a))
+
+# [3.13.0](https://github.com/xability/maidr/compare/v3.12.6...v3.13.0) (2025-06-14)
+
+
+### Features
+
+* add fallback svg highlight for smooth line trace ([#336](https://github.com/xability/maidr/issues/336)) ([9b18427](https://github.com/xability/maidr/commit/9b18427c25aaa3e27ed25eb1ea21353f32da28eb))
+* store aria-live config in state and fix chat  ([#338](https://github.com/xability/maidr/issues/338)) ([3eadad3](https://github.com/xability/maidr/commit/3eadad358929952dc3c940de8f33819d1a511b26))
+
+## [3.12.6](https://github.com/xability/maidr/compare/v3.12.5...v3.12.6) (2025-06-14)
+
+
+### Bug Fixes
+
+* organize tooltip styling ([#337](https://github.com/xability/maidr/issues/337)) ([d7beaa7](https://github.com/xability/maidr/commit/d7beaa7bfc272db4ddf78c7289fbe44ef45b65db))
+
 ## [3.12.5](https://github.com/xability/maidr/compare/v3.12.4...v3.12.5) (2025-06-11)
 
 

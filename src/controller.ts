@@ -69,7 +69,7 @@ export class Controller implements Disposable {
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
-    this.highlightService = new HighlightService();
+    this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 
@@ -102,6 +102,7 @@ export class Controller implements Disposable {
 
     this.registerViewModels();
     this.registerObservers();
+    this.settingsService.addObserver(this.highlightService);
     this.keybinding.register(this.context.scope);
   }
 
@@ -143,6 +144,7 @@ export class Controller implements Disposable {
 
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
+    this.figure.addObserver(this.highlightService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);

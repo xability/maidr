@@ -36,6 +36,8 @@ export abstract class Constant {
   static readonly Y1 = 'y1';
   static readonly Y2 = 'y2';
 
+  // MAIDR Terms
+  static readonly MAIDR_SUBPLOT = 'subplot';
   // Attribute values.
   static readonly AFTER_END = 'afterend';
   static readonly APPLICATION = 'application';

@@ -1,3 +1,9 @@
+/**
+ * Represents the trend direction for candlestick data points.
+ * Used across the application for audio palette selection and data representation.
+ */
+export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
+
 export interface Maidr {
   id: string;
   title?: string;
@@ -43,7 +49,7 @@ export interface CandlestickPoint {
   low: number;
   close: number;
   volume: number;
-  trend: 'Bull' | 'Bear' | 'Neutral';
+  trend: CandlestickTrend;
 }
 
 export interface HeatmapData {
@@ -72,6 +78,13 @@ export interface ScatterPoint {
 
 export interface SegmentedPoint extends BarPoint {
   fill: string;
+}
+
+export interface SmoothPoint {
+  x: number;
+  y: number;
+  svg_x: number;
+  svg_y: number;
 }
 
 export enum Orientation {

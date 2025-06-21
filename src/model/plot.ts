@@ -2,7 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, SubplotState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
@@ -59,6 +59,9 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
 
     const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
       .reduce((sum, r) => sum + r.length, 0);
+
+    const activeSubplot = this.activeSubplot;
+
     return {
       empty: false,
       type: 'figure',
@@ -67,8 +70,64 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       caption: this.caption,
       size: this.size,
       index: currentIndex,
-      subplot: this.activeSubplot.state,
-      traceTypes: this.activeSubplot.traceTypes,
+      subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
+      traceTypes: activeSubplot.traceTypes,
+      highlight: this.highlight(),
+    };
+  }
+
+  protected highlight(): HighlightState {
+    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
+
+    if (totalSubplots <= 1) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    try {
+      const numCols = this.subplots[0]?.length || 1;
+      const subplotIndex = this.row * numCols + this.col + 1;
+      const subplotSelector = `g[id="axes_${subplotIndex}"]`;
+      const subplotElement = document.querySelector(subplotSelector) as SVGElement;
+
+      if (subplotElement) {
+        return {
+          empty: false,
+          elements: subplotElement,
+        };
+      }
+
+      const allSubplots = document.querySelectorAll('g[id^="axes_"]');
+      if (allSubplots.length > 0 && subplotIndex - 1 < allSubplots.length) {
+        return {
+          empty: false,
+          elements: allSubplots[subplotIndex - 1] as SVGElement,
+        };
+      }
+    } catch (error) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
     };
   }
 }
@@ -106,6 +165,17 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     return this.traces[this.row][this.col];
   }
 
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
+    };
+  }
+
   public get state(): SubplotState {
     if (this.isOutOfBounds) {
       return {
@@ -120,8 +190,13 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
+      highlight: this.highlight(),
     };
+  }
+
+  public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
+    return this.state;
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState>, Disposable {}
+export interface Trace extends Movable, Observable<TraceState>, Disposable { }
