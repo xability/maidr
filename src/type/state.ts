@@ -44,21 +44,21 @@ interface TraceEmptyState {
 
 export type TraceState
   = | TraceEmptyState
-  | {
-    empty: false;
-    type: 'trace';
-    traceType: TraceType;
-    title: string;
-    xAxis: string;
-    yAxis: string;
-    fill: string;
-    hasMultiPoints: boolean;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-    highlight: HighlightState;
-  };
+    | {
+      empty: false;
+      type: 'trace';
+      traceType: TraceType;
+      title: string;
+      xAxis: string;
+      yAxis: string;
+      fill: string;
+      hasMultiPoints: boolean;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+      highlight: HighlightState;
+    };
 
 export interface AudioEmptyState {
   index: number;
@@ -94,10 +94,10 @@ export interface AudioState {
 
 export type BrailleState
   = | TraceEmptyState
-  | BarBrailleState
-  | BoxBrailleState
-  | HeatmapBrailleState
-  | LineBrailleState;
+    | BarBrailleState
+    | BoxBrailleState
+    | HeatmapBrailleState
+    | LineBrailleState;
 
 interface BaseBrailleState {
   id: string;
