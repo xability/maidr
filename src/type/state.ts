@@ -3,8 +3,8 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export type FigureState
-  = | {
+export type FigureState =
+  | {
     empty: true;
     type: 'figure';
   }
@@ -21,8 +21,8 @@ export type FigureState
     highlight: HighlightState; // Figure manages subplot highlighting
   };
 
-export type SubplotState
-  = | {
+export type SubplotState =
+  | {
     empty: true;
     type: 'subplot';
   }
@@ -42,23 +42,23 @@ interface TraceEmptyState {
   audio: AudioEmptyState;
 }
 
-export type TraceState
-  = | TraceEmptyState
-    | {
-      empty: false;
-      type: 'trace';
-      traceType: TraceType;
-      title: string;
-      xAxis: string;
-      yAxis: string;
-      fill: string;
-      hasMultiPoints: boolean;
-      audio: AudioState;
-      braille: BrailleState;
-      text: TextState;
-      autoplay: AutoplayState;
-      highlight: HighlightState;
-    };
+export type TraceState =
+  | TraceEmptyState
+  | {
+    empty: false;
+    type: 'trace';
+    traceType: TraceType;
+    title: string;
+    xAxis: string;
+    yAxis: string;
+    fill: string;
+    hasMultiPoints: boolean;
+    audio: AudioState;
+    braille: BrailleState;
+    text: TextState;
+    autoplay: AutoplayState;
+    highlight: HighlightState;
+  };
 
 export interface AudioEmptyState {
   index: number;
@@ -92,18 +92,19 @@ export interface AudioState {
   trend?: CandlestickTrend;
 }
 
-export type BrailleState
-  = | TraceEmptyState
-    | BarBrailleState
-    | BoxBrailleState
-    | HeatmapBrailleState
-    | LineBrailleState;
+export type BrailleState =
+  | TraceEmptyState
+  | BarBrailleState
+  | BoxBrailleState
+  | HeatmapBrailleState
+  | LineBrailleState;
 
 interface BaseBrailleState {
   id: string;
   empty: false;
   row: number;
   col: number;
+  custom?: string[];
 }
 
 export interface BarBrailleState extends BaseBrailleState {

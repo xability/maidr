@@ -2,6 +2,7 @@ import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/gramm
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
+import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -30,8 +31,14 @@ export class Candlestick extends AbstractTrace<number> {
 
   protected readonly highlightValues: SVGElement[][] | null;
 
+  // Service dependency for navigation logic
+  private readonly navigationService: NavigationService;
+
   constructor(layer: MaidrLayer) {
     super(layer);
+
+    // Initialize navigation service
+    this.navigationService = new NavigationService();
 
     const data = layer.data as CandlestickPoint[];
     this.candles = data.map(candle => ({
@@ -129,6 +136,7 @@ export class Candlestick extends AbstractTrace<number> {
       this.currentPointIndex,
       this.currentSegmentType,
     );
+
     if (this.orientation === Orientation.HORIZONTAL) {
       this.col = dynamicSegmentPosition;
     } else {
@@ -255,6 +263,31 @@ export class Candlestick extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
+  public moveToIndex(row: number, col: number): void {
+    // Delegate navigation logic to service and only handle data state updates
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    // Use navigation service to compute the mapping
+    const { pointIndex, segmentType } = this.navigationService.computeIndexAndSegment(
+      row,
+      col,
+      this.orientation,
+      this.sections,
+    );
+
+    // Update Core Model state
+    this.currentPointIndex = pointIndex;
+    this.currentSegmentType = segmentType;
+    this.row = row;
+    this.col = col;
+
+    this.updateVisualSegmentPosition();
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
   /**
    * Override isMovable to handle custom navigation boundaries for value-based sorting
    */
@@ -298,6 +331,7 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   public dispose(): void {
+    this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
   }
@@ -320,6 +354,11 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   protected braille(): BrailleState {
+    // Return the braille state with the current candle values and segment type
+
+    // get an array for bear or bull
+    const bearOrBull = this.candles.map(candle => candle.trend);
+
     return {
       empty: false,
       id: this.id,
@@ -328,6 +367,7 @@ export class Candlestick extends AbstractTrace<number> {
       max: this.max,
       row: this.row,
       col: this.col,
+      custom: bearOrBull,
     };
   }
 
