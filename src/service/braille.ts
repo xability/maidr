@@ -459,12 +459,15 @@ implements BrailleEncoder<T> {
       'low,medium': '⠢', // down from med
       'low,high': '⠣', // down from high
       'low,null': '⠤', // steady low
+      'low,low': '⠤', // steady low (same level)
       'medium,low': '⠔', // up from low
       'medium,high': '⠑', // down from high
       'medium,null': '⠒', // steady medium
+      'medium,medium': '⠒', // steady medium (same level)
       'high,low': '⠜', // up from low
       'high,medium': '⠊', // up from med
       'high,null': '⠉', // steady high
+      'high,high': '⠉', // steady high (same level)
     };
 
     const key = `${currLevel},${prevLevel}`;
@@ -472,6 +475,10 @@ implements BrailleEncoder<T> {
   }
 
   public addDot8(char: string): string {
+    if (!char || char.length === 0) {
+      // If no base character, return just dot 8 (⣀)
+      return String.fromCharCode(0x2800 + 0x80);
+    }
     const code = char.charCodeAt(0);
     const dotPattern = code - 0x2800;
     const withDot8 = dotPattern | 0x80;
