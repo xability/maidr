@@ -1,47 +1,72 @@
+import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
-export class HighlightService implements Observer<SubplotState | TraceState | FigureState>, Disposable {
-  private readonly highlightedElements: Set<SVGElement>;
-  private readonly highlightedSubplots: Set<SVGElement>;
+type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
-  public constructor() {
-    this.highlightedElements = new Set();
+export class HighlightService implements Observer<HighlightStateUnion>, Disposable {
+  private readonly highlightedElements: Map<SVGElement, SVGElement>;
+  private readonly highlightedSubplots: Set<SVGElement>;
+  private currentHighlightColor: string;
+
+  public constructor(settings: SettingsService) {
+    this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
+    const initialSettings = settings.loadSettings();
+    this.currentHighlightColor = initialSettings.general.highlightColor;
   }
 
   public dispose(): void {
     this.unhighlightAll();
   }
 
-  public update(state: SubplotState | TraceState | FigureState): void {
+  private isSettings(state: HighlightStateUnion): state is Settings {
+    return 'general' in state;
+  }
+
+  private createHighlightElement(element: SVGElement): SVGElement {
+    if (!(element instanceof SVGElement)) {
+      throw new TypeError('Invalid element provided for highlight creation');
+    }
+
+    const clone = Svg.createHighlightElement(element, this.currentHighlightColor);
+    clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
+    return clone;
+  }
+
+  private handleSettingsUpdate(settings: Settings): void {
+    this.currentHighlightColor = settings.general.highlightColor;
+  }
+
+  private handleStateUpdate(state: SubplotState | TraceState | FigureState): void {
     if (state.empty) {
       return;
     }
 
-    this.unhighlightTraceElements(); // Clear previous trace highlights
+    this.unhighlightTraceElements();
 
     if (state.type === 'figure') {
-      this.handleFigureState(state); // Handle Figure-level subplot highlighting
+      this.handleFigureState(state);
     } else if (state.type === 'subplot') {
-      this.handleSubplotState(state); // Handle Subplot-level highlighting
+      this.handleSubplotState(state);
     } else {
-      this.handleTraceState(state); // Handle Trace-level data point highlighting
+      this.handleTraceState(state);
     }
   }
 
   private handleFigureState(state: FigureState): void {
     if (!state.empty) {
-      this.processHighlighting(state.highlight); // Process Figure's subplot highlighting
+      this.processHighlighting(state.highlight);
     }
   }
 
   private handleSubplotState(state: SubplotState): void {
     if (!state.empty) {
-      this.processHighlighting(state.highlight); // Process Subplot's highlighting
+      this.processHighlighting(state.highlight);
     }
   }
 
@@ -51,7 +76,7 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
     }
 
     const elements = this.getElementsFromHighlight(state.highlight);
-    this.highlightTraceElements(elements); // Create clones for trace highlighting
+    this.highlightTraceElements(elements);
   }
 
   private processHighlighting(highlight: HighlightState): void {
@@ -63,9 +88,9 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
     const isMultiPlot = this.isMultiPlotScenario();
 
     if (isMultiPlot) {
-      this.highlightSubplotElements(elements); // Apply CSS class for subplot highlighting
+      this.highlightSubplotElements(elements);
     } else {
-      this.unhighlightSubplotElements(); // Remove highlighting for single plots
+      this.unhighlightSubplotElements();
     }
   }
 
@@ -73,25 +98,23 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
     if (highlight.empty) {
       return [];
     }
-    return Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements]; // Handle single or multiple elements
+    return Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
   }
 
   private isMultiPlotScenario(): boolean {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
-    return totalSubplots > 1; // Only highlight subplots in multi-plot scenarios
+    return totalSubplots > 1;
   }
 
   private highlightTraceElements(elements: SVGElement[]): void {
     for (const element of elements) {
-      const clone = this.createHighlightClone(element); // Create visual overlay for data points
-      this.highlightedElements.add(clone);
+      try {
+        const highlightElement = this.createHighlightElement(element);
+        this.highlightedElements.set(element, highlightElement);
+      } catch (error) {
+        console.error('Failed to highlight element:', error);
+      }
     }
-  }
-
-  private createHighlightClone(element: SVGElement): SVGElement {
-    const clone = Svg.createHighlightElement(element, Constant.MAIDR_HIGHLIGHT_COLOR);
-    clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`; // Unique ID for each clone
-    return clone;
   }
 
   private highlightSubplotElements(elements: SVGElement[]): void {
@@ -99,13 +122,70 @@ export class HighlightService implements Observer<SubplotState | TraceState | Fi
     const figure = document.querySelector('g[id^="maidr-"] > path[style*="fill"]')?.parentElement as SVGElement | null;
     const figureBgElement = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {
-      Svg.setSubplotHighlightSvgWithAdaptiveColor(element, Constant.MAIDR_HIGHLIGHT_COLOR, figureBgElement);
+      Svg.setSubplotHighlightSvgWithAdaptiveColor(element, this.currentHighlightColor, figureBgElement);
       this.highlightedSubplots.add(element);
     }
   }
 
+  public update(state: HighlightStateUnion): void {
+    try {
+      if (this.isSettings(state)) {
+        this.handleSettingsUpdate(state);
+      } else {
+        this.handleStateUpdate(state);
+      }
+    } catch (error) {
+      console.error('Failed to update highlight service:', error);
+    }
+  }
+
+  public highlight(element: SVGElement): void {
+    if (!(element instanceof SVGElement)) {
+      console.warn('Invalid element provided to highlight method');
+      return;
+    }
+
+    try {
+      this.unhighlight(element);
+      const highlightElement = this.createHighlightElement(element);
+      this.highlightedElements.set(element, highlightElement);
+    } catch (error) {
+      console.error('Failed to highlight element:', error);
+    }
+  }
+
+  public unhighlight(element: SVGElement): void {
+    if (!(element instanceof SVGElement)) {
+      return;
+    }
+
+    const highlightElement = this.highlightedElements.get(element);
+    if (highlightElement) {
+      try {
+        highlightElement.remove();
+        this.highlightedElements.delete(element);
+      } catch (error) {
+        console.error('Failed to unhighlight element:', error);
+      }
+    }
+  }
+
+  public clear(): void {
+    try {
+      this.highlightedElements.forEach((highlightElement) => {
+        highlightElement.remove();
+      });
+      this.highlightedElements.clear();
+      this.unhighlightSubplotElements();
+    } catch (error) {
+      console.error('Failed to clear highlights:', error);
+    }
+  }
+
   private unhighlightTraceElements(): void {
-    this.highlightedElements.forEach(element => element.remove()); // Remove clone elements from DOM
+    this.highlightedElements.forEach((highlightElement) => {
+      highlightElement.remove();
+    });
     this.highlightedElements.clear();
   }
 
