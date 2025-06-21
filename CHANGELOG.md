@@ -1,3 +1,17 @@
+# [3.16.0](https://github.com/xability/maidr/compare/v3.15.2...v3.16.0) (2025-06-21)
+
+
+### Bug Fixes
+
+* address navigation in unequally sized multiline plots ([#364](https://github.com/xability/maidr/issues/364)) ([515e92d](https://github.com/xability/maidr/commit/515e92d687a3935035a3177188bbe15d16aa6d39))
+* **candlestick:** use distinctive bear tone ([#362](https://github.com/xability/maidr/issues/362)) ([3e42082](https://github.com/xability/maidr/commit/3e420823b2bb7925f5419b1bba768b65c432bb66))
+
+
+### Features
+
+* **candlestick:** add braille dot8 indicator for bear state ([#349](https://github.com/xability/maidr/issues/349)) ([e6e0bf8](https://github.com/xability/maidr/commit/e6e0bf8a2c4a30c3946247548a125947f92f37ac))
+* utilize user-defined color for highlighting ([#345](https://github.com/xability/maidr/issues/345)) ([49f2c97](https://github.com/xability/maidr/commit/49f2c9734f1a9fc32934074a69a3b4f321c5eeae))
+
 ## [3.15.2](https://github.com/xability/maidr/compare/v3.15.1...v3.15.2) (2025-06-19)
 
 
