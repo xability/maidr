@@ -13,6 +13,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  FormLabel,
   Grid,
   InputAdornment,
   MenuItem,
@@ -94,7 +95,7 @@ interface SettingRowProps {
 }
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid container spacing={1} alignItems="center" sx={{ py: 1 }}>
+  <Grid container spacing={1} alignItems="center" className="settings-grid-container">
     <Grid size={{ xs: 12, sm: 6, md: 4 }}>
       <Typography variant="body2" fontWeight="normal">
         {label}
@@ -166,13 +167,14 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     const config = MODEL_VERSIONS[modelKey];
     return config.options.map((version) => {
       const label = config.labels[version as keyof typeof config.labels];
+      const isSelected = modelSettings.version === version;
       return (
         <MenuItem
           key={version}
           value={version}
-          sx={{ fontWeight: modelSettings.version === version ? 'bold' : 'normal' }}
+          className={`llm-model-setting-row-menu-item ${isSelected ? 'selected' : ''}`}
         >
-          {modelSettings.version === version && <CheckIcon sx={{ mr: 1 }} />}
+          {isSelected && <CheckIcon className="llm-model-setting-row-check-icon" />}
           {label}
         </MenuItem>
       );
@@ -184,7 +186,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       label={modelSettings.name}
       input={(
         <Grid container spacing={1} alignItems="center">
-          <Grid size="auto">
+          <Grid>
             <Switch
               checked={modelSettings.enabled}
               onChange={e => onToggle(modelKey, e.target.checked)}
@@ -193,7 +195,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               }}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={7}>
             <TextField
               disabled={!modelSettings.enabled}
               fullWidth
@@ -244,7 +246,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               }}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={8}>
             <Select
               value={validVersion}
               onChange={(e) => {
@@ -254,12 +256,12 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
               fullWidth
               size="small"
+              aria-label={`${modelSettings.name} model version`}
+              aria-describedby={`${modelKey}-version-description`}
               MenuProps={{
                 disablePortal: true,
                 PaperProps: {
-                  sx: {
-                    maxHeight: 200,
-                  },
+                  className: 'settings-menu-paper',
                 },
               }}
             >
@@ -354,20 +356,12 @@ const Settings: React.FC = () => {
       disablePortal
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
-      sx={{
-        '& .MuiDialog-paper': {
-          zIndex: 9998,
-          maxHeight: '90vh',
-        },
-        '& .MuiDialogContent-root': {
-          overflow: 'auto',
-        },
-      }}
+      className="settings-dialog"
     >
-      <DialogContent>
+      <DialogContent className="settings-dialog-content">
         <Grid size="grow">
           <Typography variant="h6" fontWeight="bold" gutterBottom>
-            Settings
+            General Settings
           </Typography>
         </Grid>
 
@@ -377,20 +371,22 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Volume"
               input={(
-                <Slider
-                  value={generalSettings.volume}
-                  onChange={(_, value) => handleGeneralChange('volume', Number(value))}
-                  min={0}
-                  max={100}
-                  step={1}
-                  valueLabelDisplay="auto"
-                  sx={{
-                    '& .MuiSlider-valueLabel': {
-                      backgroundColor: 'primary.main',
-                      borderRadius: 1,
-                    },
-                  }}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="volume-label" className="sr-only">Volume in percentage</FormLabel>
+                  <Slider
+                    value={generalSettings.volume}
+                    onChange={(_, value) => handleGeneralChange('volume', Number(value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                    valueLabelDisplay="auto"
+                    aria-labelledby="volume-label"
+                    aria-valuetext={`${generalSettings.volume}%`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -398,13 +394,19 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Outline Color"
               input={(
-                <TextField
-                  fullWidth
-                  type="color"
-                  size="small"
-                  value={generalSettings.highlightColor}
-                  onChange={e => handleGeneralChange('highlightColor', e.target.value)}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="highlight-color-label" className="sr-only">Highlight Color in hex format</FormLabel>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highlightColor}
+                    onChange={e => handleGeneralChange('highlightColor', e.target.value)}
+                    aria-labelledby="highlight-color-label"
+                    aria-describedby="highlight-color-description"
+                    aria-valuetext={generalSettings.highlightColor}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -412,13 +414,18 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Braille Display Size"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.brailleDisplaySize}
-                  onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="braille-size-label" className="sr-only">Braille Display Size in pixels</FormLabel>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplaySize}
+                    onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
+                    aria-labelledby="braille-size-label"
+                    aria-valuetext={`${generalSettings.brailleDisplaySize}px`}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -426,13 +433,18 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Min Frequency (Hz)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.minFrequency}
-                  onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="min-frequency-label" className="sr-only">Minimum Frequency in Hertz</FormLabel>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.minFrequency}
+                    onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
+                    aria-labelledby="min-frequency-label"
+                    aria-valuetext={`${generalSettings.minFrequency}Hz`}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -440,13 +452,18 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Max Frequency (Hz)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.maxFrequency}
-                  onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="max-frequency-label" className="sr-only">Maximum Frequency in Hertz</FormLabel>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.maxFrequency}
+                    onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
+                    aria-labelledby="max-frequency-label"
+                    aria-valuetext={`${generalSettings.maxFrequency}Hz`}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -454,13 +471,18 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Autoplay Duration (ms)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.autoplayDuration}
-                  onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="autoplay-duration-label" className="sr-only">Autoplay Duration in milliseconds</FormLabel>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.autoplayDuration}
+                    onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
+                    aria-labelledby="autoplay-duration-label"
+                    aria-valuetext={`${generalSettings.autoplayDuration}ms`}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -469,20 +491,26 @@ const Settings: React.FC = () => {
               label="ARIA Mode"
               input={(
                 <FormControl>
+                  <FormLabel id="aria-mode-label" className="sr-only">ARIA Mode</FormLabel>
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
                     onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
+                    aria-labelledby="aria-mode-label"
                   >
                     <FormControlLabel
                       value="assertive"
                       control={<Radio size="small" />}
                       label="Assertive"
+                      aria-label="Set ARIA Mode to Assertive"
+                      aria-valuetext="Assertive"
                     />
                     <FormControlLabel
                       value="polite"
                       control={<Radio size="small" />}
                       label="Polite"
+                      aria-label="Set ARIA Mode to Polite"
+                      aria-valuetext="Polite"
                     />
                   </RadioGroup>
                 </FormControl>
@@ -492,13 +520,13 @@ const Settings: React.FC = () => {
         </Grid>
 
         <Grid size={12}>
-          <Divider sx={{ py: 0.5 }} />
+          <Divider className="settings-divider" />
         </Grid>
 
         {/* LLM Settings */}
-        <Grid container spacing={0.5} sx={{ mt: 2 }}>
+        <Grid container spacing={0.5} className="settings-section">
           <Grid size={12}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
+            <Typography variant="h6" fontWeight="bold" gutterBottom className="settings-section-title">
               LLM Settings
             </Typography>
           </Grid>
@@ -506,7 +534,7 @@ const Settings: React.FC = () => {
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
             return (
-              <Grid size={12} key={modelKey}>
+              <Grid size={12} key={modelKey} className="settings-model-row">
                 <LlmModelSettingRow
                   modelKey={modelKey}
                   modelSettings={model}
@@ -519,11 +547,12 @@ const Settings: React.FC = () => {
           })}
 
           {/* Expertise Level */}
-          <Grid size={12}>
+          <Grid size={12} className="settings-row">
             <SettingRow
               label="Expertise Level"
               input={(
-                <FormControl fullWidth size="small">
+                <FormControl fullWidth size="small" className="settings-model-select">
+                  <FormLabel id="expertise-level-label" className="sr-only">Expertise Level</FormLabel>
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
@@ -531,15 +560,15 @@ const Settings: React.FC = () => {
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {
-                        sx: {
-                          maxHeight: 200,
-                        },
+                        className: 'llm-model-setting-select-menu',
                       },
                     }}
+                    aria-labelledby="expertise-level-label"
+                    aria-valuetext={llmSettings.expertiseLevel}
                   >
-                    <MenuItem value="basic">Basic</MenuItem>
-                    <MenuItem value="intermediate">Intermediate</MenuItem>
-                    <MenuItem value="advanced">Advanced</MenuItem>
+                    <MenuItem value="basic" aria-label="Set Expertise Level to Basic">Basic</MenuItem>
+                    <MenuItem value="intermediate" aria-label="Set Expertise Level to Intermediate">Intermediate</MenuItem>
+                    <MenuItem value="advanced" aria-label="Set Expertise Level to Advanced">Advanced</MenuItem>
                   </Select>
                 </FormControl>
               )}
@@ -547,44 +576,70 @@ const Settings: React.FC = () => {
           </Grid>
 
           <Grid size={12}>
-            <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid size={12} sx={{ py: 1 }}>
+            <Grid container spacing={1} alignItems="flex-start" className="settings-row">
+              <Grid size={12} className="settings-row-label">
                 <Typography variant="body2" fontWeight="normal">
                   Custom Instructions
                 </Typography>
               </Grid>
               <Grid size={12}>
-                <TextareaAutosize
-                  minRows={3}
-                  maxRows={6}
-                  value={llmSettings.customInstruction}
-                  onChange={e => handleLlmChange('customInstruction', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                  }}
-                  placeholder="Enter custom instruction..."
-                />
+                <FormControl fullWidth>
+                  <FormLabel id="custom-instructions-label" className="sr-only">Custom Instructions</FormLabel>
+                  <TextareaAutosize
+                    minRows={3}
+                    maxRows={6}
+                    value={llmSettings.customInstruction}
+                    onChange={e => handleLlmChange('customInstruction', e.target.value)}
+                    className="settings-custom-instruction"
+                    placeholder="Enter custom instruction..."
+                    aria-labelledby="custom-instructions-label"
+                    aria-valuetext={llmSettings.customInstruction}
+                  />
+                </FormControl>
               </Grid>
             </Grid>
           </Grid>
         </Grid>
 
         <Grid size={12}>
-          <Divider sx={{ py: 0.5 }} />
+          <Divider className="settings-divider" />
         </Grid>
+
+        {/* Hidden descriptions for aria-describedby references */}
+        <div className="sr-only">
+          <div id="highlight-color-description">
+            Choose a color for highlighting plot elements during navigation. This color will be used to show which element is currently focused.
+          </div>
+          <div id="reset-settings-description">
+            Reset all settings to their default values. This action cannot be undone.
+          </div>
+          <div id="close-settings-description">
+            Close the settings dialog without saving any changes. All modifications will be lost.
+          </div>
+          <div id="save-settings-description">
+            Save all current settings and close the dialog. Changes will be applied immediately.
+          </div>
+          <div id="GPT-version-description">
+            Select the GPT model version to use for AI assistance. Different versions offer varying levels of capability and performance.
+          </div>
+          <div id="CLAUDE-version-description">
+            Select the Claude model version to use for AI assistance. Different versions offer varying levels of capability and performance.
+          </div>
+          <div id="GEMINI-version-description">
+            Select the Gemini model version to use for AI assistance. Different versions offer varying levels of capability and performance.
+          </div>
+        </div>
       </DialogContent>
 
-      {/* Footer Actions  */}
+      {/* Footer Actions */}
       <Grid
         container
         component={DialogActions}
         alignItems="center"
+        className="settings-footer"
       >
-        <Grid size="auto" sx={{ px: 1 }}>
-          <Button variant="text" color="inherit" onClick={handleReset}>
+        <Grid size="auto" className="settings-grid-padding">
+          <Button variant="text" color="inherit" onClick={handleReset} aria-label="Reset Settings" aria-describedby="reset-settings-description">
             Reset
           </Button>
         </Grid>
@@ -593,15 +648,15 @@ const Settings: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
-          sx={{ px: 2, py: 1 }}
+          className="settings-footer-actions"
         >
           <Grid size="auto">
-            <Button variant="outlined" color="inherit" onClick={handleClose}>
+            <Button variant="outlined" color="inherit" onClick={handleClose} aria-label="Close Settings with no changes" aria-describedby="close-settings-description">
               Close
             </Button>
           </Grid>
           <Grid size="auto">
-            <Button variant="contained" color="primary" onClick={handleSave}>
+            <Button variant="contained" color="primary" onClick={handleSave} aria-label="Save Changes and Close Settings" aria-describedby="save-settings-description">
               Save & Close
             </Button>
           </Grid>
