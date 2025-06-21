@@ -3,8 +3,8 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export type FigureState =
-  | {
+export type FigureState
+  = | {
     empty: true;
     type: 'figure';
   }
@@ -21,8 +21,8 @@ export type FigureState =
     highlight: HighlightState; // Figure manages subplot highlighting
   };
 
-export type SubplotState =
-  | {
+export type SubplotState
+  = | {
     empty: true;
     type: 'subplot';
   }
@@ -42,8 +42,8 @@ interface TraceEmptyState {
   audio: AudioEmptyState;
 }
 
-export type TraceState =
-  | TraceEmptyState
+export type TraceState
+  = | TraceEmptyState
   | {
     empty: false;
     type: 'trace';
@@ -92,8 +92,8 @@ export interface AudioState {
   trend?: CandlestickTrend;
 }
 
-export type BrailleState =
-  | TraceEmptyState
+export type BrailleState
+  = | TraceEmptyState
   | BarBrailleState
   | BoxBrailleState
   | HeatmapBrailleState
