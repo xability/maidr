@@ -641,10 +641,6 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   public moveToIndex(index: number): void {
-    // bookmark: something weird going on. This fires
-    // (as does @model/abstract.ts > moveToIndex)
-    // abstract fires first (with correct row col), then sound / text, then this (with correct index)
-    // no idea what's going on here
     if (
       !this.enabled
       || this.cache === null
