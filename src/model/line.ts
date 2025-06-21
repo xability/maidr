@@ -92,11 +92,23 @@ export class LineTrace extends AbstractTrace<number> {
 
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
-      const targetRow = this.findNearestLineByYValue(direction);
+      const targetRow = this.findLineByXAndYDirection(direction);
+
       if (targetRow !== null && targetRow !== this.row) {
-        this.row = targetRow;
-        this.notifyStateUpdate();
-        return;
+        // Find the column in the target line that has the same X value
+        const currentX = this.points[this.row][this.col].x;
+        const targetCol = this.findColumnByXValue(targetRow, currentX);
+
+        if (targetCol !== -1) {
+          this.row = targetRow;
+          this.col = targetCol;
+          this.notifyStateUpdate();
+          return;
+        } else {
+          // No matching X value found in target line
+          this.notifyOutOfBounds();
+          return;
+        }
       } else {
         // No valid line found based on y values - hit boundary
         this.notifyOutOfBounds();
@@ -127,9 +139,16 @@ export class LineTrace extends AbstractTrace<number> {
 
     switch (target) {
       case 'UPWARD':
-      case 'DOWNWARD':
-        // For y-value-based navigation, check if there's a valid target line
-        return this.findNearestLineByYValue(target) !== null;
+      case 'DOWNWARD': {
+        // For y-value-based navigation, check if there's a valid target line with same X value
+        const targetRow = this.findLineByXAndYDirection(target);
+        if (targetRow === null) {
+          return false;
+        }
+        // Also check if the target line has a point with the same X value
+        const currentX = this.points[this.row][this.col].x;
+        return this.findColumnByXValue(targetRow, currentX) !== -1;
+      }
       case 'FORWARD':
         return this.col < this.values[this.row].length - 1;
       case 'BACKWARD':
@@ -138,28 +157,41 @@ export class LineTrace extends AbstractTrace<number> {
   }
 
   /**
-   * Finds the nearest line based on y values at the current x position (column)
-   * @param direction The direction to search (UPWARD for higher y values, DOWNWARD for lower y values)
-   * @returns The row index of the nearest line, or null if no suitable line is found
+   * Finds a line with the same X value but Y value in the desired direction
+   * Uses strict equality (===) for X value matching
+   * @param direction The direction to search (UPWARD for higher Y values, DOWNWARD for lower Y values)
+   * @returns The row index of the target line, or null if no suitable line is found
    */
-  private findNearestLineByYValue(direction: 'UPWARD' | 'DOWNWARD'): number | null {
-    const currentCol = this.col;
-    const currentY = this.values[this.row][currentCol];
+  private findLineByXAndYDirection(direction: 'UPWARD' | 'DOWNWARD'): number | null {
+    const currentX = this.points[this.row][this.col].x;
+    const currentY = this.points[this.row][this.col].y;
 
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
-    // Check all lines that have data at the current x position
-    for (let row = 0; row < this.values.length; row++) {
-      // Skip current row and check if this line has data at current column
-      if (row === this.row || currentCol >= this.values[row].length) {
+    // Check all lines for points with the same X value
+    for (let row = 0; row < this.points.length; row++) {
+      // Skip current row
+      if (row === this.row) {
         continue;
       }
 
-      const lineY = this.values[row][currentCol];
+      // Find the point in this line with the EXACT same X value (strict equality)
+      const matchingPointIndex = this.points[row].findIndex((point) => {
+        const matches = point.x === currentX;
+        return matches;
+      });
+
+      if (matchingPointIndex === -1) {
+        // No point with this exact X value in this line - skip navigation to this line
+        continue;
+      }
+
+      const lineY = this.points[row][matchingPointIndex].y;
 
       // Check if this line's y value is in the desired direction
       const isValidDirection = direction === 'UPWARD' ? lineY > currentY : lineY < currentY;
+
       if (!isValidDirection) {
         continue;
       }
@@ -175,6 +207,17 @@ export class LineTrace extends AbstractTrace<number> {
     }
 
     return bestRow;
+  }
+
+  /**
+   * Finds the column index for a given X value in a specific line
+   * Uses strict equality (===) for X value matching
+   * @param row The line index
+   * @param xValue The X value to find
+   * @returns The column index, or -1 if not found
+   */
+  private findColumnByXValue(row: number, xValue: number | string): number {
+    return this.points[row].findIndex(point => point.x === xValue);
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
