@@ -1,12 +1,11 @@
 ---
 mode: "agent"
-tools: ["github", "codebase"]
+tools: ["github", "create_issue", "assign_copilot_to_issue", "codebase"]
 description: "Generate a new bug report"
 ---
 
-Create a GitHub issue using [this template](../ISSUE_TEMPLATE/bug_report.md).
-
-- organization: xability
-- repo: maidr
+#create_issue Create a GitHub issue at xability/maidr using [this template](../ISSUE_TEMPLATE/bug_report.md).
 
 The bug report content is: ${input:bug}
+
+#assign_copilot_to_issue for the created issue.
