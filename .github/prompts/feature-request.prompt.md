@@ -1,12 +1,11 @@
 ---
 mode: "agent"
-tools: ["github", "codebase"]
+tools: ["github", "create_issue", "assign_copilot_to_issue", "codebase"]
 description: "Generate a new feature request"
 ---
 
-Create a GitHub issue using [this template](../ISSUE_TEMPLATE/feature_request.md).
-
-- organization: xability
-- repo: maidr
+#create_issue Create a GitHub issue at xability/maidr using [this template](../ISSUE_TEMPLATE/feature_request.md).
 
 The feature request content is: ${input:fr}
+
+#assign_copilot_to_issue for the created issue.
