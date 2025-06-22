@@ -1,6 +1,6 @@
 ---
 mode: "agent"
-tools: ["github", "codebase", "context7"]
+tools: ["github", "context7"]
 description: "Address GitHub issue"
 ---
 
