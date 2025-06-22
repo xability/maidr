@@ -30,6 +30,9 @@
   "github.copilot.chat.editor.temporalContext.enabled": true,
   "github.copilot.chat.startDebugging.enabled": true,
   "github.copilot.chat.scopeSelection": true,
+  "chat.agent.enabled": true,
+  "chat.mcp.discovery.enabled": false,
+  "chat.agent.maxRequests": 1000,
 
   "githubPullRequests.experimental.chat": true,
   "githubPullRequests.queries": [

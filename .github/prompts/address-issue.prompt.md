@@ -1,6 +1,6 @@
 ---
 mode: "agent"
-tools: ["github","get_issue","context7","Built-In","codebase","editFiles","findTestFiles","runCommands","new","openSimpleBrowser","problems","runTasks","search","searchResults","terminalLastCommand","terminalSelection","testFailure","usages","create_branch","get_issue_comments","get-library-docs"]
+tools: ["github", "get_issue", "create_pull_request", "request_copilot_review", "context7", "Built-In", "codebase", "editFiles", "findTestFiles", "runCommands", "new", "openSimpleBrowser", "problems", "runTasks", "search", "searchResults", "terminalLastCommand", "terminalSelection", "testFailure", "usages", "create_branch", "get_issue_comments", "get-library-docs"]
 description: "Address GitHub issue"
 ---
 
@@ -44,11 +44,9 @@ Once you have implemented your solution, make sure to test it thoroughly before 
 "testFailure",
 "usages",
 "create_branch",
-"get_issue_comments",
-"get-library-docs",
+"get_issue_comments", "get-library-docs",
 ]
 description: "Address GitHub issue"
-
 ---
 
 #get_issue Address xability/maidr ${input:issue}.
@@ -62,3 +60,9 @@ In case you need to make changes any libraries or dependencies, make sure to che
 If you are not sure about something, ask for clarification.
 
 Once you have implemented your solution, make sure to test it thoroughly before submitting your changes.
+
+Before you submit your PR, make sure #runTasks "npm lint" and #runTasks "npm build" are successful.
+
+#create_pull_request Create and submit a PR using [this PR template](../PULL_REQUEST_TEMPLATE.md) and make sure you include the issue number you are addressing at the bottom of the PR description like `Closes #xx`, where `xx` is ${input:issue}.
+
+Also, #request_copilot_review for the submitted PR.
