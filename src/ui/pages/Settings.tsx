@@ -206,9 +206,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               type="password"
               error={isValid === false}
               helperText={getHelperText()}
+              label={`${modelSettings.name} API Key`}
               slotProps={{
                 input: {
-                  'aria-label': `${modelSettings.name} API key input`,
                   'aria-describedby': `${modelKey}-status`,
                   'endAdornment': (
                     <InputAdornment position="end">
@@ -256,8 +256,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
               fullWidth
               size="small"
-              aria-label={`${modelSettings.name} model version`}
-              aria-describedby={`${modelKey}-version-description`}
+              label={`${modelSettings.name} Model Version`}
               MenuProps={{
                 disablePortal: true,
                 PaperProps: {
@@ -350,6 +349,7 @@ const Settings: React.FC = () => {
     <Dialog
       id={id}
       role="dialog"
+      aria-label="Settings"
       open={true}
       maxWidth="sm"
       fullWidth
@@ -372,7 +372,7 @@ const Settings: React.FC = () => {
               label="Volume"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="volume-label" className="sr-only">Volume in percentage</FormLabel>
+                  <FormLabel className="sr-only">Volume in percentage</FormLabel>
                   <Slider
                     value={generalSettings.volume}
                     onChange={(_, value) => handleGeneralChange('volume', Number(value))}
@@ -380,8 +380,6 @@ const Settings: React.FC = () => {
                     max={100}
                     step={1}
                     valueLabelDisplay="auto"
-                    aria-labelledby="volume-label"
-                    aria-valuetext={`${generalSettings.volume}%`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     className="settings-slider-value-label"
@@ -395,16 +393,14 @@ const Settings: React.FC = () => {
               label="Outline Color"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="highlight-color-label" className="sr-only">Highlight Color in hex format</FormLabel>
+                  <FormLabel className="sr-only">Highlight Color in hex format</FormLabel>
                   <TextField
                     fullWidth
                     type="color"
                     size="small"
                     value={generalSettings.highlightColor}
                     onChange={e => handleGeneralChange('highlightColor', e.target.value)}
-                    aria-labelledby="highlight-color-label"
                     aria-describedby="highlight-color-description"
-                    aria-valuetext={generalSettings.highlightColor}
                   />
                 </FormControl>
               )}
@@ -415,15 +411,13 @@ const Settings: React.FC = () => {
               label="Braille Display Size"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="braille-size-label" className="sr-only">Braille Display Size in pixels</FormLabel>
+                  <FormLabel className="sr-only">Braille Display Size in pixels</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplaySize}
                     onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
-                    aria-labelledby="braille-size-label"
-                    aria-valuetext={`${generalSettings.brailleDisplaySize}px`}
                   />
                 </FormControl>
               )}
@@ -434,15 +428,13 @@ const Settings: React.FC = () => {
               label="Min Frequency (Hz)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="min-frequency-label" className="sr-only">Minimum Frequency in Hertz</FormLabel>
+                  <FormLabel className="sr-only">Minimum Frequency in Hertz</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.minFrequency}
                     onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
-                    aria-labelledby="min-frequency-label"
-                    aria-valuetext={`${generalSettings.minFrequency}Hz`}
                   />
                 </FormControl>
               )}
@@ -453,15 +445,13 @@ const Settings: React.FC = () => {
               label="Max Frequency (Hz)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="max-frequency-label" className="sr-only">Maximum Frequency in Hertz</FormLabel>
+                  <FormLabel className="sr-only">Maximum Frequency in Hertz</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.maxFrequency}
                     onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
-                    aria-labelledby="max-frequency-label"
-                    aria-valuetext={`${generalSettings.maxFrequency}Hz`}
                   />
                 </FormControl>
               )}
@@ -472,15 +462,13 @@ const Settings: React.FC = () => {
               label="Autoplay Duration (ms)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel id="autoplay-duration-label" className="sr-only">Autoplay Duration in milliseconds</FormLabel>
+                  <FormLabel className="sr-only">Autoplay Duration in milliseconds</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.autoplayDuration}
                     onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
-                    aria-labelledby="autoplay-duration-label"
-                    aria-valuetext={`${generalSettings.autoplayDuration}ms`}
                   />
                 </FormControl>
               )}
@@ -491,26 +479,21 @@ const Settings: React.FC = () => {
               label="ARIA Mode"
               input={(
                 <FormControl>
-                  <FormLabel id="aria-mode-label" className="sr-only">ARIA Mode</FormLabel>
+                  <FormLabel className="sr-only">ARIA Mode</FormLabel>
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
                     onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
-                    aria-labelledby="aria-mode-label"
                   >
                     <FormControlLabel
                       value="assertive"
                       control={<Radio size="small" />}
                       label="Assertive"
-                      aria-label="Set ARIA Mode to Assertive"
-                      aria-valuetext="Assertive"
                     />
                     <FormControlLabel
                       value="polite"
                       control={<Radio size="small" />}
                       label="Polite"
-                      aria-label="Set ARIA Mode to Polite"
-                      aria-valuetext="Polite"
                     />
                   </RadioGroup>
                 </FormControl>
@@ -552,7 +535,7 @@ const Settings: React.FC = () => {
               label="Expertise Level"
               input={(
                 <FormControl fullWidth size="small" className="settings-model-select">
-                  <FormLabel id="expertise-level-label" className="sr-only">Expertise Level</FormLabel>
+                  <FormLabel className="sr-only">Expertise Level</FormLabel>
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
@@ -563,12 +546,10 @@ const Settings: React.FC = () => {
                         className: 'llm-model-setting-select-menu',
                       },
                     }}
-                    aria-labelledby="expertise-level-label"
-                    aria-valuetext={llmSettings.expertiseLevel}
                   >
-                    <MenuItem value="basic" aria-label="Set Expertise Level to Basic">Basic</MenuItem>
-                    <MenuItem value="intermediate" aria-label="Set Expertise Level to Intermediate">Intermediate</MenuItem>
-                    <MenuItem value="advanced" aria-label="Set Expertise Level to Advanced">Advanced</MenuItem>
+                    <MenuItem value="basic">Basic</MenuItem>
+                    <MenuItem value="intermediate">Intermediate</MenuItem>
+                    <MenuItem value="advanced">Advanced</MenuItem>
                   </Select>
                 </FormControl>
               )}
@@ -584,7 +565,7 @@ const Settings: React.FC = () => {
               </Grid>
               <Grid size={12}>
                 <FormControl fullWidth>
-                  <FormLabel id="custom-instructions-label" className="sr-only">Custom Instructions</FormLabel>
+                  <FormLabel className="sr-only">Custom Instructions</FormLabel>
                   <TextareaAutosize
                     minRows={3}
                     maxRows={6}
@@ -592,8 +573,6 @@ const Settings: React.FC = () => {
                     onChange={e => handleLlmChange('customInstruction', e.target.value)}
                     className="settings-custom-instruction"
                     placeholder="Enter custom instruction..."
-                    aria-labelledby="custom-instructions-label"
-                    aria-valuetext={llmSettings.customInstruction}
                   />
                 </FormControl>
               </Grid>
@@ -618,15 +597,6 @@ const Settings: React.FC = () => {
           </div>
           <div id="save-settings-description">
             Save all current settings and close the dialog. Changes will be applied immediately.
-          </div>
-          <div id="GPT-version-description">
-            Select the GPT model version to use for AI assistance. Different versions offer varying levels of capability and performance.
-          </div>
-          <div id="CLAUDE-version-description">
-            Select the Claude model version to use for AI assistance. Different versions offer varying levels of capability and performance.
-          </div>
-          <div id="GEMINI-version-description">
-            Select the Gemini model version to use for AI assistance. Different versions offer varying levels of capability and performance.
           </div>
         </div>
       </DialogContent>
