@@ -1,11 +1,35 @@
 import type { Disposable } from '@type/disposable';
+import type { CandlestickTrend } from '@type/grammar';
 
 /**
  * Audio palette types for distinguishing groups in multiclass plots
  */
 export type WaveType = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
+/**
+ * Predefined palette indices for base audio signatures.
+ * These constants provide semantic meaning to palette positions
+ * and make the code more maintainable than magic numbers.
+ */
+export const AudioPaletteIndex = {
+  // Basic wave types (0-3)
+  SINE_BASIC: 0,
+  SQUARE_BASIC: 1,
+  SAWTOOTH_BASIC: 2,
+  TRIANGLE_BASIC: 3,
+
+  // Harmonic variations (4+)
+  SAWTOOTH_DARK: 4,
+  SINE_HARMONIC: 5,
+  TRIANGLE_HARMONIC: 6,
+  SQUARE_HARMONIC: 7,
+  TRIANGLE_MELLOW: 8,
+  SINE_SUBTLE: 9,
+  SAWTOOTH_SOFT: 10,
+} as const;
+
 export interface AudioPaletteEntry {
+  index: number;
   waveType: WaveType;
   harmonicMix?: {
     fundamental: number;
@@ -33,9 +57,22 @@ export class AudioPaletteService implements Disposable {
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
   public constructor() {
+    // IMPORTANT: Base palette index consistency requirement
+    // When modifying this basePalette array:
+    // 1. Each entry's `index` property MUST match its array position (0-based)
+    // 2. Use AudioPaletteIndex constants for semantic clarity
+    // 3. Update AudioPaletteIndex constants if adding/removing entries
+    // 4. The validateBasePalette() method will enforce this at runtime
+    //
+    // Example: basePalette[0] must have index: AudioPaletteIndex.SINE_BASIC (0)
+    //          basePalette[1] must have index: AudioPaletteIndex.SQUARE_BASIC (1)
+    //
+    // This consistency is critical for proper audio palette group mapping.
+
     // Base palette with fundamental wave types
     this.basePalette = [
       {
+        index: AudioPaletteIndex.SINE_BASIC,
         waveType: 'sine',
         timbreModulation: {
           attack: 0.01,
@@ -45,6 +82,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SQUARE_BASIC,
         waveType: 'square',
         timbreModulation: {
           attack: 0.005,
@@ -54,6 +92,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SAWTOOTH_BASIC,
         waveType: 'sawtooth',
         timbreModulation: {
           attack: 0.02,
@@ -63,6 +102,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.TRIANGLE_BASIC,
         waveType: 'triangle',
         timbreModulation: {
           attack: 0.015,
@@ -72,7 +112,8 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
-        waveType: 'sawtooth', // duller and darker than 'sine' or 'square'
+        index: AudioPaletteIndex.SAWTOOTH_DARK,
+        waveType: 'sawtooth',
         harmonicMix: {
           fundamental: 1,
           harmonics: [
@@ -89,6 +130,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SINE_HARMONIC,
         waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
@@ -105,6 +147,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.TRIANGLE_HARMONIC,
         waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
@@ -121,6 +164,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SQUARE_HARMONIC,
         waveType: 'square',
         harmonicMix: {
           fundamental: 1,
@@ -137,6 +181,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.TRIANGLE_MELLOW,
         waveType: 'triangle',
         harmonicMix: {
           fundamental: 1,
@@ -153,6 +198,7 @@ export class AudioPaletteService implements Disposable {
         },
       },
       {
+        index: AudioPaletteIndex.SINE_SUBTLE,
         waveType: 'sine',
         harmonicMix: {
           fundamental: 1,
@@ -168,7 +214,27 @@ export class AudioPaletteService implements Disposable {
           release: 0.15,
         },
       },
+      {
+        index: AudioPaletteIndex.SAWTOOTH_SOFT,
+        waveType: 'sawtooth',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 2, amplitude: 0.05 },
+            { frequency: 6, amplitude: 0.02 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.005,
+          decay: 0.4,
+          sustain: 0.2,
+          release: 0.6,
+        },
+      },
     ];
+
+    // Validate that array indices match the index properties
+    this.validateBasePalette();
 
     this.extendedPalette = new Map();
     this.generateExtendedPalette();
@@ -207,6 +273,28 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
+   * Determines the appropriate audio palette index for candlestick trends.
+   * This encapsulates the business logic for mapping market conditions
+   * to distinct audio signatures.
+   *
+   * @param trend The candlestick trend (Bull, Bear, or Neutral)
+   * @returns The palette index for the specified trend
+   */
+  public getCandlestickGroupIndex(trend: CandlestickTrend): number {
+    switch (trend) {
+      case 'Bull':
+        return AudioPaletteIndex.SINE_BASIC; // Basic sine for positive market trends
+      case 'Bear':
+        return AudioPaletteIndex.SAWTOOTH_SOFT; // Soft sawtooth for negative market trends
+      case 'Neutral':
+        return AudioPaletteIndex.TRIANGLE_BASIC; // Triangle for neutral market trends
+      default:
+        // Defensive fallback for unexpected trend values
+        return AudioPaletteIndex.SINE_BASIC;
+    }
+  }
+
+  /**
    * Generates extended palette entries by creating unique combinations
    * of harmonic mixes and timbre modulations
    */
@@ -215,6 +303,7 @@ export class AudioPaletteService implements Disposable {
     const extendedDefinitions: AudioPaletteEntry[] = [
       // Harmonic variations of sine wave
       {
+        index: this.basePalette.length,
         waveType: 'sine',
         harmonicMix: {
           fundamental: 1.0,
@@ -232,6 +321,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Harmonic variations of square wave
       {
+        index: this.basePalette.length + 1,
         waveType: 'square',
         harmonicMix: {
           fundamental: 1.0,
@@ -249,6 +339,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Complex harmonic mix with sawtooth
       {
+        index: this.basePalette.length + 2,
         waveType: 'sawtooth',
         harmonicMix: {
           fundamental: 1.0,
@@ -267,6 +358,7 @@ export class AudioPaletteService implements Disposable {
       },
       // Triangle with unique modulation
       {
+        index: this.basePalette.length + 3,
         waveType: 'triangle',
         harmonicMix: {
           fundamental: 1.0,
@@ -313,6 +405,7 @@ export class AudioPaletteService implements Disposable {
     );
 
     return {
+      index: groupIndex,
       waveType: baseEntry.waveType,
       harmonicMix: {
         fundamental: 1.0,
@@ -363,5 +456,23 @@ export class AudioPaletteService implements Disposable {
       ),
       release: Math.max(0.1, Math.min(0.5, base.release * factor)),
     };
+  }
+
+  /**
+   * Validates that all base palette entries have correct indices to prevent silent mismatches
+   * when reordering. Ensures that each entry's index property matches its array position.
+   * This method should be called in the constructor and whenever the basePalette is modified.
+   *
+   * @throws Error if any entry's index doesn't match its array position
+   */
+  private validateBasePalette(): void {
+    this.basePalette.forEach((entry, arrayIndex) => {
+      if (entry.index !== arrayIndex) {
+        throw new Error(
+          `AudioPalette validation error: Entry at array position ${arrayIndex} has index ${entry.index}. `
+          + `Array position must match the index property to prevent audio palette mismatches.`,
+        );
+      }
+    });
   }
 }
