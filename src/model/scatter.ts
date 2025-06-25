@@ -96,15 +96,25 @@ export class ScatterTrace extends AbstractTrace<number> {
   }
 
   protected get values(): number[][] {
-    // Safety check: ensure row is within bounds
-    if (this.row < 0 || this.row >= 2) {
-      this.row = 0;
-    }
-
     // Always return a 2D array with both X and Y values
     // This ensures this.values[this.row] always exists
     // The navigation logic in moveOnce and isMovable handles the mode-specific behavior
-    return [this.xValues, this.yValues];
+    const result = [this.xValues, this.yValues];
+
+    // Safety check: ensure row is within bounds for the current mode
+    if (this.mode === NavMode.COL) {
+      // In COL mode, row should be 0 since we navigate through xValues
+      if (this.row !== 0) {
+        this.row = 0;
+      }
+    } else {
+      // In ROW mode, row should be within yPoints bounds
+      if (this.row < 0 || this.row >= this.yPoints.length) {
+        this.row = 0;
+      }
+    }
+
+    return result;
   }
 
   protected get highlightValues(): SVGElement[][] | null {
@@ -241,30 +251,35 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.mode = NavMode.COL;
   }
 
+  /**
+   * Toggles between COL and ROW navigation modes while maintaining logical position mapping
+   */
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
-      const currentX = this.xPoints[this.col];
-      const midY = currentX.y[Math.floor(currentX.y.length / 2)];
-      const newRow = this.yValues.indexOf(midY);
+      // Switch from COL to ROW mode
+      const currentXPoint = this.xPoints[this.col];
+      const middleYValue = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
+      const targetRow = this.yValues.indexOf(middleYValue);
 
       // Safety check: ensure the calculated row is valid
-      if (newRow === -1 || newRow >= this.yPoints.length) {
+      if (targetRow === -1 || targetRow >= this.yPoints.length) {
         this.row = 0; // Use 0 as fallback
       } else {
-        this.row = newRow; // Use the calculated row to maintain logical connection
+        this.row = targetRow; // Use the calculated row to maintain logical connection
       }
 
       this.mode = NavMode.ROW;
     } else {
-      const currentY = this.yPoints[this.row];
-      const midX = currentY.x[Math.floor(currentY.x.length / 2)];
-      const newCol = this.xValues.indexOf(midX);
+      // Switch from ROW to COL mode
+      const currentYPoint = this.yPoints[this.row];
+      const middleXValue = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
+      const targetCol = this.xValues.indexOf(middleXValue);
 
       // Safety check: ensure the calculated col is valid
-      if (newCol === -1 || newCol >= this.xPoints.length) {
+      if (targetCol === -1 || targetCol >= this.xPoints.length) {
         this.col = 0;
       } else {
-        this.col = newCol;
+        this.col = targetCol;
       }
 
       this.mode = NavMode.COL;
@@ -367,20 +382,28 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD':
-          return this.col < this.xPoints.length - 1;
-        case 'BACKWARD':
-          return this.col > 0;
+        case 'FORWARD': {
+          const forwardResult = this.col < this.xPoints.length - 1;
+          return forwardResult;
+        }
+        case 'BACKWARD': {
+          const backwardResult = this.col > 0;
+          return backwardResult;
+        }
         case 'UPWARD':
         case 'DOWNWARD':
           return true;
       }
     } else {
       switch (target) {
-        case 'UPWARD':
-          return this.row < this.yPoints.length - 1;
-        case 'DOWNWARD':
-          return this.row > 0;
+        case 'UPWARD': {
+          const upwardResult = this.row < this.yPoints.length - 1;
+          return upwardResult;
+        }
+        case 'DOWNWARD': {
+          const downwardResult = this.row > 0;
+          return downwardResult;
+        }
         case 'FORWARD':
         case 'BACKWARD':
           return true;
