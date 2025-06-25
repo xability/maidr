@@ -40,20 +40,26 @@ export interface PromptContext {
   maidrJson: string;
   currentPositionText: string;
   message: string;
-  expertiseLevel: 'basic' | 'intermediate' | 'advanced';
+  expertiseLevel: 'basic' | 'intermediate' | 'advanced' | 'custom';
 }
 
-const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
+const SYSTEM_PROMPTS: Record<Exclude<PromptContext['expertiseLevel'], 'custom'>, string> = {
   basic: BASIC_SYSTEM_PROMPT,
   intermediate: INTERMEDIATE_SYSTEM_PROMPT,
   advanced: ADVANCED_SYSTEM_PROMPT,
 };
 
-function selectPromptByLevel(expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
+function selectPromptByLevel(expertiseLevel: PromptContext['expertiseLevel']): string {
+  if (expertiseLevel === 'custom') {
+    return '';
+  }
   return SYSTEM_PROMPTS[expertiseLevel];
 }
 
-export function formatSystemPrompt(customInstruction: string, expertiseLevel: 'basic' | 'intermediate' | 'advanced'): string {
+export function formatSystemPrompt(customInstruction: string, expertiseLevel: PromptContext['expertiseLevel']): string {
+  if (expertiseLevel === 'custom') {
+    return customInstruction;
+  }
   const basePrompt = selectPromptByLevel(expertiseLevel);
   return `${basePrompt}\n\n${customInstruction}`;
 }
