@@ -14,7 +14,6 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
-  FormLabel,
   Grid,
   InputAdornment,
   MenuItem,
@@ -129,10 +128,6 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
 
-  // Unique label ids for accessibility
-  const apiKeyLabelId = `${modelKey.toLowerCase()}-api-key-label`;
-  const versionLabelId = `${modelKey.toLowerCase()}-version-label`;
-
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
@@ -204,11 +199,6 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           </Grid>
           <Grid size={7}>
             <FormControl fullWidth>
-              <FormLabel className="sr-only" id={apiKeyLabelId}>
-                {modelSettings.name}
-                {' '}
-                API Key
-              </FormLabel>
               <TextField
                 disabled={!modelSettings.enabled}
                 fullWidth
@@ -221,7 +211,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-labelledby': apiKeyLabelId,
+                    'inputProps': {
+                      'aria-label': `${modelSettings.name} API Key`,
+                    },
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -262,11 +254,6 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           </Grid>
           <Grid size={8}>
             <FormControl fullWidth>
-              <FormLabel className="sr-only" id={versionLabelId}>
-                {modelSettings.name}
-                {' '}
-                Model Version
-              </FormLabel>
               <Select
                 value={validVersion}
                 onChange={(e) => {
@@ -276,9 +263,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
                 fullWidth
                 size="small"
-                labelId={versionLabelId}
-                aria-labelledby={versionLabelId}
-                label={`${modelSettings.name} Model Version`}
+                aria-label={`${modelSettings.name} Model Version`}
                 MenuProps={{
                   disablePortal: true,
                   PaperProps: {
@@ -397,7 +382,6 @@ const Settings: React.FC = () => {
               label="Volume"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="volume-label">Volume in percentage</FormLabel>
                   <Slider
                     value={generalSettings.volume}
                     onChange={(_, value) => handleGeneralChange('volume', Number(value))}
@@ -407,7 +391,7 @@ const Settings: React.FC = () => {
                     valueLabelDisplay="auto"
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    aria-labelledby="volume-label"
+                    aria-label="Volume"
                     className="settings-slider-value-label"
                   />
                 </FormControl>
@@ -419,14 +403,19 @@ const Settings: React.FC = () => {
               label="Outline Color"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="highlight-color-label">Highlight Color in hex format</FormLabel>
                   <TextField
                     fullWidth
                     type="color"
                     size="small"
                     value={generalSettings.highlightColor}
                     onChange={e => handleGeneralChange('highlightColor', e.target.value)}
-                    slotProps={{ input: { inputProps: { 'aria-labelledby': 'highlight-color-label' } } }}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Highlight Color',
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -437,14 +426,23 @@ const Settings: React.FC = () => {
               label="Braille Display Size"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="braille-display-size-label">Braille Display Size in pixels</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplaySize}
-                    onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
-                    slotProps={{ input: { inputProps: { 'aria-labelledby': 'braille-display-size-label' } } }}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'brailleDisplaySize',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Size',
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -455,14 +453,19 @@ const Settings: React.FC = () => {
               label="Min Frequency (Hz)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="min-frequency-label">Minimum Frequency in Hertz</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.minFrequency}
                     onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
-                    slotProps={{ input: { inputProps: { 'aria-labelledby': 'min-frequency-label' } } }}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Minimum Frequency',
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -473,14 +476,19 @@ const Settings: React.FC = () => {
               label="Max Frequency (Hz)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="max-frequency-label">Maximum Frequency in Hertz</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.maxFrequency}
                     onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
-                    slotProps={{ input: { inputProps: { 'aria-labelledby': 'max-frequency-label' } } }}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Maximum Frequency',
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -491,14 +499,19 @@ const Settings: React.FC = () => {
               label="Autoplay Duration (ms)"
               input={(
                 <FormControl fullWidth>
-                  <FormLabel className="sr-only" id="autoplay-duration-label">Autoplay Duration in milliseconds</FormLabel>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.autoplayDuration}
                     onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
-                    slotProps={{ input: { inputProps: { 'aria-labelledby': 'autoplay-duration-label' } } }}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Autoplay Duration',
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -509,12 +522,11 @@ const Settings: React.FC = () => {
               label="ARIA Mode"
               input={(
                 <FormControl>
-                  <FormLabel className="sr-only" id="aria-mode-label">ARIA Mode</FormLabel>
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
                     onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
-                    aria-labelledby="aria-mode-label"
+                    aria-label="ARIA Mode"
                   >
                     <FormControlLabel
                       value="assertive"
@@ -563,7 +575,6 @@ const Settings: React.FC = () => {
           {/* Expertise Level */}
           <Grid size={12} className="settings-row">
             <FormControl fullWidth size="small" className="settings-model-select">
-              <FormLabel className="sr-only" id="expertise-level-label">Expertise Level</FormLabel>
               <SettingRow
                 label="Expertise Level"
                 input={(
@@ -571,8 +582,7 @@ const Settings: React.FC = () => {
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
                     onClick={handleSelectClick}
-                    labelId="expertise-level-label"
-                    aria-labelledby="expertise-level-label"
+                    aria-label="Expertise Level"
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {
@@ -601,7 +611,6 @@ const Settings: React.FC = () => {
                 </Grid>
                 <Grid size={12}>
                   <FormControl fullWidth>
-                    <FormLabel className="sr-only" id="custom-instructions-label">Custom Instructions</FormLabel>
                     <TextareaAutosize
                       minRows={3}
                       maxRows={6}
@@ -614,7 +623,7 @@ const Settings: React.FC = () => {
                         borderRadius: '4px',
                       }}
                       placeholder="Enter custom instruction..."
-                      aria-labelledby="custom-instructions-label"
+                      aria-label="Custom Instructions"
                     />
                   </FormControl>
                 </Grid>
@@ -637,22 +646,6 @@ const Settings: React.FC = () => {
         <Grid size={12}>
           <Divider className="settings-divider" />
         </Grid>
-
-        {/* Hidden descriptions for aria-describedby references */}
-        <div className="sr-only">
-          <div id="highlight-color-description">
-            Choose a color for highlighting plot elements during navigation. This color will be used to show which element is currently focused.
-          </div>
-          <div id="reset-settings-description">
-            Reset all settings to their default values. This action cannot be undone.
-          </div>
-          <div id="close-settings-description">
-            Close the settings dialog without saving any changes. All modifications will be lost.
-          </div>
-          <div id="save-settings-description">
-            Save all current settings and close the dialog. Changes will be applied immediately.
-          </div>
-        </div>
       </DialogContent>
 
       {/* Footer Actions */}
@@ -663,7 +656,7 @@ const Settings: React.FC = () => {
         className="settings-footer"
       >
         <Grid size="auto" className="settings-grid-padding">
-          <Button variant="text" color="inherit" onClick={handleReset} aria-label="Reset Settings" aria-describedby="reset-settings-description">
+          <Button variant="text" color="inherit" onClick={handleReset} aria-label="Reset Settings">
             Reset
           </Button>
         </Grid>
@@ -675,7 +668,7 @@ const Settings: React.FC = () => {
           className="settings-footer-actions"
         >
           <Grid size="auto">
-            <Button variant="outlined" color="inherit" onClick={handleClose} aria-label="Close Settings with no changes" aria-describedby="close-settings-description">
+            <Button variant="outlined" color="inherit" onClick={handleClose} aria-label="Close Settings with no changes">
               Close
             </Button>
           </Grid>
