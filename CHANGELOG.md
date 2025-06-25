@@ -1,3 +1,17 @@
+## [3.17.1](https://github.com/xability/maidr/compare/v3.17.0...v3.17.1) (2025-06-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#368](https://github.com/xability/maidr/issues/368)) ([3551146](https://github.com/xability/maidr/commit/35511466d329d39a3bc192a008818330d5c2ce8d))
+
+# [3.17.0](https://github.com/xability/maidr/compare/v3.16.0...v3.17.0) (2025-06-25)
+
+
+### Features
+
+* integrate custom prompting and provide suggested questions for active chat ([#326](https://github.com/xability/maidr/issues/326)) ([f6a342d](https://github.com/xability/maidr/commit/f6a342d4d6e2008f169fd513597e3f6e290405b2))
+
 # [3.16.0](https://github.com/xability/maidr/compare/v3.15.2...v3.16.0) (2025-06-21)
 
 

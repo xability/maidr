@@ -47,6 +47,7 @@ Once you have implemented your solution, make sure to test it thoroughly before 
 "get_issue_comments", "get-library-docs",
 ]
 description: "Address GitHub issue"
+
 ---
 
 #get_issue Address xability/maidr ${input:issue}.
