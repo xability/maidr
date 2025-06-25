@@ -60,6 +60,49 @@ const Chat: React.FC = () => {
     }
   };
 
+  const styles = {
+    dialog: {
+      '& .MuiDialog-paper': {
+        height: '70vh',
+        maxHeight: '90vh',
+      },
+    },
+    dialogContent: {
+      p: 0,
+      overflow: 'hidden',
+    },
+    fullHeightContainer: {
+      height: '100%',
+    },
+    messagesContainer: {
+      'flex': 1,
+      'overflowY': 'auto',
+      'p': 2,
+      'bgcolor': theme.palette.background.default,
+      '&::-webkit-scrollbar': {
+        width: '6px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: theme.palette.grey[100],
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: theme.palette.grey[400],
+        borderRadius: '3px',
+      },
+    },
+    inputContainer: {
+      p: 2,
+      borderTop: `1px solid ${theme.palette.divider}`,
+    },
+    sendButton: {
+      'bgcolor': theme.palette.primary.main,
+      'color': theme.palette.primary.contrastText,
+      '&:hover': {
+        bgcolor: theme.palette.primary.dark,
+      },
+    },
+  };
+
   return (
     <Dialog
       id={id}
@@ -69,12 +112,7 @@ const Chat: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
-      sx={{
-        '& .MuiDialog-paper': {
-          height: '70vh',
-          maxHeight: '90vh',
-        },
-      }}
+      sx={styles.dialog}
     >
       <DialogTitle>
         <Grid container justifyContent="space-between" alignItems="center">
@@ -94,27 +132,12 @@ const Chat: React.FC = () => {
         </Grid>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
-        <Grid container direction="column" sx={{ height: '100%' }}>
+      <DialogContent dividers sx={styles.dialogContent}>
+        <Grid container direction="column" sx={styles.fullHeightContainer}>
           {/* Messages Container */}
           <Grid
             size={12}
-            sx={{
-              'flex': 1,
-              'overflowY': 'auto',
-              'p': 2,
-              'bgcolor': theme.palette.background.default,
-              '&::-webkit-scrollbar': {
-                width: '6px',
-              },
-              '&::-webkit-scrollbar-track': {
-                background: theme.palette.grey[100],
-              },
-              '&::-webkit-scrollbar-thumb': {
-                background: theme.palette.grey[400],
-                borderRadius: '3px',
-              },
-            }}
+            sx={styles.messagesContainer}
           >
             {messages.map(message => (
               <MessageBubble
@@ -136,10 +159,7 @@ const Chat: React.FC = () => {
           {/* Input Container */}
           <Grid
             size={12}
-            sx={{
-              p: 2,
-              borderTop: `1px solid ${theme.palette.divider}`,
-            }}
+            sx={styles.inputContainer}
           >
             <Grid container spacing={1} alignItems="center">
               <Grid size={{ xs: 10 }}>
@@ -163,13 +183,7 @@ const Chat: React.FC = () => {
                   disabled={disabled}
                   color="primary"
                   aria-label="Send message"
-                  sx={{
-                    'bgcolor': theme.palette.primary.main,
-                    'color': theme.palette.primary.contrastText,
-                    '&:hover': {
-                      bgcolor: theme.palette.primary.dark,
-                    },
-                  }}
+                  sx={styles.sendButton}
                 >
                   <Send />
                 </IconButton>

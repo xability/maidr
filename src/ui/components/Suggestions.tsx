@@ -9,19 +9,23 @@ interface SuggestionsProps {
 
 const SuggestionChip = memo(({ suggestion, onClick }: { suggestion: Suggestion; onClick: () => void }) => {
   const theme = useTheme();
+  const styles = {
+    chip: {
+      'bgcolor': theme.palette.primary.main,
+      'color': theme.palette.primary.contrastText,
+      '&:hover': {
+        bgcolor: theme.palette.primary.dark,
+      },
+    },
+  };
+
   return (
     <Chip
       label={suggestion.text}
       onClick={onClick}
       role="button"
       aria-label={`Suggestion: ${suggestion.text}`}
-      sx={{
-        'bgcolor': theme.palette.primary.main,
-        'color': theme.palette.primary.contrastText,
-        '&:hover': {
-          bgcolor: theme.palette.primary.dark,
-        },
-      }}
+      sx={styles.chip}
     />
   );
 });
@@ -34,18 +38,22 @@ export const Suggestions: React.FC<SuggestionsProps> = memo(({ suggestions, onSu
   if (!suggestions.length)
     return null;
 
+  const styles = {
+    suggestionsContainer: {
+      p: 2,
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 1,
+      borderTop: `1px solid ${theme.palette.divider}`,
+      bgcolor: theme.palette.background.paper,
+    },
+  };
+
   return (
     <Box
       role="region"
       aria-label="Suggested responses"
-      sx={{
-        p: 2,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 1,
-        borderTop: `1px solid ${theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
-      }}
+      sx={styles.suggestionsContainer}
     >
       {suggestions.map(suggestion => (
         <SuggestionChip

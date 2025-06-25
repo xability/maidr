@@ -22,23 +22,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, _disabled
     return `${role}${model}${status}`;
   };
 
+  const styles = {
+    messageBubbleContainer: {
+      display: 'flex',
+      justifyContent: message.isUser ? 'flex-end' : 'flex-start',
+      mb: 2,
+    },
+    contentContainer: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 1.5,
+      maxWidth: '80%',
+      flexDirection: message.isUser ? 'row-reverse' : 'row',
+    },
+  };
+
   return (
     <Box
-      sx={{
-        display: 'flex',
-        justifyContent: message.isUser ? 'flex-end' : 'flex-start',
-        mb: 2,
-      }}
+      sx={styles.messageBubbleContainer}
       role="listitem"
     >
       <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1.5,
-          maxWidth: '80%',
-          flexDirection: message.isUser ? 'row-reverse' : 'row',
-        }}
+        sx={styles.contentContainer}
       >
         <Avatar
           className={`chat-avatar ${message.isUser ? 'user' : ''}`}
