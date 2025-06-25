@@ -211,9 +211,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'inputProps': {
-                      'aria-label': `${modelSettings.name} API Key`,
-                    },
+                    'aria-label': `${modelSettings.name} API Key`,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -263,7 +261,11 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
                 fullWidth
                 size="small"
-                aria-label={`${modelSettings.name} Model Version`}
+                slotProps={{
+                  input: {
+                    'aria-label': `${modelSettings.name} Model Version`,
+                  },
+                }}
                 MenuProps={{
                   disablePortal: true,
                   PaperProps: {
@@ -389,9 +391,14 @@ const Settings: React.FC = () => {
                     max={100}
                     step={1}
                     valueLabelDisplay="auto"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Volume"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0,
+                        'aria-valuemax': 100,
+                        'aria-label': 'Volume',
+                        'aria-labelledby': 'volume-label',
+                      },
+                    }}
                     className="settings-slider-value-label"
                   />
                 </FormControl>
@@ -411,9 +418,7 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('highlightColor', e.target.value)}
                     slotProps={{
                       input: {
-                        inputProps: {
-                          'aria-label': 'Highlight Color',
-                        },
+                        'aria-label': 'Highlight Color',
                       },
                     }}
                   />
@@ -438,9 +443,7 @@ const Settings: React.FC = () => {
                       )}
                     slotProps={{
                       input: {
-                        inputProps: {
-                          'aria-label': 'Braille Display Size',
-                        },
+                        'aria-label': 'Braille Display Size',
                       },
                     }}
                   />
@@ -461,9 +464,7 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        inputProps: {
-                          'aria-label': 'Minimum Frequency',
-                        },
+                        'aria-label': 'Minimum Frequency',
                       },
                     }}
                   />
@@ -484,9 +485,7 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        inputProps: {
-                          'aria-label': 'Maximum Frequency',
-                        },
+                        'aria-label': 'Maximum Frequency',
                       },
                     }}
                   />
@@ -507,9 +506,7 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        inputProps: {
-                          'aria-label': 'Autoplay Duration',
-                        },
+                        'aria-label': 'Autoplay Duration',
                       },
                     }}
                   />
@@ -582,7 +579,11 @@ const Settings: React.FC = () => {
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
                     onClick={handleSelectClick}
-                    aria-label="Expertise Level"
+                    slotProps={{
+                      input: {
+                        'aria-label': 'Expertise Level',
+                      },
+                    }}
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {
@@ -679,6 +680,7 @@ const Settings: React.FC = () => {
               onClick={handleSave}
               disabled={!isCustomInstructionValid}
               title={!isCustomInstructionValid ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long` : ''}
+              aria-label="Save & Close Settings"
             >
               Save & Close
             </Button>
