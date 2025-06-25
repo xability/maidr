@@ -96,7 +96,15 @@ export class ScatterTrace extends AbstractTrace<number> {
   }
 
   protected get values(): number[][] {
-    return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
+    // Safety check: ensure row is within bounds
+    if (this.row < 0 || this.row >= 2) {
+      this.row = 0;
+    }
+
+    // Always return a 2D array with both X and Y values
+    // This ensures this.values[this.row] always exists
+    // The navigation logic in moveOnce and isMovable handles the mode-specific behavior
+    return [this.xValues, this.yValues];
   }
 
   protected get highlightValues(): SVGElement[][] | null {
@@ -225,17 +233,42 @@ export class ScatterTrace extends AbstractTrace<number> {
     return true;
   }
 
+  protected handleInitialEntry(): void {
+    this.isInitialEntry = false;
+    // For scatter plots, start in COL mode with row=0, col=0
+    this.row = 0;
+    this.col = 0;
+    this.mode = NavMode.COL;
+  }
+
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
       const currentX = this.xPoints[this.col];
       const midY = currentX.y[Math.floor(currentX.y.length / 2)];
-      this.row = this.yValues.indexOf(midY);
+      const newRow = this.yValues.indexOf(midY);
+
+      // Safety check: ensure the calculated row is valid
+      if (newRow === -1 || newRow >= this.yPoints.length) {
+        this.row = 0; // Use 0 as fallback
+      } else {
+        this.row = newRow; // Use the calculated row to maintain logical connection
+      }
+
       this.mode = NavMode.ROW;
     } else {
       const currentY = this.yPoints[this.row];
       const midX = currentY.x[Math.floor(currentY.x.length / 2)];
-      this.col = this.xValues.indexOf(midX);
+      const newCol = this.xValues.indexOf(midX);
+
+      // Safety check: ensure the calculated col is valid
+      if (newCol === -1 || newCol >= this.xPoints.length) {
+        this.col = 0;
+      } else {
+        this.col = newCol;
+      }
+
       this.mode = NavMode.COL;
+      this.row = 0; // Set to 0 for COL mode since values[0] = xValues
     }
   }
 
@@ -280,6 +313,7 @@ export class ScatterTrace extends AbstractTrace<number> {
         }
       }
     }
+
     this.notifyStateUpdate();
   }
 
@@ -292,11 +326,11 @@ export class ScatterTrace extends AbstractTrace<number> {
       switch (direction) {
         case 'UPWARD':
           this.toggleNavigation();
-          this.row = this.yPoints.length - 1;
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
         case 'DOWNWARD':
           this.toggleNavigation();
-          this.row = 0;
+          this.row = 0; // Go to first Y coordinate
           break;
         case 'FORWARD':
           this.col = this.xPoints.length - 1;
@@ -308,10 +342,10 @@ export class ScatterTrace extends AbstractTrace<number> {
     } else {
       switch (direction) {
         case 'UPWARD':
-          this.row = this.yPoints.length - 1;
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
         case 'DOWNWARD':
-          this.row = 0;
+          this.row = 0; // Go to first Y coordinate
           break;
         case 'FORWARD':
           this.toggleNavigation();
