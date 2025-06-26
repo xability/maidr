@@ -1,3 +1,10 @@
+## [3.17.5](https://github.com/xability/maidr/compare/v3.17.4...v3.17.5) (2025-06-26)
+
+
+### Bug Fixes
+
+* address y labels in candlestick plots ([#371](https://github.com/xability/maidr/issues/371)) ([d636e86](https://github.com/xability/maidr/commit/d636e86c7ef2c21c15fcd9052967e4a87d94b7b3))
+
 ## [3.17.4](https://github.com/xability/maidr/compare/v3.17.3...v3.17.4) (2025-06-26)
 
 
