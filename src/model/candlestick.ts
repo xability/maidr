@@ -1,6 +1,6 @@
 import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -430,24 +430,5 @@ export class Candlestick extends AbstractTrace<number> {
    */
   public getCurrentTrend(): CandlestickTrend {
     return this.candles[this.currentPointIndex].trend;
-  }
-
-  /**
-   * Override the state getter to provide dynamic axis labels for candlestick plots
-   * - xAxis: Shows the X-axis label (e.g., "Date") for l x command
-   * - yAxis: Shows the current segment type (open, high, low, close) for l y command
-   */
-  public override get state(): TraceState {
-    const parentState = super.state;
-
-    if (parentState.empty) {
-      return parentState;
-    }
-
-    return {
-      ...parentState,
-      xAxis: this.xAxis, // Use original X-axis label (e.g., "Date")
-      yAxis: this.currentSegmentType, // Current segment type (open, high, low, close)
-    };
   }
 }
