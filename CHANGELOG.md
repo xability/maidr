@@ -1,3 +1,66 @@
+## [3.17.2](https://github.com/xability/maidr/compare/v3.17.1...v3.17.2) (2025-06-26)
+
+
+### Bug Fixes
+
+* address empty labels in candlestick plots ([#369](https://github.com/xability/maidr/issues/369)) ([79245dd](https://github.com/xability/maidr/commit/79245ddc98ffe86aa680771e12ec35edace207b7))
+
+## [3.17.1](https://github.com/xability/maidr/compare/v3.17.0...v3.17.1) (2025-06-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#368](https://github.com/xability/maidr/issues/368)) ([3551146](https://github.com/xability/maidr/commit/35511466d329d39a3bc192a008818330d5c2ce8d))
+
+# [3.17.0](https://github.com/xability/maidr/compare/v3.16.0...v3.17.0) (2025-06-25)
+
+
+### Features
+
+* integrate custom prompting and provide suggested questions for active chat ([#326](https://github.com/xability/maidr/issues/326)) ([f6a342d](https://github.com/xability/maidr/commit/f6a342d4d6e2008f169fd513597e3f6e290405b2))
+
+# [3.16.0](https://github.com/xability/maidr/compare/v3.15.2...v3.16.0) (2025-06-21)
+
+
+### Bug Fixes
+
+* address navigation in unequally sized multiline plots ([#364](https://github.com/xability/maidr/issues/364)) ([515e92d](https://github.com/xability/maidr/commit/515e92d687a3935035a3177188bbe15d16aa6d39))
+* **candlestick:** use distinctive bear tone ([#362](https://github.com/xability/maidr/issues/362)) ([3e42082](https://github.com/xability/maidr/commit/3e420823b2bb7925f5419b1bba768b65c432bb66))
+
+
+### Features
+
+* **candlestick:** add braille dot8 indicator for bear state ([#349](https://github.com/xability/maidr/issues/349)) ([e6e0bf8](https://github.com/xability/maidr/commit/e6e0bf8a2c4a30c3946247548a125947f92f37ac))
+* utilize user-defined color for highlighting ([#345](https://github.com/xability/maidr/issues/345)) ([49f2c97](https://github.com/xability/maidr/commit/49f2c9734f1a9fc32934074a69a3b4f321c5eeae))
+
+## [3.15.2](https://github.com/xability/maidr/compare/v3.15.1...v3.15.2) (2025-06-19)
+
+
+### Bug Fixes
+
+* address 2D layout plot highlight ([#360](https://github.com/xability/maidr/issues/360)) ([8fd89e7](https://github.com/xability/maidr/commit/8fd89e7b746ed7458ec049ad7262a7a764da07ae))
+
+## [3.15.1](https://github.com/xability/maidr/compare/v3.15.0...v3.15.1) (2025-06-19)
+
+
+### Reverts
+
+* Revert "fix: use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350))" ([#359](https://github.com/xability/maidr/issues/359)) ([18016a2](https://github.com/xability/maidr/commit/18016a2fee9b887c1b886c47d5bdcc825f57b294))
+
+# [3.15.0](https://github.com/xability/maidr/compare/v3.14.1...v3.15.0) (2025-06-19)
+
+
+### Features
+
+* support multi-panel plot highlight ([#357](https://github.com/xability/maidr/issues/357)) ([0b94828](https://github.com/xability/maidr/commit/0b948284bb6fd06628fcd9d1824b4add35df1a0b))
+
+## [3.14.1](https://github.com/xability/maidr/compare/v3.14.0...v3.14.1) (2025-06-19)
+
+
+### Bug Fixes
+
+* use distinctive bear tone ([#350](https://github.com/xability/maidr/issues/350)) ([120274b](https://github.com/xability/maidr/commit/120274b438c1866fbd86fc5cbb63e5ea28be4633))
+
 # [3.14.0](https://github.com/xability/maidr/compare/v3.13.0...v3.14.0) (2025-06-14)
 
 

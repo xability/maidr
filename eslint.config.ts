@@ -5,6 +5,7 @@ const config: ReturnType<typeof antfu> = antfu({
   ignores: [
     'README.md',
     'E2E_TESTING.md',
+    '.github/prompts/',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],

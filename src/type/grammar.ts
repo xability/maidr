@@ -1,3 +1,9 @@
+/**
+ * Represents the trend direction for candlestick data points.
+ * Used across the application for audio palette selection and data representation.
+ */
+export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
+
 export interface Maidr {
   id: string;
   title?: string;
@@ -43,7 +49,7 @@ export interface CandlestickPoint {
   low: number;
   close: number;
   volume: number;
-  trend: 'Bull' | 'Bear' | 'Neutral';
+  trend: CandlestickTrend;
 }
 
 export interface HeatmapData {

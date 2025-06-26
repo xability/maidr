@@ -1,4 +1,4 @@
-import type { BoxPoint, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
@@ -18,6 +18,7 @@ export type FigureState
     index: number;
     subplot: SubplotState;
     traceTypes: string[];
+    highlight: HighlightState; // Figure manages subplot highlighting
   };
 
 export type SubplotState
@@ -31,6 +32,7 @@ export type SubplotState
     size: number;
     index: number;
     trace: TraceState;
+    highlight: HighlightState;
   };
 
 interface TraceEmptyState {
@@ -61,6 +63,7 @@ export type TraceState
 export interface AudioEmptyState {
   index: number;
   size: number;
+  groupIndex?: number;
 }
 
 export interface AudioState {
@@ -81,6 +84,12 @@ export interface AudioState {
    * If undefined, defaults to 0 (single group).
    */
   groupIndex?: number;
+  /**
+   * Candlestick trend information for audio palette selection.
+   * Used by AudioService to determine appropriate audio characteristics.
+   * Only applicable for candlestick traces.
+   */
+  trend?: CandlestickTrend;
 }
 
 export type BrailleState
@@ -95,6 +104,7 @@ interface BaseBrailleState {
   empty: false;
   row: number;
   col: number;
+  custom?: string[];
 }
 
 export interface BarBrailleState extends BaseBrailleState {
@@ -140,8 +150,13 @@ export type AutoplayState = {
 };
 
 export type HighlightState
-  = | TraceEmptyState
-    | {
-      empty: false;
-      elements: SVGElement | SVGElement[];
-    };
+  = | {
+    empty: true;
+    type: 'trace';
+    traceType?: TraceType;
+    audio: AudioEmptyState;
+  }
+  | {
+    empty: false;
+    elements: SVGElement | SVGElement[];
+  };
