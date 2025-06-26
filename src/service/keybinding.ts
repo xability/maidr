@@ -244,7 +244,7 @@ export class KeybindingService {
     }
 
     // Register command palette hotkeys
-    hotkeys(`${Platform.ctrl}+k`, (event: KeyboardEvent): void => {
+    hotkeys(`${Platform.ctrl}+shift+p`, (event: KeyboardEvent): void => {
       event.preventDefault();
       // Dispatch a custom event to open the command palette
       window.dispatchEvent(new CustomEvent('openCommandPalette'));
