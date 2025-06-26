@@ -1,9 +1,9 @@
 import type { Status } from './event';
 
 export type Llm
-  = | 'GPT'
-    | 'CLAUDE'
-    | 'GEMINI';
+  = | 'OPENAI'
+    | 'ANTHROPIC_CLAUDE'
+    | 'GOOGLE_GEMINI';
 
 export type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
 export type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
@@ -14,7 +14,7 @@ export type LlmVersion = GptVersion | ClaudeVersion | GeminiVersion;
 export interface LlmRequest {
   message: string;
   customInstruction: string;
-  expertise: 'basic' | 'intermediate' | 'advanced';
+  expertise: 'basic' | 'intermediate' | 'advanced' | 'custom';
   apiKey?: string;
   email?: string;
   clientToken?: string;
@@ -33,6 +33,12 @@ export interface Message {
   model?: Llm;
   timestamp: string;
   status: Status;
+  modelSelections?: {
+    modelKey: Llm;
+    name: string;
+    version: string;
+  }[];
+  isWelcomeMessage?: boolean;
 }
 
 export interface LlmModelSettings {
