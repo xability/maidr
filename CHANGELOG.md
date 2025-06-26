@@ -1,3 +1,10 @@
+## [3.17.2](https://github.com/xability/maidr/compare/v3.17.1...v3.17.2) (2025-06-26)
+
+
+### Bug Fixes
+
+* address empty labels in candlestick plots ([#369](https://github.com/xability/maidr/issues/369)) ([79245dd](https://github.com/xability/maidr/commit/79245ddc98ffe86aa680771e12ec35edace207b7))
+
 ## [3.17.1](https://github.com/xability/maidr/compare/v3.17.0...v3.17.1) (2025-06-25)
 
 
