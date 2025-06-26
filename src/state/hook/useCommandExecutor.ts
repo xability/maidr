@@ -1,26 +1,34 @@
-import { useCallback } from 'react';
-import { useViewModel } from '@state/hook/useViewModel';
-import { CommandFactory } from '@command/factory';
-import { Keys } from '@type/event';
-import type { ViewModelMap } from '@state/viewModel/registry';
 import type { CommandExecutor } from '@service/commandExecutor';
+import type { ViewModelMap } from '@state/viewModel/registry';
+import type { Keys, Scope } from '@type/event';
+import { useViewModel } from '@state/hook/useViewModel';
+import { useCallback, useEffect, useState } from 'react';
 
-export const useCommandExecutor = () => {
+export function useCommandExecutor(): {
+  executeCommand: (commandKey: Keys) => void;
+  currentScope: Scope;
+} {
   const commandExecutor = useViewModel('commandExecutor' as keyof ViewModelMap) as CommandExecutor;
-  const commandFactory = new CommandFactory(commandExecutor.getContext());
+  const [currentScope, setCurrentScope] = useState<Scope>(commandExecutor.getCurrentScope());
+
+  useEffect(() => {
+    const context = commandExecutor.getContext();
+    const dispose = context.context.addScopeObserver((scope: Scope) => {
+      setCurrentScope(scope);
+    });
+
+    return dispose;
+  }, [commandExecutor]);
 
   const executeCommand = useCallback(
     (commandKey: Keys) => {
-      const command = commandFactory.create(commandKey);
-      command.execute();
+      commandExecutor.executeCommand(commandKey);
     },
-    [commandFactory]
+    [commandExecutor],
   );
-
-  const currentScope = commandExecutor.getCurrentScope();
 
   return {
     executeCommand,
     currentScope,
   };
-};
+}

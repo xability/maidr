@@ -120,7 +120,10 @@ export class DisplayService implements Disposable {
 
   private updateFocus(newScope: Focus): void {
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
-      this.plot.focus();
+      // Use setTimeout to ensure focus happens after any UI updates
+      setTimeout(() => {
+        this.plot.focus();
+      }, 0);
     }
     this.onChangeEmitter.fire({ value: newScope });
   }

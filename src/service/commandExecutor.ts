@@ -1,7 +1,7 @@
 import type { CommandContext } from '@command/command';
 import type { Keys } from '@type/event';
+import type { Scope } from '@type/event';
 import { CommandFactory } from '@command/factory';
-import { Scope } from '@type/event';
 import { SCOPED_KEYMAP } from './keybinding';
 
 export class CommandExecutor {

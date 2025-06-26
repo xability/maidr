@@ -55,7 +55,7 @@ const CHAT_KEYMAP = {
 } as const;
 
 const FIGURE_LABEL_KEYMAP = {
-  DEACTIVATE_FIGURE_LABEL_SCOPE: `*`,
+  DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_TITLE: `t`,
@@ -98,7 +98,7 @@ const SUBPLOT_KEYMAP = {
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
-  DEACTIVATE_TRACE_LABEL_SCOPE: `*`,
+  DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_X: `x`,

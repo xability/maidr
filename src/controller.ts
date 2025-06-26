@@ -6,6 +6,7 @@ import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
+import { CommandExecutor } from '@service/commandExecutor';
 import { DisplayService } from '@service/display';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
@@ -24,7 +25,6 @@ import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
-import { CommandExecutor } from '@service/commandExecutor';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -115,7 +115,7 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
       },
-      this.context.scope
+      this.context.scope,
     );
 
     this.registerViewModels();
