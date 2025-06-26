@@ -31,7 +31,7 @@ SuggestionChip.displayName = 'SuggestionChip';
 export const Suggestions: React.FC<SuggestionsProps> = memo(({ suggestions, onSuggestionClick }) => {
   const theme = useTheme();
 
-  if (!suggestions.length)
+  if (!suggestions || !suggestions.length)
     return null;
 
   return (
