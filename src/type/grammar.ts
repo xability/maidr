@@ -71,6 +71,15 @@ export interface LinePoint {
   fill?: string;
 }
 
+export interface LineDataItem {
+  title?: string;
+  axes?: {
+    x?: string;
+    y?: string;
+  };
+  points: LinePoint[];
+}
+
 export interface ScatterPoint {
   x: number;
   y: number;
@@ -110,6 +119,7 @@ export interface MaidrLayer {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | LineDataItem[]
     | ScatterPoint[]
     | SegmentedPoint[][];
 }
