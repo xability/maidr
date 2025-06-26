@@ -1,6 +1,6 @@
 import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -44,11 +44,11 @@ export class Candlestick extends AbstractTrace<number> {
     this.candles = data.map(candle => ({
       ...candle,
       trend:
-        candle.close > candle.open
-          ? 'Bull'
-          : candle.close < candle.open
-            ? 'Bear'
-            : 'Neutral',
+                candle.close > candle.open
+                  ? 'Bull'
+                  : candle.close < candle.open
+                    ? 'Bear'
+                    : 'Neutral',
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
@@ -86,7 +86,7 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candles.map((candle) => {
       // Create array of [segmentType, value] pairs
       const segmentPairs: [CandlestickSegmentType, number][]
-        = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
+                = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
 
       // Sort by value and return just the segment types
       return segmentPairs.sort((a, b) => a[1] - b[1]).map(pair => pair[0]);
@@ -179,9 +179,9 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType,
         );
         const newSegmentPosition
-          = direction === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
+                    = direction === 'UPWARD'
+                      ? currentSegmentPosition + 1
+                      : currentSegmentPosition - 1;
 
         if (
           newSegmentPosition >= 0
@@ -203,9 +203,9 @@ export class Candlestick extends AbstractTrace<number> {
       case 'BACKWARD': {
         // Horizontal movement: navigate between candlesticks while preserving segment type
         const newPointIndex
-          = direction === 'FORWARD'
-            ? this.currentPointIndex + 1
-            : this.currentPointIndex - 1;
+                    = direction === 'FORWARD'
+                      ? this.currentPointIndex + 1
+                      : this.currentPointIndex - 1;
 
         if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
           this.currentPointIndex = newPointIndex;
@@ -231,7 +231,7 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD': {
         // Move to the highest value segment in current candlestick
         const currentSorted
-          = this.sortedSegmentsByPoint[this.currentPointIndex];
+                    = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
         this.updateVisualSegmentPosition();
         break;
@@ -239,7 +239,7 @@ export class Candlestick extends AbstractTrace<number> {
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
         const currentSortedDown
-          = this.sortedSegmentsByPoint[this.currentPointIndex];
+                    = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
         this.updateVisualSegmentPosition();
         break;
@@ -310,9 +310,9 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType,
         );
         const newSegmentPosition
-          = target === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
+                    = target === 'UPWARD'
+                      ? currentSegmentPosition + 1
+                      : currentSegmentPosition - 1;
         return (
           newSegmentPosition >= 0 && newSegmentPosition < this.sections.length
         );
@@ -322,9 +322,9 @@ export class Candlestick extends AbstractTrace<number> {
       case 'BACKWARD': {
         // Horizontal movement: check if we can move between candlesticks
         const newPointIndex
-          = target === 'FORWARD'
-            ? this.currentPointIndex + 1
-            : this.currentPointIndex - 1;
+                    = target === 'FORWARD'
+                      ? this.currentPointIndex + 1
+                      : this.currentPointIndex - 1;
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
       }
     }
@@ -409,12 +409,12 @@ export class Candlestick extends AbstractTrace<number> {
     return {
       main: {
         label:
-          this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
+                    this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
         value: point.value,
       },
       cross: {
         label:
-          this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
+                    this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
         value: crossValue,
       },
       section: this.currentSegmentType,
@@ -430,5 +430,24 @@ export class Candlestick extends AbstractTrace<number> {
    */
   public getCurrentTrend(): CandlestickTrend {
     return this.candles[this.currentPointIndex].trend;
+  }
+
+  /**
+   * Override the state getter to provide dynamic axis labels for candlestick plots
+   * - xAxis: Shows the X-axis label (e.g., "Date") for l x command
+   * - yAxis: Shows the current segment type (open, high, low, close) for l y command
+   */
+  public override get state(): TraceState {
+    const parentState = super.state;
+
+    if (parentState.empty) {
+      return parentState;
+    }
+
+    return {
+      ...parentState,
+      xAxis: this.xAxis, // Use original X-axis label (e.g., "Date")
+      yAxis: this.currentSegmentType, // Current segment type (open, high, low, close)
+    };
   }
 }
