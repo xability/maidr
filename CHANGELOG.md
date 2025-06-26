@@ -1,3 +1,10 @@
+## [3.17.3](https://github.com/xability/maidr/compare/v3.17.2...v3.17.3) (2025-06-26)
+
+
+### Bug Fixes
+
+* update welcome message and rename LLM agents ([#323](https://github.com/xability/maidr/issues/323)) ([a0c83d8](https://github.com/xability/maidr/commit/a0c83d81be53cfc35f3c459e53de48d080fc6175))
+
 ## [3.17.2](https://github.com/xability/maidr/compare/v3.17.1...v3.17.2) (2025-06-26)
 
 
