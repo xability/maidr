@@ -12,6 +12,7 @@ import {
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
+import { Suggestions } from '../components/Suggestions';
 
 const Chat: React.FC = () => {
   const id = useId();
@@ -19,7 +20,7 @@ const Chat: React.FC = () => {
 
   const viewModel = useViewModel('chat');
   const settingsViewModel = useViewModel('settings');
-  const { messages } = useViewModelState('chat');
+  const { messages, suggestions } = useViewModelState('chat');
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
@@ -46,6 +47,10 @@ const Chat: React.FC = () => {
       void viewModel.sendMessage(inputMessage);
       setInputMessage('');
     }
+  };
+
+  const handleSuggestionClick = (suggestion: { text: string; type: string }): void => {
+    setInputMessage(suggestion.text);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent): void => {
@@ -130,6 +135,12 @@ const Chat: React.FC = () => {
             <div ref={messagesEndRef} />
           </Grid>
 
+          {/* Suggestions */}
+          <Suggestions
+            suggestions={suggestions}
+            onSuggestionClick={handleSuggestionClick}
+          />
+
           {/* Input Container */}
           <Grid
             size={12}
@@ -148,7 +159,7 @@ const Chat: React.FC = () => {
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
                   maxRows={4}
-                  placeholder="Type your message..."
+                  placeholder="What can I help you with?"
                   variant="outlined"
                   size="small"
                   autoFocus

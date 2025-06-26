@@ -5,6 +5,7 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
+  Alert,
   Button,
   CircularProgress,
   Dialog,
@@ -29,6 +30,8 @@ import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useId, useState } from 'react';
+
+const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
 function getValidVersion(modelKey: Llm, currentVersion: string | undefined): LlmVersion {
   const config = MODEL_VERSIONS[modelKey];
@@ -248,7 +251,7 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced'): void => {
+  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced' | 'custom'): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
@@ -292,10 +295,12 @@ const Settings: React.FC = () => {
     e.stopPropagation();
   }, []);
 
-  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced'>) => {
+  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>) => {
     e.stopPropagation();
     handleLlmChange('expertiseLevel', e.target.value);
   }, [handleLlmChange]);
+
+  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
   return (
     <Dialog
@@ -493,36 +498,51 @@ const Settings: React.FC = () => {
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>
                     <MenuItem value="advanced">Advanced</MenuItem>
+                    <MenuItem value="custom">Custom</MenuItem>
                   </Select>
                 </FormControl>
               )}
             />
           </Grid>
 
-          <Grid size={12}>
-            <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid size={12} sx={{ py: 1 }}>
-                <Typography variant="body2" fontWeight="normal">
-                  Custom Instructions
-                </Typography>
-              </Grid>
-              <Grid size={12}>
-                <TextareaAutosize
-                  minRows={3}
-                  maxRows={6}
-                  value={llmSettings.customInstruction}
-                  onChange={e => handleLlmChange('customInstruction', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                  }}
-                  placeholder="Enter custom instruction..."
-                />
+          {/* Custom Instructions - Only show when custom is selected */}
+          {llmSettings.expertiseLevel === 'custom' && (
+            <Grid size={12}>
+              <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+                <Grid size={12} sx={{ py: 1 }}>
+                  <Typography variant="body2" fontWeight="normal">
+                    Custom Instructions
+                  </Typography>
+                </Grid>
+                <Grid size={12}>
+                  <TextareaAutosize
+                    minRows={3}
+                    maxRows={6}
+                    value={llmSettings.customInstruction}
+                    onChange={e => handleLlmChange('customInstruction', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                    }}
+                    placeholder="Enter custom instruction..."
+                  />
+                </Grid>
+                {llmSettings.customInstruction.length < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                  <Grid size={12} sx={{ mt: 1 }}>
+                    <Alert severity="warning">
+                      Custom instructions must be at least
+                      {' '}
+                      {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                      {' '}
+                      characters long
+                    </Alert>
+                  </Grid>
+                )}
               </Grid>
             </Grid>
-          </Grid>
+          )}
         </Grid>
 
         <Grid size={12}>
@@ -554,7 +574,13 @@ const Settings: React.FC = () => {
             </Button>
           </Grid>
           <Grid size="auto">
-            <Button variant="contained" color="primary" onClick={handleSave}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSave}
+              disabled={!isCustomInstructionValid}
+              title={!isCustomInstructionValid ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long` : ''}
+            >
               Save & Close
             </Button>
           </Grid>

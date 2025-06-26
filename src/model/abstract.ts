@@ -66,6 +66,17 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.notifyStateUpdate();
   }
 
+  /**
+   * Gets safe row and column indices to prevent accessing undefined values
+   * @returns Object with safe row and column indices
+   */
+  protected getSafeIndices(): { row: number; col: number } {
+    const values = this.values;
+    const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
+    const safeCol = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    return { row: safeRow, col: safeCol };
+  }
+
   public moveToExtreme(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -78,9 +89,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
       case 'DOWNWARD':
         this.row = 0;
         break;
-      case 'FORWARD':
-        this.col = this.values[this.row].length - 1;
+      case 'FORWARD': {
+        // Safety check: ensure we don't access undefined values
+        const { row: safeRow } = this.getSafeIndices();
+        this.col = this.values[safeRow]?.length ? this.values[safeRow].length - 1 : 0;
         break;
+      }
       case 'BACKWARD':
         this.col = 0;
         break;
@@ -100,9 +114,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       const [row, col] = target;
+      const { row: safeRow } = this.getSafeIndices();
       return (
         row >= 0 && row < this.values.length
-        && col >= 0 && col < this.values[this.row].length
+        && col >= 0 && col < (this.values[safeRow]?.length || 0)
       );
     }
 
@@ -111,8 +126,11 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
         return this.row < this.values.length - 1;
       case 'DOWNWARD':
         return this.row > 0;
-      case 'FORWARD':
-        return this.col < this.values[this.row].length - 1;
+      case 'FORWARD': {
+        // Safety check: ensure we don't access undefined values
+        const { row: safeRow } = this.getSafeIndices();
+        return this.col < (this.values[safeRow]?.length || 0) - 1;
+      }
       case 'BACKWARD':
         return this.col > 0;
     }
@@ -121,7 +139,9 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
+    // Safety check: ensure we don't access undefined values
+    const { row: safeRow } = this.getSafeIndices();
+    this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
   public addObserver(observer: Observer<State>): void {
@@ -187,13 +207,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   public get state(): TraceState {
     if (this.isOutOfBounds) {
+      // Safety check: ensure we don't access undefined values
+      const { row: safeRow, col: safeCol } = this.getSafeIndices();
+      const values = this.values;
+
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          size: values[safeRow]?.length || 0,
+          index: safeCol,
         },
       };
     }
@@ -217,13 +241,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
+      // Safety check: ensure we don't access undefined values
+      const { row: safeRow, col: safeCol } = this.getSafeIndices();
+      const values = this.values;
+
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          size: values[safeRow]?.length || 0,
+          index: safeCol,
         },
       };
     }
@@ -245,11 +273,15 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   public get autoplay(): AutoplayState {
+    // Safety check: ensure we don't access undefined values
+    const { row: safeRow } = this.getSafeIndices();
+    const currentRowLength = this.values[safeRow]?.length || 0;
+
     return {
       UPWARD: this.values.length,
       DOWNWARD: this.values.length,
-      FORWARD: this.values[this.row].length,
-      BACKWARD: this.values[this.row].length,
+      FORWARD: currentRowLength,
+      BACKWARD: currentRowLength,
     };
   }
 
