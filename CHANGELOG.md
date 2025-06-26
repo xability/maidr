@@ -1,3 +1,10 @@
+## [3.17.4](https://github.com/xability/maidr/compare/v3.17.3...v3.17.4) (2025-06-26)
+
+
+### Bug Fixes
+
+* support multi-line axis label & titles ([#370](https://github.com/xability/maidr/issues/370)) ([f69dce5](https://github.com/xability/maidr/commit/f69dce5084b654d525243b687551906b17b7f938))
+
 ## [3.17.3](https://github.com/xability/maidr/compare/v3.17.2...v3.17.3) (2025-06-26)
 
 
