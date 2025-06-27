@@ -5,6 +5,7 @@ import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
+import { TraceType } from '@type/grammar';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 
 interface Range {
@@ -35,6 +36,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
+  private currentTraceType: string | null;
 
   private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
 
@@ -52,6 +54,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
+    this.currentTraceType = null;
     this.updateMode(state);
 
     this.activeAudioIds = new Map();
@@ -225,6 +228,9 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     ) {
       return;
     }
+
+    // Update the current trace type
+    this.currentTraceType = traceState.traceType;
 
     this.isCombinedAudio = traceState.hasMultiPoints;
     if (this.mode === AudioMode.OFF) {
@@ -669,21 +675,46 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     return Math.max(from, Math.min(value, to));
   }
 
+  /**
+   * Check if the current trace type should only have simple ON/OFF sonification modes.
+   * Stacked bar plots (including dodged and normalized stacked bars) should only toggle
+   * between ON and OFF, not include separate/combined modes.
+   */
+  private shouldUseSimpleToggle(): boolean {
+    return this.currentTraceType === TraceType.STACKED 
+        || this.currentTraceType === TraceType.DODGED
+        || this.currentTraceType === TraceType.NORMALIZED;
+  }
+
   public toggle(): void {
-    switch (this.mode) {
-      case AudioMode.OFF:
-        this.mode = this.isCombinedAudio
-          ? AudioMode.COMBINED
-          : AudioMode.SEPARATE;
-        break;
+    // Use simple ON/OFF toggle for stacked bar plots
+    if (this.shouldUseSimpleToggle()) {
+      switch (this.mode) {
+        case AudioMode.OFF:
+          this.mode = AudioMode.SEPARATE; // Use SEPARATE as "on" mode
+          break;
+        case AudioMode.SEPARATE:
+        case AudioMode.COMBINED:
+          this.mode = AudioMode.OFF;
+          break;
+      }
+    } else {
+      // Use full toggle cycle for other plot types (e.g., scatter plots)
+      switch (this.mode) {
+        case AudioMode.OFF:
+          this.mode = this.isCombinedAudio
+            ? AudioMode.COMBINED
+            : AudioMode.SEPARATE;
+          break;
 
-      case AudioMode.SEPARATE:
-        this.mode = AudioMode.OFF;
-        break;
+        case AudioMode.SEPARATE:
+          this.mode = AudioMode.OFF;
+          break;
 
-      case AudioMode.COMBINED:
-        this.mode = AudioMode.SEPARATE;
-        break;
+        case AudioMode.COMBINED:
+          this.mode = AudioMode.SEPARATE;
+          break;
+      }
     }
 
     const mode
