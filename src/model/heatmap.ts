@@ -19,9 +19,9 @@ export class Heatmap extends AbstractTrace<number> {
 
     const data = layer.data as HeatmapData;
     this.x = data.x;
-    this.y = data.y;
+    this.y = [...data.y].reverse();
+    this.heatmapValues = [...data.points].reverse();
 
-    this.heatmapValues = data.points;
     const { min, max } = MathUtil.minMaxFrom2D(this.heatmapValues);
     this.min = min;
     this.max = max;

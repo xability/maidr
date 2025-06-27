@@ -1,6 +1,6 @@
-import type { LineDataItem, LinePoint, MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -17,32 +17,10 @@ export class LineTrace extends AbstractTrace<number> {
   protected readonly min: number[];
   protected readonly max: number[];
 
-  // Support for dynamic axis labels and titles per line
-  private readonly lineDataItems?: LineDataItem[];
-  private readonly isEnhancedFormat: boolean;
-
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    // Check if data is in the new enhanced format
-    const data = layer.data;
-    if (Array.isArray(data) && data.length > 0 && 'points' in data[0]) {
-      // New enhanced format: LineDataItem[]
-      this.isEnhancedFormat = true;
-      this.lineDataItems = data as LineDataItem[];
-
-      // Convert to the expected LinePoint[][] format for compatibility
-      this.points = this.lineDataItems.map(item =>
-        item.points.map(point => ({
-          ...point,
-        })),
-      );
-    } else {
-      // Legacy format: LinePoint[][]
-      this.isEnhancedFormat = false;
-      this.lineDataItems = undefined;
-      this.points = data as LinePoint[][];
-    }
+    this.points = layer.data as LinePoint[][];
 
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
@@ -62,26 +40,6 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected get values(): number[][] {
     return this.lineValues;
-  }
-
-  public get state(): TraceState {
-    const baseState = super.state;
-
-    if (baseState.empty) {
-      return baseState;
-    }
-
-    // Use dynamic title and axis labels for enhanced format
-    const dynamicTitle = this.getDynamicTitle();
-    const dynamicXAxis = this.getDynamicXAxisLabel();
-    const dynamicYAxis = this.getDynamicYAxisLabel();
-
-    return {
-      ...baseState,
-      title: dynamicTitle || baseState.title,
-      xAxis: dynamicXAxis,
-      yAxis: dynamicYAxis,
-    };
   }
 
   protected audio(): AudioState {
@@ -114,8 +72,8 @@ export class LineTrace extends AbstractTrace<number> {
       : {};
 
     return {
-      main: { label: this.getDynamicXAxisLabel(), value: this.points[this.row][this.col].x },
-      cross: { label: this.getDynamicYAxisLabel(), value: this.points[this.row][this.col].y },
+      main: { label: this.xAxis, value: this.points[this.row][this.col].x },
+      cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
     };
   }
@@ -326,57 +284,5 @@ export class LineTrace extends AbstractTrace<number> {
       return null;
     }
     return svgElements;
-  }
-
-  /**
-   * Gets the dynamic X-axis label for the current line
-   * @returns The X-axis label for the current line, or the top-level label if not available
-   */
-  public getDynamicXAxisLabel(): string {
-    if (this.isEnhancedFormat && this.lineDataItems && this.row < this.lineDataItems.length) {
-      const lineItem = this.lineDataItems[this.row];
-      return lineItem.axes?.x || this.xAxis;
-    }
-    return this.xAxis;
-  }
-
-  /**
-   * Gets the dynamic Y-axis label for the current line
-   * @returns The Y-axis label for the current line, or the top-level label if not available
-   */
-  public getDynamicYAxisLabel(): string {
-    if (this.isEnhancedFormat && this.lineDataItems && this.row < this.lineDataItems.length) {
-      const lineItem = this.lineDataItems[this.row];
-      return lineItem.axes?.y || this.yAxis;
-    }
-    return this.yAxis;
-  }
-
-  /**
-   * Gets the dynamic title for the current line
-   * @returns The title for the current line, or the top-level title if not available
-   */
-  public getDynamicTitle(): string | undefined {
-    if (this.isEnhancedFormat && this.lineDataItems && this.row < this.lineDataItems.length) {
-      const lineItem = this.lineDataItems[this.row];
-      return lineItem.title || this.title;
-    }
-    return this.title;
-  }
-
-  /**
-   * Gets the current line index
-   * @returns The current line index
-   */
-  public getCurrentLineIndex(): number {
-    return this.row;
-  }
-
-  /**
-   * Gets the total number of lines
-   * @returns The total number of lines
-   */
-  public getTotalLines(): number {
-    return this.points.length;
   }
 }
