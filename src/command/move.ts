@@ -1,4 +1,6 @@
 import type { Context } from '@model/context';
+import type { Subplot } from '@model/plot';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
 
 export class MoveUpCommand implements Command {
@@ -123,24 +125,48 @@ export class MoveToSubplotContextCommand implements Command {
 
 export class MoveToNextTraceCommand implements Command {
   private readonly context: Context;
+  private readonly textViewModel: TextViewModel;
 
-  public constructor(context: Context) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     this.context = context;
+    this.textViewModel = textViewModel;
   }
 
   public execute(): void {
+    // Check if movement is possible before attempting
+    if (this.context.active.state.type === 'subplot') {
+      const activeSubplot = this.context.active as Subplot;
+      if (!activeSubplot.isMovable('UPWARD')) {
+        // Provide layer boundary feedback
+        activeSubplot.triggerBoundaryFeedback();
+        this.textViewModel.notify('no additional layer');
+        return;
+      }
+    }
     this.context.stepTrace('UPWARD');
   }
 }
 
 export class MoveToPrevTraceCommand implements Command {
   private readonly context: Context;
+  private readonly textViewModel: TextViewModel;
 
-  public constructor(context: Context) {
+  public constructor(context: Context, textViewModel: TextViewModel) {
     this.context = context;
+    this.textViewModel = textViewModel;
   }
 
   public execute(): void {
+    // Check if movement is possible before attempting
+    if (this.context.active.state.type === 'subplot') {
+      const activeSubplot = this.context.active as Subplot;
+      if (!activeSubplot.isMovable('DOWNWARD')) {
+        // Provide layer boundary feedback
+        activeSubplot.triggerBoundaryFeedback();
+        this.textViewModel.notify('no additional layer');
+        return;
+      }
+    }
     this.context.stepTrace('DOWNWARD');
   }
 }
