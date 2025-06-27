@@ -90,6 +90,27 @@ export class Context implements Disposable {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
+      
+      // Check if movement is possible before attempting
+      if (!activeSubplot.isMovable(direction)) {
+        // Provide boundary feedback by creating a temporary out-of-bounds state
+        const originalState = activeSubplot.state;
+        const boundaryState = {
+          ...originalState,
+          empty: true,
+          type: 'subplot' as const,
+        };
+        
+        // Temporarily set out-of-bounds state and notify observers
+        (activeSubplot as any).isOutOfBounds = true;
+        activeSubplot.notifyStateUpdate();
+        (activeSubplot as any).isOutOfBounds = false;
+        
+        // Restore the trace to the context
+        this.plotContext.push(activeSubplot.activeTrace);
+        return;
+      }
+      
       activeSubplot.moveOnce(direction);
       this.active.notifyStateUpdate();
       this.plotContext.push(activeSubplot.activeTrace);

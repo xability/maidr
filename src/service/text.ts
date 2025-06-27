@@ -41,6 +41,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (typeof state === 'string') {
       return state;
     } else if (!state || state.empty) {
+      if (state?.type === 'subplot') {
+        return 'No additional layer';
+      }
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
