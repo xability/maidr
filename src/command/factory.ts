@@ -108,9 +108,9 @@ export class CommandFactory {
       case 'MOVE_TO_SUBPLOT_CONTEXT':
         return new MoveToSubplotContextCommand(this.context);
       case 'MOVE_TO_NEXT_TRACE':
-        return new MoveToNextTraceCommand(this.context);
+        return new MoveToNextTraceCommand(this.context, this.textViewModel);
       case 'MOVE_TO_PREV_TRACE':
-        return new MoveToPrevTraceCommand(this.context);
+        return new MoveToPrevTraceCommand(this.context, this.textViewModel);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);

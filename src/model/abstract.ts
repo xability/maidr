@@ -165,6 +165,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.isOutOfBounds = false;
   }
 
+  public triggerBoundaryFeedback(): void {
+    this.notifyOutOfBounds();
+  }
+
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
