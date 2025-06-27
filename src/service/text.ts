@@ -124,25 +124,41 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
 
-    // Format for box plot and candlestick.
-    if (state.section !== undefined) {
+    // Format for cross axis values (y-axis).
+    // For candlestick plots, we show both cross.value (price) and section (type)
+    if (state.section !== undefined && state.fill !== undefined) {
+      // For candlestick: show cross.value (price) first, then section (type)
+      if (!Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value), Constant.COMMA_SPACE, state.section);
+      } else {
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET, Constant.COMMA_SPACE, state.section);
+      }
+    } else {
+      // For other plots: show cross.value normally
+      if (!Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value));
+      } else {
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      }
+    }
+
+    // Format for box plot (type) - only if section exists but no fill (not candlestick)
+    if (state.section !== undefined && state.fill === undefined) {
+      terse.push(Constant.COMMA_SPACE);
       if (Array.isArray(state.cross.value)) {
         terse.push(String(state.cross.value.length), Constant.SPACE);
       }
-
-      terse.push(state.section, Constant.SPACE);
+      terse.push(state.section);
     }
 
     // Format for heatmap and segmented plots.
     if (state.fill !== undefined) {
-      terse.push(state.fill.value, Constant.COMMA_SPACE);
-    }
-
-    // Format for cross axis values.
-    if (!Array.isArray(state.cross.value)) {
-      terse.push(String(state.cross.value));
-    } else {
-      terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      // For candlestick plots, don't add comma before fill value to show "open bear" instead of "open, bear"
+      if (state.section !== undefined) {
+        terse.push(Constant.SPACE, state.fill.value);
+      } else {
+        terse.push(Constant.COMMA_SPACE, state.fill.value);
+      }
     }
 
     return terse.join(Constant.EMPTY);
