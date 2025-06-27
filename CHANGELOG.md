@@ -1,3 +1,10 @@
+## [3.17.6](https://github.com/xability/maidr/compare/v3.17.5...v3.17.6) (2025-06-27)
+
+
+### Bug Fixes
+
+* revert specialized logic for linetrace ([#374](https://github.com/xability/maidr/issues/374)) ([12914c6](https://github.com/xability/maidr/commit/12914c6b64c28386447ecc3d7277b61109a0788c))
+
 ## [3.17.5](https://github.com/xability/maidr/compare/v3.17.4...v3.17.5) (2025-06-26)
 
 
