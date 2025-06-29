@@ -1,3 +1,38 @@
+## [3.17.6](https://github.com/xability/maidr/compare/v3.17.5...v3.17.6) (2025-06-27)
+
+
+### Bug Fixes
+
+* revert specialized logic for linetrace ([#374](https://github.com/xability/maidr/issues/374)) ([12914c6](https://github.com/xability/maidr/commit/12914c6b64c28386447ecc3d7277b61109a0788c))
+
+## [3.17.5](https://github.com/xability/maidr/compare/v3.17.4...v3.17.5) (2025-06-26)
+
+
+### Bug Fixes
+
+* address y labels in candlestick plots ([#371](https://github.com/xability/maidr/issues/371)) ([d636e86](https://github.com/xability/maidr/commit/d636e86c7ef2c21c15fcd9052967e4a87d94b7b3))
+
+## [3.17.4](https://github.com/xability/maidr/compare/v3.17.3...v3.17.4) (2025-06-26)
+
+
+### Bug Fixes
+
+* support multi-line axis label & titles ([#370](https://github.com/xability/maidr/issues/370)) ([f69dce5](https://github.com/xability/maidr/commit/f69dce5084b654d525243b687551906b17b7f938))
+
+## [3.17.3](https://github.com/xability/maidr/compare/v3.17.2...v3.17.3) (2025-06-26)
+
+
+### Bug Fixes
+
+* update welcome message and rename LLM agents ([#323](https://github.com/xability/maidr/issues/323)) ([a0c83d8](https://github.com/xability/maidr/commit/a0c83d81be53cfc35f3c459e53de48d080fc6175))
+
+## [3.17.2](https://github.com/xability/maidr/compare/v3.17.1...v3.17.2) (2025-06-26)
+
+
+### Bug Fixes
+
+* address empty labels in candlestick plots ([#369](https://github.com/xability/maidr/issues/369)) ([79245dd](https://github.com/xability/maidr/commit/79245ddc98ffe86aa680771e12ec35edace207b7))
+
 ## [3.17.1](https://github.com/xability/maidr/compare/v3.17.0...v3.17.1) (2025-06-25)
 
 

@@ -76,17 +76,23 @@ const Chat: React.FC = () => {
         },
       }}
     >
-      <DialogTitle>
+      <DialogTitle component="h2" sx={{ p: 2 }}>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid size="auto">
-            <Typography variant="h6" fontWeight="bold">
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              component="h2"
+              sx={{ margin: 0 }}
+              aria-label="Chart Assistant - AI Chat Interface"
+            >
               Chart Assistant
             </Typography>
           </Grid>
           <Grid size="auto">
             <IconButton
               onClick={handleClose}
-              aria-label="Close"
+              aria-label="Close chat dialog"
             >
               <Close />
             </IconButton>
@@ -99,6 +105,8 @@ const Chat: React.FC = () => {
           {/* Messages Container */}
           <Grid
             size={12}
+            component="section"
+            aria-label="Chat messages"
             sx={{
               'flex': 1,
               'overflowY': 'auto',
@@ -120,7 +128,7 @@ const Chat: React.FC = () => {
               <MessageBubble
                 key={message.id}
                 message={message}
-                _disabled={disabled}
+                disabled={disabled}
                 _onOpenSettings={handleOpenSettings}
               />
             ))}
@@ -136,6 +144,8 @@ const Chat: React.FC = () => {
           {/* Input Container */}
           <Grid
             size={12}
+            component="section"
+            aria-label="Message input"
             sx={{
               p: 2,
               borderTop: `1px solid ${theme.palette.divider}`,
@@ -155,6 +165,7 @@ const Chat: React.FC = () => {
                   autoFocus
                   fullWidth
                   multiline
+                  aria-label="Type your message to the AI assistant"
                 />
               </Grid>
               <Grid size={{ xs: 2 }} container justifyContent="flex-end">
@@ -162,7 +173,7 @@ const Chat: React.FC = () => {
                   onClick={handleSend}
                   disabled={disabled}
                   color="primary"
-                  aria-label="Send message"
+                  aria-label="Send message to AI assistant"
                   sx={{
                     'bgcolor': theme.palette.primary.main,
                     'color': theme.palette.primary.contrastText,

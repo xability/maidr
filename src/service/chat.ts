@@ -15,9 +15,9 @@ export class ChatService {
     this.display = display;
 
     this.models = {
-      GPT: new Gpt(display.plot, maidr, 'gpt-4o'),
-      CLAUDE: new Claude(display.plot, maidr, 'claude-3-7-sonnet-latest'),
-      GEMINI: new Gemini(display.plot, maidr, 'gemini-2.0-flash'),
+      OPENAI: new Gpt(display.plot, maidr, 'gpt-4o'),
+      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, 'claude-3-7-sonnet-latest'),
+      GOOGLE_GEMINI: new Gemini(display.plot, maidr, 'gemini-2.0-flash'),
     };
   }
 

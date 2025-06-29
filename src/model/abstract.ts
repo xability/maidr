@@ -173,7 +173,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
-  private readonly title: string;
+  protected readonly title: string;
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;

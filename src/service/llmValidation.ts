@@ -13,11 +13,11 @@ export class LlmValidationService {
   public static async validateApiKey(modelKey: Llm, apiKey: string): Promise<ValidationResponse> {
     try {
       switch (modelKey) {
-        case 'GPT':
+        case 'OPENAI':
           return await this.validateOpenAiKey(apiKey);
-        case 'CLAUDE':
+        case 'ANTHROPIC_CLAUDE':
           return await this.validateAnthropicKey(apiKey);
-        case 'GEMINI':
+        case 'GOOGLE_GEMINI':
           return await this.validateGeminiKey(apiKey);
         default:
           return { isValid: false, error: 'Invalid model key' };
