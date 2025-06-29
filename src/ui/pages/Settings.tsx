@@ -389,14 +389,12 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplaySize}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'brailleDisplaySize',
-                        Number(e.target.value),
-                      )}
+                    onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        'aria-label': 'Braille Display Size',
+                        inputProps: {
+                          'aria-label': 'Braille Display Size',
+                        },
                       },
                     }}
                   />
@@ -417,7 +415,9 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        'aria-label': 'Minimum Frequency',
+                        inputProps: {
+                          'aria-label': 'Minimum Frequency',
+                        },
                       },
                     }}
                   />
@@ -438,7 +438,9 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        'aria-label': 'Maximum Frequency',
+                        inputProps: {
+                          'aria-label': 'Maximum Frequency',
+                        },
                       },
                     }}
                   />
@@ -459,7 +461,9 @@ const Settings: React.FC = () => {
                     onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
                     slotProps={{
                       input: {
-                        'aria-label': 'Autoplay Duration',
+                        inputProps: {
+                          'aria-label': 'Autoplay Duration',
+                        },
                       },
                     }}
                   />
