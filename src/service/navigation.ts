@@ -24,9 +24,9 @@ export class NavigationService implements Disposable {
     orientation: Orientation,
     sections: readonly T[],
   ): {
-    pointIndex: number;
-    segmentType: T;
-  } {
+      pointIndex: number;
+      segmentType: T;
+    } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         pointIndex: row,
@@ -52,9 +52,9 @@ export class NavigationService implements Disposable {
     segmentPosition: number,
     orientation: Orientation,
   ): {
-    row: number;
-    col: number;
-  } {
+      row: number;
+      col: number;
+    } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         row: pointIndex,
@@ -171,8 +171,8 @@ export class NavigationService implements Disposable {
    * Validate position in values array
    */
   private isValidPosition(values: any[][], row: number, col: number): boolean {
-    return row >= 0 && row < values.length &&
-      col >= 0 && col < values[row].length;
+    return row >= 0 && row < values.length
+      && col >= 0 && col < values[row].length;
   }
 
   public dispose(): void {
