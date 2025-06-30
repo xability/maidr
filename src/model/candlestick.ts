@@ -431,4 +431,33 @@ export class Candlestick extends AbstractTrace<number> {
   public getCurrentTrend(): CandlestickTrend {
     return this.candles[this.currentPointIndex].trend;
   }
+
+  /**
+   * Get the current X value from the candlestick trace
+   * @returns The current X value or null if not available
+   */
+  public getCurrentXValue(): any {
+    if (this.currentPointIndex >= 0 && this.currentPointIndex < this.candles.length) {
+      return this.candles[this.currentPointIndex].value;
+    }
+    return null;
+  }
+
+  /**
+   * Move the candlestick to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: any): boolean {
+    const targetIndex = this.candles.findIndex(candle => candle.value === xValue);
+    if (targetIndex !== -1) {
+      this.currentPointIndex = targetIndex;
+      this.currentSegmentType = 'open'; // Default to open segment
+      this.updateVisualPointPosition();
+      this.updateVisualSegmentPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+    return false;
+  }
 }

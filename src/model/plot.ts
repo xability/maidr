@@ -199,4 +199,17 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState>, Disposable { }
+export interface Trace extends Movable, Observable<TraceState>, Disposable {
+  /**
+   * Get the current X value from the trace
+   * @returns The current X value or null if not available
+   */
+  getCurrentXValue: () => any;
+
+  /**
+   * Move the trace to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  moveToXValue: (xValue: any) => boolean;
+}

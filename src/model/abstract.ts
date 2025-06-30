@@ -296,4 +296,194 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * Base implementation for getting current X value
+   * Subclasses can override if they have different data structures
+   */
+  public getCurrentXValue(): any {
+    // Handle traces with points array (BarTrace, LineTrace)
+    if (this.hasPointsArray()) {
+      const points = this.getPointsArray();
+      if (this.isValidPointsArray(points)) {
+        return this.extractXValueFromPoints(points);
+      }
+    }
+
+    // Handle traces with values array (generic fallback)
+    if (this.hasValuesArray()) {
+      const values = this.values;
+      if (this.isValidValuesArray(values)) {
+        return this.extractXValueFromValues(values);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Base implementation for moving to X value
+   * Subclasses can override if they have different data structures
+   */
+  public moveToXValue(xValue: any): boolean {
+    // Handle traces with points array (BarTrace, LineTrace)
+    if (this.hasPointsArray()) {
+      const points = this.getPointsArray();
+      if (this.isValidPointsArray(points)) {
+        return this.moveToXValueInPoints(points, xValue);
+      }
+    }
+
+    // Handle traces with values array (generic fallback)
+    if (this.hasValuesArray()) {
+      const values = this.values;
+      if (this.isValidValuesArray(values)) {
+        return this.moveToXValueInValues(values, xValue);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Type guard to check if trace has points array
+   */
+  private hasPointsArray(): boolean {
+    return 'points' in this && this.points !== undefined;
+  }
+
+  /**
+   * Type guard to check if trace has values array
+   */
+  private hasValuesArray(): boolean {
+    return 'values' in this && this.values !== undefined;
+  }
+
+  /**
+   * Safely get points array with proper typing
+   */
+  private getPointsArray(): any[] {
+    return (this as any).points;
+  }
+
+  /**
+   * Validate points array structure
+   */
+  private isValidPointsArray(points: any[]): boolean {
+    return Array.isArray(points) && points.length > 0;
+  }
+
+  /**
+   * Validate values array structure
+   */
+  private isValidValuesArray(values: any[][]): boolean {
+    return Array.isArray(values) && values.length > 0;
+  }
+
+  /**
+   * Extract X value from points array based on current position
+   */
+  private extractXValueFromPoints(points: any[]): any {
+    // Single-row traces (like BarTrace)
+    if (points.length === 1 && points[0]) {
+      const point = points[0][this.col];
+      return this.extractXFromPoint(point);
+    }
+
+    // Multi-row traces (like LineTrace)
+    if (points[this.row] && points[this.row][this.col]) {
+      const point = points[this.row][this.col];
+      return this.extractXFromPoint(point);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract X value from values array based on current position
+   */
+  private extractXValueFromValues(values: any[][]): any {
+    if (this.isValidPosition(values)) {
+      const value = values[this.row][this.col];
+      return this.extractXFromValue(value);
+    }
+    return null;
+  }
+
+  /**
+   * Move to X value in points array
+   */
+  private moveToXValueInPoints(points: any[], xValue: any): boolean {
+    // Single-row traces (like BarTrace)
+    if (points.length === 1 && points[0]) {
+      const targetIndex = this.findPointIndexByX(points[0], xValue);
+      if (targetIndex !== -1) {
+        this.moveToIndex(0, targetIndex);
+        return true;
+      }
+    }
+
+    // Multi-row traces (like LineTrace)
+    for (let row = 0; row < points.length; row++) {
+      const colIndex = this.findPointIndexByX(points[row], xValue);
+      if (colIndex !== -1) {
+        this.moveToIndex(row, colIndex);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Move to X value in values array
+   */
+  private moveToXValueInValues(values: any[][], xValue: any): boolean {
+    for (let row = 0; row < values.length; row++) {
+      for (let col = 0; col < values[row].length; col++) {
+        const value = values[row][col];
+        const valueToCompare = this.extractXFromValue(value);
+        if (valueToCompare === xValue) {
+          this.moveToIndex(row, col);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Extract X value from a point object
+   */
+  private extractXFromPoint(point: any): any {
+    if (point && typeof point === 'object' && 'x' in point) {
+      return point.x;
+    }
+    return null;
+  }
+
+  /**
+   * Extract X value from a generic value
+   */
+  private extractXFromValue(value: any): any {
+    if (value !== null && typeof value === 'object' && 'x' in value) {
+      return value.x;
+    }
+    return value;
+  }
+
+  /**
+   * Find point index by X value
+   */
+  private findPointIndexByX(points: any[], xValue: any): number {
+    return points.findIndex(point => this.extractXFromPoint(point) === xValue);
+  }
+
+  /**
+   * Validate current position in values array
+   */
+  private isValidPosition(values: any[][]): boolean {
+    return this.row >= 0 && this.row < values.length
+      && this.col >= 0 && this.col < values[this.row].length;
+  }
 }
