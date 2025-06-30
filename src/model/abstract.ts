@@ -1,6 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Trace } from './plot';
@@ -181,7 +182,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected readonly fill: string;
 
   // Service for navigation business logic
-  private readonly navigationService: NavigationService;
+  protected readonly navigationService: NavigationService;
 
   protected constructor(layer: MaidrLayer) {
     super();
@@ -305,7 +306,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    * Base implementation for getting current X value
    * Subclasses can override if they have different data structures
    */
-  public getCurrentXValue(): any {
+  public getCurrentXValue(): XValue | null {
     // Handle traces with points array (BarTrace, LineTrace)
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
@@ -318,7 +319,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.extractXValueFromValues(values, this.row, this.col);
+        return this.navigationService.extractXValueFromValues(values as any, this.row, this.col);
       }
     }
 
@@ -329,7 +330,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    * Base implementation for moving to X value
    * Subclasses can override if they have different data structures
    */
-  public moveToXValue(xValue: any): boolean {
+  public moveToXValue(xValue: XValue): boolean {
     // Handle traces with points array (BarTrace, LineTrace)
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
@@ -342,7 +343,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.moveToXValueInValues(values, xValue, this.moveToIndex.bind(this));
+        return this.navigationService.moveToXValueInValues(values as any, xValue, this.moveToIndex.bind(this));
       }
     }
 
