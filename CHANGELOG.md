@@ -1,3 +1,11 @@
+## [3.17.7](https://github.com/xability/maidr/compare/v3.17.6...v3.17.7) (2025-06-30)
+
+
+### Bug Fixes
+
+* add missing navigation constants file ([#382](https://github.com/xability/maidr/issues/382)) ([f42ad66](https://github.com/xability/maidr/commit/f42ad66a806b2955bd221c2295b8fc9a9471bff8))
+* address inconsistent x-values during inter-layer navigation ([#380](https://github.com/xability/maidr/issues/380)) ([8a3c6ba](https://github.com/xability/maidr/commit/8a3c6baa01191c6918f662cb960b3eeaae432f48))
+
 ## [3.17.6](https://github.com/xability/maidr/compare/v3.17.5...v3.17.6) (2025-06-27)
 
 
