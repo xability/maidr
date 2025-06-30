@@ -4,6 +4,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable, Observer } from '@type/observable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Trace } from './plot';
+import { NavigationService } from '@service/navigation';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -179,9 +180,12 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected readonly yAxis: string;
   protected readonly fill: string;
 
+  // Service for navigation business logic
+  private readonly navigationService: NavigationService;
+
   protected constructor(layer: MaidrLayer) {
     super();
-
+    this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
@@ -306,7 +310,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.extractXValueFromPoints(points);
+        return this.navigationService.extractXValueFromPoints(points, this.row, this.col);
       }
     }
 
@@ -314,7 +318,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.extractXValueFromValues(values);
+        return this.navigationService.extractXValueFromValues(values, this.row, this.col);
       }
     }
 
@@ -330,7 +334,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.moveToXValueInPoints(points, xValue);
+        return this.navigationService.moveToXValueInPoints(points, xValue, this.moveToIndex.bind(this));
       }
     }
 
@@ -338,7 +342,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.moveToXValueInValues(values, xValue);
+        return this.navigationService.moveToXValueInValues(values, xValue, this.moveToIndex.bind(this));
       }
     }
 
@@ -378,112 +382,5 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
-  }
-
-  /**
-   * Extract X value from points array based on current position
-   */
-  private extractXValueFromPoints(points: any[]): any {
-    // Single-row traces (like BarTrace)
-    if (points.length === 1 && points[0]) {
-      const point = points[0][this.col];
-      return this.extractXFromPoint(point);
-    }
-
-    // Multi-row traces (like LineTrace)
-    if (points[this.row] && points[this.row][this.col]) {
-      const point = points[this.row][this.col];
-      return this.extractXFromPoint(point);
-    }
-
-    return null;
-  }
-
-  /**
-   * Extract X value from values array based on current position
-   */
-  private extractXValueFromValues(values: any[][]): any {
-    if (this.isValidPosition(values)) {
-      const value = values[this.row][this.col];
-      return this.extractXFromValue(value);
-    }
-    return null;
-  }
-
-  /**
-   * Move to X value in points array
-   */
-  private moveToXValueInPoints(points: any[], xValue: any): boolean {
-    // Single-row traces (like BarTrace)
-    if (points.length === 1 && points[0]) {
-      const targetIndex = this.findPointIndexByX(points[0], xValue);
-      if (targetIndex !== -1) {
-        this.moveToIndex(0, targetIndex);
-        return true;
-      }
-    }
-
-    // Multi-row traces (like LineTrace)
-    for (let row = 0; row < points.length; row++) {
-      const colIndex = this.findPointIndexByX(points[row], xValue);
-      if (colIndex !== -1) {
-        this.moveToIndex(row, colIndex);
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Move to X value in values array
-   */
-  private moveToXValueInValues(values: any[][], xValue: any): boolean {
-    for (let row = 0; row < values.length; row++) {
-      for (let col = 0; col < values[row].length; col++) {
-        const value = values[row][col];
-        const valueToCompare = this.extractXFromValue(value);
-        if (valueToCompare === xValue) {
-          this.moveToIndex(row, col);
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Extract X value from a point object
-   */
-  private extractXFromPoint(point: any): any {
-    if (point && typeof point === 'object' && 'x' in point) {
-      return point.x;
-    }
-    return null;
-  }
-
-  /**
-   * Extract X value from a generic value
-   */
-  private extractXFromValue(value: any): any {
-    if (value !== null && typeof value === 'object' && 'x' in value) {
-      return value.x;
-    }
-    return value;
-  }
-
-  /**
-   * Find point index by X value
-   */
-  private findPointIndexByX(points: any[], xValue: any): number {
-    return points.findIndex(point => this.extractXFromPoint(point) === xValue);
-  }
-
-  /**
-   * Validate current position in values array
-   */
-  private isValidPosition(values: any[][]): boolean {
-    return this.row >= 0 && this.row < values.length
-      && this.col >= 0 && this.col < values[this.row].length;
   }
 }

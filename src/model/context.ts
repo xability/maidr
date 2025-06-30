@@ -99,7 +99,6 @@ export class Context implements Disposable {
       const currentXValue = currentTrace.getCurrentXValue();
 
       activeSubplot.moveOnce(direction);
-      this.active.notifyStateUpdate();
 
       const newTrace = activeSubplot.activeTrace;
 
@@ -110,6 +109,9 @@ export class Context implements Disposable {
       if (currentXValue !== null) {
         newTrace.moveToXValue(currentXValue);
       }
+
+      // Notify state update after context is complete
+      this.active.notifyStateUpdate();
     }
   }
 

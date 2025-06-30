@@ -7,7 +7,7 @@ import { Orientation } from '@type/grammar';
  *
  * This service encapsulates the business logic for translating between
  * UI coordinates (row, col) and model coordinates (pointIndex, segmentType)
- * based on data orientation.
+ * based on data orientation, as well as X-value navigation across trace types.
  */
 export class NavigationService implements Disposable {
   /**
@@ -24,9 +24,9 @@ export class NavigationService implements Disposable {
     orientation: Orientation,
     sections: readonly T[],
   ): {
-      pointIndex: number;
-      segmentType: T;
-    } {
+    pointIndex: number;
+    segmentType: T;
+  } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         pointIndex: row,
@@ -52,9 +52,9 @@ export class NavigationService implements Disposable {
     segmentPosition: number,
     orientation: Orientation,
   ): {
-      row: number;
-      col: number;
-    } {
+    row: number;
+    col: number;
+  } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         row: pointIndex,
@@ -66,6 +66,113 @@ export class NavigationService implements Disposable {
         col: pointIndex,
       };
     }
+  }
+
+  /**
+   * Extract X value from points array based on current position
+   */
+  public extractXValueFromPoints(points: any[], row: number, col: number): any {
+    // Single-row traces (like BarTrace)
+    if (points.length === 1 && points[0]) {
+      const point = points[0][col];
+      return this.extractXFromPoint(point);
+    }
+
+    // Multi-row traces (like LineTrace)
+    if (points[row] && points[row][col]) {
+      const point = points[row][col];
+      return this.extractXFromPoint(point);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract X value from values array based on current position
+   */
+  public extractXValueFromValues(values: any[][], row: number, col: number): any {
+    if (this.isValidPosition(values, row, col)) {
+      const value = values[row][col];
+      return this.extractXFromValue(value);
+    }
+    return null;
+  }
+
+  /**
+   * Move to X value in points array
+   */
+  public moveToXValueInPoints(points: any[], xValue: any, moveToIndex: (row: number, col: number) => void): boolean {
+    // Single-row traces (like BarTrace)
+    if (points.length === 1 && points[0]) {
+      const targetIndex = this.findPointIndexByX(points[0], xValue);
+      if (targetIndex !== -1) {
+        moveToIndex(0, targetIndex);
+        return true;
+      }
+    }
+
+    // Multi-row traces (like LineTrace)
+    for (let row = 0; row < points.length; row++) {
+      const colIndex = this.findPointIndexByX(points[row], xValue);
+      if (colIndex !== -1) {
+        moveToIndex(row, colIndex);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Move to X value in values array
+   */
+  public moveToXValueInValues(values: any[][], xValue: any, moveToIndex: (row: number, col: number) => void): boolean {
+    for (let row = 0; row < values.length; row++) {
+      for (let col = 0; col < values[row].length; col++) {
+        const value = values[row][col];
+        const valueToCompare = this.extractXFromValue(value);
+        if (valueToCompare === xValue) {
+          moveToIndex(row, col);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Extract X value from a point object
+   */
+  private extractXFromPoint(point: any): any {
+    if (point && typeof point === 'object' && 'x' in point) {
+      return point.x;
+    }
+    return null;
+  }
+
+  /**
+   * Extract X value from a generic value
+   */
+  private extractXFromValue(value: any): any {
+    if (value !== null && typeof value === 'object' && 'x' in value) {
+      return value.x;
+    }
+    return value;
+  }
+
+  /**
+   * Find point index by X value
+   */
+  private findPointIndexByX(points: any[], xValue: any): number {
+    return points.findIndex(point => this.extractXFromPoint(point) === xValue);
+  }
+
+  /**
+   * Validate position in values array
+   */
+  private isValidPosition(values: any[][], row: number, col: number): boolean {
+    return row >= 0 && row < values.length &&
+      col >= 0 && col < values[row].length;
   }
 
   public dispose(): void {
