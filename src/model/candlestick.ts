@@ -1,5 +1,6 @@
 import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
@@ -32,7 +33,7 @@ export class Candlestick extends AbstractTrace<number> {
   protected readonly highlightValues: SVGElement[][] | null;
 
   // Service dependency for navigation logic
-  private readonly navigationService: NavigationService;
+  protected readonly navigationService: NavigationService;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -430,5 +431,34 @@ export class Candlestick extends AbstractTrace<number> {
    */
   public getCurrentTrend(): CandlestickTrend {
     return this.candles[this.currentPointIndex].trend;
+  }
+
+  /**
+   * Get the current X value from the candlestick trace
+   * @returns The current X value or null if not available
+   */
+  public getCurrentXValue(): XValue | null {
+    if (this.currentPointIndex >= 0 && this.currentPointIndex < this.candles.length) {
+      return this.candles[this.currentPointIndex].value;
+    }
+    return null;
+  }
+
+  /**
+   * Move the candlestick to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    const targetIndex = this.candles.findIndex(candle => candle.value === xValue);
+    if (targetIndex !== -1) {
+      this.currentPointIndex = targetIndex;
+      this.currentSegmentType = 'open'; // Default to open segment
+      this.updateVisualPointPosition();
+      this.updateVisualSegmentPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+    return false;
   }
 }
