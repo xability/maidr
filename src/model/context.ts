@@ -102,16 +102,11 @@ export class Context implements Disposable {
 
       const newTrace = activeSubplot.activeTrace;
 
-      // Add the new trace back to the context
+      // Add the new trace to the context
       this.plotContext.push(newTrace);
 
-      // Preserve X value using standard interface
-      if (currentXValue !== null) {
-        newTrace.moveToXValue(currentXValue);
-      }
-
-      // Notify state update after context is complete
-      this.active.notifyStateUpdate();
+      // Try to move to the same X value in the new trace
+      const _moveResult = newTrace.moveToXValue(currentXValue);
     }
   }
 

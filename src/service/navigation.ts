@@ -114,11 +114,28 @@ export class NavigationService implements Disposable {
       if (targetIndex !== -1) {
         moveToIndex(0, targetIndex);
         return true;
+      } else {
+        // Fallback: find nearest or categorical X
+        const nearestIndex = this.findNearestPointIndexByX(points[0], xValue);
+        if (nearestIndex !== -1) {
+          const _actualX = extractXValue(points[0][nearestIndex]);
+          if (typeof xValue === 'number' && typeof _actualX === 'number') {
+            moveToIndex(0, nearestIndex);
+            return true;
+          } else if (typeof xValue === 'string' && typeof _actualX === 'string') {
+            moveToIndex(0, nearestIndex);
+            return true;
+          }
+        }
       }
     }
 
     // Multi-row traces (like LineTrace)
     if (Array.isArray(points)) {
+      let bestRow = -1;
+      let bestCol = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
       for (let row = 0; row < points.length; row++) {
         const rowPoints = points[row];
         if (Array.isArray(rowPoints)) {
@@ -127,6 +144,48 @@ export class NavigationService implements Disposable {
             moveToIndex(row, colIndex);
             return true;
           }
+          // Fallback: find nearest/categorical in this row
+          const nearestCol = this.findNearestPointIndexByX(rowPoints, xValue);
+          if (nearestCol !== -1) {
+            const _actualX = extractXValue(rowPoints[nearestCol]);
+            let dist = Number.POSITIVE_INFINITY;
+            if (typeof xValue === 'number' && typeof _actualX === 'number') {
+              dist = Math.abs(_actualX - xValue);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestRow = row;
+                bestCol = nearestCol;
+                fallbackType = 'numeric';
+              }
+            } else if (typeof xValue === 'string' && typeof _actualX === 'string') {
+              if (bestRow === -1) {
+                bestRow = row;
+                bestCol = nearestCol;
+                fallbackType = 'categorical';
+              }
+            } else if (bestRow === -1) {
+              bestRow = row;
+              bestCol = nearestCol;
+              fallbackType = 'generic';
+            }
+          }
+        }
+      }
+      if (bestRow !== -1 && bestCol !== -1) {
+        const rowPoints = points[bestRow];
+        let _actualX;
+        if (Array.isArray(rowPoints)) {
+          _actualX = extractXValue(rowPoints[bestCol]);
+        }
+        if (fallbackType === 'numeric') {
+          moveToIndex(bestRow, bestCol);
+          return true;
+        } else if (fallbackType === 'categorical') {
+          moveToIndex(bestRow, bestCol);
+          return true;
+        } else {
+          moveToIndex(bestRow, bestCol);
+          return true;
         }
       }
     }
@@ -142,6 +201,10 @@ export class NavigationService implements Disposable {
     xValue: XValue,
     moveToIndex: (row: number, col: number) => void,
   ): boolean {
+    let bestRow = -1;
+    let bestCol = -1;
+    let bestDist = Number.POSITIVE_INFINITY;
+    let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
     for (let row = 0; row < values.length; row++) {
       for (let col = 0; col < values[row].length; col++) {
         const value = values[row][col];
@@ -150,6 +213,39 @@ export class NavigationService implements Disposable {
           moveToIndex(row, col);
           return true;
         }
+        // Fallback: find nearest/categorical
+        if (typeof xValue === 'number' && typeof valueToCompare === 'number') {
+          const dist = Math.abs(valueToCompare - xValue);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestRow = row;
+            bestCol = col;
+            fallbackType = 'numeric';
+          }
+        } else if (typeof xValue === 'string' && typeof valueToCompare === 'string') {
+          if (bestRow === -1) {
+            bestRow = row;
+            bestCol = col;
+            fallbackType = 'categorical';
+          }
+        } else if (bestRow === -1) {
+          bestRow = row;
+          bestCol = col;
+          fallbackType = 'generic';
+        }
+      }
+    }
+    if (bestRow !== -1 && bestCol !== -1) {
+      const _actualX = this.extractXFromValue(values[bestRow][bestCol]);
+      if (fallbackType === 'numeric') {
+        moveToIndex(bestRow, bestCol);
+        return true;
+      } else if (fallbackType === 'categorical') {
+        moveToIndex(bestRow, bestCol);
+        return true;
+      } else {
+        moveToIndex(bestRow, bestCol);
+        return true;
       }
     }
     return false;
@@ -193,8 +289,133 @@ export class NavigationService implements Disposable {
       && col >= 0 && col < values[row].length;
   }
 
+  // Helper: find nearest X index in a flat array, robust to data type
+  private findNearestPointIndexByX(points: PointWithX[], xValue: XValue): number {
+    if (typeof xValue === 'number') {
+      let bestIdx = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < points.length; i++) {
+        const px = extractXValue(points[i]);
+        if (typeof px === 'number') {
+          const dist = Math.abs(px - xValue);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+          }
+        } else if (typeof px === 'string') {
+          const pxNum = Number(px);
+          if (!Number.isNaN(pxNum)) {
+            const dist = Math.abs(pxNum - xValue);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIdx = i;
+            }
+          }
+        }
+      }
+      if (bestIdx !== -1) {
+        const _actualX = extractXValue(points[bestIdx]);
+        return bestIdx;
+      }
+    } else if (typeof xValue === 'string') {
+      for (let i = 0; i < points.length; i++) {
+        const px = extractXValue(points[i]);
+        if (px === xValue) {
+          return i;
+        }
+      }
+      const xValueNum = Number(xValue);
+      if (!Number.isNaN(xValueNum)) {
+        let bestIdx = -1;
+        let bestDist = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < points.length; i++) {
+          const px = extractXValue(points[i]);
+          if (typeof px === 'number') {
+            const dist = Math.abs(px - xValueNum);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIdx = i;
+            }
+          } else if (typeof px === 'string') {
+            const pxNum = Number(px);
+            if (!Number.isNaN(pxNum)) {
+              const dist = Math.abs(pxNum - xValueNum);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
+              }
+            }
+          }
+        }
+        if (bestIdx !== -1) {
+          const _actualX = extractXValue(points[bestIdx]);
+          return bestIdx;
+        }
+      }
+      for (let i = 0; i < points.length; i++) {
+        const px = extractXValue(points[i]);
+        if (typeof px === 'string') {
+          return i;
+        }
+      }
+    }
+    if (points.length > 0) {
+      const _actualX = extractXValue(points[0]);
+      return 0;
+    }
+    return -1;
+  }
+
   public dispose(): void {
     // Currently no resources to clean up
     // This method is implemented for future extensibility
   }
+}
+
+/**
+ * Type guards for known point types
+ */
+function isBarPoint(point: any): point is { x: string | number; y: string | number } {
+  return point && typeof point === 'object' && 'x' in point && 'y' in point;
+}
+
+function isLinePoint(point: any): point is { x: number; y: number; fill?: string } {
+  return point && typeof point === 'object' && typeof point.x === 'number' && typeof point.y === 'number';
+}
+
+function isHistogramPoint(point: any): point is { x: number; y: number; xMin: number; xMax: number } {
+  return point && typeof point === 'object' && 'xMin' in point && 'xMax' in point;
+}
+
+function isSegmentedPoint(point: any): point is { x: string | number; y: number; fill?: string } {
+  return point && typeof point === 'object' && 'x' in point && 'y' in point;
+}
+
+function isSmoothPoint(point: any): point is { x: number; y: number } {
+  return point && typeof point === 'object' && typeof point.x === 'number' && typeof point.y === 'number';
+}
+
+function isCandlestickPoint(point: any): point is { value: number | string } {
+  return point && typeof point === 'object' && 'value' in point;
+}
+
+/**
+ * Centralized X extraction for all known point types
+ * @param point The point object
+ * @returns The X value or null if not found
+ */
+function extractXValue(point: any): XValue | null {
+  if (!point)
+    return null;
+  if (isBarPoint(point) || isLinePoint(point) || isSegmentedPoint(point) || isSmoothPoint(point)) {
+    return point.x;
+  }
+  if (isHistogramPoint(point)) {
+    return point.x;
+  }
+  if (isCandlestickPoint(point)) {
+    return point.value;
+  }
+  // Add more cases as needed
+  return null;
 }
