@@ -15,12 +15,14 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private readonly scopeObservers: Set<(scope: Scope) => void>;
 
   public constructor(figure: Figure) {
     this.id = figure.id;
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
+    this.scopeObservers = new Set();
 
     // Set the context to figure level.
     const figureState = figure.state;
@@ -49,6 +51,7 @@ export class Context implements Disposable {
   public dispose(): void {
     this.plotContext.clear();
     this.scopeContext.clear();
+    this.scopeObservers.clear();
   }
 
   public get active(): Plot {
@@ -64,10 +67,24 @@ export class Context implements Disposable {
       this.scopeContext.push(scope);
     }
     hotkeys.setScope(this.scope);
+    this.notifyScopeChange();
   }
 
   public get scope(): Scope {
     return this.scopeContext.peek()!;
+  }
+
+  public addScopeObserver(observer: (scope: Scope) => void): void {
+    this.scopeObservers.add(observer);
+  }
+
+  public removeScopeObserver(observer: (scope: Scope) => void): void {
+    this.scopeObservers.delete(observer);
+  }
+
+  private notifyScopeChange(): void {
+    const currentScope = this.scope;
+    this.scopeObservers.forEach(observer => observer(currentScope));
   }
 
   public isMovable(target: [number, number] | MovableDirection): boolean {

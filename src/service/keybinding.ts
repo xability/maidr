@@ -55,7 +55,7 @@ const CHAT_KEYMAP = {
 } as const;
 
 const FIGURE_LABEL_KEYMAP = {
-  DEACTIVATE_FIGURE_LABEL_SCOPE: `*`,
+  DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_TITLE: `t`,
@@ -98,7 +98,7 @@ const SUBPLOT_KEYMAP = {
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
-  DEACTIVATE_TRACE_LABEL_SCOPE: `*`,
+  DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_X: `x`,
@@ -175,7 +175,7 @@ const TRACE_KEYMAP = {
   DESCRIBE_POINT: `space`,
 } as const;
 
-const SCOPED_KEYMAP = {
+export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
@@ -242,6 +242,13 @@ export class KeybindingService {
         });
       }
     }
+
+    // Register command palette hotkeys
+    hotkeys(`${Platform.ctrl}+shift+p`, (event: KeyboardEvent): void => {
+      event.preventDefault();
+      // Dispatch a custom event to open the command palette
+      window.dispatchEvent(new CustomEvent('openCommandPalette'));
+    });
 
     hotkeys.setScope(initialScope);
   }
