@@ -1,9 +1,11 @@
 import type { Disposable } from '@type/disposable';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Trace } from './plot';
+import { NavigationService } from '@service/navigation';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -173,15 +175,18 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
-  private readonly title: string;
+  protected readonly title: string;
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
   protected readonly fill: string;
 
+  // Service for navigation business logic
+  protected readonly navigationService: NavigationService;
+
   protected constructor(layer: MaidrLayer) {
     super();
-
+    this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
@@ -296,4 +301,87 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * Base implementation for getting current X value
+   * Subclasses can override if they have different data structures
+   */
+  public getCurrentXValue(): XValue | null {
+    // Handle traces with points array (BarTrace, LineTrace)
+    if (this.hasPointsArray()) {
+      const points = this.getPointsArray();
+      if (this.isValidPointsArray(points)) {
+        return this.navigationService.extractXValueFromPoints(points, this.row, this.col);
+      }
+    }
+
+    // Handle traces with values array (generic fallback)
+    if (this.hasValuesArray()) {
+      const values = this.values;
+      if (this.isValidValuesArray(values)) {
+        return this.navigationService.extractXValueFromValues(values as any, this.row, this.col);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Base implementation for moving to X value
+   * Subclasses can override if they have different data structures
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    // Handle traces with points array (BarTrace, LineTrace)
+    if (this.hasPointsArray()) {
+      const points = this.getPointsArray();
+      if (this.isValidPointsArray(points)) {
+        return this.navigationService.moveToXValueInPoints(points, xValue, this.moveToIndex.bind(this));
+      }
+    }
+
+    // Handle traces with values array (generic fallback)
+    if (this.hasValuesArray()) {
+      const values = this.values;
+      if (this.isValidValuesArray(values)) {
+        return this.navigationService.moveToXValueInValues(values as any, xValue, this.moveToIndex.bind(this));
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Type guard to check if trace has points array
+   */
+  private hasPointsArray(): boolean {
+    return 'points' in this && this.points !== undefined;
+  }
+
+  /**
+   * Type guard to check if trace has values array
+   */
+  private hasValuesArray(): boolean {
+    return 'values' in this && this.values !== undefined;
+  }
+
+  /**
+   * Safely get points array with proper typing
+   */
+  private getPointsArray(): any[] {
+    return (this as any).points;
+  }
+
+  /**
+   * Validate points array structure
+   */
+  private isValidPointsArray(points: any[]): boolean {
+    return Array.isArray(points) && points.length > 0;
+  }
+
+  /**
+   * Validate values array structure
+   */
+  private isValidValuesArray(values: any[][]): boolean {
+    return Array.isArray(values) && values.length > 0;
+  }
 }

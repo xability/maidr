@@ -1,3 +1,46 @@
+## [3.17.9](https://github.com/xability/maidr/compare/v3.17.8...v3.17.9) (2025-07-01)
+
+
+### Bug Fixes
+
+* improve accessibility support in settings menu ([#347](https://github.com/xability/maidr/issues/347)) ([53c4238](https://github.com/xability/maidr/commit/53c4238644c7756222b686deed2ace1fb14f14bd))
+
+## [3.17.8](https://github.com/xability/maidr/compare/v3.17.7...v3.17.8) (2025-07-01)
+
+
+### Bug Fixes
+
+* remove unnecessary sonification models from stacked bar plot ([#383](https://github.com/xability/maidr/issues/383)) ([72d2b5f](https://github.com/xability/maidr/commit/72d2b5f7217495ee9309ec41e14e0670f04a8789))
+
+## [3.17.7](https://github.com/xability/maidr/compare/v3.17.6...v3.17.7) (2025-06-30)
+
+
+### Bug Fixes
+
+* add missing navigation constants file ([#382](https://github.com/xability/maidr/issues/382)) ([f42ad66](https://github.com/xability/maidr/commit/f42ad66a806b2955bd221c2295b8fc9a9471bff8))
+* address inconsistent x-values during inter-layer navigation ([#380](https://github.com/xability/maidr/issues/380)) ([8a3c6ba](https://github.com/xability/maidr/commit/8a3c6baa01191c6918f662cb960b3eeaae432f48))
+
+## [3.17.6](https://github.com/xability/maidr/compare/v3.17.5...v3.17.6) (2025-06-27)
+
+
+### Bug Fixes
+
+* revert specialized logic for linetrace ([#374](https://github.com/xability/maidr/issues/374)) ([12914c6](https://github.com/xability/maidr/commit/12914c6b64c28386447ecc3d7277b61109a0788c))
+
+## [3.17.5](https://github.com/xability/maidr/compare/v3.17.4...v3.17.5) (2025-06-26)
+
+
+### Bug Fixes
+
+* address y labels in candlestick plots ([#371](https://github.com/xability/maidr/issues/371)) ([d636e86](https://github.com/xability/maidr/commit/d636e86c7ef2c21c15fcd9052967e4a87d94b7b3))
+
+## [3.17.4](https://github.com/xability/maidr/compare/v3.17.3...v3.17.4) (2025-06-26)
+
+
+### Bug Fixes
+
+* support multi-line axis label & titles ([#370](https://github.com/xability/maidr/issues/370)) ([f69dce5](https://github.com/xability/maidr/commit/f69dce5084b654d525243b687551906b17b7f938))
+
 ## [3.17.3](https://github.com/xability/maidr/compare/v3.17.2...v3.17.3) (2025-06-26)
 
 
