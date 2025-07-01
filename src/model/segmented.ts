@@ -75,7 +75,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   protected hasMultiPoints(): boolean {
-    return true;
+    // Stacked bar plots should not use combined/separate audio modes
+    return false;
   }
 
   protected mapToSvgElements(selector?: string): SVGElement[][] {
