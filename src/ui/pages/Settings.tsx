@@ -1,8 +1,11 @@
-import type {
-  SelectChangeEvent,
-} from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
-import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
+import type {
+  AriaMode,
+  GeneralSettings,
+  LlmModelSettings,
+  LlmSettings,
+} from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Alert,
@@ -33,7 +36,10 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-function getValidVersion(modelKey: Llm, currentVersion: string | undefined): LlmVersion {
+function getValidVersion(
+  modelKey: Llm,
+  currentVersion: string | undefined,
+): LlmVersion {
   const config = MODEL_VERSIONS[modelKey];
   const validOptions = config.options as readonly LlmVersion[];
   if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
@@ -48,15 +54,18 @@ interface SettingRowProps {
 }
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid container spacing={1} alignItems="center" className="settings-grid-container">
+  <Grid
+    container
+    spacing={1}
+    alignItems="center"
+    className="settings-grid-container"
+  >
     <Grid size={{ xs: 12, sm: 6, md: 4 }}>
       <Typography variant="body2" fontWeight="normal">
         {label}
       </Typography>
     </Grid>
-    <Grid size={{ xs: 12, sm: 6, md: 8 }}>
-      {input}
-    </Grid>
+    <Grid size={{ xs: 12, sm: 6, md: 8 }}>{input}</Grid>
   </Grid>
 );
 
@@ -99,7 +108,10 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(modelKey, apiKey);
+      const result = await LlmValidationService.validateApiKey(
+        modelKey,
+        apiKey,
+      );
       setIsValid(result.isValid);
     } catch (error) {
       setIsValid(false);
@@ -127,7 +139,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           value={version}
           className={`llm-model-setting-row-menu-item ${isSelected ? 'selected' : ''}`}
         >
-          {isSelected && <CheckIcon className="llm-model-setting-row-check-icon" />}
+          {isSelected && (
+            <CheckIcon className="llm-model-setting-row-check-icon" />
+          )}
           {label}
         </MenuItem>
       );
@@ -209,7 +223,11 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                   const newVersion = e.target.value as LlmVersion;
                   onChangeVersion(modelKey, newVersion);
                 }}
-                disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
+                disabled={
+                  !modelSettings.enabled
+                  || !modelSettings.apiKey.trim()
+                  || !isValid
+                }
                 fullWidth
                 size="small"
                 slotProps={{
@@ -240,7 +258,8 @@ const Settings: React.FC = () => {
   const chatViewModel = useViewModel('chat');
   const { general, llm } = viewModel.state;
 
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
+  const [generalSettings, setGeneralSettings]
+    = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
@@ -252,14 +271,21 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number | AriaMode): void => { // Expanded value type for ariaMode
+  const handleGeneralChange = (
+    key: keyof GeneralSettings,
+    value: string | number | AriaMode,
+  ): void => {
+    // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
 
-  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced' | 'custom'): void => {
+  const handleLlmChange = (
+    key: keyof LlmSettings,
+    value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
+  ): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
@@ -277,7 +303,10 @@ const Settings: React.FC = () => {
         ...prev.models,
         [modelKey]: {
           ...prev.models[modelKey],
-          [propKey]: propKey === 'apiKey' && typeof value === 'string' ? value.trim() : value,
+          [propKey]:
+            propKey === 'apiKey' && typeof value === 'string'
+              ? value.trim()
+              : value,
         },
       },
     }));
@@ -303,12 +332,19 @@ const Settings: React.FC = () => {
     e.stopPropagation();
   }, []);
 
-  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>) => {
-    e.stopPropagation();
-    handleLlmChange('expertiseLevel', e.target.value);
-  }, [handleLlmChange]);
+  const handleSelectChange = useCallback(
+    (
+      e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>,
+    ) => {
+      e.stopPropagation();
+      handleLlmChange('expertiseLevel', e.target.value);
+    },
+    [handleLlmChange],
+  );
 
-  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
+  const isCustomInstructionValid
+    = llmSettings.expertiseLevel !== 'custom'
+      || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
   return (
     <Dialog
@@ -339,7 +375,8 @@ const Settings: React.FC = () => {
                 <FormControl fullWidth>
                   <Slider
                     value={generalSettings.volume}
-                    onChange={(_, value) => handleGeneralChange('volume', Number(value))}
+                    onChange={(_, value) =>
+                      handleGeneralChange('volume', Number(value))}
                     min={0}
                     max={100}
                     step={1}
@@ -368,10 +405,13 @@ const Settings: React.FC = () => {
                     type="color"
                     size="small"
                     value={generalSettings.highlightColor}
-                    onChange={e => handleGeneralChange('highlightColor', e.target.value)}
+                    onChange={e =>
+                      handleGeneralChange('highlightColor', e.target.value)}
                     slotProps={{
                       input: {
-                        'aria-label': 'Highlight Color',
+                        inputProps: {
+                          'aria-label': 'Highlight Color',
+                        },
                       },
                     }}
                   />
@@ -389,7 +429,11 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplaySize}
-                    onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'brailleDisplaySize',
+                        Number(e.target.value),
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -412,7 +456,11 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.minFrequency}
-                    onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'minFrequency',
+                        Number(e.target.value),
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -435,7 +483,11 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.maxFrequency}
-                    onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'maxFrequency',
+                        Number(e.target.value),
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -458,7 +510,11 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.autoplayDuration}
-                    onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'autoplayDuration',
+                        Number(e.target.value),
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -479,7 +535,11 @@ const Settings: React.FC = () => {
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
-                    onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'ariaMode',
+                        e.target.value as AriaMode,
+                      )}
                     aria-label="ARIA Mode"
                   >
                     <FormControlLabel
@@ -506,7 +566,12 @@ const Settings: React.FC = () => {
         {/* LLM Settings */}
         <Grid container spacing={0.5} className="settings-section">
           <Grid size={12}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom className="settings-section-title">
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              gutterBottom
+              className="settings-section-title"
+            >
               LLM Settings
             </Typography>
           </Grid>
@@ -518,9 +583,12 @@ const Settings: React.FC = () => {
                 <LlmModelSettingRow
                   modelKey={modelKey}
                   modelSettings={model}
-                  onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
-                  onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
-                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
+                  onToggle={(key, enabled) =>
+                    handleLlmModelChange(key, 'enabled', enabled)}
+                  onChangeKey={(key, value) =>
+                    handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) =>
+                    handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
@@ -528,7 +596,11 @@ const Settings: React.FC = () => {
 
           {/* Expertise Level */}
           <Grid size={12} className="settings-row">
-            <FormControl fullWidth size="small" className="settings-model-select">
+            <FormControl
+              fullWidth
+              size="small"
+              className="settings-model-select"
+            >
               <SettingRow
                 label="Expertise Level"
                 input={(
@@ -561,7 +633,12 @@ const Settings: React.FC = () => {
           {/* Custom Instructions - Only show when custom is selected */}
           {llmSettings.expertiseLevel === 'custom' && (
             <Grid size={12}>
-              <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+              <Grid
+                container
+                spacing={1}
+                alignItems="flex-start"
+                sx={{ py: 1 }}
+              >
                 <Grid size={12} sx={{ py: 1 }}>
                   <Typography variant="body2" fontWeight="normal">
                     Custom Instructions
@@ -573,7 +650,8 @@ const Settings: React.FC = () => {
                       minRows={3}
                       maxRows={6}
                       value={llmSettings.customInstruction}
-                      onChange={e => handleLlmChange('customInstruction', e.target.value)}
+                      onChange={e =>
+                        handleLlmChange('customInstruction', e.target.value)}
                       style={{
                         width: '100%',
                         padding: '8px',
@@ -585,7 +663,8 @@ const Settings: React.FC = () => {
                     />
                   </FormControl>
                 </Grid>
-                {llmSettings.customInstruction.length < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                {llmSettings.customInstruction.length
+                  < MIN_CUSTOM_INSTRUCTION_LENGTH && (
                   <Grid size={12} sx={{ mt: 1 }}>
                     <Alert severity="warning">
                       Custom instructions must be at least
@@ -614,7 +693,12 @@ const Settings: React.FC = () => {
         className="settings-footer"
       >
         <Grid size="auto" className="settings-grid-padding">
-          <Button variant="text" color="inherit" onClick={handleReset} aria-label="Reset Settings">
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={handleReset}
+            aria-label="Reset Settings"
+          >
             Reset
           </Button>
         </Grid>
@@ -626,7 +710,12 @@ const Settings: React.FC = () => {
           className="settings-footer-actions"
         >
           <Grid size="auto">
-            <Button variant="outlined" color="inherit" onClick={handleClose} aria-label="Close Settings with no changes">
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleClose}
+              aria-label="Close Settings with no changes"
+            >
               Close
             </Button>
           </Grid>
@@ -636,7 +725,11 @@ const Settings: React.FC = () => {
               color="primary"
               onClick={handleSave}
               disabled={!isCustomInstructionValid}
-              title={!isCustomInstructionValid ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long` : ''}
+              title={
+                !isCustomInstructionValid
+                  ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
+                  : ''
+              }
               aria-label="Save & Close Settings"
             >
               Save & Close
