@@ -131,11 +131,12 @@ export class NavigationService implements Disposable {
     }
 
     // Multi-row traces (like LineTrace)
+    let bestRow = -1;
+    let bestCol = -1;
+    let bestDist = Number.POSITIVE_INFINITY;
+    let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
+
     if (Array.isArray(points)) {
-      let bestRow = -1;
-      let bestCol = -1;
-      let bestDist = Number.POSITIVE_INFINITY;
-      let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
       for (let row = 0; row < points.length; row++) {
         const rowPoints = points[row];
         if (Array.isArray(rowPoints)) {
@@ -171,22 +172,17 @@ export class NavigationService implements Disposable {
           }
         }
       }
-      if (bestRow !== -1 && bestCol !== -1) {
-        const rowPoints = points[bestRow];
-        let _actualX;
-        if (Array.isArray(rowPoints)) {
-          _actualX = extractXValue(rowPoints[bestCol]);
-        }
-        if (fallbackType === 'numeric') {
-          moveToIndex(bestRow, bestCol);
-          return true;
-        } else if (fallbackType === 'categorical') {
-          moveToIndex(bestRow, bestCol);
-          return true;
-        } else {
-          moveToIndex(bestRow, bestCol);
-          return true;
-        }
+    }
+
+    if (bestRow !== -1 && bestCol !== -1) {
+      const rowPoints = points[bestRow];
+      let _actualX;
+      if (Array.isArray(rowPoints)) {
+        _actualX = extractXValue(rowPoints[bestCol]);
+      }
+      if (fallbackType !== null) {
+        moveToIndex(bestRow, bestCol);
+        return true;
       }
     }
 
