@@ -1,3 +1,10 @@
+## [3.17.8](https://github.com/xability/maidr/compare/v3.17.7...v3.17.8) (2025-07-01)
+
+
+### Bug Fixes
+
+* remove unnecessary sonification models from stacked bar plot ([#383](https://github.com/xability/maidr/issues/383)) ([72d2b5f](https://github.com/xability/maidr/commit/72d2b5f7217495ee9309ec41e14e0670f04a8789))
+
 ## [3.17.7](https://github.com/xability/maidr/compare/v3.17.6...v3.17.7) (2025-06-30)
 
 
