@@ -1,3 +1,10 @@
+## [3.17.9](https://github.com/xability/maidr/compare/v3.17.8...v3.17.9) (2025-07-01)
+
+
+### Bug Fixes
+
+* improve accessibility support in settings menu ([#347](https://github.com/xability/maidr/issues/347)) ([53c4238](https://github.com/xability/maidr/commit/53c4238644c7756222b686deed2ace1fb14f14bd))
+
 ## [3.17.8](https://github.com/xability/maidr/compare/v3.17.7...v3.17.8) (2025-07-01)
 
 
