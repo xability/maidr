@@ -1,3 +1,10 @@
+## [3.17.10](https://github.com/xability/maidr/compare/v3.17.9...v3.17.10) (2025-07-01)
+
+
+### Bug Fixes
+
+* address layer switch by finding exact/nearest x-value ([#384](https://github.com/xability/maidr/issues/384)) ([ba85db5](https://github.com/xability/maidr/commit/ba85db5e30fb1f1848ab1fffd39e55f8d86680fc))
+
 ## [3.17.9](https://github.com/xability/maidr/compare/v3.17.8...v3.17.9) (2025-07-01)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.17.9",
+  "version": "3.17.10",
   "main": "dist/maidr.js",
   "files": [
     "dist"
