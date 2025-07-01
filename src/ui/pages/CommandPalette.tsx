@@ -30,12 +30,18 @@ const styles = {
   commandListItem: {
     cursor: 'pointer',
   },
+  highlightedItem: {
+    cursor: 'pointer',
+    border: '2px solid #1976d2',
+    margin: '6px',
+  },
 } as const;
 
 const CommandPalette: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [announcement, setAnnouncement] = useState('');
   const { executeCommand, currentScope } = useCommandExecutor();
 
   // Ref for the list container to enable auto-scrolling
@@ -68,6 +74,7 @@ const CommandPalette: React.FC = () => {
     setOpen(false);
     setSearch('');
     setHighlightedIndex(0);
+    setAnnouncement('');
 
     // Restore focus to the plot when command palette closes
     setTimeout(() => {
@@ -96,6 +103,7 @@ const CommandPalette: React.FC = () => {
   useEffect(() => {
     const handleOpenCommandPalette = (): void => {
       setOpen(true);
+      setAnnouncement('Command palette opened. Use down and up arrows to navigate commands, Enter to select.');
     };
 
     window.addEventListener('openCommandPalette', handleOpenCommandPalette);
@@ -104,7 +112,7 @@ const CommandPalette: React.FC = () => {
     };
   }, [currentScope]);
 
-  // Auto-scroll to highlighted item
+  // Auto-scroll to highlighted item and announce selection
   useEffect(() => {
     if (listRef.current && filteredCommands.length > 0) {
       const listElement = listRef.current;
@@ -121,9 +129,13 @@ const CommandPalette: React.FC = () => {
             block: 'nearest',
           });
         }
+
+        // Announce the selected command
+        const selectedCommand = filteredCommands[highlightedIndex];
+        setAnnouncement(`Selected: ${selectedCommand.description} - ${selectedCommand.key}`);
       }
     }
-  }, [highlightedIndex, filteredCommands.length]);
+  }, [highlightedIndex, filteredCommands]);
 
   return (
     <Dialog
@@ -132,6 +144,7 @@ const CommandPalette: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
+      role="dialog"
       slotProps={{
         paper: {
           sx: styles.dialogPaper,
@@ -151,6 +164,17 @@ const CommandPalette: React.FC = () => {
           onChange={(e) => {
             setSearch(e.target.value);
             setHighlightedIndex(0);
+            // Announce the number of filtered results
+            const newSearch = e.target.value.trim();
+            if (newSearch) {
+              const searchLower = newSearch.toLowerCase();
+              const results = availableCommands.filter(
+                cmd => cmd.description.toLowerCase().includes(searchLower) || cmd.key.toLowerCase().includes(searchLower),
+              );
+              setAnnouncement(`Found ${results.length} matching commands`);
+            } else {
+              setAnnouncement(`Showing all ${availableCommands.length} commands`);
+            }
           }}
           onKeyDown={(e) => {
             if (!filteredCommands.length)
@@ -167,18 +191,41 @@ const CommandPalette: React.FC = () => {
             }
           }}
           sx={styles.searchField}
-          aria-label="Search commands"
+          slotProps={{
+            input: {
+              inputProps: {
+                'aria-label': 'Search commands. Use down and up arrows to navigate, Enter to select.',
+                'aria-describedby': 'command-list-instructions',
+              },
+            },
+          }}
         />
-        <List sx={styles.commandList} ref={listRef}>
+        <div
+          id="command-list-instructions"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+        >
+          {announcement}
+        </div>
+        <List
+          sx={styles.commandList}
+          ref={listRef}
+          role="listbox"
+          aria-label="Available commands"
+          aria-activedescendant={filteredCommands.length > 0 ? `command-${highlightedIndex}` : undefined}
+        >
           {filteredCommands.length > 0
             ? (
                 filteredCommands.map((cmd, idx) => (
                   <ListItemButton
                     key={cmd.commandKey}
+                    id={`command-${idx}`}
                     onClick={() => handleCommandSelect(cmd.commandKey)}
                     selected={idx === highlightedIndex}
-                    sx={styles.commandListItem}
-                    aria-label={`${cmd.description} - ${cmd.key}`}
+                    sx={idx === highlightedIndex ? styles.highlightedItem : styles.commandListItem}
+                    role="option"
+                    aria-selected={idx === highlightedIndex}
                   >
                     <ListItemText
                       primary={cmd.description}
@@ -189,13 +236,13 @@ const CommandPalette: React.FC = () => {
               )
             : (
                 <ListItem>
-                  <ListItemText primary="No commands found" aria-label="No commands found" />
+                  <ListItemText primary="No commands found" />
                 </ListItem>
               )}
         </List>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="primary" variant="contained" aria-label="Close Command Palette">
+        <Button onClick={handleClose} color="primary" variant="contained">
           Close
         </Button>
       </DialogActions>
