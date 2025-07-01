@@ -165,12 +165,16 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   public update(state: PlotState): void {
-    // Show text only if turned on.
     if (this.mode === TextMode.OFF) {
       return;
     }
-
-    // Format the text based on the display mode.
+    if (state.type === 'subplot') {
+      const text = this.format(state);
+      if (text) {
+        this.notification.notify(text);
+      }
+      return;
+    }
     const text = this.format(state);
     if (text) {
       this.onChangeEmitter.fire({ value: text });

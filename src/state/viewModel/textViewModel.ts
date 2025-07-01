@@ -26,7 +26,6 @@ const textSlice = createSlice({
   initialState,
   reducers: {
     update(state, action: PayloadAction<string>): void {
-      state.message = null;
       state.value = action.payload;
     },
     announceText(state, action: PayloadAction<boolean>): void {
@@ -38,15 +37,19 @@ const textSlice = createSlice({
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
     },
+    clearMessage(state): void {
+      state.message = null;
+    },
     reset(): TextState {
       return initialState;
     },
   },
 });
-const { update, announceText, toggle, notify, reset } = textSlice.actions;
+const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.actions;
 
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
+  private isLayerSwitching: boolean = false;
 
   public constructor(
     store: AppStore,
@@ -70,7 +73,11 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(notification.onChange((e) => {
+      this.isLayerSwitching = true;
       this.notify(e.value);
+      setTimeout(() => {
+        this.isLayerSwitching = false;
+      }, 100);
     }));
 
     this.disposables.push(autoplay.onChange((e) => {
@@ -98,6 +105,9 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
     this.store.dispatch(update(formattedText));
+    if (!this.isLayerSwitching) {
+      this.store.dispatch(clearMessage());
+    }
   }
 
   public notify(message: string): void {
