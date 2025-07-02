@@ -16,6 +16,9 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected readonly min: number[];
   protected readonly max: number[];
+  
+  // Track the last navigation direction for slope-based audio
+  protected lastNavigationDirection: 'FORWARD' | 'BACKWARD' | null = null;
 
   public constructor(layer: MaidrLayer) {
     super(layer);
@@ -43,12 +46,40 @@ export class LineTrace extends AbstractTrace<number> {
   }
 
   protected audio(): AudioState {
+    const rowYValues = this.lineValues[this.row];
+    const col = this.col;
+
+    // Helper function to safely get Y value at index
+    const getY = (i: number): number =>
+      rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
+
+    // Get previous, current, and next Y values for continuous audio
+    const prev = col > 0 ? getY(col - 1) : getY(col);
+    const curr = getY(col);
+    const next = col < rowYValues.length - 1 ? getY(col + 1) : getY(col);
+
+    // Calculate slope based on navigation direction
+    let slope = 0;
+    if (this.lastNavigationDirection === 'FORWARD') {
+      // Moving right: calculate slope from previous to current point
+      slope = curr - prev;
+    } else if (this.lastNavigationDirection === 'BACKWARD') {
+      // Moving left: calculate slope from current to next point (reversed direction)
+      slope = next - curr;
+    } else {
+      // Default: calculate forward slope
+      slope = next - curr;
+    }
+
     return {
       min: this.min[this.row],
       max: this.max[this.row],
-      size: this.points[this.row].length,
-      index: this.col,
-      value: this.points[this.row][this.col].y,
+      size: rowYValues.length,
+      index: col,
+      value: [prev, curr, next],
+      isContinuous: true,
+      slope,
+      navigationDirection: this.lastNavigationDirection || 'FORWARD',
       ...this.getAudioGroupIndex(),
     };
   }
@@ -120,9 +151,11 @@ export class LineTrace extends AbstractTrace<number> {
     switch (direction) {
       case 'FORWARD':
         this.col += 1;
+        this.lastNavigationDirection = 'FORWARD';
         break;
       case 'BACKWARD':
         this.col -= 1;
+        this.lastNavigationDirection = 'BACKWARD';
         break;
     }
     this.notifyStateUpdate();

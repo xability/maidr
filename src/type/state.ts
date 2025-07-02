@@ -90,6 +90,18 @@ export interface AudioState {
    * Only applicable for candlestick traces.
    */
   trend?: CandlestickTrend;
+  /**
+   * Slope information for line plots to enable slope-based angled continuous sound.
+   * Represents the slope between consecutive points for directional audio feedback.
+   * Positive values indicate upward slopes, negative values indicate downward slopes.
+   */
+  slope?: number;
+  /**
+   * Navigation direction for slope-based audio.
+   * Used to determine if audio should be reversed based on movement direction.
+   * 'FORWARD' and 'BACKWARD' affect how slope audio is played.
+   */
+  navigationDirection?: 'FORWARD' | 'BACKWARD';
 }
 
 export type BrailleState

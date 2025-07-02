@@ -18,6 +18,19 @@ export class SmoothTrace extends LineTrace {
     const curr = getY(col);
     const next = col < rowYValues.length - 1 ? getY(col + 1) : getY(col);
 
+    // Calculate slope based on navigation direction
+    let slope = 0;
+    if (this.lastNavigationDirection === 'FORWARD') {
+      // Moving right: calculate slope from previous to current point
+      slope = curr - prev;
+    } else if (this.lastNavigationDirection === 'BACKWARD') {
+      // Moving left: calculate slope from current to next point (reversed direction)
+      slope = next - curr;
+    } else {
+      // Default: calculate forward slope
+      slope = next - curr;
+    }
+
     return {
       min: this.min[this.row],
       max: this.max[this.row],
@@ -25,6 +38,8 @@ export class SmoothTrace extends LineTrace {
       index: col,
       value: [prev, curr, next],
       isContinuous: true,
+      slope,
+      navigationDirection: this.lastNavigationDirection || 'FORWARD',
       // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
       ...this.getAudioGroupIndex(),
     };
