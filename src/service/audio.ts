@@ -132,6 +132,8 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
         audio.size,
         Array.isArray(audio.index) ? audio.index[0] : audio.index,
         paletteEntry,
+        audio.slope,
+        audio.navigationDirection,
       );
     } else if (Array.isArray(audio.value)) {
       // multiple discrete values
@@ -484,6 +486,8 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     size: number,
     index: number,
     paletteEntry?: AudioPaletteEntry,
+    slope?: number,
+    navigationDirection?: 'FORWARD' | 'BACKWARD',
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
@@ -494,14 +498,21 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
 
-    // Normalize values to frequency
-    const freqs = values.map(v =>
-      this.interpolate(
-        v,
-        { min, max },
-        freqRange,
-      ),
-    );
+    // Create slope-based frequency transitions if slope information is available
+    let freqs: number[];
+    if (slope !== undefined) {
+      // Use slope to create angled continuous sound
+      freqs = this.createSlopeBasedFrequencies(values, min, max, freqRange, slope, navigationDirection);
+    } else {
+      // Fallback to original smooth interpolation
+      freqs = values.map(v =>
+        this.interpolate(
+          v,
+          { min, max },
+          freqRange,
+        ),
+      );
+    }
 
     // Ensure minimum of 2 frequencies
     if (freqs.length < 2) {
@@ -558,6 +569,83 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     );
 
     this.activeAudioIds.set(audioId, [oscillator]);
+  }
+
+  /**
+   * Creates slope-based frequency transitions for angled continuous sound.
+   * @param values Array of Y values [prev, curr, next]
+   * @param min Minimum Y value for normalization
+   * @param max Maximum Y value for normalization
+   * @param freqRange Frequency range {min, max}
+   * @param slope Calculated slope value
+   * @param navigationDirection Direction of navigation ('FORWARD' or 'BACKWARD')
+   * @returns Array of frequencies representing the slope-based audio
+   */
+  private createSlopeBasedFrequencies(
+    values: number[],
+    min: number,
+    max: number,
+    freqRange: { min: number; max: number },
+    slope: number,
+    navigationDirection?: 'FORWARD' | 'BACKWARD',
+  ): number[] {
+    if (values.length < 3) {
+      // Fallback to basic interpolation if insufficient data
+      return values.map(v => this.interpolate(v, { min, max }, freqRange));
+    }
+
+    const [prev, curr, next] = values;
+    
+    // Normalize slope for audio processing
+    const dataRange = max - min;
+    const normalizedSlope = dataRange > 0 ? slope / dataRange : 0;
+    
+    // Create frequency transitions based on slope direction
+    // Positive slope = increasing frequency, Negative slope = decreasing frequency
+    const startFreq = this.interpolate(prev, { min, max }, freqRange);
+    const endFreq = this.interpolate(next, { min, max }, freqRange);
+    const currentFreq = this.interpolate(curr, { min, max }, freqRange);
+    
+    // Generate frequency curve that emphasizes the slope direction
+    const numPoints = 8; // Number of intermediate points for smooth transition
+    const frequencies: number[] = [];
+    
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
+      
+      // Create a frequency curve that reflects the slope
+      let frequency: number;
+      
+      if (normalizedSlope > 0) {
+        // Upward slope: create increasing frequency pattern
+        const slopeIntensity = Math.min(Math.abs(normalizedSlope) * 2, 1); // Cap intensity
+        frequency = this.interpolate(
+          t * slopeIntensity + (1 - slopeIntensity) * 0.5,
+          { min: 0, max: 1 },
+          { min: startFreq, max: endFreq }
+        );
+      } else if (normalizedSlope < 0) {
+        // Downward slope: create decreasing frequency pattern
+        const slopeIntensity = Math.min(Math.abs(normalizedSlope) * 2, 1); // Cap intensity
+        frequency = this.interpolate(
+          (1 - t) * slopeIntensity + (1 - slopeIntensity) * 0.5,
+          { min: 0, max: 1 },
+          { min: endFreq, max: startFreq }
+        );
+      } else {
+        // Flat slope: maintain current frequency
+        frequency = currentFreq;
+      }
+      
+      frequencies.push(frequency);
+    }
+    
+    // Reverse frequency array if moving backward to maintain directional consistency
+    if (navigationDirection === 'BACKWARD') {
+      frequencies.reverse();
+    }
+    
+    return frequencies;
   }
 
   /**
