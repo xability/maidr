@@ -28,7 +28,7 @@ enum AudioMode {
 }
 
 export class AudioService
-  implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
+implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private readonly settings: SettingsService;
