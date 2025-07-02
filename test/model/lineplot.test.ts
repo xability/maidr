@@ -3659,11 +3659,11 @@ describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti }) => {
       // Point A: (1, 10), Point B: (2, 5), Point C: (3, 7)
       // A→B slope: 5-10 = -5 (downward)
       // B→C slope: 7-5 = 2 (upward)
-      
+
       // Validate that slopes are calculated correctly based on movement direction
       const slopeDown = 5 - 10; // Point A to B
-      const slopeUp = 7 - 5;    // Point B to C
-      
+      const slopeUp = 7 - 5; // Point B to C
+
       expect(slopeDown).toBe(-5);
       expect(slopeUp).toBe(2);
     });
