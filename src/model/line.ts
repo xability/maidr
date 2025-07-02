@@ -16,7 +16,7 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected readonly min: number[];
   protected readonly max: number[];
-  
+
   // Track the last navigation direction for slope-based audio
   protected lastNavigationDirection: 'FORWARD' | 'BACKWARD' | null = null;
 
