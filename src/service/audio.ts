@@ -576,7 +576,7 @@ export class AudioService
    * @param values Array of Y values [prev, curr, next]
    * @param min Minimum Y value for normalization
    * @param max Maximum Y value for normalization
-   * @param freqRange Frequency range {min, max}
+   * @param freqRange Frequency range object
    * @param freqRange.min Minimum frequency value
    * @param freqRange.max Maximum frequency value
    * @param slope Calculated slope value
