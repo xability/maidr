@@ -576,7 +576,9 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
    * @param values Array of Y values [prev, curr, next]
    * @param min Minimum Y value for normalization
    * @param max Maximum Y value for normalization
-   * @param freqRange Frequency range {min, max}
+   * @param freqRange Frequency range object
+   * @param freqRange.min Minimum frequency value
+   * @param freqRange.max Maximum frequency value
    * @param slope Calculated slope value
    * @param navigationDirection Direction of navigation ('FORWARD' or 'BACKWARD')
    * @returns Array of frequencies representing the slope-based audio
@@ -595,34 +597,34 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     }
 
     const [prev, curr, next] = values;
-    
+
     // Normalize slope for audio processing
     const dataRange = max - min;
     const normalizedSlope = dataRange > 0 ? slope / dataRange : 0;
-    
+
     // Create frequency transitions based on slope direction
     // Positive slope = increasing frequency, Negative slope = decreasing frequency
     const startFreq = this.interpolate(prev, { min, max }, freqRange);
     const endFreq = this.interpolate(next, { min, max }, freqRange);
     const currentFreq = this.interpolate(curr, { min, max }, freqRange);
-    
+
     // Generate frequency curve that emphasizes the slope direction
     const numPoints = 8; // Number of intermediate points for smooth transition
     const frequencies: number[] = [];
-    
+
     for (let i = 0; i <= numPoints; i++) {
       const t = i / numPoints;
-      
+
       // Create a frequency curve that reflects the slope
       let frequency: number;
-      
+
       if (normalizedSlope > 0) {
         // Upward slope: create increasing frequency pattern
         const slopeIntensity = Math.min(Math.abs(normalizedSlope) * 2, 1); // Cap intensity
         frequency = this.interpolate(
           t * slopeIntensity + (1 - slopeIntensity) * 0.5,
           { min: 0, max: 1 },
-          { min: startFreq, max: endFreq }
+          { min: startFreq, max: endFreq },
         );
       } else if (normalizedSlope < 0) {
         // Downward slope: create decreasing frequency pattern
@@ -630,21 +632,21 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
         frequency = this.interpolate(
           (1 - t) * slopeIntensity + (1 - slopeIntensity) * 0.5,
           { min: 0, max: 1 },
-          { min: endFreq, max: startFreq }
+          { min: endFreq, max: startFreq },
         );
       } else {
         // Flat slope: maintain current frequency
         frequency = currentFreq;
       }
-      
+
       frequencies.push(frequency);
     }
-    
+
     // Reverse frequency array if moving backward to maintain directional consistency
     if (navigationDirection === 'BACKWARD') {
       frequencies.reverse();
     }
-    
+
     return frequencies;
   }
 
