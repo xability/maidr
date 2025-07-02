@@ -19,10 +19,10 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: "lts/*"
 
       - name: Install dependencies
         run: npm install @commitlint/config-conventional @commitlint/cli
 
       - name: Run Commitlint
-        run: npm run commitlint --verbose
+        run: npx commitlint --from=HEAD~1 --to=HEAD --verbose
