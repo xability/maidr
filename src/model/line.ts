@@ -1,6 +1,6 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -93,16 +93,27 @@ export class LineTrace extends AbstractTrace<number> {
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
       const targetRow = this.findLineByXAndYDirection(direction);
+      const currentX = this.points[this.row][this.col].x;
 
       if (targetRow !== null && targetRow !== this.row) {
         // Find the column in the target line that has the same X value
-        const currentX = this.points[this.row][this.col].x;
         const targetCol = this.findColumnByXValue(targetRow, currentX);
 
         if (targetCol !== -1) {
           this.row = targetRow;
           this.col = targetCol;
-          this.notifyStateUpdate();
+
+          // Check for intersections and emit appropriate state
+          const intersections = this.findIntersections();
+          if (intersections.length > 1) {
+            const baseState = super.state;
+            const stateWithIntersections = { ...baseState, intersections } as TraceState;
+            for (const observer of this.observers) {
+              observer.update(stateWithIntersections);
+            }
+          } else {
+            this.notifyStateUpdate();
+          }
           return;
         } else {
           // No matching X value found in target line
@@ -125,7 +136,44 @@ export class LineTrace extends AbstractTrace<number> {
         this.col -= 1;
         break;
     }
-    this.notifyStateUpdate();
+
+    // Check for intersections and emit appropriate state
+    const intersections = this.findIntersections();
+    if (intersections.length > 1) {
+      const baseState = super.state;
+      const stateWithIntersections = { ...baseState, intersections } as TraceState;
+      for (const observer of this.observers) {
+        observer.update(stateWithIntersections);
+      }
+    } else {
+      this.notifyStateUpdate();
+    }
+  }
+
+  /**
+   * Helper function to find all lines that intersect at the current (x, y) position
+   * @returns Array of AudioState for all intersecting lines
+   */
+  private findIntersections(): AudioState[] {
+    const currentX = this.points[this.row][this.col].x;
+    const currentY = this.points[this.row][this.col].y;
+    const intersections: AudioState[] = [];
+
+    for (let r = 0; r < this.points.length; r++) {
+      const c = this.points[r].findIndex(p => p.x === currentX && p.y === currentY);
+      if (c !== -1) {
+        intersections.push({
+          min: this.min[r],
+          max: this.max[r],
+          size: this.points[r].length,
+          index: c,
+          value: currentY,
+          groupIndex: r,
+        });
+      }
+    }
+
+    return intersections;
   }
 
   public isMovable(target: [number, number] | MovableDirection): boolean {
@@ -164,10 +212,11 @@ export class LineTrace extends AbstractTrace<number> {
    */
   private findLineByXAndYDirection(direction: 'UPWARD' | 'DOWNWARD'): number | null {
     const currentX = this.points[this.row][this.col].x;
-    const currentY = this.points[this.row][this.col].y;
 
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+
+    const candidates: Array<{ row: number; lineY: number; isValidDirection: boolean; distance: number }> = [];
 
     // Check all lines for points with the same X value
     for (let row = 0; row < this.points.length; row++) {
@@ -190,14 +239,13 @@ export class LineTrace extends AbstractTrace<number> {
       const lineY = this.points[row][matchingPointIndex].y;
 
       // Check if this line's y value is in the desired direction
-      const isValidDirection = direction === 'UPWARD' ? lineY > currentY : lineY < currentY;
+      const isValidDirection = direction === 'UPWARD' ? lineY > this.points[this.row][this.col].y : lineY < this.points[this.row][this.col].y;
+      const distance = Math.abs(lineY - this.points[this.row][this.col].y);
+      candidates.push({ row, lineY, isValidDirection, distance });
 
       if (!isValidDirection) {
         continue;
       }
-
-      // Calculate distance (absolute difference in y values)
-      const distance = Math.abs(lineY - currentY);
 
       // Update best candidate if this is closer
       if (distance < bestDistance) {

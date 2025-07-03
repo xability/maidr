@@ -26,6 +26,13 @@ export const AudioPaletteIndex = {
   TRIANGLE_MELLOW: 8,
   SINE_SUBTLE: 9,
   SAWTOOTH_SOFT: 10,
+
+  // Enhanced entries for better intersection distinction (11+)
+  SINE_BRIGHT: 11,
+  SINE_ENHANCED: 12,
+  SQUARE_ENHANCED: 13,
+  SAWTOOTH_ENHANCED: 14,
+  TRIANGLE_ENHANCED: 15,
 } as const;
 
 export interface AudioPaletteEntry {
@@ -231,6 +238,97 @@ export class AudioPaletteService implements Disposable {
           release: 0.6,
         },
       },
+      // Enhanced entries for better intersection distinction
+      {
+        index: AudioPaletteIndex.SINE_BRIGHT,
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 1.33, amplitude: 0.2 }, // Bright harmonic content
+            { frequency: 2.67, amplitude: 0.15 },
+            { frequency: 4.0, amplitude: 0.1 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.01,
+          decay: 0.08,
+          sustain: 0.9,
+          release: 0.15,
+        },
+      },
+      {
+        index: AudioPaletteIndex.SINE_ENHANCED,
+        waveType: 'sine',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 1.5, amplitude: 0.25 }, // Unique harmonic relationship
+            { frequency: 2.5, amplitude: 0.12 },
+            { frequency: 4.0, amplitude: 0.08 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.015,
+          decay: 0.15,
+          sustain: 0.75,
+          release: 0.25,
+        },
+      },
+      {
+        index: AudioPaletteIndex.SQUARE_ENHANCED,
+        waveType: 'square',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 1.25, amplitude: 0.3 }, // Distinct harmonic profile
+            { frequency: 2.75, amplitude: 0.15 },
+            { frequency: 5.5, amplitude: 0.08 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.008,
+          decay: 0.08,
+          sustain: 0.65,
+          release: 0.18,
+        },
+      },
+      {
+        index: AudioPaletteIndex.SAWTOOTH_ENHANCED,
+        waveType: 'sawtooth',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 1.75, amplitude: 0.2 }, // Unique sawtooth harmonics
+            { frequency: 3.25, amplitude: 0.12 },
+            { frequency: 6.5, amplitude: 0.06 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.025,
+          decay: 0.12,
+          sustain: 0.55,
+          release: 0.3,
+        },
+      },
+      {
+        index: AudioPaletteIndex.TRIANGLE_ENHANCED,
+        waveType: 'triangle',
+        harmonicMix: {
+          fundamental: 1,
+          harmonics: [
+            { frequency: 1.33, amplitude: 0.18 }, // Distinct triangle harmonics
+            { frequency: 2.67, amplitude: 0.1 },
+            { frequency: 5.33, amplitude: 0.05 },
+          ],
+        },
+        timbreModulation: {
+          attack: 0.018,
+          decay: 0.14,
+          sustain: 0.85,
+          release: 0.22,
+        },
+      },
     ];
 
     // Validate that array indices match the index properties
@@ -376,7 +474,7 @@ export class AudioPaletteService implements Disposable {
       },
     ];
 
-    // Store pre-generated entries starting from index 4
+    // Store pre-generated entries starting from the new base palette length
     extendedDefinitions.forEach((entry, index) => {
       this.extendedPalette.set(this.basePalette.length + index, entry);
     });

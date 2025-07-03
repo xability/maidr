@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { AudioState, PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
@@ -96,16 +96,40 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
     // Play audio only if turned on.
-    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+    if (this.mode === AudioMode.OFF) {
       return;
     }
 
-    if (state.empty) {
-      this.playEmptyTone(state.audio.size, state.audio.index);
+    // Handle both SubplotState and TraceState
+    let traceState: TraceState;
+
+    if (state.type === 'subplot') {
+      if (state.empty) {
+        return;
+      }
+      traceState = state.trace;
+    } else {
+      // state.type === 'trace'
+      traceState = state;
+    }
+
+    if (traceState.empty) {
+      this.playEmptyTone(traceState.audio.size, traceState.audio.index);
       return;
     }
 
-    const audio = state.audio;
+    // --- INTERSECTION LOGIC FOR LINE PLOTS ---
+    if (traceState.traceType === 'line' && !traceState.empty && Array.isArray(traceState.intersections) && traceState.intersections.length > 1) {
+      // Stop any existing audio to prevent interference
+      this.stopAll();
+      // Play all intersecting lines' tones simultaneously
+      this.playSimultaneousTones(traceState.intersections);
+      return;
+    }
+
+    // --- END INTERSECTION LOGIC ---
+
+    const audio = traceState.audio;
     let groupIndex = audio.groupIndex;
 
     // Handle candlestick trend-based audio selection
@@ -722,5 +746,102 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
       });
     });
     this.activeAudioIds.clear();
+  }
+
+  /**
+   * Play multiple tones simultaneously, each with its own groupIndex/palette, for intersection points.
+   * Focus on clear auditory distinction - user should hear each intersecting line distinctly.
+   * @param tones Array of AudioState
+   */
+  public playSimultaneousTones(
+    tones: AudioState[],
+  ): void {
+    const baseVolume = this.getVolume();
+    const duration = 0.6; // Good duration for clear perception
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const freqRange = this.getFrequencyRange();
+    const oscillators: OscillatorNode[] = [];
+    const gainNodes: GainNode[] = [];
+    const panners: StereoPannerNode[] = [];
+
+    // Clear auditory distinction strategy - each tone must be clearly perceivable
+    tones.forEach((tone, idx) => {
+      // 1. CLEAR FREQUENCY SEPARATION: Each tone gets a distinct frequency band
+      const baseFrequency = this.interpolate(
+        Array.isArray(tone.value) ? (tone.value[1] ?? tone.value[0]) : (tone.value as number),
+        { min: tone.min, max: tone.max },
+        freqRange,
+      );
+
+      // Use octave relationships for clear frequency separation
+      const octaveMultiplier = 2 ** (idx * 0.4); // Each tone gets higher octave
+      const frequency = baseFrequency * octaveMultiplier;
+
+      // 2. DISTINCT WAVE TYPES: Each tone gets a different wave type for clear timbral distinction
+      const waveTypes: OscillatorType[] = ['sine', 'square', 'sawtooth', 'triangle'];
+      const waveType = waveTypes[idx % waveTypes.length];
+
+      // 3. CLEAR STEREO SEPARATION: Each tone gets distinct stereo position
+      const panPositions = [-0.8, 0.8, -0.4, 0.4, -0.9, 0.9, -0.2, 0.2]; // Pre-defined positions
+      const pan = panPositions[idx % panPositions.length];
+
+      // 4. DISTINCT VOLUME LEVELS: Each tone gets different volume for additional distinction
+      const volumeLevels = [1.0, 0.8, 0.9, 0.7, 0.85, 0.75, 0.95, 0.65];
+      const volumeMultiplier = volumeLevels[idx % volumeLevels.length];
+      const finalVolume = baseVolume * volumeMultiplier;
+
+      // 5. TEMPORAL SEPARATION: Slight timing offset to prevent masking
+      const temporalOffset = idx * 0.03; // 30ms offset per tone
+
+      // Create oscillator with clear distinction
+      const osc = ctx.createOscillator();
+      osc.type = waveType;
+      osc.frequency.value = frequency;
+
+      // Create gain node with clear envelope
+      const gain = ctx.createGain();
+
+      // Clear ADSR envelope for good perception
+      const attackTime = 0.02;
+      const decayTime = 0.1;
+      const sustainLevel = 0.8;
+      const releaseTime = 0.3;
+
+      const startTime = now + temporalOffset;
+      const endTime = startTime + duration;
+
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(finalVolume, startTime + attackTime);
+      gain.gain.linearRampToValueAtTime(sustainLevel * finalVolume, startTime + attackTime + decayTime);
+      gain.gain.setValueAtTime(sustainLevel * finalVolume, endTime - releaseTime);
+      gain.gain.linearRampToValueAtTime(0, endTime);
+
+      // Create stereo panner for spatial distinction
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = pan;
+
+      // Connect audio chain
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(this.compressor);
+
+      // Start oscillator with temporal offset
+      osc.start(startTime);
+      osc.stop(endTime);
+
+      oscillators.push(osc);
+      gainNodes.push(gain);
+      panners.push(panner);
+    });
+
+    // Clean up after the audio stops
+    setTimeout(() => {
+      oscillators.forEach((osc, i) => {
+        osc.disconnect();
+        gainNodes[i].disconnect();
+        panners[i].disconnect();
+      });
+    }, (duration + 0.1) * 1000);
   }
 }
