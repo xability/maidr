@@ -216,8 +216,6 @@ export class LineTrace extends AbstractTrace<number> {
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
-    const candidates: Array<{ row: number; lineY: number; isValidDirection: boolean; distance: number }> = [];
-
     // Check all lines for points with the same X value
     for (let row = 0; row < this.points.length; row++) {
       // Skip current row
@@ -241,7 +239,6 @@ export class LineTrace extends AbstractTrace<number> {
       // Check if this line's y value is in the desired direction
       const isValidDirection = direction === 'UPWARD' ? lineY > this.points[this.row][this.col].y : lineY < this.points[this.row][this.col].y;
       const distance = Math.abs(lineY - this.points[this.row][this.col].y);
-      candidates.push({ row, lineY, isValidDirection, distance });
 
       if (!isValidDirection) {
         continue;

@@ -783,8 +783,10 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
       const waveType = waveTypes[idx % waveTypes.length];
 
       // 3. CLEAR STEREO SEPARATION: Each tone gets distinct stereo position
-      const panPositions = [-0.8, 0.8, -0.4, 0.4, -0.9, 0.9, -0.2, 0.2]; // Pre-defined positions
-      const pan = panPositions[idx % panPositions.length];
+      // Dynamically distribute pan values for any number of tones
+      const pan = tones.length === 1
+        ? 0
+        : -0.9 + (1.8 * idx) / (tones.length - 1);
 
       // 4. DISTINCT VOLUME LEVELS: Each tone gets different volume for additional distinction
       const volumeLevels = [1.0, 0.8, 0.9, 0.7, 0.85, 0.75, 0.95, 0.65];
@@ -836,12 +838,11 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     });
 
     // Clean up after the audio stops
-    setTimeout(() => {
-      oscillators.forEach((osc, i) => {
-        osc.disconnect();
+    oscillators.forEach((osc, i) => {
+      osc.onended = () => {
         gainNodes[i].disconnect();
         panners[i].disconnect();
-      });
-    }, (duration + 0.1) * 1000);
+      };
+    });
   }
 }
