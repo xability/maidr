@@ -58,6 +58,12 @@ export type TraceState
       text: TextState;
       autoplay: AutoplayState;
       highlight: HighlightState;
+      /**
+       * Array of audio states for all lines that intersect at the current point.
+       * Used for intersection-aware audio playback in multiline plots.
+       * null/undefined for normal points (single line or no intersection).
+       */
+      intersections?: AudioState[] | null;
     };
 
 export interface AudioEmptyState {
