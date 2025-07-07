@@ -287,7 +287,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   /**
    * Creates oscillators for the given palette entry and frequency.
-   * @param paletteEntry - The audio palette entry defining wave type and harmonics
+   * @param paletteEntry - The audio palette entry defining wave type
    * @param frequency - The base frequency for the primary oscillator
    * @returns Array of configured oscillator nodes
    */
@@ -303,23 +303,13 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     primaryOscillator.frequency.value = frequency;
     oscillators.push(primaryOscillator);
 
-    // Create harmonic oscillators if harmonic mix is present
-    if (paletteEntry.harmonicMix) {
-      for (const harmonic of paletteEntry.harmonicMix.harmonics) {
-        const harmonicOscillator = this.audioContext.createOscillator();
-        harmonicOscillator.type = paletteEntry.waveType; // Use same wave type for harmonics
-        harmonicOscillator.frequency.value = harmonic.frequency * frequency;
-        oscillators.push(harmonicOscillator);
-      }
-    }
-
     return oscillators;
   }
 
   /**
-   * Creates gain nodes with ADSR envelopes for the given oscillators.
+   * Creates gain nodes for the given oscillators.
    * @param oscillators - Array of oscillator nodes to create gain nodes for
-   * @param paletteEntry - The audio palette entry defining envelope and harmonic amplitudes
+   * @param paletteEntry - The audio palette entry defining wave type
    * @param volume - The base volume level
    * @param duration - The duration of the audio in seconds
    * @returns Array of configured gain nodes
@@ -337,21 +327,10 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
 
-      // Apply timbre modulation envelope or use default
-      let oscillatorVolume = currentVolume;
+      // Use default volume for all oscillators
+      const oscillatorVolume = currentVolume;
 
-      if (i === 0) {
-        // Primary oscillator - use fundamental amplitude if specified
-        if (paletteEntry.harmonicMix) {
-          oscillatorVolume *= paletteEntry.harmonicMix.fundamental;
-        }
-      } else {
-        // Harmonic oscillator - use harmonic amplitude
-        const harmonic = paletteEntry.harmonicMix!.harmonics[i - 1];
-        oscillatorVolume *= harmonic.amplitude;
-      }
-
-      // Create ADSR envelope using the shared helper function
+      // Create simple envelope using the shared helper function
       const envelope = this.createAdsrEnvelope(
         gainNode,
         paletteEntry,
@@ -445,60 +424,22 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   }
 
   private createAdsrEnvelope(
-    gainNode: GainNode,
-    paletteEntry: AudioPaletteEntry | undefined,
+    _gainNode: GainNode,
+    _paletteEntry: AudioPaletteEntry | undefined,
     volume: number,
-    startTime: number,
-    duration: number,
+    _startTime: number,
+    _duration: number,
   ): number[] | null {
-    if (paletteEntry?.timbreModulation) {
-      // Create ADSR envelope with proper timing
-      const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
-      const attackTime = duration * attack;
-      const decayTime = duration * decay;
-      const releaseTime = duration * release;
-      const sustainTime = duration - attackTime - decayTime - releaseTime;
-
-      // Use Web Audio API's precise ADSR envelope scheduling
-      gainNode.gain.setValueAtTime(1e-4 * volume, startTime);
-
-      // Attack phase - ramp up to full volume
-      gainNode.gain.linearRampToValueAtTime(volume, startTime + attackTime);
-
-      // Decay phase - ramp down to sustain level
-      gainNode.gain.linearRampToValueAtTime(
-        sustain * volume,
-        startTime + attackTime + decayTime,
-      );
-
-      // Sustain phase - hold at sustain level (only if sustainTime > 0)
-      if (sustainTime > 0) {
-        gainNode.gain.setValueAtTime(
-          sustain * volume,
-          startTime + attackTime + decayTime + sustainTime,
-        );
-      }
-
-      // Release phase - ramp down to silence
-      gainNode.gain.linearRampToValueAtTime(
-        1e-4 * volume,
-        startTime + duration,
-      );
-
-      // Return null to indicate we used precise scheduling
-      return null;
-    } else {
-      // Use default envelope curve for simple audio
-      return [
-        0.5 * volume,
-        volume,
-        0.5 * volume,
-        0.5 * volume,
-        0.5 * volume,
-        0.1 * volume,
-        1e-4 * volume,
-      ];
-    }
+    // Use default envelope curve for simple audio
+    return [
+      0.5 * volume,
+      volume,
+      0.5 * volume,
+      0.5 * volume,
+      0.5 * volume,
+      0.1 * volume,
+      1e-4 * volume,
+    ];
   }
 
   private playSmooth(
@@ -749,100 +690,65 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   }
 
   /**
-   * Play multiple tones simultaneously, each with its own groupIndex/palette, for intersection points.
-   * Focus on clear auditory distinction - user should hear each intersecting line distinctly.
+   * Play multiple tones simultaneously, all at the same frequency (shared value),
+   * using each line's assigned wave type without any special audio techniques.
+   * Simple mix of existing wave types at the same musical frequency.
    * @param tones Array of AudioState
    */
   public playSimultaneousTones(
     tones: AudioState[],
   ): void {
     const baseVolume = this.getVolume();
-    const duration = 0.6; // Good duration for clear perception
+    const duration = DEFAULT_DURATION;
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const freqRange = this.getFrequencyRange();
-    const oscillators: OscillatorNode[] = [];
-    const gainNodes: GainNode[] = [];
-    const panners: StereoPannerNode[] = [];
 
-    // Clear auditory distinction strategy - each tone must be clearly perceivable
+    // --- REGULARIZED FREQUENCY ---
+    // Use the value from the first tone as the shared value (all intersecting lines have same (x, y))
+    const sharedValue = Array.isArray(tones[0].value)
+      ? (tones[0].value[1] ?? tones[0].value[0])
+      : (tones[0].value as number);
+    const sharedMin = tones[0].min;
+    const sharedMax = tones[0].max;
+    const sharedFrequency = this.interpolate(
+      sharedValue,
+      { min: sharedMin, max: sharedMax },
+      freqRange,
+    );
+
     tones.forEach((tone, idx) => {
-      // 1. CLEAR FREQUENCY SEPARATION: Each tone gets a distinct frequency band
-      const baseFrequency = this.interpolate(
-        Array.isArray(tone.value) ? (tone.value[1] ?? tone.value[0]) : (tone.value as number),
-        { min: tone.min, max: tone.max },
-        freqRange,
-      );
+      // All tones use the same frequency for intersection
+      const frequency = sharedFrequency;
 
-      // Use octave relationships for clear frequency separation
-      const octaveMultiplier = 2 ** (idx * 0.4); // Each tone gets higher octave
-      const frequency = baseFrequency * octaveMultiplier;
+      // Use AudioPaletteService for maximum distinction
+      const paletteEntry = this.audioPalette.getPaletteEntry(idx);
+      const waveType = paletteEntry.waveType;
 
-      // 2. DISTINCT WAVE TYPES: Each tone gets a different wave type for clear timbral distinction
-      const waveTypes: OscillatorType[] = ['sine', 'square', 'sawtooth', 'triangle'];
-      const waveType = waveTypes[idx % waveTypes.length];
+      // Simple oscillator with assigned wave type
+      const oscillator = ctx.createOscillator();
+      oscillator.type = waveType;
+      oscillator.frequency.value = frequency;
 
-      // 3. CLEAR STEREO SEPARATION: Each tone gets distinct stereo position
-      // Dynamically distribute pan values for any number of tones
-      const pan = tones.length === 1
-        ? 0
-        : -0.9 + (1.8 * idx) / (tones.length - 1);
+      // Simple gain node
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(baseVolume, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01 * baseVolume, now + duration);
 
-      // 4. DISTINCT VOLUME LEVELS: Each tone gets different volume for additional distinction
-      const volumeLevels = [1.0, 0.8, 0.9, 0.7, 0.85, 0.75, 0.95, 0.65];
-      const volumeMultiplier = volumeLevels[idx % volumeLevels.length];
-      const finalVolume = baseVolume * volumeMultiplier;
+      // Connect and play
+      oscillator.connect(gainNode);
+      gainNode.connect(this.compressor);
 
-      // 5. TEMPORAL SEPARATION: Slight timing offset to prevent masking
-      const temporalOffset = idx * 0.03; // 30ms offset per tone
+      oscillator.start(now);
+      oscillator.stop(now + duration);
 
-      // Create oscillator with clear distinction
-      const osc = ctx.createOscillator();
-      osc.type = waveType;
-      osc.frequency.value = frequency;
+      // Clean up
+      const audioId = setTimeout(() => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+      }, duration * 1000 * 2);
 
-      // Create gain node with clear envelope
-      const gain = ctx.createGain();
-
-      // Clear ADSR envelope for good perception
-      const attackTime = 0.02;
-      const decayTime = 0.1;
-      const sustainLevel = 0.8;
-      const releaseTime = 0.3;
-
-      const startTime = now + temporalOffset;
-      const endTime = startTime + duration;
-
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(finalVolume, startTime + attackTime);
-      gain.gain.linearRampToValueAtTime(sustainLevel * finalVolume, startTime + attackTime + decayTime);
-      gain.gain.setValueAtTime(sustainLevel * finalVolume, endTime - releaseTime);
-      gain.gain.linearRampToValueAtTime(0, endTime);
-
-      // Create stereo panner for spatial distinction
-      const panner = ctx.createStereoPanner();
-      panner.pan.value = pan;
-
-      // Connect audio chain
-      osc.connect(gain);
-      gain.connect(panner);
-      panner.connect(this.compressor);
-
-      // Start oscillator with temporal offset
-      osc.start(startTime);
-      osc.stop(endTime);
-
-      oscillators.push(osc);
-      gainNodes.push(gain);
-      panners.push(panner);
-    });
-
-    // Clean up after the audio stops
-    oscillators.forEach((osc, i) => {
-      osc.onended = () => {
-        gainNodes[i].disconnect();
-        panners[i].disconnect();
-      };
+      this.activeAudioIds.set(audioId, [oscillator]);
     });
   }
 }

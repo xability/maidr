@@ -67,9 +67,30 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected text(): TextState {
     const point = this.points[this.row][this.col];
-    const fillData = point.fill
-      ? { fill: { label: TYPE, value: point.fill } }
-      : {};
+
+    // Check for intersections at current point
+    const intersections = this.findIntersections();
+    let fillData: { fill: { label: string; value: string } } | Record<string, never> = {};
+
+    if (intersections.length > 1) {
+      // Multiple lines intersect - create intersection text
+      const lineTypes = intersections.map((intersection) => {
+        const lineIndex = intersection.groupIndex!;
+        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+      });
+
+      fillData = {
+        fill: {
+          label: TYPE,
+          value: `intersection at (${lineTypes.join(', ')})`,
+        },
+      };
+    } else {
+      // Single line or no intersection - use normal fill data
+      fillData = point.fill
+        ? { fill: { label: TYPE, value: point.fill } }
+        : {};
+    }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
@@ -329,5 +350,17 @@ export class LineTrace extends AbstractTrace<number> {
       return null;
     }
     return svgElements;
+  }
+
+  public get state(): TraceState {
+    const baseState = super.state;
+    if (baseState.empty)
+      return baseState;
+    // Check for intersection at current (x, y)
+    const intersections = this.findIntersections();
+    if (intersections.length > 1) {
+      return { ...baseState, intersections };
+    }
+    return baseState;
   }
 }
