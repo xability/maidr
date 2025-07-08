@@ -6,7 +6,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
-const TYPE = 'Type';
+const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
