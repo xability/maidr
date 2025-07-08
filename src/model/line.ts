@@ -17,6 +17,9 @@ export class LineTrace extends AbstractTrace<number> {
   protected readonly min: number[];
   protected readonly max: number[];
 
+  // Track previous row for intersection label ordering
+  private previousRow: number | null = null;
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -74,10 +77,18 @@ export class LineTrace extends AbstractTrace<number> {
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
-      const lineTypes = intersections.map((intersection) => {
+      let lineTypes = intersections.map((intersection) => {
         const lineIndex = intersection.groupIndex!;
         return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
       });
+
+      // If previousRow is in the intersection, put its label first
+      if (this.previousRow !== null) {
+        const prevFill = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevFill)) {
+          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        }
+      }
 
       fillData = {
         fill: {
@@ -102,6 +113,7 @@ export class LineTrace extends AbstractTrace<number> {
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
+      this.previousRow = null;
       this.notifyStateUpdate();
       return;
     }
@@ -110,6 +122,9 @@ export class LineTrace extends AbstractTrace<number> {
       this.notifyOutOfBounds();
       return;
     }
+
+    // Store previous row before moving
+    this.previousRow = this.row;
 
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
