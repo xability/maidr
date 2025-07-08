@@ -49,6 +49,7 @@ import {
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleHelpCommand,
+  ToggleHighContrast,
   ToggleReviewCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
@@ -120,6 +121,8 @@ export class CommandFactory {
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
+      case 'TOGGLE_HIGH_CONTRAST':
+        return new ToggleHighContrast(this.context, this.highlightService);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
@@ -135,7 +138,13 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
+        return new DescribePointCommand(
+          this.context,
+          this.audioService,
+          this.highlightService,
+          this.brailleViewModel,
+          this.textViewModel,
+        );
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':

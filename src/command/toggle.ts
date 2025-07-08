@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
+import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -114,5 +115,18 @@ export class ToggleScopeCommand implements Command {
 
   public execute(): void {
     this.context.toggleScope(this.scope);
+  }
+}
+export class ToggleHighContrast implements Command {
+  private readonly highlightService: HighlightService;
+  private readonly context: Context;
+
+  public constructor(context: Context, highlightService: HighlightService) {
+    this.context = context;
+    this.highlightService = highlightService;
+  }
+
+  public execute(): void {
+    this.highlightService.toggleHighContrast(this.context);
   }
 }
