@@ -231,6 +231,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       empty: false,
       type: 'trace',
       traceType: this.type,
+      plotType: this.type, // Default to traceType for other plot types
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
