@@ -48,6 +48,7 @@ export type TraceState
       empty: false;
       type: 'trace';
       traceType: TraceType;
+      plotType: string;
       title: string;
       xAxis: string;
       yAxis: string;

@@ -145,7 +145,7 @@ export class Context implements Disposable {
         return `This is a MAIDR subplot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
 
       case 'trace':
-        return `This is a maidr plot of type: ${state.traceType}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        return `This is a maidr plot of type: ${state.plotType}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
     }
   }
 }

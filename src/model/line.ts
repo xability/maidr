@@ -371,11 +371,18 @@ export class LineTrace extends AbstractTrace<number> {
     const baseState = super.state;
     if (baseState.empty)
       return baseState;
+
+    // Add the plotType field for non-empty states
+    const stateWithPlotType = {
+      ...baseState,
+      plotType: this.points.length > 1 ? 'multiline' : 'line',
+    };
+
     // Check for intersection at current (x, y)
     const intersections = this.findIntersections();
     if (intersections.length > 1) {
-      return { ...baseState, intersections };
+      return { ...stateWithPlotType, intersections };
     }
-    return baseState;
+    return stateWithPlotType;
   }
 }
