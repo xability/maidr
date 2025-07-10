@@ -95,23 +95,12 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
-    // Play audio only if turned on.
-    if (this.mode === AudioMode.OFF) {
+    // Play audio only if turned on and it's a trace state
+    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
       return;
     }
 
-    // Handle both SubplotState and TraceState
-    let traceState: TraceState;
-
-    if (state.type === 'subplot') {
-      if (state.empty) {
-        return;
-      }
-      traceState = state.trace;
-    } else {
-      // state.type === 'trace'
-      traceState = state;
-    }
+    const traceState = state;
 
     if (traceState.empty) {
       this.playEmptyTone(traceState.audio.size, traceState.audio.index);
@@ -119,14 +108,18 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     }
 
     // --- INTERSECTION LOGIC FOR LINE PLOTS ---
-    if (traceState.traceType === 'line' && !traceState.empty && Array.isArray(traceState.intersections) && traceState.intersections.length > 1) {
+    if (
+      traceState.traceType === 'line'
+      && !traceState.empty
+      && Array.isArray(traceState.intersections)
+      && traceState.intersections.length > 1
+    ) {
       // Stop any existing audio to prevent interference
       this.stopAll();
       // Play all intersecting lines' tones simultaneously
       this.playSimultaneousTones(traceState.intersections);
       return;
     }
-
     // --- END INTERSECTION LOGIC ---
 
     const audio = traceState.audio;
@@ -287,7 +280,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
 
   /**
    * Creates oscillators for the given palette entry and frequency.
-   * @param paletteEntry - The audio palette entry defining wave type
+   * @param paletteEntry - The audio palette entry defining wave type and harmonics
    * @param frequency - The base frequency for the primary oscillator
    * @returns Array of configured oscillator nodes
    */
@@ -303,13 +296,23 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     primaryOscillator.frequency.value = frequency;
     oscillators.push(primaryOscillator);
 
+    // Create harmonic oscillators if harmonic mix is present
+    if (paletteEntry.harmonicMix) {
+      for (const harmonic of paletteEntry.harmonicMix.harmonics) {
+        const harmonicOscillator = this.audioContext.createOscillator();
+        harmonicOscillator.type = paletteEntry.waveType; // Use same wave type for harmonics
+        harmonicOscillator.frequency.value = harmonic.frequency * frequency;
+        oscillators.push(harmonicOscillator);
+      }
+    }
+
     return oscillators;
   }
 
   /**
-   * Creates gain nodes for the given oscillators.
+   * Creates gain nodes with ADSR envelopes for the given oscillators.
    * @param oscillators - Array of oscillator nodes to create gain nodes for
-   * @param paletteEntry - The audio palette entry defining wave type
+   * @param paletteEntry - The audio palette entry defining envelope and harmonic amplitudes
    * @param volume - The base volume level
    * @param duration - The duration of the audio in seconds
    * @returns Array of configured gain nodes
@@ -327,10 +330,21 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
 
-      // Use default volume for all oscillators
-      const oscillatorVolume = currentVolume;
+      // Apply timbre modulation envelope or use default
+      let oscillatorVolume = currentVolume;
 
-      // Create simple envelope using the shared helper function
+      if (i === 0) {
+        // Primary oscillator - use fundamental amplitude if specified
+        if (paletteEntry.harmonicMix) {
+          oscillatorVolume *= paletteEntry.harmonicMix.fundamental;
+        }
+      } else {
+        // Harmonic oscillator - use harmonic amplitude
+        const harmonic = paletteEntry.harmonicMix!.harmonics[i - 1];
+        oscillatorVolume *= harmonic.amplitude;
+      }
+
+      // Create ADSR envelope using the shared helper function
       const envelope = this.createAdsrEnvelope(
         gainNode,
         paletteEntry,
@@ -424,22 +438,60 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
   }
 
   private createAdsrEnvelope(
-    _gainNode: GainNode,
-    _paletteEntry: AudioPaletteEntry | undefined,
+    gainNode: GainNode,
+    paletteEntry: AudioPaletteEntry | undefined,
     volume: number,
-    _startTime: number,
-    _duration: number,
+    startTime: number,
+    duration: number,
   ): number[] | null {
-    // Use default envelope curve for simple audio
-    return [
-      0.5 * volume,
-      volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.1 * volume,
-      1e-4 * volume,
-    ];
+    if (paletteEntry?.timbreModulation) {
+      // Create ADSR envelope with proper timing
+      const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
+      const attackTime = duration * attack;
+      const decayTime = duration * decay;
+      const releaseTime = duration * release;
+      const sustainTime = duration - attackTime - decayTime - releaseTime;
+
+      // Use Web Audio API's precise ADSR envelope scheduling
+      gainNode.gain.setValueAtTime(1e-4 * volume, startTime);
+
+      // Attack phase - ramp up to full volume
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + attackTime);
+
+      // Decay phase - ramp down to sustain level
+      gainNode.gain.linearRampToValueAtTime(
+        sustain * volume,
+        startTime + attackTime + decayTime,
+      );
+
+      // Sustain phase - hold at sustain level (only if sustainTime > 0)
+      if (sustainTime > 0) {
+        gainNode.gain.setValueAtTime(
+          sustain * volume,
+          startTime + attackTime + decayTime + sustainTime,
+        );
+      }
+
+      // Release phase - ramp down to silence
+      gainNode.gain.linearRampToValueAtTime(
+        1e-4 * volume,
+        startTime + duration,
+      );
+
+      // Return null to indicate we used precise scheduling
+      return null;
+    } else {
+      // Use default envelope curve for simple audio
+      return [
+        0.5 * volume,
+        volume,
+        0.5 * volume,
+        0.5 * volume,
+        0.5 * volume,
+        0.1 * volume,
+        1e-4 * volume,
+      ];
+    }
   }
 
   private playSmooth(
