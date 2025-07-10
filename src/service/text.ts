@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { PlotState, TextState } from '@type/state';
+import type { PlotState, TextState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
@@ -20,6 +20,8 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
+  private currentState: PlotState | null = null;
+  private currentSubplotIndex: number | null = null;
 
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
@@ -35,6 +37,89 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   public dispose(): void {
     this.onChangeEmitter.dispose();
+  }
+
+  /**
+   * Get the current state that was last processed by the TextService
+   * This provides access to state information without violating dependency flow
+   */
+  public getCurrentState(): PlotState | null {
+    return this.currentState;
+  }
+
+  /**
+   * Get coordinate information from the current state
+   * Returns null if no valid state is available
+   */
+  public getCoordinateText(): string | null {
+    if (!this.currentState || this.currentState.empty) {
+      return null;
+    }
+
+    // Handle different state types
+    if (this.currentState.type === 'subplot' && !this.currentState.trace.empty) {
+      return this.formatCoordinateText(this.currentState.trace);
+    } else if (this.currentState.type === 'trace' && !this.currentState.empty) {
+      return this.formatCoordinateText(this.currentState);
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if the current state represents a layer switch
+   * Returns true if the subplot index has changed
+   */
+  public isLayerSwitch(): boolean {
+    if (!this.currentState || this.currentState.empty || this.currentState.type !== 'subplot') {
+      return false;
+    }
+
+    const newSubplotIndex = this.currentState.index;
+
+    if (this.currentSubplotIndex !== null && this.currentSubplotIndex !== newSubplotIndex) {
+      // Layer switch detected - subplot index changed
+      this.currentSubplotIndex = newSubplotIndex;
+      return true;
+    } else if (this.currentSubplotIndex === null) {
+      // First time setting the subplot index
+      this.currentSubplotIndex = newSubplotIndex;
+      return false;
+    }
+
+    return false;
+  }
+
+  private formatCoordinateText(traceState: TraceState): string | null {
+    if (traceState.empty || !traceState.text) {
+      return null;
+    }
+
+    const { text } = traceState;
+    const parts: string[] = [];
+
+    // Add X coordinate
+    if (text.main && text.main.value !== undefined) {
+      const xValue = Array.isArray(text.main.value)
+        ? text.main.value.join(', ')
+        : String(text.main.value);
+      parts.push(`${text.main.label} is ${xValue}`);
+    }
+
+    // Add Y coordinate
+    if (text.cross && text.cross.value !== undefined) {
+      const yValue = Array.isArray(text.cross.value)
+        ? text.cross.value.join(', ')
+        : String(text.cross.value);
+      parts.push(`${text.cross.label} is ${yValue}`);
+    }
+
+    // Add fill/type information (for line plots this includes group/type like "MAV=3")
+    if (text.fill && text.fill.value !== undefined) {
+      parts.push(`${text.fill.label} is ${text.fill.value}`);
+    }
+
+    return parts.length > 0 ? parts.join(', ') : null;
   }
 
   public format(state: string | PlotState): string {
@@ -60,9 +145,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
-  private formatSubplotText(index: number, size: number, traceType: string, traceState?: any): string {
+  private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
     // Use plotType if available, otherwise fall back to traceType
-    const type = traceState?.plotType || traceType;
+    const type = traceState && !traceState.empty ? traceState.plotType : traceType;
     return `Layer ${index} of ${size}: ${type} plot`;
   }
 
@@ -170,6 +255,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (this.mode === TextMode.OFF) {
       return;
     }
+
+    // Store the current state for access by ViewModels
+    this.currentState = state;
+
     if (state.type === 'subplot') {
       const text = this.format(state);
       if (text) {
