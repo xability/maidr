@@ -1,9 +1,8 @@
-import type { Context } from '@model/context';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AutoplayService } from '@service/autoplay';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
-import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
@@ -50,9 +49,8 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
 
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
-  private readonly context: Context;
   private isLayerSwitching: boolean = false;
-  private layerSwitchPoint: { x: any; y: any } | null = null;
+  private layerSwitchPoint: { x: number | number[] | string; y: number | number[] | string } | null = null;
   private hasProcessedInitialUpdate: boolean = false;
 
   public constructor(
@@ -60,11 +58,9 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     text: TextService,
     notification: NotificationService,
     autoplay: AutoplayService,
-    context: Context,
   ) {
     super(store);
     this.textService = text;
-    this.context = context;
     this.registerListeners(notification, autoplay);
   }
 
@@ -85,8 +81,8 @@ export class TextViewModel extends AbstractViewModel<TextState> {
           return;
         }
 
-        // Get the current state from the context to extract actual coordinate values
-        const currentState = this.context.state;
+        // Get the current state from the text service to extract actual coordinate values
+        const currentState = this.textService.getCurrentState();
 
         if (currentState && !currentState.empty
           && ((currentState.type === 'trace' && !currentState.empty)
@@ -120,22 +116,22 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(notification.onChange((e) => {
-      // Check if this is a layer switch notification (contains "Layer X of Y")
-      if (e.value.includes('Layer') && e.value.includes('of') && e.value.includes('plot')) {
-        // Set layer switching flag and reset initial update flag
+      // Use the TextService to detect layer switching
+      if (this.textService.isLayerSwitch()) {
+        // Layer switch detected by the service
         this.isLayerSwitching = true;
         this.hasProcessedInitialUpdate = false;
 
         // Get the current state from the text service to extract coordinates
-        const currentState = this.getCurrentSubplotState();
-        if (currentState && !currentState.empty && !currentState.trace.empty) {
+        const currentState = this.textService.getCurrentState();
+        if (currentState && !currentState.empty && currentState.type === 'subplot' && !currentState.trace.empty) {
           // Store the current point for navigation detection
           this.layerSwitchPoint = {
             x: currentState.trace.text?.main?.value,
             y: currentState.trace.text?.cross?.value,
           };
 
-          const coordinates = this.getCoordinateText(currentState.trace);
+          const coordinates = this.textService.getCoordinateText();
           if (coordinates) {
             const enhancedMessage = `${e.value} at ${coordinates}`;
             this.notify(enhancedMessage);
@@ -145,10 +141,6 @@ export class TextViewModel extends AbstractViewModel<TextState> {
         } else {
           this.notify(e.value);
         }
-
-        // Don't clear the layer switching flag with a timeout
-        // It will be cleared when the user navigates to a different point
-        // This allows the layer switch announcement to persist
       } else {
         // Not a layer switch, just pass through the notification
         this.notify(e.value);
@@ -166,50 +158,6 @@ export class TextViewModel extends AbstractViewModel<TextState> {
           break;
       }
     }));
-  }
-
-  private getCurrentSubplotState(): SubplotState | null {
-    try {
-      const currentState = this.context.state;
-      if (currentState.type === 'subplot') {
-        return currentState;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  private getCoordinateText(traceState: TraceState): string | null {
-    if (traceState.empty || !traceState.text) {
-      return null;
-    }
-
-    const { text } = traceState;
-    const parts: string[] = [];
-
-    // Add X coordinate
-    if (text.main && text.main.value !== undefined) {
-      const xValue = Array.isArray(text.main.value)
-        ? text.main.value.join(', ')
-        : String(text.main.value);
-      parts.push(`${text.main.label} is ${xValue}`);
-    }
-
-    // Add Y coordinate
-    if (text.cross && text.cross.value !== undefined) {
-      const yValue = Array.isArray(text.cross.value)
-        ? text.cross.value.join(', ')
-        : String(text.cross.value);
-      parts.push(`${text.cross.label} is ${yValue}`);
-    }
-
-    // Add fill/type information (for line plots this includes group/type like "MAV=3")
-    if (text.fill && text.fill.value !== undefined) {
-      parts.push(`${text.fill.label} is ${text.fill.value}`);
-    }
-
-    return parts.length > 0 ? parts.join(', ') : null;
   }
 
   public clearLayerSwitchingFlag(): void {
