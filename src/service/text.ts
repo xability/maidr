@@ -45,7 +45,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(state.index, state.size, state.trace.traceType);
+      return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {
@@ -60,8 +60,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
-  private formatSubplotText(index: number, size: number, traceType: string): string {
-    return `Layer ${index} of ${size}: ${traceType} plot`;
+  private formatSubplotText(index: number, size: number, traceType: string, traceState?: any): string {
+    // Use plotType if available, otherwise fall back to traceType
+    const type = traceState?.plotType || traceType;
+    return `Layer ${index} of ${size}: ${type} plot`;
   }
 
   private formatVerboseTraceText(state: TextState): string {
