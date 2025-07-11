@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { AudioState, PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
@@ -95,17 +95,34 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
-    // Play audio only if turned on.
+    // Play audio only if turned on and it's a trace state
     if (this.mode === AudioMode.OFF || state.type !== 'trace') {
       return;
     }
 
-    if (state.empty) {
-      this.playEmptyTone(state.audio.size, state.audio.index);
+    const traceState = state;
+
+    if (traceState.empty) {
+      this.playEmptyTone(traceState.audio.size, traceState.audio.index);
       return;
     }
 
-    const audio = state.audio;
+    // --- INTERSECTION LOGIC FOR LINE PLOTS ---
+    if (
+      traceState.traceType === 'line'
+      && !traceState.empty
+      && Array.isArray(traceState.intersections)
+      && traceState.intersections.length > 1
+    ) {
+      // Stop any existing audio to prevent interference
+      this.stopAll();
+      // Play all intersecting lines' tones simultaneously
+      this.playSimultaneousTones(traceState.intersections);
+      return;
+    }
+    // --- END INTERSECTION LOGIC ---
+
+    const audio = traceState.audio;
     let groupIndex = audio.groupIndex;
 
     // Handle candlestick trend-based audio selection
@@ -722,5 +739,68 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
       });
     });
     this.activeAudioIds.clear();
+  }
+
+  /**
+   * Play multiple tones simultaneously, all at the same frequency (shared value),
+   * using each line's assigned wave type without any special audio techniques.
+   * Simple mix of existing wave types at the same musical frequency.
+   * @param tones Array of AudioState
+   */
+  public playSimultaneousTones(
+    tones: AudioState[],
+  ): void {
+    const baseVolume = this.getVolume();
+    const duration = DEFAULT_DURATION;
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const freqRange = this.getFrequencyRange();
+
+    // --- REGULARIZED FREQUENCY ---
+    // Use the value from the first tone as the shared value (all intersecting lines have same (x, y))
+    const sharedValue = Array.isArray(tones[0].value)
+      ? (tones[0].value[1] ?? tones[0].value[0])
+      : (tones[0].value as number);
+    const sharedMin = tones[0].min;
+    const sharedMax = tones[0].max;
+    const sharedFrequency = this.interpolate(
+      sharedValue,
+      { min: sharedMin, max: sharedMax },
+      freqRange,
+    );
+
+    tones.forEach((tone, idx) => {
+      // All tones use the same frequency for intersection
+      const frequency = sharedFrequency;
+
+      // Use AudioPaletteService for maximum distinction
+      const paletteEntry = this.audioPalette.getPaletteEntry(idx);
+      const waveType = paletteEntry.waveType;
+
+      // Simple oscillator with assigned wave type
+      const oscillator = ctx.createOscillator();
+      oscillator.type = waveType;
+      oscillator.frequency.value = frequency;
+
+      // Simple gain node
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(baseVolume, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01 * baseVolume, now + duration);
+
+      // Connect and play
+      oscillator.connect(gainNode);
+      gainNode.connect(this.compressor);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+
+      // Clean up
+      const audioId = setTimeout(() => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+      }, duration * 1000 * 2);
+
+      this.activeAudioIds.set(audioId, [oscillator]);
+    });
   }
 }
