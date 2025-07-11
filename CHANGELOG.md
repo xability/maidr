@@ -1,3 +1,10 @@
+# [3.18.0](https://github.com/xability/maidr/compare/v3.17.10...v3.18.0) (2025-07-11)
+
+
+### Features
+
+* support intersection points in multiline plots ([#387](https://github.com/xability/maidr/issues/387)) ([905b3ea](https://github.com/xability/maidr/commit/905b3ea101acaf0229e8e048840254e0552de58b))
+
 ## [3.17.10](https://github.com/xability/maidr/compare/v3.17.9...v3.17.10) (2025-07-01)
 
 
