@@ -84,7 +84,8 @@ export class TextService implements Observer<PlotState>, Disposable {
     } else if (this.currentSubplotIndex === null) {
       // First time setting the subplot index
       this.currentSubplotIndex = newSubplotIndex;
-      return false;
+      // If this is not the first layer (index 0), treat it as a layer switch
+      return newSubplotIndex !== 0;
     }
 
     return false;
