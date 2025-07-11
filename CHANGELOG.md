@@ -1,3 +1,10 @@
+## [3.18.1](https://github.com/xability/maidr/compare/v3.18.0...v3.18.1) (2025-07-11)
+
+
+### Bug Fixes
+
+* add values to layer announcement ([#388](https://github.com/xability/maidr/issues/388)) ([6f97792](https://github.com/xability/maidr/commit/6f9779214e25cb139ec96c55f4996859c48bc1f8))
+
 # [3.18.0](https://github.com/xability/maidr/compare/v3.17.10...v3.18.0) (2025-07-11)
 
 
