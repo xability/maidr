@@ -1,4 +1,4 @@
 /* Removes default browser margin from the Maidr figure element for consistent layout. */
-[id^="maidr-figure"] {
+[id^='maidr-figure'] {
   margin: 0;
 }
