@@ -3,16 +3,21 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
-import Braille from './pages/Braille';
-import Chat from './pages/Chat';
-import Help from './pages/Help';
-import Review from './pages/Review';
-import Settings from './pages/Settings';
-import Text from './pages/Text';
+import Braille from './component/Braille';
+import Chat from './component/Chat';
+import Help from './component/Help';
+import Review from './component/Review';
+import Settings from './component/Settings';
+import Text from './component/Text';
+import Tooltip from './component/Tooltip';
 
-const App: React.FC = () => {
+interface AppProps {
+  plot: HTMLElement;
+}
+
+const App: React.FC<AppProps> = ({ plot }) => {
   const { enabled, message } = useViewModelState('text');
-  const { focus } = useViewModelState('display');
+  const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
@@ -38,14 +43,17 @@ const App: React.FC = () => {
 
   return (
     <>
+      {tooltip.visible && <Tooltip plot={plot} />}
       {(enabled || message) && <Text />}
       {renderFocusedComponent(focus)}
     </>
   );
 };
 
-export const MaidrApp: React.JSX.Element = (
-  <Provider store={store}>
-    <App />
-  </Provider>
-);
+export function MaidrApp(plot: HTMLElement): React.JSX.Element {
+  return (
+    <Provider store={store}>
+      <App plot={plot} />
+    </Provider>
+  );
+}

@@ -1,12 +1,9 @@
 import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
-import type { Root } from 'react-dom/client';
 import { Emitter } from '@type/event';
-import { MaidrApp } from '@ui/App';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { createRoot } from 'react-dom/client';
 
 interface FocusChangedEvent {
   value: Focus;
@@ -17,19 +14,16 @@ export class DisplayService implements Disposable {
   private readonly focusStack: Stack<Focus>;
 
   public readonly plot: HTMLElement;
-  private reactRoot: Root | null;
 
   private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
   public readonly onChange: Event<FocusChangedEvent>;
 
-  public constructor(context: Context, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(context: Context, plot: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
     this.focusStack.push(this.context.scope as Focus);
 
     this.plot = plot;
-    this.reactRoot = createRoot(reactContainer, { identifierPrefix: this.context.id });
-    this.reactRoot.render(MaidrApp);
 
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
@@ -41,15 +35,15 @@ export class DisplayService implements Disposable {
     this.addInstruction();
 
     this.onChangeEmitter.dispose();
-
-    this.reactRoot?.unmount();
-    this.reactRoot = null;
   }
 
-  public addInstruction(): void {
-    const maidrInstruction = this.context.getInstruction(true);
-    this.plot.setAttribute(Constant.ARIA_LABEL, maidrInstruction);
-    this.plot.setAttribute(Constant.TITLE, maidrInstruction);
+  public getInstruction(includeClickPrompt: boolean = true): string {
+    return this.context.getInstruction(includeClickPrompt);
+  }
+
+  private addInstruction(): void {
+    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
+    this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
   }

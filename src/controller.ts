@@ -53,11 +53,11 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot, reactContainer);
+    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
@@ -79,7 +79,7 @@ export class Controller implements Disposable {
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.notificationService.notify(this.context.getInstruction(false));
+    this.notificationService.notify(this.displayService.getInstruction(false));
 
     this.keybinding = new KeybindingService(
       {
