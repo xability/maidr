@@ -6,7 +6,16 @@ const config: ReturnType<typeof defineConfig> = defineConfig(({ mode, command })
   const isProd = mode === 'production';
   // Use 'examples' as root in dev for HMR with example HTML files
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'inject-hot-reload-script',
+        transformIndexHtml(html, ctx) {
+          if (!ctx || !ctx.path.endsWith('.html') || isProd) return html;
+          return html.replace('<script src="../dist/maidr.js"></script>', '<script type="module" src="/main.ts"></script>');
+        },
+      },
+    ],
     root: command === 'serve' ? 'examples' : '.',
     resolve: {
       alias: {
