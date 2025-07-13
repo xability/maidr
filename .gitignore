@@ -154,11 +154,12 @@ out
 # Jetbrains
 .idea
 
-# Cypress content
-cypress/screenshots/
-
 # VS Code
 .vscode
 
 # Qodo AI
 .qodo
+
+# Playwright
+playwright-report/
+test-results/

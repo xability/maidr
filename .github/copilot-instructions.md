@@ -66,24 +66,18 @@ _ **Data Flow for Actions:** UI captures action → ViewModel validates/processe
 **What to Avoid (Anti-Patterns):**
 
 1.  **Violating Dependency Direction:**
-
-- **NO** Core Model depending on Services, ViewModels, or UI.
-- **NO** Service depending on ViewModels or UI.
-- **NO** ViewModel depending on UI.
-
+    - **NO** Core Model depending on Services, ViewModels, or UI.
+    - **NO** Service depending on ViewModels or UI.
+    - **NO** ViewModel depending on UI.
 2.  **Leaking Responsibilities / "Seeping" Logic:**
-
-- **NO** business logic in ViewModels or UI components. (e.g., complex data transformation, core calculations).
-- **NO** UI layout/presentation logic in ViewModels or Services.
-- **NO** direct calls from UI to Services or Core Model.
-- **NO** validation logic (beyond basic UI hints) in the UI layer; primary validation is in the ViewModel.
-- **NO** Service A directly calling UI-specific methods of Service B.
-
+    - **NO** business logic in ViewModels or UI components. (e.g., complex data transformation, core calculations).
+    - **NO** UI layout/presentation logic in ViewModels or Services.
+    - **NO** direct calls from UI to Services or Core Model.
+    - **NO** validation logic (beyond basic UI hints) in the UI layer; primary validation is in the ViewModel.
+    - **NO** Service A directly calling UI-specific methods of Service B.
 3.  **Tight Coupling:**
-
-- **AVOID** services having unnecessary knowledge of other services' internal implementations. Communicate via well-defined interfaces or events.
-- **AVOID** creating a "god object" service or ViewModel that knows too much.
-
+    - **AVOID** services having unnecessary knowledge of other services' internal implementations. Communicate via well-defined interfaces or events.
+    - **AVOID** creating a "god object" service or ViewModel that knows too much.
 4.  **Bypassing Layers:** For example, the UI should never directly update the Core Model.
 5.  **Over-Complicating the UI Layer:** The UI (e.g., Settings component) should focus on rendering and delegating actions, not performing complex state management or business logic itself.
 6.  **Placing ViewModel Logic in Services:** Services should focus on business logic and data, not on preparing data _specifically_ for a particular view's display needs (that's the ViewModel's job).

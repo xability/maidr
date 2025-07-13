@@ -3,8 +3,8 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export type FigureState =
-  | {
+export type FigureState
+  = | {
     empty: true;
     type: 'figure';
   }
@@ -20,8 +20,8 @@ export type FigureState =
     traceTypes: string[];
   };
 
-export type SubplotState =
-  | {
+export type SubplotState
+  = | {
     empty: true;
     type: 'subplot';
   }
@@ -39,23 +39,23 @@ interface TraceEmptyState {
   traceType: TraceType;
 }
 
-export type TraceState =
-  | TraceEmptyState
-  | {
-    empty: false;
-    type: 'trace';
-    traceType: TraceType;
-    title: string;
-    xAxis: string;
-    yAxis: string;
-    fill: string;
-    hasMultiPoints: boolean;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-    highlight: HighlightState;
-  };
+export type TraceState
+  = | TraceEmptyState
+    | {
+      empty: false;
+      type: 'trace';
+      traceType: TraceType;
+      title: string;
+      xAxis: string;
+      yAxis: string;
+      fill: string;
+      hasMultiPoints: boolean;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+      highlight: HighlightState;
+    };
 
 export interface AudioState {
   min: number;
@@ -65,12 +65,12 @@ export interface AudioState {
   index: number;
 }
 
-export type BrailleState =
-  | TraceEmptyState
-  | BarBrailleState
-  | BoxBrailleState
-  | HeatmapBrailleState
-  | LineBrailleState;
+export type BrailleState
+  = | TraceEmptyState
+    | BarBrailleState
+    | BoxBrailleState
+    | HeatmapBrailleState
+    | LineBrailleState;
 
 interface BaseBrailleState {
   id: string;
@@ -121,9 +121,9 @@ export type AutoplayState = {
   [key in MovableDirection]: number;
 };
 
-export type HighlightState =
-  | TraceEmptyState
-  | {
-    empty: false;
-    elements: SVGElement | SVGElement[];
-  };
+export type HighlightState
+  = | TraceEmptyState
+    | {
+      empty: false;
+      elements: SVGElement | SVGElement[];
+    };
