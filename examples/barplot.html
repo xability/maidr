@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>maidr Example</title>
-    <link rel="stylesheet" href="../src/ui/css/styles.css" />
-    <script src="../dist/maidr.js"></script>
+    <script type="module" src="main.ts"></script>
   </head>
   <body>
     <svg
@@ -1066,46 +1065,5 @@
         </clipPath>
       </defs>
     </svg>
-    <script>
-      var maidr = {
-        id: 'bar',
-        title: 'The Number of Tips by Day',
-        subplots: [
-          [
-            {
-              layers: [
-                {
-                  id: '0',
-                  type: 'bar',
-                  selectors: "path[clip-path='url(#p0f12ed050e)']",
-                  axes: {
-                    x: 'Day',
-                    y: 'Count',
-                  },
-                  data: [
-                    {
-                      x: 'Sat',
-                      y: 87,
-                    },
-                    {
-                      x: 'Sun',
-                      y: 76,
-                    },
-                    {
-                      x: 'Thur',
-                      y: 62,
-                    },
-                    {
-                      x: 'Fri',
-                      y: 19,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        ],
-      };
-    </script>
   </body>
 </html>

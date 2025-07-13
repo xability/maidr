@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>MAIDR Example</title>
-    <link rel="stylesheet" href="../src/ui/css/styles.css" />
-    <script src="../dist/maidr.js"></script>
+    <script type="module" src="main.ts"></script>
   </head>
   <body>
     <div>
@@ -1314,41 +1313,5 @@
         </defs>
       </svg>
     </div>
-    <script>
-      var maidr = {
-        id: 'stacked_bar',
-        title: 'Passenger Count by Class and Survival Status on the Titanic',
-        subplots: [
-          [
-            {
-              layers: [
-                {
-                  id: '0',
-                  type: 'stacked_bar',
-                  selectors: "path[clip-path='url(#p590fc6c652)']",
-                  axes: {
-                    x: 'Class',
-                    y: 'Number of Passengers',
-                    fill: 'Survival Status',
-                  },
-                  data: [
-                    [
-                      { x: 'First', y: 80, fill: 'Not Survived' },
-                      { x: 'Second', y: 97, fill: 'Not Survived' },
-                      { x: 'Third', y: 372, fill: 'Not Survived' },
-                    ],
-                    [
-                      { x: 'First', y: 136, fill: 'Survived' },
-                      { x: 'Second', y: 87, fill: 'Survived' },
-                      { x: 'Third', y: 119, fill: 'Survived' },
-                    ],
-                  ],
-                },
-              ],
-            },
-          ],
-        ],
-      };
-    </script>
   </body>
 </html>

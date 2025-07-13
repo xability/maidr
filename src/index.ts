@@ -14,6 +14,8 @@ if (document.readyState === 'loading') {
 }
 
 function main(): void {
+  overrideFigureMargin();
+
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
     const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
@@ -28,24 +30,12 @@ function main(): void {
       console.error('Error parsing maidr attribute:', error);
     }
   });
+}
 
-  // Fall back to window.maidr if no attribute found.
-  // TODO: Need to be removed along with `window.d.ts`,
-  //  once attribute method is migrated.
-  if (plots.length !== 0) {
-    return;
-  }
-
-  const maidr = window.maidr;
-  if (!maidr) {
-    return;
-  }
-
-  const plot = document.getElementById(maidr.id);
-  if (!plot) {
-    return;
-  }
-  initMaidr(maidr, plot);
+function overrideFigureMargin(): void {
+  const style = document.createElement(Constant.STYLE);
+  style.textContent = `[id^='${Constant.MAIDR_FIGURE}'] { ${Constant.MARGIN}: 0; }`;
+  document.head.appendChild(style);
 }
 
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
