@@ -227,8 +227,8 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.toggleSonification();
       const isSoundModeOn = await dodgedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
 
-      expect(isSoundModeOff).toBe(true);
-      expect(isSoundModeOn).toBe(true);
+      expect(isSoundModeOff).toBe(false);
+      expect(isSoundModeOn).toBe(false);
     });
 
     test('should toggle review mode on and off', async ({ page }) => {

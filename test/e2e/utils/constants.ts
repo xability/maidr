@@ -43,9 +43,8 @@ export abstract class TestConstants {
   /**
    * MAIDR component identifiers
    */
-  static readonly MAIDR_CONTAINER = 'maidr-container-';
-  static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-notification-container-';
-  static readonly MAIDR_INFO_CONTAINER = 'maidr-info-container-';
+  static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-text-container';
+  static readonly MAIDR_INFO_CONTAINER = 'maidr-text-container';
   static readonly MAIDR_SPEED_INDICATOR = 'maidr-speed-indicator-';
   static readonly BRAILLE_TEXTAREA = 'maidr-braille-textarea-';
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';

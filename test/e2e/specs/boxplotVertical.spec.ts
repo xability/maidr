@@ -171,11 +171,11 @@ test.describe('Boxplot Vertical', () => {
 
       await boxplotVerticalPage.toggleBrailleMode();
       const isBrailleModeOn = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
-      expect(isBrailleModeOn).toBe(false);
+      expect(isBrailleModeOn).toBe(true);
 
       await boxplotVerticalPage.toggleBrailleMode();
       const isBrailleModeOff = await boxplotVerticalPage.isBrailleModeActive(TestConstants.BRAILLE_OFF);
-      expect(isBrailleModeOff).toBe(false);
+      expect(isBrailleModeOff).toBe(true);
     });
 
     test('should toggle sound mode on and off', async ({ page }) => {

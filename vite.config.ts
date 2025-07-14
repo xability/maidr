@@ -11,7 +11,8 @@ const config: ReturnType<typeof defineConfig> = defineConfig(({ mode, command })
       {
         name: 'inject-hot-reload-script',
         transformIndexHtml(html, ctx) {
-          if (!ctx || !ctx.path.endsWith('.html') || isProd) return html;
+          if (!ctx || !ctx.path.endsWith('.html') || isProd)
+            return html;
           return html.replace('<script src="../dist/maidr.js"></script>', '<script type="module" src="/main.ts"></script>');
         },
       },

@@ -38,8 +38,8 @@ export class BarplotPage extends BasePage {
     super(page);
     this.plotId = plotId;
     this.selectors = {
-      notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`,
-      info: `#${TestConstants.MAIDR_INFO_CONTAINER + this.plotId} ${TestConstants.PARAGRAPH}`,
+      notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+      info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
       speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR + this.plotId}`,
       svg: `svg#${this.plotId}`,
       helpModal: TestConstants.MAIDR_HELP_MODAL,
@@ -121,7 +121,7 @@ export class BarplotPage extends BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new BarPlotError('Bar plot failed to load correctly');
+      throw new BarPlotError(`Bar plot failed to load correctly. ${error}`);
     }
   }
 
@@ -150,7 +150,7 @@ export class BarplotPage extends BasePage {
       await this.page.keyboard.press(TestConstants.TAB_KEY);
       await this.verifySvgFocused();
     } catch (error) {
-      throw new BarPlotError('Failed to activate MAIDR');
+      throw new BarPlotError(`Failed to activate MAIDR. ${error}`);
     }
   }
 
@@ -180,7 +180,7 @@ export class BarplotPage extends BasePage {
       const text = await this.getElementText(this.selectors.notification);
       return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
-      throw new BarPlotError('Failed to get notification text');
+      throw new BarPlotError(`Failed to get notification text. ${error}`);
     }
   }
 
@@ -205,7 +205,7 @@ export class BarplotPage extends BasePage {
       const notificationText = await this.getNotificationText();
       return notificationText === expectedMessage;
     } catch (error) {
-      throw new BarPlotError(`Failed to check ${mode} status`);
+      throw new BarPlotError(`Failed to check ${mode} status. ${error}`);
     }
   }
 
@@ -287,7 +287,7 @@ export class BarplotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.info);
     } catch (error) {
-      throw new BarPlotError('Failed to get info text');
+      throw new BarPlotError(`Failed to get info text. ${error}`);
     }
   }
 
@@ -319,7 +319,7 @@ export class BarplotPage extends BasePage {
       const speedText = await this.getElementText(this.selectors.speedIndicator);
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new BarPlotError('Failed to get playback speed');
+      throw new BarPlotError(`Failed to get playback speed. ${error}`);
     }
   }
 
@@ -378,8 +378,7 @@ export class BarplotPage extends BasePage {
         );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`);
+      throw new BarPlotError(`Failed to complete ${directionName} autoplay. ${error}`);
     }
   }
 

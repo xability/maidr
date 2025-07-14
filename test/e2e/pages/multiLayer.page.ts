@@ -12,8 +12,8 @@ export class MultiLayerPlotPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.MULTI_LAYER_PLOT_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.MULTI_LAYER_PLOT_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.MULTI_LAYER_PLOT_ID}`,
     svg: `svg#${TestConstants.MULTI_LAYER_PLOT_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
@@ -41,7 +41,7 @@ export class MultiLayerPlotPage extends BasePage {
       await super.navigateTo('examples/multi-layer.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to navigate to Multi Layer Plot');
+      throw new MultiLayerPlotError(`Failed to navigate to Multi Layer Plot. ${error}`);
     }
   }
 
@@ -54,7 +54,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await super.activateMaidr(this.selectors.svg, TestConstants.MULTI_LAYER_PLOT_ID);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to activate MAIDR');
+      throw new MultiLayerPlotError(`Failed to activate MAIDR. ${error}`);
     }
   }
 
@@ -67,7 +67,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, TestConstants.MULTI_LAYER_PLOT_ID);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to activate MAIDR by clicking');
+      throw new MultiLayerPlotError(`Failed to activate MAIDR by clicking. ${error}`);
     }
   }
 
@@ -80,7 +80,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get instruction text');
+      throw new MultiLayerPlotError(`Failed to get instruction text. ${error}`);
     }
   }
 
@@ -99,7 +99,7 @@ export class MultiLayerPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, textMode, modeMessages);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to check text mode status');
+      throw new MultiLayerPlotError(`Failed to check text mode status. ${error}`);
     }
   }
 
@@ -117,7 +117,7 @@ export class MultiLayerPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, brailleMode, modeMessages);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to check braille mode status');
+      throw new MultiLayerPlotError(`Failed to check braille mode status. ${error}`);
     }
   }
 
@@ -135,7 +135,7 @@ export class MultiLayerPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, sonificationMode, modeMessages);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to check sonification mode status');
+      throw new MultiLayerPlotError(`Failed to check sonification mode status. ${error}`);
     }
   }
 
@@ -153,7 +153,7 @@ export class MultiLayerPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, reviewMode, modeMessages);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to check review mode status');
+      throw new MultiLayerPlotError(`Failed to check review mode status. ${error}`);
     }
   }
 
@@ -166,7 +166,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get X-axis title');
+      throw new MultiLayerPlotError(`Failed to get X-axis title. ${error}`);
     }
   }
 
@@ -179,7 +179,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get Y-axis title');
+      throw new MultiLayerPlotError(`Failed to get Y-axis title. ${error}`);
     }
   }
 
@@ -192,7 +192,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get playback speed');
+      throw new MultiLayerPlotError(`Failed to get playback speed. ${error}`);
     }
   }
 
@@ -205,7 +205,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get speed toggle information');
+      throw new MultiLayerPlotError(`Failed to get speed toggle information. ${error}`);
     }
   }
 
@@ -218,7 +218,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get current data point information');
+      throw new MultiLayerPlotError(`Failed to get current data point information. ${error}`);
     }
   }
 
@@ -237,7 +237,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to start forward autoplay');
+      throw new MultiLayerPlotError(`Failed to start forward autoplay. ${error}`);
     }
   }
 
@@ -256,7 +256,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to start reverse autoplay');
+      throw new MultiLayerPlotError(`Failed to start reverse autoplay. ${error}`);
     }
   }
 
@@ -269,7 +269,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new MultiLayerPlotError('Multi Layer Plot failed to load correctly');
+      throw new MultiLayerPlotError(`Multi Layer Plot failed to load correctly. ${error}`);
     }
   }
 
@@ -281,7 +281,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await this.pressKey(TestConstants.PAGE_UP_KEY, 'switch to upper layer');
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to switch to upper layer');
+      throw new MultiLayerPlotError(`Failed to switch to upper layer. ${error}`);
     }
   }
 
@@ -293,7 +293,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       await this.pressKey(TestConstants.PAGE_DOWN_KEY, 'switch to lower layer');
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to switch to lower layer');
+      throw new MultiLayerPlotError(`Failed to switch to lower layer. ${error}`);
     }
   }
 
@@ -306,7 +306,7 @@ export class MultiLayerPlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.info);
     } catch (error) {
-      throw new MultiLayerPlotError('Failed to get current layer information');
+      throw new MultiLayerPlotError(`Failed to get current layer information. ${error}`);
     }
   }
 }

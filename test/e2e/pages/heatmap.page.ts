@@ -12,8 +12,8 @@ export class HeatmapPage extends BasePage {
    * Selectors for various UI elements
    */
   protected readonly selectors = {
-    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}${TestConstants.HEATMAP_ID} ${TestConstants.PARAGRAPH}`,
-    info: `#${TestConstants.MAIDR_INFO_CONTAINER}${TestConstants.HEATMAP_ID} ${TestConstants.PARAGRAPH}`,
+    notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
+    info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.HEATMAP_ID}`,
     svg: `svg#${TestConstants.HEATMAP_ID}`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
@@ -46,7 +46,7 @@ export class HeatmapPage extends BasePage {
       await super.navigateTo('examples/heatmap.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new HeatmapError('Failed to navigate to Heatmap');
+      throw new HeatmapError(`Failed to navigate to Heatmap. ${error}`);
     }
   }
 
@@ -59,7 +59,7 @@ export class HeatmapPage extends BasePage {
     try {
       await super.activateMaidr(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new HeatmapError('Failed to activate MAIDR');
+      throw new HeatmapError(`Failed to activate MAIDR. ${error}`);
     }
   }
 
@@ -72,7 +72,7 @@ export class HeatmapPage extends BasePage {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new HeatmapError('Failed to activate MAIDR by clicking');
+      throw new HeatmapError(`Failed to activate MAIDR by clicking. ${error}`);
     }
   }
 
@@ -85,7 +85,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new HeatmapError('Failed to get instruction text');
+      throw new HeatmapError(`Failed to get instruction text. ${error}`);
     }
   }
 
@@ -108,7 +108,7 @@ export class HeatmapPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HeatmapError('Failed to check text mode status');
+      throw new HeatmapError(`Failed to check text mode status. ${error}`);
     }
   }
 
@@ -130,7 +130,7 @@ export class HeatmapPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HeatmapError('Failed to check braille mode status');
+      throw new HeatmapError(`Failed to check braille mode status. ${error}`);
     }
   }
 
@@ -152,7 +152,7 @@ export class HeatmapPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HeatmapError('Failed to check sonification mode status');
+      throw new HeatmapError(`Failed to check sonification mode status. ${error}`);
     }
   }
 
@@ -174,7 +174,7 @@ export class HeatmapPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HeatmapError('Failed to check review mode status');
+      throw new HeatmapError(`Failed to check review mode status. ${error}`);
     }
   }
 
@@ -187,7 +187,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new HeatmapError('Failed to get X-axis title');
+      throw new HeatmapError(`Failed to get X-axis title. ${error}`);
     }
   }
 
@@ -200,7 +200,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new HeatmapError('Failed to get Y-axis title');
+      throw new HeatmapError(`Failed to get Y-axis title. ${error}`);
     }
   }
 
@@ -213,7 +213,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new HeatmapError('Failed to get playback speed');
+      throw new HeatmapError(`Failed to get playback speed. ${error}`);
     }
   }
 
@@ -226,7 +226,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new HeatmapError('Failed to get current data point information');
+      throw new HeatmapError(`Failed to get current data point information. ${error}`);
     }
   }
 
@@ -239,7 +239,7 @@ export class HeatmapPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new HeatmapError('Failed to get speed toggle information');
+      throw new HeatmapError(`Failed to get speed toggle information. ${error}`);
     }
   }
 
@@ -258,7 +258,7 @@ export class HeatmapPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new HeatmapError('Failed to start forward autoplay');
+      throw new HeatmapError(`Failed to start forward autoplay. ${error}`);
     }
   }
 
@@ -277,7 +277,7 @@ export class HeatmapPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new HeatmapError('Failed to start reverse autoplay');
+      throw new HeatmapError(`Failed to start reverse autoplay. ${error}`);
     }
   }
 
@@ -290,7 +290,7 @@ export class HeatmapPage extends BasePage {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new HeatmapError('Heatmap plot failed to load correctly');
+      throw new HeatmapError(`Heatmap plot failed to load correctly. ${error}`);
     }
   }
 }

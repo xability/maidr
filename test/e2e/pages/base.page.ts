@@ -7,7 +7,7 @@ import { AssertionError, KeypressError } from '../utils/errors';
  * Base page object that all other page objects extend
  * Provides common functionality for all pages
  */
-export class BasePage {
+export abstract class BasePage {
   protected readonly page: Page;
 
   /**
@@ -288,7 +288,7 @@ export class BasePage {
       await this.clickElement(this.selectors.helpModalClose);
       await this.closeModal(this.selectors.helpModal);
     } catch (error) {
-      throw new AssertionError('Failed to show help menu');
+      throw new AssertionError(`Failed to show help menu. ${error}`);
     }
   }
 
@@ -300,7 +300,7 @@ export class BasePage {
     try {
       await this.pressKeyCombination(
         TestConstants.COMMAND_KEY,
-        TestConstants.PERIOD_KEY,
+        TestConstants.COMMA_KEY,
         'show settings menu',
         100,
       );
@@ -312,10 +312,7 @@ export class BasePage {
 
       await this.closeModal(this.selectors.settingsModal);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new AssertionError(
-        `Failed to show settings menu: ${errorMessage}`,
-      );
+      throw new AssertionError(`Failed to show settings menu. ${error}`);
     }
   }
 
@@ -340,10 +337,7 @@ export class BasePage {
 
       await this.closeModal(this.selectors.chatModal);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new AssertionError(
-        `Failed to show chat dialog: ${errorMessage}`,
-      );
+      throw new AssertionError(`Failed to show chat dialog. ${error}`);
     }
   }
 
@@ -536,7 +530,7 @@ export class BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new Error('Plot failed to load correctly');
+      throw new Error(`Plot failed to load correctly. ${error}`);
     }
   }
 
@@ -568,7 +562,7 @@ export class BasePage {
       await this.page.keyboard.press(TestConstants.TAB_KEY);
       await this.verifySvgFocused(plotId);
     } catch (error) {
-      throw new Error('Failed to activate MAIDR');
+      throw new Error(`Failed to activate MAIDR. ${error}`);
     }
   }
 
@@ -585,7 +579,7 @@ export class BasePage {
       await this.page.click(svgSelector);
       await this.verifySvgFocused(plotId);
     } catch (error) {
-      throw new Error('Failed to activate MAIDR by clicking');
+      throw new Error(`Failed to activate MAIDR by clicking. ${error}`);
     }
   }
 
@@ -600,7 +594,7 @@ export class BasePage {
       const text = await this.getElementText(notificationSelector);
       return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
-      throw new Error('Failed to get instruction text');
+      throw new Error(`Failed to get instruction text. ${error}`);
     }
   }
 
@@ -621,7 +615,7 @@ export class BasePage {
       const notificationText = await this.getElementText(notificationSelector);
       return notificationText === modeMessages[mode];
     } catch (error) {
-      throw new Error(`Failed to check ${mode} status`);
+      throw new Error(`Failed to check ${mode} status. ${error}`);
     }
   }
 
@@ -635,7 +629,7 @@ export class BasePage {
     try {
       return await this.getElementText(infoSelector);
     } catch (error) {
-      throw new Error('Failed to get axis title');
+      throw new Error(`Failed to get axis title. ${error}`);
     }
   }
 
@@ -650,7 +644,7 @@ export class BasePage {
       const speedText = await this.getElementText(speedIndicatorSelector);
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new Error('Failed to get playback speed');
+      throw new Error(`Failed to get playback speed. ${error}`);
     }
   }
 
@@ -664,7 +658,7 @@ export class BasePage {
     try {
       return await this.getElementText(infoSelector);
     } catch (error) {
-      throw new Error('Failed to get current data point information');
+      throw new Error(`Failed to get current data point information. ${error}`);
     }
   }
 
@@ -705,8 +699,7 @@ export class BasePage {
         );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to complete ${directionName} autoplay: ${errorMessage}`);
+      throw new Error(`Failed to complete ${directionName} autoplay. ${error}`);
     }
   }
 
@@ -740,18 +733,7 @@ export class BasePage {
         { timeout, polling: pollInterval },
       );
     } catch (error) {
-      let actualContent = '';
-      try {
-        actualContent = await this.page.$eval(selector, el => el.textContent || '');
-      } catch {
-        actualContent = 'Element not found';
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
-        + `Actual content: "${actualContent}". ${errorMessage}`,
-      );
+      throw new Error(`Timeout waiting for element "${selector}" to have content "${expectedContent}". ${error}`);
     }
   }
 }
