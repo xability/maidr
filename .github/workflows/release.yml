@@ -9,6 +9,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+
     permissions:
       contents: write # Needed for GitHub release
       issues: write # Needed for release notes
@@ -16,7 +17,7 @@ jobs:
       id-token: write # Needed for NPM provenance
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -27,13 +28,24 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: npm
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Run commit linter
+        run: npm run commitlint --verbose
+
+      - name: Run code linter
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm run test
+
       - name: Build
         run: npm run build
+
+      - name: Check build output
+        run: test -d dist
 
       - name: Verify the integrity of provenance attestations and registry signatures
         run: npm audit signatures

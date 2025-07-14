@@ -1,19 +1,23 @@
-name: Scheduled End-to-End Tests
+name: Validate UI and Example Changes
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 2 */2 * *' # Run every 2 days at 9 PM CDT (2 AM UTC next day)
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'examples/**'
+      - 'src/ui/**'
 
 jobs:
-  test:
-    name: Run e2e tests
+  e2e:
+    name: Run E2E Tests for UI/Example Changes
     runs-on: ubuntu-latest
-    timeout-minutes: 60
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,12 +31,12 @@ jobs:
       - name: Install Playwright browsers
         run: npm run e2e:install
 
-      - name: Run Playwright tests
+      - name: Run Playwright E2E tests
         run: npm run e2e
         env:
           CI: true
 
-      - name: Upload Playwright test report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
