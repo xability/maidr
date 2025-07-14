@@ -1,6 +1,7 @@
 import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { XValue } from '@type/navigation';
+import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -32,7 +33,7 @@ export class Candlestick extends AbstractTrace<number> {
   protected readonly highlightValues: SVGElement[][] | null;
 
   // Service dependency for navigation logic
-  private readonly navigationService: NavigationService;
+  protected readonly navigationService: NavigationService;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -44,11 +45,11 @@ export class Candlestick extends AbstractTrace<number> {
     this.candles = data.map(candle => ({
       ...candle,
       trend:
-                candle.close > candle.open
-                  ? 'Bull'
-                  : candle.close < candle.open
-                    ? 'Bear'
-                    : 'Neutral',
+        candle.close > candle.open
+          ? 'Bull'
+          : candle.close < candle.open
+            ? 'Bear'
+            : 'Neutral',
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
@@ -86,7 +87,7 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candles.map((candle) => {
       // Create array of [segmentType, value] pairs
       const segmentPairs: [CandlestickSegmentType, number][]
-                = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
+        = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
 
       // Sort by value and return just the segment types
       return segmentPairs.sort((a, b) => a[1] - b[1]).map(pair => pair[0]);
@@ -179,9 +180,9 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType,
         );
         const newSegmentPosition
-                    = direction === 'UPWARD'
-                      ? currentSegmentPosition + 1
-                      : currentSegmentPosition - 1;
+          = direction === 'UPWARD'
+            ? currentSegmentPosition + 1
+            : currentSegmentPosition - 1;
 
         if (
           newSegmentPosition >= 0
@@ -203,9 +204,9 @@ export class Candlestick extends AbstractTrace<number> {
       case 'BACKWARD': {
         // Horizontal movement: navigate between candlesticks while preserving segment type
         const newPointIndex
-                    = direction === 'FORWARD'
-                      ? this.currentPointIndex + 1
-                      : this.currentPointIndex - 1;
+          = direction === 'FORWARD'
+            ? this.currentPointIndex + 1
+            : this.currentPointIndex - 1;
 
         if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
           this.currentPointIndex = newPointIndex;
@@ -231,7 +232,7 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD': {
         // Move to the highest value segment in current candlestick
         const currentSorted
-                    = this.sortedSegmentsByPoint[this.currentPointIndex];
+          = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
         this.updateVisualSegmentPosition();
         break;
@@ -239,7 +240,7 @@ export class Candlestick extends AbstractTrace<number> {
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
         const currentSortedDown
-                    = this.sortedSegmentsByPoint[this.currentPointIndex];
+          = this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
         this.updateVisualSegmentPosition();
         break;
@@ -310,9 +311,9 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType,
         );
         const newSegmentPosition
-                    = target === 'UPWARD'
-                      ? currentSegmentPosition + 1
-                      : currentSegmentPosition - 1;
+          = target === 'UPWARD'
+            ? currentSegmentPosition + 1
+            : currentSegmentPosition - 1;
         return (
           newSegmentPosition >= 0 && newSegmentPosition < this.sections.length
         );
@@ -322,9 +323,9 @@ export class Candlestick extends AbstractTrace<number> {
       case 'BACKWARD': {
         // Horizontal movement: check if we can move between candlesticks
         const newPointIndex
-                    = target === 'FORWARD'
-                      ? this.currentPointIndex + 1
-                      : this.currentPointIndex - 1;
+          = target === 'FORWARD'
+            ? this.currentPointIndex + 1
+            : this.currentPointIndex - 1;
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
       }
     }
@@ -409,12 +410,12 @@ export class Candlestick extends AbstractTrace<number> {
     return {
       main: {
         label:
-                    this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
+          this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
         value: point.value,
       },
       cross: {
         label:
-                    this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
+          this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
         value: crossValue,
       },
       section: this.currentSegmentType,
@@ -433,21 +434,31 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
-   * Override the state getter to provide dynamic axis labels for candlestick plots
-   * - xAxis: Shows the X-axis label (e.g., "Date") for l x command
-   * - yAxis: Shows the current segment type (open, high, low, close) for l y command
+   * Get the current X value from the candlestick trace
+   * @returns The current X value or null if not available
    */
-  public override get state(): TraceState {
-    const parentState = super.state;
-
-    if (parentState.empty) {
-      return parentState;
+  public getCurrentXValue(): XValue | null {
+    if (this.currentPointIndex >= 0 && this.currentPointIndex < this.candles.length) {
+      return this.candles[this.currentPointIndex].value;
     }
+    return null;
+  }
 
-    return {
-      ...parentState,
-      xAxis: this.xAxis, // Use original X-axis label (e.g., "Date")
-      yAxis: this.currentSegmentType, // Current segment type (open, high, low, close)
-    };
+  /**
+   * Move the candlestick to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    const targetIndex = this.candles.findIndex(candle => candle.value === xValue);
+    if (targetIndex !== -1) {
+      this.currentPointIndex = targetIndex;
+      this.currentSegmentType = 'open'; // Default to open segment
+      this.updateVisualPointPosition();
+      this.updateVisualSegmentPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+    return false;
   }
 }

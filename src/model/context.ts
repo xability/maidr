@@ -106,10 +106,29 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
+
       const activeSubplot = this.active as Subplot;
+
+      // Get current trace position before switching
+      const currentTrace = activeSubplot.activeTrace;
+
+      // Get current X value using standard interface
+      const currentXValue = currentTrace.getCurrentXValue();
+
       activeSubplot.moveOnce(direction);
+
+      const newTrace = activeSubplot.activeTrace;
+
+      // Add the new trace back to the context
+      this.plotContext.push(newTrace);
+
+      // Preserve X value using standard interface
+      if (currentXValue !== null) {
+        newTrace.moveToXValue(currentXValue);
+      }
+
+      // Notify state update after context is complete
       this.active.notifyStateUpdate();
-      this.plotContext.push(activeSubplot.activeTrace);
     }
   }
 

@@ -1,8 +1,11 @@
-import type {
-  SelectChangeEvent,
-} from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
-import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
+import type {
+  AriaMode,
+  GeneralSettings,
+  LlmModelSettings,
+  LlmSettings,
+} from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Alert,
@@ -33,7 +36,10 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-function getValidVersion(modelKey: Llm, currentVersion: string | undefined): LlmVersion {
+function getValidVersion(
+  modelKey: Llm,
+  currentVersion: string | undefined,
+): LlmVersion {
   const config = MODEL_VERSIONS[modelKey];
   const validOptions = config.options as readonly LlmVersion[];
   if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
@@ -48,15 +54,18 @@ interface SettingRowProps {
 }
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid container spacing={1} alignItems="center" sx={{ py: 1 }}>
+  <Grid
+    container
+    spacing={1}
+    alignItems="center"
+    className="settings-grid-container"
+  >
     <Grid size={{ xs: 12, sm: 6, md: 4 }}>
       <Typography variant="body2" fontWeight="normal">
         {label}
       </Typography>
     </Grid>
-    <Grid size={{ xs: 12, sm: 6, md: 8 }}>
-      {input}
-    </Grid>
+    <Grid size={{ xs: 12, sm: 6, md: 8 }}>{input}</Grid>
   </Grid>
 );
 
@@ -99,7 +108,10 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(modelKey, apiKey);
+      const result = await LlmValidationService.validateApiKey(
+        modelKey,
+        apiKey,
+      );
       setIsValid(result.isValid);
     } catch (error) {
       setIsValid(false);
@@ -120,13 +132,16 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     const config = MODEL_VERSIONS[modelKey];
     return config.options.map((version) => {
       const label = config.labels[version as keyof typeof config.labels];
+      const isSelected = modelSettings.version === version;
       return (
         <MenuItem
           key={version}
           value={version}
-          sx={{ fontWeight: modelSettings.version === version ? 'bold' : 'normal' }}
+          className={`llm-model-setting-row-menu-item ${isSelected ? 'selected' : ''}`}
         >
-          {modelSettings.version === version && <CheckIcon sx={{ mr: 1 }} />}
+          {isSelected && (
+            <CheckIcon className="llm-model-setting-row-check-icon" />
+          )}
           {label}
         </MenuItem>
       );
@@ -138,7 +153,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       label={modelSettings.name}
       input={(
         <Grid container spacing={1} alignItems="center">
-          <Grid size="auto">
+          <Grid>
             <Switch
               checked={modelSettings.enabled}
               onChange={e => onToggle(modelKey, e.target.checked)}
@@ -147,78 +162,89 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               }}
             />
           </Grid>
-          <Grid size={6}>
-            <TextField
-              disabled={!modelSettings.enabled}
-              fullWidth
-              size="small"
-              value={modelSettings.apiKey}
-              onChange={e => onChangeKey(modelKey, e.target.value)}
-              placeholder={`Enter ${modelSettings.name} API Key`}
-              type="password"
-              error={isValid === false}
-              helperText={getHelperText()}
-              slotProps={{
-                input: {
-                  'aria-label': `${modelSettings.name} API key input`,
-                  'aria-describedby': `${modelKey}-status`,
-                  'endAdornment': (
-                    <InputAdornment position="end">
-                      <div
-                        id={`${modelKey}-status`}
-                        role="status"
-                        aria-live="polite"
-                        aria-label={
-                          isValidating
-                            ? 'Validating API key'
-                            : isValid === true
-                              ? 'API key is valid'
-                              : isValid === false
-                                ? 'API key is invalid'
-                                : ''
-                        }
-                      >
-                        {isValidating
-                          ? (
-                              <CircularProgress size={20} />
-                            )
-                          : isValid === true
+          <Grid size={7}>
+            <FormControl fullWidth>
+              <TextField
+                disabled={!modelSettings.enabled}
+                fullWidth
+                size="small"
+                value={modelSettings.apiKey}
+                onChange={e => onChangeKey(modelKey, e.target.value)}
+                placeholder={`Enter ${modelSettings.name} API Key`}
+                type="password"
+                error={isValid === false}
+                helperText={getHelperText()}
+                slotProps={{
+                  input: {
+                    'aria-label': `${modelSettings.name} API Key`,
+                    'aria-describedby': `${modelKey}-status`,
+                    'endAdornment': (
+                      <InputAdornment position="end">
+                        <div
+                          id={`${modelKey}-status`}
+                          role="status"
+                          aria-live="polite"
+                          aria-label={
+                            isValidating
+                              ? 'Validating API key'
+                              : isValid === true
+                                ? 'API key is valid'
+                                : isValid === false
+                                  ? 'API key is invalid'
+                                  : ''
+                          }
+                        >
+                          {isValidating
                             ? (
-                                <CheckIcon color="success" />
+                                <CircularProgress size={20} />
                               )
-                            : isValid === false
+                            : isValid === true
                               ? (
-                                  <ErrorIcon color="error" />
+                                  <CheckIcon color="success" />
                                 )
-                              : null}
-                      </div>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          </Grid>
-          <Grid size={6}>
-            <Select
-              value={validVersion}
-              onChange={(e) => {
-                const newVersion = e.target.value as LlmVersion;
-                onChangeVersion(modelKey, newVersion);
-              }}
-              disabled={!modelSettings.enabled || !modelSettings.apiKey.trim() || !isValid}
-              fullWidth
-              size="small"
-              MenuProps={{
-                disablePortal: true,
-                PaperProps: {
-                  sx: {
-                    maxHeight: 200,
+                              : isValid === false
+                                ? (
+                                    <ErrorIcon color="error" />
+                                  )
+                                : null}
+                        </div>
+                      </InputAdornment>
+                    ),
                   },
-                },
-              }}
-            >
-              {renderMenuItems()}
-            </Select>
+                }}
+              />
+            </FormControl>
+          </Grid>
+          <Grid size={8}>
+            <FormControl fullWidth>
+              <Select
+                value={validVersion}
+                onChange={(e) => {
+                  const newVersion = e.target.value as LlmVersion;
+                  onChangeVersion(modelKey, newVersion);
+                }}
+                disabled={
+                  !modelSettings.enabled
+                  || !modelSettings.apiKey.trim()
+                  || !isValid
+                }
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: {
+                    'aria-label': `${modelSettings.name} Model Version`,
+                  },
+                }}
+                MenuProps={{
+                  disablePortal: true,
+                  PaperProps: {
+                    className: 'settings-menu-paper',
+                  },
+                }}
+              >
+                {renderMenuItems()}
+              </Select>
+            </FormControl>
           </Grid>
         </Grid>
       )}
@@ -232,7 +258,8 @@ const Settings: React.FC = () => {
   const chatViewModel = useViewModel('chat');
   const { general, llm } = viewModel.state;
 
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
+  const [generalSettings, setGeneralSettings]
+    = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
@@ -244,14 +271,21 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (key: keyof GeneralSettings, value: string | number | AriaMode): void => { // Expanded value type for ariaMode
+  const handleGeneralChange = (
+    key: keyof GeneralSettings,
+    value: string | number | AriaMode,
+  ): void => {
+    // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
 
-  const handleLlmChange = (key: keyof LlmSettings, value: string | 'basic' | 'intermediate' | 'advanced' | 'custom'): void => {
+  const handleLlmChange = (
+    key: keyof LlmSettings,
+    value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
+  ): void => {
     setLlmSettings(prev => ({
       ...prev,
       [key]: value,
@@ -269,7 +303,10 @@ const Settings: React.FC = () => {
         ...prev.models,
         [modelKey]: {
           ...prev.models[modelKey],
-          [propKey]: propKey === 'apiKey' && typeof value === 'string' ? value.trim() : value,
+          [propKey]:
+            propKey === 'apiKey' && typeof value === 'string'
+              ? value.trim()
+              : value,
         },
       },
     }));
@@ -295,37 +332,37 @@ const Settings: React.FC = () => {
     e.stopPropagation();
   }, []);
 
-  const handleSelectChange = useCallback((e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>) => {
-    e.stopPropagation();
-    handleLlmChange('expertiseLevel', e.target.value);
-  }, [handleLlmChange]);
+  const handleSelectChange = useCallback(
+    (
+      e: SelectChangeEvent<'basic' | 'intermediate' | 'advanced' | 'custom'>,
+    ) => {
+      e.stopPropagation();
+      handleLlmChange('expertiseLevel', e.target.value);
+    },
+    [handleLlmChange],
+  );
 
-  const isCustomInstructionValid = llmSettings.expertiseLevel !== 'custom' || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
+  const isCustomInstructionValid
+    = llmSettings.expertiseLevel !== 'custom'
+      || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
   return (
     <Dialog
       id={id}
       role="dialog"
+      aria-label="Settings"
       open={true}
       maxWidth="sm"
       fullWidth
       disablePortal
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
-      sx={{
-        '& .MuiDialog-paper': {
-          zIndex: 9998,
-          maxHeight: '90vh',
-        },
-        '& .MuiDialogContent-root': {
-          overflow: 'auto',
-        },
-      }}
+      className="settings-dialog"
     >
-      <DialogContent>
+      <DialogContent className="settings-dialog-content">
         <Grid size="grow">
           <Typography variant="h6" fontWeight="bold" gutterBottom>
-            Settings
+            General Settings
           </Typography>
         </Grid>
 
@@ -335,20 +372,26 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Volume"
               input={(
-                <Slider
-                  value={generalSettings.volume}
-                  onChange={(_, value) => handleGeneralChange('volume', Number(value))}
-                  min={0}
-                  max={100}
-                  step={1}
-                  valueLabelDisplay="auto"
-                  sx={{
-                    '& .MuiSlider-valueLabel': {
-                      backgroundColor: 'primary.main',
-                      borderRadius: 1,
-                    },
-                  }}
-                />
+                <FormControl fullWidth>
+                  <Slider
+                    value={generalSettings.volume}
+                    onChange={(_, value) =>
+                      handleGeneralChange('volume', Number(value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                    valueLabelDisplay="auto"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0,
+                        'aria-valuemax': 100,
+                        'aria-label': 'Volume',
+                        'aria-labelledby': 'volume-label',
+                      },
+                    }}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -356,13 +399,23 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Outline Color"
               input={(
-                <TextField
-                  fullWidth
-                  type="color"
-                  size="small"
-                  value={generalSettings.highlightColor}
-                  onChange={e => handleGeneralChange('highlightColor', e.target.value)}
-                />
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highlightColor}
+                    onChange={e =>
+                      handleGeneralChange('highlightColor', e.target.value)}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Highlight Color',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -370,13 +423,26 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Braille Display Size"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.brailleDisplaySize}
-                  onChange={e => handleGeneralChange('brailleDisplaySize', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplaySize}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'brailleDisplaySize',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Size',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -384,13 +450,26 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Min Frequency (Hz)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.minFrequency}
-                  onChange={e => handleGeneralChange('minFrequency', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.minFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'minFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Minimum Frequency',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -398,13 +477,26 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Max Frequency (Hz)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.maxFrequency}
-                  onChange={e => handleGeneralChange('maxFrequency', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.maxFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'maxFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Maximum Frequency',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -412,13 +504,26 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Autoplay Duration (ms)"
               input={(
-                <TextField
-                  fullWidth
-                  type="number"
-                  size="small"
-                  value={generalSettings.autoplayDuration}
-                  onChange={e => handleGeneralChange('autoplayDuration', Number(e.target.value))}
-                />
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.autoplayDuration}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'autoplayDuration',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Autoplay Duration',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
               )}
             />
           </Grid>
@@ -430,7 +535,12 @@ const Settings: React.FC = () => {
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
-                    onChange={e => handleGeneralChange('ariaMode', e.target.value as AriaMode)}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'ariaMode',
+                        e.target.value as AriaMode,
+                      )}
+                    aria-label="ARIA Mode"
                   >
                     <FormControlLabel
                       value="assertive"
@@ -450,13 +560,18 @@ const Settings: React.FC = () => {
         </Grid>
 
         <Grid size={12}>
-          <Divider sx={{ py: 0.5 }} />
+          <Divider className="settings-divider" />
         </Grid>
 
         {/* LLM Settings */}
-        <Grid container spacing={0.5} sx={{ mt: 2 }}>
+        <Grid container spacing={0.5} className="settings-section">
           <Grid size={12}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              gutterBottom
+              className="settings-section-title"
+            >
               LLM Settings
             </Typography>
           </Grid>
@@ -464,34 +579,44 @@ const Settings: React.FC = () => {
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
             return (
-              <Grid size={12} key={modelKey}>
+              <Grid size={12} key={modelKey} className="settings-model-row">
                 <LlmModelSettingRow
                   modelKey={modelKey}
                   modelSettings={model}
-                  onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
-                  onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
-                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
+                  onToggle={(key, enabled) =>
+                    handleLlmModelChange(key, 'enabled', enabled)}
+                  onChangeKey={(key, value) =>
+                    handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) =>
+                    handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
           })}
 
           {/* Expertise Level */}
-          <Grid size={12}>
-            <SettingRow
-              label="Expertise Level"
-              input={(
-                <FormControl fullWidth size="small">
+          <Grid size={12} className="settings-row">
+            <FormControl
+              fullWidth
+              size="small"
+              className="settings-model-select"
+            >
+              <SettingRow
+                label="Expertise Level"
+                input={(
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
                     onClick={handleSelectClick}
+                    slotProps={{
+                      input: {
+                        'aria-label': 'Expertise Level',
+                      },
+                    }}
                     MenuProps={{
                       disablePortal: true,
                       PaperProps: {
-                        sx: {
-                          maxHeight: 200,
-                        },
+                        className: 'llm-model-setting-select-menu',
                       },
                     }}
                   >
@@ -500,36 +625,46 @@ const Settings: React.FC = () => {
                     <MenuItem value="advanced">Advanced</MenuItem>
                     <MenuItem value="custom">Custom</MenuItem>
                   </Select>
-                </FormControl>
-              )}
-            />
+                )}
+              />
+            </FormControl>
           </Grid>
 
           {/* Custom Instructions - Only show when custom is selected */}
           {llmSettings.expertiseLevel === 'custom' && (
             <Grid size={12}>
-              <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
+              <Grid
+                container
+                spacing={1}
+                alignItems="flex-start"
+                sx={{ py: 1 }}
+              >
                 <Grid size={12} sx={{ py: 1 }}>
                   <Typography variant="body2" fontWeight="normal">
                     Custom Instructions
                   </Typography>
                 </Grid>
                 <Grid size={12}>
-                  <TextareaAutosize
-                    minRows={3}
-                    maxRows={6}
-                    value={llmSettings.customInstruction}
-                    onChange={e => handleLlmChange('customInstruction', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                    }}
-                    placeholder="Enter custom instruction..."
-                  />
+                  <FormControl fullWidth>
+                    <TextareaAutosize
+                      minRows={3}
+                      maxRows={6}
+                      value={llmSettings.customInstruction}
+                      onChange={e =>
+                        handleLlmChange('customInstruction', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                      }}
+                      placeholder="Enter custom instruction..."
+                      aria-label="Custom Instructions"
+                    />
+                  </FormControl>
                 </Grid>
-                {llmSettings.customInstruction.length < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                {llmSettings.customInstruction.length
+                  < MIN_CUSTOM_INSTRUCTION_LENGTH && (
                   <Grid size={12} sx={{ mt: 1 }}>
                     <Alert severity="warning">
                       Custom instructions must be at least
@@ -546,18 +681,24 @@ const Settings: React.FC = () => {
         </Grid>
 
         <Grid size={12}>
-          <Divider sx={{ py: 0.5 }} />
+          <Divider className="settings-divider" />
         </Grid>
       </DialogContent>
 
-      {/* Footer Actions  */}
+      {/* Footer Actions */}
       <Grid
         container
         component={DialogActions}
         alignItems="center"
+        className="settings-footer"
       >
-        <Grid size="auto" sx={{ px: 1 }}>
-          <Button variant="text" color="inherit" onClick={handleReset}>
+        <Grid size="auto" className="settings-grid-padding">
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={handleReset}
+            aria-label="Reset Settings"
+          >
             Reset
           </Button>
         </Grid>
@@ -566,10 +707,15 @@ const Settings: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
-          sx={{ px: 2, py: 1 }}
+          className="settings-footer-actions"
         >
           <Grid size="auto">
-            <Button variant="outlined" color="inherit" onClick={handleClose}>
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleClose}
+              aria-label="Close Settings with no changes"
+            >
               Close
             </Button>
           </Grid>
@@ -579,7 +725,12 @@ const Settings: React.FC = () => {
               color="primary"
               onClick={handleSave}
               disabled={!isCustomInstructionValid}
-              title={!isCustomInstructionValid ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long` : ''}
+              title={
+                !isCustomInstructionValid
+                  ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
+                  : ''
+              }
+              aria-label="Save & Close Settings"
             >
               Save & Close
             </Button>
