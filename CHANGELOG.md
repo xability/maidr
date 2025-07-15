@@ -1,3 +1,10 @@
+## [3.18.2](https://github.com/xability/maidr/compare/v3.18.1...v3.18.2) (2025-07-15)
+
+
+### Bug Fixes
+
+* address anouncements for single line plots ([#390](https://github.com/xability/maidr/issues/390)) ([0bc8366](https://github.com/xability/maidr/commit/0bc83665b3bead1070cd46d0cef85baef3f54412))
+
 ## [3.18.1](https://github.com/xability/maidr/compare/v3.18.0...v3.18.1) (2025-07-11)
 
 
