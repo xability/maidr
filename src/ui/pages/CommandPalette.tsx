@@ -1,13 +1,26 @@
 import type { Keys, Scope } from '@type/event';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItem, ListItemButton, ListItemText, TextField } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  TextField,
+} from '@mui/material';
 import { SCOPED_KEYMAP } from '@service/keybinding';
 import { useCommandExecutor } from '@state/hook/useCommandExecutor';
 import hotkeys from 'hotkeys-js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, txt =>
-    txt.charAt(0).toUpperCase() + txt.slice(1));
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.slice(1),
+  );
 }
 
 const styles = {
@@ -49,8 +62,7 @@ const CommandPalette: React.FC = () => {
 
   const availableCommands = useMemo(() => {
     const scopeKeymap = SCOPED_KEYMAP[currentScope as Scope];
-    if (!scopeKeymap)
-      return [];
+    if (!scopeKeymap) return [];
 
     return Object.entries(scopeKeymap)
       .filter(([commandKey]) => !commandKey.startsWith('ALLOW_'))
@@ -62,11 +74,12 @@ const CommandPalette: React.FC = () => {
   }, [currentScope]);
 
   const filteredCommands = useMemo(() => {
-    if (!search.trim())
-      return availableCommands;
+    if (!search.trim()) return availableCommands;
     const searchLower = search.toLowerCase();
     return availableCommands.filter(
-      cmd => cmd.description.toLowerCase().includes(searchLower) || cmd.key.toLowerCase().includes(searchLower),
+      (cmd) =>
+        cmd.description.toLowerCase().includes(searchLower) ||
+        cmd.key.toLowerCase().includes(searchLower),
     );
   }, [availableCommands, search]);
 
@@ -78,17 +91,22 @@ const CommandPalette: React.FC = () => {
 
     // Restore focus to the plot when command palette closes
     setTimeout(() => {
-      const plotElement = document.querySelector('[role="image"]') as HTMLElement;
+      const plotElement = document.querySelector(
+        '[role="image"]',
+      ) as HTMLElement;
       if (plotElement) {
         plotElement.focus();
       }
     }, 0);
   }, []);
 
-  const handleCommandSelect = useCallback((commandKey: Keys) => {
-    executeCommand(commandKey);
-    handleClose();
-  }, [executeCommand, handleClose, currentScope]);
+  const handleCommandSelect = useCallback(
+    (commandKey: Keys) => {
+      executeCommand(commandKey);
+      handleClose();
+    },
+    [executeCommand, handleClose, currentScope],
+  );
 
   useEffect(() => {
     hotkeys('esc', { scope: 'command-palette' }, () => {
@@ -103,12 +121,17 @@ const CommandPalette: React.FC = () => {
   useEffect(() => {
     const handleOpenCommandPalette = (): void => {
       setOpen(true);
-      setAnnouncement('Command palette opened. Use down and up arrows to navigate commands, Enter to select.');
+      setAnnouncement(
+        'Command palette opened. Use down and up arrows to navigate commands, Enter to select.',
+      );
     };
 
     window.addEventListener('openCommandPalette', handleOpenCommandPalette);
     return () => {
-      window.removeEventListener('openCommandPalette', handleOpenCommandPalette);
+      window.removeEventListener(
+        'openCommandPalette',
+        handleOpenCommandPalette,
+      );
     };
   }, [currentScope]);
 
@@ -116,14 +139,19 @@ const CommandPalette: React.FC = () => {
   useEffect(() => {
     if (listRef.current && filteredCommands.length > 0) {
       const listElement = listRef.current;
-      const highlightedElement = listElement.children[highlightedIndex] as HTMLElement;
+      const highlightedElement = listElement.children[
+        highlightedIndex
+      ] as HTMLElement;
 
       if (highlightedElement) {
         const listRect = listElement.getBoundingClientRect();
         const elementRect = highlightedElement.getBoundingClientRect();
 
         // Check if element is outside the visible area
-        if (elementRect.top < listRect.top || elementRect.bottom > listRect.bottom) {
+        if (
+          elementRect.top < listRect.top ||
+          elementRect.bottom > listRect.bottom
+        ) {
           highlightedElement.scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
@@ -132,7 +160,9 @@ const CommandPalette: React.FC = () => {
 
         // Announce the selected command
         const selectedCommand = filteredCommands[highlightedIndex];
-        setAnnouncement(`Selected: ${selectedCommand.description} - ${selectedCommand.key}`);
+        setAnnouncement(
+          `${selectedCommand.description} - ${selectedCommand.key}`,
+        );
       }
     }
   }, [highlightedIndex, filteredCommands]);
@@ -152,9 +182,7 @@ const CommandPalette: React.FC = () => {
       }}
       aria-label="Command Palette"
     >
-      <DialogTitle>
-        Command Palette
-      </DialogTitle>
+      <DialogTitle>Command Palette</DialogTitle>
       <DialogContent sx={styles.dialogContent}>
         <TextField
           autoFocus
@@ -169,24 +197,31 @@ const CommandPalette: React.FC = () => {
             if (newSearch) {
               const searchLower = newSearch.toLowerCase();
               const results = availableCommands.filter(
-                cmd => cmd.description.toLowerCase().includes(searchLower) || cmd.key.toLowerCase().includes(searchLower),
+                (cmd) =>
+                  cmd.description.toLowerCase().includes(searchLower) ||
+                  cmd.key.toLowerCase().includes(searchLower),
               );
               setAnnouncement(`Found ${results.length} matching commands`);
             } else {
-              setAnnouncement(`Showing all ${availableCommands.length} commands`);
+              setAnnouncement(
+                `Showing all ${availableCommands.length} commands`,
+              );
             }
           }}
           onKeyDown={(e) => {
-            if (!filteredCommands.length)
-              return;
+            if (!filteredCommands.length) return;
             if (e.key === 'ArrowDown') {
-              setHighlightedIndex(prev => Math.min(prev + 1, filteredCommands.length - 1));
+              setHighlightedIndex((prev) =>
+                Math.min(prev + 1, filteredCommands.length - 1),
+              );
               e.preventDefault();
             } else if (e.key === 'ArrowUp') {
-              setHighlightedIndex(prev => Math.max(prev - 1, 0));
+              setHighlightedIndex((prev) => Math.max(prev - 1, 0));
               e.preventDefault();
             } else if (e.key === 'Enter') {
-              handleCommandSelect(filteredCommands[highlightedIndex].commandKey);
+              handleCommandSelect(
+                filteredCommands[highlightedIndex].commandKey,
+              );
               e.preventDefault();
             }
           }}
@@ -194,7 +229,8 @@ const CommandPalette: React.FC = () => {
           slotProps={{
             input: {
               inputProps: {
-                'aria-label': 'Search commands. Use down and up arrows to navigate, Enter to select.',
+                'aria-label':
+                  'Search commands. Use down and up arrows to navigate, Enter to select.',
                 'aria-describedby': 'command-list-instructions',
               },
             },
@@ -204,7 +240,13 @@ const CommandPalette: React.FC = () => {
           id="command-list-instructions"
           aria-live="polite"
           aria-atomic="true"
-          style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+          style={{
+            position: 'absolute',
+            left: '-10000px',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden',
+          }}
         >
           {announcement}
         </div>
@@ -213,32 +255,35 @@ const CommandPalette: React.FC = () => {
           ref={listRef}
           role="listbox"
           aria-label="Available commands"
-          aria-activedescendant={filteredCommands.length > 0 ? `command-${highlightedIndex}` : undefined}
+          aria-activedescendant={
+            filteredCommands.length > 0
+              ? `command-${highlightedIndex}`
+              : undefined
+          }
         >
-          {filteredCommands.length > 0
-            ? (
-                filteredCommands.map((cmd, idx) => (
-                  <ListItemButton
-                    key={cmd.commandKey}
-                    id={`command-${idx}`}
-                    onClick={() => handleCommandSelect(cmd.commandKey)}
-                    selected={idx === highlightedIndex}
-                    sx={idx === highlightedIndex ? styles.highlightedItem : styles.commandListItem}
-                    role="option"
-                    aria-selected={idx === highlightedIndex}
-                  >
-                    <ListItemText
-                      primary={cmd.description}
-                      secondary={cmd.key}
-                    />
-                  </ListItemButton>
-                ))
-              )
-            : (
-                <ListItem>
-                  <ListItemText primary="No commands found" />
-                </ListItem>
-              )}
+          {filteredCommands.length > 0 ? (
+            filteredCommands.map((cmd, idx) => (
+              <ListItemButton
+                key={cmd.commandKey}
+                id={`command-${idx}`}
+                onClick={() => handleCommandSelect(cmd.commandKey)}
+                selected={idx === highlightedIndex}
+                sx={
+                  idx === highlightedIndex
+                    ? styles.highlightedItem
+                    : styles.commandListItem
+                }
+                role="option"
+                aria-selected={idx === highlightedIndex}
+              >
+                <ListItemText primary={cmd.description} secondary={cmd.key} />
+              </ListItemButton>
+            ))
+          ) : (
+            <ListItem>
+              <ListItemText primary="No commands found" />
+            </ListItem>
+          )}
         </List>
       </DialogContent>
       <DialogActions>
