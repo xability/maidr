@@ -125,11 +125,11 @@ export class Context implements Disposable {
     const clickPrompt = includeClickPrompt ? 'Click to activate.' : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a MAIDR figure containing ${state.size} subplots. ${clickPrompt}
+        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
         Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a MAIDR subplot containing ${state.size} layers, and
+        return `This is a maidr subplot containing ${state.size} layers, and
         this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
