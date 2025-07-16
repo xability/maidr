@@ -1,3 +1,10 @@
+## [3.18.3](https://github.com/xability/maidr/compare/v3.18.2...v3.18.3) (2025-07-16)
+
+
+### Bug Fixes
+
+* address subplot announcement message ([#392](https://github.com/xability/maidr/issues/392)) ([03976fe](https://github.com/xability/maidr/commit/03976fe02e49904a0d6dddeb3f181a520fad6162))
+
 ## [3.18.2](https://github.com/xability/maidr/compare/v3.18.1...v3.18.2) (2025-07-15)
 
 
