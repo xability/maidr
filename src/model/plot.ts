@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
@@ -174,6 +174,35 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
         index: this.col,
       },
     };
+  }
+
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    switch (direction) {
+      case 'UPWARD':
+        this.row += 1;
+        break;
+      case 'DOWNWARD':
+        this.row -= 1;
+        break;
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
   }
 
   public get state(): SubplotState {

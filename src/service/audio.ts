@@ -95,14 +95,30 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
+    // Extract trace state from subplot state if needed
+    let traceState: TraceState;
+    if (state.type === 'subplot') {
+      if (state.empty) {
+        // Empty subplot state - play boundary audio
+        // Stop any existing audio first to prevent overlap
+        this.stopAll();
+        // Use default size and index for boundary audio
+        this.playEmptyTone(1, 0);
+        return;
+      }
+      traceState = state.trace;
+    } else {
+      traceState = state;
+    }
+
     // Play audio only if turned on and it's a trace state
-    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+    if (this.mode === AudioMode.OFF || traceState.type !== 'trace') {
       return;
     }
 
-    const traceState = state;
-
     if (traceState.empty) {
+      // Stop any existing audio first to prevent overlap
+      this.stopAll();
       this.playEmptyTone(traceState.audio.size, traceState.audio.index);
       return;
     }

@@ -102,6 +102,13 @@ export class Context implements Disposable {
 
       const newTrace = activeSubplot.activeTrace;
 
+      // Check if the subplot actually moved (same trace means boundary was hit)
+      if (newTrace === currentTrace) {
+        // Add the current trace back to maintain context level
+        this.plotContext.push(currentTrace);
+        return;
+      }
+
       // Add the new trace to the context
       this.plotContext.push(newTrace);
 
