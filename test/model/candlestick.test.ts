@@ -1,7 +1,7 @@
+import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import { expect } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
-import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import { TraceType, Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 // Mock data for testing candlestick functionality
 const mockCandlestickData: CandlestickPoint[] = [
@@ -12,16 +12,16 @@ const mockCandlestickData: CandlestickPoint[] = [
     low: 95,
     close: 110,
     volume: 1000,
-    trend: 'Bull'
+    trend: 'Bull',
   },
   {
-    value: '2023-01-02', 
+    value: '2023-01-02',
     open: 110,
     high: 115,
     low: 105,
     close: 108,
     volume: 800,
-    trend: 'Bear'
+    trend: 'Bear',
   },
   {
     value: '2023-01-03',
@@ -30,8 +30,8 @@ const mockCandlestickData: CandlestickPoint[] = [
     low: 100,
     close: 120,
     volume: 1200,
-    trend: 'Bull'
-  }
+    trend: 'Bull',
+  },
 ];
 
 const mockLayer: MaidrLayer = {
@@ -41,11 +41,11 @@ const mockLayer: MaidrLayer = {
   data: mockCandlestickData,
   axes: {
     x: 'Date',
-    y: 'Price'
-  }
+    y: 'Price',
+  },
 };
 
-describe('Candlestick Volatility Feature', () => {
+describe('candlestick Volatility Feature', () => {
   let candlestick: Candlestick;
 
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe('Candlestick Volatility Feature', () => {
     candlestick.dispose();
   });
 
-  describe('Volatility Calculation', () => {
+  describe('volatility Calculation', () => {
     it('should calculate volatility correctly for each candle', () => {
       // Test volatility calculation by checking text output
       // First candle: High(120) - Low(95) = 25
@@ -65,25 +65,25 @@ describe('Candlestick Volatility Feature', () => {
       expect(textState.section).toBe('volatility');
       expect(textState.cross.value).toBe(25); // 120 - 95
 
-      // Second candle: High(115) - Low(105) = 10  
+      // Second candle: High(115) - Low(105) = 10
       candlestick.moveToIndex(4, 1); // Move to volatility position for second candle
       const textState2 = candlestick.getTextState();
       expect(textState2.section).toBe('volatility');
       expect(textState2.cross.value).toBe(10); // 115 - 105
 
       // Third candle: High(125) - Low(100) = 25
-      candlestick.moveToIndex(4, 2); // Move to volatility position for third candle  
+      candlestick.moveToIndex(4, 2); // Move to volatility position for third candle
       const textState3 = candlestick.getTextState();
       expect(textState3.section).toBe('volatility');
       expect(textState3.cross.value).toBe(25); // 125 - 100
     });
   });
 
-  describe('Navigation to Volatility', () => {
+  describe('navigation to Volatility', () => {
     it('should navigate to volatility when moving down from lowest OHLC segment', () => {
       // Start at open position
       candlestick.moveToIndex(0, 0);
-      
+
       // For first candle, OHLC values sorted: low(95), open(100), close(110), high(120)
       // Move to the lowest segment (low = 95)
       candlestick.moveToExtreme('DOWNWARD'); // This should now go to volatility
@@ -106,9 +106,9 @@ describe('Candlestick Volatility Feature', () => {
     });
 
     it('should not allow moving down from volatility', () => {
-      // Start at volatility  
+      // Start at volatility
       candlestick.moveToIndex(4, 0);
-      
+
       // Check that we can't move further down
       expect(candlestick.isMovable('DOWNWARD')).toBe(false);
     });
@@ -116,17 +116,17 @@ describe('Candlestick Volatility Feature', () => {
     it('should allow moving up from volatility', () => {
       // Start at volatility
       candlestick.moveToIndex(4, 0);
-      
+
       // Check that we can move up
       expect(candlestick.isMovable('UPWARD')).toBe(true);
     });
   });
 
-  describe('Navigation within same candle', () => {
+  describe('navigation within same candle', () => {
     it('should navigate through all OHLC segments plus volatility', () => {
       // Start at first candle, open position
       candlestick.moveToIndex(0, 0);
-      
+
       const visitedSegments = new Set<string>();
       let currentState = candlestick.getTextState();
       if (currentState.section) {
@@ -145,7 +145,7 @@ describe('Candlestick Volatility Feature', () => {
 
       // Should have visited volatility
       expect(visitedSegments.has('volatility')).toBe(true);
-      
+
       // Should also have visited some OHLC segments
       const ohlcSegments = ['open', 'high', 'low', 'close'];
       const hasOhlc = ohlcSegments.some(segment => visitedSegments.has(segment));
@@ -153,7 +153,7 @@ describe('Candlestick Volatility Feature', () => {
     });
   });
 
-  describe('Horizontal movement preserves segment type', () => {
+  describe('horizontal movement preserves segment type', () => {
     it('should preserve volatility segment when moving between candles', () => {
       // Start at volatility for first candle
       candlestick.moveToIndex(4, 0);
@@ -166,7 +166,7 @@ describe('Candlestick Volatility Feature', () => {
       expect(textState.section).toBe('volatility');
       expect(textState.cross.value).toBe(10); // Second candle volatility
 
-      // Move to third candle  
+      // Move to third candle
       candlestick.moveOnce('FORWARD');
       textState = candlestick.getTextState();
       expect(textState.section).toBe('volatility');
@@ -174,11 +174,11 @@ describe('Candlestick Volatility Feature', () => {
     });
   });
 
-  describe('Text formatting for volatility', () => {
+  describe('text formatting for volatility', () => {
     it('should format volatility text correctly', () => {
       candlestick.moveToIndex(4, 0); // Move to volatility of first candle
       const textState = candlestick.getTextState();
-      
+
       expect(textState.section).toBe('volatility');
       expect(textState.cross.value).toBe(25);
       expect(textState.main.value).toBe('2023-01-01');

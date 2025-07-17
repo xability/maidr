@@ -310,7 +310,7 @@ export class Candlestick extends AbstractTrace<number> {
     const volatilityPosition = 4;
     let pointIndex: number;
     let segmentType: CandlestickSegmentType;
-    
+
     if (this.orientation === Orientation.HORIZONTAL) {
       pointIndex = row;
       if (col === volatilityPosition) {
@@ -382,11 +382,11 @@ export class Candlestick extends AbstractTrace<number> {
             = target === 'UPWARD'
               ? currentSegmentPosition + 1
               : currentSegmentPosition - 1;
-          
+
           // Can move within OHLC segments or down to volatility
           return (
-            (newSegmentPosition >= 0 && newSegmentPosition < this.sections.length) ||
-            (target === 'DOWNWARD' && newSegmentPosition < 0) // Can move down to volatility
+            (newSegmentPosition >= 0 && newSegmentPosition < this.sections.length)
+            || (target === 'DOWNWARD' && newSegmentPosition < 0) // Can move down to volatility
           );
         }
       }
@@ -416,7 +416,7 @@ export class Candlestick extends AbstractTrace<number> {
   protected audio(): AudioState {
     const point = this.candles[this.currentPointIndex];
     let value: number;
-    
+
     if (this.currentSegmentType === 'volatility') {
       value = this.getVolatility(this.currentPointIndex);
     } else {
@@ -459,7 +459,7 @@ export class Candlestick extends AbstractTrace<number> {
     const allElements = Svg.selectAllElements(selector);
 
     // Create a 2D array structure that matches the navigation:
-    // - Rows 0-3 represent value-sorted OHLC positions (0=lowest, 3=highest)  
+    // - Rows 0-3 represent value-sorted OHLC positions (0=lowest, 3=highest)
     // - Row 4 represents volatility (static bottom-most position)
     // - Cols represent candlestick points
     // This ensures highlightValues[row][col] works correctly
@@ -486,7 +486,7 @@ export class Candlestick extends AbstractTrace<number> {
   protected text(): TextState {
     const point = this.candles[this.currentPointIndex];
     let crossValue: number;
-    
+
     if (this.currentSegmentType === 'volatility') {
       crossValue = this.getVolatility(this.currentPointIndex);
     } else {
