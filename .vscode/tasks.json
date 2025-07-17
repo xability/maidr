@@ -4,15 +4,47 @@
     {
       "type": "npm",
       "script": "build",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$tsc"
-      ],
+      "group": "build",
       "label": "npm: build",
-      "detail": "webpack"
+      "detail": "Build project using Vite",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "type": "npm",
+      "script": "lint",
+      "group": "none",
+      "label": "npm: lint",
+      "detail": "Run ESLint checks",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "type": "npm",
+      "script": "lint:fix",
+      "group": "none",
+      "label": "npm: lint:fix",
+      "detail": "Run ESLint and auto-fix issues",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "label": "npm: test",
+      "detail": "Run unit tests",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "script": "e2e",
+      "group": "test",
+      "label": "npm: e2e",
+      "detail": "Run end-to-end tests",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": []
     }
   ]
 }
