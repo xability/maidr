@@ -114,6 +114,20 @@ export class Context implements Disposable {
 
       // Try to move to the same X value in the new trace
       const _moveResult = newTrace.moveToXValue(currentXValue);
+    } else {
+      // Handle single layer plots - trigger boundary feedback
+      const activeTrace = this.active as Trace;
+
+      // For single layer plots, Page Up/Down should trigger boundary feedback
+      // since there's only one layer to navigate
+      // Create a subplot state to ensure proper text feedback
+      const emptySubplotState = {
+        empty: true,
+        type: 'subplot' as const,
+      };
+
+      // Notify observers with the empty subplot state
+      activeTrace.notifyObservers(emptySubplotState);
     }
   }
 

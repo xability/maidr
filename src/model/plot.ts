@@ -130,6 +130,53 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       },
     };
   }
+
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    // Check if we're about to hit a boundary
+    let willHitBoundary = false;
+    switch (direction) {
+      case 'UPWARD':
+        willHitBoundary = this.row >= this.subplots.length - 1;
+        break;
+      case 'DOWNWARD':
+        willHitBoundary = this.row <= 0;
+        break;
+      case 'FORWARD':
+        willHitBoundary = this.col >= this.subplots[this.row].length - 1;
+        break;
+      case 'BACKWARD':
+        willHitBoundary = this.col <= 0;
+        break;
+    }
+
+    if (willHitBoundary) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    // Normal navigation - no boundary audio
+    switch (direction) {
+      case 'UPWARD':
+        this.row += 1;
+        break;
+      case 'DOWNWARD':
+        this.row -= 1;
+        break;
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
+  }
 }
 
 export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
@@ -241,4 +288,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns true if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
+
+  /**
+   * Notify observers that the trace is out of bounds
+   */
+  notifyOutOfBounds: () => void;
+
+  /**
+   * Notify observers with a custom state
+   */
+  notifyObservers: (state: any) => void;
 }

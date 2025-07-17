@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import type { AudioState, PlotState, SubplotState, TraceState } from '@type/state';
+import type { AudioState, FigureState, PlotState, SubplotState, TraceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
@@ -28,7 +28,7 @@ enum AudioMode {
 }
 
 export class AudioService
-implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
+implements Observer<SubplotState | TraceState | FigureState>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private readonly settings: SettingsService;
@@ -77,7 +77,7 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     this.settings.removeObserver(this);
   }
 
-  public update(state: Settings | SubplotState | TraceState): void {
+  public update(state: Settings | SubplotState | TraceState | FigureState): void {
     if ('general' in state) {
       this.onSettingsChange(state);
     } else {
@@ -91,26 +91,40 @@ implements Observer<SubplotState | TraceState>, Observer<Settings>, Disposable {
     this.currentMaxFrequency = settings.general.maxFrequency;
   }
 
-  private onStateChange(state: SubplotState | TraceState): void {
+  private onStateChange(state: SubplotState | TraceState | FigureState): void {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
+
+    // Handle empty states (boundary conditions)
+    if (state.empty) {
+      this.playBoundaryAudio();
+      return;
+    }
+
+    // Handle FigureState - no audio for normal subplot navigation
+    if (state.type === 'figure') {
+      return;
+    }
 
     // Extract trace state from subplot state if needed
     let traceState: TraceState;
     if (state.type === 'subplot') {
-      if (state.empty) {
-        // Empty subplot state - play boundary audio
-        // Stop any existing audio first to prevent overlap
-        this.stopAll();
-        // Use default size and index for boundary audio
-        this.playEmptyTone(1, 0);
-        return;
-      }
       traceState = state.trace;
     } else {
       traceState = state;
     }
 
+    this.handleTraceState(traceState);
+  }
+
+  private playBoundaryAudio(): void {
+    // Stop any existing audio first to prevent overlap
+    this.stopAll();
+    // Use default size and index for boundary audio
+    this.playEmptyTone(1, 0);
+  }
+
+  private handleTraceState(traceState: TraceState): void {
     // Play audio only if turned on and it's a trace state
     if (this.mode === AudioMode.OFF || traceState.type !== 'trace') {
       return;
