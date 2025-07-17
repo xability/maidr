@@ -136,7 +136,7 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.active.notifyStateUpdate();
+      // this.active.notifyStateUpdate(); // Removed to prevent auto-feedback
       this.plotContext.push(activeFigure.activeSubplot.activeTrace);
       this.toggleScope(Scope.TRACE);
     }
