@@ -25,11 +25,12 @@ import React, { useEffect, useId, useState } from 'react';
 interface SettingRowProps {
   label: string;
   input: React.ReactNode;
+  alignLabel?: 'center' | 'flex-start';
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid container spacing={1} alignItems="center" sx={{ py: 1 }}>
-    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center' }) => (
+  <Grid container spacing={1} alignItems={alignLabel} sx={{ py: 1 }}>
+    <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={alignLabel === 'flex-start' ? { py: 1 } : undefined}>
       <Typography variant="body2" fontWeight="normal">
         {label}
       </Typography>
@@ -337,26 +338,25 @@ const Settings: React.FC = () => {
 
           {/* Custom Instructions */}
           <Grid size={12}>
-            <Grid container spacing={1} alignItems="flex-start" sx={{ py: 1 }}>
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={{ py: 1 }}>
-                <Typography variant="body2" fontWeight="normal">
-                  Custom Instructions
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 8 }}>
+            <SettingRow
+              label="Custom Instructions"
+              alignLabel="flex-start"
+              input={(
                 <TextareaAutosize
                   value={llmSettings.customInstruction}
                   onChange={e => handleLlmChange('customInstruction', e.target.value)}
                   style={{
                     width: '100%',
+                    boxSizing: 'border-box',
                     padding: '8px',
                     border: '1px solid #ccc',
                     borderRadius: '4px',
+                    resize: 'vertical',
                   }}
                   placeholder="Enter custom instruction..."
                 />
-              </Grid>
-            </Grid>
+              )}
+            />
           </Grid>
         </Grid>
 

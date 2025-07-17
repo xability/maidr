@@ -4,13 +4,14 @@ import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
 
 const TREND = 'Trend';
+const SECTIONS = ['close', 'low', 'high', 'open'] as const;
 
 export class Candlestick extends AbstractTrace<number> {
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
   private readonly orientation: Orientation;
-  private readonly sections = ['close', 'low', 'high', 'open'] as const;
+  private readonly sections: typeof SECTIONS;
 
   private readonly min: number;
   private readonly max: number;
@@ -27,6 +28,7 @@ export class Candlestick extends AbstractTrace<number> {
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+    this.sections = SECTIONS;
 
     this.candleValues = this.sections.map(key =>
       this.candles.map(c => c[key]),

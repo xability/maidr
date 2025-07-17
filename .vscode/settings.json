@@ -3,9 +3,18 @@
   "eslint.options": {
     "configFile": "${workspaceFolder}/eslint.config.ts"
   },
+  "eslint.validate": [
+    "javascript",
+    "typescript",
+    "typescriptreact",
+    "html",
+    "markdown",
+    "css"
+  ],
   "eslint.enable": true,
   "eslint.run": "onSave",
   "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "always"
   },

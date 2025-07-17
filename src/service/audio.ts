@@ -30,7 +30,6 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
-
   private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
   private readonly volume: number;
@@ -43,7 +42,6 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
     this.updateMode(state);
-
     this.activeAudioIds = new Map();
 
     this.volume = DEFAULT_VOLUME;

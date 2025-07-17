@@ -157,6 +157,9 @@ out
 # VS Code
 .vscode
 
+# Zed
+.zed
+
 # Qodo AI
 .qodo
 
