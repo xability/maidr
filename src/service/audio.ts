@@ -92,6 +92,10 @@ implements Observer<SubplotState | TraceState | FigureState>, Observer<Settings>
   }
 
   private onStateChange(state: SubplotState | TraceState | FigureState): void {
+    // Do not play any sound if audio is off
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
