@@ -33,7 +33,7 @@ export abstract class TestConstants {
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
   static readonly BOXPLOT_HORIZONTAL_ID = 'boxplot_horizontal';
-  static readonly MULTI_LINEPLOT_ID = 'line';
+  static readonly MULTI_LINEPLOT_ID = 'multi-line';
   static readonly MULTI_LAYER_PLOT_ID = 'multi-layer';
 
   /**
