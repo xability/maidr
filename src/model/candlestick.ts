@@ -10,7 +10,7 @@ import { Svg } from '@util/svg';
 
 const TREND = 'Trend';
 
-type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
+type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close' | 'volatility';
 
 export class Candlestick extends AbstractTrace<number> {
   private readonly candles: CandlestickPoint[];
@@ -18,6 +18,7 @@ export class Candlestick extends AbstractTrace<number> {
 
   private readonly orientation: Orientation;
   private readonly sections = ['open', 'high', 'low', 'close'] as const;
+  private readonly sectionsWithVolatility = ['open', 'high', 'low', 'close', 'volatility'] as const;
 
   // Track navigation state separately from visual highlighting state
   private currentSegmentType: CandlestickSegmentType = 'open';
@@ -81,6 +82,15 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
+   * Calculate volatility for a given candlestick point
+   * Volatility = High Price - Low Price
+   */
+  private getVolatility(pointIndex: number): number {
+    const candle = this.candles[pointIndex];
+    return candle.high - candle.low;
+  }
+
+  /**
    * Pre-compute sorted segments for all candlestick points for O(1) lookup
    */
   private precomputeSortedSegments(): CandlestickSegmentType[][] {
@@ -133,15 +143,24 @@ export class Candlestick extends AbstractTrace<number> {
    * Use the dynamic position based on value-sorted order, not fixed section index
    */
   private updateVisualSegmentPosition(): void {
-    const dynamicSegmentPosition = this.getSegmentPositionInSortedOrder(
-      this.currentPointIndex,
-      this.currentSegmentType,
-    );
-
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.col = dynamicSegmentPosition;
+    if (this.currentSegmentType === 'volatility') {
+      // Volatility is always at position 4 (bottom-most)
+      if (this.orientation === Orientation.HORIZONTAL) {
+        this.col = 4;
+      } else {
+        this.row = 4;
+      }
     } else {
-      this.row = dynamicSegmentPosition;
+      const dynamicSegmentPosition = this.getSegmentPositionInSortedOrder(
+        this.currentPointIndex,
+        this.currentSegmentType,
+      );
+
+      if (this.orientation === Orientation.HORIZONTAL) {
+        this.col = dynamicSegmentPosition;
+      } else {
+        this.row = dynamicSegmentPosition;
+      }
     }
   }
 
@@ -174,28 +193,47 @@ export class Candlestick extends AbstractTrace<number> {
     switch (direction) {
       case 'UPWARD':
       case 'DOWNWARD': {
-        // Vertical movement: navigate between segments within the same candlestick (value-sorted)
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
-          this.currentPointIndex,
-          this.currentSegmentType,
-        );
-        const newSegmentPosition
-          = direction === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
-
-        if (
-          newSegmentPosition >= 0
-          && newSegmentPosition < this.sections.length
-        ) {
-          this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
-            this.currentPointIndex,
-            newSegmentPosition,
-          );
-          this.updateVisualSegmentPosition();
+        // Vertical movement: navigate between segments within the same candlestick
+        if (this.currentSegmentType === 'volatility') {
+          // From volatility, move to the appropriate OHLC segment
+          if (direction === 'UPWARD') {
+            // From volatility (bottom), move to the lowest value OHLC segment
+            const sortedSegments = this.sortedSegmentsByPoint[this.currentPointIndex];
+            this.currentSegmentType = sortedSegments[0]; // lowest value
+            this.updateVisualSegmentPosition();
+          } else {
+            // Can't go further down from volatility
+            this.notifyOutOfBounds();
+            return;
+          }
         } else {
-          this.notifyOutOfBounds();
-          return;
+          // From OHLC segments, navigate within the value-sorted segments or to volatility
+          const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
+            this.currentPointIndex,
+            this.currentSegmentType,
+          );
+          const newSegmentPosition
+            = direction === 'UPWARD'
+              ? currentSegmentPosition + 1
+              : currentSegmentPosition - 1;
+
+          if (
+            newSegmentPosition >= 0
+            && newSegmentPosition < this.sections.length
+          ) {
+            this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
+              this.currentPointIndex,
+              newSegmentPosition,
+            );
+            this.updateVisualSegmentPosition();
+          } else if (direction === 'DOWNWARD' && newSegmentPosition < 0) {
+            // Move to volatility when going down from the lowest OHLC segment
+            this.currentSegmentType = 'volatility';
+            this.updateVisualSegmentPosition();
+          } else {
+            this.notifyOutOfBounds();
+            return;
+          }
         }
         break;
       }
@@ -238,10 +276,8 @@ export class Candlestick extends AbstractTrace<number> {
         break;
       }
       case 'DOWNWARD': {
-        // Move to the lowest value segment in current candlestick
-        const currentSortedDown
-          = this.sortedSegmentsByPoint[this.currentPointIndex];
-        this.currentSegmentType = currentSortedDown[0];
+        // Move to volatility (the bottom-most segment)
+        this.currentSegmentType = 'volatility';
         this.updateVisualSegmentPosition();
         break;
       }
@@ -270,13 +306,40 @@ export class Candlestick extends AbstractTrace<number> {
       this.handleInitialEntry();
     }
 
-    // Use navigation service to compute the mapping
-    const { pointIndex, segmentType } = this.navigationService.computeIndexAndSegment(
-      row,
-      col,
-      this.orientation,
-      this.sections,
-    );
+    // Handle volatility position specially (row/col 4 depending on orientation)
+    const volatilityPosition = 4;
+    let pointIndex: number;
+    let segmentType: CandlestickSegmentType;
+    
+    if (this.orientation === Orientation.HORIZONTAL) {
+      pointIndex = row;
+      if (col === volatilityPosition) {
+        segmentType = 'volatility';
+      } else {
+        // Use navigation service for OHLC segments
+        const result = this.navigationService.computeIndexAndSegment(
+          row,
+          col,
+          this.orientation,
+          this.sections,
+        );
+        segmentType = result.segmentType;
+      }
+    } else {
+      pointIndex = col;
+      if (row === volatilityPosition) {
+        segmentType = 'volatility';
+      } else {
+        // Use navigation service for OHLC segments
+        const result = this.navigationService.computeIndexAndSegment(
+          row,
+          col,
+          this.orientation,
+          this.sections,
+        );
+        segmentType = result.segmentType;
+      }
+    }
 
     // Update Core Model state
     this.currentPointIndex = pointIndex;
@@ -306,17 +369,26 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: check if we can move between segments within the same candlestick
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
-          this.currentPointIndex,
-          this.currentSegmentType,
-        );
-        const newSegmentPosition
-          = target === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
-        return (
-          newSegmentPosition >= 0 && newSegmentPosition < this.sections.length
-        );
+        if (this.currentSegmentType === 'volatility') {
+          // From volatility, can only move up to OHLC segments, not down
+          return target === 'UPWARD';
+        } else {
+          // From OHLC segments
+          const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
+            this.currentPointIndex,
+            this.currentSegmentType,
+          );
+          const newSegmentPosition
+            = target === 'UPWARD'
+              ? currentSegmentPosition + 1
+              : currentSegmentPosition - 1;
+          
+          // Can move within OHLC segments or down to volatility
+          return (
+            (newSegmentPosition >= 0 && newSegmentPosition < this.sections.length) ||
+            (target === 'DOWNWARD' && newSegmentPosition < 0) // Can move down to volatility
+          );
+        }
       }
 
       case 'FORWARD':
@@ -342,7 +414,14 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   protected audio(): AudioState {
-    const value = this.candles[this.currentPointIndex][this.currentSegmentType];
+    const point = this.candles[this.currentPointIndex];
+    let value: number;
+    
+    if (this.currentSegmentType === 'volatility') {
+      value = this.getVolatility(this.currentPointIndex);
+    } else {
+      value = point[this.currentSegmentType];
+    }
 
     return {
       min: this.min,
@@ -350,7 +429,7 @@ export class Candlestick extends AbstractTrace<number> {
       size: this.candles.length,
       index: this.currentPointIndex,
       value,
-      trend: this.candles[this.currentPointIndex].trend,
+      trend: point.trend,
     };
   }
 
@@ -379,24 +458,25 @@ export class Candlestick extends AbstractTrace<number> {
 
     const allElements = Svg.selectAllElements(selector);
 
-    // Create a 2D array structure that matches the dynamic value-sorted navigation:
-    // - Rows represent value-sorted positions (0=lowest, 3=highest)
+    // Create a 2D array structure that matches the navigation:
+    // - Rows 0-3 represent value-sorted OHLC positions (0=lowest, 3=highest)  
+    // - Row 4 represents volatility (static bottom-most position)
     // - Cols represent candlestick points
-    // This ensures highlightValues[dynamicRow][col] works correctly
+    // This ensures highlightValues[row][col] works correctly
     const segmentElements: SVGElement[][] = [];
 
     for (
-      let sortedPosition = 0;
-      sortedPosition < this.sections.length;
-      sortedPosition++
+      let position = 0;
+      position < this.sectionsWithVolatility.length;
+      position++
     ) {
-      segmentElements[sortedPosition] = [];
+      segmentElements[position] = [];
 
       for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {
         // For each candlestick point, assign the corresponding SVG element
         // All segments of a candlestick typically share the same SVG element
         const elementIndex = pointIndex < allElements.length ? pointIndex : 0;
-        segmentElements[sortedPosition][pointIndex] = allElements[elementIndex];
+        segmentElements[position][pointIndex] = allElements[elementIndex];
       }
     }
 
@@ -405,7 +485,13 @@ export class Candlestick extends AbstractTrace<number> {
 
   protected text(): TextState {
     const point = this.candles[this.currentPointIndex];
-    const crossValue = point[this.currentSegmentType];
+    let crossValue: number;
+    
+    if (this.currentSegmentType === 'volatility') {
+      crossValue = this.getVolatility(this.currentPointIndex);
+    } else {
+      crossValue = point[this.currentSegmentType];
+    }
 
     return {
       main: {
@@ -460,5 +546,13 @@ export class Candlestick extends AbstractTrace<number> {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Expose text state for testing purposes
+   * @returns The current text state
+   */
+  public getTextState(): TextState {
+    return this.text();
   }
 }
