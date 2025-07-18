@@ -15,6 +15,7 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private singleLayerSubplot: Subplot | null = null;
 
   public constructor(figure: Figure) {
     this.id = figure.id;
@@ -41,9 +42,10 @@ export class Context implements Disposable {
       return;
     }
 
-    // Set the context to trace level.
+    // Set the context to trace level (single-layer plot)
     this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
+    this.singleLayerSubplot = figure.activeSubplot;
   }
 
   public dispose(): void {
@@ -106,6 +108,17 @@ export class Context implements Disposable {
       if (newTrace === currentTrace) {
         // Add the current trace back to maintain context level
         this.plotContext.push(currentTrace);
+        // Emit empty TraceState for boundary so AudioService (on Trace) can play boundary audio
+        const emptyTraceState = {
+          empty: true,
+          type: 'trace' as const,
+          traceType: currentTrace.state.traceType,
+          audio: {
+            size: 0,
+            index: 0,
+          },
+        };
+        currentTrace.notifyObservers(emptyTraceState);
         return;
       }
 
@@ -117,7 +130,6 @@ export class Context implements Disposable {
     } else {
       // Handle single layer plots - trigger boundary feedback
       const activeTrace = this.active as Trace;
-
       // For single layer plots, Page Up/Down should trigger boundary feedback
       // since there's only one layer to navigate
       // Create an empty trace state to ensure proper text feedback
@@ -130,9 +142,13 @@ export class Context implements Disposable {
           index: 0,
         },
       };
-
-      // Notify observers with the empty trace state
+      // Notify observers with the empty trace state (for audio)
       activeTrace.notifyObservers(emptyTraceState);
+      // Also emit empty subplot state for UI message
+      if (this.singleLayerSubplot) {
+        const emptySubplotState = { empty: true, type: 'subplot' as const };
+        this.singleLayerSubplot.notifyObservers(emptySubplotState as any);
+      }
     }
   }
 
