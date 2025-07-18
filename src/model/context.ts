@@ -120,14 +120,19 @@ export class Context implements Disposable {
 
       // For single layer plots, Page Up/Down should trigger boundary feedback
       // since there's only one layer to navigate
-      // Create a subplot state to ensure proper text feedback
-      const emptySubplotState = {
+      // Create an empty trace state to ensure proper text feedback
+      const emptyTraceState = {
         empty: true,
-        type: 'subplot' as const,
+        type: 'trace' as const,
+        traceType: activeTrace.state.traceType,
+        audio: {
+          size: 0,
+          index: 0,
+        },
       };
 
-      // Notify observers with the empty subplot state
-      activeTrace.notifyObservers(emptySubplotState);
+      // Notify observers with the empty trace state
+      activeTrace.notifyObservers(emptyTraceState);
     }
   }
 
@@ -136,7 +141,6 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      // this.active.notifyStateUpdate(); // Removed to prevent auto-feedback
       this.plotContext.push(activeFigure.activeSubplot.activeTrace);
       this.toggleScope(Scope.TRACE);
     }

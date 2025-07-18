@@ -14,6 +14,8 @@ interface Range {
 
 type AudioId = ReturnType<typeof setTimeout>;
 
+type ObservableStates = SubplotState | TraceState | FigureState;
+
 const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
@@ -28,7 +30,7 @@ enum AudioMode {
 }
 
 export class AudioService
-implements Observer<SubplotState | TraceState | FigureState>, Observer<Settings>, Disposable {
+  implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private readonly settings: SettingsService;

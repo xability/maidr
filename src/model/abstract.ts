@@ -167,7 +167,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.isOutOfBounds = false;
   }
 
-  public notifyObservers(state: any): void {
+  public notifyObservers(state: State): void {
     for (const observer of this.observers) {
       observer.update(state);
     }
