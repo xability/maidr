@@ -38,8 +38,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       if (curr.type === 'subplot' && !curr.empty) {
         const { index, size, trace } = curr;
         const traceType = trace.traceType;
-        // Only announce values if prev is not null and size > 1
-        if (prev && prev.type === 'subplot' && !prev.empty && size > 1) {
+        // Only announce values if previous state and size > 1
+        if (this.shouldAnnounceWithCoordinates(prev, size)) {
           const layerText = this.formatSubplotText(index, size, traceType);
           let pointText = '';
           if (trace && !trace.empty && trace.text) {
@@ -236,5 +236,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
 
     return this.mode !== TextMode.OFF;
+  }
+
+  private shouldAnnounceWithCoordinates(prev: PlotState | null, size: number): boolean {
+    return !!(prev && prev.type === 'subplot' && !prev.empty && size > 1);
   }
 }

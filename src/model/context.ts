@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState } from '@type/state';
-import type { Figure, Subplot, Trace } from './plot';
+import type { Figure, Subplot, Trace, TraceWithProperties } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -103,7 +103,7 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       // The Subplot is always one below the top Trace in the stack
-      const stackItems = (this.plotContext as any).items as Plot[];
+      const stackItems = this.plotContext.getItems() as Plot[];
       const subplot = this.plotContext.size() > 1 ? stackItems[this.plotContext.size() - 2] : null;
       let prevSubplotState: PlotState | null = null;
       if (subplot && 'state' in subplot && 'activeTrace' in subplot) {
@@ -129,10 +129,10 @@ export class Context implements Disposable {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
       this.active.notifyStateUpdate();
-      const trace = activeFigure.activeSubplot.activeTrace as any;
-      trace.isInitialEntry = true;
-      trace.row = 0;
-      trace.col = 0;
+      const trace = activeFigure.activeSubplot.activeTrace;
+      (trace as unknown as TraceWithProperties).isInitialEntry = true;
+      (trace as unknown as TraceWithProperties).row = 0;
+      (trace as unknown as TraceWithProperties).col = 0;
       this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }

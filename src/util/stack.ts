@@ -38,4 +38,8 @@ export class Stack<T> {
   public clear(): void {
     this.items.length = 0;
   }
+
+  public getItems(): T[] {
+    return this.items;
+  }
 }
