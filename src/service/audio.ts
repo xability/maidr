@@ -30,7 +30,7 @@ enum AudioMode {
 }
 
 export class AudioService
-  implements Observer<ObservableStates>, Observer<Settings>, Disposable {
+implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private readonly settings: SettingsService;
