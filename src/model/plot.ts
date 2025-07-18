@@ -213,3 +213,9 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   moveToXValue: (xValue: any) => boolean;
 }
+
+export interface TraceWithProperties {
+  isInitialEntry: boolean;
+  row: number;
+  col: number;
+}
