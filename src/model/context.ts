@@ -16,6 +16,20 @@ export class Context implements Disposable {
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
 
+  // Add a list of layer switch observers
+  private layerSwitchObservers: ((prev: PlotState | null, curr: PlotState) => void)[] = [];
+
+  // Allow services to subscribe to layer switch events
+  public onLayerSwitch(observer: (prev: PlotState | null, curr: PlotState) => void): void {
+    this.layerSwitchObservers.push(observer);
+  }
+
+  private notifyLayerSwitch(prev: PlotState | null, curr: PlotState): void {
+    for (const observer of this.layerSwitchObservers) {
+      observer(prev, curr);
+    }
+  }
+
   public constructor(figure: Figure) {
     this.id = figure.id;
 
@@ -88,25 +102,24 @@ export class Context implements Disposable {
 
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
+      // The Subplot is always one below the top Trace in the stack
+      const stackItems = (this.plotContext as any).items as Plot[];
+      const subplot = this.plotContext.size() > 1 ? stackItems[this.plotContext.size() - 2] : null;
+      let prevSubplotState: PlotState | null = null;
+      if (subplot && 'state' in subplot && 'activeTrace' in subplot) {
+        prevSubplotState = (subplot as Subplot).state;
+      }
+
       this.plotContext.pop(); // Remove current Trace.
-
       const activeSubplot = this.active as Subplot;
-
-      // Get current trace position before switching
       const currentTrace = activeSubplot.activeTrace;
-
-      // Get current X value using standard interface
       const currentXValue = currentTrace.getCurrentXValue();
-
       activeSubplot.moveOnce(direction);
-
       const newTrace = activeSubplot.activeTrace;
-
-      // Add the new trace to the context
       this.plotContext.push(newTrace);
-
-      // Try to move to the same X value in the new trace
       const _moveResult = newTrace.moveToXValue(currentXValue);
+
+      this.notifyLayerSwitch(prevSubplotState, activeSubplot.state);
     }
   }
 
@@ -116,7 +129,11 @@ export class Context implements Disposable {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
       this.active.notifyStateUpdate();
-      this.plotContext.push(activeFigure.activeSubplot.activeTrace);
+      const trace = activeFigure.activeSubplot.activeTrace as any;
+      trace.isInitialEntry = true;
+      trace.row = 0;
+      trace.col = 0;
+      this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }
   }
