@@ -3,6 +3,12 @@ import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 
+interface HarmonicComponent {
+  type: OscillatorType;
+  gain: number;
+  multiplier: number;
+}
+
 interface Range {
   min: number;
   max: number;
@@ -125,7 +131,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++);
+          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++, audio.group);
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -138,7 +144,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       if (value === 0) {
         this.playZeroTone();
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index);
+        this.playTone(audio.min, audio.max, value, audio.size, audio.index, audio.group);
       }
     }
   }
@@ -149,6 +155,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     rawFrequency: number,
     panningSize: number,
     rawPanning: number,
+    group: number = 0,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
     const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
@@ -158,41 +165,55 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const toPanning = { min: -1, max: 1 };
     const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
 
-    return this.playOscillator(frequency, panning);
+    return this.playOscillator(frequency, panning, group);
+  }
+
+  private getHarmony(group: number): HarmonicComponent[] {
+    const fundamental: HarmonicComponent = { type: 'sine', gain: 1.0, multiplier: 1 };
+    if (group === 0) {
+      return [fundamental];
+    }
+
+    // Define a set of overtones. With 4 overtones, we can support 2^4 = 16 groups.
+    const overtones: HarmonicComponent[] = [
+      { type: 'triangle', gain: 0.8, multiplier: 2 },
+      { type: 'sine', gain: 0.6, multiplier: 1.5 }, // Use sine for a very smooth fifth
+      { type: 'triangle', gain: 0.4, multiplier: 3 },
+      { type: 'sine', gain: 0.3, multiplier: 4 },
+    ];
+    const config: HarmonicComponent[] = [fundamental];
+    let totalGain = fundamental.gain;
+
+    // Use the bits of the rowIndex to select which of the 4 overtones to add
+    let index = group;
+    for (let i = 0; i < overtones.length && index > 0; i++) {
+      if ((index & 1) === 1) { // Check the last bit
+        config.push(overtones[i]);
+        totalGain += overtones[i].gain;
+      }
+      index >>= 1; // Move to the next bit
+    }
+
+    // Normalize gain to prevent clipping and keep perceived volume consistent
+    for (const part of config) {
+      part.gain /= totalGain;
+    }
+
+    return config;
   }
 
   private playOscillator(
     frequency: number,
     panning: number = 0,
-    wave: OscillatorType = 'sine',
+    group: number = 0,
   ): AudioId {
     const duration = DEFAULT_DURATION;
     const volume = this.volume;
-
-    // Start with a constant tone.
-    const oscillator = this.audioContext.createOscillator();
-    oscillator.type = wave;
-    oscillator.frequency.value = frequency;
-
-    // Add volume.
-    const gainNode = this.audioContext.createGain();
     const startTime = this.audioContext.currentTime;
-    const valueCurve = [
-      0.5 * volume,
-      volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.5 * volume,
-      0.1 * volume,
-      1e-4 * volume,
-    ];
-    gainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
+    const oscillators: OscillatorNode[] = [];
 
-    // Pane the audio.
+    const masterGainNode = this.audioContext.createGain();
     const stereoPannerNode = this.audioContext.createStereoPanner();
-    stereoPannerNode.pan.value = panning;
-
-    // Coordinate the audio slightly in front of the listener.
     const pannerNode = new PannerNode(this.audioContext, {
       distanceModel: 'linear',
       positionX: 0.0,
@@ -209,26 +230,45 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       coneOuterGain: 0.4,
     });
 
-    // Create and start the audio graph.
-    oscillator.connect(gainNode);
-    gainNode.connect(stereoPannerNode);
+    masterGainNode.connect(stereoPannerNode);
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
-    oscillator.start();
 
-    // Clean up after the audio stops.
+    const valueCurve = [0.5 * volume, volume, 0.5 * volume, 0.5 * volume, 0.5 * volume, 0.1 * volume, 1e-4 * volume];
+    masterGainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
+    stereoPannerNode.pan.value = panning;
+
+    const harmony = this.getHarmony(group);
+    for (const part of harmony) {
+      const oscillator = this.audioContext.createOscillator();
+      oscillator.type = part.type;
+      oscillator.frequency.value = frequency * part.multiplier;
+
+      const mixGainNode = this.audioContext.createGain();
+      mixGainNode.gain.value = part.gain;
+
+      oscillator.connect(mixGainNode);
+      mixGainNode.connect(masterGainNode);
+
+      oscillator.start(startTime);
+      oscillators.push(oscillator);
+    }
+
     const cleanUp = (audioId: AudioId): void => {
-      pannerNode.disconnect(this.compressor);
-      stereoPannerNode.disconnect(pannerNode);
-      gainNode.disconnect(stereoPannerNode);
+      pannerNode.disconnect();
+      stereoPannerNode.disconnect();
+      masterGainNode.disconnect();
 
-      oscillator.stop();
-      oscillator.disconnect(gainNode);
+      oscillators.forEach((osc) => {
+        osc.stop();
+        osc.disconnect();
+      });
 
       this.activeAudioIds.delete(audioId);
     };
+
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
-    this.activeAudioIds.set(audioId, oscillator);
+    this.activeAudioIds.set(audioId, oscillators);
     return audioId;
   }
 
@@ -334,7 +374,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   private playZeroTone(): AudioId {
-    return this.playOscillator(NULL_FREQUENCY, 0, 'triangle');
+    return this.playOscillator(NULL_FREQUENCY, 0, 0);
   }
 
   public playWaitingTone(): AudioId {
@@ -346,8 +386,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
-    if (from.min === 0 && from.max === 0) {
-      return 0;
+    if (from.min === from.max) {
+      return to.min;
     }
 
     return (
@@ -403,7 +443,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   }
 
   private stopAll(): void {
-    this.activeAudioIds.entries().forEach(([audioId, node]) => {
+    this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {

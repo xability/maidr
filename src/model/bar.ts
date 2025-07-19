@@ -47,6 +47,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     const isVertical = this.orientation === Orientation.VERTICAL;
     const size = isVertical ? this.barValues[this.row].length : this.barValues.length;
     const index = isVertical ? this.col : this.row;
+    const group = isVertical ? this.row : this.col;
     const value = isVertical
       ? this.barValues[this.row][this.col]
       : this.barValues[this.col][this.row];
@@ -56,6 +57,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
       max: Math.max(...this.max),
       size,
       index,
+      group,
       value,
     };
   }

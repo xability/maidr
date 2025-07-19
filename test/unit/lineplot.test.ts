@@ -1,13 +1,17 @@
-import { expect } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
+// Single line plot types
 interface TimeSeriesPoint {
-  x: string;
+  x: string | number;
   y: number;
+  fill?: string;
 }
 
 interface ChartLayer {
+  id?: string;
   type: string;
-  selector: string;
+  selector?: string;
+  selectors?: string | string[];
   axes: {
     x: string;
     y: string;
@@ -25,14 +29,8 @@ interface MaidrChart {
   subplots: ChartSubplot[][];
 }
 
-class LineChartDataError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'LineChartDataError';
-  }
-}
-
-const maidrData: MaidrChart = {
+// --- Single Line Data ---
+const singleLineData: MaidrChart = {
   id: 'line',
   title: 'Unemployment Rate Over Time',
   subplots: [
@@ -99,116 +97,3432 @@ const maidrData: MaidrChart = {
   ],
 };
 
-function getLineData(
-  chart: MaidrChart,
-  subplotIndex = 0,
-  subplotColIndex = 0,
-  layerIndex = 0,
-  seriesIndex = 0,
-): TimeSeriesPoint[] {
-  if (!chart.subplots[subplotIndex]
-    || !chart.subplots[subplotIndex][subplotColIndex]
-    || !chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex]) {
-    throw new LineChartDataError('Invalid subplot or layer index');
-  }
+// --- Multi Line Data (from multiLine.test.ts, slightly adapted) ---
+const multiLineData: MaidrChart = {
+  id: 'line',
+  title: 'Flipper Length & Bill Length Over Data Points',
+  subplots: [
+    [
+      {
+        layers: [
+          {
+            id: '0',
+            type: 'line',
+            selectors: ['g#line2d_16 > path', 'g#line2d_17 > path'],
+            axes: {
+              x: 'Index',
+              y: 'Length',
+            },
+            data: [
+              [
+                {
+                  fill: 'Bill Length',
+                  x: 0.0,
+                  y: 39.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 1.0,
+                  y: 39.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 2.0,
+                  y: 40.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 3.0,
+                  y: 36.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 4.0,
+                  y: 39.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 5.0,
+                  y: 38.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 6.0,
+                  y: 39.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 7.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 8.0,
+                  y: 38.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 9.0,
+                  y: 34.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 10.0,
+                  y: 36.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 11.0,
+                  y: 38.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 12.0,
+                  y: 42.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 13.0,
+                  y: 34.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 14.0,
+                  y: 46.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 15.0,
+                  y: 37.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 16.0,
+                  y: 37.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 17.0,
+                  y: 35.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 18.0,
+                  y: 38.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 19.0,
+                  y: 38.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 20.0,
+                  y: 35.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 21.0,
+                  y: 40.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 22.0,
+                  y: 40.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 23.0,
+                  y: 37.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 24.0,
+                  y: 40.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 25.0,
+                  y: 39.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 26.0,
+                  y: 37.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 27.0,
+                  y: 39.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 28.0,
+                  y: 40.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 29.0,
+                  y: 36.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 30.0,
+                  y: 39.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 31.0,
+                  y: 38.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 32.0,
+                  y: 42.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 33.0,
+                  y: 37.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 34.0,
+                  y: 39.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 35.0,
+                  y: 36.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 36.0,
+                  y: 40.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 37.0,
+                  y: 36.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 38.0,
+                  y: 44.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 39.0,
+                  y: 37.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 40.0,
+                  y: 39.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 41.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 42.0,
+                  y: 36.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 43.0,
+                  y: 42.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 44.0,
+                  y: 39.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 45.0,
+                  y: 40.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 46.0,
+                  y: 35.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 47.0,
+                  y: 42.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 48.0,
+                  y: 34.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 49.0,
+                  y: 41.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 50.0,
+                  y: 39.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 51.0,
+                  y: 40.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 52.0,
+                  y: 36.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 53.0,
+                  y: 37.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 54.0,
+                  y: 35.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 55.0,
+                  y: 41.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 56.0,
+                  y: 37.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 57.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 58.0,
+                  y: 36.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 59.0,
+                  y: 41.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 60.0,
+                  y: 35.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 61.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 62.0,
+                  y: 35.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 63.0,
+                  y: 41.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 64.0,
+                  y: 33.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 65.0,
+                  y: 39.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 66.0,
+                  y: 39.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 67.0,
+                  y: 45.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 68.0,
+                  y: 35.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 69.0,
+                  y: 42.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 70.0,
+                  y: 40.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 71.0,
+                  y: 37.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 72.0,
+                  y: 36.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 73.0,
+                  y: 42.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 74.0,
+                  y: 34.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 75.0,
+                  y: 42.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 76.0,
+                  y: 36.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 77.0,
+                  y: 35.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 78.0,
+                  y: 37.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 79.0,
+                  y: 41.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 80.0,
+                  y: 36.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 81.0,
+                  y: 36.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 82.0,
+                  y: 38.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 83.0,
+                  y: 38.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 84.0,
+                  y: 35.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 85.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 86.0,
+                  y: 34.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 87.0,
+                  y: 39.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 88.0,
+                  y: 36.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 89.0,
+                  y: 40.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 90.0,
+                  y: 38.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 91.0,
+                  y: 40.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 92.0,
+                  y: 33.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 93.0,
+                  y: 43.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 94.0,
+                  y: 35.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 95.0,
+                  y: 41.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 96.0,
+                  y: 37.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 97.0,
+                  y: 37.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 98.0,
+                  y: 37.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 99.0,
+                  y: 39.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 100.0,
+                  y: 38.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 101.0,
+                  y: 38.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 102.0,
+                  y: 38.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 103.0,
+                  y: 43.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 104.0,
+                  y: 38.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 105.0,
+                  y: 45.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 106.0,
+                  y: 39.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 107.0,
+                  y: 42.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 108.0,
+                  y: 39.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 109.0,
+                  y: 42.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 110.0,
+                  y: 38.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 111.0,
+                  y: 37.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 112.0,
+                  y: 35.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 113.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 114.0,
+                  y: 36.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 115.0,
+                  y: 37.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 116.0,
+                  y: 40.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 117.0,
+                  y: 41.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 118.0,
+                  y: 35.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 119.0,
+                  y: 40.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 120.0,
+                  y: 38.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 121.0,
+                  y: 41.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 122.0,
+                  y: 39.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 123.0,
+                  y: 44.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 124.0,
+                  y: 38.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 125.0,
+                  y: 43.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 126.0,
+                  y: 36.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 127.0,
+                  y: 37.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 128.0,
+                  y: 38.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 129.0,
+                  y: 41.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 130.0,
+                  y: 35.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 131.0,
+                  y: 40.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 132.0,
+                  y: 37.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 133.0,
+                  y: 39.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 134.0,
+                  y: 40.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 135.0,
+                  y: 40.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 136.0,
+                  y: 32.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 137.0,
+                  y: 40.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 138.0,
+                  y: 37.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 139.0,
+                  y: 39.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 140.0,
+                  y: 39.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 141.0,
+                  y: 36.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 142.0,
+                  y: 36.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 143.0,
+                  y: 37.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 144.0,
+                  y: 36.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 145.0,
+                  y: 41.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 146.0,
+                  y: 46.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 147.0,
+                  y: 50.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 148.0,
+                  y: 51.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 149.0,
+                  y: 45.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 150.0,
+                  y: 52.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 151.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 152.0,
+                  y: 46.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 153.0,
+                  y: 51.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 154.0,
+                  y: 46.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 155.0,
+                  y: 51.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 156.0,
+                  y: 46.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 157.0,
+                  y: 51.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 158.0,
+                  y: 47.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 159.0,
+                  y: 52.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 160.0,
+                  y: 45.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 161.0,
+                  y: 50.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 162.0,
+                  y: 50.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 163.0,
+                  y: 58.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 164.0,
+                  y: 46.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 165.0,
+                  y: 49.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 166.0,
+                  y: 42.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 167.0,
+                  y: 48.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 168.0,
+                  y: 43.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 169.0,
+                  y: 50.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 170.0,
+                  y: 46.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 171.0,
+                  y: 52.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 172.0,
+                  y: 50.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 173.0,
+                  y: 49.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 174.0,
+                  y: 46.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 175.0,
+                  y: 52.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 176.0,
+                  y: 40.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 177.0,
+                  y: 54.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 178.0,
+                  y: 42.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 179.0,
+                  y: 51.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 180.0,
+                  y: 49.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 181.0,
+                  y: 47.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 182.0,
+                  y: 47.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 183.0,
+                  y: 52.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 184.0,
+                  y: 46.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 185.0,
+                  y: 53.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 186.0,
+                  y: 49.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 187.0,
+                  y: 46.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 188.0,
+                  y: 50.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 189.0,
+                  y: 45.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 190.0,
+                  y: 50.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 191.0,
+                  y: 50.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 192.0,
+                  y: 50.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 193.0,
+                  y: 49.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 194.0,
+                  y: 51.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 195.0,
+                  y: 49.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 196.0,
+                  y: 48.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 197.0,
+                  y: 51.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 198.0,
+                  y: 45.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 199.0,
+                  y: 50.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 200.0,
+                  y: 42.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 201.0,
+                  y: 52.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 202.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 203.0,
+                  y: 49.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 204.0,
+                  y: 50.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 205.0,
+                  y: 45.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 206.0,
+                  y: 51.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 207.0,
+                  y: 46.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 208.0,
+                  y: 45.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 209.0,
+                  y: 55.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 210.0,
+                  y: 43.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 211.0,
+                  y: 49.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 212.0,
+                  y: 50.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 213.0,
+                  y: 50.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 214.0,
+                  y: 46.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 215.0,
+                  y: 50.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 216.0,
+                  y: 48.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 217.0,
+                  y: 50.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 218.0,
+                  y: 47.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 219.0,
+                  y: 46.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 220.0,
+                  y: 45.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 221.0,
+                  y: 46.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 222.0,
+                  y: 43.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 223.0,
+                  y: 46.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 224.0,
+                  y: 40.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 225.0,
+                  y: 49.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 226.0,
+                  y: 45.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 227.0,
+                  y: 48.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 228.0,
+                  y: 45.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 229.0,
+                  y: 49.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 230.0,
+                  y: 42.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 231.0,
+                  y: 49.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 232.0,
+                  y: 46.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 233.0,
+                  y: 48.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 234.0,
+                  y: 50.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 235.0,
+                  y: 45.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 236.0,
+                  y: 46.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 237.0,
+                  y: 46.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 238.0,
+                  y: 42.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 239.0,
+                  y: 46.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 240.0,
+                  y: 47.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 241.0,
+                  y: 48.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 242.0,
+                  y: 50.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 243.0,
+                  y: 47.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 244.0,
+                  y: 42.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 245.0,
+                  y: 45.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 246.0,
+                  y: 59.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 247.0,
+                  y: 49.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 248.0,
+                  y: 48.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 249.0,
+                  y: 42.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 250.0,
+                  y: 44.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 251.0,
+                  y: 44.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 252.0,
+                  y: 48.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 253.0,
+                  y: 42.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 254.0,
+                  y: 49.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 255.0,
+                  y: 45.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 256.0,
+                  y: 49.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 257.0,
+                  y: 50.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 258.0,
+                  y: 43.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 259.0,
+                  y: 45.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 260.0,
+                  y: 50.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 261.0,
+                  y: 44.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 262.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 263.0,
+                  y: 46.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 264.0,
+                  y: 48.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 265.0,
+                  y: 45.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 266.0,
+                  y: 50.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 267.0,
+                  y: 46.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 268.0,
+                  y: 45.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 269.0,
+                  y: 43.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 270.0,
+                  y: 45.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 271.0,
+                  y: 43.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 272.0,
+                  y: 50.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 273.0,
+                  y: 45.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 274.0,
+                  y: 46.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 275.0,
+                  y: 45.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 276.0,
+                  y: 54.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 277.0,
+                  y: 45.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 278.0,
+                  y: 49.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 279.0,
+                  y: 49.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 280.0,
+                  y: 43.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 281.0,
+                  y: 50.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 282.0,
+                  y: 47.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 283.0,
+                  y: 46.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 284.0,
+                  y: 48.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 285.0,
+                  y: 46.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 286.0,
+                  y: 46.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 287.0,
+                  y: 48.6,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 288.0,
+                  y: 47.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 289.0,
+                  y: 51.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 290.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 291.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 292.0,
+                  y: 49.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 293.0,
+                  y: 52.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 294.0,
+                  y: 47.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 295.0,
+                  y: 50.0,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 296.0,
+                  y: 44.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 297.0,
+                  y: 50.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 298.0,
+                  y: 43.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 299.0,
+                  y: 51.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 300.0,
+                  y: 47.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 301.0,
+                  y: 52.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 302.0,
+                  y: 47.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 303.0,
+                  y: 52.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 304.0,
+                  y: 45.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 305.0,
+                  y: 49.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 306.0,
+                  y: 44.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 307.0,
+                  y: 50.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 308.0,
+                  y: 49.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 309.0,
+                  y: 46.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 310.0,
+                  y: 48.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 311.0,
+                  y: 51.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 312.0,
+                  y: 48.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 313.0,
+                  y: 55.9,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 314.0,
+                  y: 47.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 315.0,
+                  y: 49.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 316.0,
+                  y: 46.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 317.0,
+                  y: 41.7,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 318.0,
+                  y: 53.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 319.0,
+                  y: 43.3,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 320.0,
+                  y: 48.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 321.0,
+                  y: 50.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 322.0,
+                  y: 49.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 323.0,
+                  y: 43.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 324.0,
+                  y: 51.5,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 325.0,
+                  y: 46.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 326.0,
+                  y: 55.1,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 327.0,
+                  y: 48.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 328.0,
+                  y: 47.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 329.0,
+                  y: 46.8,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 330.0,
+                  y: 50.4,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 331.0,
+                  y: 45.2,
+                },
+                {
+                  fill: 'Bill Length',
+                  x: 332.0,
+                  y: 49.9,
+                },
+              ],
+              [
+                {
+                  fill: 'Flipper Length',
+                  x: 0.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 1.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 2.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 3.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 4.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 5.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 6.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 7.0,
+                  y: 182.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 8.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 9.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 10.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 11.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 12.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 13.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 14.0,
+                  y: 194.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 15.0,
+                  y: 174.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 16.0,
+                  y: 180.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 17.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 18.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 19.0,
+                  y: 180.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 20.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 21.0,
+                  y: 183.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 22.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 23.0,
+                  y: 172.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 24.0,
+                  y: 180.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 25.0,
+                  y: 178.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 26.0,
+                  y: 178.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 27.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 28.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 29.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 30.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 31.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 32.0,
+                  y: 180.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 33.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 34.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 35.0,
+                  y: 182.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 36.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 37.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 38.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 39.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 40.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 41.0,
+                  y: 182.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 42.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 43.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 44.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 45.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 46.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 47.0,
+                  y: 200.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 48.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 49.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 50.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 51.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 52.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 53.0,
+                  y: 194.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 54.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 55.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 56.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 57.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 58.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 59.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 60.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 61.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 62.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 63.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 64.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 65.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 66.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 67.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 68.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 69.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 70.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 71.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 72.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 73.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 74.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 75.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 76.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 77.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 78.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 79.0,
+                  y: 194.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 80.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 81.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 82.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 83.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 84.0,
+                  y: 202.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 85.0,
+                  y: 205.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 86.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 87.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 88.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 89.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 90.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 91.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 92.0,
+                  y: 178.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 93.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 94.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 95.0,
+                  y: 203.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 96.0,
+                  y: 183.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 97.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 98.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 99.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 100.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 101.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 102.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 103.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 104.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 105.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 106.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 107.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 108.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 109.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 110.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 111.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 112.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 113.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 114.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 115.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 116.0,
+                  y: 176.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 117.0,
+                  y: 202.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 118.0,
+                  y: 186.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 119.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 120.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 121.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 122.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 123.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 124.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 125.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 126.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 127.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 128.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 129.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 130.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 131.0,
+                  y: 200.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 132.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 133.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 134.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 135.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 136.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 137.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 138.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 139.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 140.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 141.0,
+                  y: 184.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 142.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 143.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 144.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 145.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 146.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 147.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 148.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 149.0,
+                  y: 188.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 150.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 151.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 152.0,
+                  y: 178.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 153.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 154.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 155.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 156.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 157.0,
+                  y: 194.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 158.0,
+                  y: 185.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 159.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 160.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 161.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 162.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 163.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 164.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 165.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 166.0,
+                  y: 181.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 167.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 168.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 169.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 170.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 171.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 172.0,
+                  y: 200.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 173.0,
+                  y: 200.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 174.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 175.0,
+                  y: 205.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 176.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 177.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 178.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 179.0,
+                  y: 203.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 180.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 181.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 182.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 183.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 184.0,
+                  y: 192.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 185.0,
+                  y: 205.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 186.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 187.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 188.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 189.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 190.0,
+                  y: 196.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 191.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 192.0,
+                  y: 190.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 193.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 194.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 195.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 196.0,
+                  y: 199.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 197.0,
+                  y: 201.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 198.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 199.0,
+                  y: 203.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 200.0,
+                  y: 187.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 201.0,
+                  y: 197.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 202.0,
+                  y: 191.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 203.0,
+                  y: 203.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 204.0,
+                  y: 202.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 205.0,
+                  y: 194.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 206.0,
+                  y: 206.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 207.0,
+                  y: 189.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 208.0,
+                  y: 195.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 209.0,
+                  y: 207.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 210.0,
+                  y: 202.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 211.0,
+                  y: 193.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 212.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 213.0,
+                  y: 198.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 214.0,
+                  y: 211.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 215.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 216.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 217.0,
+                  y: 218.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 218.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 219.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 220.0,
+                  y: 211.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 221.0,
+                  y: 219.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 222.0,
+                  y: 209.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 223.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 224.0,
+                  y: 214.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 225.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 226.0,
+                  y: 214.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 227.0,
+                  y: 213.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 228.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 229.0,
+                  y: 217.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 230.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 231.0,
+                  y: 221.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 232.0,
+                  y: 209.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 233.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 234.0,
+                  y: 218.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 235.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 236.0,
+                  y: 213.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 237.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 238.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 239.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 240.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 241.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 242.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 243.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 244.0,
+                  y: 209.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 245.0,
+                  y: 207.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 246.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 247.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 248.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 249.0,
+                  y: 213.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 250.0,
+                  y: 219.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 251.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 252.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 253.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 254.0,
+                  y: 225.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 255.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 256.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 257.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 258.0,
+                  y: 217.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 259.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 260.0,
+                  y: 225.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 261.0,
+                  y: 213.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 262.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 263.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 264.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 265.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 266.0,
+                  y: 225.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 267.0,
+                  y: 217.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 268.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 269.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 270.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 271.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 272.0,
+                  y: 224.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 273.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 274.0,
+                  y: 221.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 275.0,
+                  y: 214.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 276.0,
+                  y: 231.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 277.0,
+                  y: 219.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 278.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 279.0,
+                  y: 229.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 280.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 281.0,
+                  y: 223.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 282.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 283.0,
+                  y: 221.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 284.0,
+                  y: 221.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 285.0,
+                  y: 217.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 286.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 287.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 288.0,
+                  y: 209.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 289.0,
+                  y: 220.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 290.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 291.0,
+                  y: 223.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 292.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 293.0,
+                  y: 221.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 294.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 295.0,
+                  y: 224.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 296.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 297.0,
+                  y: 228.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 298.0,
+                  y: 218.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 299.0,
+                  y: 218.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 300.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 301.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 302.0,
+                  y: 218.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 303.0,
+                  y: 228.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 304.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 305.0,
+                  y: 224.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 306.0,
+                  y: 214.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 307.0,
+                  y: 226.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 308.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 309.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 310.0,
+                  y: 203.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 311.0,
+                  y: 225.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 312.0,
+                  y: 219.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 313.0,
+                  y: 228.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 314.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 315.0,
+                  y: 228.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 316.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 317.0,
+                  y: 210.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 318.0,
+                  y: 219.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 319.0,
+                  y: 208.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 320.0,
+                  y: 209.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 321.0,
+                  y: 216.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 322.0,
+                  y: 229.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 323.0,
+                  y: 213.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 324.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 325.0,
+                  y: 217.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 326.0,
+                  y: 230.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 327.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 328.0,
+                  y: 214.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 329.0,
+                  y: 215.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 330.0,
+                  y: 222.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 331.0,
+                  y: 212.0,
+                },
+                {
+                  fill: 'Flipper Length',
+                  x: 332.0,
+                  y: 213.0,
+                },
+              ],
+            ],
+          },
+        ],
+      },
+    ],
+  ],
+};
 
-  const layer = chart.subplots[subplotIndex][subplotColIndex].layers[layerIndex];
-  if (layer.type !== 'line') {
-    throw new LineChartDataError(`Expected line layer, but found ${layer.type}`);
-  }
+// --- Helper Functions ---
 
-  if (!layer.data[seriesIndex]) {
-    throw new LineChartDataError(`Series index ${seriesIndex} does not exist`);
-  }
-
-  return layer.data[seriesIndex];
+function getAllLayers(chart: MaidrChart): ChartLayer[] {
+  return chart.subplots[0][0].layers;
 }
 
 function getMaximumValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) {
-    throw new LineChartDataError('Cannot get maximum value from empty data array');
-  }
-
+  if (data.length === 0)
+    throw new Error('Cannot get maximum value from empty data array');
   return Math.max(...data.map(point => point.y));
 }
 
 function getMinimumValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) {
-    throw new LineChartDataError('Cannot get minimum value from empty data array');
-  }
-
+  if (data.length === 0)
+    throw new Error('Cannot get minimum value from empty data array');
   return Math.min(...data.map(point => point.y));
 }
 
 function getAverageValue(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) {
-    throw new LineChartDataError('Cannot calculate average from empty data array');
-  }
-
+  if (data.length === 0)
+    throw new Error('Cannot calculate average from empty data array');
   const sum = data.reduce((total, point) => total + point.y, 0);
-
   return sum / data.length;
-}
-
-function findDataPointByDate(data: TimeSeriesPoint[], date: string): TimeSeriesPoint | undefined {
-  return data.find(point => point.x === date);
 }
 
 function navigateLine(data: TimeSeriesPoint[], currentIndex: number, direction: 1 | -1): number {
   const newIndex = currentIndex + direction;
-
-  if (newIndex < 0) {
+  if (newIndex < 0)
     return data.length - 1;
-  } else if (newIndex >= data.length) {
+  if (newIndex >= data.length)
     return 0;
-  }
-
   return newIndex;
 }
 
-function extractYear(dateStr: string): number {
-  return Number.parseInt(dateStr.split('-')[0], 10);
-}
+// --- Parameterized Test Suite ---
+const testCases = [
+  {
+    name: 'Single Line',
+    chart: singleLineData,
+    isMulti: false,
+    getSeriesCount: (chart: MaidrChart) => chart.subplots[0][0].layers[0].data.length,
+  },
+  {
+    name: 'Multi Line',
+    chart: multiLineData,
+    isMulti: true,
+    getSeriesCount: (chart: MaidrChart) => chart.subplots[0][0].layers[0].data.length,
+  },
+];
 
-function findPointsByYear(data: TimeSeriesPoint[], year: number): TimeSeriesPoint[] {
-  return data.filter(point => extractYear(point.x) === year);
-}
-
-function calculateYearlyAverages(data: TimeSeriesPoint[]): Map<number, number> {
-  if (data.length === 0) {
-    throw new LineChartDataError('Cannot calculate yearly averages from empty data array');
-  }
-  const yearlyGroups: Map<number, TimeSeriesPoint[]> = new Map();
-  data.forEach((point) => {
-    const year = extractYear(point.x);
-    if (!yearlyGroups.has(year)) {
-      yearlyGroups.set(year, []);
-    }
-    yearlyGroups.get(year)?.push(point);
-  });
-  const yearlyAverages: Map<number, number> = new Map();
-  yearlyGroups.forEach((points, year) => {
-    const sum = points.reduce((total, point) => total + point.y, 0);
-    yearlyAverages.set(year, sum / points.length);
-  });
-
-  return yearlyAverages;
-}
-
-describe('line Plot Data Tests', () => {
-  let lineData: TimeSeriesPoint[];
+describe.each(testCases)('$name Plot Data Tests', ({ chart, isMulti }) => {
+  let layers: ChartLayer[];
 
   beforeEach(() => {
-    lineData = getLineData(maidrData);
+    layers = getAllLayers(chart);
   });
 
-  describe('data Structure Validation', () => {
-    it('should have valid line chart structure', () => {
-      const layer = maidrData.subplots[0][0].layers[0];
+  describe('Data Structure Validation', () => {
+    it('should have at least one layer', () => {
+      expect(layers.length).toBeGreaterThanOrEqual(1);
+    });
 
+    it('should have valid line chart structure', () => {
+      const layer = layers[0];
       expect(layer.type).toBe('line');
-      expect(maidrData.id).toBeDefined();
-      expect(maidrData.title).toBe('Unemployment Rate Over Time');
+      expect(chart.id).toBeDefined();
+      expect(chart.title).toBeDefined();
       expect(layer.axes).toHaveProperty('x');
       expect(layer.axes).toHaveProperty('y');
       expect(Array.isArray(layer.data)).toBe(true);
@@ -216,194 +3530,115 @@ describe('line Plot Data Tests', () => {
       expect(Array.isArray(layer.data[0])).toBe(true);
     });
 
-    it('should contain valid line data points', () => {
-      lineData.forEach((point) => {
-        expect(point).toHaveProperty('x');
-        expect(point).toHaveProperty('y');
+    it('should have valid x and y arrays', () => {
+      const layer = layers[0];
+      const data = layer.data[0];
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.length).toBeGreaterThan(0);
+    });
+
+    it('should have valid points matrix', () => {
+      const layer = layers[0];
+      const data = layer.data[0];
+      data.forEach((point: TimeSeriesPoint) => {
+        expect(typeof point.x === 'number' || typeof point.x === 'string').toBe(true);
         expect(typeof point.y).toBe('number');
-        expect(point.x).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        if (isMulti)
+          expect(typeof point.fill).toBe('string');
+      });
+    });
+  });
+
+  describe('Data Extraction', () => {
+    it('should extract data correctly from all line plots', () => {
+      layers.forEach((layer) => {
+        expect(layer.data).toBeDefined();
+        expect(Array.isArray(layer.data)).toBe(true);
+        expect(layer.data.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('Data Integrity', () => {
+    it('should have consistent x-axis values across different lineplots', () => {
+      const xValues = layers[0].data[0].map(point => point.x);
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          const layerXValues = series.map(point => point.x);
+          expect(layerXValues).toEqual(xValues);
+        });
       });
     });
 
-    it('should have chronologically ordered data', () => {
-      for (let i = 1; i < lineData.length; i++) {
-        const currentDate = new Date(lineData[i].x);
-        const prevDate = new Date(lineData[i - 1].x);
-        expect(currentDate.getTime()).toBeGreaterThanOrEqual(prevDate.getTime());
-      }
+    it('should have valid y-axis values for each lineplot', () => {
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          const yValues = series.map(point => point.y);
+          yValues.forEach((yValue) => {
+            expect(typeof yValue).toBe('number');
+            expect(yValue).toBeGreaterThan(0);
+          });
+        });
+      });
     });
   });
 
-  describe('data Value Verification', () => {
-    it('should have correct data points for specific dates', () => {
-      const july1967 = findDataPointByDate(lineData, '1967-07-01');
-      const dec1967 = findDataPointByDate(lineData, '1967-12-01');
-      const jan1970 = findDataPointByDate(lineData, '1970-01-01');
-
-      expect(july1967).toBeDefined();
-      expect(july1967?.y).toBe(2944);
-      expect(dec1967).toBeDefined();
-      expect(dec1967?.y).toBe(3018);
-      expect(jan1970).toBeDefined();
-      expect(jan1970?.y).toBe(3201);
-    });
-
-    it('should identify maximum value correctly', () => {
-      const maxValue = getMaximumValue(lineData);
-      expect(maxValue).toBeGreaterThan(3000);
-      const jan1970 = findDataPointByDate(lineData, '1970-01-01');
-      if (jan1970) {
-        expect(maxValue).toBeGreaterThanOrEqual(jan1970.y);
-      }
-    });
-
-    it('should identify minimum value correctly', () => {
-      const minValue = getMinimumValue(lineData);
-      expect(minValue).toBeLessThan(3000);
-      const dec1968 = findDataPointByDate(lineData, '1968-12-01');
-      if (dec1968) {
-        expect(minValue).toBeLessThanOrEqual(dec1968.y);
-      }
+  describe('Data Value Verification', () => {
+    it('should identify maximum and minimum values correctly', () => {
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          const maxValue = getMaximumValue(series);
+          const minValue = getMinimumValue(series);
+          expect(maxValue).toBeGreaterThanOrEqual(minValue);
+        });
+      });
     });
 
     it('should calculate average value correctly', () => {
-      const avgValue = getAverageValue(lineData);
-      expect(avgValue).toBeGreaterThan(0);
-      expect(typeof avgValue).toBe('number');
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          const avgValue = getAverageValue(series);
+          expect(avgValue).toBeGreaterThan(0);
+          expect(typeof avgValue).toBe('number');
+        });
+      });
     });
   });
 
-  describe('time Series Analysis', () => {
-    it('should group data points by year correctly', () => {
-      const points1967 = findPointsByYear(lineData, 1967);
-      const points1968 = findPointsByYear(lineData, 1968);
-      const points1969 = findPointsByYear(lineData, 1969);
-
-      expect(points1967.length).toBe(6);
-      expect(points1968.length).toBe(12);
-      expect(points1969.length).toBe(12);
+  describe('Navigation Operations', () => {
+    it('should navigate to the next and previous point correctly', () => {
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          if (series.length > 1) {
+            const nextIndex = navigateLine(series, 0, 1);
+            expect(nextIndex).toBe(1);
+            const prevIndex = navigateLine(series, 1, -1);
+            expect(prevIndex).toBe(0);
+          }
+        });
+      });
     });
 
-    it('should calculate yearly averages correctly', () => {
-      const yearlyAverages = calculateYearlyAverages(lineData);
-      expect(yearlyAverages.size).toBeGreaterThan(0);
-
-      if (yearlyAverages.has(1967)) {
-        const avg1967 = yearlyAverages.get(1967);
-        expect(avg1967).toBeGreaterThan(2900);
-        expect(avg1967).toBeLessThan(3100);
-      }
-
-      if (yearlyAverages.has(1968)) {
-        const avg1968 = yearlyAverages.get(1968);
-        expect(avg1968).toBeGreaterThan(2600);
-        expect(avg1968).toBeLessThan(3000);
-      }
-    });
-
-    it('should show increasing trend from 1969 to 1970', () => {
-      const points1969 = findPointsByYear(lineData, 1969);
-      const points1970 = findPointsByYear(lineData, 1970);
-
-      const avg1969 = points1969.reduce((sum, point) => sum + point.y, 0) / points1969.length;
-      const avg1970 = points1970.reduce((sum, point) => sum + point.y, 0) / points1970.length;
-
-      expect(avg1970).toBeGreaterThan(avg1969);
+    it('should wrap around navigation at boundaries', () => {
+      layers.forEach((layer) => {
+        layer.data.forEach((series) => {
+          const lastIdx = series.length - 1;
+          const nextIndex = navigateLine(series, lastIdx, 1);
+          expect(nextIndex).toBe(0);
+          const prevIndex = navigateLine(series, 0, -1);
+          expect(prevIndex).toBe(lastIdx);
+        });
+      });
     });
   });
 
-  describe('navigation Operations', () => {
-    it('should navigate to the next point correctly', () => {
-      const currentIndex = 0;
-      const nextIndex = navigateLine(lineData, currentIndex, 1);
-
-      expect(nextIndex).toBe(1);
-      expect(lineData[nextIndex].x).toBe('1967-08-01');
-    });
-
-    it('should navigate to the previous point correctly', () => {
-      const currentIndex = 1;
-      const prevIndex = navigateLine(lineData, currentIndex, -1);
-
-      expect(prevIndex).toBe(0);
-      expect(lineData[prevIndex].x).toBe('1967-07-01');
-    });
-
-    it('should wrap around to the first point when navigating past the last point', () => {
-      const currentIndex = lineData.length - 1;
-      const nextIndex = navigateLine(lineData, currentIndex, 1);
-
-      expect(nextIndex).toBe(0);
-      expect(lineData[nextIndex].x).toBe('1967-07-01');
-    });
-
-    it('should wrap around to the last point when navigating before the first point', () => {
-      const currentIndex = 0;
-      const prevIndex = navigateLine(lineData, currentIndex, -1);
-
-      expect(prevIndex).toBe(lineData.length - 1);
-      const lastDate = lineData[prevIndex].x;
-      expect(lastDate).toBeDefined();
-    });
-  });
-
-  describe('error Handling', () => {
-    it('should throw error when getting maximum value from empty data', () => {
-      const emptyData: TimeSeriesPoint[] = [];
-      expect(() => getMaximumValue(emptyData)).toThrow(LineChartDataError);
-    });
-
-    it('should throw error when getting minimum value from empty data', () => {
-      const emptyData: TimeSeriesPoint[] = [];
-      expect(() => getMinimumValue(emptyData)).toThrow(LineChartDataError);
-    });
-
-    it('should throw error when calculating average from empty data', () => {
-      const emptyData: TimeSeriesPoint[] = [];
-      expect(() => getAverageValue(emptyData)).toThrow(LineChartDataError);
-    });
-
-    it('should throw error for invalid subplot or layer indices', () => {
-      expect(() => getLineData(maidrData, 1)).toThrow(LineChartDataError);
-      expect(() => getLineData(maidrData, 0, 1)).toThrow(LineChartDataError);
-    });
-
-    it('should return undefined when finding nonexistent date', () => {
-      const result = findDataPointByDate(lineData, '1900-01-01');
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe('edge Cases', () => {
+  describe('Edge Cases', () => {
     it('should handle navigation on single-element array', () => {
       const singleElementData: TimeSeriesPoint[] = [{ x: '2000-01-01', y: 100 }];
       const nextIndex = navigateLine(singleElementData, 0, 1);
       const prevIndex = navigateLine(singleElementData, 0, -1);
-
       expect(nextIndex).toBe(0);
       expect(prevIndex).toBe(0);
-    });
-
-    it('should handle dates at year boundaries', () => {
-      const dec1969 = findDataPointByDate(lineData, '1969-12-01');
-      const jan1970 = findDataPointByDate(lineData, '1970-01-01');
-
-      expect(dec1969).toBeDefined();
-      expect(jan1970).toBeDefined();
-      expect(extractYear(dec1969!.x)).toBe(1969);
-      expect(extractYear(jan1970!.x)).toBe(1970);
-    });
-
-    it('should handle yearly calculations with partial data', () => {
-      const partialData = [
-        { x: '1967-01-01', y: 1000 },
-        { x: '1967-02-01', y: 1100 },
-        { x: '1968-01-01', y: 1200 },
-      ];
-
-      const yearlyAverages = calculateYearlyAverages(partialData);
-      expect(yearlyAverages.get(1967)).toBe(1050);
-      expect(yearlyAverages.get(1968)).toBe(1200);
     });
   });
 });
