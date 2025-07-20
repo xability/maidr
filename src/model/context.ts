@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -109,9 +109,9 @@ export class Context implements Disposable {
         // Add the current trace back to maintain context level
         this.plotContext.push(currentTrace);
         // Emit empty TraceState for boundary so AudioService (on Trace) can play boundary audio
-        const emptyTraceState = {
+        const emptyTraceState: TraceState = {
           empty: true,
-          type: 'trace' as const,
+          type: 'trace',
           traceType: currentTrace.state.traceType,
           audio: {
             size: 0,
@@ -133,9 +133,9 @@ export class Context implements Disposable {
       // For single layer plots, Page Up/Down should trigger boundary feedback
       // since there's only one layer to navigate
       // Create an empty trace state to ensure proper text feedback
-      const emptyTraceState = {
+      const emptyTraceState: TraceState = {
         empty: true,
-        type: 'trace' as const,
+        type: 'trace',
         traceType: activeTrace.state.traceType,
         audio: {
           size: 0,
@@ -146,8 +146,8 @@ export class Context implements Disposable {
       activeTrace.notifyObservers(emptyTraceState);
       // Also emit empty subplot state for UI message
       if (this.singleLayerSubplot) {
-        const emptySubplotState = { empty: true, type: 'subplot' as const };
-        this.singleLayerSubplot.notifyObservers(emptySubplotState as any);
+        const emptySubplotState: SubplotState = { empty: true, type: 'subplot' };
+        this.singleLayerSubplot.notifyObservers(emptySubplotState);
       }
     }
   }

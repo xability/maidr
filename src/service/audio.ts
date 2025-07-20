@@ -113,12 +113,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
 
     // Extract trace state from subplot state if needed
-    let traceState: TraceState;
-    if (state.type === 'subplot') {
-      traceState = state.trace;
-    } else {
-      traceState = state;
-    }
+    const traceState: TraceState = state.type === 'subplot' ? state.trace : state;
 
     this.handleTraceState(traceState);
   }

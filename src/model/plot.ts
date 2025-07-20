@@ -297,5 +297,5 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   /**
    * Notify observers with a custom state
    */
-  notifyObservers: (state: any) => void;
+  notifyObservers: (state: TraceState) => void;
 }
