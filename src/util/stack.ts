@@ -40,6 +40,6 @@ export class Stack<T> {
   }
 
   public getItems(): T[] {
-    return this.items;
+    return [...this.items];
   }
 }

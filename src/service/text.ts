@@ -25,7 +25,7 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
 
-  public constructor(notification: NotificationService, context: Context) {
+  public constructor(notification: NotificationService, context?: Context) {
     this.notification = notification;
 
     this.mode = TextMode.VERBOSE;
@@ -34,7 +34,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.onChange = this.onChangeEmitter.event;
 
     // Subscribe to layer switch event from context
-    context.onLayerSwitch((prev: PlotState | null, curr: PlotState) => {
+    context?.onLayerSwitch((prev: PlotState | null, curr: PlotState) => {
       if (curr.type === 'subplot' && !curr.empty) {
         const { index, size, trace } = curr;
         const traceType = trace.traceType;

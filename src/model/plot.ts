@@ -212,6 +212,12 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns true if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
+
+  /**
+   * Reset the trace to initial entry state
+   * This sets isInitialEntry to true and position to (0, 0)
+   */
+  resetToInitialEntry: () => void;
 }
 
 export interface TraceWithProperties {
