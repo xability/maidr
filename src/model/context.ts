@@ -20,8 +20,13 @@ export class Context implements Disposable {
   private layerSwitchObservers: ((prev: PlotState | null, curr: PlotState) => void)[] = [];
 
   // Allow services to subscribe to layer switch events
-  public onLayerSwitch(observer: (prev: PlotState | null, curr: PlotState) => void): void {
+  public onLayerSwitch(observer: (prev: PlotState | null, curr: PlotState) => void): Disposable {
     this.layerSwitchObservers.push(observer);
+    return {
+      dispose: () => {
+        this.layerSwitchObservers = this.layerSwitchObservers.filter(obs => obs !== observer);
+      },
+    };
   }
 
   private notifyLayerSwitch(prev: PlotState | null, curr: PlotState): void {

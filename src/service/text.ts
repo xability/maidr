@@ -25,7 +25,7 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
 
-  public constructor(notification: NotificationService, context?: Context) {
+  public constructor(notification: NotificationService, context: Context) {
     this.notification = notification;
 
     this.mode = TextMode.VERBOSE;
@@ -34,7 +34,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.onChange = this.onChangeEmitter.event;
 
     // Subscribe to layer switch event from context
-    context?.onLayerSwitch((prev: PlotState | null, curr: PlotState) => {
+    context.onLayerSwitch((prev: PlotState | null, curr: PlotState) => {
       if (curr.type === 'subplot' && !curr.empty) {
         const { index, size, trace } = curr;
         const traceType = trace.traceType;
@@ -46,13 +46,13 @@ export class TextService implements Observer<PlotState>, Disposable {
             const text = trace.text;
             const parts: string[] = [];
             if (text.main && text.main.value !== undefined) {
-              parts.push(`${text.main.label} is ${Array.isArray(text.main.value) ? text.main.value.join(', ') : text.main.value}`);
+              parts.push(this.formatCoordinate(text.main.label, text.main.value));
             }
             if (text.cross && text.cross.value !== undefined) {
-              parts.push(`${text.cross.label} is ${Array.isArray(text.cross.value) ? text.cross.value.join(', ') : text.cross.value}`);
+              parts.push(this.formatCoordinate(text.cross.label, text.cross.value));
             }
             if (text.fill && text.fill.value !== undefined) {
-              parts.push(`${text.fill.label} is ${text.fill.value}`);
+              parts.push(this.formatCoordinate(text.fill.label, text.fill.value));
             }
             if (parts.length > 0) {
               pointText = parts.join(', ');
@@ -240,5 +240,12 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   private shouldAnnounceWithCoordinates(prev: PlotState | null, size: number): boolean {
     return !!(prev && prev.type === 'subplot' && !prev.empty && size > 1);
+  }
+
+  private formatCoordinate(label: string, value: any): string {
+    if (Array.isArray(value)) {
+      return `${label} is ${value.join(', ')}`;
+    }
+    return `${label} is ${value}`;
   }
 }
