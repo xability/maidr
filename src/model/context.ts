@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -15,9 +15,10 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-  private singleLayerSubplot: Subplot | null = null;
+  private readonly figure: Figure;
 
   public constructor(figure: Figure) {
+    this.figure = figure;
     this.id = figure.id;
 
     this.plotContext = new Stack<Plot>();
@@ -45,7 +46,6 @@ export class Context implements Disposable {
     // Set the context to trace level (single-layer plot)
     this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
-    this.singleLayerSubplot = figure.activeSubplot;
   }
 
   public dispose(): void {
@@ -91,64 +91,29 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
-
       const activeSubplot = this.active as Subplot;
-
-      // Get current trace position before switching
       const currentTrace = activeSubplot.activeTrace;
-
-      // Get current X value using standard interface
       const currentXValue = currentTrace.getCurrentXValue();
 
       activeSubplot.moveOnce(direction);
-
       const newTrace = activeSubplot.activeTrace;
 
-      // Check if the subplot actually moved (same trace means boundary was hit)
       if (newTrace === currentTrace) {
-        // Add the current trace back to maintain context level
         this.plotContext.push(currentTrace);
-        // Emit empty TraceState for boundary so AudioService (on Trace) can play boundary audio
-        const emptyTraceState: TraceState = {
-          empty: true,
-          type: 'trace',
-          traceType: currentTrace.state.traceType,
-          audio: {
-            size: 0,
-            index: 0,
-          },
-        };
-        currentTrace.notifyObservers(emptyTraceState);
+        // Use only standard notification method for boundary feedback
+        currentTrace.notifyOutOfBounds();
+        activeSubplot.notifyOutOfBounds(); // For UI feedback
         return;
       }
 
-      // Add the new trace to the context
       this.plotContext.push(newTrace);
-
-      // Try to move to the same X value in the new trace
-      const _moveResult = newTrace.moveToXValue(currentXValue);
+      newTrace.moveToXValue(currentXValue);
     } else {
-      // Handle single layer plots - trigger boundary feedback
+      // Single-layer: derive the only subplot from the figure
+      const onlySubplot = this.figure.subplots[0][0];
       const activeTrace = this.active as Trace;
-      // For single layer plots, Page Up/Down should trigger boundary feedback
-      // since there's only one layer to navigate
-      // Create an empty trace state to ensure proper text feedback
-      const emptyTraceState: TraceState = {
-        empty: true,
-        type: 'trace',
-        traceType: activeTrace.state.traceType,
-        audio: {
-          size: 0,
-          index: 0,
-        },
-      };
-      // Notify observers with the empty trace state (for audio)
-      activeTrace.notifyObservers(emptyTraceState);
-      // Also emit empty subplot state for UI message
-      if (this.singleLayerSubplot) {
-        const emptySubplotState: SubplotState = { empty: true, type: 'subplot' };
-        this.singleLayerSubplot.notifyObservers(emptySubplotState);
-      }
+      activeTrace.notifyOutOfBounds();
+      onlySubplot.notifyOutOfBounds(); // For UI feedback
     }
   }
 

@@ -4,6 +4,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
+import { isBoundary } from '@util/navigation';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
 
@@ -139,21 +140,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     }
 
     // Check if we're about to hit a boundary
-    let willHitBoundary = false;
-    switch (direction) {
-      case 'UPWARD':
-        willHitBoundary = this.row >= this.subplots.length - 1;
-        break;
-      case 'DOWNWARD':
-        willHitBoundary = this.row <= 0;
-        break;
-      case 'FORWARD':
-        willHitBoundary = this.col >= this.subplots[this.row].length - 1;
-        break;
-      case 'BACKWARD':
-        willHitBoundary = this.col <= 0;
-        break;
-    }
+    const willHitBoundary = isBoundary(this.row, this.col, this.subplots, direction);
 
     if (willHitBoundary) {
       this.notifyOutOfBounds();
@@ -293,9 +280,4 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Notify observers that the trace is out of bounds
    */
   notifyOutOfBounds: () => void;
-
-  /**
-   * Notify observers with a custom state
-   */
-  notifyObservers: (state: TraceState) => void;
 }
