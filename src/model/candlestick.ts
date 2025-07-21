@@ -11,21 +11,22 @@ import { Svg } from '@util/svg';
 const TREND = 'Trend';
 
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
+type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
 export class Candlestick extends AbstractTrace<number> {
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
   private readonly orientation: Orientation;
-  private readonly sections = ['open', 'high', 'low', 'close'] as const;
+  private readonly sections = ['volatility', 'open', 'high', 'low', 'close'] as const;
 
   // Track navigation state separately from visual highlighting state
-  private currentSegmentType: CandlestickSegmentType = 'open';
+  private currentSegmentType: CandlestickNavSegmentType | null = 'open';
   private currentPointIndex: number = 0;
 
   // Performance optimization: Pre-computed lookup tables
-  private readonly sortedSegmentsByPoint: CandlestickSegmentType[][];
-  private readonly segmentPositionMaps: Map<CandlestickSegmentType, number>[];
+  private readonly sortedSegmentsByPoint: CandlestickNavSegmentType[][];
+  private readonly segmentPositionMaps: Map<CandlestickNavSegmentType, number>[];
 
   private readonly min: number;
   private readonly max: number;
@@ -34,6 +35,8 @@ export class Candlestick extends AbstractTrace<number> {
 
   // Service dependency for navigation logic
   protected readonly navigationService: NavigationService;
+
+  private lastBoundary: 'upper' | 'lower' | null = null;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -44,6 +47,7 @@ export class Candlestick extends AbstractTrace<number> {
     const data = layer.data as CandlestickPoint[];
     this.candles = data.map(candle => ({
       ...candle,
+      volatility: candle.high - candle.low,
       trend:
         candle.close > candle.open
           ? 'Bull'
@@ -83,23 +87,24 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Pre-compute sorted segments for all candlestick points for O(1) lookup
    */
-  private precomputeSortedSegments(): CandlestickSegmentType[][] {
+  private precomputeSortedSegments(): CandlestickNavSegmentType[][] {
     return this.candles.map((candle) => {
-      // Create array of [segmentType, value] pairs
-      const segmentPairs: [CandlestickSegmentType, number][]
-        = this.sections.map(segmentType => [segmentType, candle[segmentType]]);
-
-      // Sort by value and return just the segment types
-      return segmentPairs.sort((a, b) => a[1] - b[1]).map(pair => pair[0]);
+      // Always put 'volatility' first, then sort OHLC by value ascending
+      const ohlcSegments: CandlestickSegmentType[] = ['low', 'open', 'close', 'high'];
+      const sortedOhlc = ohlcSegments
+        .map(seg => [seg, candle[seg]] as [CandlestickSegmentType, number])
+        .sort((a, b) => a[1] - b[1])
+        .map(pair => pair[0]);
+      return ['volatility', ...sortedOhlc];
     });
   }
 
   /**
    * Pre-compute position maps for O(1) lookup of segment positions
    */
-  private precomputePositionMaps(): Map<CandlestickSegmentType, number>[] {
+  private precomputePositionMaps(): Map<CandlestickNavSegmentType, number>[] {
     return this.sortedSegmentsByPoint.map((sortedSegments) => {
-      const positionMap = new Map<CandlestickSegmentType, number>();
+      const positionMap = new Map<CandlestickNavSegmentType, number>();
       sortedSegments.forEach((segmentType, index) => {
         positionMap.set(segmentType, index);
       });
@@ -112,7 +117,7 @@ export class Candlestick extends AbstractTrace<number> {
    */
   private getSegmentPositionInSortedOrder(
     pointIndex: number,
-    segmentType: CandlestickSegmentType,
+    segmentType: CandlestickNavSegmentType,
   ): number {
     return this.segmentPositionMaps[pointIndex].get(segmentType) ?? 0;
   }
@@ -123,7 +128,7 @@ export class Candlestick extends AbstractTrace<number> {
   private getSegmentTypeAtSortedPosition(
     pointIndex: number,
     position: number,
-  ): CandlestickSegmentType {
+  ): CandlestickNavSegmentType {
     const sortedSegments = this.sortedSegmentsByPoint[pointIndex];
     return sortedSegments[position] ?? 'open';
   }
@@ -133,11 +138,9 @@ export class Candlestick extends AbstractTrace<number> {
    * Use the dynamic position based on value-sorted order, not fixed section index
    */
   private updateVisualSegmentPosition(): void {
-    const dynamicSegmentPosition = this.getSegmentPositionInSortedOrder(
-      this.currentPointIndex,
-      this.currentSegmentType,
-    );
-
+    // Use the sorted navigation order (with volatility first)
+    const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+    const dynamicSegmentPosition = navOrder.indexOf(this.currentSegmentType ?? 'open');
     if (this.orientation === Orientation.HORIZONTAL) {
       this.col = dynamicSegmentPosition;
     } else {
@@ -156,6 +159,14 @@ export class Candlestick extends AbstractTrace<number> {
     }
   }
 
+  protected handleInitialEntry(): void {
+    this.isInitialEntry = false;
+    this.currentPointIndex = Math.max(0, Math.min(this.currentPointIndex, this.candles.length - 1));
+    // Always start at 'open' on initial entry
+    this.currentSegmentType = 'open';
+    this.updateVisualSegmentPosition();
+  }
+
   /**
    * Override moveOnce to handle segment type preservation and value-based sorting
    */
@@ -166,7 +177,56 @@ export class Candlestick extends AbstractTrace<number> {
       return;
     }
 
+    // If at lower boundary (currentSegmentType is null) and direction is DOWNWARD, stay at boundary
+    if (this.currentSegmentType === null) {
+      if (direction === 'UPWARD' && this.lastBoundary === 'lower') {
+        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+        this.currentSegmentType = navOrder[0];
+        this.lastBoundary = null; // Reset after re-entry
+        this.updateVisualSegmentPosition();
+        this.notifyStateUpdate();
+        return;
+      }
+      if (direction === 'DOWNWARD' && this.lastBoundary === 'upper') {
+        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+        this.currentSegmentType = navOrder[navOrder.length - 1];
+        this.lastBoundary = null; // Reset after re-entry
+        this.updateVisualSegmentPosition();
+        this.notifyStateUpdate();
+        return;
+      }
+      if (direction === 'FORWARD' || direction === 'BACKWARD') {
+        const newPointIndex
+          = direction === 'FORWARD'
+            ? this.currentPointIndex + 1
+            : this.currentPointIndex - 1;
+        if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
+          this.currentPointIndex = newPointIndex;
+          this.currentSegmentType = 'open';
+          this.lastBoundary = null;
+          this.updateVisualPointPosition();
+          this.updateVisualSegmentPosition();
+          this.notifyStateUpdate();
+          return;
+        } else {
+          this.notifyOutOfBounds();
+          return;
+        }
+      }
+      // Any other direction, stay at boundary
+      this.notifyOutOfBounds();
+      return;
+    }
+
     if (!this.isMovable(direction)) {
+      if (direction === 'DOWNWARD') {
+        this.currentSegmentType = null;
+        this.lastBoundary = 'lower';
+      }
+      if (direction === 'UPWARD') {
+        this.currentSegmentType = null;
+        this.lastBoundary = 'upper';
+      }
       this.notifyOutOfBounds();
       return;
     }
@@ -175,23 +235,14 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: navigate between segments within the same candlestick (value-sorted)
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
-          this.currentPointIndex,
-          this.currentSegmentType,
-        );
-        const newSegmentPosition
-          = direction === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
-
-        if (
-          newSegmentPosition >= 0
-          && newSegmentPosition < this.sections.length
-        ) {
-          this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
-            this.currentPointIndex,
-            newSegmentPosition,
-          );
+        // Use the sorted navigation order (with volatility first)
+        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSegmentPosition = navOrder.indexOf(this.currentSegmentType ?? 'open');
+        const newSegmentPosition = direction === 'UPWARD'
+          ? currentSegmentPosition + 1
+          : currentSegmentPosition - 1;
+        if (newSegmentPosition >= 0 && newSegmentPosition < navOrder.length) {
+          this.currentSegmentType = navOrder[newSegmentPosition];
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
@@ -306,16 +357,13 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: check if we can move between segments within the same candlestick
-        const currentSegmentPosition = this.getSegmentPositionInSortedOrder(
-          this.currentPointIndex,
-          this.currentSegmentType,
-        );
-        const newSegmentPosition
-          = target === 'UPWARD'
-            ? currentSegmentPosition + 1
-            : currentSegmentPosition - 1;
+        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSegmentPosition = navOrder.indexOf(this.currentSegmentType ?? 'open');
+        const newSegmentPosition = target === 'UPWARD'
+          ? currentSegmentPosition + 1
+          : currentSegmentPosition - 1;
         return (
-          newSegmentPosition >= 0 && newSegmentPosition < this.sections.length
+          newSegmentPosition >= 0 && newSegmentPosition < navOrder.length
         );
       }
 
@@ -342,7 +390,14 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   protected audio(): AudioState {
-    const value = this.candles[this.currentPointIndex][this.currentSegmentType];
+    let value: number;
+    if (this.currentSegmentType === 'volatility') {
+      value = this.candles[this.currentPointIndex].volatility;
+    } else if (this.currentSegmentType) {
+      value = this.candles[this.currentPointIndex][this.currentSegmentType];
+    } else {
+      value = this.candles[this.currentPointIndex].open;
+    }
 
     return {
       min: this.min,
@@ -405,7 +460,14 @@ export class Candlestick extends AbstractTrace<number> {
 
   protected text(): TextState {
     const point = this.candles[this.currentPointIndex];
-    const crossValue = point[this.currentSegmentType];
+    let crossValue: number;
+    if (this.currentSegmentType === 'volatility') {
+      crossValue = point.volatility;
+    } else if (this.currentSegmentType) {
+      crossValue = point[this.currentSegmentType];
+    } else {
+      crossValue = point.open;
+    }
 
     return {
       main: {
@@ -418,7 +480,7 @@ export class Candlestick extends AbstractTrace<number> {
           this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
         value: crossValue,
       },
-      section: this.currentSegmentType,
+      section: this.currentSegmentType ?? 'open',
       fill: { label: TREND, value: point.trend },
     };
   }
