@@ -65,6 +65,9 @@ export type TraceState
        * null/undefined for normal points (single line or no intersection).
        */
       intersections?: AudioState[] | null;
+      isLayerSwitch?: boolean;
+      index?: number;
+      size?: number;
     };
 
 export interface AudioEmptyState {

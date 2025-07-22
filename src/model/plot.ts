@@ -197,6 +197,14 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
     return this.state;
   }
+
+  public getSize(): number {
+    return this.size;
+  }
+
+  public getRow(): number {
+    return this.row;
+  }
 }
 
 export interface Trace extends Movable, Observable<TraceState>, Disposable {

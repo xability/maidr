@@ -1,6 +1,8 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState } from '@type/state';
+import type { Observer } from '../type/observable';
+import type { TraceState } from '../type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -8,6 +10,7 @@ import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
+type TraceWithObservers = Trace & { observers: Observer<TraceState>[] };
 
 export class Context implements Disposable {
   public readonly id: string;
@@ -15,25 +18,6 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-
-  // Add a list of layer switch observers
-  private layerSwitchObservers: ((prev: PlotState | null, curr: PlotState) => void)[] = [];
-
-  // Allow services to subscribe to layer switch events
-  public onLayerSwitch(observer: (prev: PlotState | null, curr: PlotState) => void): Disposable {
-    this.layerSwitchObservers.push(observer);
-    return {
-      dispose: () => {
-        this.layerSwitchObservers = this.layerSwitchObservers.filter(obs => obs !== observer);
-      },
-    };
-  }
-
-  private notifyLayerSwitch(prev: PlotState | null, curr: PlotState): void {
-    for (const observer of this.layerSwitchObservers) {
-      observer(prev, curr);
-    }
-  }
 
   public constructor(figure: Figure) {
     this.id = figure.id;
@@ -107,14 +91,6 @@ export class Context implements Disposable {
 
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
-      // The Subplot is always one below the top Trace in the stack
-      const stackItems = this.plotContext.getItems() as Plot[];
-      const subplot = this.plotContext.size() > 1 ? stackItems[this.plotContext.size() - 2] : null;
-      let prevSubplotState: PlotState | null = null;
-      if (subplot && 'state' in subplot && 'activeTrace' in subplot) {
-        prevSubplotState = (subplot as Subplot).state;
-      }
-
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
       const currentTrace = activeSubplot.activeTrace;
@@ -122,9 +98,17 @@ export class Context implements Disposable {
       activeSubplot.moveOnce(direction);
       const newTrace = activeSubplot.activeTrace;
       this.plotContext.push(newTrace);
-      const _moveResult = newTrace.moveToXValue(currentXValue);
-
-      this.notifyLayerSwitch(prevSubplotState, activeSubplot.state);
+      newTrace.moveToXValue(currentXValue);
+      if (newTrace !== currentTrace) {
+        // Layer switch: emit TraceState with isLayerSwitch: true, index, and size
+        const subplot = activeSubplot as Subplot;
+        const index = subplot.getRow() + 1;
+        const size = subplot.getSize();
+        const state = { ...newTrace.state, isLayerSwitch: true, index, size };
+        (newTrace as TraceWithObservers).observers.forEach(o => o.update(state));
+      } else {
+        newTrace.notifyStateUpdate();
+      }
     }
   }
 

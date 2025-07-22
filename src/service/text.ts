@@ -1,4 +1,3 @@
-import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
@@ -25,48 +24,13 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
 
-  public constructor(notification: NotificationService, context: Context) {
+  public constructor(notification: NotificationService) {
     this.notification = notification;
 
     this.mode = TextMode.VERBOSE;
 
     this.onChangeEmitter = new Emitter<TextChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
-
-    // Subscribe to layer switch event from context
-    context.onLayerSwitch((prev: PlotState | null, curr: PlotState) => {
-      if (curr.type === 'subplot' && !curr.empty) {
-        const { index, size, trace } = curr;
-        const traceType = trace.traceType;
-        // Only announce values if previous state and size > 1
-        if (this.shouldAnnounceWithCoordinates(prev, size)) {
-          const layerText = this.formatSubplotText(index, size, traceType);
-          let pointText = '';
-          if (trace && !trace.empty && trace.text) {
-            const text = trace.text;
-            const parts: string[] = [];
-            if (text.main && text.main.value !== undefined) {
-              parts.push(this.formatCoordinate(text.main.label, text.main.value));
-            }
-            if (text.cross && text.cross.value !== undefined) {
-              parts.push(this.formatCoordinate(text.cross.label, text.cross.value));
-            }
-            if (text.fill && text.fill.value !== undefined) {
-              parts.push(this.formatCoordinate(text.fill.label, text.fill.value));
-            }
-            if (parts.length > 0) {
-              pointText = parts.join(', ');
-            }
-          }
-          const announcement = pointText ? `${layerText} at ${pointText}` : layerText;
-          this.notification.notify(announcement);
-        } else {
-          // First entry or single layer: just announce the layer
-          const text = this.formatSubplotText(index, size, traceType);
-          this.notification.notify(text);
-        }
-      }
-    });
   }
 
   public dispose(): void {
@@ -201,15 +165,52 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   public update(state: PlotState): void {
-    if (this.mode === TextMode.OFF) {
+    if (this.mode === TextMode.OFF)
       return;
-    }
-    if (state.type === 'subplot' && !state.empty) {
-      const text = this.format(state);
-      if (text) {
-        this.notification.notify(text);
+    if (state.type === 'trace' && !state.empty) {
+      const traceState = state; // type narrowed to TraceState
+      if (traceState.isLayerSwitch) {
+        // Announce layer + value
+        const { plotType, traceType, text, index, size } = traceState;
+        let announcement = `Layer ${index ?? '?'} of ${size ?? '?'}: ${plotType || traceType} plot`;
+        if (text) {
+          const parts: string[] = [];
+          if (text.main && text.main.value !== undefined) {
+            parts.push(`${text.main.label} is ${text.main.value}`);
+          }
+          if (text.cross && text.cross.value !== undefined) {
+            parts.push(`${text.cross.label} is ${text.cross.value}`);
+          }
+          if (text.fill && text.fill.value !== undefined) {
+            parts.push(`${text.fill.label} is ${text.fill.value}`);
+          }
+          if (parts.length > 0) {
+            announcement += ` at ${parts.join(', ')}`;
+          }
+        }
+        this.notification.notify(announcement);
+        return;
+      } else {
+        // Announce value only
+        const { text } = traceState;
+        if (text) {
+          const parts: string[] = [];
+          if (text.main && text.main.value !== undefined) {
+            parts.push(this.formatCoordinate(text.main.label, text.main.value));
+          }
+          if (text.cross && text.cross.value !== undefined) {
+            parts.push(this.formatCoordinate(text.cross.label, text.cross.value));
+          }
+          if (text.fill && text.fill.value !== undefined) {
+            parts.push(this.formatCoordinate(text.fill.label, text.fill.value));
+          }
+          if (parts.length > 0) {
+            const announcement = parts.join(', ');
+            this.notification.notify(announcement);
+          }
+        }
+        return;
       }
-      return;
     }
     const text = this.format(state);
     if (text) {
@@ -236,10 +237,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
 
     return this.mode !== TextMode.OFF;
-  }
-
-  private shouldAnnounceWithCoordinates(prev: PlotState | null, size: number): boolean {
-    return !!(prev && prev.type === 'subplot' && !prev.empty && size > 1);
   }
 
   private formatCoordinate(label: string, value: any): string {
