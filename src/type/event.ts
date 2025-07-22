@@ -12,10 +12,10 @@ export enum DomEventType {
   SELECTION_CHANGE = 'selectionchange',
 }
 
-export type Status =
-  | 'PENDING'
-  | 'SUCCESS'
-  | 'FAILED';
+export type Status
+  = | 'PENDING'
+    | 'SUCCESS'
+    | 'FAILED';
 
 export enum Scope {
   BRAILLE = 'BRAILLE',
