@@ -36,7 +36,6 @@ export class Candlestick extends AbstractTrace<number> {
   // Service dependency for navigation logic
   protected readonly navigationService: NavigationService;
 
-
   constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -189,6 +188,10 @@ export class Candlestick extends AbstractTrace<number> {
         // Vertical movement: navigate between segments within the same candlestick (value-sorted)
         const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
         const currentSegmentPosition = navOrder.indexOf(this.currentSegmentType ?? 'open');
+        if (currentSegmentPosition === -1) {
+          this.notifyOutOfBounds();
+          return;
+        }
         const newSegmentPosition = direction === 'UPWARD'
           ? currentSegmentPosition + 1
           : currentSegmentPosition - 1;
@@ -373,25 +376,17 @@ export class Candlestick extends AbstractTrace<number> {
       this.currentSegmentType ?? this.sections[0],
     );
     this.row = valueSortedRow;
-    // Print segment types and their values for the current candle as a readable string
-    const segmentValuesStr = this.sections.map(seg => `${seg}: ${this.candles[this.currentPointIndex][seg]}`).join(', ');
-    console.log(
-      `[Candlestick] braille() debug: row=${this.row}, col=${this.col}, currentSegmentType=${this.currentSegmentType}, currentPointIndex=${this.currentPointIndex}, segments=[${segmentValuesStr}]`
-    );
-    console.log('[Candlestick] braille() called:', {
-      id: this.id,
-      row: this.row,
-      col: this.col,
-      currentSegmentType: this.currentSegmentType,
-      currentPointIndex: this.currentPointIndex
-    });
+
+    // Compute per-row min/max for all segments (including volatility)
+    const perRowMin = this.candleValues.map(row => Math.min(...row));
+    const perRowMax = this.candleValues.map(row => Math.max(...row));
 
     return {
       empty: false,
       id: this.id,
-      values: this.candleValues,
-      min: this.min,
-      max: this.max,
+      values: this.candleValues, // includes volatility and OHLC
+      min: perRowMin,
+      max: perRowMax,
       row: this.row,
       col: this.col,
       custom: bearOrBull,
