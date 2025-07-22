@@ -1,6 +1,6 @@
 import type { MovableDirection } from '@type/movable';
 
-export function isBoundary(row: number, col: number, grid: any[][], direction: MovableDirection): boolean {
+export function isBoundary<T>(row: number, col: number, grid: T[][], direction: MovableDirection): boolean {
   switch (direction) {
     case 'UPWARD':
       return row >= grid.length - 1;

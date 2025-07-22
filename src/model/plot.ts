@@ -263,6 +263,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 }
 
 export interface Trace extends Movable, Observable<TraceState>, Disposable {
+  getId: () => string;
   /**
    * Get the current X value from the trace
    * @returns The current X value or null if not available

@@ -98,7 +98,8 @@ export class Context implements Disposable {
       activeSubplot.moveOnce(direction);
       const newTrace = activeSubplot.activeTrace;
 
-      if (newTrace === currentTrace) {
+      // Use getId() for boundary detection
+      if (newTrace.getId() === currentTrace.getId()) {
         this.plotContext.push(currentTrace);
         // Use only standard notification method for boundary feedback
         currentTrace.notifyOutOfBounds();

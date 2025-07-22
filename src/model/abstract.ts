@@ -167,12 +167,6 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.isOutOfBounds = false;
   }
 
-  public notifyObservers(state: State): void {
-    for (const observer of this.observers) {
-      observer.update(state);
-    }
-  }
-
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
@@ -390,5 +384,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
+  }
+
+  public getId(): string {
+    return this.id;
   }
 }
