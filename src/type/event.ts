@@ -6,13 +6,16 @@ export enum DomEventType {
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS_IN = 'focusin',
   FOCUS_OUT = 'focusout',
+  MOUSE_ENTER = 'mouseenter',
+  MOUSE_LEAVE = 'mouseleave',
+  MOUSE_MOVE = 'mousemove',
   SELECTION_CHANGE = 'selectionchange',
 }
 
-export type Status
-  = | 'PENDING'
-    | 'SUCCESS'
-    | 'FAILED';
+export type Status =
+  | 'PENDING'
+  | 'SUCCESS'
+  | 'FAILED';
 
 export enum Scope {
   BRAILLE = 'BRAILLE',

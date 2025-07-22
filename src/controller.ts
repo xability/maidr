@@ -53,17 +53,15 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot, reactContainer);
+    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
+    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
-    const storageService = new LocalStorageService();
-    this.settingsService = new SettingsService(storageService, this.displayService);
     this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
-
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
@@ -81,7 +79,7 @@ export class Controller implements Disposable {
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.notificationService.notify(this.context.getInstruction(false));
+    this.notificationService.notify(this.displayService.getInstruction(false));
 
     this.keybinding = new KeybindingService(
       {
@@ -102,7 +100,6 @@ export class Controller implements Disposable {
 
     this.registerViewModels();
     this.registerObservers();
-    this.settingsService.addObserver(this.highlightService);
     this.keybinding.register(this.context.scope);
   }
 
@@ -144,7 +141,6 @@ export class Controller implements Disposable {
 
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
-    this.figure.addObserver(this.highlightService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);
