@@ -36,7 +36,6 @@ export class Candlestick extends AbstractTrace<number> {
   // Service dependency for navigation logic
   protected readonly navigationService: NavigationService;
 
-  private lastBoundary: 'upper' | 'lower' | null = null;
 
   constructor(layer: MaidrLayer) {
     super(layer);
@@ -71,7 +70,7 @@ export class Candlestick extends AbstractTrace<number> {
 
     // Initialize navigation state
     this.currentPointIndex = 0;
-    this.currentSegmentType = 'open';
+    this.currentSegmentType = 'close';
 
     // Initialize visual positioning for highlighting (keep original structure)
     if (this.orientation === Orientation.HORIZONTAL) {
@@ -162,8 +161,8 @@ export class Candlestick extends AbstractTrace<number> {
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.currentPointIndex = Math.max(0, Math.min(this.currentPointIndex, this.candles.length - 1));
-    // Always start at 'open' on initial entry
-    this.currentSegmentType = 'open';
+    // Always start at 'close' on initial entry
+    this.currentSegmentType = 'close';
     this.updateVisualSegmentPosition();
   }
 
@@ -177,56 +176,9 @@ export class Candlestick extends AbstractTrace<number> {
       return;
     }
 
-    // If at lower boundary (currentSegmentType is null) and direction is DOWNWARD, stay at boundary
-    if (this.currentSegmentType === null) {
-      if (direction === 'UPWARD' && this.lastBoundary === 'lower') {
-        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
-        this.currentSegmentType = navOrder[0];
-        this.lastBoundary = null; // Reset after re-entry
-        this.updateVisualSegmentPosition();
-        this.notifyStateUpdate();
-        return;
-      }
-      if (direction === 'DOWNWARD' && this.lastBoundary === 'upper') {
-        const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
-        this.currentSegmentType = navOrder[navOrder.length - 1];
-        this.lastBoundary = null; // Reset after re-entry
-        this.updateVisualSegmentPosition();
-        this.notifyStateUpdate();
-        return;
-      }
-      if (direction === 'FORWARD' || direction === 'BACKWARD') {
-        const newPointIndex
-          = direction === 'FORWARD'
-            ? this.currentPointIndex + 1
-            : this.currentPointIndex - 1;
-        if (newPointIndex >= 0 && newPointIndex < this.candles.length) {
-          this.currentPointIndex = newPointIndex;
-          this.currentSegmentType = 'open';
-          this.lastBoundary = null;
-          this.updateVisualPointPosition();
-          this.updateVisualSegmentPosition();
-          this.notifyStateUpdate();
-          return;
-        } else {
-          this.notifyOutOfBounds();
-          return;
-        }
-      }
-      // Any other direction, stay at boundary
-      this.notifyOutOfBounds();
-      return;
-    }
-
+    // Remove boundary re-entry logic: when at boundary, do nothing
+    // Instead, just do not move if not movable
     if (!this.isMovable(direction)) {
-      if (direction === 'DOWNWARD') {
-        this.currentSegmentType = null;
-        this.lastBoundary = 'lower';
-      }
-      if (direction === 'UPWARD') {
-        this.currentSegmentType = null;
-        this.lastBoundary = 'upper';
-      }
       this.notifyOutOfBounds();
       return;
     }
@@ -235,7 +187,6 @@ export class Candlestick extends AbstractTrace<number> {
       case 'UPWARD':
       case 'DOWNWARD': {
         // Vertical movement: navigate between segments within the same candlestick (value-sorted)
-        // Use the sorted navigation order (with volatility first)
         const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
         const currentSegmentPosition = navOrder.indexOf(this.currentSegmentType ?? 'open');
         const newSegmentPosition = direction === 'UPWARD'
@@ -245,6 +196,7 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType = navOrder[newSegmentPosition];
           this.updateVisualSegmentPosition();
         } else {
+          // If we hit a boundary, do not move, just notify
           this.notifyOutOfBounds();
           return;
         }
@@ -515,7 +467,7 @@ export class Candlestick extends AbstractTrace<number> {
     const targetIndex = this.candles.findIndex(candle => candle.value === xValue);
     if (targetIndex !== -1) {
       this.currentPointIndex = targetIndex;
-      this.currentSegmentType = 'open'; // Default to open segment
+      this.currentSegmentType = 'close'; // Default to close segment
       this.updateVisualPointPosition();
       this.updateVisualSegmentPosition();
       this.notifyStateUpdate();
