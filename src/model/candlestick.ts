@@ -367,6 +367,25 @@ export class Candlestick extends AbstractTrace<number> {
     // get an array for bear or bull
     const bearOrBull = this.candles.map(candle => candle.trend);
 
+    // Set row to value-sorted index of current segment for current candle
+    const valueSortedRow = this.getSegmentPositionInSortedOrder(
+      this.currentPointIndex,
+      this.currentSegmentType ?? this.sections[0],
+    );
+    this.row = valueSortedRow;
+    // Print segment types and their values for the current candle as a readable string
+    const segmentValuesStr = this.sections.map(seg => `${seg}: ${this.candles[this.currentPointIndex][seg]}`).join(', ');
+    console.log(
+      `[Candlestick] braille() debug: row=${this.row}, col=${this.col}, currentSegmentType=${this.currentSegmentType}, currentPointIndex=${this.currentPointIndex}, segments=[${segmentValuesStr}]`
+    );
+    console.log('[Candlestick] braille() called:', {
+      id: this.id,
+      row: this.row,
+      col: this.col,
+      currentSegmentType: this.currentSegmentType,
+      currentPointIndex: this.currentPointIndex
+    });
+
     return {
       empty: false,
       id: this.id,
