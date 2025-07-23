@@ -75,7 +75,7 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: `l`,
 
   // Description
-  // DESCRIBE_TITLE: `t`, // Removed to enforce L T for title
+  DESCRIBE_TITLE: `t`,
   DESCRIBE_POINT: `space`,
 
   // Navigation

@@ -197,14 +197,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
     return this.state;
   }
-
-  public getSize(): number {
-    return this.size;
-  }
-
-  public getRow(): number {
-    return this.row;
-  }
 }
 
 export interface Trace extends Movable, Observable<TraceState>, Disposable {
@@ -220,21 +212,4 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns true if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
-
-  /**
-   * Reset the trace to initial entry state
-   * This sets isInitialEntry to true and position to (0, 0)
-   */
-  resetToInitialEntry: () => void;
-
-  /**
-   * Notify all observers with a custom TraceState
-   */
-  notifyObserversWithState: (state: TraceState) => void;
-}
-
-export interface TraceWithProperties {
-  isInitialEntry: boolean;
-  row: number;
-  col: number;
 }
