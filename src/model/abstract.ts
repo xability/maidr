@@ -146,6 +146,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
+  public resetToInitialEntry(): void {
+    this.isInitialEntry = true;
+    this.row = 0;
+    this.col = 0;
+  }
+
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
@@ -302,6 +308,12 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  public notifyObserversWithState(state: TraceState): void {
+    for (const observer of this.observers) {
+      observer.update(state);
+    }
+  }
 
   /**
    * Base implementation for getting current X value

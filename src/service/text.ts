@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { PlotState, TextState, TraceState } from '@type/state';
+import type { PlotState, TextState } from '@type/state';
 import type { NotificationService } from './notification';
 import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
@@ -20,8 +20,6 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
-  private currentState: PlotState | null = null;
-  private currentSubplotIndex: number | null = null;
 
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
@@ -39,90 +37,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.onChangeEmitter.dispose();
   }
 
-  /**
-   * Get the current state that was last processed by the TextService
-   * This provides access to state information without violating dependency flow
-   */
-  public getCurrentState(): PlotState | null {
-    return this.currentState;
-  }
-
-  /**
-   * Get coordinate information from the current state
-   * Returns null if no valid state is available
-   */
-  public getCoordinateText(): string | null {
-    if (!this.currentState || this.currentState.empty) {
-      return null;
-    }
-
-    // Handle different state types
-    if (this.currentState.type === 'subplot' && !this.currentState.trace.empty) {
-      return this.formatCoordinateText(this.currentState.trace);
-    } else if (this.currentState.type === 'trace' && !this.currentState.empty) {
-      return this.formatCoordinateText(this.currentState);
-    }
-
-    return null;
-  }
-
-  /**
-   * Check if the current state represents a layer switch
-   * Returns true if the subplot index has changed
-   */
-  public isLayerSwitch(): boolean {
-    if (!this.currentState || this.currentState.empty || this.currentState.type !== 'subplot') {
-      return false;
-    }
-
-    const newSubplotIndex = this.currentState.index;
-
-    if (this.currentSubplotIndex !== null && this.currentSubplotIndex !== newSubplotIndex) {
-      // Layer switch detected - subplot index changed
-      this.currentSubplotIndex = newSubplotIndex;
-      return true;
-    } else if (this.currentSubplotIndex === null) {
-      // First time setting the subplot index
-      this.currentSubplotIndex = newSubplotIndex;
-      // If this is not the first layer (index 0), treat it as a layer switch
-      return newSubplotIndex !== 0;
-    }
-
-    return false;
-  }
-
-  private formatCoordinateText(traceState: TraceState): string | null {
-    if (traceState.empty || !traceState.text) {
-      return null;
-    }
-
-    const { text } = traceState;
-    const parts: string[] = [];
-
-    // Add X coordinate
-    if (text.main && text.main.value !== undefined) {
-      const xValue = Array.isArray(text.main.value)
-        ? text.main.value.join(', ')
-        : String(text.main.value);
-      parts.push(`${text.main.label} is ${xValue}`);
-    }
-
-    // Add Y coordinate
-    if (text.cross && text.cross.value !== undefined) {
-      const yValue = Array.isArray(text.cross.value)
-        ? text.cross.value.join(', ')
-        : String(text.cross.value);
-      parts.push(`${text.cross.label} is ${yValue}`);
-    }
-
-    // Add fill/type information (for line plots this includes group/type like "MAV=3")
-    if (text.fill && text.fill.value !== undefined) {
-      parts.push(`${text.fill.label} is ${text.fill.value}`);
-    }
-
-    return parts.length > 0 ? parts.join(', ') : null;
-  }
-
   public format(state: string | PlotState): string {
     if (typeof state === 'string') {
       return state;
@@ -131,7 +45,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
-      return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
+      return this.formatSubplotText(state.index, state.size, state.trace.traceType);
     } else if (this.mode === TextMode.VERBOSE) {
       return this.formatVerboseTraceText(state.text);
     } else {
@@ -146,10 +60,8 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
-  private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
-    // Use plotType if available, otherwise fall back to traceType
-    const type = traceState && !traceState.empty ? traceState.plotType : traceType;
-    return `Layer ${index} of ${size}: ${type} plot`;
+  private formatSubplotText(index: number, size: number, traceType: string): string {
+    return `Layer ${index} of ${size}: ${traceType} plot`;
   }
 
   private formatVerboseTraceText(state: TextState): string {
@@ -253,19 +165,52 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   public update(state: PlotState): void {
-    if (this.mode === TextMode.OFF) {
+    if (this.mode === TextMode.OFF)
       return;
-    }
-
-    // Store the current state for access by ViewModels
-    this.currentState = state;
-
-    if (state.type === 'subplot') {
-      const text = this.format(state);
-      if (text) {
-        this.notification.notify(text);
+    if (state.type === 'trace' && !state.empty) {
+      const traceState = state; // type narrowed to TraceState
+      if (traceState.isLayerSwitch) {
+        // Announce layer + value
+        const { plotType, traceType, text, index, size } = traceState;
+        let announcement = `Layer ${index ?? '?'} of ${size ?? '?'}: ${plotType || traceType} plot`;
+        if (text) {
+          const parts: string[] = [];
+          if (text.main && text.main.value !== undefined) {
+            parts.push(`${text.main.label} is ${text.main.value}`);
+          }
+          if (text.cross && text.cross.value !== undefined) {
+            parts.push(`${text.cross.label} is ${text.cross.value}`);
+          }
+          if (text.fill && text.fill.value !== undefined) {
+            parts.push(`${text.fill.label} is ${text.fill.value}`);
+          }
+          if (parts.length > 0) {
+            announcement += ` at ${parts.join(', ')}`;
+          }
+        }
+        this.notification.notify(announcement);
+        return;
+      } else {
+        // Announce value only
+        const { text } = traceState;
+        if (text) {
+          const parts: string[] = [];
+          if (text.main && text.main.value !== undefined) {
+            parts.push(this.formatCoordinate(text.main.label, text.main.value));
+          }
+          if (text.cross && text.cross.value !== undefined) {
+            parts.push(this.formatCoordinate(text.cross.label, text.cross.value));
+          }
+          if (text.fill && text.fill.value !== undefined) {
+            parts.push(this.formatCoordinate(text.fill.label, text.fill.value));
+          }
+          if (parts.length > 0) {
+            const announcement = parts.join(', ');
+            this.notification.notify(announcement);
+          }
+        }
+        return;
       }
-      return;
     }
     const text = this.format(state);
     if (text) {
@@ -292,5 +237,12 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
 
     return this.mode !== TextMode.OFF;
+  }
+
+  private formatCoordinate(label: string, value: any): string {
+    if (Array.isArray(value)) {
+      return `${label} is ${value.join(', ')}`;
+    }
+    return `${label} is ${value}`;
   }
 }

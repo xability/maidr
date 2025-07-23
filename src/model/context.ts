@@ -89,24 +89,23 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
-
       const activeSubplot = this.active as Subplot;
-
-      // Get current trace position before switching
       const currentTrace = activeSubplot.activeTrace;
-
-      // Get current X value using standard interface
       const currentXValue = currentTrace.getCurrentXValue();
-
       activeSubplot.moveOnce(direction);
-
       const newTrace = activeSubplot.activeTrace;
-
-      // Add the new trace to the context
       this.plotContext.push(newTrace);
-
-      // Try to move to the same X value in the new trace
-      const _moveResult = newTrace.moveToXValue(currentXValue);
+      newTrace.moveToXValue(currentXValue);
+      if (newTrace !== currentTrace) {
+        // Layer switch: emit TraceState with isLayerSwitch: true, index, and size
+        const subplot = activeSubplot as Subplot;
+        const index = subplot.getRow() + 1;
+        const size = subplot.getSize();
+        const state = { ...newTrace.state, isLayerSwitch: true, index, size };
+        newTrace.notifyObserversWithState(state);
+      } else {
+        newTrace.notifyStateUpdate();
+      }
     }
   }
 
@@ -115,8 +114,10 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.active.notifyStateUpdate();
-      this.plotContext.push(activeFigure.activeSubplot.activeTrace);
+      const trace = activeFigure.activeSubplot.activeTrace;
+      // Use proper interface method to reset trace to initial entry state
+      trace.resetToInitialEntry();
+      this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }
   }

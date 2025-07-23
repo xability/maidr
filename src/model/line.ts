@@ -217,7 +217,7 @@ export class LineTrace extends AbstractTrace<number> {
       const [row, col] = target;
       return (
         row >= 0 && row < this.values.length
-        && col >= 0 && col < this.values[row].length // Fixed: use target row instead of current row
+        && col >= 0 && col < this.values[row].length
       );
     }
 
