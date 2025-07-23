@@ -291,4 +291,10 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Notify observers that the trace is out of bounds
    */
   notifyOutOfBounds: () => void;
+
+  /**
+   * Reset the trace to initial entry state
+   * This sets isInitialEntry to true and position to (0, 0)
+   */
+  resetToInitialEntry: () => void;
 }

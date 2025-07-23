@@ -121,7 +121,9 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.plotContext.push(activeFigure.activeSubplot.activeTrace);
+      const trace = activeFigure.activeSubplot.activeTrace;
+      trace.resetToInitialEntry();
+      this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }
   }
