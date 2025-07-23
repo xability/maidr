@@ -45,7 +45,7 @@ export class Candlestick extends AbstractTrace<number> {
     const data = layer.data as CandlestickPoint[];
     this.candles = data.map(candle => ({
       ...candle,
-      volatility: candle.high - candle.low,
+      volatility: Math.round((candle.high - candle.low) * 100) / 100,
       trend:
         candle.close > candle.open
           ? 'Bull'
