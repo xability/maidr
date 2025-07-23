@@ -152,6 +152,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Layer ${index} of ${size}: ${type} plot`;
   }
 
+  /**
+   * Helper method to determine if the current state represents a box plot
+   * Box plots have sections but no fill information
+   */
+  private isBoxPlotWithSection(state: TextState): boolean {
+    return state.section !== undefined && state.fill === undefined;
+  }
+
   private formatVerboseTraceText(state: TextState): string {
     const verbose = new Array<string>();
 
@@ -176,7 +184,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for box plot.
-    if (state.section !== undefined && state.fill === undefined) {
+    if (this.isBoxPlotWithSection(state)) {
       verbose.push(Constant.COMMA_SPACE);
 
       if (Array.isArray(state.cross.value)) {

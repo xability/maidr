@@ -1,8 +1,14 @@
 import type { CandlestickPoint, MaidrLayer, TraceType } from '@type/grammar';
-import { describe, expect, it } from '@jest/globals';
+import type { TextState } from '@type/state';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
 import { NotificationService } from '@service/notification';
 import { TextService } from '@service/text';
+
+// Type helper for accessing protected methods in tests
+type CandlestickWithTestAccess = Candlestick & {
+  text: () => TextState;
+};
 
 // Mock data for testing
 const mockCandlestickData: CandlestickPoint[] = [
@@ -60,7 +66,7 @@ describe('Candlestick Text Formatting', () => {
       // Navigate to first point, open segment
       candlestick.moveToIndex(0, 0);
 
-      const textState = (candlestick as any).text();
+      const textState = (candlestick as CandlestickWithTestAccess).text();
 
       expect(textState).toMatchObject({
         main: { label: 'date', value: '2021-01-01' },
@@ -83,7 +89,7 @@ describe('Candlestick Text Formatting', () => {
         // Navigate to the segment (row represents segment position in value-sorted order)
         candlestick.moveToIndex(index, 0);
 
-        const textState = (candlestick as any).text();
+        const textState = (candlestick as CandlestickWithTestAccess).text();
 
         expect(textState.section).toBe(segment);
         expect(textState.cross.value).toBe(expectedValue);
@@ -97,7 +103,7 @@ describe('Candlestick Text Formatting', () => {
       textService.toggle(); // From VERBOSE to TERSE
 
       candlestick.moveToIndex(0, 0); // First point, open segment
-      const textState = (candlestick as any).text();
+      const textState = (candlestick as CandlestickWithTestAccess).text();
       const terseText = textService.format({
         empty: false,
         type: 'trace' as const,
@@ -122,7 +128,7 @@ describe('Candlestick Text Formatting', () => {
     it('should format verbose text correctly (current behavior)', () => {
       // Ensure verbose mode (default)
       candlestick.moveToIndex(0, 0); // First point, open segment
-      const textState = (candlestick as any).text();
+      const textState = (candlestick as CandlestickWithTestAccess).text();
       const verboseText = textService.format({
         empty: false,
         type: 'trace' as const,
@@ -155,7 +161,7 @@ describe('Candlestick Text Formatting', () => {
 
       segments.forEach((segment, index) => {
         candlestick.moveToIndex(index, 0);
-        const textState = (candlestick as any).text();
+        const textState = (candlestick as CandlestickWithTestAccess).text();
         const terseText = textService.format({
           empty: false,
           type: 'trace' as const,
@@ -180,7 +186,7 @@ describe('Candlestick Text Formatting', () => {
     it('should format verbose text with proper wording and capitalization', () => {
       // Test that verbose mode uses proper wording and lowercase "trend"
       candlestick.moveToIndex(0, 0); // First point, open segment
-      const textState = (candlestick as any).text();
+      const textState = (candlestick as CandlestickWithTestAccess).text();
       const verboseText = textService.format({
         empty: false,
         type: 'trace' as const,
@@ -209,7 +215,7 @@ describe('Candlestick Text Formatting', () => {
     it('should format Bear trend as lowercase in both terse and verbose modes', () => {
       // Navigate to second point which has Bear trend
       candlestick.moveToIndex(0, 1); // First segment, second point (Bear trend)
-      const textState = (candlestick as any).text();
+      const textState = (candlestick as CandlestickWithTestAccess).text();
 
       // Test verbose mode
       const verboseText = textService.format({
