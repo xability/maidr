@@ -1,8 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState } from '@type/state';
-import type { Observer } from '../type/observable';
-import type { TraceState } from '../type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -10,7 +8,6 @@ import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
-type TraceWithObservers = Trace & { observers: Observer<TraceState>[] };
 
 export class Context implements Disposable {
   public readonly id: string;
@@ -105,7 +102,7 @@ export class Context implements Disposable {
         const index = subplot.getRow() + 1;
         const size = subplot.getSize();
         const state = { ...newTrace.state, isLayerSwitch: true, index, size };
-        (newTrace as TraceWithObservers).observers.forEach(o => o.update(state));
+        newTrace.notifyObserversWithState(state);
       } else {
         newTrace.notifyStateUpdate();
       }

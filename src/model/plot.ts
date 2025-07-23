@@ -226,6 +226,11 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * This sets isInitialEntry to true and position to (0, 0)
    */
   resetToInitialEntry: () => void;
+
+  /**
+   * Notify all observers with a custom TraceState
+   */
+  notifyObserversWithState: (state: TraceState) => void;
 }
 
 export interface TraceWithProperties {

@@ -309,6 +309,12 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 
+  public notifyObserversWithState(state: TraceState): void {
+    for (const observer of this.observers) {
+      observer.update(state);
+    }
+  }
+
   /**
    * Base implementation for getting current X value
    * Subclasses can override if they have different data structures
