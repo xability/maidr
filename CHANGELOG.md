@@ -1,3 +1,10 @@
+# [3.19.0](https://github.com/xability/maidr/compare/v3.18.4...v3.19.0) (2025-07-23)
+
+
+### Features
+
+* add boundary for layer navigation ([#393](https://github.com/xability/maidr/issues/393)) ([3d36d32](https://github.com/xability/maidr/commit/3d36d32fe8ef0e4e3f5b31282575eba2704ff4b6))
+
 ## [3.18.4](https://github.com/xability/maidr/compare/v3.18.3...v3.18.4) (2025-07-23)
 
 
