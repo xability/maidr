@@ -4,7 +4,6 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
-import { isBoundary } from '@util/navigation';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
 
@@ -132,6 +131,21 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     };
   }
 
+  public isMovable(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'UPWARD':
+        return this.row < this.subplots.length - 1;
+      case 'DOWNWARD':
+        return this.row > 0;
+      case 'FORWARD':
+        return this.col < this.subplots[this.row].length - 1;
+      case 'BACKWARD':
+        return this.col > 0;
+      default:
+        return false;
+    }
+  }
+
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -139,15 +153,11 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       return;
     }
 
-    // Check if we're about to hit a boundary
-    const willHitBoundary = isBoundary(this.row, this.col, this.subplots, direction);
-
-    if (willHitBoundary) {
+    if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
       return;
     }
 
-    // Normal navigation - no boundary audio
     switch (direction) {
       case 'UPWARD':
         this.row += 1;

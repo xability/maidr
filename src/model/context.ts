@@ -72,9 +72,9 @@ export class Context implements Disposable {
     return this.scopeContext.peek()!;
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    return this.active.isMovable(target);
-  };
+  public isMovable(direction: MovableDirection): boolean {
+    return this.active.isMovable(direction);
+  }
 
   public moveOnce(direction: MovableDirection): void {
     this.active.moveOnce(direction);
@@ -101,9 +101,7 @@ export class Context implements Disposable {
       // Use getId() for boundary detection
       if (newTrace.getId() === currentTrace.getId()) {
         this.plotContext.push(currentTrace);
-        // Use only standard notification method for boundary feedback
         currentTrace.notifyOutOfBounds();
-        activeSubplot.notifyOutOfBounds(); // For UI feedback
         return;
       }
 
