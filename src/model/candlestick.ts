@@ -9,6 +9,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 
 const TREND = 'Trend';
+const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
@@ -45,7 +46,7 @@ export class Candlestick extends AbstractTrace<number> {
     const data = layer.data as CandlestickPoint[];
     this.candles = data.map(candle => ({
       ...candle,
-      volatility: Math.round((candle.high - candle.low) * 100) / 100,
+      volatility: Math.round((candle.high - candle.low) * VOLATILITY_PRECISION_MULTIPLIER) / VOLATILITY_PRECISION_MULTIPLIER,
       trend:
         candle.close > candle.open
           ? 'Bull'
@@ -175,8 +176,6 @@ export class Candlestick extends AbstractTrace<number> {
       return;
     }
 
-    // Remove boundary re-entry logic: when at boundary, do nothing
-    // Instead, just do not move if not movable
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
       return;
@@ -199,7 +198,6 @@ export class Candlestick extends AbstractTrace<number> {
           this.currentSegmentType = navOrder[newSegmentPosition];
           this.updateVisualSegmentPosition();
         } else {
-          // If we hit a boundary, do not move, just notify
           this.notifyOutOfBounds();
           return;
         }
@@ -370,7 +368,7 @@ export class Candlestick extends AbstractTrace<number> {
     // get an array for bear or bull
     const bearOrBull = this.candles.map(candle => candle.trend);
 
-    // Set row to value-sorted index of current segment for current candle
+    // Set row to the position in navigation order (volatility first, then value-sorted OHLC) for the current segment of the current candle
     const valueSortedRow = this.getSegmentPositionInSortedOrder(
       this.currentPointIndex,
       this.currentSegmentType ?? this.sections[0],
