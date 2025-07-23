@@ -197,11 +197,16 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format for heatmap and scatter plot.
     if (state.fill !== undefined) {
+      // Convert candlestick trend values to lowercase for text mode
+      const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
+        ? state.fill.value.toLowerCase()
+        : state.fill.value;
+
       verbose.push(
         Constant.COMMA_SPACE,
         state.fill.label,
         Constant.IS,
-        state.fill.value,
+        fillValue,
       );
     }
 
@@ -247,11 +252,16 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format for heatmap and segmented plots.
     if (state.fill !== undefined) {
+      // Convert candlestick trend values to lowercase for text mode
+      const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
+        ? state.fill.value.toLowerCase()
+        : state.fill.value;
+
       // For candlestick plots, don't add comma before fill value to show "open bear" instead of "open, bear"
       if (state.section !== undefined) {
-        terse.push(Constant.SPACE, state.fill.value);
+        terse.push(Constant.SPACE, fillValue);
       } else {
-        terse.push(Constant.COMMA_SPACE, state.fill.value);
+        terse.push(Constant.COMMA_SPACE, fillValue);
       }
     }
 

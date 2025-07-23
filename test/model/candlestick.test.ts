@@ -116,7 +116,7 @@ describe('Candlestick Text Formatting', () => {
       });
 
       // Fixed behavior: shows price type before price value
-      expect(terseText).toBe('2021-01-01, open 100 Bull');
+      expect(terseText).toBe('2021-01-01, open 100 bull');
     });
 
     it('should format verbose text correctly (current behavior)', () => {
@@ -141,7 +141,7 @@ describe('Candlestick Text Formatting', () => {
       });
 
       // Fixed behavior: proper wording and capitalization
-      expect(verboseText).toBe('date is 2021-01-01, open price is 100, trend is Bull');
+      expect(verboseText).toBe('date is 2021-01-01, open price is 100, trend is bull');
     });
   });
 
@@ -173,7 +173,7 @@ describe('Candlestick Text Formatting', () => {
           highlight: {} as any,
         });
 
-        expect(terseText).toBe(`2021-01-01, ${segment} ${expectedValues[index]} Bull`);
+        expect(terseText).toBe(`2021-01-01, ${segment} ${expectedValues[index]} bull`);
       });
     });
 
@@ -198,12 +198,60 @@ describe('Candlestick Text Formatting', () => {
         highlight: {} as any,
       });
 
-      expect(verboseText).toBe('date is 2021-01-01, open price is 100, trend is Bull');
+      expect(verboseText).toBe('date is 2021-01-01, open price is 100, trend is bull');
 
       // Ensure it includes proper wording (segment + label) and lowercase "trend"
       expect(verboseText).toContain('open price');
       expect(verboseText).toContain('trend is');
       expect(verboseText).not.toContain('Trend is');
+    });
+
+    it('should format Bear trend as lowercase in both terse and verbose modes', () => {
+      // Navigate to second point which has Bear trend
+      candlestick.moveToIndex(0, 1); // First segment, second point (Bear trend)
+      const textState = (candlestick as any).text();
+
+      // Test verbose mode
+      const verboseText = textService.format({
+        empty: false,
+        type: 'trace' as const,
+        traceType: 'candlestick' as TraceType,
+        plotType: 'candlestick',
+        title: 'test',
+        xAxis: 'date',
+        yAxis: 'price',
+        fill: '',
+        hasMultiPoints: false,
+        audio: {} as any,
+        braille: {} as any,
+        text: textState,
+        autoplay: {} as any,
+        highlight: {} as any,
+      });
+
+      expect(verboseText).toContain('trend is bear');
+
+      // Test terse mode
+      textService.toggle(); // Switch to terse mode
+      const terseText = textService.format({
+        empty: false,
+        type: 'trace' as const,
+        traceType: 'candlestick' as TraceType,
+        plotType: 'candlestick',
+        title: 'test',
+        xAxis: 'date',
+        yAxis: 'price',
+        fill: '',
+        hasMultiPoints: false,
+        audio: {} as any,
+        braille: {} as any,
+        text: textState,
+        autoplay: {} as any,
+        highlight: {} as any,
+      });
+
+      expect(terseText).toContain('bear');
+      expect(terseText).not.toContain('Bear');
     });
   });
 });
