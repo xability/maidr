@@ -1,3 +1,10 @@
+# [3.20.0](https://github.com/xability/maidr/compare/v3.19.0...v3.20.0) (2025-07-23)
+
+
+### Features
+
+* add volatility to candlestick plot ([#397](https://github.com/xability/maidr/issues/397)) ([ce0facf](https://github.com/xability/maidr/commit/ce0facfa622e4560421e0504f6c1c4993872ac96))
+
 # [3.19.0](https://github.com/xability/maidr/compare/v3.18.4...v3.19.0) (2025-07-23)
 
 
