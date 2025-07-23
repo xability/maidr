@@ -15,8 +15,10 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private readonly figure: Figure;
 
   public constructor(figure: Figure) {
+    this.figure = figure;
     this.id = figure.id;
 
     this.plotContext = new Stack<Plot>();
@@ -41,7 +43,7 @@ export class Context implements Disposable {
       return;
     }
 
-    // Set the context to trace level.
+    // Set the context to trace level (single-layer plot)
     this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
   }
@@ -70,9 +72,9 @@ export class Context implements Disposable {
     return this.scopeContext.peek()!;
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    return this.active.isMovable(target);
-  };
+  public isMovable(direction: MovableDirection): boolean {
+    return this.active.isMovable(direction);
+  }
 
   public moveOnce(direction: MovableDirection): void {
     this.active.moveOnce(direction);
@@ -89,24 +91,28 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
-
       const activeSubplot = this.active as Subplot;
-
-      // Get current trace position before switching
       const currentTrace = activeSubplot.activeTrace;
-
-      // Get current X value using standard interface
       const currentXValue = currentTrace.getCurrentXValue();
 
       activeSubplot.moveOnce(direction);
-
       const newTrace = activeSubplot.activeTrace;
 
-      // Add the new trace to the context
-      this.plotContext.push(newTrace);
+      // Use getId() for boundary detection
+      if (newTrace.getId() === currentTrace.getId()) {
+        this.plotContext.push(currentTrace);
+        currentTrace.notifyOutOfBounds();
+        return;
+      }
 
-      // Try to move to the same X value in the new trace
-      const _moveResult = newTrace.moveToXValue(currentXValue);
+      this.plotContext.push(newTrace);
+      newTrace.moveToXValue(currentXValue);
+    } else {
+      // Single-layer: derive the only subplot from the figure
+      const onlySubplot = this.figure.subplots[0][0];
+      const activeTrace = this.active as Trace;
+      activeTrace.notifyOutOfBounds();
+      onlySubplot.notifyOutOfBounds(); // For UI feedback
     }
   }
 
@@ -115,7 +121,6 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.active.notifyStateUpdate();
       this.plotContext.push(activeFigure.activeSubplot.activeTrace);
       this.toggleScope(Scope.TRACE);
     }

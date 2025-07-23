@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
@@ -130,6 +130,50 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       },
     };
   }
+
+  public isMovable(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'UPWARD':
+        return this.row < this.subplots.length - 1;
+      case 'DOWNWARD':
+        return this.row > 0;
+      case 'FORWARD':
+        return this.col < this.subplots[this.row].length - 1;
+      case 'BACKWARD':
+        return this.col > 0;
+      default:
+        return false;
+    }
+  }
+
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    switch (direction) {
+      case 'UPWARD':
+        this.row += 1;
+        break;
+      case 'DOWNWARD':
+        this.row -= 1;
+        break;
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
+  }
 }
 
 export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
@@ -176,6 +220,35 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
+  public moveOnce(direction: MovableDirection): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    switch (direction) {
+      case 'UPWARD':
+        this.row += 1;
+        break;
+      case 'DOWNWARD':
+        this.row -= 1;
+        break;
+      case 'FORWARD':
+        this.col += 1;
+        break;
+      case 'BACKWARD':
+        this.col -= 1;
+        break;
+    }
+    this.notifyStateUpdate();
+  }
+
   public get state(): SubplotState {
     if (this.isOutOfBounds) {
       return {
@@ -200,6 +273,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 }
 
 export interface Trace extends Movable, Observable<TraceState>, Disposable {
+  getId: () => string;
   /**
    * Get the current X value from the trace
    * @returns The current X value or null if not available
@@ -212,4 +286,9 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns true if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
+
+  /**
+   * Notify observers that the trace is out of bounds
+   */
+  notifyOutOfBounds: () => void;
 }
