@@ -257,9 +257,9 @@ export class TextService implements Observer<PlotState>, Disposable {
         ? state.fill.value.toLowerCase()
         : state.fill.value;
 
-      // For candlestick plots, don't add comma before fill value to show "open bear" instead of "open, bear"
+      // For candlestick plots, add comma before trend value to show "open 100, bear"
       if (state.section !== undefined) {
-        terse.push(Constant.SPACE, fillValue);
+        terse.push(Constant.COMMA_SPACE, fillValue);
       } else {
         terse.push(Constant.COMMA_SPACE, fillValue);
       }

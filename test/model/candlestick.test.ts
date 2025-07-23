@@ -115,8 +115,8 @@ describe('Candlestick Text Formatting', () => {
         highlight: {} as any,
       });
 
-      // Fixed behavior: shows price type before price value
-      expect(terseText).toBe('2021-01-01, open 100 bull');
+      // Fixed behavior: shows price type before price value, with comma before trend
+      expect(terseText).toBe('2021-01-01, open 100, bull');
     });
 
     it('should format verbose text correctly (current behavior)', () => {
@@ -173,7 +173,7 @@ describe('Candlestick Text Formatting', () => {
           highlight: {} as any,
         });
 
-        expect(terseText).toBe(`2021-01-01, ${segment} ${expectedValues[index]} bull`);
+        expect(terseText).toBe(`2021-01-01, ${segment} ${expectedValues[index]}, bull`);
       });
     });
 
@@ -250,7 +250,7 @@ describe('Candlestick Text Formatting', () => {
         highlight: {} as any,
       });
 
-      expect(terseText).toContain('bear');
+      expect(terseText).toContain(', bear');
       expect(terseText).not.toContain('Bear');
     });
   });
