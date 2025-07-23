@@ -1,3 +1,10 @@
+## [3.18.4](https://github.com/xability/maidr/compare/v3.18.3...v3.18.4) (2025-07-23)
+
+
+### Bug Fixes
+
+* address layer switch logic and reset tracestate on subplot entry ([#396](https://github.com/xability/maidr/issues/396)) ([04b08b9](https://github.com/xability/maidr/commit/04b08b92a9dce480366f81e83bff50af00f20b52))
+
 ## [3.18.3](https://github.com/xability/maidr/compare/v3.18.2...v3.18.3) (2025-07-16)
 
 
