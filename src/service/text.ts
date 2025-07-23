@@ -168,10 +168,15 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis label.
-    verbose.push(Constant.COMMA_SPACE, state.cross.label);
+    if (state.section !== undefined) {
+      // For candlestick plots, combine section with cross label for better wording
+      verbose.push(Constant.COMMA_SPACE, state.section, Constant.SPACE, state.cross.label);
+    } else {
+      verbose.push(Constant.COMMA_SPACE, state.cross.label);
+    }
 
     // Format for box plot.
-    if (state.section !== undefined) {
+    if (state.section !== undefined && state.fill === undefined) {
       verbose.push(Constant.COMMA_SPACE);
 
       if (Array.isArray(state.cross.value)) {
@@ -213,13 +218,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for cross axis values (y-axis).
-    // For candlestick plots, we show both cross.value (price) and section (type)
+    // For candlestick plots, we show section (type) first, then cross.value (price)
     if (state.section !== undefined && state.fill !== undefined) {
-      // For candlestick: show cross.value (price) first, then section (type)
+      // For candlestick: show section (type) first, then cross.value (price)
+      terse.push(state.section, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value), Constant.COMMA_SPACE, state.section);
+        terse.push(String(state.cross.value));
       } else {
-        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET, Constant.COMMA_SPACE, state.section);
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
     } else {
       // For other plots: show cross.value normally
