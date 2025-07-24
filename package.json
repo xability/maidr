@@ -34,28 +34,28 @@
     "react-redux": "^9.2.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.11.0",
+    "@antfu/eslint-config": "^4.19.0",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@jest/globals": "^30.0.4",
-    "@jest/types": "^30.0.1",
+    "@jest/globals": "^30.0.5",
+    "@jest/types": "^30.0.5",
     "@playwright/test": "^1.54.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.15",
+    "@types/node": "^24.1.0",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.31.0",
     "eslint-plugin-format": "^1.0.1",
     "http-server": "^14.1.1",
     "husky": "^9.1.7",
-    "jest": "^30.0.4",
+    "jest": "^30.0.5",
     "semantic-release": "^24.2.7",
     "start-server-and-test": "^2.0.12",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "vite": "^7.0.5"
+    "vite": "^7.0.6"
   }
 }
