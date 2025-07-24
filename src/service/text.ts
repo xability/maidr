@@ -4,6 +4,7 @@ import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import { Emitter } from '@type/event';
+import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
 
 enum TextMode {
@@ -123,10 +124,35 @@ export class TextService implements Observer<PlotState>, Disposable {
     return parts.length > 0 ? parts.join(', ') : null;
   }
 
+  private formatLayerSwitchAnnouncement(state: TraceState): string {
+    if (!isLayerSwitchTraceState(state))
+      return '';
+    let announcement = `Layer ${state.index} of ${state.size}: ${state.plotType || state.traceType} plot`;
+    if (state.text) {
+      const parts: string[] = [];
+      if (state.text.main && state.text.main.value !== undefined) {
+        parts.push(`${state.text.main.label} is ${state.text.main.value}`);
+      }
+      if (state.text.cross && state.text.cross.value !== undefined) {
+        parts.push(`${state.text.cross.label} is ${state.text.cross.value}`);
+      }
+      if (state.text.fill && state.text.fill.value !== undefined) {
+        parts.push(`${state.text.fill.label} is ${state.text.fill.value}`);
+      }
+      if (parts.length > 0) {
+        announcement += ` at ${parts.join(', ')}`;
+      }
+    }
+    return announcement;
+  }
+
   public format(state: string | PlotState): string {
     if (typeof state === 'string') {
       return state;
     } else if (!state || state.empty) {
+      if (state.type === 'subplot') {
+        return 'No additional layer';
+      }
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
@@ -259,6 +285,13 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Store the current state for access by ViewModels
     this.currentState = state;
+
+    // Use the type guard and formatter for layer switches
+    if (state.type === 'trace' && isLayerSwitchTraceState(state)) {
+      const announcement = this.formatLayerSwitchAnnouncement(state);
+      this.notification.notify(announcement);
+      return;
+    }
 
     if (state.type === 'subplot') {
       const text = this.format(state);
