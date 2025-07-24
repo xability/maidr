@@ -26,9 +26,9 @@ export class NavigationService implements Disposable {
     orientation: Orientation,
     sections: readonly T[],
   ): {
-    pointIndex: number;
-    segmentType: T;
-  } {
+      pointIndex: number;
+      segmentType: T;
+    } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         pointIndex: row,
@@ -54,9 +54,9 @@ export class NavigationService implements Disposable {
     segmentPosition: number,
     orientation: Orientation,
   ): {
-    row: number;
-    col: number;
-  } {
+      row: number;
+      col: number;
+    } {
     if (orientation === Orientation.HORIZONTAL) {
       return {
         row: pointIndex,
