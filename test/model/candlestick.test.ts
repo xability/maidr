@@ -19,6 +19,7 @@ const mockCandlestickData: CandlestickPoint[] = [
     low: 95,
     close: 105,
     volume: 1000,
+    volatility: 15, // high - low = 110 - 95
     trend: 'Bull',
   },
   {
@@ -28,6 +29,7 @@ const mockCandlestickData: CandlestickPoint[] = [
     low: 100,
     close: 100.75,
     volume: 1500,
+    volatility: 15, // high - low = 115 - 100
     trend: 'Bear',
   },
 ];
@@ -63,22 +65,23 @@ describe('Candlestick Text Formatting', () => {
 
   describe('Text State Structure', () => {
     it('should provide correct text state structure for candlestick', () => {
-      // Navigate to first point, open segment
+      // Navigate to first point, volatility segment (index 0)
       candlestick.moveToIndex(0, 0);
 
       const textState = (candlestick as CandlestickWithTestAccess).text();
 
       expect(textState).toMatchObject({
         main: { label: 'date', value: '2021-01-01' },
-        cross: { label: 'price', value: 100 },
-        section: 'open',
+        cross: { label: 'price', value: 15 }, // volatility value
+        section: 'volatility', // volatility segment at index 0
         fill: { label: 'trend', value: 'Bull' },
       });
     });
 
     it('should provide correct text state for different segments', () => {
-      // Test different segments
+      // Test different segments (including volatility which is now at index 0)
       const segments = [
+        { segment: 'volatility', expectedValue: 15 }, // volatility = high - low = 110 - 95
         { segment: 'open', expectedValue: 100 },
         { segment: 'high', expectedValue: 110 },
         { segment: 'low', expectedValue: 95 },
@@ -86,7 +89,7 @@ describe('Candlestick Text Formatting', () => {
       ];
 
       segments.forEach(({ segment, expectedValue }, index) => {
-        // Navigate to the segment (row represents segment position in value-sorted order)
+        // Navigate to the segment (row represents segment position in sections array)
         candlestick.moveToIndex(index, 0);
 
         const textState = (candlestick as CandlestickWithTestAccess).text();
@@ -102,7 +105,7 @@ describe('Candlestick Text Formatting', () => {
       // Set to terse mode first
       textService.toggle(); // From VERBOSE to TERSE
 
-      candlestick.moveToIndex(0, 0); // First point, open segment
+      candlestick.moveToIndex(1, 0); // First point, open segment (index 1 since volatility is at index 0)
       const textState = (candlestick as CandlestickWithTestAccess).text();
       const terseText = textService.format({
         empty: false,
@@ -127,7 +130,7 @@ describe('Candlestick Text Formatting', () => {
 
     it('should format verbose text correctly (current behavior)', () => {
       // Ensure verbose mode (default)
-      candlestick.moveToIndex(0, 0); // First point, open segment
+      candlestick.moveToIndex(1, 0); // First point, open segment (index 1 since volatility is at index 0)
       const textState = (candlestick as CandlestickWithTestAccess).text();
       const verboseText = textService.format({
         empty: false,
@@ -160,7 +163,7 @@ describe('Candlestick Text Formatting', () => {
       const expectedValues = [100, 110, 95, 105];
 
       segments.forEach((segment, index) => {
-        candlestick.moveToIndex(index, 0);
+        candlestick.moveToIndex(index + 1, 0); // Add 1 to skip volatility at index 0
         const textState = (candlestick as CandlestickWithTestAccess).text();
         const terseText = textService.format({
           empty: false,
@@ -185,7 +188,7 @@ describe('Candlestick Text Formatting', () => {
 
     it('should format verbose text with proper wording and capitalization', () => {
       // Test that verbose mode uses proper wording and lowercase "trend"
-      candlestick.moveToIndex(0, 0); // First point, open segment
+      candlestick.moveToIndex(1, 0); // First point, open segment (index 1 since volatility is at index 0)
       const textState = (candlestick as CandlestickWithTestAccess).text();
       const verboseText = textService.format({
         empty: false,
@@ -214,7 +217,7 @@ describe('Candlestick Text Formatting', () => {
 
     it('should format Bear trend as lowercase in both terse and verbose modes', () => {
       // Navigate to second point which has Bear trend
-      candlestick.moveToIndex(0, 1); // First segment, second point (Bear trend)
+      candlestick.moveToIndex(1, 1); // Open segment, second point (Bear trend)
       const textState = (candlestick as CandlestickWithTestAccess).text();
 
       // Test verbose mode

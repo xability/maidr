@@ -50,6 +50,7 @@ export interface CandlestickPoint {
   close: number;
   volume: number;
   trend: CandlestickTrend;
+  volatility: number;
 }
 
 export interface HeatmapData {

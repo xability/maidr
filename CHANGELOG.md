@@ -1,3 +1,31 @@
+## [3.20.1](https://github.com/xability/maidr/compare/v3.20.0...v3.20.1) (2025-07-24)
+
+
+### Bug Fixes
+
+* reset trace state in multi-panel plots and refactor layer switch ([#403](https://github.com/xability/maidr/issues/403)) ([69d1f2f](https://github.com/xability/maidr/commit/69d1f2f98aaa32a32c722986a187a40a2d88f8dc))
+
+# [3.20.0](https://github.com/xability/maidr/compare/v3.19.0...v3.20.0) (2025-07-23)
+
+
+### Features
+
+* add volatility to candlestick plot ([#397](https://github.com/xability/maidr/issues/397)) ([ce0facf](https://github.com/xability/maidr/commit/ce0facfa622e4560421e0504f6c1c4993872ac96))
+
+# [3.19.0](https://github.com/xability/maidr/compare/v3.18.4...v3.19.0) (2025-07-23)
+
+
+### Features
+
+* add boundary for layer navigation ([#393](https://github.com/xability/maidr/issues/393)) ([3d36d32](https://github.com/xability/maidr/commit/3d36d32fe8ef0e4e3f5b31282575eba2704ff4b6))
+
+## [3.18.4](https://github.com/xability/maidr/compare/v3.18.3...v3.18.4) (2025-07-23)
+
+
+### Bug Fixes
+
+* address layer switch logic and reset tracestate on subplot entry ([#396](https://github.com/xability/maidr/issues/396)) ([04b08b9](https://github.com/xability/maidr/commit/04b08b92a9dce480366f81e83bff50af00f20b52))
+
 ## [3.18.3](https://github.com/xability/maidr/compare/v3.18.2...v3.18.3) (2025-07-16)
 
 

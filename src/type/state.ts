@@ -67,6 +67,23 @@ export type TraceState
       intersections?: AudioState[] | null;
     };
 
+export type NonEmptyTraceState = Extract<TraceState, { empty: false }>;
+
+export interface LayerSwitchTraceState extends NonEmptyTraceState {
+  isLayerSwitch: true;
+  index: number;
+  size: number;
+}
+
+export function isLayerSwitchTraceState(state: TraceState): state is LayerSwitchTraceState {
+  return (
+    !state.empty
+    && (state as Partial<LayerSwitchTraceState>).isLayerSwitch === true
+    && typeof (state as Partial<LayerSwitchTraceState>).index === 'number'
+    && typeof (state as Partial<LayerSwitchTraceState>).size === 'number'
+  );
+}
+
 export interface AudioEmptyState {
   index: number;
   size: number;
