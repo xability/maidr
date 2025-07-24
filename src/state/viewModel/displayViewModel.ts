@@ -18,7 +18,7 @@ interface DisplayState {
 const initialState: DisplayState = {
   focus: null,
   tooltip: {
-    visible: true,
+    visible: false,
     value: '',
   },
 };
@@ -27,32 +27,33 @@ const displaySlice = createSlice({
   name: 'display',
   initialState,
   reducers: {
+    hideTooltip(state): void {
+      state.tooltip = { ...state.tooltip, visible: false, value: '' };
+    },
+    showTooltip(state, action: PayloadAction<string>): void {
+      state.tooltip = { ...state.tooltip, visible: true, value: action.payload };
+    },
     updateFocus(state, action: PayloadAction<Focus>): void {
       state.focus = action.payload;
     },
-    toggleTooltip(state, action: PayloadAction<string>): void {
-      state.tooltip = { ...state.tooltip, visible: !state.tooltip.visible, value: action.payload };
-    },
   },
 });
-const { updateFocus, toggleTooltip } = displaySlice.actions;
+const { hideTooltip, showTooltip, updateFocus } = displaySlice.actions;
 
 export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   private readonly displayService: DisplayService;
-  public readonly plot: HTMLElement;
 
   public constructor(store: AppStore, displayService: DisplayService) {
     super(store);
 
     this.displayService = displayService;
-    this.plot = displayService.plot;
-
     this.registerListeners();
-    this.store.dispatch(toggleTooltip(this.displayService.getInstruction()));
+
+    this.store.dispatch(hideTooltip());
   }
 
   public dispose(): void {
-    this.store.dispatch(toggleTooltip(this.displayService.getInstruction()));
+    this.store.dispatch(showTooltip(this.displayService.getInstruction()));
     super.dispose();
   }
 

@@ -1,9 +1,6 @@
 import type { Status } from './event';
 
-export type Llm =
-  | 'GPT'
-  | 'CLAUDE'
-  | 'GEMINI';
+export type Llm = 'GPT' | 'CLAUDE' | 'GEMINI';
 
 export interface LlmRequest {
   message: string;
