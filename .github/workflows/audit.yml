@@ -1,4 +1,4 @@
-name: Validate UI and Example Changes
+name: Audit UI and Example Changes
 
 on:
   workflow_dispatch:
