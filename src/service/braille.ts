@@ -491,7 +491,6 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
     row: number,
     state: CandlestickBrailleState,
   ): {
-  ): {
     low: number;
     medium: number;
     high: number;
