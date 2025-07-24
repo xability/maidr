@@ -1,10 +1,10 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { BoxplotSection } from '@type/boxplotSection';
 
 export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];

@@ -106,6 +106,7 @@ export class Context implements Disposable {
         activeSubplot.notifyOutOfBounds();
         return;
       }
+
       newTrace.moveToXValue(currentXValue);
       if (!newTrace.state.empty) {
         const index = activeSubplot.getRow() + 1;

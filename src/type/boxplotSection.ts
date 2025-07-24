@@ -8,4 +8,4 @@ export const BoxplotSection = {
   UPPER_OUTLIER: 'Upper outlier(s)',
 } as const;
 
-export type BoxplotSectionType = typeof BoxplotSection[keyof typeof BoxplotSection]; 
+export type BoxplotSectionType = typeof BoxplotSection[keyof typeof BoxplotSection];

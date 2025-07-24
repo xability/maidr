@@ -5,45 +5,61 @@ import type { Focus } from '@type/event';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
+interface TooltipState {
+  visible: boolean;
+  value: string;
+}
+
 interface DisplayState {
   focus: Focus | null;
+  tooltip: TooltipState;
 }
 
 const initialState: DisplayState = {
   focus: null,
+  tooltip: {
+    visible: false,
+    value: '',
+  },
 };
 
 const displaySlice = createSlice({
   name: 'display',
   initialState,
   reducers: {
-    update(state, action: PayloadAction<Focus>): void {
-      state.focus = action.payload;
+    hideTooltip(state): void {
+      state.tooltip = { ...state.tooltip, visible: false, value: '' };
     },
-    reset(): DisplayState {
-      return initialState;
+    showTooltip(state, action: PayloadAction<string>): void {
+      state.tooltip = { ...state.tooltip, visible: true, value: action.payload };
+    },
+    updateFocus(state, action: PayloadAction<Focus>): void {
+      state.focus = action.payload;
     },
   },
 });
-const { update, reset } = displaySlice.actions;
+const { hideTooltip, showTooltip, updateFocus } = displaySlice.actions;
 
 export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   private readonly displayService: DisplayService;
 
   public constructor(store: AppStore, displayService: DisplayService) {
     super(store);
+
     this.displayService = displayService;
+
     this.registerListeners();
+    this.store.dispatch(hideTooltip());
   }
 
   public dispose(): void {
+    this.store.dispatch(showTooltip(this.displayService.getInstruction()));
     super.dispose();
-    this.store.dispatch(reset());
   }
 
   private registerListeners(): void {
     this.disposables.push(this.displayService.onChange((e) => {
-      this.store.dispatch(update(e.value));
+      this.store.dispatch(updateFocus(e.value));
     }));
   }
 

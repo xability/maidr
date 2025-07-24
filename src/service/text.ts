@@ -3,10 +3,10 @@ import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
-import { BoxplotSection } from '@type/boxplotSection';
 
 enum TextMode {
   OFF = 'off',
@@ -204,10 +204,10 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Special handling for boxplot outlier sections
     if (
-      state.section &&
-      this.isBoxPlotWithSection(state) &&
-      (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER) &&
-      Array.isArray(state.cross.value)
+      state.section
+      && this.isBoxPlotWithSection(state)
+      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && Array.isArray(state.cross.value)
     ) {
       // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
       const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
@@ -275,12 +275,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Special handling for boxplot outlier sections
     if (
-      state.section &&
-      this.isBoxPlotWithSection(state) &&
-      (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER) &&
-      Array.isArray(state.cross.value)
+      state.section
+      && this.isBoxPlotWithSection(state)
+      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && Array.isArray(state.cross.value)
     ) {
-      const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
       const outliers = state.cross.value;
       const outlierStr = `[${outliers.join(', ')}]`;
       if (outliers.length === 0) {
