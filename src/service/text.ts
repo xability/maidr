@@ -6,6 +6,7 @@ import type { NotificationService } from './notification';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
+import { BoxplotSection } from '@type/boxplotSection';
 
 enum TextMode {
   OFF = 'off',
@@ -201,11 +202,33 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(String(state.main.value));
     }
 
+    // Special handling for boxplot outlier sections
+    if (
+      state.section &&
+      this.isBoxPlotWithSection(state) &&
+      (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER) &&
+      Array.isArray(state.cross.value)
+    ) {
+      // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
+      const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+      const outliers = state.cross.value;
+      const outlierStr = `[${outliers.join(', ')}]`;
+      if (outliers.length === 0) {
+        // No outliers
+        return `${state.main.label} is ${state.main.value}, no ${state.section.toLowerCase()} for ${label}`;
+      } else {
+        // Outlier values present
+        const verb = outliers.length === 1 ? 'is' : 'are';
+        return `${state.main.label} is ${state.main.value}, ${state.section.toLowerCase()} for ${label} ${verb} ${outlierStr}`;
+      }
+    }
+
     // Format cross-axis label.
     if (state.section !== undefined) {
       if (this.isBoxPlotWithSection(state)) {
-        // For box plots: "section cross.label" (e.g., "minimum Life Expectancy")
-        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, state.cross.label);
+        // For box plots: "section cross.label" (e.g., "minimum life expectancy")
+        const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
       } else {
         // For candlestick plots: "section cross.label" (e.g., "high Price")
         verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
@@ -248,6 +271,23 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(Constant.OPEN_BRACKET, state.main.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     } else {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
+    }
+
+    // Special handling for boxplot outlier sections
+    if (
+      state.section &&
+      this.isBoxPlotWithSection(state) &&
+      (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER) &&
+      Array.isArray(state.cross.value)
+    ) {
+      const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+      const outliers = state.cross.value;
+      const outlierStr = `[${outliers.join(', ')}]`;
+      if (outliers.length === 0) {
+        return `${state.main.value}, no ${state.section.toLowerCase()}`;
+      } else {
+        return `${state.main.value}, ${outliers.length} ${state.section.toLowerCase()} ${outlierStr}`;
+      }
     }
 
     // Format for cross axis values (y-axis).
