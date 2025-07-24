@@ -76,13 +76,15 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   public async getLlmResponse(request: LlmRequest): Promise<LlmResponse> {
     try {
       const image = await Svg.toBase64(this.svg);
+      // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
+      const expertiseLevel = request.expertise === 'custom' ? 'advanced' : request.expertise;
       const payload = this.getPayload(
         request.customInstruction,
         this.json,
         image,
         '',
         request.message,
-        request.expertise,
+        expertiseLevel,
       );
 
       const url = request.clientToken

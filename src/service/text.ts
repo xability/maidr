@@ -3,6 +3,7 @@ import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
@@ -178,6 +179,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Layer ${index} of ${size}: ${type} plot`;
   }
 
+  /**
+   * Helper method to determine if the current state represents a box plot
+   * Box plots have sections but no fill information
+   */
+  private isBoxPlotWithSection(state: TextState): boolean {
+    return state.section !== undefined && state.fill === undefined;
+  }
+
   private formatVerboseTraceText(state: TextState): string {
     const verbose = new Array<string>();
 
@@ -193,18 +202,39 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(String(state.main.value));
     }
 
-    // Format cross-axis label.
-    verbose.push(Constant.COMMA_SPACE, state.cross.label);
-
-    // Format for box plot.
-    if (state.section !== undefined) {
-      verbose.push(Constant.COMMA_SPACE);
-
-      if (Array.isArray(state.cross.value)) {
-        verbose.push(String(state.cross.value.length), Constant.SPACE);
+    // Special handling for boxplot outlier sections
+    if (
+      state.section
+      && this.isBoxPlotWithSection(state)
+      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && Array.isArray(state.cross.value)
+    ) {
+      // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
+      const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+      const outliers = state.cross.value;
+      const outlierStr = `[${outliers.join(', ')}]`;
+      if (outliers.length === 0) {
+        // No outliers
+        return `${state.main.label} is ${state.main.value}, no ${state.section.toLowerCase()} for ${label}`;
+      } else {
+        // Outlier values present
+        const verb = outliers.length === 1 ? 'is' : 'are';
+        return `${state.main.label} is ${state.main.value}, ${state.section.toLowerCase()} for ${label} ${verb} ${outlierStr}`;
       }
+    }
 
-      verbose.push(state.section);
+    // Format cross-axis label.
+    if (state.section !== undefined) {
+      if (this.isBoxPlotWithSection(state)) {
+        // For box plots: "section cross.label" (e.g., "minimum life expectancy")
+        const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+      } else {
+        // For candlestick plots: "section cross.label" (e.g., "high Price")
+        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+      }
+    } else {
+      verbose.push(Constant.COMMA_SPACE, state.cross.label);
     }
 
     // Format cross-axis values.
@@ -218,11 +248,16 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format for heatmap and scatter plot.
     if (state.fill !== undefined) {
+      // Convert candlestick trend values to lowercase for text mode
+      const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
+        ? state.fill.value.toLowerCase()
+        : state.fill.value;
+
       verbose.push(
         Constant.COMMA_SPACE,
         state.fill.label,
         Constant.IS,
-        state.fill.value,
+        fillValue,
       );
     }
 
@@ -238,14 +273,40 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(String(state.main.value), Constant.COMMA_SPACE);
     }
 
-    // Format for cross axis values (y-axis).
-    // For candlestick plots, we show both cross.value (price) and section (type)
-    if (state.section !== undefined && state.fill !== undefined) {
-      // For candlestick: show cross.value (price) first, then section (type)
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value), Constant.COMMA_SPACE, state.section);
+    // Special handling for boxplot outlier sections
+    if (
+      state.section
+      && this.isBoxPlotWithSection(state)
+      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && Array.isArray(state.cross.value)
+    ) {
+      const outliers = state.cross.value;
+      const outlierStr = `[${outliers.join(', ')}]`;
+      if (outliers.length === 0) {
+        return `${state.main.value}, no ${state.section.toLowerCase()}`;
       } else {
-        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET, Constant.COMMA_SPACE, state.section);
+        return `${state.main.value}, ${outliers.length} ${state.section.toLowerCase()} ${outlierStr}`;
+      }
+    }
+
+    // Format for cross axis values (y-axis).
+    // For candlestick plots, we show section (type) first, then cross.value (price)
+    // For box plots, we also show section (type) first, then cross.value
+    if (state.section !== undefined && state.fill !== undefined) {
+      // For candlestick: show section (type) first, then cross.value (price)
+      terse.push(state.section!, Constant.SPACE);
+      if (!Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value));
+      } else {
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      }
+    } else if (state.section !== undefined && state.fill === undefined) {
+      // For box plots: show section (type) first, then cross.value
+      terse.push(state.section!, Constant.SPACE);
+      if (!Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value));
+      } else {
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
     } else {
       // For other plots: show cross.value normally
@@ -256,22 +317,18 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
     }
 
-    // Format for box plot (type) - only if section exists but no fill (not candlestick)
-    if (state.section !== undefined && state.fill === undefined) {
-      terse.push(Constant.COMMA_SPACE);
-      if (Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value.length), Constant.SPACE);
-      }
-      terse.push(state.section);
-    }
-
     // Format for heatmap and segmented plots.
     if (state.fill !== undefined) {
-      // For candlestick plots, don't add comma before fill value to show "open bear" instead of "open, bear"
+      // Convert candlestick trend values to lowercase for text mode
+      const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
+        ? state.fill.value.toLowerCase()
+        : state.fill.value;
+
+      // For candlestick plots, add comma before trend value to show "open 100, bear"
       if (state.section !== undefined) {
-        terse.push(Constant.SPACE, state.fill.value);
+        terse.push(Constant.COMMA_SPACE, fillValue);
       } else {
-        terse.push(Constant.COMMA_SPACE, state.fill.value);
+        terse.push(Constant.COMMA_SPACE, fillValue);
       }
     }
 
