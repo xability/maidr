@@ -1,3 +1,10 @@
+## [3.20.1](https://github.com/xability/maidr/compare/v3.20.0...v3.20.1) (2025-07-24)
+
+
+### Bug Fixes
+
+* reset trace state in multi-panel plots and refactor layer switch ([#403](https://github.com/xability/maidr/issues/403)) ([69d1f2f](https://github.com/xability/maidr/commit/69d1f2f98aaa32a32c722986a187a40a2d88f8dc))
+
 # [3.20.0](https://github.com/xability/maidr/compare/v3.19.0...v3.20.0) (2025-07-23)
 
 
