@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { LayerSwitchTraceState, PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -93,22 +93,35 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
       const currentTrace = activeSubplot.activeTrace;
-      const currentXValue = currentTrace.getCurrentXValue();
-
-      activeSubplot.moveOnce(direction);
-      const newTrace = activeSubplot.activeTrace;
-
-      // Use getId() for boundary detection
-      if (newTrace.getId() === currentTrace.getId()) {
-        this.plotContext.push(currentTrace);
-        currentTrace.notifyOutOfBounds();
+      if (!currentTrace) {
         return;
       }
-
+      const currentXValue = currentTrace.getCurrentXValue();
+      activeSubplot.moveOnce(direction);
+      const newTrace = activeSubplot.activeTrace;
       this.plotContext.push(newTrace);
+
+      if (newTrace.getId() === currentTrace.getId()) {
+        newTrace.notifyOutOfBounds();
+        activeSubplot.notifyOutOfBounds();
+        return;
+      }
+      
       newTrace.moveToXValue(currentXValue);
+      if (!newTrace.state.empty) {
+        const index = activeSubplot.getRow() + 1;
+        const size = activeSubplot.getSize();
+        const state: LayerSwitchTraceState = {
+          ...newTrace.state,
+          isLayerSwitch: true,
+          index,
+          size,
+        };
+        newTrace.notifyObserversWithState(state);
+      } else {
+        newTrace.notifyStateUpdate();
+      }
     } else {
-      // Single-layer: derive the only subplot from the figure
       const onlySubplot = this.figure.subplots[0][0];
       const activeTrace = this.active as Trace;
       activeTrace.notifyOutOfBounds();
@@ -121,7 +134,9 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.plotContext.push(activeFigure.activeSubplot.activeTrace);
+      const trace = activeFigure.activeSubplot.activeTrace;
+      trace.resetToInitialEntry();
+      this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }
   }
