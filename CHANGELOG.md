@@ -1,3 +1,10 @@
+## [3.20.2](https://github.com/xability/maidr/compare/v3.20.1...v3.20.2) (2025-07-24)
+
+
+### Bug Fixes
+
+* correct react tooltip ([#398](https://github.com/xability/maidr/issues/398)) ([1a1404f](https://github.com/xability/maidr/commit/1a1404fea099a528e166e19ac1223b534d05b891))
+
 ## [3.20.1](https://github.com/xability/maidr/compare/v3.20.0...v3.20.1) (2025-07-24)
 
 
