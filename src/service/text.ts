@@ -203,21 +203,15 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format cross-axis label.
     if (state.section !== undefined) {
-      // For candlestick plots, combine section with cross label for better wording
-      verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+      if (this.isBoxPlotWithSection(state)) {
+        // For box plots: "section cross.label" (e.g., "minimum Life Expectancy")
+        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, state.cross.label);
+      } else {
+        // For candlestick plots: "section cross.label" (e.g., "high Price")
+        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+      }
     } else {
       verbose.push(Constant.COMMA_SPACE, state.cross.label);
-    }
-
-    // Format for box plot.
-    if (this.isBoxPlotWithSection(state)) {
-      verbose.push(Constant.COMMA_SPACE);
-
-      if (Array.isArray(state.cross.value)) {
-        verbose.push(String(state.cross.value.length), Constant.SPACE);
-      }
-
-      verbose.push(state.section!);
     }
 
     // Format cross-axis values.
@@ -258,8 +252,17 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format for cross axis values (y-axis).
     // For candlestick plots, we show section (type) first, then cross.value (price)
+    // For box plots, we also show section (type) first, then cross.value
     if (state.section !== undefined && state.fill !== undefined) {
       // For candlestick: show section (type) first, then cross.value (price)
+      terse.push(state.section!, Constant.SPACE);
+      if (!Array.isArray(state.cross.value)) {
+        terse.push(String(state.cross.value));
+      } else {
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      }
+    } else if (state.section !== undefined && state.fill === undefined) {
+      // For box plots: show section (type) first, then cross.value
       terse.push(state.section!, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
         terse.push(String(state.cross.value));
@@ -273,15 +276,6 @@ export class TextService implements Observer<PlotState>, Disposable {
       } else {
         terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
-    }
-
-    // Format for box plot (type) - only if section exists but no fill (not candlestick)
-    if (state.section !== undefined && state.fill === undefined) {
-      terse.push(Constant.COMMA_SPACE);
-      if (Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value.length), Constant.SPACE);
-      }
-      terse.push(state.section!);
     }
 
     // Format for heatmap and segmented plots.
