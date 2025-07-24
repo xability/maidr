@@ -151,7 +151,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.row = 0;
     this.col = 0;
   }
-  
+
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
@@ -176,6 +176,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
+
+  public notifyObserversWithState(state: State): void {
+    for (const observer of this.observers) {
+      observer.update(state);
+    }
+  }
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {

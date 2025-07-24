@@ -195,6 +195,14 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     });
   }
 
+  public getRow(): number {
+    return this.row;
+  }
+
+  public getSize(): number {
+    return this.size;
+  }
+
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
@@ -297,4 +305,5 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * This sets isInitialEntry to true and position to (0, 0)
    */
   resetToInitialEntry: () => void;
+  notifyObserversWithState: (state: TraceState) => void;
 }
