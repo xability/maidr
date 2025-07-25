@@ -4,7 +4,9 @@
     "jsx": "react",
 
     "baseUrl": "./src",
-    "module": "CommonJS",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
     "paths": {
       "@command/*": ["command/*"],
       "@model/*": ["model/*"],
@@ -16,13 +18,12 @@
     },
 
     "resolveJsonModule": true,
+    "isolatedModules": true,
     "allowJs": false,
     "strict": true,
-    "noImplicitAny": true,
 
-    "noEmit": false,
+    "noEmit": true,
     "sourceMap": true,
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },
