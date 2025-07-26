@@ -21,18 +21,17 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       const sum = this.barValues.reduce((sum, row) => sum + row[i], 0);
       summaryValues.push(sum);
 
-      const point
-        = this.orientation === Orientation.VERTICAL
-          ? {
-              x: this.points[0][i].x,
-              y: sum,
-              fill: SUM,
-            }
-          : {
-              x: sum,
-              y: this.points[0][i].y,
-              fill: SUM,
-            };
+      const point = this.orientation === Orientation.VERTICAL
+        ? {
+            x: this.points[0][i].x,
+            y: sum,
+            fill: SUM,
+          }
+        : {
+            x: sum,
+            y: this.points[0][i].y,
+            fill: SUM,
+          };
       summaryPoints.push(point);
     }
     this.points.push(summaryPoints);
