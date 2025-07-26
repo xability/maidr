@@ -61,6 +61,7 @@ export abstract class Svg {
 
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+
         element.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });

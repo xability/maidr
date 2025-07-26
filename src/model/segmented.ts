@@ -69,10 +69,6 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected hasMultiPoints(): boolean {
-    return true;
-  }
-
   protected mapToSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
       return new Array<Array<SVGElement>>();
