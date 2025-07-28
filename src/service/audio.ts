@@ -17,8 +17,6 @@ interface Range {
 
 type AudioId = ReturnType<typeof setTimeout>;
 
-const MIN_FREQUENCY = 200;
-const MAX_FREQUENCY = 1000;
 const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
@@ -45,6 +43,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
   private volume: number;
+  private minFrequency: number;
+  private maxFrequency: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
@@ -57,9 +57,17 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds = new Map();
 
     this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
+    this.minFrequency = settings.get<number>(AudioSettings.MIN_FREQUENCY);
+    this.maxFrequency = settings.get<number>(AudioSettings.MAX_FREQUENCY);
     settings.onChange((event) => {
       if (event.affectsSetting(AudioSettings.VOLUME)) {
         this.volume = this.normalizeVolume(event.get<number>(AudioSettings.VOLUME));
+      }
+      if (event.affectsSetting(AudioSettings.MIN_FREQUENCY)) {
+        this.minFrequency = event.get<number>(AudioSettings.MIN_FREQUENCY);
+      }
+      if (event.affectsSetting(AudioSettings.MAX_FREQUENCY)) {
+        this.maxFrequency = event.get<number>(AudioSettings.MAX_FREQUENCY);
       }
     });
 
@@ -170,7 +178,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     group: number = 0,
   ): AudioId {
     const fromFreq = { min: minFrequency, max: maxFrequency };
-    const toFreq = { min: MIN_FREQUENCY, max: MAX_FREQUENCY };
+    const toFreq = { min: this.minFrequency, max: this.maxFrequency };
     const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
 
     const fromPanning = { min: 0, max: panningSize };
@@ -186,27 +194,24 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       return [fundamental];
     }
 
-    // Define a set of overtones. With 4 overtones, we can support 2^4 = 16 groups.
     const overtones: HarmonicComponent[] = [
       { type: 'triangle', gain: 0.8, multiplier: 2 },
-      { type: 'sine', gain: 0.6, multiplier: 1.5 }, // Use sine for a very smooth fifth
+      { type: 'sine', gain: 0.6, multiplier: 1.5 },
       { type: 'triangle', gain: 0.4, multiplier: 3 },
       { type: 'sine', gain: 0.3, multiplier: 4 },
     ];
     const config: HarmonicComponent[] = [fundamental];
     let totalGain = fundamental.gain;
 
-    // Use the bits of the rowIndex to select which of the 4 overtones to add
     let index = group;
     for (let i = 0; i < overtones.length && index > 0; i++) {
       if ((index & 1) === 1) { // Check the last bit
         config.push(overtones[i]);
         totalGain += overtones[i].gain;
       }
-      index >>= 1; // Move to the next bit
+      index >>= 1;
     }
 
-    // Normalize gain to prevent clipping and keep perceived volume consistent
     for (const part of config) {
       part.gain /= totalGain;
     }
@@ -220,7 +225,6 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     group: number = 0,
   ): AudioId {
     const duration = DEFAULT_DURATION;
-    const volume = this.volume;
     const startTime = this.audioContext.currentTime;
     const oscillators: OscillatorNode[] = [];
 
@@ -246,7 +250,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     stereoPannerNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
 
-    const valueCurve = [0.5 * volume, volume, 0.5 * volume, 0.5 * volume, 0.5 * volume, 0.1 * volume, 1e-4 * volume];
+    const valueCurve = [0.5 * this.volume, this.volume, 0.5 * this.volume, 0.5 * this.volume, 0.5 * this.volume, 0.1 * this.volume, 1e-4 * this.volume];
     masterGainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
     stereoPannerNode.pan.value = panning;
 
@@ -295,33 +299,25 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
+    const freqs = values.map(v => this.interpolate(v, { min, max }, { min: this.minFrequency, max: this.maxFrequency }));
 
-    // Normalize values to frequency
-    const freqs = values.map(v => this.interpolate(v, { min, max }, { min: MIN_FREQUENCY, max: MAX_FREQUENCY }));
-
-    // Ensure minimum of 2 frequencies
     if (freqs.length < 2) {
       freqs.push(freqs[0]);
     }
 
-    // Calculate stereo pan (-1 to 1)
     const pan = this.clamp(this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }), -1, 1);
 
-    // Oscillator
     const oscillator = ctx.createOscillator();
     oscillator.type = wave;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
 
-    // Gain envelope
     const gainNode = ctx.createGain();
     const gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
     gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
 
-    // Panner
     const panner = ctx.createStereoPanner();
     panner.pan.value = pan;
 
-    // Connect and play
     oscillator.connect(gainNode);
     gainNode.connect(panner);
     panner.connect(this.compressor);
@@ -348,8 +344,8 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
 
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.3, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    masterGain.gain.setValueAtTime(0.3 * this.volume, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
     masterGain.connect(this.compressor);
 
     const oscillators: OscillatorNode[] = [];
@@ -361,7 +357,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       osc.type = 'sine';
 
       gain.gain.setValueAtTime(gains[i] * this.volume, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, now + duration);
 
       osc.connect(gain);
       gain.connect(masterGain);
