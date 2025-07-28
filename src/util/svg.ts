@@ -142,25 +142,40 @@ export abstract class Svg {
 
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
-    const tag = element.tagName.toLowerCase();
-    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
-    const originalColor = isLineElement
-      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
-      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
-    const color = this.getHighlightColor(originalColor, fallbackColor);
+    const originalColor = this.getColor(element);
+    const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
 
-    clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
-    clone.setAttribute(Constant.STROKE, color);
-    clone.setAttribute(Constant.FILL, color);
-    clone.style.fill = color;
-    clone.style.stroke = color;
-    if (isLineElement) {
-      const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
-      clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
-    }
-
+    this.setColor(clone, highlightColor);
     element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
+  }
+
+  public static getColor(element: SVGElement): string {
+    const tag = element.tagName.toLowerCase();
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+    const color = isLineElement
+      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
+      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
+
+    return color;
+  }
+
+  public static setColor(element: SVGElement, color: string): void {
+    const tag = element.tagName.toLowerCase();
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+
+    element.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+    element.setAttribute(Constant.STROKE, color);
+    element.setAttribute(Constant.FILL, color);
+    element.style.fill = color;
+    element.style.stroke = color;
+
+    if (isLineElement) {
+      const strokeWidth = window
+        .getComputedStyle(element)
+        .getPropertyValue(Constant.STROKE_WIDTH);
+      element.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
+    }
   }
 
   private static getHighlightColor(originalColor: string, fallbackColor: string): string {

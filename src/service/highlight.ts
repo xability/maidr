@@ -2,6 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { SubplotState, TraceState } from '@type/state';
 import type { SettingsService } from './settings';
+import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
@@ -22,8 +23,18 @@ export class HighlightService implements Observer<SubplotState | TraceState>, Di
     this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
     this.settingsService.onChange((event) => {
       if (event.affectsSetting(HighlightSettings.COLOR)) {
+        const oldColor = this.highlightColor;
         this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
-        // TODO: Update the color of the highlighed elements.
+        if (this.highlightedElements.size === 0) {
+          return;
+        }
+
+        const currentColor = Svg.getColor(this.highlightedElements.values().next().value!);
+        if (!Color.isEqual(oldColor, currentColor)) {
+          return;
+        }
+
+        this.highlightedElements.forEach(element => Svg.setColor(element, this.highlightColor));
       }
     });
   }

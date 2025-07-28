@@ -60,4 +60,13 @@ export abstract class Color {
   public static rgbToString(rgb: Rgb): string {
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   }
+
+  public static isEqual(color1: string, color2: string): boolean {
+    const rgb1 = this.parse(color1);
+    const rgb2 = this.parse(color2);
+    if (!rgb1 || !rgb2) {
+      return false;
+    }
+    return rgb1.r === rgb2.r && rgb1.g === rgb2.g && rgb1.b === rgb2.b;
+  }
 }
