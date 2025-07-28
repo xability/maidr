@@ -7,10 +7,6 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 
 const SETTINGS_KEY = 'maidr-settings';
 
-export enum AutoplaySettings {
-  RATE = 'autoplay.rate',
-}
-
 export enum BrailleSettings {
   SIZE = 'braille.size',
 }
@@ -34,6 +30,14 @@ class SettingsChangeEvent {
     const oldValue = getSettingValue(this.oldSettings, id);
     const newValue = getSettingValue(this.newSettings, id);
     return JSON.stringify(oldValue) !== JSON.stringify(newValue);
+  }
+
+  public get<T>(settingPath: string): T {
+    const value = getSettingValue<T>(this.newSettings, settingPath);
+    if (value === undefined) {
+      throw new Error(`Setting not found: ${settingPath}`);
+    }
+    return value;
   }
 }
 

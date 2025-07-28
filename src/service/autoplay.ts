@@ -4,17 +4,21 @@ import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
 
 const DEFAULT_SPEED = 250;
 const MIN_SPEED = 50;
 const MAX_SPEED = 500;
 
-const TOTAL_DURATION = 4000;
 const DEFAULT_INTERVAL = 20;
 
 interface AutoplayChangeEvent {
   type: 'start' | 'stop';
+}
+
+enum AutoplaySettings {
+  DURATION = 'general.autoplayDuration',
 }
 
 type AutoplayId = ReturnType<typeof setInterval>;
@@ -31,14 +35,14 @@ export class AutoplayService implements Disposable {
   private minSpeed: number;
   private readonly maxSpeed: number;
 
-  private autoplayRate: number;
-  private readonly totalDuration: number;
   private readonly interval: number;
+  private autoplayRate: number;
+  private totalDuration: number;
 
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
 
-  public constructor(context: Context, notification: NotificationService) {
+  public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
     this.notification = notification;
     this.context = context;
 
@@ -50,9 +54,16 @@ export class AutoplayService implements Disposable {
     this.minSpeed = MIN_SPEED;
     this.maxSpeed = MAX_SPEED;
 
-    this.autoplayRate = this.defaultSpeed;
-    this.totalDuration = TOTAL_DURATION;
     this.interval = DEFAULT_INTERVAL;
+    this.autoplayRate = this.defaultSpeed;
+
+    this.totalDuration = settings.get<number>(AutoplaySettings.DURATION);
+    settings.onChange((event) => {
+      if (event.affectsSetting(AutoplaySettings.DURATION)) {
+        this.totalDuration = event.get<number>(AutoplaySettings.DURATION);
+        this.restart();
+      }
+    });
 
     this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
     this.onChange = this.onChangeEmitter.event;

@@ -11,30 +11,16 @@ enum HighlightSettings {
 }
 
 export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
-  private readonly settingsService: SettingsService;
-
   private readonly highlightedElements: Set<SVGElement>;
   private highlightColor: string;
 
-  public constructor(settingsService: SettingsService) {
-    this.settingsService = settingsService;
+  public constructor(settings: SettingsService) {
     this.highlightedElements = new Set();
 
-    this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
-    this.settingsService.onChange((event) => {
+    this.highlightColor = settings.get<string>(HighlightSettings.COLOR);
+    settings.onChange((event) => {
       if (event.affectsSetting(HighlightSettings.COLOR)) {
-        const oldColor = this.highlightColor;
-        this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
-        if (this.highlightedElements.size === 0) {
-          return;
-        }
-
-        const currentColor = Svg.getColor(this.highlightedElements.values().next().value!);
-        if (!Color.isEqual(oldColor, currentColor)) {
-          return;
-        }
-
-        this.highlightedElements.forEach(element => Svg.setColor(element, this.highlightColor));
+        this.updateHighlight(this.highlightColor, event.get<string>(HighlightSettings.COLOR));
       }
     });
   }
@@ -57,6 +43,20 @@ export class HighlightService implements Observer<SubplotState | TraceState>, Di
     const highlight = trace.highlight;
     const elements = Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
     this.highlight(elements);
+  }
+
+  private updateHighlight(oldColor: string, newColor: string): void {
+    if (this.highlightedElements.size === 0) {
+      return;
+    }
+
+    const currentColor = Svg.getColor(this.highlightedElements.values().next().value!);
+    if (!Color.isEqual(oldColor, currentColor)) {
+      return;
+    }
+
+    this.highlightColor = newColor;
+    this.highlightedElements.forEach(element => Svg.setColor(element, this.highlightColor));
   }
 
   private highlight(elements: SVGElement[]): void {

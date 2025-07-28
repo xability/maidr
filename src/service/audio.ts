@@ -56,10 +56,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.updateMode(state);
     this.activeAudioIds = new Map();
 
-    this.volume = this.normalizeVolume(settings);
+    this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
     settings.onChange((event) => {
       if (event.affectsSetting(AudioSettings.VOLUME)) {
-        this.volume = this.normalizeVolume(settings);
+        this.volume = this.normalizeVolume(event.get<number>(AudioSettings.VOLUME));
       }
     });
 
@@ -466,8 +466,7 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.activeAudioIds.clear();
   }
 
-  private normalizeVolume(settings: SettingsService): number {
-    const rawVolume = settings.get<number>(AudioSettings.VOLUME) / 100;
-    return rawVolume * rawVolume;
+  private normalizeVolume(volume: number): number {
+    return (volume / 100) * (volume / 100);
   }
 }
