@@ -61,13 +61,13 @@ export class Controller implements Disposable {
     this.notificationService = new NotificationService();
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
-    this.audioService = new AudioService(this.notificationService, this.context.state);
+    this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService);
-    this.highlightService = new HighlightService();
+    this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 

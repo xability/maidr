@@ -1,14 +1,31 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { SubplotState, TraceState } from '@type/state';
+import type { SettingsService } from './settings';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
-export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
-  private readonly highlightedElements: Set<SVGElement>;
+enum HighlightSettings {
+  COLOR = 'general.highlightColor',
+}
 
-  public constructor() {
+export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
+  private readonly settingsService: SettingsService;
+
+  private readonly highlightedElements: Set<SVGElement>;
+  private highlightColor: string;
+
+  public constructor(settingsService: SettingsService) {
+    this.settingsService = settingsService;
     this.highlightedElements = new Set();
+
+    this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
+    this.settingsService.onChange((event) => {
+      if (event.affectsSetting(HighlightSettings.COLOR)) {
+        this.highlightColor = this.settingsService.get<string>(HighlightSettings.COLOR);
+        // TODO: Update the color of the highlighed elements.
+      }
+    });
   }
 
   public dispose(): void {
@@ -33,7 +50,7 @@ export class HighlightService implements Observer<SubplotState | TraceState>, Di
 
   private highlight(elements: SVGElement[]): void {
     for (const element of elements) {
-      const clone = Svg.createHighlightElement(element, Constant.MAIDR_HIGHLIGHT_COLOR);
+      const clone = Svg.createHighlightElement(element, this.highlightColor);
       clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
       this.highlightedElements.add(clone);
     }

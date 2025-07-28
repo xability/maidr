@@ -51,7 +51,6 @@ export abstract class Constant {
   static readonly IS = ' is ';
   static readonly LINE = 'line';
   static readonly MAIDR_DATA = 'maidr-data';
-  static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly NEW_LINE = '\n';
   static readonly OPEN_BRACKET = '[';
   static readonly POLYLINE = 'polyline';

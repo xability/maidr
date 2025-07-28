@@ -2,6 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 
 interface HarmonicComponent {
   type: OscillatorType;
@@ -23,12 +24,17 @@ const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
-const DEFAULT_VOLUME = 0.5;
 
 enum AudioMode {
   OFF = 'off',
   SEPARATE = 'on',
   COMBINED = 'combined',
+}
+
+enum AudioSettings {
+  VOLUME = 'general.volume',
+  MIN_FREQUENCY = 'general.minFrequency',
+  MAX_FREQUENCY = 'general.maxFrequency',
 }
 
 export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
@@ -38,11 +44,11 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
   private mode: AudioMode;
   private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
-  private readonly volume: number;
+  private volume: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  public constructor(notification: NotificationService, state: PlotState) {
+  public constructor(notification: NotificationService, settings: SettingsService, state: PlotState) {
     this.notification = notification;
 
     this.isCombinedAudio = false;
@@ -50,7 +56,13 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     this.updateMode(state);
     this.activeAudioIds = new Map();
 
-    this.volume = DEFAULT_VOLUME;
+    this.volume = this.normalizeVolume(settings);
+    settings.onChange((event) => {
+      if (event.affectsSetting(AudioSettings.VOLUME)) {
+        this.volume = this.normalizeVolume(settings);
+      }
+    });
+
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
   }
@@ -452,5 +464,10 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
       });
     });
     this.activeAudioIds.clear();
+  }
+
+  private normalizeVolume(settings: SettingsService): number {
+    const rawVolume = settings.get<number>(AudioSettings.VOLUME) / 100;
+    return rawVolume * rawVolume;
   }
 }
