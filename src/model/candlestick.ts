@@ -8,7 +8,7 @@ import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 
-const TREND = 'Trend';
+const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';

@@ -491,10 +491,10 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
     row: number,
     state: CandlestickBrailleState,
   ): {
-      low: number;
-      medium: number;
-      high: number;
-    } {
+    low: number;
+    medium: number;
+    high: number;
+  } {
     // Defensive: support both array and single value for min/max
     const min = Array.isArray(state.min) ? state.min[row] : state.min;
     const max = Array.isArray(state.max) ? state.max[row] : state.max;
@@ -552,11 +552,11 @@ class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
     row: number,
     state: LineBrailleState,
   ): {
-      low: number;
-      medium: number;
-      mediumHigh: number;
-      high: number;
-    } {
+    low: number;
+    medium: number;
+    mediumHigh: number;
+    high: number;
+  } {
     const range = (state.max[row] - state.min[row]) / 4;
     const low = state.min[row] + range;
     const medium = low + range;
