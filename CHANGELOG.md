@@ -1,3 +1,10 @@
+## [3.20.3](https://github.com/xability/maidr/compare/v3.20.2...v3.20.3) (2025-07-29)
+
+
+### Bug Fixes
+
+* correct candlestick text formatting issues in terse and verbose modes ([#400](https://github.com/xability/maidr/issues/400)) ([9198858](https://github.com/xability/maidr/commit/919885801352f0c0d2c6d01a38cc5a9b10d83d78))
+
 ## [3.20.2](https://github.com/xability/maidr/compare/v3.20.1...v3.20.2) (2025-07-24)
 
 
