@@ -1,68 +1,62 @@
 ---
-mode: "agent"
-tools: ["github", "get_issue", "create_pull_request", "request_copilot_review", "context7", "Built-In", "codebase", "editFiles", "findTestFiles", "runCommands", "new", "openSimpleBrowser", "problems", "runTasks", "search", "searchResults", "terminalLastCommand", "terminalSelection", "testFailure", "usages", "create_branch", "get_issue_comments", "get-library-docs"]
-description: "Address GitHub issue"
+mode: "ask"
+description: "A guide to address a GitHub issue by fetching details, creating a branch, implementing a solution, and pushing changes."
 ---
 
-#get_issue Address xability/maidr ${input:issue}.
+# How to Address a GitHub Issue
 
-Before you start coding, make sure you have created a local Git branch and checkout for your changes. Create a new branch that concisely reflects the issue you are addressing. For branch name, use conventional commit format, such as `fix/NOUN`, where `NOUN` is a noun that describes the issue. For example, if the issue is about fixing a bug in the login feature, you might use `fix/login-bug`. Use appropriate prefixes, such as `fix/`, `feat/`, `refactor/`, `chore/`, to indicate the type of change you are making.
+This guide will walk you through the process of addressing a GitHub issue for the `xability/maidr` repository.
 
-You need to think deeply to understand the issue and come up with right solution. When you implement your solution, you need to make sure that you follow [the project architecture design](../copilot-instructions.md) and [the coding style guide](../instructions/style-guide.instructions.md).
+**1. Understand the Issue**
 
-In case you need to make changes any libraries or dependencies, make sure to check the project's `package.json` file and verify whether the functions and emthods you are using match the versions specified there. You can use #context7 for this.
+First, get the details of the issue from GitHub. You will need the issue number.
+Open the following URL in your browser, replacing `${input:issue}` with the issue number you want to work on:
+`https://github.com/xability/maidr/issues/${input:issue}`
 
-If you are not sure about something, ask for clarification.
+**2. Create a Git Branch**
 
-Once you have implemented your solution, make sure to test it thoroughly before submitting your changes.
-"searchResults",
-"terminalLastCommand",
-"terminalSelection",
-"testFailure",
-"usages",
-"create_branch",
-"get_issue_comments",
-"get-library-docs",
-]
-description: "Address GitHub issue"
+Before you start coding, create a new local Git branch for your changes in your terminal.
 
----
+- The branch name should be concise and reflect the issue you are addressing.
+- Use a conventional commit format for the branch name, such as `fix/login-bug` or `feat/new-feature`.
 
-#get_issue Address xability/maidr ${input:issue}.
+Run the following command in your terminal, replacing `<branch-name>` with your chosen branch name:
 
-Before you start coding, make sure you have created a local Git branch and checkout for your changes. Create a new branch that concisely reflects the issue you are addressing. For branch name, use conventional commit format, such as `fix/NOUN`, where `NOUN` is a noun that describes the issue. For example, if the issue is about fixing a bug in the login feature, you might use `fix/login-bug`. Use appropriate prefixes, such as `fix/`, `feat/`, `refactor/`, `chore/`, to indicate the type of change you are making.
+```bash
+git checkout -b <branch-name>
+```
 
-You need to think deeply to understand the issue and come up with right solution. When you implement your solution, you need to make sure that you follow [the project architecture design](../copilot-instructions.md) and [the coding style guide](../instructions/style-guide.instructions.md).
+**3. Implement Your Solution**
 
-In case you need to make changes any libraries or dependencies, make sure to check the project's `package.json` file and verify whether the functions and emthods you are using match the versions specified there. You can use #context7 for this.
+Now, you can start implementing your solution. As you code, please remember to:
 
-If you are not sure about something, ask for clarification.
+- Follow the project's architectural design, detailed in `.github/copilot-instructions.md`.
+- Adhere to the coding style guide found in `.github/instructions/style-guide.instructions.md`.
 
-Once you have implemented your solution, make sure to test it thoroughly before submitting your changes.
-"terminalLastCommand",
-"terminalSelection",
-"testFailure",
-"usages",
-"create_branch",
-"get_issue_comments", "get-library-docs",
-]
-description: "Address GitHub issue"
----
+**4. Verify Your Changes**
 
-#get_issue Address xability/maidr ${input:issue}.
+Once you have implemented your solution, make sure to test it thoroughly.
+Before you commit, ensure the linter and build process pass by running these commands in your terminal:
 
-Before you start coding, make sure you have created a local Git branch and checkout for your changes. Create a new branch that concisely reflects the issue you are addressing. For branch name, use conventional commit format, such as `fix/NOUN`, where `NOUN` is a noun that describes the issue. For example, if the issue is about fixing a bug in the login feature, you might use `fix/login-bug`. Use appropriate prefixes, such as `fix/`, `feat/`, `refactor/`, `chore/`, to indicate the type of change you are making.
+```bash
+npm run lint
+npm run build
+```
 
-You need to think deeply to understand the issue and come up with right solution. When you implement your solution, you need to make sure that you follow [the project architecture design](../copilot-instructions.md) and [the coding style guide](../instructions/style-guide.instructions.md).
+**5. Commit and Push Your Changes**
 
-In case you need to make changes any libraries or dependencies, make sure to check the project's `package.json` file and verify whether the functions and emthods you are using match the versions specified there. You can use #context7 for this.
+When you are ready, commit your changes with a descriptive message using the conventional commit format.
+Run the following commands in your terminal:
 
-If you are not sure about something, ask for clarification.
+```bash
+git add .
+git commit -m "feat: your descriptive commit message"
+```
 
-Once you have implemented your solution, make sure to test it thoroughly before submitting your changes.
+Finally, push your branch to the remote repository:
 
-Before you submit your PR, make sure #runTasks "npm lint" and #runTasks "npm build" are successful.
+```bash
+git push origin <branch-name>
+```
 
-#create_pull_request Create and submit a PR using [this PR template](../PULL_REQUEST_TEMPLATE.md) and make sure you include the issue number you are addressing at the bottom of the PR description like `Closes #xx`, where `xx` is ${input:issue}.
-
-Also, #request_copilot_review for the submitted PR.
+After pushing, you can create a pull request from the GitHub UI.

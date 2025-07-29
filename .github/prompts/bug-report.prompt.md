@@ -1,11 +1,21 @@
 ---
-mode: "agent"
-tools: ["github", "create_issue", "assign_copilot_to_issue", "codebase"]
+mode: "ask"
 description: "Generate a new bug report"
 ---
 
-#create_issue Create a GitHub issue at xability/maidr using [this template](../ISSUE_TEMPLATE/bug_report.md).
+# Create a Bug Report
 
-The bug report content is: ${input:bug}
+To create a new bug report for `xability/maidr`, please follow these steps:
 
-#assign_copilot_to_issue for the created issue.
+1.  **Navigate to the new issue page:**
+    [Click here to open the new issue form with the bug report template.](https://github.com/xability/maidr/issues/new?template=bug_report.md&labels=bug&title=fix%3A+)
+
+2.  **Provide the bug details:**
+    Please provide the content for the bug report in the web form. You can use the following as a template:
+
+    \`\`\`markdown
+    ${input:bug}
+    \`\`\`
+
+3.  **Submit the issue:**
+    Review the title and description, then click "Submit new issue".
