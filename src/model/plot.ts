@@ -2,8 +2,9 @@ import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, SubplotState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
 
@@ -33,6 +34,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     const subplots = maidr.subplots as MaidrSubplot[][];
     this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
+
+    this.row = this.subplots.length - 1;
   }
 
   public dispose(): void {
@@ -77,19 +80,22 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
   private readonly size: number;
+  private readonly highlightValue: SVGElement | null;
 
   public constructor(subplot: MaidrSubplot) {
     super();
-
     this.isInitialEntry = false;
 
     const layers = subplot.layers;
     this.size = layers.length;
+
     this.traces = layers.map(layer => [TraceFactory.create(layer)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
     });
+
+    this.highlightValue = this.mapToSvgElement(subplot.selector);
   }
 
   public dispose(): void {
@@ -120,7 +126,26 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
+      highlight: this.highlight(),
     };
+  }
+
+  private highlight(): HighlightState {
+    if (this.highlightValue === null) {
+      return {
+        empty: true,
+        type: 'subplot',
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValue,
+    };
+  }
+
+  private mapToSvgElement(selector?: string): SVGElement | null {
+    return selector ? Svg.selectElement(selector) ?? null : null;
   }
 }
 

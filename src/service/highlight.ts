@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { SubplotState, TraceState } from '@type/state';
+import type { PlotState, SubplotState, TraceState } from '@type/state';
 import type { SettingsService } from './settings';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
@@ -10,7 +10,7 @@ enum HighlightSettings {
   COLOR = 'general.highlightColor',
 }
 
-export class HighlightService implements Observer<SubplotState | TraceState>, Disposable {
+export class HighlightService implements Observer<PlotState>, Disposable {
   private readonly highlightedElements: Set<SVGElement>;
   private highlightColor: string;
 
@@ -29,18 +29,32 @@ export class HighlightService implements Observer<SubplotState | TraceState>, Di
     this.unhighlight();
   }
 
-  public update(state: SubplotState | TraceState): void {
+  public update(state: PlotState): void {
     if (state.empty) {
       return;
     }
 
     this.unhighlight();
-    const trace = state.type === 'subplot' ? state.trace : state;
-    if (trace.empty || trace.highlight.empty) {
+    let plot: SubplotState | TraceState | null = null;
+
+    switch (state.type) {
+      case 'figure':
+        plot = state.subplot;
+        break;
+
+      case 'subplot':
+        plot = state.trace;
+        break;
+
+      case 'trace':
+        plot = state;
+        break;
+    }
+    if (plot.empty || plot.highlight.empty) {
       return;
     }
 
-    const highlight = trace.highlight;
+    const highlight = plot.highlight;
     const elements = Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
     this.highlight(elements);
   }

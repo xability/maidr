@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { PlotState, SubplotState, TraceState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 
@@ -35,7 +35,7 @@ enum AudioSettings {
   MAX_FREQUENCY = 'general.maxFrequency',
 }
 
-export class AudioService implements Observer<SubplotState | TraceState>, Disposable {
+export class AudioService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private isCombinedAudio: boolean;
@@ -122,17 +122,20 @@ export class AudioService implements Observer<SubplotState | TraceState>, Dispos
     }
   }
 
-  public update(state: SubplotState | TraceState): void {
+  public update(state: PlotState): void {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
     // Play audio only if turned on.
-    if (this.mode === AudioMode.OFF || state.type !== 'trace') {
+    if (this.mode === AudioMode.OFF) {
       return;
     }
 
     if (state.empty) {
       this.playEmptyTone();
+      return;
+    }
+    if (state.type !== 'trace') {
       return;
     }
 

@@ -20,18 +20,21 @@ export type FigureState
     traceTypes: string[];
   };
 
+interface SubplotEmptyState {
+  empty: true;
+  type: 'subplot';
+}
+
 export type SubplotState
-  = | {
-    empty: true;
-    type: 'subplot';
-  }
-  | {
-    empty: false;
-    type: 'subplot';
-    size: number;
-    index: number;
-    trace: TraceState;
-  };
+  = | SubplotEmptyState
+    | {
+      empty: false;
+      type: 'subplot';
+      size: number;
+      index: number;
+      trace: TraceState;
+      highlight: HighlightState;
+    };
 
 interface TraceEmptyState {
   empty: true;
@@ -124,7 +127,8 @@ export type AutoplayState = {
 };
 
 export type HighlightState
-  = | TraceEmptyState
+  = | SubplotEmptyState
+    | TraceEmptyState
     | {
       empty: false;
       elements: SVGElement | SVGElement[];
