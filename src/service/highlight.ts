@@ -170,14 +170,22 @@ export class HighlightService
         if (fillMatch) {
           const originalFill = fillMatch[1];
           el.setAttribute('data-original-fill', originalFill);
-          const newFill = this.toGrayscaleStep(originalFill, numLevels);
+          const newFill = this.toGrayscaleStep(
+            originalFill,
+            numLevels,
+            context,
+          );
           newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
         }
 
         if (strokeMatch) {
           const originalStroke = strokeMatch[1];
           el.setAttribute('data-original-stroke', originalStroke);
-          const newStroke = this.toGrayscaleStep(originalStroke, numLevels);
+          const newStroke = this.toGrayscaleStep(
+            originalStroke,
+            numLevels,
+            context,
+          );
           newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
         }
 
@@ -187,7 +195,10 @@ export class HighlightService
         const attrFill = el.getAttribute('fill');
         if (attrFill) {
           el.setAttribute('data-attr-fill', attrFill);
-          el.setAttribute('fill', this.toGrayscaleStep(attrFill, numLevels));
+          el.setAttribute(
+            'fill',
+            this.toGrayscaleStep(attrFill, numLevels, context),
+          );
         }
 
         const attrStroke = el.getAttribute('stroke');
@@ -195,29 +206,35 @@ export class HighlightService
           el.setAttribute('data-attr-stroke', attrStroke);
           el.setAttribute(
             'stroke',
-            this.toGrayscaleStep(attrStroke, numLevels),
+            this.toGrayscaleStep(attrStroke, numLevels, context),
           );
         }
       });
     }
   }
 
-  private toGrayscaleStep(value: string, numLevels: number): string {
+  private toGrayscaleStep(
+    value: string,
+    numLevels: number,
+    context: Context,
+  ): string {
     // we redo the color and convert it to grayscale using the number of levels supplied, returning a new color
     // So, numLevels = 2 means black and white, numLevels = 255 means full grayscale.
-    // inbetween we choose the closest color to the grayscale value.
-    // we also do 'close to white' so we differentiate between white and near white
+    // Inbetween we choose the closest color to the grayscale value.
+    // We also do 'close to white' so we differentiate between white and near white
+    // as sometimes (ie bar) the main bar color is super close to white but we don't want it the same
+    // as the background color.
 
     // bookmark:
-    // Elegant works for heatmap and shows the levels beautifully,
-    // but bar fails as the bars are close to white and you need like 8 levels to make them not the same as bkgnd.
-    // If we do a 'whiteish' check at 90% white, bar works, but for heat it doesn't feel accurate.
-    // So we kinda need a slightly different approach for different plot types.
-    // But even worse, for stacked they'll all be super similar.
-    // What we REALLY need is selectors, but that's unreliable.
-    // My suggestion: Use elegant math always. Recommend selectors,
-    // break those into numLevels, and map to grayscale extremes (skipping the white background color)
+    // need to still use the full grayscale range,
+    // so, take in all colors and adjust to the max range.
+    // note: we don't know what's a real color and what's a chart component,
+    // so we need the selector to be able to do this
 
+    // reverse raw white and black? typically yes but we'll see
+    const flipWhiteBlack = true;
+
+    // back out if the value is not a valid color
     if (value === 'none' || value === 'transparent') {
       return value;
     } else if (numLevels < 2 || numLevels > 255) {
@@ -238,19 +255,41 @@ export class HighlightService
     const b = Number.parseInt(hex.slice(5, 7), 16);
     const luminance = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-    // Threshold for "close to white" (within 10% of 255)
-    //const white = 255 * 0.9;
+    let useNearWhite = false;
+    const nearWhiteScale = 0.1; // 10% of white, so 90% white is near white
+    const nearWhite = 255 * nearWhiteScale;
+    // If the color is close to white, return white
+    if ('type' in context.instructionContext) {
+      if (context.instructionContext.type === 'bar' && luminance >= nearWhite) {
+        //debugger;
+        useNearWhite = true;
+      }
+    }
+
     const white = 255;
     const black = 0;
 
-    // set black and white, and for everything else, get grayscale levels
-    const step = (white - black) / numLevels;
     const levels = [];
+    // always start with black
     levels[0] = black;
-    const effectiveLevels = numLevels - 2;
-    for (let i = 0; i < effectiveLevels; i++) {
-      levels.push(Math.round(i * step));
+    if (useNearWhite) {
+      // when the near white strat is used, we reserve the top level for white and adjust the rest evenly
+      const effectiveLevels = numLevels - 2;
+      const step = (white - nearWhite - black) / effectiveLevels;
+      // fill intermediate levels based on adjusted step
+      for (let i = 1; i < effectiveLevels; i++) {
+        levels.push(Math.round(i * step));
+      }
+      levels.push(white - nearWhite);
+    } else {
+      // if not using near white, we fill the levels evenly from black to white
+      const effectiveLevels = numLevels - 1;
+      const step = (white - black) / effectiveLevels;
+      for (let i = 1; i < effectiveLevels; i++) {
+        levels.push(Math.round(i * step));
+      }
     }
+    // always end with white (numLevels has to be at least 2)
     levels.push(white);
 
     // find closest
@@ -258,6 +297,15 @@ export class HighlightService
     for (const level of levels) {
       if (Math.abs(luminance - level) < Math.abs(luminance - outputGray)) {
         outputGray = level;
+      }
+    }
+
+    // flip white and black if needed
+    if (flipWhiteBlack) {
+      if (outputGray === white) {
+        outputGray = black;
+      } else if (outputGray === black) {
+        outputGray = white;
       }
     }
 

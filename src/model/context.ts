@@ -11,7 +11,7 @@ type Plot = Figure | Subplot | Trace;
 
 export class Context implements Disposable {
   public readonly id: string;
-  private readonly instructionContext: Plot;
+  public readonly instructionContext: Plot;
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
@@ -72,7 +72,7 @@ export class Context implements Disposable {
 
   public isMovable(target: [number, number] | MovableDirection): boolean {
     return this.active.isMovable(target);
-  };
+  }
 
   public moveOnce(direction: MovableDirection): void {
     this.active.moveOnce(direction);
@@ -136,7 +136,9 @@ export class Context implements Disposable {
       return `No ${state.type} info available`;
     }
 
-    const clickPrompt = includeClickPrompt ? 'Click to activate.' : Constant.EMPTY;
+    const clickPrompt = includeClickPrompt
+      ? 'Click to activate.'
+      : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
         return `This is a MAIDR figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
