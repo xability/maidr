@@ -3,22 +3,24 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
+interface FigureEmptyState {
+  empty: true;
+  type: 'figure';
+}
+
 export type FigureState
-  = | {
-    empty: true;
-    type: 'figure';
-  }
-  | {
-    empty: false;
-    type: 'figure';
-    title: string;
-    subtitle: string;
-    caption: string;
-    size: number;
-    index: number;
-    subplot: SubplotState;
-    traceTypes: string[];
-  };
+  = | FigureEmptyState
+    | {
+        empty: false;
+        type: 'figure';
+        title: string;
+        subtitle: string;
+        caption: string;
+        size: number;
+        index: number;
+        subplot: SubplotState;
+        traceTypes: string[];
+    };
 
 interface SubplotEmptyState {
   empty: true;
