@@ -123,6 +123,7 @@ export class Controller implements Disposable {
     this.brailleService.dispose();
     this.audioService.dispose();
 
+    this.settingsService.dispose();
     this.notificationService.dispose();
     this.displayService.dispose();
     this.context.dispose();
