@@ -1,5 +1,6 @@
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
+import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Settings } from '@type/settings';
 import { Emitter, Scope } from '@type/event';
@@ -41,7 +42,7 @@ class SettingsChangeEvent {
   }
 }
 
-export class SettingsService {
+export class SettingsService implements Disposable {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
 
@@ -62,6 +63,10 @@ export class SettingsService {
 
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     this.currentSettings = saved ?? this.defaultSettings;
+  }
+
+  public dispose(): void {
+    this.onChangeEmitter.dispose();
   }
 
   public loadSettings(): Settings {
