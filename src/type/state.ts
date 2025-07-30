@@ -11,15 +11,15 @@ interface FigureEmptyState {
 export type FigureState
   = | FigureEmptyState
     | {
-        empty: false;
-        type: 'figure';
-        title: string;
-        subtitle: string;
-        caption: string;
-        size: number;
-        index: number;
-        subplot: SubplotState;
-        traceTypes: string[];
+      empty: false;
+      type: 'figure';
+      title: string;
+      subtitle: string;
+      caption: string;
+      size: number;
+      index: number;
+      subplot: SubplotState;
+      traceTypes: string[];
     };
 
 interface SubplotEmptyState {
