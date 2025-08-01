@@ -10,6 +10,7 @@ export enum DomEventType {
   MOUSE_LEAVE = 'mouseleave',
   MOUSE_MOVE = 'mousemove',
   SELECTION_CHANGE = 'selectionchange',
+  VISIBILITY_CHANGE = 'visibilitychange',
 }
 
 export type Status

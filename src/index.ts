@@ -81,6 +81,17 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }, 0);
   };
 
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      if (controller) {
+        controller.dispose();
+        controller = null;
+      }
+      const maidrClone = JSON.parse(JSON.stringify(maidr));
+      controller = new Controller(maidrClone, plot);
+    }
+  };
+
   const figureElement = document.createElement(Constant.FIGURE);
   figureElement.id = `${Constant.MAIDR_FIGURE}-${maidr.id}`;
   plot.parentNode!.replaceChild(figureElement, plot);
@@ -99,6 +110,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
   plot.addEventListener(DomEventType.CLICK, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
+
+  document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));
