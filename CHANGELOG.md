@@ -1,3 +1,10 @@
+## [3.20.4](https://github.com/xability/maidr/compare/v3.20.3...v3.20.4) (2025-08-01)
+
+
+### Bug Fixes
+
+* adress audio service error in safari ([#404](https://github.com/xability/maidr/issues/404)) ([4642af3](https://github.com/xability/maidr/commit/4642af3e554f75e9c1f53d25227671c47af0d255))
+
 ## [3.20.3](https://github.com/xability/maidr/compare/v3.20.2...v3.20.3) (2025-07-29)
 
 
