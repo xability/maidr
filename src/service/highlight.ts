@@ -99,7 +99,7 @@ export class HighlightService
   }
 
   public toggleHighContrast(context: Context): void {
-    // toggle with 'h'
+    // toggle with 'c'
 
     // todo: add to settings, and save state
     // also, use 008A00 as default highlight color during high contrast mode
