@@ -39,7 +39,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `h`,
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -117,7 +117,7 @@ const REVIEW_KEYMAP = {
   // Modes
   TOGGLE_BRAILLE: `b`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `h`,
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Allowed actions
   ALLOW_DEFAULT: `up, down, left, right,
@@ -166,7 +166,7 @@ const TRACE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `h`,
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,

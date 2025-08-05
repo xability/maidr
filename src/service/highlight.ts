@@ -24,12 +24,14 @@ export class HighlightService
   private highContrastMode: boolean = false;
   private defaultBackgroundColor: string = '';
   private defaultForegroundColor: string = '';
+  private highContrastLevels: number = 2; // default to 2 levels (black and white)
 
   public constructor(settings: SettingsService) {
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
+    this.highContrastLevels = initialSettings.general.highContrastLevels;
   }
 
   public dispose(): void {
@@ -104,7 +106,6 @@ export class HighlightService
 
     const lightColor = '#ffffff';
     const darkColor = '#000000'; // todo, put these in class vars (or settings), and use in toGrayScaleStep
-    let numLevels = 5; // 2 - 255? levels of contrast. 2 = black and white, 255 = full gray range
 
     const svg = document.getElementById(context.id);
     if (!svg) return;
@@ -172,7 +173,7 @@ export class HighlightService
           el.setAttribute('data-original-fill', originalFill);
           const newFill = this.toGrayscaleStep(
             originalFill,
-            numLevels,
+            this.highContrastLevels,
             context,
           );
           newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
@@ -183,7 +184,7 @@ export class HighlightService
           el.setAttribute('data-original-stroke', originalStroke);
           const newStroke = this.toGrayscaleStep(
             originalStroke,
-            numLevels,
+            this.highContrastLevels,
             context,
           );
           newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
@@ -197,7 +198,7 @@ export class HighlightService
           el.setAttribute('data-attr-fill', attrFill);
           el.setAttribute(
             'fill',
-            this.toGrayscaleStep(attrFill, numLevels, context),
+            this.toGrayscaleStep(attrFill, this.highContrastLevels, context),
           );
         }
 
@@ -206,7 +207,7 @@ export class HighlightService
           el.setAttribute('data-attr-stroke', attrStroke);
           el.setAttribute(
             'stroke',
-            this.toGrayscaleStep(attrStroke, numLevels, context),
+            this.toGrayscaleStep(attrStroke, this.highContrastLevels, context),
           );
         }
       });
@@ -261,7 +262,7 @@ export class HighlightService
     // If the color is close to white, return white
     if ('type' in context.instructionContext) {
       if (context.instructionContext.type === 'bar' && luminance >= nearWhite) {
-        //debugger;
+        // debugger;
         useNearWhite = true;
       }
     }

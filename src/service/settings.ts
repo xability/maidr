@@ -23,6 +23,7 @@ export class SettingsService implements Observable<Settings> {
       general: {
         volume: 50,
         highlightColor: '#03c809',
+        highContrastLevels: 2,
         brailleDisplaySize: 32,
         minFrequency: 200,
         maxFrequency: 1000,
@@ -68,7 +69,7 @@ export class SettingsService implements Observable<Settings> {
   }
 
   public removeObserver(observer: Observer<Settings>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {

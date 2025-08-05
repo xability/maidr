@@ -53,52 +53,86 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
 
-  public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(
+    maidr: Maidr,
+    plot: HTMLElement,
+    reactContainer: HTMLElement,
+  ) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot, reactContainer);
+    this.displayService = new DisplayService(
+      this.context,
+      plot,
+      reactContainer,
+    );
     this.notificationService = new NotificationService();
 
     const storageService = new LocalStorageService();
-    this.settingsService = new SettingsService(storageService, this.displayService);
-    this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
+    this.settingsService = new SettingsService(
+      storageService,
+      this.displayService,
+    );
+    this.audioService = new AudioService(
+      this.notificationService,
+      this.context.state,
+      this.settingsService,
+    );
 
-    this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
+    this.brailleService = new BrailleService(
+      this.context,
+      this.notificationService,
+      this.displayService,
+    );
     this.textService = new TextService(this.notificationService);
-    this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
+    this.reviewService = new ReviewService(
+      this.notificationService,
+      this.displayService,
+      this.textService,
+    );
 
-    this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
+    this.autoplayService = new AutoplayService(
+      this.context,
+      this.notificationService,
+      this.settingsService,
+    );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 
-    this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
+    this.textViewModel = new TextViewModel(
+      store,
+      this.textService,
+      this.notificationService,
+      this.autoplayService,
+    );
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
-    this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
+    this.chatViewModel = new ChatViewModel(
+      store,
+      this.chatService,
+      this.audioService,
+    );
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
     this.notificationService.notify(this.context.getInstruction(false));
 
-    this.keybinding = new KeybindingService(
-      {
-        context: this.context,
+    this.keybinding = new KeybindingService({
+      context: this.context,
 
-        audioService: this.audioService,
-        autoplayService: this.autoplayService,
-        highlightService: this.highlightService,
+      audioService: this.audioService,
+      autoplayService: this.autoplayService,
+      highlightService: this.highlightService,
 
-        brailleViewModel: this.brailleViewModel,
-        chatViewModel: this.chatViewModel,
-        helpViewModel: this.helpViewModel,
-        reviewViewModel: this.reviewViewModel,
-        settingsViewModel: this.settingsViewModel,
-        textViewModel: this.textViewModel,
-      },
-    );
+      brailleViewModel: this.brailleViewModel,
+      chatViewModel: this.chatViewModel,
+      helpViewModel: this.helpViewModel,
+      reviewViewModel: this.reviewViewModel,
+      settingsViewModel: this.settingsViewModel,
+      textViewModel: this.textViewModel,
+    });
 
     this.registerViewModels();
     this.registerObservers();
@@ -145,18 +179,22 @@ export class Controller implements Disposable {
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
-      subplot.addObserver(this.textService);
-      subplot.addObserver(this.audioService);
-      subplot.addObserver(this.brailleService);
-      subplot.addObserver(this.highlightService);
-      subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
-        trace.addObserver(this.audioService);
-        trace.addObserver(this.brailleService);
-        trace.addObserver(this.textService);
-        trace.addObserver(this.reviewService);
-        trace.addObserver(this.highlightService);
-      }));
-    }));
+    this.figure.subplots.forEach((subplotRow) =>
+      subplotRow.forEach((subplot) => {
+        subplot.addObserver(this.textService);
+        subplot.addObserver(this.audioService);
+        subplot.addObserver(this.brailleService);
+        subplot.addObserver(this.highlightService);
+        subplot.traces.forEach((traceRow) =>
+          traceRow.forEach((trace) => {
+            trace.addObserver(this.audioService);
+            trace.addObserver(this.brailleService);
+            trace.addObserver(this.textService);
+            trace.addObserver(this.reviewService);
+            trace.addObserver(this.highlightService);
+          }),
+        );
+      }),
+    );
   }
 }

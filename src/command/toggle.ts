@@ -118,8 +118,8 @@ export class ToggleScopeCommand implements Command {
   }
 }
 export class ToggleHighContrast implements Command {
-  private readonly highlightService: HighlightService;
   private readonly context: Context;
+  private readonly highlightService: HighlightService;
 
   public constructor(context: Context, highlightService: HighlightService) {
     this.context = context;

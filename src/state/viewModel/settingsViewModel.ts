@@ -5,12 +5,13 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings { }
+interface SettingsState extends Settings {}
 
 const initialState: SettingsState = {
   general: {
     volume: 50,
     highlightColor: '#03c809',
+    highContrastLevels: 2,
     brailleDisplaySize: 32,
     minFrequency: 200,
     maxFrequency: 1000,

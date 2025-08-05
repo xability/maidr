@@ -25,13 +25,19 @@ export class DisplayService implements Disposable {
   // Store current instruction for mouse handlers
   private currentInstruction: string = '';
 
-  public constructor(context: Context, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(
+    context: Context,
+    plot: HTMLElement,
+    reactContainer: HTMLElement,
+  ) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
     this.focusStack.push(this.context.scope as Focus);
 
     this.plot = plot;
-    this.reactRoot = createRoot(reactContainer, { identifierPrefix: this.context.id });
+    this.reactRoot = createRoot(reactContainer, {
+      identifierPrefix: this.context.id,
+    });
     this.reactRoot.render(MaidrApp);
 
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
@@ -40,10 +46,8 @@ export class DisplayService implements Disposable {
     this.plot.addEventListener('click', () => {
       const figureElement = this.plot.closest(Constant.FIGURE);
       const articleElement = this.plot.closest(Constant.ARTICLE);
-      if (figureElement)
-        figureElement.removeAttribute(Constant.TITLE);
-      if (articleElement)
-        articleElement.removeAttribute(Constant.TITLE);
+      if (figureElement) figureElement.removeAttribute(Constant.TITLE);
+      if (articleElement) articleElement.removeAttribute(Constant.TITLE);
     });
 
     this.removeInstruction();

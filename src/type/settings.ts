@@ -21,6 +21,7 @@ export interface LlmSettings {
 export interface GeneralSettings {
   volume: number;
   highlightColor: string;
+  highContrastLevels: number;
   brailleDisplaySize: number;
   minFrequency: number;
   maxFrequency: number;

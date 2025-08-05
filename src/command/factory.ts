@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { SettingsService } from '@service/settings';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -62,6 +63,7 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
+  private readonly settingsService: SettingsService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -76,6 +78,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.settingsService = commandContext.settingsService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
