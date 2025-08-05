@@ -46,8 +46,10 @@ export class DisplayService implements Disposable {
     this.plot.addEventListener('click', () => {
       const figureElement = this.plot.closest(Constant.FIGURE);
       const articleElement = this.plot.closest(Constant.ARTICLE);
-      if (figureElement) figureElement.removeAttribute(Constant.TITLE);
-      if (articleElement) articleElement.removeAttribute(Constant.TITLE);
+      if (figureElement)
+        figureElement.removeAttribute(Constant.TITLE);
+      if (articleElement)
+        articleElement.removeAttribute(Constant.TITLE);
     });
 
     this.removeInstruction();

@@ -69,7 +69,7 @@ export class SettingsService implements Observable<Settings> {
   }
 
   public removeObserver(observer: Observer<Settings>): void {
-    this.observers = this.observers.filter((obs) => obs !== observer);
+    this.observers = this.observers.filter(obs => obs !== observer);
   }
 
   public notifyStateUpdate(): void {

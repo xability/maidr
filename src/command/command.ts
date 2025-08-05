@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { SettingsService } from '@service/settings';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -19,6 +20,7 @@ export interface CommandContext {
   audioService: AudioService;
   autoplayService: AutoplayService;
   highlightService: HighlightService;
+  settingsService: SettingsService;
 
   brailleViewModel: BrailleViewModel;
   chatViewModel: ChatViewModel;

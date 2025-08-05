@@ -179,13 +179,13 @@ export class Controller implements Disposable {
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach((subplotRow) =>
+    this.figure.subplots.forEach(subplotRow =>
       subplotRow.forEach((subplot) => {
         subplot.addObserver(this.textService);
         subplot.addObserver(this.audioService);
         subplot.addObserver(this.brailleService);
         subplot.addObserver(this.highlightService);
-        subplot.traces.forEach((traceRow) =>
+        subplot.traces.forEach(traceRow =>
           traceRow.forEach((trace) => {
             trace.addObserver(this.audioService);
             trace.addObserver(this.brailleService);

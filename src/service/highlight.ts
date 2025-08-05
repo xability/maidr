@@ -15,8 +15,7 @@ import { Svg } from '@util/svg';
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
 export class HighlightService
-  implements Observer<HighlightStateUnion>, Disposable
-{
+implements Observer<HighlightStateUnion>, Disposable {
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
   private currentHighlightColor: string;
@@ -108,7 +107,8 @@ export class HighlightService
     const darkColor = '#000000'; // todo, put these in class vars (or settings), and use in toGrayScaleStep
 
     const svg = document.getElementById(context.id);
-    if (!svg) return;
+    if (!svg)
+      return;
 
     const svgElements = svg.querySelectorAll('*');
 
@@ -136,7 +136,8 @@ export class HighlightService
           );
           el.removeAttribute('data-original-stroke');
         }
-        if (newStyle !== style) el.setAttribute('style', newStyle);
+        if (newStyle !== style)
+          el.setAttribute('style', newStyle);
 
         // Restore fill/stroke attributes
         const attrFill = el.getAttribute('data-attr-fill');
@@ -157,7 +158,8 @@ export class HighlightService
           if (context.instructionContext.type === 'line') {
             document
               .getElementById(context.id)
-              ?.classList.remove('high-contrast');
+              ?.classList
+              .remove('high-contrast');
           }
         }
       });
@@ -199,7 +201,8 @@ export class HighlightService
           newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
         }
 
-        if (newStyle !== style) el.setAttribute('style', newStyle);
+        if (newStyle !== style)
+          el.setAttribute('style', newStyle);
 
         // Handle fill/stroke attributes
         const attrFill = el.getAttribute('fill');
@@ -240,11 +243,10 @@ export class HighlightService
     // as sometimes (ie bar) the main bar color is super close to white but we don't want it the same
     // as the background color.
 
-    // bookmark:
+    // todo:
     // need to still use the full grayscale range,
     // so, take in all colors and adjust to the max range.
-    // note: we don't know what's a real color and what's a chart component,
-    // so we need the selector to be able to do this
+    // we need the selector to be able to do this
 
     // reverse raw white and black? typically yes but we'll see
     const flipWhiteBlack = true;
@@ -257,12 +259,14 @@ export class HighlightService
     }
 
     const ctx = document.createElement('canvas').getContext('2d');
-    if (!ctx) return value;
+    if (!ctx)
+      return value;
 
     ctx.fillStyle = '#000';
     ctx.fillStyle = value.trim();
     const hex = ctx.fillStyle;
-    if (!/^#[0-9a-f]{6}$/i.test(hex)) return value;
+    if (!/^#[0-9a-f]{6}$/i.test(hex))
+      return value;
 
     // convert to grayscale
     const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -275,7 +279,11 @@ export class HighlightService
     const nearWhite = 255 * nearWhiteScale;
     // If the color is close to white, return white
     if ('type' in context.instructionContext) {
-      if (context.instructionContext.type === 'bar' && luminance >= nearWhite) {
+      if (
+        (context.instructionContext.type === 'bar'
+          || context.instructionContext.type === 'stacked_bar')
+        && luminance >= nearWhite
+      ) {
         // debugger;
         useNearWhite = true;
       }
@@ -334,13 +342,15 @@ export class HighlightService
     }
 
     const ctx = document.createElement('canvas').getContext('2d');
-    if (!ctx) return false;
+    if (!ctx)
+      return false;
 
     ctx.fillStyle = '#000';
     ctx.fillStyle = value.trim();
     const hex = ctx.fillStyle;
 
-    if (!/^#[0-9a-f]{6}$/i.test(hex)) return false;
+    if (!/^#[0-9a-f]{6}$/i.test(hex))
+      return false;
 
     const r = Number.parseInt(hex.slice(1, 3), 16);
     const g = Number.parseInt(hex.slice(3, 5), 16);
@@ -394,8 +404,8 @@ export class HighlightService
     const figure = document.querySelector(
       'g[id^="maidr-"] > path[style*="fill"]',
     )?.parentElement as SVGElement | null;
-    const figureBgElement =
-      (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    const figureBgElement
+      = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {
       Svg.setSubplotHighlightSvgWithAdaptiveColor(
         element,
