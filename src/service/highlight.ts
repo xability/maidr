@@ -151,6 +151,15 @@ export class HighlightService
           el.setAttribute('stroke', attrStroke);
           el.removeAttribute('data-attr-stroke');
         }
+
+        // exceptions
+        if ('type' in context.instructionContext) {
+          if (context.instructionContext.type === 'line') {
+            document
+              .getElementById(context.id)
+              ?.classList.remove('high-contrast');
+          }
+        }
       });
     } else {
       this.highContrastMode = true;
@@ -209,6 +218,11 @@ export class HighlightService
             'stroke',
             this.toGrayscaleStep(attrStroke, this.highContrastLevels, context),
           );
+        }
+        if ('type' in context.instructionContext) {
+          if (context.instructionContext.type === 'line') {
+            document.getElementById(context.id)?.classList.add('high-contrast');
+          }
         }
       });
     }
