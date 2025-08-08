@@ -1,4 +1,4 @@
-import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '@type/grammar';
+import type { CandlestickPoint, CandlestickSelector, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
@@ -32,7 +32,7 @@ export class Candlestick extends AbstractTrace<number> {
   private readonly min: number;
   private readonly max: number;
 
-  protected readonly highlightValues: SVGElement[][] | null;
+  protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
   // Service dependency for navigation logic
   protected readonly navigationService: NavigationService;
@@ -79,8 +79,7 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = 0; // Points to 'open' segment index in sections array
     }
 
-    const selectors = typeof layer.selectors === 'string' ? layer.selectors : '';
-    this.highlightValues = this.mapToSvgElements(selectors);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string | string[] | CandlestickSelector | undefined);
   }
 
   /**
@@ -391,31 +390,139 @@ export class Candlestick extends AbstractTrace<number> {
     };
   }
 
-  protected mapToSvgElements(selector: string): SVGElement[][] | null {
-    if (!selector) {
+  protected mapToSvgElements(
+    selectors: string | string[] | CandlestickSelector | undefined,
+  ): (SVGElement[] | SVGElement)[][] | null {
+    if (!selectors) {
       return null;
     }
 
-    const allElements = Svg.selectAllElements(selector);
+    // Legacy: a single selector for all elements
+    if (typeof selectors === 'string' || Array.isArray(selectors)) {
+      const selectorString = Array.isArray(selectors) ? (selectors[0] || '') : selectors;
+      const allElements = Svg.selectAllElements(selectorString);
 
-    // Create a 2D array structure that matches the dynamic value-sorted navigation:
-    // - Rows represent value-sorted positions (0=lowest, 3=highest)
-    // - Cols represent candlestick points
-    // This ensures highlightValues[dynamicRow][col] works correctly
-    const segmentElements: SVGElement[][] = [];
+      const segmentElements: (SVGElement[] | SVGElement)[][] = [];
+      for (let pos = 0; pos < this.sections.length; pos++) {
+        segmentElements[pos] = [];
+        for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {
+          const elementIndex = pointIndex < allElements.length ? pointIndex : 0;
+          segmentElements[pos][pointIndex] = allElements[elementIndex];
+        }
+      }
+      return segmentElements;
+    }
 
-    for (
-      let sortedPosition = 0;
-      sortedPosition < this.sections.length;
-      sortedPosition++
-    ) {
-      segmentElements[sortedPosition] = [];
+    // Structured selectors
+    const cs = selectors as CandlestickSelector;
+    const N = this.candles.length;
 
-      for (let pointIndex = 0; pointIndex < this.candles.length; pointIndex++) {
-        // For each candlestick point, assign the corresponding SVG element
-        // All segments of a candlestick typically share the same SVG element
-        const elementIndex = pointIndex < allElements.length ? pointIndex : 0;
-        segmentElements[sortedPosition][pointIndex] = allElements[elementIndex];
+    const collect = (sel?: string | string[]): SVGElement[] => {
+      if (!sel)
+        return [];
+      const arr = Array.isArray(sel) ? sel : [sel];
+      const out: SVGElement[] = [];
+      for (const s of arr) out.push(...Svg.selectAllElements(s));
+      return out;
+    };
+
+    const bodies = collect(cs.body);
+    let highs = collect(cs.wickHigh);
+    let lows = collect(cs.wickLow);
+    // Fallback to a single combined wick if provided
+    if (highs.length === 0 || lows.length === 0) {
+      const combined = collect(cs.wick);
+      if (combined.length > 0) {
+        if (highs.length === 0)
+          highs = combined;
+        if (lows.length === 0)
+          lows = combined;
+      }
+    }
+    const opens = collect(cs.open);
+    const closes = collect(cs.close);
+    // Volatility will be composed from [wickHigh, body, wickLow]; no direct selectors used
+
+    const at = (arr: SVGElement[], i: number): SVGElement | null => (i < arr.length ? arr[i] : null);
+
+    const derivedOpen: SVGElement[] = Array.from({ length: N });
+    const derivedClose: SVGElement[] = Array.from({ length: N });
+    const derivedVolatility: SVGElement[] = Array.from({ length: N });
+
+    for (let i = 0; i < N; i++) {
+      // Open (explicit otherwise derive from body using data)
+      let openEl = at(opens, i);
+      if (!openEl) {
+        const body = at(bodies, i);
+        if (body) {
+          const { open, close } = this.candles[i];
+          const edge: 'top' | 'bottom' = close > open ? 'bottom' : close < open ? 'top' : 'bottom';
+          openEl = Svg.createLineElement(body, edge);
+        } else {
+          openEl = Svg.createEmptyElement();
+        }
+      }
+      derivedOpen[i] = openEl;
+
+      // Close (explicit otherwise derive from body using data)
+      let closeEl = at(closes, i);
+      if (!closeEl) {
+        const body = at(bodies, i);
+        if (body) {
+          const { open, close } = this.candles[i];
+          const edge: 'top' | 'bottom' = close > open ? 'top' : close < open ? 'bottom' : 'top';
+          closeEl = Svg.createLineElement(body, edge);
+        } else {
+          closeEl = Svg.createEmptyElement();
+        }
+      }
+      derivedClose[i] = closeEl;
+
+      // Volatility: composed later as [high, body, low]; no single element here
+      derivedVolatility[i] = Svg.createEmptyElement();
+    }
+
+    // Build 2D array in value-sorted navigation order per point
+    const segmentElements: (SVGElement[] | SVGElement)[][] = Array.from({ length: this.sections.length }, () => Array.from({ length: N }));
+
+    for (let pointIndex = 0; pointIndex < N; pointIndex++) {
+      const navOrder = this.sortedSegmentsByPoint[pointIndex]; // ['volatility', ...sorted OHLC]
+      for (let pos = 0; pos < navOrder.length; pos++) {
+        const seg = navOrder[pos];
+        let el: SVGElement | SVGElement[];
+        switch (seg) {
+          case 'volatility':
+            {
+              const parts: SVGElement[] = [];
+              const body = at(bodies, pointIndex);
+              const hi = at(highs, pointIndex) ?? body;
+              const lo = at(lows, pointIndex) ?? body;
+              if (hi)
+                parts.push(hi);
+              if (body)
+                parts.push(body);
+              if (lo)
+                parts.push(lo);
+              const unique = Array.from(new Set(parts));
+              el = unique.length > 0 ? unique : [Svg.createEmptyElement()];
+            }
+            break;
+          case 'open':
+            el = derivedOpen[pointIndex];
+            break;
+          case 'close':
+            el = derivedClose[pointIndex];
+            break;
+          case 'high':
+            el = at(highs, pointIndex) ?? at(bodies, pointIndex) ?? Svg.createEmptyElement();
+            break;
+          case 'low':
+            el = at(lows, pointIndex) ?? at(bodies, pointIndex) ?? Svg.createEmptyElement();
+            break;
+          default:
+            el = Svg.createEmptyElement();
+        }
+        segmentElements[pos][pointIndex] = el;
       }
     }
 

@@ -93,11 +93,20 @@ export enum Orientation {
   HORIZONTAL = 'horz',
 }
 
+export interface CandlestickSelector {
+  body: string | string[];
+  wickHigh?: string | string[];
+  wickLow?: string | string[];
+  wick?: string | string[]; // single combined wick (high-to-low) line
+  open?: string | string[];
+  close?: string | string[];
+}
+
 export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[];
+  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   axes?: {
     x?: string;
