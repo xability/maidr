@@ -1,6 +1,6 @@
+import type { TraceState } from '../../src/type/state';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { Context } from '../../src/model/context';
-import type { TraceState } from '../../src/type/state';
 import { TraceType } from '../../src/type/grammar';
 
 /**
@@ -9,7 +9,9 @@ import { TraceType } from '../../src/type/grammar';
 function createMockContext(traceState: TraceState): Context {
   // Create a minimal mock figure that will use the provided trace state
   const mockTrace = {
-    get state() { return traceState; },
+    get state() {
+      return traceState;
+    },
     getId: () => 'test-trace',
     getCurrentXValue: () => 0,
     moveToXValue: () => false,
@@ -38,7 +40,9 @@ function createMockContext(traceState: TraceState): Context {
       };
     },
     traces: [[mockTrace]],
-    get activeTrace() { return mockTrace; },
+    get activeTrace() {
+      return mockTrace;
+    },
     getRow: () => 0,
     getSize: () => 1,
     isMovable: () => false,
@@ -67,7 +71,9 @@ function createMockContext(traceState: TraceState): Context {
         highlight: { empty: true as const, type: 'trace' as const, audio: { size: 0, index: 0 } },
       };
     },
-    get activeSubplot() { return mockSubplot; },
+    get activeSubplot() {
+      return mockSubplot;
+    },
     isMovable: () => false,
     moveOnce: () => {},
     moveToExtreme: () => {},
@@ -106,14 +112,14 @@ describe('Context getInstruction method', () => {
     it('should generate instruction for single line plot without group count', () => {
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: single line. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: single line. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
 
     it('should generate instruction for single line plot without click prompt', () => {
       const instruction = context.getInstruction(false);
       expect(instruction).toBe(
-        'This is a maidr plot of type: single line.  Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: single line.  Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
   });
@@ -146,14 +152,14 @@ describe('Context getInstruction method', () => {
     it('should generate instruction for multiline plot with group count', () => {
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline with 5 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline with 5 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
 
     it('should generate instruction for multiline plot without click prompt', () => {
       const instruction = context.getInstruction(false);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline with 5 groups.  Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline with 5 groups.  Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
   });
@@ -181,7 +187,7 @@ describe('Context getInstruction method', () => {
       const context = createMockContext(multilineState);
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline with 1 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline with 1 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
 
@@ -207,7 +213,7 @@ describe('Context getInstruction method', () => {
       const context = createMockContext(multilineState);
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline with 10 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline with 10 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
   });
@@ -235,7 +241,7 @@ describe('Context getInstruction method', () => {
       const context = createMockContext(multilineState);
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
 
@@ -261,7 +267,7 @@ describe('Context getInstruction method', () => {
       const context = createMockContext(multilineState);
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: multiline. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
   });
@@ -289,7 +295,7 @@ describe('Context getInstruction method', () => {
       const context = createMockContext(barState);
       const instruction = context.getInstruction(true);
       expect(instruction).toBe(
-        'This is a maidr plot of type: bar. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.'
+        'This is a maidr plot of type: bar. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
   });
