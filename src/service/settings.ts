@@ -23,6 +23,7 @@ export class SettingsService implements Observable<Settings> {
       general: {
         volume: 50,
         highlightColor: '#03c809',
+        highContrastLevels: 2,
         brailleDisplaySize: 32,
         minFrequency: 200,
         maxFrequency: 1000,

@@ -421,6 +421,33 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
+              label="High Contrast Levels"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.highContrastLevels}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'highContrastLevels',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Levels',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
               label="Braille Display Size"
               input={(
                 <FormControl fullWidth>

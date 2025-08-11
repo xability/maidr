@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { SettingsService } from '@service/settings';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -49,6 +50,7 @@ import {
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleHelpCommand,
+  ToggleHighContrast,
   ToggleReviewCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
@@ -61,6 +63,7 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
+  private readonly settingsService: SettingsService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -75,6 +78,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.settingsService = commandContext.settingsService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
@@ -120,6 +124,8 @@ export class CommandFactory {
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
+      case 'TOGGLE_HIGH_CONTRAST':
+        return new ToggleHighContrast(this.context, this.highlightService);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
@@ -135,7 +141,13 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
+        return new DescribePointCommand(
+          this.context,
+          this.audioService,
+          this.highlightService,
+          this.brailleViewModel,
+          this.textViewModel,
+        );
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':
