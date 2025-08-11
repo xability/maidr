@@ -49,10 +49,7 @@ export class LineTrace extends AbstractTrace {
 
     const maxCols = Math.max(0, ...this.points.map(row => row.length));
     const graph: (Node | null)[][] = this.points.map(row =>
-      Array.from({ length: maxCols }, (_, c) =>
-        row[c]
-          ? { up: null, down: null, left: null, right: null, top: null, bottom: null, start: null, end: null }
-          : null),
+      row.map(() => ({ up: null, down: null, left: null, right: null, top: null, bottom: null, start: null, end: null }))
     );
 
     for (let c = 0; c < maxCols; c++) {
