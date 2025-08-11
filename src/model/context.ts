@@ -172,7 +172,7 @@ export class Context implements Disposable {
         }
 
         const groupCountText = effectivePlotType === 'multiline' && state.groupCount && state.groupCount > 1
-          ? ` with ${state.groupCount} ${state.groupCount === 1 ? 'group' : 'groups'}`
+          ? ` with ${state.groupCount} groups`
           : '';
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
