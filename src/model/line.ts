@@ -1,10 +1,10 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, Node } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { MovableGrid } from './movable';
+import { MovableGraph } from './movable';
 
 const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
@@ -29,7 +29,7 @@ export class LineTrace extends AbstractTrace {
     this.max = this.lineValues.map(row => Math.max(...row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
-    this.movable = new MovableGrid<number>(this.lineValues);
+    this.movable = new MovableGraph(this.buildGraph());
   }
 
   public dispose(): void {
@@ -39,6 +39,67 @@ export class LineTrace extends AbstractTrace {
     this.max.length = 0;
 
     super.dispose();
+  }
+
+  private buildGraph(): (Node | null)[][] {
+    const rowCount = this.points.length;
+    if (rowCount === 0) {
+      return new Array<Array<Node | null>>();
+    }
+
+    const maxCols = Math.max(0, ...this.points.map(row => row.length));
+    const graph: (Node | null)[][] = this.points.map(row =>
+      Array.from({ length: maxCols }, (_, c) =>
+        row[c]
+          ? { up: null, down: null, left: null, right: null, top: null, bottom: null, start: null, end: null }
+          : null),
+    );
+
+    for (let c = 0; c < maxCols; c++) {
+      const pointsAtCol = this.points
+        .map((row, idx) => ({ y: row[c]?.y, row: idx }))
+        .filter(p => p.y !== undefined);
+      if (pointsAtCol.length === 0) {
+        continue;
+      }
+
+      const sortedPoints = [...pointsAtCol].sort((a, b) => a.y - b.y);
+      const bottom = { row: sortedPoints[0].row, col: c };
+      const top = { row: sortedPoints[sortedPoints.length - 1].row, col: c };
+      for (let i = 0; i < sortedPoints.length; i++) {
+        const { row } = sortedPoints[i];
+        const node = graph[row][c];
+        if (!node) {
+          continue;
+        }
+
+        i > 0 && (node.down = { row: sortedPoints[i - 1].row, col: c });
+        i < sortedPoints.length - 1 && (node.up = { row: sortedPoints[i + 1].row, col: c });
+        node.bottom = bottom;
+        node.top = top;
+      }
+    }
+
+    for (let r = 0; r < rowCount; r++) {
+      const start = this.points[r].length > 0 ? { row: r, col: 0 } : null;
+      const end = this.points[r].length > 0
+        ? { row: r, col: this.points[r].length - 1 }
+        : null;
+
+      for (let c = 0; c < this.points[r].length; c++) {
+        const node = graph[r][c];
+        if (!node) {
+          continue;
+        }
+
+        c > 0 && (node.left = { row: r, col: c - 1 });
+        c < this.points[r].length - 1 && (node.right = { row: r, col: c + 1 });
+        node.start = start;
+        node.end = end;
+      }
+    }
+
+    return graph;
   }
 
   protected audio(): AudioState {
