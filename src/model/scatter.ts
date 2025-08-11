@@ -1,32 +1,14 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovablePlane } from './movable';
 
-enum NavMode {
-  COL = 'column',
-  ROW = 'row',
-}
+export class ScatterTrace extends AbstractTrace {
+  protected readonly movable: MovablePlane;
 
-interface ScatterXPoint {
-  x: number;
-  y: number[];
-}
-
-interface ScatterYPoint {
-  y: number;
-  x: number[];
-}
-
-export class ScatterTrace extends AbstractTrace<number> {
-  private mode: NavMode;
-
-  private readonly xPoints: ScatterXPoint[];
-  private readonly yPoints: ScatterYPoint[];
-
-  private readonly xValues: number[];
-  private readonly yValues: number[];
+  private readonly xPoints: { x: number; y: number[] }[];
+  private readonly yPoints: { x: number[]; y: number }[];
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
@@ -39,12 +21,11 @@ export class ScatterTrace extends AbstractTrace<number> {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.mode = NavMode.COL;
     const data = layer.data as ScatterPoint[];
 
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
-    this.xPoints = new Array<ScatterXPoint>();
-    let currentX: ScatterXPoint | null = null;
+    this.xPoints = new Array<{ x: number; y: number[] }>();
+    let currentX: { x: number; y: number[] } | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
         currentX = { x: point.x, y: [] };
@@ -54,8 +35,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
 
     const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
-    this.yPoints = new Array<ScatterYPoint>();
-    let currentY: ScatterYPoint | null = null;
+    this.yPoints = new Array<{ x: number[]; y: number }>();
+    let currentY: { x: number[]; y: number } | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
         currentY = { y: point.y, x: [] };
@@ -64,23 +45,35 @@ export class ScatterTrace extends AbstractTrace<number> {
       currentY.x.push(point.x);
     }
 
-    this.xValues = this.xPoints.map(p => p.x);
-    this.yValues = this.yPoints.map(p => p.y);
+    let [minX, maxX] = [Infinity, -Infinity];
+    for (const p of this.xPoints) {
+      if (p.x < minX)
+        minX = p.x;
+      if (p.x > maxX)
+        maxX = p.x;
+    }
+    this.minX = minX;
+    this.maxX = maxX;
 
-    this.minX = Math.min(...this.xValues);
-    this.maxX = Math.max(...this.xValues);
-    this.minY = Math.min(...this.yValues);
-    this.maxY = Math.max(...this.yValues);
+    let [minY, maxY] = [Infinity, -Infinity];
+    for (const p of this.yPoints) {
+      if (p.y < minY)
+        minY = p.y;
+      if (p.y > maxY)
+        maxY = p.y;
+    }
+    this.minY = minY;
+    this.maxY = maxY;
 
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
+    this.movable = new MovablePlane(this.xPoints, this.yPoints);
   }
 
   public dispose(): void {
+    this.movable.dispose();
+
     this.xPoints.length = 0;
     this.yPoints.length = 0;
-
-    this.xValues.length = 0;
-    this.yValues.length = 0;
 
     if (this.highlightXValues) {
       this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
@@ -94,16 +87,12 @@ export class ScatterTrace extends AbstractTrace<number> {
     super.dispose();
   }
 
-  protected get values(): number[][] {
-    return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
-  }
-
   protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
+    return this.movable.mode === 'col' ? this.highlightXValues : this.highlightYValues;
   }
 
   protected audio(): AudioState {
-    if (this.mode === NavMode.COL) {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
         min: this.minY,
@@ -133,7 +122,7 @@ export class ScatterTrace extends AbstractTrace<number> {
   }
 
   protected text(): TextState {
-    if (this.mode === NavMode.COL) {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -150,10 +139,10 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   protected autoplay(): AutoplayState {
     return {
-      UPWARD: this.yValues.length,
-      DOWNWARD: this.yValues.length,
-      FORWARD: this.xValues.length,
-      BACKWARD: this.xValues.length,
+      UPWARD: this.yPoints.length,
+      DOWNWARD: this.yPoints.length,
+      FORWARD: this.xPoints.length,
+      BACKWARD: this.xPoints.length,
     };
   }
 
@@ -166,7 +155,7 @@ export class ScatterTrace extends AbstractTrace<number> {
       };
     }
 
-    const elements = this.mode === NavMode.COL
+    const elements = this.movable.mode === 'col'
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
@@ -185,135 +174,6 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   protected hasMultiPoints(): boolean {
     return true;
-  }
-
-  private toggleNavigation(): void {
-    if (this.mode === NavMode.COL) {
-      const currentX = this.xPoints[this.col];
-      const midY = currentX.y[Math.floor(currentX.y.length / 2)];
-      this.row = this.yValues.indexOf(midY);
-      this.mode = NavMode.ROW;
-    } else {
-      const currentY = this.yPoints[this.row];
-      const midX = currentY.x[Math.floor(currentY.x.length / 2)];
-      this.col = this.xValues.indexOf(midX);
-      this.mode = NavMode.COL;
-    }
-  }
-
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    if (this.mode === NavMode.COL) {
-      switch (direction) {
-        case 'FORWARD':
-          this.col++;
-          break;
-        case 'BACKWARD':
-          this.col--;
-          break;
-        case 'UPWARD':
-        case 'DOWNWARD': {
-          this.toggleNavigation();
-          break;
-        }
-      }
-    } else {
-      switch (direction) {
-        case 'UPWARD':
-          this.row++;
-          break;
-        case 'DOWNWARD':
-          this.row--;
-          break;
-        case 'FORWARD':
-        case 'BACKWARD': {
-          this.toggleNavigation();
-          break;
-        }
-      }
-    }
-    this.notifyStateUpdate();
-  }
-
-  public moveToExtreme(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-    }
-
-    if (this.mode === NavMode.COL) {
-      switch (direction) {
-        case 'UPWARD':
-          this.toggleNavigation();
-          this.row = this.yPoints.length - 1;
-          break;
-        case 'DOWNWARD':
-          this.toggleNavigation();
-          this.row = 0;
-          break;
-        case 'FORWARD':
-          this.col = this.xPoints.length - 1;
-          break;
-        case 'BACKWARD':
-          this.col = 0;
-          break;
-      }
-    } else {
-      switch (direction) {
-        case 'UPWARD':
-          this.row = this.yPoints.length - 1;
-          break;
-        case 'DOWNWARD':
-          this.row = 0;
-          break;
-        case 'FORWARD':
-          this.toggleNavigation();
-          this.col = this.xPoints.length - 1;
-          break;
-        case 'BACKWARD':
-          this.toggleNavigation();
-          this.col = 0;
-          break;
-      }
-    }
-    this.notifyStateUpdate();
-  }
-
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    if (Array.isArray(target)) {
-      return false;
-    }
-
-    if (this.mode === NavMode.COL) {
-      switch (target) {
-        case 'FORWARD':
-          return this.col < this.xPoints.length - 1;
-        case 'BACKWARD':
-          return this.col > 0;
-        case 'UPWARD':
-        case 'DOWNWARD':
-          return true;
-      }
-    } else {
-      switch (target) {
-        case 'UPWARD':
-          return this.row < this.yPoints.length - 1;
-        case 'DOWNWARD':
-          return this.row > 0;
-        case 'FORWARD':
-        case 'BACKWARD':
-          return true;
-      }
-    }
   }
 
   private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {

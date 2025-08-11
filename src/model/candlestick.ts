@@ -1,12 +1,16 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Movable } from '@type/movable';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
+import { MovableGrid } from './movable';
 
 const TREND = 'Trend';
 const SECTIONS = ['close', 'low', 'high', 'open'] as const;
 
-export class Candlestick extends AbstractTrace<number> {
+export class Candlestick extends AbstractTrace {
+  protected readonly movable: Movable;
+
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
@@ -37,11 +41,10 @@ export class Candlestick extends AbstractTrace<number> {
     this.min = Math.min(...this.candleValues.flat());
     this.max = Math.max(...this.candleValues.flat());
 
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.col = this.sections.length - 1;
-    } else {
-      this.row = this.sections.length - 1;
-    }
+    const options = this.orientation === Orientation.HORIZONTAL
+      ? { col: this.sections.length - 1 }
+      : { row: this.sections.length - 1 };
+    this.movable = new MovableGrid<number>(this.candleValues, options);
   }
 
   public dispose(): void {
@@ -80,10 +83,6 @@ export class Candlestick extends AbstractTrace<number> {
     };
   }
 
-  protected get highlightValues(): null {
-    return null;
-  }
-
   protected text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.candles[this.row] : this.candles[this.col];
@@ -100,5 +99,18 @@ export class Candlestick extends AbstractTrace<number> {
       section,
       fill: { label: TREND, value: point.trend },
     };
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.candleValues.length,
+      DOWNWARD: this.candleValues.length,
+      FORWARD: this.candleValues[this.row].length,
+      BACKWARD: this.candleValues[this.row].length,
+    };
+  }
+
+  protected get highlightValues(): null {
+    return null;
   }
 }

@@ -1,9 +1,13 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Movable } from '@type/movable';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export class Heatmap extends AbstractTrace<number> {
+export class Heatmap extends AbstractTrace {
+  protected readonly movable: Movable;
+
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
 
@@ -25,6 +29,7 @@ export class Heatmap extends AbstractTrace<number> {
     this.max = Math.max(...this.heatmapValues.flat());
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.movable = new MovableGrid<number>(this.heatmapValues);
   }
 
   public dispose(): void {
@@ -34,10 +39,6 @@ export class Heatmap extends AbstractTrace<number> {
     this.y.length = 0;
 
     super.dispose();
-  }
-
-  protected get values(): number[][] {
-    return this.heatmapValues;
   }
 
   protected audio(): AudioState {
@@ -67,6 +68,15 @@ export class Heatmap extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
       fill: { label: this.fill, value: String(this.heatmapValues[this.row][this.col]) },
+    };
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.heatmapValues.length,
+      DOWNWARD: this.heatmapValues.length,
+      FORWARD: this.heatmapValues[this.row].length,
+      BACKWARD: this.heatmapValues[this.row].length,
     };
   }
 

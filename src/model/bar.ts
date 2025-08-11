@@ -1,10 +1,14 @@
 import type { BarPoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Movable } from '@type/movable';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
+  protected readonly movable: Movable;
+
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
@@ -27,7 +31,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     );
     this.min = this.barValues.map(row => Math.min(...row));
     this.max = this.barValues.map(row => Math.max(...row));
+
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.movable = new MovableGrid<T>(this.points);
   }
 
   public dispose(): void {
@@ -37,10 +43,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.max.length = 0;
 
     super.dispose();
-  }
-
-  protected get values(): number[][] {
-    return this.barValues;
   }
 
   protected audio(): AudioState {
@@ -87,6 +89,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     return {
       main: { label: mainLabel, value: mainValue },
       cross: { label: crossLabel, value: crossValue },
+    };
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.barValues.length,
+      DOWNWARD: this.barValues.length,
+      FORWARD: this.barValues[this.row].length,
+      BACKWARD: this.barValues[this.row].length,
     };
   }
 

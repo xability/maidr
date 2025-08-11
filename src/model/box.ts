@@ -1,8 +1,10 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Movable } from '@type/movable';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -14,7 +16,9 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxTrace extends AbstractTrace<number[] | number> {
+export class BoxTrace extends AbstractTrace {
+  protected readonly movable: Movable;
+
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
@@ -57,9 +61,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.min = Math.min(...flatBoxValues.flat());
     this.max = Math.max(...flatBoxValues.flat());
 
-    this.row = this.boxValues.length - 1;
-
     this.highlightValues = this.mapToSvgElements(layer.selectors as BoxSelector[]);
+    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: this.boxValues.length - 1 });
   }
 
   public dispose(): void {
@@ -69,15 +72,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
-  public moveToIndex(row: number, col: number): void {
+  public overridemoveToIndex(row: number, col: number): boolean {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     row = isHorizontal ? row : col;
     col = isHorizontal ? col : row;
-    super.moveToIndex(row, col);
-  }
-
-  protected get values(): (number[] | number)[][] {
-    return this.boxValues;
+    return super.moveToIndex(row, col);
   }
 
   protected audio(): AudioState {
@@ -127,6 +126,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
+    };
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.boxValues.length,
+      DOWNWARD: this.boxValues.length,
+      FORWARD: this.boxValues[this.row].length,
+      BACKWARD: this.boxValues[this.row].length,
     };
   }
 

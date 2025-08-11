@@ -1,13 +1,17 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Movable } from '@type/movable';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
 const TYPE = 'Type';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)/g;
 
-export class LineTrace extends AbstractTrace<number> {
+export class LineTrace extends AbstractTrace {
+  protected readonly movable: Movable;
+
   private readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
@@ -19,12 +23,13 @@ export class LineTrace extends AbstractTrace<number> {
     super(layer);
 
     this.points = layer.data as LinePoint[][];
-
     this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
+
     this.min = this.lineValues.map(row => Math.min(...row));
     this.max = this.lineValues.map(row => Math.max(...row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    this.movable = new MovableGrid<number>(this.lineValues);
   }
 
   public dispose(): void {
@@ -34,10 +39,6 @@ export class LineTrace extends AbstractTrace<number> {
     this.max.length = 0;
 
     super.dispose();
-  }
-
-  protected get values(): number[][] {
-    return this.lineValues;
   }
 
   protected audio(): AudioState {
@@ -73,6 +74,15 @@ export class LineTrace extends AbstractTrace<number> {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
       ...fillData,
+    };
+  }
+
+  protected autoplay(): AutoplayState {
+    return {
+      UPWARD: this.lineValues.length,
+      DOWNWARD: this.lineValues.length,
+      FORWARD: this.lineValues[this.row].length,
+      BACKWARD: this.lineValues[this.row].length,
     };
   }
 

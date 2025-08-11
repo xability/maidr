@@ -11,117 +11,27 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State>, Disposable {
-  protected observers: Observer<State>[];
-
-  protected isInitialEntry: boolean;
-  protected isOutOfBounds: boolean;
-
-  protected row: number;
-  protected col: number;
+export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
+  protected readonly observers: Observer<State>[];
 
   protected constructor() {
     this.observers = new Array<Observer<State>>();
-
-    this.isInitialEntry = true;
-    this.isOutOfBounds = false;
-
-    this.row = 0;
-    this.col = 0;
   }
 
   public dispose(): void {
-    for (const observer of this.observers) {
-      this.removeObserver(observer);
-    }
     this.observers.length = 0;
   }
 
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
-    this.notifyStateUpdate();
+  public get isInitialEntry(): boolean {
+    return this.movable.isInitialEntry;
   }
 
-  public moveToExtreme(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row = this.values.length - 1;
-        break;
-      case 'DOWNWARD':
-        this.row = 0;
-        break;
-      case 'FORWARD':
-        this.col = this.values[this.row].length - 1;
-        break;
-      case 'BACKWARD':
-        this.col = 0;
-        break;
-    }
-    this.notifyStateUpdate();
+  public get row(): number {
+    return this.movable.row;
   }
 
-  public moveToIndex(row: number, col: number): void {
-    if (this.isMovable([row, col])) {
-      this.row = row;
-      this.col = col;
-      this.isInitialEntry = false;
-      this.notifyStateUpdate();
-    }
-  }
-
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    if (Array.isArray(target)) {
-      const [row, col] = target;
-      return (
-        row >= 0 && row < this.values.length
-        && col >= 0 && col < this.values[this.row].length
-      );
-    }
-
-    switch (target) {
-      case 'UPWARD':
-        return this.row < this.values.length - 1;
-      case 'DOWNWARD':
-        return this.row > 0;
-      case 'FORWARD':
-        return this.col < this.values[this.row].length - 1;
-      case 'BACKWARD':
-        return this.col > 0;
-    }
-  }
-
-  protected handleInitialEntry(): void {
-    this.isInitialEntry = false;
-    this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    this.col = Math.max(0, Math.min(this.col, this.values[this.row].length - 1));
+  public get col(): number {
+    return this.movable.col;
   }
 
   public addObserver(observer: Observer<State>): void {
@@ -129,28 +39,64 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    const index = this.observers.indexOf(observer);
+    if (index !== -1) {
+      this.observers.splice(index, 1);
+    }
   }
 
   public notifyStateUpdate(): void {
     const currentState = this.state;
-    for (const observer of this.observers) {
-      observer.update(currentState);
-    }
+    this.observers.forEach(observer => observer.update(currentState));
   }
 
   protected notifyOutOfBounds(): void {
-    this.isOutOfBounds = true;
-    this.notifyStateUpdate();
-    this.isOutOfBounds = false;
+    const outOfBoundsState = this.outOfBoundsState;
+    this.observers.forEach(observer => observer.update(outOfBoundsState));
   }
 
-  protected abstract get values(): Element[][];
+  public moveOnce(direction: MovableDirection): boolean {
+    const isMoved = this.movable.moveOnce(direction);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public moveToExtreme(direction: MovableDirection): boolean {
+    const isMoved = this.movable.moveToExtreme(direction);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public moveToIndex(row: number, col: number): boolean {
+    const isMoved = this.movable.moveToIndex(row, col);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    return this.movable.isMovable(target);
+  }
 
   public abstract get state(): State;
+
+  protected abstract get outOfBoundsState(): State;
+
+  protected abstract get movable(): Movable;
 }
 
-export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
+export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
   private readonly title: string;
@@ -172,8 +118,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   public dispose(): void {
-    this.values.length = 0;
-
     if (this.highlightValues) {
       this.highlightValues.forEach(row => row.forEach((el) => {
         const elements = Array.isArray(el) ? el : [el];
@@ -186,14 +130,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   public get state(): TraceState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
-    }
-
     return {
       empty: false,
       type: 'trace',
@@ -208,6 +144,14 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       text: this.text(),
       autoplay: this.autoplay(),
       highlight: this.highlight(),
+    };
+  }
+
+  protected get outOfBoundsState(): TraceState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
     };
   }
 
@@ -226,15 +170,6 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     };
   }
 
-  protected autoplay(): AutoplayState {
-    return {
-      UPWARD: this.values.length,
-      DOWNWARD: this.values.length,
-      FORWARD: this.values[this.row].length,
-      BACKWARD: this.values[this.row].length,
-    };
-  }
-
   protected hasMultiPoints(): boolean {
     return false;
   }
@@ -244,6 +179,8 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract braille(): BrailleState;
 
   protected abstract text(): TextState;
+
+  protected abstract autoplay(): AutoplayState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 }

@@ -5,15 +5,17 @@ import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
-import { AbstractObservableElement } from './abstract';
+import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
+import { MovableGrid } from './movable';
 
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 
-export class Figure extends AbstractObservableElement<Subplot, FigureState> {
+export class Figure extends AbstractPlot<FigureState> implements Movable, Observable<FigureState>, Disposable {
   public readonly id: string;
+  protected readonly movable: Movable;
 
   private readonly title: string;
   private readonly subtitle: string;
@@ -35,7 +37,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
 
-    this.row = this.subplots.length - 1;
+    this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
   }
 
   public dispose(): void {
@@ -53,13 +55,6 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   }
 
   public get state(): FigureState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'figure',
-      };
-    }
-
     const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
       .reduce((sum, r) => sum + r.length, 0);
     return {
@@ -74,17 +69,26 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       traceTypes: this.activeSubplot.traceTypes,
     };
   }
+
+  protected get outOfBoundsState(): FigureState {
+    return {
+      empty: true,
+      type: 'figure',
+    };
+  }
 }
 
-export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
+export class Subplot extends AbstractPlot<SubplotState> {
+  protected readonly movable: Movable;
+
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
+
   private readonly size: number;
   private readonly highlightValue: SVGElement | null;
 
   public constructor(subplot: MaidrSubplot) {
     super();
-    this.isInitialEntry = false;
 
     const layers = subplot.layers;
     this.size = layers.length;
@@ -96,6 +100,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     });
 
     this.highlightValue = this.mapToSvgElement(subplot.selector);
+    this.movable = new MovableGrid<Trace>(this.traces);
   }
 
   public dispose(): void {
@@ -113,13 +118,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   public get state(): SubplotState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'subplot',
-      };
-    }
-
     return {
       empty: false,
       type: 'subplot',
@@ -127,6 +125,13 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       index: this.row + 1,
       trace: this.activeTrace.state,
       highlight: this.highlight(),
+    };
+  }
+
+  protected get outOfBoundsState(): SubplotState {
+    return {
+      empty: true,
+      type: 'subplot',
     };
   }
 
