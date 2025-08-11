@@ -186,8 +186,9 @@ describe('Context getInstruction method', () => {
 
       const context = createMockContext(multilineState);
       const instruction = context.getInstruction(true);
+      // Edge case: multiline with 1 group should be treated as single line
       expect(instruction).toBe(
-        'This is a maidr plot of type: multiline with 1 groups. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
+        'This is a maidr plot of type: single line. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
       );
     });
 
