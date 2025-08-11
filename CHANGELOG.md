@@ -1,3 +1,10 @@
+# [3.21.0](https://github.com/xability/maidr/compare/v3.20.4...v3.21.0) (2025-08-11)
+
+
+### Features
+
+* **candlestick:** support visual highlight per segment ([#407](https://github.com/xability/maidr/issues/407)) ([3423669](https://github.com/xability/maidr/commit/3423669016dfccecae32637b0915ab0b17c9e360))
+
 ## [3.20.4](https://github.com/xability/maidr/compare/v3.20.3...v3.20.4) (2025-08-01)
 
 
