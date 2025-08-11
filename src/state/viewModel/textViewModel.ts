@@ -49,7 +49,6 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
 
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
-  private isLayerSwitching: boolean = false;
 
   public constructor(
     store: AppStore,
@@ -73,11 +72,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(notification.onChange((e) => {
-      this.isLayerSwitching = true;
       this.notify(e.value);
-      setTimeout(() => {
-        this.isLayerSwitching = false;
-      }, 100);
     }));
 
     this.disposables.push(autoplay.onChange((e) => {
@@ -85,7 +80,6 @@ export class TextViewModel extends AbstractViewModel<TextState> {
         case 'start':
           this.setAriaAnnouncement(false);
           break;
-
         case 'stop':
           this.setAriaAnnouncement(true);
           break;
@@ -105,9 +99,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
     this.store.dispatch(update(formattedText));
-    if (!this.isLayerSwitching) {
-      this.store.dispatch(clearMessage());
-    }
+    this.store.dispatch(clearMessage());
   }
 
   public notify(message: string): void {

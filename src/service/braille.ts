@@ -110,7 +110,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       const box = state.values[row];
       const boxValData = [
         { type: this.GLOBAL_MIN, value: state.min },
-        ...box.lowerOutliers.map(v => ({
+        ...box.lowerOutliers.map((v) => ({
           type: this.LOWER_OUTLIER,
           value: v,
         })),
@@ -119,7 +119,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         { type: this.Q2, value: box.q2 },
         { type: this.Q3, value: box.q3 },
         { type: this.MAX, value: box.max },
-        ...box.upperOutliers.map(v => ({
+        ...box.upperOutliers.map((v) => ({
           type: this.UPPER_OUTLIER,
           value: v,
         })),
@@ -140,8 +140,8 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           : Math.abs(curr.value - boxValData[i - 1].value);
 
         if (
-          curr.type === this.LOWER_OUTLIER
-          || curr.type === this.UPPER_OUTLIER
+          curr.type === this.LOWER_OUTLIER ||
+          curr.type === this.UPPER_OUTLIER
         ) {
           lenData.push({ type: curr.type, length: 0, numChars: 1 });
           lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
@@ -149,8 +149,8 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           isBeforeMid = false;
           lenData.push({ type: this.Q2, length: 0, numChars: 2 });
         } else if (
-          curr.type === this.GLOBAL_MIN
-          || curr.type === this.GLOBAL_MAX
+          curr.type === this.GLOBAL_MIN ||
+          curr.type === this.GLOBAL_MAX
         ) {
           lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
         } else {
@@ -164,19 +164,15 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       );
       let [locMin, locMax, locQ1, locQ3] = [-1, -1, -1, -1];
       for (let i = 0; i < lenData.length; i++) {
-        if (lenData[i].type === this.MIN && lenData[i].length > 0)
-          locMin = i;
-        if (lenData[i].type === this.MAX && lenData[i].length > 0)
-          locMax = i;
-        if (lenData[i].type === this.Q1)
-          locQ1 = i;
-        if (lenData[i].type === this.Q3)
-          locQ3 = i;
+        if (lenData[i].type === this.MIN && lenData[i].length > 0) locMin = i;
+        if (lenData[i].type === this.MAX && lenData[i].length > 0) locMax = i;
+        if (lenData[i].type === this.Q1) locQ1 = i;
+        if (lenData[i].type === this.Q3) locQ3 = i;
       }
       if (
-        locMin !== -1
-        && locMax !== -1
-        && lenData[locMin].length !== lenData[locMax].length
+        locMin !== -1 &&
+        locMax !== -1 &&
+        lenData[locMin].length !== lenData[locMax].length
       ) {
         if (lenData[locMin].length > lenData[locMax].length) {
           lenData[locMin].numChars++;
@@ -187,9 +183,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         }
       }
       if (
-        locQ1 !== -1
-        && locQ3 !== -1
-        && lenData[locQ1].length !== lenData[locQ3].length
+        locQ1 !== -1 &&
+        locQ3 !== -1 &&
+        lenData[locQ1].length !== lenData[locQ3].length
       ) {
         if (lenData[locQ1].length > lenData[locQ3].length) {
           lenData[locQ1].numChars++;
@@ -220,9 +216,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       while (diff !== 0) {
         const section = lenData[adjustIndex % lenData.length];
         if (
-          section.type !== this.BLANK
-          && section.type !== this.Q2
-          && section.length > 0
+          section.type !== this.BLANK &&
+          section.type !== this.Q2 &&
+          section.length > 0
         ) {
           section.numChars += diff > 0 ? 1 : -1;
           diff += diff > 0 ? -1 : 1;
@@ -245,9 +241,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       );
       for (const section of lenData) {
         if (
-          section.type !== this.BLANK
-          && section.type !== this.GLOBAL_MIN
-          && section.type !== this.GLOBAL_MAX
+          section.type !== this.BLANK &&
+          section.type !== this.GLOBAL_MIN &&
+          section.type !== this.GLOBAL_MAX
         ) {
           col = sections.indexOf(section.type);
           cellToIndex[row][col] = values.length;
@@ -263,8 +259,8 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           } else if (section.type === this.Q2) {
             brailleChar = j === 0 ? '⠸' : '⠇';
           } else if (
-            section.type === this.LOWER_OUTLIER
-            || section.type === this.UPPER_OUTLIER
+            section.type === this.LOWER_OUTLIER ||
+            section.type === this.UPPER_OUTLIER
           ) {
             brailleChar = '⠂';
           } else if (section.type === this.BLANK) {
@@ -342,7 +338,8 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
 }
 
 abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
-implements BrailleEncoder<T> {
+  implements BrailleEncoder<T>
+{
   public encode(state: T): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -400,28 +397,22 @@ implements BrailleEncoder<T> {
       mediumHigh = high;
     }
     if (current <= low && prev !== null && prev > low) {
-      if (prev <= medium)
-        return '⢄';
-      else if (prev <= mediumHigh)
-        return '⢆';
+      if (prev <= medium) return '⢄';
+      else if (prev <= mediumHigh) return '⢆';
       else return '⢇';
     } else if (current <= low) {
       return '⣀';
     } else if (prev !== null && prev <= low) {
-      if (current <= medium)
-        return '⡠';
-      else if (current <= mediumHigh)
-        return '⡰';
+      if (current <= medium) return '⡠';
+      else if (current <= mediumHigh) return '⡰';
       else return '⡸';
     } else if (current <= medium && prev !== null && prev > medium) {
-      if (prev <= mediumHigh)
-        return '⠢';
+      if (prev <= mediumHigh) return '⠢';
       else return '⠣';
     } else if (current <= medium) {
       return '⠤';
     } else if (prev !== null && prev <= medium) {
-      if (current <= mediumHigh)
-        return '⠔';
+      if (current <= mediumHigh) return '⠔';
       else return '⠜';
     } else if (current <= mediumHigh && prev !== null && prev > mediumHigh) {
       return '⠑';
@@ -443,12 +434,9 @@ implements BrailleEncoder<T> {
     high: number,
   ): string {
     const level = (val: number): 'low' | 'medium' | 'high' => {
-      if (val <= low)
-        return 'low';
-      if (val <= medium)
-        return 'medium';
-      if (val <= high)
-        return 'high';
+      if (val <= low) return 'low';
+      if (val <= medium) return 'medium';
+      if (val <= high) return 'high';
       return 'high';
     };
 
@@ -488,17 +476,20 @@ implements BrailleEncoder<T> {
 
 class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBrailleState> {
   protected getThresholds(
-    _: number,
+    row: number,
     state: CandlestickBrailleState,
   ): {
     low: number;
     medium: number;
     high: number;
   } {
-    const range = (state.max - state.min) / 3;
-    const low = state.min + range;
+    // Defensive: support both array and single value for min/max
+    const min = Array.isArray(state.min) ? state.min[row] : state.min;
+    const max = Array.isArray(state.max) ? state.max[row] : state.max;
+    const range = (max - min) / 3;
+    const low = min + range;
     const medium = low + range;
-    const high = state.max;
+    const high = max;
     return { low, medium, high };
   }
 
@@ -564,7 +555,8 @@ class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
 }
 
 export class BrailleService
-implements Observer<SubplotState | TraceState>, Disposable {
+  implements Observer<SubplotState | TraceState>, Disposable
+{
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
@@ -620,9 +612,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     const trace = state.type === 'subplot' ? state.trace : state;
     if (
-      trace.empty
-      || trace.braille.empty
-      || !this.encoders.has(trace.traceType)
+      trace.empty ||
+      trace.braille.empty ||
+      !this.encoders.has(trace.traceType)
     ) {
       return;
     }
@@ -642,10 +634,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
   public moveToIndex(index: number): void {
     if (
-      !this.enabled
-      || this.cache === null
-      || index < 0
-      || index >= this.cache.indexToCell.length
+      !this.enabled ||
+      this.cache === null ||
+      index < 0 ||
+      index >= this.cache.indexToCell.length
     ) {
       return;
     }

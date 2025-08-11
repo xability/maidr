@@ -1,3 +1,87 @@
+# [3.21.0](https://github.com/xability/maidr/compare/v3.20.4...v3.21.0) (2025-08-11)
+
+
+### Features
+
+* **candlestick:** support visual highlight per segment ([#407](https://github.com/xability/maidr/issues/407)) ([3423669](https://github.com/xability/maidr/commit/3423669016dfccecae32637b0915ab0b17c9e360))
+
+## [3.20.4](https://github.com/xability/maidr/compare/v3.20.3...v3.20.4) (2025-08-01)
+
+
+### Bug Fixes
+
+* adress audio service error in safari ([#404](https://github.com/xability/maidr/issues/404)) ([4642af3](https://github.com/xability/maidr/commit/4642af3e554f75e9c1f53d25227671c47af0d255))
+
+## [3.20.3](https://github.com/xability/maidr/compare/v3.20.2...v3.20.3) (2025-07-29)
+
+
+### Bug Fixes
+
+* correct candlestick text formatting issues in terse and verbose modes ([#400](https://github.com/xability/maidr/issues/400)) ([9198858](https://github.com/xability/maidr/commit/919885801352f0c0d2c6d01a38cc5a9b10d83d78))
+
+## [3.20.2](https://github.com/xability/maidr/compare/v3.20.1...v3.20.2) (2025-07-24)
+
+
+### Bug Fixes
+
+* correct react tooltip ([#398](https://github.com/xability/maidr/issues/398)) ([1a1404f](https://github.com/xability/maidr/commit/1a1404fea099a528e166e19ac1223b534d05b891))
+
+## [3.20.1](https://github.com/xability/maidr/compare/v3.20.0...v3.20.1) (2025-07-24)
+
+
+### Bug Fixes
+
+* reset trace state in multi-panel plots and refactor layer switch ([#403](https://github.com/xability/maidr/issues/403)) ([69d1f2f](https://github.com/xability/maidr/commit/69d1f2f98aaa32a32c722986a187a40a2d88f8dc))
+
+# [3.20.0](https://github.com/xability/maidr/compare/v3.19.0...v3.20.0) (2025-07-23)
+
+
+### Features
+
+* add volatility to candlestick plot ([#397](https://github.com/xability/maidr/issues/397)) ([ce0facf](https://github.com/xability/maidr/commit/ce0facfa622e4560421e0504f6c1c4993872ac96))
+
+# [3.19.0](https://github.com/xability/maidr/compare/v3.18.4...v3.19.0) (2025-07-23)
+
+
+### Features
+
+* add boundary for layer navigation ([#393](https://github.com/xability/maidr/issues/393)) ([3d36d32](https://github.com/xability/maidr/commit/3d36d32fe8ef0e4e3f5b31282575eba2704ff4b6))
+
+## [3.18.4](https://github.com/xability/maidr/compare/v3.18.3...v3.18.4) (2025-07-23)
+
+
+### Bug Fixes
+
+* address layer switch logic and reset tracestate on subplot entry ([#396](https://github.com/xability/maidr/issues/396)) ([04b08b9](https://github.com/xability/maidr/commit/04b08b92a9dce480366f81e83bff50af00f20b52))
+
+## [3.18.3](https://github.com/xability/maidr/compare/v3.18.2...v3.18.3) (2025-07-16)
+
+
+### Bug Fixes
+
+* address subplot announcement message ([#392](https://github.com/xability/maidr/issues/392)) ([03976fe](https://github.com/xability/maidr/commit/03976fe02e49904a0d6dddeb3f181a520fad6162))
+
+## [3.18.2](https://github.com/xability/maidr/compare/v3.18.1...v3.18.2) (2025-07-15)
+
+
+### Bug Fixes
+
+* address anouncements for single line plots ([#390](https://github.com/xability/maidr/issues/390)) ([0bc8366](https://github.com/xability/maidr/commit/0bc83665b3bead1070cd46d0cef85baef3f54412))
+
+## [3.18.1](https://github.com/xability/maidr/compare/v3.18.0...v3.18.1) (2025-07-11)
+
+
+### Bug Fixes
+
+* add values to layer announcement ([#388](https://github.com/xability/maidr/issues/388)) ([6f97792](https://github.com/xability/maidr/commit/6f9779214e25cb139ec96c55f4996859c48bc1f8))
+
+# [3.18.0](https://github.com/xability/maidr/compare/v3.17.10...v3.18.0) (2025-07-11)
+
+
+### Features
+
+* support intersection points in multiline plots ([#387](https://github.com/xability/maidr/issues/387)) ([905b3ea](https://github.com/xability/maidr/commit/905b3ea101acaf0229e8e048840254e0552de58b))
+
 ## [3.17.10](https://github.com/xability/maidr/compare/v3.17.9...v3.17.10) (2025-07-01)
 
 

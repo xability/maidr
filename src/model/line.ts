@@ -1,12 +1,12 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
-const TYPE = 'Type';
+const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
@@ -16,6 +16,9 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected readonly min: number[];
   protected readonly max: number[];
+
+  // Track previous row for intersection label ordering
+  private previousRow: number | null = null;
 
   public constructor(layer: MaidrLayer) {
     super(layer);
@@ -67,9 +70,38 @@ export class LineTrace extends AbstractTrace<number> {
 
   protected text(): TextState {
     const point = this.points[this.row][this.col];
-    const fillData = point.fill
-      ? { fill: { label: TYPE, value: point.fill } }
-      : {};
+
+    // Check for intersections at current point
+    const intersections = this.findIntersections();
+    let fillData: { fill: { label: string; value: string } } | Record<string, never> = {};
+
+    if (intersections.length > 1) {
+      // Multiple lines intersect - create intersection text
+      let lineTypes = intersections.map((intersection) => {
+        const lineIndex = intersection.groupIndex!;
+        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+      });
+
+      // If previousRow is in the intersection, put its label first
+      if (this.previousRow !== null) {
+        const prevFill = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevFill)) {
+          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        }
+      }
+
+      fillData = {
+        fill: {
+          label: TYPE,
+          value: `intersection at (${lineTypes.join(', ')})`,
+        },
+      };
+    } else {
+      // Single line or no intersection - use normal fill data
+      fillData = point.fill
+        ? { fill: { label: TYPE, value: point.fill } }
+        : {};
+    }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
@@ -81,6 +113,7 @@ export class LineTrace extends AbstractTrace<number> {
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
+      this.previousRow = null;
       this.notifyStateUpdate();
       return;
     }
@@ -90,19 +123,33 @@ export class LineTrace extends AbstractTrace<number> {
       return;
     }
 
+    // Store previous row before moving
+    this.previousRow = this.row;
+
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
       const targetRow = this.findLineByXAndYDirection(direction);
+      const currentX = this.points[this.row][this.col].x;
 
       if (targetRow !== null && targetRow !== this.row) {
         // Find the column in the target line that has the same X value
-        const currentX = this.points[this.row][this.col].x;
         const targetCol = this.findColumnByXValue(targetRow, currentX);
 
         if (targetCol !== -1) {
           this.row = targetRow;
           this.col = targetCol;
-          this.notifyStateUpdate();
+
+          // Check for intersections and emit appropriate state
+          const intersections = this.findIntersections();
+          if (intersections.length > 1) {
+            const baseState = super.state;
+            const stateWithIntersections = { ...baseState, intersections } as TraceState;
+            for (const observer of this.observers) {
+              observer.update(stateWithIntersections);
+            }
+          } else {
+            this.notifyStateUpdate();
+          }
           return;
         } else {
           // No matching X value found in target line
@@ -125,7 +172,44 @@ export class LineTrace extends AbstractTrace<number> {
         this.col -= 1;
         break;
     }
-    this.notifyStateUpdate();
+
+    // Check for intersections and emit appropriate state
+    const intersections = this.findIntersections();
+    if (intersections.length > 1) {
+      const baseState = super.state;
+      const stateWithIntersections = { ...baseState, intersections } as TraceState;
+      for (const observer of this.observers) {
+        observer.update(stateWithIntersections);
+      }
+    } else {
+      this.notifyStateUpdate();
+    }
+  }
+
+  /**
+   * Helper function to find all lines that intersect at the current (x, y) position
+   * @returns Array of AudioState for all intersecting lines
+   */
+  private findIntersections(): AudioState[] {
+    const currentX = this.points[this.row][this.col].x;
+    const currentY = this.points[this.row][this.col].y;
+    const intersections: AudioState[] = [];
+
+    for (let r = 0; r < this.points.length; r++) {
+      const c = this.points[r].findIndex(p => p.x === currentX && p.y === currentY);
+      if (c !== -1) {
+        intersections.push({
+          min: this.min[r],
+          max: this.max[r],
+          size: this.points[r].length,
+          index: c,
+          value: currentY,
+          groupIndex: r,
+        });
+      }
+    }
+
+    return intersections;
   }
 
   public isMovable(target: [number, number] | MovableDirection): boolean {
@@ -133,7 +217,7 @@ export class LineTrace extends AbstractTrace<number> {
       const [row, col] = target;
       return (
         row >= 0 && row < this.values.length
-        && col >= 0 && col < this.values[this.row].length
+        && col >= 0 && col < this.values[row].length // Fixed: use target row instead of current row
       );
     }
 
@@ -164,7 +248,6 @@ export class LineTrace extends AbstractTrace<number> {
    */
   private findLineByXAndYDirection(direction: 'UPWARD' | 'DOWNWARD'): number | null {
     const currentX = this.points[this.row][this.col].x;
-    const currentY = this.points[this.row][this.col].y;
 
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -190,14 +273,12 @@ export class LineTrace extends AbstractTrace<number> {
       const lineY = this.points[row][matchingPointIndex].y;
 
       // Check if this line's y value is in the desired direction
-      const isValidDirection = direction === 'UPWARD' ? lineY > currentY : lineY < currentY;
+      const isValidDirection = direction === 'UPWARD' ? lineY > this.points[this.row][this.col].y : lineY < this.points[this.row][this.col].y;
+      const distance = Math.abs(lineY - this.points[this.row][this.col].y);
 
       if (!isValidDirection) {
         continue;
       }
-
-      // Calculate distance (absolute difference in y values)
-      const distance = Math.abs(lineY - currentY);
 
       // Update best candidate if this is closer
       if (distance < bestDistance) {
@@ -284,5 +365,24 @@ export class LineTrace extends AbstractTrace<number> {
       return null;
     }
     return svgElements;
+  }
+
+  public get state(): TraceState {
+    const baseState = super.state;
+    if (baseState.empty)
+      return baseState;
+
+    // Add the plotType field for non-empty states
+    const stateWithPlotType = {
+      ...baseState,
+      plotType: this.points.length > 1 ? 'multiline' : 'single line',
+    };
+
+    // Check for intersection at current (x, y)
+    const intersections = this.findIntersections();
+    if (intersections.length > 1) {
+      return { ...stateWithPlotType, intersections };
+    }
+    return stateWithPlotType;
   }
 }

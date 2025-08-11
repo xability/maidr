@@ -146,6 +146,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
+  public resetToInitialEntry(): void {
+    this.isInitialEntry = true;
+    this.row = 0;
+    this.col = 0;
+  }
+
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
@@ -161,7 +167,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  protected notifyOutOfBounds(): void {
+  public notifyOutOfBounds(): void {
     this.isOutOfBounds = true;
     this.notifyStateUpdate();
     this.isOutOfBounds = false;
@@ -170,6 +176,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
+
+  public notifyObserversWithState(state: State): void {
+    for (const observer of this.observers) {
+      observer.update(state);
+    }
+  }
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
@@ -231,6 +243,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       empty: false,
       type: 'trace',
       traceType: this.type,
+      plotType: this.type, // Default to traceType for other plot types
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
@@ -383,5 +396,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
+  }
+
+  public getId(): string {
+    return this.id;
   }
 }

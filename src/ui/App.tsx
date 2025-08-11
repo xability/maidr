@@ -9,10 +9,15 @@ import Help from './pages/Help';
 import Review from './pages/Review';
 import Settings from './pages/Settings';
 import Text from './pages/Text';
+import Tooltip from './pages/Tooltip';
 
-const App: React.FC = () => {
+interface AppProps {
+  plot: HTMLElement;
+}
+
+const App: React.FC<AppProps> = ({ plot }) => {
   const { enabled, message } = useViewModelState('text');
-  const { focus } = useViewModelState('display');
+  const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
@@ -38,14 +43,17 @@ const App: React.FC = () => {
 
   return (
     <>
+      {tooltip.visible && <Tooltip plot={plot} />}
       {(enabled || message) && <Text />}
       {renderFocusedComponent(focus)}
     </>
   );
 };
 
-export const MaidrApp: React.JSX.Element = (
-  <Provider store={store}>
-    <App />
-  </Provider>
-);
+export function MaidrApp(plot: HTMLElement): React.JSX.Element {
+  return (
+    <Provider store={store}>
+      <App plot={plot} />
+    </Provider>
+  );
+}
