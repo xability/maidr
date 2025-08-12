@@ -36,9 +36,12 @@ const displaySlice = createSlice({
     updateFocus(state, action: PayloadAction<Focus>): void {
       state.focus = action.payload;
     },
+    clearFocus(state): void {
+      state.focus = null;
+    },
   },
 });
-const { hideTooltip, showTooltip, updateFocus } = displaySlice.actions;
+const { hideTooltip, showTooltip, updateFocus, clearFocus } = displaySlice.actions;
 
 export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   private readonly displayService: DisplayService;
@@ -53,6 +56,8 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   }
 
   public dispose(): void {
+    // Clear only focus to avoid wiping other display UI state
+    this.store.dispatch(clearFocus());
     this.store.dispatch(showTooltip(this.displayService.getInstruction()));
     super.dispose();
   }
