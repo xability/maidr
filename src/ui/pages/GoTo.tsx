@@ -9,44 +9,46 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 
 const GoTo: React.FC = () => {
   const id = useId();
+  const listRef = useRef<HTMLUListElement>(null);
   const viewModel = useViewModel('goTo');
   const { visible, items, selectedIndex, error } = viewModel.state;
 
-  // Handle keyboard navigation
+  // Focus the listbox when modal opens
   useEffect(() => {
-    if (!visible)
-      return;
+    if (visible && listRef.current) {
+      // Small delay to ensure dialog is fully rendered
+      const timeoutId = setTimeout(() => {
+        listRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [visible]);
 
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      switch (event.key) {
-        case 'ArrowUp':
-          event.preventDefault();
-          viewModel.moveUp();
-          break;
-        case 'ArrowDown':
-          event.preventDefault();
-          viewModel.moveDown();
-          break;
-        case 'Enter':
-          event.preventDefault();
-          viewModel.executeSelection();
-          break;
-        case 'Escape':
-          event.preventDefault();
-          viewModel.close();
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [visible, viewModel]);
+  // Handle keyboard navigation on the listbox
+  const handleListKeyDown = (event: React.KeyboardEvent<HTMLUListElement>): void => {
+    switch (event.key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        viewModel.moveUp();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        viewModel.moveDown();
+        break;
+      case 'Enter':
+        event.preventDefault();
+        viewModel.executeSelection();
+        break;
+      case 'Escape':
+        event.preventDefault();
+        viewModel.close();
+        break;
+    }
+  };
 
   const handleClose = (): void => {
     viewModel.close();
@@ -109,10 +111,19 @@ const GoTo: React.FC = () => {
             )
           : (
               <List
+                ref={listRef}
                 role="listbox"
+                tabIndex={0}
+                onKeyDown={handleListKeyDown}
                 aria-activedescendant={selectedIndex >= 0 && selectedIndex < items.length
                   ? `${id}-item-${selectedIndex}`
                   : undefined}
+                aria-label="Extrema options"
+                sx={{
+                  '&:focus': {
+                    outline: 'none',
+                  },
+                }}
               >
                 {items.map((item, index) => (
                   <ListItem

@@ -23,9 +23,6 @@ export class GoToCommand implements Command {
       return;
     }
 
-    // Get the current trace from the context
-    const currentTrace = this.context.active;
-
     // Check if this is a line trace by checking the braille state for lineValues
     if (!('braille' in state) || state.braille.empty || !('values' in state.braille)) {
       return;

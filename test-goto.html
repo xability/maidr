@@ -1,31 +1,38 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MAIDR Go-To Navigation Test</title>
     <script src="dist/maidr.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Line Plot with Go-To Navigation</h1>
     <p>Instructions: Focus on the plot below and press 'g' to open the go-to navigation modal.</p>
-    
+
     <!-- Sample line plot with maidr-data attribute -->
-    <svg id="lineplot" 
-         width="500" 
-         height="300" 
-         style="border: 1px solid #ccc;"
-         tabindex="0"
-         maidr-data='{"id":"lineplot","title":"Sample Line Plot","subplots":[[{"layers":[{"type":"line","selector":"#lineplot polyline","axes":{"x":"X Axis","y":"Y Axis"},"data":[[{"x":1,"y":5},{"x":2,"y":3},{"x":3,"y":8},{"x":4,"y":9},{"x":5,"y":2},{"x":6,"y":4},{"x":7,"y":7},{"x":8,"y":6},{"x":9,"y":1}]]}]}]]}'>
-        <g clip-path="url(#clip)">
-            <polyline id="maidr-line" points="50,250 100,200 150,100 200,50 250,150 300,180 350,80 400,120 450,90" 
-                      stroke="blue" stroke-width="2" fill="none"/>
-        </g>
-        <defs>
-            <clipPath id="clip">
-                <rect width="500" height="300"/>
-            </clipPath>
-        </defs>
+    <svg
+      id="lineplot"
+      width="500"
+      height="300"
+      style="border: 1px solid #ccc"
+      tabindex="0"
+      maidr-data='{"id":"lineplot","title":"Sample Line Plot","subplots":[[{"layers":[{"type":"line","selector":"#lineplot polyline","axes":{"x":"X Axis","y":"Y Axis"},"data":[[{"x":1,"y":5},{"x":2,"y":3},{"x":3,"y":8},{"x":4,"y":9},{"x":5,"y":2},{"x":6,"y":4},{"x":7,"y":7},{"x":8,"y":6},{"x":9,"y":1}]]}]}]]}'
+    >
+      <g clip-path="url(#clip)">
+        <polyline
+          id="maidr-line"
+          points="50,250 100,200 150,100 200,50 250,150 300,180 350,80 400,120 450,90"
+          stroke="blue"
+          stroke-width="2"
+          fill="none"
+        />
+      </g>
+      <defs>
+        <clipPath id="clip">
+          <rect width="500" height="300" />
+        </clipPath>
+      </defs>
     </svg>
-</body>
+  </body>
 </html>
