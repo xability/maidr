@@ -20,6 +20,10 @@ const BRAILLE_KEYMAP = {
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
 
+  // Rotor Navigation
+  ROTOR_NEXT: `${Platform.alt}+shift+up`,
+  ROTOR_PREV: `${Platform.alt}+shift+down`,
+
   // Navigation
   MOVE_UP: `up`,
   MOVE_DOWN: `down`,
@@ -144,6 +148,10 @@ const TRACE_KEYMAP = {
   SPEED_UP_AUTOPLAY: `.`,
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
+
+  // Rotor Navigation
+  ROTOR_NEXT: `${Platform.alt}+shift+up`,
+  ROTOR_PREV: `${Platform.alt}+shift+down`,
 
   // Navigation
   MOVE_UP: `up`,
