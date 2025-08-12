@@ -5,6 +5,7 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import Braille from './pages/Braille';
 import Chat from './pages/Chat';
+import GoTo from './pages/GoTo';
 import Help from './pages/Help';
 import Review from './pages/Review';
 import Settings from './pages/Settings';
@@ -18,6 +19,7 @@ interface AppProps {
 const App: React.FC<AppProps> = ({ plot }) => {
   const { enabled, message } = useViewModelState('text');
   const { focus, tooltip } = useViewModelState('display');
+  const { visible } = useViewModelState('goTo');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
@@ -45,6 +47,7 @@ const App: React.FC<AppProps> = ({ plot }) => {
     <>
       {tooltip.visible && <Tooltip plot={plot} />}
       {(enabled || message) && <Text />}
+      {visible && <GoTo />}
       {renderFocusedComponent(focus)}
     </>
   );

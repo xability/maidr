@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { GoToViewModel } from '@state/viewModel/goToViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -30,6 +31,7 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
+import { GoToCommand } from './goTo';
 import {
   MoveDownCommand,
   MoveLeftCommand,
@@ -64,6 +66,7 @@ export class CommandFactory {
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
+  private readonly goToViewModel: GoToViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
@@ -78,6 +81,7 @@ export class CommandFactory {
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
+    this.goToViewModel = commandContext.goToViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
@@ -111,6 +115,9 @@ export class CommandFactory {
         return new MoveToNextTraceCommand(this.context);
       case 'MOVE_TO_PREV_TRACE':
         return new MoveToPrevTraceCommand(this.context);
+
+      case 'GO_TO':
+        return new GoToCommand(this.context, this.goToViewModel);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);

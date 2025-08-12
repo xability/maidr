@@ -160,6 +160,9 @@ const TRACE_KEYMAP = {
   MOVE_TO_NEXT_TRACE: `pageup`,
   MOVE_TO_PREV_TRACE: `pagedown`,
 
+  // Go-to Navigation
+  GO_TO: `g`,
+
   // Modes
   TOGGLE_BRAILLE: `b`,
   TOGGLE_TEXT: `t`,
