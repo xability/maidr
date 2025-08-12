@@ -1,3 +1,10 @@
+# [3.22.0](https://github.com/xability/maidr/compare/v3.21.1...v3.22.0) (2025-08-12)
+
+
+### Features
+
+* announce group count in multiline plot instructions with edge case handling ([#409](https://github.com/xability/maidr/issues/409)) ([84db540](https://github.com/xability/maidr/commit/84db54020525941468bcb4baa0545e660cf983d9))
+
 ## [3.21.1](https://github.com/xability/maidr/compare/v3.21.0...v3.21.1) (2025-08-12)
 
 
