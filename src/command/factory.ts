@@ -31,9 +31,6 @@ import {
   DescribeYCommand,
 } from './describe';
 import {
-  MoveDownCommand,
-  MoveLeftCommand,
-  MoveRightCommand,
   MoveToBottomExtremeCommand,
   MoveToLeftExtremeCommand,
   MoveToNextTraceCommand,
@@ -42,8 +39,17 @@ import {
   MoveToSubplotContextCommand,
   MoveToTopExtremeCommand,
   MoveToTraceContextCommand,
-  MoveUpCommand,
 } from './move';
+import {
+  RotorNextCommand,
+  RotorPrevCommand,
+} from './rotor';
+import {
+  RotorAwareMoveDownCommand,
+  RotorAwareMoveLeftCommand,
+  RotorAwareMoveRightCommand,
+  RotorAwareMoveUpCommand,
+} from './rotor-aware-move';
 import {
   ToggleAudioCommand,
   ToggleBrailleCommand,
@@ -69,7 +75,10 @@ export class CommandFactory {
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
 
+  private readonly commandContext: CommandContext;
+
   public constructor(commandContext: CommandContext) {
+    this.commandContext = commandContext;
     this.context = commandContext.context;
 
     this.audioService = commandContext.audioService;
@@ -87,13 +96,13 @@ export class CommandFactory {
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
-        return new MoveUpCommand(this.context);
+        return new RotorAwareMoveUpCommand(this.commandContext);
       case 'MOVE_DOWN':
-        return new MoveDownCommand(this.context);
+        return new RotorAwareMoveDownCommand(this.commandContext);
       case 'MOVE_LEFT':
-        return new MoveLeftCommand(this.context);
+        return new RotorAwareMoveLeftCommand(this.commandContext);
       case 'MOVE_RIGHT':
-        return new MoveRightCommand(this.context);
+        return new RotorAwareMoveRightCommand(this.commandContext);
       case 'MOVE_TO_TOP_EXTREME':
         return new MoveToTopExtremeCommand(this.context);
       case 'MOVE_TO_BOTTOM_EXTREME':
@@ -166,6 +175,11 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
+
+      case 'ROTOR_NEXT':
+        return new RotorNextCommand(this.commandContext);
+      case 'ROTOR_PREV':
+        return new RotorPrevCommand(this.commandContext);
 
       default:
         throw new Error(`Invalid command name: ${command}`);
