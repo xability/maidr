@@ -3,6 +3,7 @@ import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
 import type { ChatViewModel } from './chatViewModel';
+import type { GoToViewModel } from './goToViewModel';
 import type { HelpViewModel } from './helpViewModel';
 import type { SettingsViewModel } from './settingsViewModel';
 import type { TextViewModel } from './textViewModel';
@@ -11,6 +12,7 @@ export interface ViewModelMap {
   braille: BrailleViewModel;
   chat: ChatViewModel;
   display: DisplayViewModel;
+  goTo: GoToViewModel;
   help: HelpViewModel;
   review: ReviewViewModel;
   settings: SettingsViewModel;

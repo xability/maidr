@@ -7,6 +7,7 @@ import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
 import { DisplayService } from '@service/display';
+import { ExtremaService } from '@service/extrema';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
@@ -19,6 +20,7 @@ import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
+import { GoToViewModel } from '@state/viewModel/goToViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -37,6 +39,7 @@ export class Controller implements Disposable {
   private readonly brailleService: BrailleService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly extremaService: ExtremaService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -50,6 +53,7 @@ export class Controller implements Disposable {
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly goToViewModel: GoToViewModel;
 
   private readonly keybinding: KeybindingService;
 
@@ -65,6 +69,7 @@ export class Controller implements Disposable {
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
+    this.extremaService = new ExtremaService();
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
     this.highlightService = new HighlightService(this.settingsService);
@@ -78,6 +83,7 @@ export class Controller implements Disposable {
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+    this.goToViewModel = new GoToViewModel(store, this.context, this.extremaService, this.notificationService);
 
     this.notificationService.notify(this.displayService.getInstruction(false));
 
@@ -91,6 +97,7 @@ export class Controller implements Disposable {
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
+        goToViewModel: this.goToViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -107,6 +114,7 @@ export class Controller implements Disposable {
     this.keybinding.unregister();
 
     ViewModelRegistry.instance.dispose();
+    this.goToViewModel.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
@@ -118,6 +126,7 @@ export class Controller implements Disposable {
     this.highlightService.dispose();
     this.autoplayService.dispose();
 
+    this.extremaService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
@@ -137,6 +146,7 @@ export class Controller implements Disposable {
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register('goTo', this.goToViewModel);
   }
 
   private registerObservers(): void {
