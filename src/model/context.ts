@@ -91,7 +91,6 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
       activeSubplot.moveOnce(direction);
-      this.active.notifyStateUpdate();
       this.plotContext.push(activeSubplot.activeTrace);
     }
   }
