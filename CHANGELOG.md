@@ -1,3 +1,10 @@
+## [3.21.1](https://github.com/xability/maidr/compare/v3.21.0...v3.21.1) (2025-08-12)
+
+
+### Bug Fixes
+
+* **display:** reset focus on teardown to prevent missing braille view ([#410](https://github.com/xability/maidr/issues/410)) ([c1d6a94](https://github.com/xability/maidr/commit/c1d6a94624d4c27c2a969e9b7de3e052dcfbe72a))
+
 # [3.21.0](https://github.com/xability/maidr/compare/v3.20.4...v3.21.0) (2025-08-11)
 
 
