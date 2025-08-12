@@ -40,7 +40,7 @@ const styles = {
 const CommandPalette: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [announcement, setAnnouncement] = useState('');
   const { executeCommand, currentScope } = useCommandExecutor();
 
@@ -152,33 +152,7 @@ const CommandPalette: React.FC = () => {
             block: 'nearest',
           });
         }
-
-        // Announce the selected command, but respect other announcement sources
-        const selectedCommand = filteredCommands[highlightedIndex];
-        const newAnnouncement = `Selected: ${selectedCommand.description} - ${selectedCommand.key}`;
-
-        // Don't override search announcements
-        if (announcementSourceRef.current === 'search') {
-          return;
-        }
-
-        // For initial announcements, only skip if we're still on the first item
-        // If user has navigated away from first item, allow navigation announcements
-        if (announcementSourceRef.current === 'initial' && highlightedIndex === 0) {
-          return;
-        }
-
-        // If we were on initial but now navigating, clear the initial source
-        if (announcementSourceRef.current === 'initial' && highlightedIndex > 0) {
-          announcementSourceRef.current = null;
-        }
-
-        // Only set announcement if it's different from current
-        if (currentAnnouncementRef.current !== newAnnouncement) {
-          setAnnouncement(newAnnouncement);
-          currentAnnouncementRef.current = newAnnouncement;
-          announcementSourceRef.current = 'navigation';
-        }
+        // Removed selection live announcements; combobox + aria-activedescendant will announce
       }
     }
   }, [highlightedIndex, filteredCommands, open]);
@@ -211,7 +185,8 @@ const CommandPalette: React.FC = () => {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setHighlightedIndex(0);
+            // Defer highlighting so SRs announce typed text
+            setHighlightedIndex(-1);
             // Announce the number of filtered results
             const newSearch = e.target.value.trim();
             let newAnnouncement: string;
@@ -236,18 +211,31 @@ const CommandPalette: React.FC = () => {
           onKeyDown={(e) => {
             if (!filteredCommands.length)
               return;
+            // Collapse selection to caret so SRs don't re-announce selected text
+            const inputEl = e.currentTarget as unknown as HTMLInputElement;
+            try {
+              const pos = (inputEl.selectionEnd ?? inputEl.value?.length ?? 0) as number;
+              if (typeof (inputEl as HTMLInputElement).setSelectionRange === 'function') {
+                (inputEl as HTMLInputElement).setSelectionRange(pos, pos);
+              }
+            } catch {
+              // no-op safety
+            }
+
             if (e.key === 'ArrowDown') {
               setHighlightedIndex(prev =>
-                Math.min(prev + 1, filteredCommands.length - 1),
+                prev < 0 ? 0 : Math.min(prev + 1, filteredCommands.length - 1),
               );
               e.preventDefault();
             } else if (e.key === 'ArrowUp') {
-              setHighlightedIndex(prev => Math.max(prev - 1, 0));
+              setHighlightedIndex(prev => (prev < 0 ? 0 : Math.max(prev - 1, 0)));
               e.preventDefault();
             } else if (e.key === 'Enter') {
-              handleCommandSelect(
-                filteredCommands[highlightedIndex].commandKey,
-              );
+              if (highlightedIndex >= 0) {
+                handleCommandSelect(
+                  filteredCommands[highlightedIndex].commandKey,
+                );
+              }
               e.preventDefault();
             }
           }}
@@ -255,9 +243,18 @@ const CommandPalette: React.FC = () => {
           slotProps={{
             input: {
               inputProps: {
-                'aria-label':
-                  'Search commands. Use down and up arrows to navigate, Enter to select.',
+                'aria-label': 'Search commands. Use down and up arrows to navigate, Enter to select.',
                 'aria-describedby': 'command-list-instructions',
+                'role': 'combobox',
+                'aria-autocomplete': 'list',
+                'aria-expanded': open,
+                'aria-controls': 'command-list',
+                'aria-activedescendant':
+                  filteredCommands.length > 0 && highlightedIndex >= 0
+                    ? `command-${highlightedIndex}`
+                    : undefined,
+                'autoComplete': 'off',
+                'spellCheck': false,
               },
             },
           }}
@@ -277,12 +274,13 @@ const CommandPalette: React.FC = () => {
           {announcement}
         </div>
         <List
+          id="command-list"
           sx={styles.commandList}
           ref={listRef}
           role="listbox"
           aria-label="Available commands"
           aria-activedescendant={
-            filteredCommands.length > 0
+            filteredCommands.length > 0 && highlightedIndex >= 0
               ? `command-${highlightedIndex}`
               : undefined
           }
