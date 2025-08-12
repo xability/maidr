@@ -78,7 +78,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 }
 
-export class Subplot extends AbstractPlot<SubplotState> {
+export class Subplot extends AbstractPlot<SubplotState> implements Movable, Observable<SubplotState>, Disposable {
   protected readonly movable: Movable;
 
   public readonly traces: Trace[][];

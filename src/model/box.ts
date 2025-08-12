@@ -72,7 +72,7 @@ export class BoxTrace extends AbstractTrace {
     super.dispose();
   }
 
-  public overridemoveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     row = isHorizontal ? row : col;
     col = isHorizontal ? col : row;

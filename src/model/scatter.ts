@@ -4,11 +4,21 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
 
+interface ScatterXPoint {
+  x: number;
+  y: number[];
+}
+
+interface ScatterYPoint {
+  x: number[];
+  y: number;
+}
+
 export class ScatterTrace extends AbstractTrace {
   protected readonly movable: MovablePlane;
 
-  private readonly xPoints: { x: number; y: number[] }[];
-  private readonly yPoints: { x: number[]; y: number }[];
+  private readonly xPoints: ScatterXPoint[];
+  private readonly yPoints: ScatterYPoint[];
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
@@ -24,8 +34,8 @@ export class ScatterTrace extends AbstractTrace {
     const data = layer.data as ScatterPoint[];
 
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
-    this.xPoints = new Array<{ x: number; y: number[] }>();
-    let currentX: { x: number; y: number[] } | null = null;
+    this.xPoints = new Array<ScatterXPoint>();
+    let currentX: ScatterXPoint | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
         currentX = { x: point.x, y: [] };
@@ -35,8 +45,8 @@ export class ScatterTrace extends AbstractTrace {
     }
 
     const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
-    this.yPoints = new Array<{ x: number[]; y: number }>();
-    let currentY: { x: number[]; y: number } | null = null;
+    this.yPoints = new Array<ScatterYPoint>();
+    let currentY: ScatterYPoint | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
         currentY = { y: point.y, x: [] };

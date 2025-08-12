@@ -9,20 +9,19 @@ export class SmoothTrace extends LineTrace {
 
   protected audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
-    const col = this.col;
+    const getY = (i: number): number => {
+      return rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
+    }
 
-    const getY = (i: number): number =>
-      rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
-
-    const prev = col > 0 ? getY(col - 1) : getY(col);
-    const curr = getY(col);
-    const next = col < rowYValues.length - 1 ? getY(col + 1) : getY(col);
+    const prev = getY(this.col - 1);
+    const curr = getY(this.col);
+    const next = getY(this.col + 1);
 
     return {
       min: this.min[this.row],
       max: this.max[this.row],
       size: rowYValues.length,
-      index: col,
+      index: this.col,
       value: [prev, curr, next],
       isContinuous: true,
     };

@@ -1,8 +1,8 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
-import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
+import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
 const TREND = 'Trend';
@@ -26,18 +26,13 @@ export class Candlestick extends AbstractTrace {
     const data = layer.data as CandlestickPoint[];
     this.candles = data.map(candle => ({
       ...candle,
-      trend: candle.close > candle.open
-        ? 'Bull'
-        : candle.close < candle.open ? 'Bear' : 'Neutral',
+      trend: candle.close > candle.open ? 'Bull' : candle.close < candle.open ? 'Bear' : 'Neutral',
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
     this.sections = SECTIONS;
 
-    this.candleValues = this.sections.map(key =>
-      this.candles.map(c => c[key]),
-    );
-
+    this.candleValues = this.sections.map(key => this.candles.map(c => c[key]));
     this.min = Math.min(...this.candleValues.flat());
     this.max = Math.max(...this.candleValues.flat());
 
@@ -50,10 +45,6 @@ export class Candlestick extends AbstractTrace {
   public dispose(): void {
     this.candles.length = 0;
     super.dispose();
-  }
-
-  protected get values(): number[][] {
-    return this.candleValues;
   }
 
   protected audio(): AudioState {

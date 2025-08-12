@@ -13,7 +13,7 @@ const MAX_SPEED = 500;
 
 const DEFAULT_INTERVAL = 20;
 
-interface AutoplayChangeEvent {
+interface AutoplayChangedEvent {
   type: 'start' | 'stop';
 }
 
@@ -39,8 +39,8 @@ export class AutoplayService implements Disposable {
   private autoplayRate: number;
   private totalDuration: number;
 
-  private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
-  public readonly onChange: Event<AutoplayChangeEvent>;
+  private readonly onChangeEmitter: Emitter<AutoplayChangedEvent>;
+  public readonly onChange: Event<AutoplayChangedEvent>;
 
   public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
     this.notification = notification;
@@ -65,7 +65,7 @@ export class AutoplayService implements Disposable {
       }
     });
 
-    this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
+    this.onChangeEmitter = new Emitter<AutoplayChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
   }
 

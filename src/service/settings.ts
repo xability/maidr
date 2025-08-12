@@ -18,7 +18,7 @@ function getSettingValue<T>(settings: any, key: string): T | undefined {
   }, settings);
 }
 
-class SettingsChangeEvent {
+class SettingsChangedEvent {
   public readonly oldSettings: Settings;
   public readonly newSettings: Settings;
 
@@ -49,8 +49,8 @@ export class SettingsService implements Disposable {
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
 
-  private readonly onChangeEmitter: Emitter<SettingsChangeEvent>;
-  public readonly onChange: Event<SettingsChangeEvent>;
+  private readonly onChangeEmitter: Emitter<SettingsChangedEvent>;
+  public readonly onChange: Event<SettingsChangedEvent>;
 
   public constructor(storage: StorageService, display: DisplayService) {
     this.storage = storage;
@@ -58,7 +58,7 @@ export class SettingsService implements Disposable {
 
     this.defaultSettings = DEFAULT_SETTINGS;
 
-    this.onChangeEmitter = new Emitter<SettingsChangeEvent>();
+    this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
@@ -78,7 +78,7 @@ export class SettingsService implements Disposable {
     this.currentSettings = newSettings;
 
     this.storage.save(SETTINGS_KEY, this.currentSettings);
-    this.onChangeEmitter.fire(new SettingsChangeEvent(oldSettings, newSettings));
+    this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
   }
 
   public resetSettings(): Settings {
@@ -86,7 +86,7 @@ export class SettingsService implements Disposable {
     this.currentSettings = this.defaultSettings;
 
     this.storage.remove(SETTINGS_KEY);
-    this.onChangeEmitter.fire(new SettingsChangeEvent(oldSettings, this.currentSettings));
+    this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, this.currentSettings));
     return this.currentSettings;
   }
 
