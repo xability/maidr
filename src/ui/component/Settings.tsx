@@ -18,9 +18,11 @@ import {
   TextareaAutosize,
   TextField,
   Typography,
+  Box,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
 import React, { useEffect, useId, useState } from 'react';
+import { CLAUDE_VERSIONS, GEMINI_VERSIONS, GPT_VERSIONS } from '@type/llm';
 
 interface SettingRowProps {
   label: string;
@@ -46,6 +48,7 @@ interface LlmModelSettingRowProps {
   modelSettings: LlmModelSettings;
   onToggle: (key: Llm, enabled: boolean) => void;
   onChangeKey: (key: Llm, value: string) => void;
+  onChangeVersion: (key: Llm, value: string) => void;
 }
 
 const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
@@ -53,35 +56,49 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   modelSettings,
   onToggle,
   onChangeKey,
-}) => (
-  <SettingRow
-    label={modelSettings.name}
-    input={(
-      <Grid container spacing={1} alignItems="center">
-        <Grid size="auto">
+  onChangeVersion,
+}) => {
+  const options = modelKey === 'GPT' ? GPT_VERSIONS : modelKey === 'CLAUDE' ? CLAUDE_VERSIONS : GEMINI_VERSIONS;
+
+  return (
+    <SettingRow
+      label={modelSettings.name}
+      input={(
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
           <Switch
             checked={modelSettings.enabled}
             onChange={e => onToggle(modelKey, e.target.checked)}
-            slotProps={{
-              input: { 'aria-label': `Enable ${modelSettings.name}` },
-            }}
+            slotProps={{ input: { 'aria-label': `Enable ${modelSettings.name}` } }}
+            sx={{ mt: 0.5 }}
           />
-        </Grid>
-        <Grid size="grow">
-          <TextField
-            disabled={!modelSettings.enabled}
-            fullWidth
-            size="small"
-            value={modelSettings.apiKey}
-            onChange={e => onChangeKey(modelKey, e.target.value)}
-            placeholder={`Enter ${modelSettings.name} API Key`}
-            type="password"
-          />
-        </Grid>
-      </Grid>
-    )}
-  />
-);
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
+            <FormControl size="small" fullWidth>
+              <Select
+                value={modelSettings.version as unknown as string}
+                disabled={!modelSettings.enabled}
+                onChange={e => onChangeVersion(modelKey, e.target.value as string)}
+                MenuProps={{ disablePortal: true }}
+              >
+                {options.map(v => (
+                  <MenuItem key={v} value={v}>{v}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              disabled={!modelSettings.enabled}
+              fullWidth
+              size="small"
+              value={modelSettings.apiKey}
+              onChange={e => onChangeKey(modelKey, e.target.value)}
+              placeholder={`Enter ${modelSettings.name} API Key`}
+              type="password"
+            />
+          </Box>
+        </Box>
+      )}
+    />
+  );
+};
 
 const Settings: React.FC = () => {
   const id = useId();
@@ -146,8 +163,9 @@ const Settings: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
+      sx={{ '& .MuiDialog-paper': { zIndex: 9998, maxHeight: '90vh' } }}
     >
-      <DialogContent sx={{ overflow: 'visible' }}>
+      <DialogContent sx={{ overflow: 'auto' }}>
         {/* Header */}
         <Grid size="grow">
           <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -170,12 +188,6 @@ const Settings: React.FC = () => {
                   max={100}
                   step={1}
                   valueLabelDisplay="auto"
-                  sx={{
-                    '& .MuiSlider-valueLabel': {
-                      backgroundColor: 'primary.main',
-                      borderRadius: 1,
-                    },
-                  }}
                 />
               )}
             />
@@ -301,7 +313,6 @@ const Settings: React.FC = () => {
             </Typography>
           </Grid>
 
-          {/* LLM Model Toggles */}
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
 
@@ -312,6 +323,7 @@ const Settings: React.FC = () => {
                   modelSettings={model}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
+                  onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
@@ -326,6 +338,7 @@ const Settings: React.FC = () => {
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={e => handleLlmChange('expertiseLevel', e.target.value)}
+                    MenuProps={{ disablePortal: true }}
                   >
                     <MenuItem value="basic">Basic</MenuItem>
                     <MenuItem value="intermediate">Intermediate</MenuItem>
@@ -348,9 +361,9 @@ const Settings: React.FC = () => {
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
-                    padding: '8px',
+                    padding: 8,
                     border: '1px solid #ccc',
-                    borderRadius: '4px',
+                    borderRadius: 4,
                     resize: 'vertical',
                   }}
                   placeholder="Enter custom instruction..."
@@ -369,6 +382,7 @@ const Settings: React.FC = () => {
       <Grid
         container
         component={DialogActions}
+        sx={{ alignItems: 'center' }}
       >
         <Grid
           size="auto"
@@ -383,7 +397,7 @@ const Settings: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
-          sx={{ px: 2, py: 1 }}
+          sx={{ px: 2, py: 1, display: 'flex', gap: 1 }}
         >
           <Grid size="auto">
             <Button variant="outlined" color="inherit" onClick={handleClose}>
