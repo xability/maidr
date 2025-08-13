@@ -128,10 +128,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     await Promise.all(enabledModels.map(async (model) => {
       const audioId = this.audioService.playWaitingTone();
       try {
-        this.store.dispatch(addPendingResponse({
-          model,
-          timestamp,
-        }));
+        this.store.dispatch(addPendingResponse({ model, timestamp }));
 
         const config = llmSettings.models[model];
         const response = await this.chatService.sendMessage(model, {
@@ -139,21 +136,14 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           customInstruction: llmSettings.customInstruction,
           expertise: llmSettings.customExpertise ?? llmSettings.expertiseLevel,
           apiKey: config.apiKey,
+          version: config.version,
         });
 
         this.audioService.stop(audioId);
         if (response.error) {
-          this.store.dispatch(updateError({
-            model,
-            error: response.error,
-            timestamp,
-          }));
+          this.store.dispatch(updateError({ model, error: response.error, timestamp }));
         } else {
-          this.store.dispatch(updateResponse({
-            model,
-            data: response.data!,
-            timestamp,
-          }));
+          this.store.dispatch(updateResponse({ model, data: response.data!, timestamp }));
           this.audioService.playCompleteTone();
         }
       } catch (error) {

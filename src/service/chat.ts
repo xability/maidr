@@ -81,15 +81,21 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         image,
         '',
         request.message,
+        request.version,
       );
 
       const url = request.clientToken
         ? this.getMaidrUrl()
-        : this.getApiUrl(request.apiKey);
+        : this.getApiUrl(request.apiKey, request.version);
 
-      const headers: Record<string, string> = request.clientToken
-        ? { Authentication: `${request.email} ${request.clientToken}` }
-        : { Authorization: `Bearer ${request.apiKey}` };
+      const isGemini = url.includes('generativelanguage.googleapis.com');
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (request.clientToken) {
+        headers.Authentication = `${request.email} ${request.clientToken}`;
+      } else if (!isGemini) {
+        headers.Authorization = `Bearer ${request.apiKey}`;
+      }
 
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {
@@ -117,7 +123,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     return `${this.maidrBaseUrl}/${this.getEndPoint()}?code=${this.codeQueryParam}`;
   }
 
-  protected abstract getApiUrl(apiKey?: string): string;
+  protected abstract getApiUrl(apiKey?: string, version?: string): string;
 
   protected abstract getEndPoint(): string;
 
@@ -127,6 +133,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     image: string,
     currentText: string,
     message: string,
+    version?: string,
   ): string;
 
   protected abstract formatResponse(response: T): LlmResponse;
@@ -151,9 +158,10 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    version?: string,
   ): string {
     return JSON.stringify({
-      model: 'gpt-4o-2024-11-20',
+      model: version ?? 'gpt-4o',
       max_tokens: 1000,
       messages: [
         {
@@ -219,8 +227,10 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    version?: string,
   ): string {
     return JSON.stringify({
+      model: version ?? 'claude-3-5-sonnet-latest',
       anthropic_version: 'vertex-2023-10-16',
       max_tokens: 256,
       messages: [
@@ -270,8 +280,9 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     super(svg, maidr);
   }
 
-  protected getApiUrl(apiKey?: string): string {
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+  protected getApiUrl(apiKey?: string, version?: string): string {
+    const model = version ?? 'gemini-2.0-flash';
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   }
 
   protected getEndPoint(): string {
@@ -284,6 +295,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    _version?: string,
   ): string {
     return JSON.stringify({
       generationConfig: {},
