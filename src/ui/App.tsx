@@ -16,7 +16,6 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ plot }) => {
-  const { enabled, message } = useViewModelState('text');
   const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
@@ -44,7 +43,7 @@ const App: React.FC<AppProps> = ({ plot }) => {
   return (
     <>
       {tooltip.visible && <Tooltip plot={plot} />}
-      {(enabled || message) && <Text />}
+      <Text />
       {renderFocusedComponent(focus)}
     </>
   );
