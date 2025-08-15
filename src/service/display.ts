@@ -18,6 +18,8 @@ export class DisplayService implements Disposable {
   private readonly onChangeEmitter: Emitter<FocusChangedEvent>;
   public readonly onChange: Event<FocusChangedEvent>;
 
+  private hasEnteredInteractive: boolean = false;
+
   public constructor(context: Context, plot: HTMLElement) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
@@ -49,10 +51,18 @@ export class DisplayService implements Disposable {
   }
 
   private removeInstruction(): void {
-    this.plot.removeAttribute(Constant.ARIA_LABEL);
+    // Keep instruction label while active to avoid "empty application" and ensure entry announcement
+    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
+    this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
     this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-    this.plot.tabIndex = -1;
+    this.plot.tabIndex = 0;
+  }
+
+  private setAriaLabel(): void {
+    // Always respect the hasEnteredInteractive state
+    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
+    this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
   }
 
   public toggleFocus(focus: Focus): void {
@@ -65,7 +75,16 @@ export class DisplayService implements Disposable {
 
   private updateFocus(newScope: Focus): void {
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
-      this.plot.focus();
+      this.plot.tabIndex = 0;
+      setTimeout(() => {
+        this.plot.focus();
+        if (this.hasEnteredInteractive) {
+          this.setAriaLabel(); // This will set it to empty
+        } else {
+          this.hasEnteredInteractive = true;
+          this.setAriaLabel(); // This will set it to full instruction
+        }
+      }, 0);
     }
     this.onChangeEmitter.fire({ value: newScope });
   }
