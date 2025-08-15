@@ -1,3 +1,10 @@
+## [3.22.1](https://github.com/xability/maidr/compare/v3.22.0...v3.22.1) (2025-08-15)
+
+
+### Bug Fixes
+
+* address screen reader announcement freeze ([#416](https://github.com/xability/maidr/issues/416)) ([caa6229](https://github.com/xability/maidr/commit/caa62290d34e0215913d34363227aacfba73c7cf))
+
 # [3.22.0](https://github.com/xability/maidr/compare/v3.21.1...v3.22.0) (2025-08-12)
 
 
