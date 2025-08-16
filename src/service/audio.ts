@@ -132,7 +132,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     if (state.empty) {
-      this.playEmptyTone();
+      this.playEmptyTone(state.audio.totalRows, state.audio.totalCols, state.audio.row, state.audio.col);
       return;
     }
     if (state.type !== 'trace') {
@@ -338,10 +338,29 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.activeAudioIds.set(audioId, oscillator);
   }
 
-  private playEmptyTone(): AudioId {
+  private playEmptyTone(
+    totalRows: number,
+    totalCols: number,
+    row: number,
+    col: number,
+  ): AudioId {
+    const xPos = this.interpolate(col, { min: 0, max: totalCols - 1 }, { min: -1, max: 1 });
+    const yPos = this.interpolate(row, { min: 0, max: totalRows - 1 }, { min: -1, max: 1 });
+
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
+
+    const panner = new PannerNode(this.audioContext, {
+      panningModel: 'HRTF',
+      distanceModel: 'linear',
+      positionX: xPos,
+      positionY: yPos,
+      positionZ: 0,
+      orientationX: 0.0,
+      orientationY: 0.0,
+      orientationZ: -1.0,
+    });
 
     const frequencies = [500, 1000, 1500, 2100, 2700];
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
@@ -349,7 +368,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.3 * this.volume, now);
     masterGain.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
-    masterGain.connect(this.compressor);
+
+    masterGain.connect(panner);
+    panner.connect(this.compressor);
 
     const oscillators: OscillatorNode[] = [];
     for (let i = 0; i < frequencies.length; i++) {

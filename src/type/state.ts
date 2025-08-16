@@ -3,9 +3,17 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
+export interface AudioEmptyState {
+  row: number;
+  col: number;
+  totalRows: number;
+  totalCols: number;
+}
+
 interface FigureEmptyState {
   empty: true;
   type: 'figure';
+  audio: AudioEmptyState;
 }
 
 export type FigureState
@@ -25,6 +33,7 @@ export type FigureState
 interface SubplotEmptyState {
   empty: true;
   type: 'subplot';
+  audio: AudioEmptyState;
 }
 
 export type SubplotState
@@ -42,6 +51,7 @@ interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
+  audio: AudioEmptyState;
 }
 
 export type TraceState

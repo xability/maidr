@@ -152,16 +152,18 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       empty: true,
       type: 'trace',
       traceType: this.type,
+      audio: {
+        row: this.row,
+        col: this.col,
+        totalRows: this.autoplay().UPWARD,
+        totalCols: this.autoplay().FORWARD,
+      },
     };
   }
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {

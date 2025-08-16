@@ -74,6 +74,12 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     return {
       empty: true,
       type: 'figure',
+      audio: {
+        row: this.row,
+        col: this.col,
+        totalRows: this.subplots.length,
+        totalCols: this.subplots[this.row].length,
+      },
     };
   }
 }
@@ -132,15 +138,18 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     return {
       empty: true,
       type: 'subplot',
+      audio: {
+        row: this.row,
+        col: this.col,
+        totalRows: this.traces.length,
+        totalCols: this.traces[this.row].length,
+      },
     };
   }
 
   private highlight(): HighlightState {
     if (this.highlightValue === null) {
-      return {
-        empty: true,
-        type: 'subplot',
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {

@@ -55,11 +55,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {

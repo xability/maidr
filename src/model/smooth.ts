@@ -11,7 +11,7 @@ export class SmoothTrace extends LineTrace {
     const rowYValues = this.lineValues[this.row];
     const getY = (i: number): number => {
       return rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
-    }
+    };
 
     const prev = getY(this.col - 1);
     const curr = getY(this.col);

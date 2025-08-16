@@ -124,11 +124,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
-    };
+    return this.outOfBoundsState as BrailleState;
   }
 
   protected text(): TextState {
@@ -158,22 +154,14 @@ export class ScatterTrace extends AbstractTrace {
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     const elements = this.movable.mode === 'col'
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {
