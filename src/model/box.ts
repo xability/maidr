@@ -80,7 +80,7 @@ export class BoxTrace extends AbstractTrace {
     return super.moveToIndex(row, col);
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
     return {
@@ -98,7 +98,7 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const row = isHorizontal ? this.row : this.col;
     const col = isHorizontal ? this.col : this.row;
@@ -114,7 +114,7 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 

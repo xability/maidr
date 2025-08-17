@@ -100,7 +100,7 @@ export class LineTrace extends AbstractTrace {
     return graph;
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     return {
       freq: {
         min: this.min[this.row],
@@ -117,7 +117,7 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -129,7 +129,7 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const point = this.points[this.row][this.col];
     const fillData = point.fill
       ? { fill: { label: TYPE, value: point.fill } }

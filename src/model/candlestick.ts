@@ -48,7 +48,7 @@ export class Candlestick extends AbstractTrace {
     super.dispose();
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const index = isHorizontal ? this.row : this.col;
     const valueKey = this.sections[isHorizontal ? this.col : this.row];
@@ -69,7 +69,7 @@ export class Candlestick extends AbstractTrace {
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -81,7 +81,7 @@ export class Candlestick extends AbstractTrace {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.candles[this.row] : this.candles[this.col];
 

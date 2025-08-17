@@ -130,7 +130,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
-      highlight: this.highlight(),
+      highlight: this.highlight,
     };
   }
 
@@ -147,7 +147,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
-  private highlight(): HighlightState {
+  private get highlight(): HighlightState {
     if (this.highlightValue === null) {
       return this.outOfBoundsState as HighlightState;
     }

@@ -8,7 +8,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     super(layer, [layer.data as HistogramPoint[]]);
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -16,7 +16,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const max = isVertical ? point.xMax : point.yMax;
 
     return {
-      ...super.text(),
+      ...super.text,
       range: { min, max },
     };
   }

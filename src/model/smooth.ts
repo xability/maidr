@@ -7,7 +7,7 @@ export class SmoothTrace extends LineTrace {
     super(layer);
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
     const getY = (i: number): number => {
       return rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];

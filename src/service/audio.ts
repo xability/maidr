@@ -210,7 +210,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols }, { min: -1, max: 1 }), -1, 1);
     const y = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows }, { min: -1, max: 1 }), -1, 1);
-    console.error(`Panning size: ${panning.cols}, Raw Panning: ${panning.x}, Panning: ${x}`);
     return this.playOscillator(frequency, { x, y }, group);
   }
 

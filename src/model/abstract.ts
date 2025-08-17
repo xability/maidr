@@ -143,12 +143,12 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
-      hasMultiPoints: this.hasMultiPoints(),
-      audio: this.audio(),
-      braille: this.braille(),
-      text: this.text(),
-      autoplay: this.autoplay(),
-      highlight: this.highlight(),
+      hasMultiPoints: this.hasMultiPoints,
+      audio: this.audio,
+      braille: this.braille,
+      text: this.text,
+      autoplay: this.autoplay,
+      highlight: this.highlight,
     };
   }
 
@@ -166,7 +166,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
       return this.outOfBoundsState as HighlightState;
     }
@@ -177,7 +177,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
-  private autoplay(): AutoplayState {
+  private get autoplay(): AutoplayState {
     return {
       UPWARD: this.dimension.rows,
       DOWNWARD: this.dimension.rows,
@@ -186,15 +186,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
-  protected hasMultiPoints(): boolean {
+  protected get hasMultiPoints(): boolean {
     return false;
   }
 
-  protected abstract audio(): AudioState;
+  protected abstract get audio(): AudioState;
 
-  protected abstract braille(): BrailleState;
+  protected abstract get braille(): BrailleState;
 
-  protected abstract text(): TextState;
+  protected abstract get text(): TextState;
 
   protected abstract get dimension(): Dimension;
 

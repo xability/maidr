@@ -46,7 +46,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     super.dispose();
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const value = isVertical
       ? this.barValues[this.row][this.col]
@@ -68,7 +68,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -80,7 +80,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 

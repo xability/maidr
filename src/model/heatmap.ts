@@ -42,7 +42,7 @@ export class Heatmap extends AbstractTrace {
     super.dispose();
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     return {
       freq: {
         min: this.min,
@@ -58,7 +58,7 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -70,7 +70,7 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },

@@ -43,9 +43,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.max.push(summaryMax);
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     return {
-      ...super.text(),
+      ...super.text,
       fill: {
         label: LEVEL,
         value: this.points[this.row][this.col].fill ?? UNDEFINED,
@@ -53,7 +53,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
       return this.outOfBoundsState as HighlightState;
     }

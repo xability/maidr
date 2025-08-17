@@ -102,7 +102,7 @@ export class ScatterTrace extends AbstractTrace {
     return this.movable.mode === 'col' ? this.highlightXValues : this.highlightYValues;
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
@@ -136,11 +136,11 @@ export class ScatterTrace extends AbstractTrace {
     }
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return this.outOfBoundsState as BrailleState;
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
@@ -163,7 +163,7 @@ export class ScatterTrace extends AbstractTrace {
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     if (this.highlightValues === null) {
       return this.outOfBoundsState as HighlightState;
     }
@@ -181,7 +181,7 @@ export class ScatterTrace extends AbstractTrace {
     };
   }
 
-  protected hasMultiPoints(): boolean {
+  protected get hasMultiPoints(): boolean {
     return true;
   }
 
