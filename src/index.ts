@@ -1,9 +1,9 @@
-import type { Maidr } from '@type/grammar';
-import { DomEventType } from '@type/event';
-import { MaidrApp } from '@ui/App';
-import { Constant } from '@util/constant';
+import type { Maidr } from './type/grammar';
 import { createRoot } from 'react-dom/client';
 import { Controller } from './controller';
+import { DomEventType } from './type/event';
+import { MaidrApp } from './ui/App';
+import { Constant } from './util/constant';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
