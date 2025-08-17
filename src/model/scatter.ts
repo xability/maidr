@@ -1,5 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
@@ -105,20 +106,32 @@ export class ScatterTrace extends AbstractTrace {
     if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
-        min: this.minY,
-        max: this.maxY,
-        size: current.y.length,
-        index: this.col,
-        value: current.y,
+        freq: {
+          raw: current.y,
+          min: this.minY,
+          max: this.maxY,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: current.y.length,
+          cols: this.xPoints.length,
+        },
       };
     } else {
       const current = this.yPoints[this.row];
       return {
-        min: this.minX,
-        max: this.maxX,
-        size: current.x.length,
-        index: this.row,
-        value: current.x,
+        freq: {
+          raw: current.x,
+          min: this.minX,
+          max: this.maxX,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: this.yPoints.length,
+          cols: current.x.length,
+        },
       };
     }
   }
@@ -143,12 +156,10 @@ export class ScatterTrace extends AbstractTrace {
     }
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.yPoints.length,
-      DOWNWARD: this.yPoints.length,
-      FORWARD: this.xPoints.length,
-      BACKWARD: this.xPoints.length,
+      rows: this.yPoints.length,
+      cols: this.xPoints.length,
     };
   }
 

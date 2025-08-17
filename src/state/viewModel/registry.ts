@@ -1,9 +1,9 @@
-import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
-import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
-import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
+import type { BrailleViewModel } from './brailleViewModel';
 import type { ChatViewModel } from './chatViewModel';
+import type { DisplayViewModel } from './displayViewModel';
 import type { HelpViewModel } from './helpViewModel';
+import type { ReviewViewModel } from './reviewViewModel';
 import type { SettingsViewModel } from './settingsViewModel';
 import type { TextViewModel } from './textViewModel';
 

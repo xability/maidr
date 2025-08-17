@@ -11,6 +11,11 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
+export interface Dimension {
+  rows: number;
+  cols: number;
+}
+
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
   protected readonly observers: Observer<State>[];
 
@@ -153,10 +158,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       type: 'trace',
       traceType: this.type,
       audio: {
-        row: this.row,
-        col: this.col,
-        totalRows: this.autoplay().UPWARD,
-        totalCols: this.autoplay().FORWARD,
+        y: this.row,
+        x: this.col,
+        rows: this.dimension.rows,
+        cols: this.dimension.cols,
       },
     };
   }
@@ -172,6 +177,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
+  private autoplay(): AutoplayState {
+    return {
+      UPWARD: this.dimension.rows,
+      DOWNWARD: this.dimension.rows,
+      FORWARD: this.dimension.cols,
+      BACKWARD: this.dimension.cols,
+    };
+  }
+
   protected hasMultiPoints(): boolean {
     return false;
   }
@@ -182,7 +196,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected abstract text(): TextState;
 
-  protected abstract autoplay(): AutoplayState;
+  protected abstract get dimension(): Dimension;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 }

@@ -15,6 +15,24 @@ interface Range {
   max: number;
 }
 
+interface SpatialPosition {
+  x: number;
+  y: number;
+}
+
+interface Frequency {
+  raw: number | number[];
+  min: number;
+  max: number;
+}
+
+interface Panning {
+  x: number;
+  y: number;
+  rows: number;
+  cols: number;
+}
+
 type AudioId = ReturnType<typeof setTimeout>;
 
 const NULL_FREQUENCY = 100;
@@ -132,7 +150,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     if (state.empty) {
-      this.playEmptyTone(state.audio.totalRows, state.audio.totalCols, state.audio.row, state.audio.col);
+      this.playEmptyTone(state.audio);
       return;
     }
     if (state.type !== 'trace') {
@@ -141,9 +159,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const audio = state.audio;
     if (audio.isContinuous) {
-      this.playSmooth(audio.value as number[], audio.min, audio.max, audio.size, audio.index);
-    } else if (Array.isArray(audio.value)) {
-      const values = audio.value as number[];
+      this.playSmooth(audio.freq, audio.panning);
+    } else if (Array.isArray(audio.freq.raw)) {
+      const values = audio.freq.raw as number[];
       if (values.length === 0) {
         this.playZeroTone();
         return;
@@ -154,7 +172,20 @@ export class AudioService implements Observer<PlotState>, Disposable {
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(audio.min, audio.max, values[currentIndex], audio.size, currentIndex++, audio.group);
+          this.playTone(
+            {
+              min: audio.freq.min,
+              max: audio.freq.max,
+              raw: values[currentIndex++],
+            },
+            {
+              x: audio.panning.x,
+              y: audio.panning.y,
+              rows: audio.panning.rows,
+              cols: audio.panning.cols,
+            },
+            audio.group,
+          );
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -163,32 +194,24 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
       playNext();
     } else {
-      const value = audio.value as number;
+      const value = audio.freq.raw as number;
       if (value === 0) {
         this.playZeroTone();
       } else {
-        this.playTone(audio.min, audio.max, value, audio.size, audio.index, audio.group);
+        this.playTone(audio.freq, audio.panning, audio.group);
       }
     }
   }
 
-  private playTone(
-    minFrequency: number,
-    maxFrequency: number,
-    rawFrequency: number,
-    panningSize: number,
-    rawPanning: number,
-    group: number = 0,
-  ): AudioId {
-    const fromFreq = { min: minFrequency, max: maxFrequency };
+  private playTone(freq: Frequency, panning: Panning, group: number = 0): AudioId {
+    const fromFreq = { min: freq.min, max: freq.max };
     const toFreq = { min: this.minFrequency, max: this.maxFrequency };
-    const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
+    const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
 
-    const fromPanning = { min: 0, max: panningSize };
-    const toPanning = { min: -1, max: 1 };
-    const panning = this.clamp(this.interpolate(rawPanning, fromPanning, toPanning), -1, 1);
-
-    return this.playOscillator(frequency, panning, group);
+    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols }, { min: -1, max: 1 }), -1, 1);
+    const y = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows }, { min: -1, max: 1 }), -1, 1);
+    console.error(`Panning size: ${panning.cols}, Raw Panning: ${panning.x}, Panning: ${x}`);
+    return this.playOscillator(frequency, { x, y }, group);
   }
 
   private getHarmony(group: number): HarmonicComponent[] {
@@ -224,7 +247,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private playOscillator(
     frequency: number,
-    panning: number = 0,
+    position: SpatialPosition = { x: 0, y: 0 },
     group: number = 0,
   ): AudioId {
     const duration = DEFAULT_DURATION;
@@ -232,11 +255,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const oscillators: OscillatorNode[] = [];
 
     const masterGainNode = this.audioContext.createGain();
-    const stereoPannerNode = this.audioContext.createStereoPanner();
     const pannerNode = new PannerNode(this.audioContext, {
+      panningModel: 'HRTF',
       distanceModel: 'linear',
-      positionX: 0.0,
-      positionY: 0.0,
+      positionX: position.x,
+      positionY: position.y,
       positionZ: 0.0,
       orientationX: 0.0,
       orientationY: 0.0,
@@ -249,13 +272,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
       coneOuterGain: 0.4,
     });
 
-    masterGainNode.connect(stereoPannerNode);
-    stereoPannerNode.connect(pannerNode);
+    masterGainNode.connect(pannerNode);
     pannerNode.connect(this.compressor);
 
     const valueCurve = [0.5 * this.volume, this.volume, 0.5 * this.volume, 0.5 * this.volume, 0.5 * this.volume, 0.1 * this.volume, 1e-4 * this.volume];
     masterGainNode.gain.setValueCurveAtTime(valueCurve, startTime, duration);
-    stereoPannerNode.pan.value = panning;
 
     const harmony = this.getHarmony(group);
     for (const part of harmony) {
@@ -275,7 +296,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const cleanUp = (audioId: AudioId): void => {
       pannerNode.disconnect();
-      stereoPannerNode.disconnect();
       masterGainNode.disconnect();
 
       oscillators.forEach((osc) => {
@@ -292,24 +312,20 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playSmooth(
-    values: number[],
-    min: number,
-    max: number,
-    size: number,
-    index: number,
+    freq: Frequency,
+    panning: Panning,
     wave: OscillatorType = 'sine',
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
-    const freqs = values.map(v => this.interpolate(v, { min, max }, { min: this.minFrequency, max: this.maxFrequency }));
+    const freqs = (freq.raw as number[]).map(v => this.interpolate(v, { min: freq.min, max: freq.max }, { min: this.minFrequency, max: this.maxFrequency }));
 
     if (freqs.length < 2) {
       freqs.push(freqs[0]);
     }
 
-    const pan = this.clamp(this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }), -1, 1);
-
+    const pan = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
     const oscillator = ctx.createOscillator();
     oscillator.type = wave;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
@@ -338,14 +354,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.activeAudioIds.set(audioId, oscillator);
   }
 
-  private playEmptyTone(
-    totalRows: number,
-    totalCols: number,
-    row: number,
-    col: number,
-  ): AudioId {
-    const xPos = this.interpolate(col, { min: 0, max: totalCols - 1 }, { min: -1, max: 1 });
-    const yPos = this.interpolate(row, { min: 0, max: totalRows - 1 }, { min: -1, max: 1 });
+  private playEmptyTone(panning: Panning): AudioId {
+    const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
+    const yPos = this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 });
 
     const ctx = this.audioContext;
     const now = ctx.currentTime;
@@ -353,7 +364,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const panner = new PannerNode(this.audioContext, {
       panningModel: 'HRTF',
-      distanceModel: 'linear',
+      distanceModel: 'inverse',
       positionX: xPos,
       positionY: yPos,
       positionZ: 0,
@@ -393,6 +404,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     const cleanUp = (audioId: AudioId): void => {
+      panner.disconnect();
       masterGain.disconnect();
       oscillators.forEach((osc) => {
         osc.disconnect();
@@ -406,7 +418,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playZeroTone(): AudioId {
-    return this.playOscillator(NULL_FREQUENCY, 0, 0);
+    return this.playOscillator(NULL_FREQUENCY);
   }
 
   public playWaitingTone(): AudioId {

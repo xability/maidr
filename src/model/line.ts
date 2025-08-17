@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { Movable, Node } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -101,12 +102,18 @@ export class LineTrace extends AbstractTrace {
 
   protected audio(): AudioState {
     return {
-      min: this.min[this.row],
-      max: this.max[this.row],
-      size: this.points[this.row].length,
-      index: this.col,
+      freq: {
+        min: this.min[this.row],
+        max: this.max[this.row],
+        raw: this.lineValues[this.row][this.col],
+      },
+      panning: {
+        x: this.col,
+        y: this.row,
+        rows: this.lineValues.length,
+        cols: this.lineValues[this.row].length,
+      },
       group: this.row,
-      value: this.points[this.row][this.col].y,
     };
   }
 
@@ -135,12 +142,10 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.lineValues.length,
-      DOWNWARD: this.lineValues.length,
-      FORWARD: this.lineValues[this.row].length,
-      BACKWARD: this.lineValues[this.row].length,
+      rows: this.lineValues.length,
+      cols: this.lineValues[this.row].length,
     };
   }
 

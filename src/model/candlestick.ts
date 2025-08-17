@@ -1,6 +1,7 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
@@ -54,11 +55,17 @@ export class Candlestick extends AbstractTrace {
     const value = this.candles[index][valueKey];
 
     return {
-      min: this.min,
-      max: this.max,
-      size: this.candles.length,
-      index,
-      value,
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: value,
+      },
+      panning: {
+        x: isHorizontal ? this.row : this.col,
+        y: isHorizontal ? this.col : this.row,
+        rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+        cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+      },
     };
   }
 
@@ -92,12 +99,11 @@ export class Candlestick extends AbstractTrace {
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     return {
-      UPWARD: this.candleValues.length,
-      DOWNWARD: this.candleValues.length,
-      FORWARD: this.candleValues[this.row].length,
-      BACKWARD: this.candleValues[this.row].length,
+      rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+      cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
     };
   }
 

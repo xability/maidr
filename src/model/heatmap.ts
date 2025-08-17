@@ -1,6 +1,7 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
@@ -43,11 +44,17 @@ export class Heatmap extends AbstractTrace {
 
   protected audio(): AudioState {
     return {
-      min: this.min,
-      max: this.max,
-      size: this.heatmapValues.length,
-      index: this.col,
-      value: this.heatmapValues[this.row][this.col],
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.heatmapValues[this.row][this.col],
+      },
+      panning: {
+        x: this.col,
+        y: this.row,
+        rows: this.heatmapValues.length,
+        cols: this.heatmapValues[this.row].length,
+      },
     };
   }
 
@@ -71,12 +78,10 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.heatmapValues.length,
-      DOWNWARD: this.heatmapValues.length,
-      FORWARD: this.heatmapValues[this.row].length,
-      BACKWARD: this.heatmapValues[this.row].length,
+      rows: this.heatmapValues.length,
+      cols: this.heatmapValues[this.row].length,
     };
   }
 

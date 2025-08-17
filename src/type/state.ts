@@ -3,11 +3,11 @@ import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-export interface AudioEmptyState {
-  row: number;
-  col: number;
-  totalRows: number;
-  totalCols: number;
+interface AudioEmptyState {
+  y: number;
+  x: number;
+  rows: number;
+  cols: number;
 }
 
 interface FigureEmptyState {
@@ -73,11 +73,17 @@ export type TraceState
     };
 
 export interface AudioState {
-  min: number;
-  max: number;
-  size: number;
-  value: number | number[];
-  index: number;
+  freq: {
+    min: number;
+    max: number;
+    raw: number | number[];
+  };
+  panning: {
+    y: number;
+    x: number;
+    rows: number;
+    cols: number;
+  };
   group?: number;
   isContinuous?: boolean;
 }

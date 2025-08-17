@@ -18,11 +18,17 @@ export class SmoothTrace extends LineTrace {
     const next = getY(this.col + 1);
 
     return {
-      min: this.min[this.row],
-      max: this.max[this.row],
-      size: rowYValues.length,
-      index: this.col,
-      value: [prev, curr, next],
+      freq: {
+        min: this.min[this.row],
+        max: this.max[this.row],
+        raw: [prev, curr, next],
+      },
+      panning: {
+        y: this.row,
+        x: this.col,
+        rows: this.lineValues.length,
+        cols: this.lineValues[this.row].length,
+      },
       isContinuous: true,
     };
   }

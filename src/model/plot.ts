@@ -75,10 +75,10 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       empty: true,
       type: 'figure',
       audio: {
-        row: this.row,
-        col: this.col,
-        totalRows: this.subplots.length,
-        totalCols: this.subplots[this.row].length,
+        y: this.row,
+        x: this.col,
+        rows: this.subplots.length,
+        cols: this.subplots[this.row].length,
       },
     };
   }
@@ -139,10 +139,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       empty: true,
       type: 'subplot',
       audio: {
-        row: this.row,
-        col: this.col,
-        totalRows: this.traces.length,
-        totalCols: this.traces[this.row].length,
+        y: this.row,
+        x: this.col,
+        rows: this.traces.length,
+        cols: this.traces[this.row].length,
       },
     };
   }

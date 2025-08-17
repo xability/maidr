@@ -1,6 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -81,16 +82,19 @@ export class BoxTrace extends AbstractTrace {
 
   protected audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const value = this.boxValues[this.row][this.col];
-    const size = isHorizontal ? this.sections.length : this.points.length;
-    const index = isHorizontal ? this.col : this.col;
 
     return {
-      min: this.min,
-      max: this.max,
-      size,
-      index,
-      value,
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.boxValues[this.row][this.col],
+      },
+      panning: {
+        x: isHorizontal ? this.col : this.row,
+        y: isHorizontal ? this.row : this.col,
+        rows: isHorizontal ? this.boxValues.length : this.boxValues[this.col].length,
+        cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
+      },
     };
   }
 
@@ -129,12 +133,11 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     return {
-      UPWARD: this.boxValues.length,
-      DOWNWARD: this.boxValues.length,
-      FORWARD: this.boxValues[this.row].length,
-      BACKWARD: this.boxValues[this.row].length,
+      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
+      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
     };
   }
 

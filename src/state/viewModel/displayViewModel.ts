@@ -3,7 +3,7 @@ import type { DisplayService } from '@service/display';
 import type { AppStore } from '@state/store';
 import type { Focus } from '@type/event';
 import { createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { AbstractViewModel } from './viewModel';
 
 interface TooltipState {
   visible: boolean;

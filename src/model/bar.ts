@@ -1,6 +1,7 @@
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -47,20 +48,23 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
 
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical ? this.barValues[this.row].length : this.barValues.length;
-    const index = isVertical ? this.col : this.row;
-    const group = isVertical ? this.row : this.col;
     const value = isVertical
       ? this.barValues[this.row][this.col]
       : this.barValues[this.col][this.row];
 
     return {
-      min: Math.min(...this.min),
-      max: Math.max(...this.max),
-      size,
-      index,
-      group,
-      value,
+      freq: {
+        min: Math.min(...this.min),
+        max: Math.max(...this.max),
+        raw: value,
+      },
+      panning: {
+        x: isVertical ? this.col : this.row,
+        y: isVertical ? this.row : this.col,
+        rows: isVertical ? this.barValues.length : this.barValues[this.col].length,
+        cols: isVertical ? this.barValues[this.row].length : this.barValues.length,
+      },
+      group: isVertical ? this.row : this.col,
     };
   }
 
@@ -92,12 +96,10 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.barValues.length,
-      DOWNWARD: this.barValues.length,
-      FORWARD: this.barValues[this.row].length,
-      BACKWARD: this.barValues[this.row].length,
+      rows: this.barValues.length,
+      cols: this.barValues[this.row].length,
     };
   }
 
