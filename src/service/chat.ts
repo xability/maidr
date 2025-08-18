@@ -81,15 +81,14 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         image,
         '',
         request.message,
+        request.version,
       );
 
       const url = request.clientToken
         ? this.getMaidrUrl()
-        : this.getApiUrl(request.apiKey);
+        : this.getApiUrl(request.version, request.apiKey);
 
-      const headers: Record<string, string> = request.clientToken
-        ? { Authentication: `${request.email} ${request.clientToken}` }
-        : { Authorization: `Bearer ${request.apiKey}` };
+      const headers = this.getHeaders(request, url);
 
       const response = await Api.post<T>(url, payload, headers);
       if (!response.success) {
@@ -117,7 +116,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     return `${this.maidrBaseUrl}/${this.getEndPoint()}?code=${this.codeQueryParam}`;
   }
 
-  protected abstract getApiUrl(apiKey?: string): string;
+  protected abstract getApiUrl(version: string, apiKey?: string): string;
 
   protected abstract getEndPoint(): string;
 
@@ -127,7 +126,10 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     image: string,
     currentText: string,
     message: string,
+    version: string,
   ): string;
+
+  protected abstract getHeaders(request: LlmRequest, url: string): Record<string, string>;
 
   protected abstract formatResponse(response: T): LlmResponse;
 }
@@ -137,7 +139,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     super(svg, maidr);
   }
 
-  protected getApiUrl(): string {
+  protected getApiUrl(_version: string, _apiKey?: string): string {
     return 'https://api.openai.com/v1/chat/completions';
   }
 
@@ -151,9 +153,10 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    version: string,
   ): string {
     return JSON.stringify({
-      model: 'gpt-4o-2024-11-20',
+      model: version,
       max_tokens: 1000,
       messages: [
         {
@@ -185,6 +188,13 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     });
   }
 
+  protected getHeaders(request: LlmRequest, _url: string): Record<string, string> {
+    if (request.clientToken) {
+      return { Authentication: `${request.email} ${request.clientToken}` };
+    }
+    return { Authorization: `Bearer ${request.apiKey ?? ''}` };
+  }
+
   protected formatResponse(response: GptResponse): LlmResponse {
     if (response.choices.length === 0) {
       return {
@@ -205,7 +215,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     super(svg, maidr);
   }
 
-  protected getApiUrl(): string {
+  protected getApiUrl(_version: string, _apiKey?: string): string {
     return 'https://api.anthropic.com';
   }
 
@@ -219,8 +229,10 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     image: string,
     currentPositionText: string,
     message: string,
+    version: string,
   ): string {
     return JSON.stringify({
+      model: version,
       anthropic_version: 'vertex-2023-10-16',
       max_tokens: 256,
       messages: [
@@ -250,6 +262,13 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     });
   }
 
+  protected getHeaders(request: LlmRequest, _url: string): Record<string, string> {
+    if (request.clientToken) {
+      return { Authentication: `${request.email} ${request.clientToken}` };
+    }
+    return { Authorization: `Bearer ${request.apiKey ?? ''}` };
+  }
+
   protected formatResponse(response: ClaudeResponse): LlmResponse {
     if (response.content.length === 0) {
       return {
@@ -270,8 +289,9 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     super(svg, maidr);
   }
 
-  protected getApiUrl(apiKey?: string): string {
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+  protected getApiUrl(version: string, _apiKey?: string): string {
+    const model = version;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   }
 
   protected getEndPoint(): string {
@@ -327,6 +347,13 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
         },
       ],
     });
+  }
+
+  protected getHeaders(request: LlmRequest, _url: string): Record<string, string> {
+    if (request.clientToken) {
+      return { Authentication: `${request.email} ${request.clientToken}` };
+    }
+    return { 'x-goog-api-key': request.apiKey ?? '' };
   }
 
   protected formatResponse(response: GeminiResponse): LlmResponse {

@@ -1,20 +1,21 @@
-import type { Llm } from './llm';
+import type { Llm, LLM_VERSION_MAP } from './llm';
 
 export type AriaMode = 'assertive' | 'polite';
 
 export type ExpertiseLevel = 'basic' | 'intermediate' | 'advanced';
 
-export interface LlmModelSettings {
+export interface LlmModelSettings<T extends Llm = Llm> {
   name: string;
   apiKey: string;
   enabled: boolean;
+  version: (typeof LLM_VERSION_MAP)[T][number];
 }
 
 export interface LlmSettings {
   expertiseLevel: ExpertiseLevel;
   customExpertise?: string;
   customInstruction: string;
-  models: Record<Llm, LlmModelSettings>;
+  models: { [K in Llm]: LlmModelSettings<K> };
 }
 
 export interface GeneralSettings {
@@ -50,16 +51,19 @@ export const DEFAULT_SETTINGS: Settings = {
         enabled: false,
         apiKey: '',
         name: 'GPT',
+        version: 'gpt-4o',
       },
       CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Claude',
+        version: 'claude-3-5-sonnet-latest',
       },
       GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Gemini',
+        version: 'gemini-2.0-flash',
       },
     },
   },
