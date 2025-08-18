@@ -324,7 +324,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
       freqs.push(freqs[0]);
     }
 
-    const pan = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
+
     const oscillator = ctx.createOscillator();
     oscillator.type = wave;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
@@ -333,8 +335,16 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
     gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
 
-    const panner = ctx.createStereoPanner();
-    panner.pan.value = pan;
+    const panner = new PannerNode(this.audioContext, {
+      panningModel: 'HRTF',
+      distanceModel: 'linear',
+      positionX: xPos,
+      positionY: yPos,
+      positionZ: 0,
+      orientationX: 0.0,
+      orientationY: 0.0,
+      orientationZ: -1.0,
+    });
 
     oscillator.connect(gainNode);
     gainNode.connect(panner);
