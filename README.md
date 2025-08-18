@@ -111,7 +111,6 @@ To use maidr, follow these steps:
    ```
 
 4. Use the following to define the object properties:
-
    - `type`: the type of plot. Currently supported are 'bar,' 'heat,' 'box,' 'scatter,' and 'line.'
    - `id`: the id that you added as an attribute of your main SVG.
    - `title`: the title of the plot. (optional)
