@@ -11,11 +11,8 @@ export const GoToExtrema: React.FC = () => {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Focus management when modal opens
   useEffect(() => {
     if (modalRef.current) {
-      // Focus the modal container to announce the dialog title
-      // Let arrow key navigation handle focus movement to list items
       modalRef.current.focus();
     }
   }, []);
@@ -153,7 +150,7 @@ export const GoToExtrema: React.FC = () => {
                 onClick={() => handleTargetSelect(target)}
                 role="option"
                 aria-selected={state.selectedIndex === index}
-                aria-label={`${target.label}, Value: ${target.value.toFixed(2)}, Point: ${target.pointIndex + 1}`}
+                aria-label={`${target.label}, Value: ${target.value.toFixed(2)}`}
                 tabIndex={0}
                 sx={{
                   'p': 1.5,
@@ -176,10 +173,6 @@ export const GoToExtrema: React.FC = () => {
                   Value:
                   {' '}
                   {target.value.toFixed(2)}
-                  {' '}
-                  | Point:
-                  {' '}
-                  {target.pointIndex + 1}
                 </Typography>
               </Box>
             ))}
