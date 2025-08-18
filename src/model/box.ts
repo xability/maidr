@@ -82,6 +82,11 @@ export class BoxTrace extends AbstractTrace {
 
   protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const value = isHorizontal ? this.boxValues[this.row][this.col] : this.boxValues[this.col][this.row];
+    const index = isHorizontal ? this.col : this.row;
+    const panning = Array.isArray(value)
+      ? value.length === 0 ? index : value[value.length - 1] - this.min
+      : Number.isNaN(value) ? index : value - this.min;
 
     return {
       freq: {
@@ -90,10 +95,10 @@ export class BoxTrace extends AbstractTrace {
         raw: this.boxValues[this.row][this.col],
       },
       panning: {
-        x: isHorizontal ? this.col : this.row,
-        y: isHorizontal ? this.row : this.col,
-        rows: isHorizontal ? this.boxValues.length : this.boxValues[this.col].length,
-        cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
+        x: isHorizontal ? panning : this.row,
+        y: isHorizontal ? this.row : panning,
+        rows: isHorizontal ? this.boxValues.length : this.max - this.min,
+        cols: isHorizontal ? this.max - this.min : this.boxValues.length,
       },
     };
   }

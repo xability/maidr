@@ -163,7 +163,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else if (Array.isArray(audio.freq.raw)) {
       const values = audio.freq.raw as number[];
       if (values.length === 0) {
-        this.playZeroTone();
+        this.playZeroTone(audio.panning);
         return;
       }
 
@@ -196,7 +196,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else {
       const value = audio.freq.raw as number;
       if (value === 0) {
-        this.playZeroTone();
+        this.playZeroTone(audio.panning);
       } else {
         this.playTone(audio.freq, audio.panning, audio.group);
       }
@@ -426,8 +426,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return audioId;
   }
 
-  private playZeroTone(): AudioId {
-    return this.playOscillator(NULL_FREQUENCY);
+  private playZeroTone(panning: Panning): AudioId {
+    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
+    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: yPos });
   }
 
   public playWaitingTone(): AudioId {

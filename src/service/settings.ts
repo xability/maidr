@@ -8,14 +8,18 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 
 const SETTINGS_KEY = 'maidr-settings';
 
-export enum BrailleSettings {
-  SIZE = 'braille.size',
-}
-
-function getSettingValue<T>(settings: any, key: string): T | undefined {
+function getValue<T>(settings: any, key: string): T | undefined {
   return key.split('.').reduce((acc, part) => {
     return acc && acc[part];
   }, settings);
+}
+
+function getSettingValue<T>(settings: any, key: string): T {
+  const value = getValue(settings, key);
+  if (value === undefined) {
+    throw new Error(`Setting not found: ${key}`);
+  }
+  return value as T;
 }
 
 class SettingsChangedEvent {
@@ -34,11 +38,7 @@ class SettingsChangedEvent {
   }
 
   public get<T>(settingPath: string): T {
-    const value = getSettingValue<T>(this.newSettings, settingPath);
-    if (value === undefined) {
-      throw new Error(`Setting not found: ${settingPath}`);
-    }
-    return value;
+    return getSettingValue<T>(this.newSettings, settingPath);
   }
 }
 
@@ -91,11 +91,7 @@ export class SettingsService implements Disposable {
   }
 
   public get<T>(settingPath: string): T {
-    const value = getSettingValue<T>(this.currentSettings, settingPath);
-    if (value === undefined) {
-      throw new Error(`Setting not found: ${settingPath}`);
-    }
-    return value;
+    return getSettingValue<T>(this.currentSettings, settingPath);
   }
 
   public toggle(): void {
