@@ -62,14 +62,16 @@ export class Context implements Disposable {
   }
 
   public toggleScope(scope: Scope): void {
-    if (!this.scopeContext.removeLast(scope)) {
-      this.scopeContext.push(scope);
-    }
-    hotkeys.setScope(this.scope);
+    // Clear the scope context and set the new scope
+    this.scopeContext.clear();
+    this.scopeContext.push(scope);
+
+    hotkeys.setScope(scope);
   }
 
   public get scope(): Scope {
-    return this.scopeContext.peek()!;
+    const currentScope = this.scopeContext.peek()!;
+    return currentScope;
   }
 
   public isMovable(direction: MovableDirection): boolean {

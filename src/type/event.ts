@@ -21,6 +21,7 @@ export type Status
 export enum Scope {
   BRAILLE = 'BRAILLE',
   CHAT = 'CHAT',
+  GO_TO_EXTREMA = 'GO_TO_EXTREMA',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
   SUBPLOT = 'SUBPLOT',

@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@service/goToExtrema';
 import type { CandlestickPoint, CandlestickSelector, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -603,5 +604,78 @@ export class Candlestick extends AbstractTrace<number> {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Get extrema targets for the current candlestick trace
+   * @returns Array of extrema targets for navigation
+   */
+  public getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+
+    // Add extrema for each segment
+    this.sections.forEach((segment) => {
+      if (segment === 'volatility') {
+        // For volatility, find min and max
+        const volatilityValues = this.candles.map(c => c.volatility);
+        const maxVolatilityIndex = volatilityValues.indexOf(Math.max(...volatilityValues));
+        const minVolatilityIndex = volatilityValues.indexOf(Math.min(...volatilityValues));
+
+        targets.push({
+          label: `Max Volatility`,
+          value: this.candles[maxVolatilityIndex].volatility,
+          pointIndex: maxVolatilityIndex,
+          segment: 'volatility',
+          type: 'max',
+        });
+
+        targets.push({
+          label: `Min Volatility`,
+          value: this.candles[minVolatilityIndex].volatility,
+          pointIndex: minVolatilityIndex,
+          segment: 'volatility',
+          type: 'min',
+        });
+      } else {
+        // For OHLC segments, find min and max
+        const segmentValues = this.candles.map(c => c[segment]);
+        const maxIndex = segmentValues.indexOf(Math.max(...segmentValues));
+        const minIndex = segmentValues.indexOf(Math.min(...segmentValues));
+
+        targets.push({
+          label: `Max ${segment.charAt(0).toUpperCase() + segment.slice(1)}`,
+          value: this.candles[maxIndex][segment],
+          pointIndex: maxIndex,
+          segment,
+          type: 'max',
+        });
+
+        targets.push({
+          label: `Min ${segment.charAt(0).toUpperCase() + segment.slice(1)}`,
+          value: this.candles[minIndex][segment],
+          pointIndex: minIndex,
+          segment,
+          type: 'min',
+        });
+      }
+    });
+
+    return targets;
+  }
+
+  /**
+   * Navigate to a specific extrema target
+   * @param target The extrema target to navigate to
+   */
+  public navigateToExtrema(target: ExtremaTarget): void {
+    // Update the current point index
+    this.currentPointIndex = target.pointIndex;
+
+    // Update the current segment type
+    this.currentSegmentType = target.segment as CandlestickNavSegmentType;
+
+    this.updateVisualPointPosition();
+    this.updateVisualSegmentPosition();
+    this.notifyStateUpdate();
   }
 }
