@@ -70,6 +70,20 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
+  const onVisibilityChange = (): void => {
+    // Allow React to process all the events before focusing in.
+    setTimeout(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
+      if (controller) {
+        controller.dispose();
+        controller = null;
+        onFocusIn();
+      }
+    }, 0);
+  };
 
   const figureElement = document.createElement(Constant.FIGURE);
   figureElement.id = `${Constant.MAIDR_FIGURE}-${maidr.id}`;
@@ -89,6 +103,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
   plot.addEventListener(DomEventType.CLICK, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
+  document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));
