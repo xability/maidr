@@ -1,4 +1,4 @@
-import type { Llm, LlmVersionMap } from './llm';
+import type { Llm, LLM_VERSION_MAP } from './llm';
 
 export type AriaMode = 'assertive' | 'polite';
 
@@ -8,7 +8,7 @@ export interface LlmModelSettings<T extends Llm = Llm> {
   name: string;
   apiKey: string;
   enabled: boolean;
-  version: LlmVersionMap[T];
+  version: (typeof LLM_VERSION_MAP)[T][number];
 }
 
 export interface LlmSettings {

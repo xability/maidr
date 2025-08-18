@@ -1,6 +1,7 @@
 import type { Llm } from '@type/llm';
 import type { AriaMode, GeneralSettings, LlmModelSettings, LlmSettings } from '@type/settings';
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -18,11 +19,10 @@ import {
   TextareaAutosize,
   TextField,
   Typography,
-  Box,
 } from '@mui/material';
 import { useViewModel } from '@state/hook/useViewModel';
+import { LLM_VERSION_MAP } from '@type/llm';
 import React, { useEffect, useId, useState } from 'react';
-import { CLAUDE_VERSIONS, GEMINI_VERSIONS, GPT_VERSIONS } from '@type/llm';
 
 interface SettingRowProps {
   label: string;
@@ -43,22 +43,24 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
   </Grid>
 );
 
-interface LlmModelSettingRowProps {
-  modelKey: Llm;
-  modelSettings: LlmModelSettings;
+interface LlmModelSettingRowBaseProps<K extends Llm> {
+  modelKey: K;
+  modelSettings: LlmModelSettings<K>;
   onToggle: (key: Llm, enabled: boolean) => void;
   onChangeKey: (key: Llm, value: string) => void;
   onChangeVersion: (key: Llm, value: string) => void;
 }
 
-const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
+function LlmModelSettingRow<K extends Llm,>({
   modelKey,
   modelSettings,
   onToggle,
   onChangeKey,
   onChangeVersion,
-}) => {
-  const options = modelKey === 'GPT' ? GPT_VERSIONS : modelKey === 'CLAUDE' ? CLAUDE_VERSIONS : GEMINI_VERSIONS;
+}: LlmModelSettingRowBaseProps<K>): React.JSX.Element {
+  const options = LLM_VERSION_MAP[modelKey] as ReadonlyArray<typeof modelSettings['version']>;
+  const currentVersion = modelSettings.version;
+  const effectiveValue = options.includes(currentVersion) ? currentVersion : options[0];
 
   return (
     <SettingRow
@@ -74,7 +76,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
             <FormControl size="small" fullWidth>
               <Select
-                value={modelSettings.version as unknown as string}
+                value={effectiveValue}
                 disabled={!modelSettings.enabled}
                 onChange={e => onChangeVersion(modelKey, e.target.value as string)}
                 MenuProps={{ disablePortal: true }}
@@ -98,7 +100,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       )}
     />
   );
-};
+}
 
 const Settings: React.FC = () => {
   const id = useId();
@@ -320,7 +322,7 @@ const Settings: React.FC = () => {
               <Grid size={12} key={modelKey}>
                 <LlmModelSettingRow
                   modelKey={modelKey}
-                  modelSettings={model}
+                  modelSettings={model as LlmModelSettings<typeof modelKey>}
                   onToggle={(key, enabled) => handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) => handleLlmModelChange(key, 'apiKey', value)}
                   onChangeVersion={(key, value) => handleLlmModelChange(key, 'version', value)}
