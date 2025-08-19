@@ -224,17 +224,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   public get state(): TraceState {
     if (this.isOutOfBounds) {
-      // Safety check: ensure we don't access undefined values
-      const { row: safeRow, col: safeCol } = this.getSafeIndices();
       const values = this.values;
+      const currentRow = this.row;
+      const currentCol = this.col;
 
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: values[safeRow]?.length || 0,
-          index: safeCol,
+          size: values[currentRow]?.length || 0,
+          index: currentCol,
         },
       };
     }
@@ -259,17 +259,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
-      // Safety check: ensure we don't access undefined values
-      const { row: safeRow, col: safeCol } = this.getSafeIndices();
       const values = this.values;
+      const currentRow = this.row;
+      const currentCol = this.col;
 
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: values[safeRow]?.length || 0,
-          index: safeCol,
+          size: values[currentRow]?.length || 0,
+          index: currentCol,
         },
       };
     }
