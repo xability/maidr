@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -22,6 +23,7 @@ export interface CommandContext {
 
   brailleViewModel: BrailleViewModel;
   chatViewModel: ChatViewModel;
+  goToExtremaViewModel: GoToExtremaViewModel;
   helpViewModel: HelpViewModel;
   reviewViewModel: ReviewViewModel;
   settingsViewModel: SettingsViewModel;

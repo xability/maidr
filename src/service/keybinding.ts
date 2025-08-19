@@ -173,12 +173,24 @@ const TRACE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+
+  // Go To functionality
+  GO_TO_EXTREMA: `g`,
+} as const;
+
+const GO_TO_EXTREMA_KEYMAP = {
+  // Navigation within the modal
+  GO_TO_EXTREMA_MOVE_UP: `up`,
+  GO_TO_EXTREMA_MOVE_DOWN: `down`,
+  GO_TO_EXTREMA_SELECT: `enter`,
+  GO_TO_EXTREMA_CLOSE: `esc`,
 } as const;
 
 const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
+  [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,

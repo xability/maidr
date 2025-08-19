@@ -69,8 +69,13 @@ export class DisplayService implements Disposable {
     if (!this.focusStack.removeLast(focus)) {
       this.focusStack.push(focus);
     }
-    this.context.toggleScope(focus);
-    this.updateFocus(this.focusStack.peek()!);
+
+    const newScope = this.focusStack.peek()!;
+
+    // FIXED: Pass the new scope from focus stack, not the input focus
+    this.context.toggleScope(newScope);
+
+    this.updateFocus(newScope);
   }
 
   private updateFocus(newScope: Focus): void {
@@ -86,6 +91,7 @@ export class DisplayService implements Disposable {
         }
       }, 0);
     }
+
     this.onChangeEmitter.fire({ value: newScope });
   }
 }

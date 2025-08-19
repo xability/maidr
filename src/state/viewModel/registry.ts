@@ -1,5 +1,6 @@
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
+import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
 import type { ChatViewModel } from './chatViewModel';
@@ -11,6 +12,7 @@ export interface ViewModelMap {
   braille: BrailleViewModel;
   chat: ChatViewModel;
   display: DisplayViewModel;
+  goToExtrema: GoToExtremaViewModel;
   help: HelpViewModel;
   review: ReviewViewModel;
   settings: SettingsViewModel;
