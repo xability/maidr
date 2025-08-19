@@ -608,57 +608,57 @@ export class Candlestick extends AbstractTrace<number> {
 
   /**
    * Get extrema targets for the current candlestick trace
+   * Only returns extrema for the current segment the user is in
    * @returns Array of extrema targets for navigation
    */
   public getExtremaTargets(): ExtremaTarget[] {
     const targets: ExtremaTarget[] = [];
+    const currentSegment = this.currentSegmentType ?? 'open';
 
-    // Add extrema for each segment
-    this.sections.forEach((segment) => {
-      if (segment === 'volatility') {
-        // For volatility, find min and max
-        const volatilityValues = this.candles.map(c => c.volatility);
-        const maxVolatilityIndex = volatilityValues.indexOf(Math.max(...volatilityValues));
-        const minVolatilityIndex = volatilityValues.indexOf(Math.min(...volatilityValues));
+    // Only add extrema for the current segment
+    if (currentSegment === 'volatility') {
+      // For volatility, find min and max
+      const volatilityValues = this.candles.map(c => c.volatility);
+      const maxVolatilityIndex = volatilityValues.indexOf(Math.max(...volatilityValues));
+      const minVolatilityIndex = volatilityValues.indexOf(Math.min(...volatilityValues));
 
-        targets.push({
-          label: `Max Volatility`,
-          value: this.candles[maxVolatilityIndex].volatility,
-          pointIndex: maxVolatilityIndex,
-          segment: 'volatility',
-          type: 'max',
-        });
+      targets.push({
+        label: `Max Volatility`,
+        value: this.candles[maxVolatilityIndex].volatility,
+        pointIndex: maxVolatilityIndex,
+        segment: 'volatility',
+        type: 'max',
+      });
 
-        targets.push({
-          label: `Min Volatility`,
-          value: this.candles[minVolatilityIndex].volatility,
-          pointIndex: minVolatilityIndex,
-          segment: 'volatility',
-          type: 'min',
-        });
-      } else {
-        // For OHLC segments, find min and max
-        const segmentValues = this.candles.map(c => c[segment]);
-        const maxIndex = segmentValues.indexOf(Math.max(...segmentValues));
-        const minIndex = segmentValues.indexOf(Math.min(...segmentValues));
+      targets.push({
+        label: `Min Volatility`,
+        value: this.candles[minVolatilityIndex].volatility,
+        pointIndex: minVolatilityIndex,
+        segment: 'volatility',
+        type: 'min',
+      });
+    } else {
+      // For OHLC segments, find min and max
+      const segmentValues = this.candles.map(c => c[currentSegment]);
+      const maxIndex = segmentValues.indexOf(Math.max(...segmentValues));
+      const minIndex = segmentValues.indexOf(Math.min(...segmentValues));
 
-        targets.push({
-          label: `Max ${segment.charAt(0).toUpperCase() + segment.slice(1)}`,
-          value: this.candles[maxIndex][segment],
-          pointIndex: maxIndex,
-          segment,
-          type: 'max',
-        });
+      targets.push({
+        label: `Max ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
+        value: this.candles[maxIndex][currentSegment],
+        pointIndex: maxIndex,
+        segment: currentSegment,
+        type: 'max',
+      });
 
-        targets.push({
-          label: `Min ${segment.charAt(0).toUpperCase() + segment.slice(1)}`,
-          value: this.candles[minIndex][segment],
-          pointIndex: minIndex,
-          segment,
-          type: 'min',
-        });
-      }
-    });
+      targets.push({
+        label: `Min ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
+        value: this.candles[minIndex][currentSegment],
+        pointIndex: minIndex,
+        segment: currentSegment,
+        type: 'min',
+      });
+    }
 
     return targets;
   }
