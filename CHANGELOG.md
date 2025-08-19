@@ -1,3 +1,10 @@
+# [3.23.0](https://github.com/xability/maidr/compare/v3.22.1...v3.23.0) (2025-08-19)
+
+
+### Features
+
+* go-to navigation for candlestick plots ([#418](https://github.com/xability/maidr/issues/418)) ([91a00ff](https://github.com/xability/maidr/commit/91a00ffdd3cce385eb57feba9a6cde393803d6a9))
+
 ## [3.22.1](https://github.com/xability/maidr/compare/v3.22.0...v3.22.1) (2025-08-15)
 
 
