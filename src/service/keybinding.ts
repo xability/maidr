@@ -47,6 +47,9 @@ const BRAILLE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+
+  // Export to brf
+  EXPORT_TO_BRF: `${Platform.ctrl}+s`,
 } as const;
 
 const CHAT_KEYMAP = {
@@ -118,8 +121,7 @@ const REVIEW_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Allowed actions
-  ALLOW_DEFAULT:
-    `up, down, left, right,
+  ALLOW_DEFAULT: `up, down, left, right,
     ${Platform.ctrl}+up, ${Platform.ctrl}+down,
     ${Platform.ctrl}+left, ${Platform.ctrl}+right,
     pageup, pagedown, home, end,

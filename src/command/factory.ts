@@ -48,6 +48,7 @@ import {
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
+  ToggleExport,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScopeCommand,
@@ -135,7 +136,13 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
+        return new DescribePointCommand(
+          this.context,
+          this.audioService,
+          this.highlightService,
+          this.brailleViewModel,
+          this.textViewModel,
+        );
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':
@@ -166,6 +173,9 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
+
+      case 'EXPORT_TO_BRF':
+        return new ToggleExport(this.brailleViewModel);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

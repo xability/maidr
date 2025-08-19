@@ -116,3 +116,16 @@ export class ToggleScopeCommand implements Command {
     this.context.toggleScope(this.scope);
   }
 }
+
+export class ToggleExport implements Command {
+  private readonly brailleViewModel: BrailleViewModel;
+
+  public constructor(brailleViewModel: BrailleViewModel) {
+    this.brailleViewModel = brailleViewModel;
+  }
+
+  public execute(): void {
+    const braille = this.brailleViewModel.state.value;
+    this.brailleViewModel.ExportBraille(braille);
+  }
+}

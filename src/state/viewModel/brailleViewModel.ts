@@ -66,11 +66,24 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   public toggle(state: TraceState): void {
     this.brailleService.toggle(state);
   }
+
+  public ExportBraille(braille: string): void {
+    // trigger download of current braille
+    const ascii = this.brailleToAscii(braille);
+    const blob = new Blob([ascii], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'braille.brf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   public brailleToAscii(braille: string): string {
-    const ASCII =
-      ' A1B\'K2L@CIF/MSP"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)=';
-    const BRAILLE =
-      '⠀⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿';
+    const ASCII
+      = ' A1B\'K2L@CIF/MSP"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)=';
+    const BRAILLE
+      = '⠀⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿';
 
     const REVERSE_MAP: Record<string, string> = [...BRAILLE].reduce<
       Record<string, string>
