@@ -103,6 +103,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
 
     // Handle FigureState - no audio for normal subplot navigation
     if (state.type === 'figure') {
+      if (state.empty) {
+        this.playEmptyTone(1, 0);
+        return;
+      }
       return;
     }
 
