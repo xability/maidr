@@ -70,12 +70,9 @@ export class DisplayService implements Disposable {
       this.focusStack.push(focus);
     }
 
-    const newScope = this.focusStack.peek()!;
+    this.context.toggleScope(focus);
 
-    // FIXED: Pass the new scope from focus stack, not the input focus
-    this.context.toggleScope(newScope);
-
-    this.updateFocus(newScope);
+    this.updateFocus(this.focusStack.peek()!);
   }
 
   private updateFocus(newScope: Focus): void {
