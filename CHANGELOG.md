@@ -1,3 +1,10 @@
+## [3.23.2](https://github.com/xability/maidr/compare/v3.23.1...v3.23.2) (2025-08-20)
+
+
+### Bug Fixes
+
+* address boundary spatial audio bug ([#423](https://github.com/xability/maidr/issues/423)) ([7a97d0b](https://github.com/xability/maidr/commit/7a97d0b2f2488af54db119501153fa632aaf4e0a))
+
 ## [3.23.1](https://github.com/xability/maidr/compare/v3.23.0...v3.23.1) (2025-08-19)
 
 
