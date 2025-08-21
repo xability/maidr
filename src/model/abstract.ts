@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -314,6 +315,37 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * Get available extrema targets for the current navigation context
+   * @returns Array of extrema targets that can be navigated to
+   * Default implementation returns empty array (no extrema support)
+   */
+  public getExtremaTargets(): ExtremaTarget[] {
+    return []; // Default: no extrema support
+  }
+
+  /**
+   * Base implementation for navigateToExtrema
+   * Subclasses must override to provide actual implementation
+   * @param _target The extrema target to navigate to
+   */
+  public navigateToExtrema(_target: ExtremaTarget): void {
+    throw new Error('Extrema navigation not supported by this plot type');
+  }
+
+  /**
+   * Check if this plot supports extrema navigation
+   * @returns True if extrema navigation is supported
+   */
+  public supportsExtremaNavigation(): boolean {
+    return this.supportsExtrema;
+  }
+
+  /**
+   * Abstract property that subclasses must implement to indicate extrema support
+   */
+  protected abstract readonly supportsExtrema: boolean;
 
   /**
    * Base implementation for getting current X value

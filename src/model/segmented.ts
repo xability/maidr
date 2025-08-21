@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
@@ -42,6 +43,143 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const { min: summaryMin, max: summaryMax } = MathUtil.minMax(summaryValues);
     this.min.push(summaryMin);
     this.max.push(summaryMax);
+  }
+
+  /**
+   * Get extrema targets for the current segmented bar plot trace
+   * Returns min and max values within the current group the user is navigating
+   * @returns Array of extrema targets for navigation
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+    const currentGroup = this.row;
+
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return targets;
+    }
+
+    // Use pre-computed min/max values instead of recalculating
+    const groupMin = this.min[currentGroup];
+    const groupMax = this.max[currentGroup];
+    const groupValues = this.barValues[currentGroup];
+
+    if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+
+    // Find indices of min/max values
+    const maxIndex = groupValues.indexOf(groupMax);
+    const minIndex = groupValues.indexOf(groupMin);
+
+    // Get group label and category labels
+    const groupLabel = this.getGroupLabel(currentGroup);
+    const maxCategoryLabel = this.getCategoryLabel(maxIndex);
+    const minCategoryLabel = this.getCategoryLabel(minIndex);
+
+    // Add max target
+    targets.push({
+      label: `Max ${groupLabel} at ${maxCategoryLabel}`,
+      value: groupMax,
+      pointIndex: maxIndex,
+      segment: groupLabel,
+      type: 'max',
+      groupIndex: currentGroup,
+      categoryIndex: maxIndex,
+      navigationType: 'group',
+    });
+
+    // Add min target
+    targets.push({
+      label: `Min ${groupLabel} at ${minCategoryLabel}`,
+      value: groupMin,
+      pointIndex: minIndex,
+      segment: groupLabel,
+      type: 'min',
+      groupIndex: currentGroup,
+      categoryIndex: minIndex,
+      navigationType: 'group',
+    });
+
+    return targets;
+  }
+
+  /**
+   * Navigate to a specific extrema target
+   * @param target The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    // For group-based navigation, stay in same group but move to different category
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.row = target.groupIndex;
+      this.col = target.categoryIndex;
+    } else {
+      // Fallback to point-based navigation
+      this.col = target.pointIndex;
+    }
+
+    // Update visual positioning and notify observers
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Get a human-readable label for the current group
+   * @param groupIndex The index of the group
+   * @returns A label for the group
+   */
+  private getGroupLabel(groupIndex: number): string {
+    if (this.points[groupIndex] && this.points[groupIndex].length > 0) {
+      const firstPoint = this.points[groupIndex][0];
+
+      // Check if this is the summary level
+      if (groupIndex === this.barValues.length - 1) {
+        return 'Total';
+      }
+
+      // For dodged/stacked plots, use the fill value as group identifier
+      if (firstPoint.fill) {
+        return `${this.getFillAxisLabel()}: '${firstPoint.fill}'`;
+      }
+    }
+
+    return `Group ${groupIndex}`;
+  }
+
+  /**
+   * Get a human-readable label for a specific category
+   * @param categoryIndex The index of the category
+   * @returns A label for the category
+   */
+  private getCategoryLabel(categoryIndex: number): string {
+    if (this.points[0] && this.points[0][categoryIndex]) {
+      const point = this.points[0][categoryIndex];
+      if (this.orientation === Orientation.VERTICAL) {
+        return `${point.x}`;
+      } else {
+        return `${point.y}`;
+      }
+    }
+    return `Category ${categoryIndex}`;
+  }
+
+  /**
+   * Get the label for the fill axis (e.g., "Drive", "Survival Status")
+   * @returns The fill axis label
+   */
+  private getFillAxisLabel(): string {
+    // Try to get from the layer axes, fallback to generic label
+    return 'Category';
+  }
+
+  /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  private updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
   }
 
   protected text(): TextState {

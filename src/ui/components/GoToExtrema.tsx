@@ -1,4 +1,4 @@
-import type { ExtremaTarget } from '@service/goToExtrema';
+import type { ExtremaTarget } from '@type/extrema';
 import { Close } from '@mui/icons-material';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
@@ -42,8 +42,8 @@ export const GoToExtrema: React.FC = () => {
 
   const handleTargetSelect = (target: ExtremaTarget): void => {
     const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && 'navigateToExtrema' in activeTrace) {
-      (activeTrace as any).navigateToExtrema(target);
+    if (activeTrace && goToExtremaViewModel.isExtremaNavigable(activeTrace)) {
+      activeTrace.navigateToExtrema(target);
     }
     goToExtremaViewModel.hide();
   };
@@ -124,7 +124,7 @@ export const GoToExtrema: React.FC = () => {
 
           <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-              Navigate to statistical extremes within the current candlestick
+              {state.description || 'Navigate to statistical extremes'}
             </Typography>
           </Box>
 

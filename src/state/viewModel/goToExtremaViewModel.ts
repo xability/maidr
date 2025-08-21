@@ -1,32 +1,37 @@
 import type { Context } from '@model/context';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { AppStore } from '@state/store';
+import type { ExtremaTarget } from '@type/extrema';
+import type { TraceType } from '@type/grammar';
 import type { TraceState } from '@type/state';
+import { AbstractTrace } from '@model/abstract';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
-import { TraceType } from '@type/grammar';
 
 interface GoToExtremaState {
   visible: boolean;
   targets: any[];
   selectedIndex: number;
+  description: string; // Add description field
 }
 
 const initialState: GoToExtremaState = {
   visible: false,
   targets: [],
   selectedIndex: 0,
+  description: '', // Initialize description
 };
 
 const goToExtremaSlice = createSlice({
   name: 'goToExtrema',
   initialState,
   reducers: {
-    show(_, action): GoToExtremaState {
+    show(state, action): GoToExtremaState {
       return {
         visible: true,
-        targets: action.payload,
+        targets: action.payload.targets,
         selectedIndex: 0,
+        description: action.payload.description, // Store description
       };
     },
     hide(): GoToExtremaState {
@@ -34,6 +39,7 @@ const goToExtremaSlice = createSlice({
         visible: false,
         targets: [],
         selectedIndex: 0,
+        description: '',
       };
       return newState;
     },
@@ -72,19 +78,19 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return;
     }
 
-    if (state.traceType !== TraceType.CANDLESTICK) {
-      return;
-    }
-
-    // Get the active trace (should be a candlestick)
+    // Get the active trace
     const activeTrace = this.context.active;
 
-    if (activeTrace && 'getExtremaTargets' in activeTrace) {
+    // Check if the trace supports extrema navigation using the abstract class method
+    if (activeTrace && this.isExtremaNavigable(activeTrace)) {
       // Get extrema targets from the plot class
-      const extremaTargets = (activeTrace as any).getExtremaTargets();
+      const extremaTargets = activeTrace.getExtremaTargets();
 
-      // Store the targets in the state first
-      this.store.dispatch(show(extremaTargets));
+      // Generate description based on current trace type
+      const description = this.generateDescription(state.traceType);
+
+      // Store the targets and description in the state
+      this.store.dispatch(show({ targets: extremaTargets, description }));
 
       // Then change scope to show the modal
       this.goToExtremaService.toggle(state);
@@ -129,19 +135,38 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
-  private handleTargetSelect(target: any): void {
+  private handleTargetSelect(target: ExtremaTarget): void {
     // Get the active trace and navigate to the selected target
     const activeTrace = this.context.active;
 
-    if (activeTrace && 'navigateToExtrema' in activeTrace) {
+    if (activeTrace && this.isExtremaNavigable(activeTrace)) {
       try {
-        (activeTrace as any).navigateToExtrema(target);
+        activeTrace.navigateToExtrema(target);
       } catch (error) {
         console.error('Error calling navigateToExtrema:', error);
       }
     }
 
     this.hide();
+  }
+
+  /**
+   * Generate description based on trace type
+   * @param traceType The type of the current trace
+   * @returns A description appropriate for the plot type
+   */
+  private generateDescription(traceType: TraceType): string {
+    // Simple string replacement, no case statements
+    return `Navigate to statistical extremes within the current ${traceType}`;
+  }
+
+  /**
+   * Check if a trace supports extrema navigation
+   * @param trace The trace to check
+   * @returns True if the trace supports extrema navigation
+   */
+  public isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
+    return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
   }
 }
 

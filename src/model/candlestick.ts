@@ -1,4 +1,4 @@
-import type { ExtremaTarget } from '@service/goToExtrema';
+import type { ExtremaTarget } from '@type/extrema';
 import type { CandlestickPoint, CandlestickSelector, CandlestickTrend, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -19,6 +19,8 @@ type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
 export class Candlestick extends AbstractTrace<number> {
+  protected readonly supportsExtrema = true;
+
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
@@ -628,6 +630,7 @@ export class Candlestick extends AbstractTrace<number> {
         pointIndex: maxVolatilityIndex,
         segment: 'volatility',
         type: 'max',
+        navigationType: 'point',
       });
 
       targets.push({
@@ -636,6 +639,7 @@ export class Candlestick extends AbstractTrace<number> {
         pointIndex: minVolatilityIndex,
         segment: 'volatility',
         type: 'min',
+        navigationType: 'point',
       });
     } else {
       // For OHLC segments, find min and max
@@ -649,6 +653,7 @@ export class Candlestick extends AbstractTrace<number> {
         pointIndex: maxIndex,
         segment: currentSegment,
         type: 'max',
+        navigationType: 'point',
       });
 
       targets.push({
@@ -657,6 +662,7 @@ export class Candlestick extends AbstractTrace<number> {
         pointIndex: minIndex,
         segment: currentSegment,
         type: 'min',
+        navigationType: 'point',
       });
     }
 

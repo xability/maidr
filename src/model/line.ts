@@ -10,6 +10,8 @@ const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
+  protected readonly supportsExtrema = false;
+
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
