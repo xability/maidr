@@ -13,6 +13,7 @@ import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
+import { RotorNavigationService } from '@service/rotor-navigation';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
@@ -45,6 +46,7 @@ export class Controller implements Disposable {
   private readonly highlightService: HighlightService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
+  private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
@@ -75,6 +77,7 @@ export class Controller implements Disposable {
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
+    this.rotorNavigationService = new RotorNavigationService();
 
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
@@ -92,6 +95,7 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -105,6 +109,7 @@ export class Controller implements Disposable {
 
     this.registerViewModels();
     this.registerObservers();
+    this.registerRotorEventHandlers();
     this.keybinding.register(this.context.scope);
   }
 
@@ -127,6 +132,7 @@ export class Controller implements Disposable {
 
     this.highlightService.dispose();
     this.autoplayService.dispose();
+    this.rotorNavigationService.dispose();
 
     this.textService.dispose();
     this.reviewService.dispose();
@@ -166,5 +172,21 @@ export class Controller implements Disposable {
         trace.addObserver(this.highlightService);
       }));
     }));
+  }
+
+  /**
+   * Register rotor navigation event handlers
+   */
+  private registerRotorEventHandlers(): void {
+    // Listen for rotor unit changes and announce them
+    this.rotorNavigationService.onUnitChanged((event) => {
+      const message = `Navigation: ${event.unitName}`;
+      this.notificationService.notify(message);
+    });
+
+    // Listen for target not found events and announce them
+    this.rotorNavigationService.onTargetNotFound((event) => {
+      this.notificationService.notify(event.message);
+    });
   }
 }
