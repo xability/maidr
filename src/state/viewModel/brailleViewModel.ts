@@ -44,9 +44,11 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   }
 
   private registerListener(): void {
-    this.disposables.push(this.brailleService.onChange((e) => {
-      this.store.dispatch(update(e));
-    }));
+    this.disposables.push(
+      this.brailleService.onChange((e) => {
+        this.store.dispatch(update(e));
+      }),
+    );
   }
 
   public get state(): BrailleState {
@@ -63,6 +65,45 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
 
   public toggle(state: TraceState): void {
     this.brailleService.toggle(state);
+  }
+
+  public ExportBraille(braille: string): void {
+    // trigger download of current braille
+    const ascii = this.brailleToAscii(braille);
+    const blob = new Blob([ascii], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'braille.brf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  public brailleToAscii(braille: string): string {
+    const ASCII
+      = ' A1B\'K2L@CIF/MSP"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)=';
+    const BRAILLE
+      = '⠀⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿';
+
+    const REVERSE_MAP: Record<string, string> = [...BRAILLE].reduce<
+      Record<string, string>
+    >((acc, ch, i) => {
+      const a = ASCII[i];
+      acc[ch] = /[A-Z]/.test(a) ? a.toLowerCase() : a; // prefer lowercase
+      return acc;
+    }, {});
+
+    let out = '';
+
+    for (const ch of braille) {
+      if (REVERSE_MAP[ch]) {
+        out += REVERSE_MAP[ch];
+      } else {
+        out += '?'; // fallback
+      }
+    }
+
+    return out;
   }
 }
 
