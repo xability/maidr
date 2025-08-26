@@ -1,3 +1,10 @@
+## [3.23.3](https://github.com/xability/maidr/compare/v3.23.2...v3.23.3) (2025-08-20)
+
+
+### Bug Fixes
+
+* address nav bug after title diplay ([#424](https://github.com/xability/maidr/issues/424)) ([f309eff](https://github.com/xability/maidr/commit/f309effe588fd34360851a1f414b7298e80bb632))
+
 ## [3.23.2](https://github.com/xability/maidr/compare/v3.23.1...v3.23.2) (2025-08-20)
 
 
