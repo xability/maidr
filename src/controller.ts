@@ -119,13 +119,6 @@ export class Controller implements Disposable {
     this.notificationService.notify(this.displayService.getInstruction(false));
   }
 
-  public updateAriaLabelToCoordinateText(): void {
-    // Clear any stale notification messages
-    this.textViewModel.clearMessage();
-    // Update ARIA label to coordinate text
-    this.displayService.removeInstruction();
-  }
-
   public dispose(): void {
     this.keybinding.unregister();
 
