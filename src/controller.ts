@@ -8,6 +8,7 @@ import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
 import { DisplayService } from '@service/display';
 import { GoToExtremaService } from '@service/goToExtrema';
+import { GoToSpecificValueService } from '@service/goToSpecificValue';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
@@ -21,6 +22,7 @@ import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
+import { GoToSpecificValueViewModel } from '@state/viewModel/goToSpecificValueViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -38,6 +40,7 @@ export class Controller implements Disposable {
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
   private readonly goToExtremaService: GoToExtremaService;
+  private readonly goToSpecificValueService: GoToSpecificValueService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
 
@@ -49,6 +52,7 @@ export class Controller implements Disposable {
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
+  private readonly goToSpecificValueViewModel: GoToSpecificValueViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
@@ -61,14 +65,16 @@ export class Controller implements Disposable {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
+    this.textService = new TextService(this.notificationService);
+
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.goToExtremaService = new GoToExtremaService(this.context, this.displayService);
-    this.textService = new TextService(this.notificationService);
+    this.goToSpecificValueService = new GoToSpecificValueService(this.context, this.displayService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
@@ -79,6 +85,7 @@ export class Controller implements Disposable {
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.goToExtremaViewModel = new GoToExtremaViewModel(store, this.goToExtremaService, this.context);
+    this.goToSpecificValueViewModel = new GoToSpecificValueViewModel(store, this.context, this.goToSpecificValueService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
@@ -112,6 +119,13 @@ export class Controller implements Disposable {
     this.notificationService.notify(this.displayService.getInstruction(false));
   }
 
+  public updateAriaLabelToCoordinateText(): void {
+    // Clear any stale notification messages
+    this.textViewModel.clearMessage();
+    // Update ARIA label to coordinate text
+    this.displayService.removeInstruction();
+  }
+
   public dispose(): void {
     this.keybinding.unregister();
 
@@ -143,6 +157,7 @@ export class Controller implements Disposable {
     ViewModelRegistry.instance.register('text', this.textViewModel);
     ViewModelRegistry.instance.register('braille', this.brailleViewModel);
     ViewModelRegistry.instance.register('goToExtrema', this.goToExtremaViewModel);
+    ViewModelRegistry.instance.register('goToSpecificValue', this.goToSpecificValueViewModel);
     ViewModelRegistry.instance.register('review', this.reviewViewModel);
     ViewModelRegistry.instance.register('display', this.displayViewModel);
     ViewModelRegistry.instance.register('help', this.helpViewModel);

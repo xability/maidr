@@ -43,6 +43,6 @@ export class GoToExtremaService {
    * Called when the modal is closed to restore plot navigation
    */
   public returnToTraceScope(): void {
-    this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    this.display.setFocus(Scope.TRACE);
   }
 }

@@ -40,3 +40,33 @@ export function isXValue(value: unknown): value is XValue {
 export function isPointWithX(point: unknown): point is PointWithX {
   return point !== null && typeof point === 'object' && 'x' in point;
 }
+
+export interface NavigableReference {
+  // Essential identification
+  id: string;
+  value: XValue; // The actual navigable value
+
+  // Navigation type based on data structure
+  type: 'coordinate' | 'category' | 'group' | 'bin' | 'timestamp';
+
+  // Position within the plot's data structure
+  position: {
+    row: number; // Row index in data array
+    col: number; // Column index in data array
+    subIndex?: number; // For nested data (e.g., outliers in box plots)
+  };
+
+  // Plot context
+  context: {
+    plotType: string; // From grammar.ts TraceType enum
+    orientation?: string; // VERTICAL or HORIZONTAL (optional for plots without orientation)
+    groupIndex?: number; // For grouped plots (stacked/dodged)
+  };
+
+  // Accessibility
+  accessibility: {
+    description: string; // Human-readable description
+    shortLabel: string; // Short label for UI
+    valueType: 'numeric' | 'categorical' | 'temporal';
+  };
+}

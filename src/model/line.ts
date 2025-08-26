@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -32,6 +33,8 @@ export class LineTrace extends AbstractTrace<number> {
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+
+    this.buildNavigableReferences();
   }
 
   public dispose(): void {
@@ -389,4 +392,49 @@ export class LineTrace extends AbstractTrace<number> {
     }
     return stateWithPlotType;
   }
+
+  /**
+   * Build navigation references for this line trace
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = [];
+
+    for (let row = 0; row < this.points.length; row++) {
+      for (let col = 0; col < this.points[row].length; col++) {
+        const point = this.points[row][col];
+
+        this.navigableReferences.push({
+          id: `line-${row}-${col}`,
+          value: point.x,
+          type: typeof point.x === 'number' ? 'coordinate' : 'category',
+          position: { row, col },
+          context: {
+            plotType: TraceType.LINE,
+            groupIndex: row,
+          },
+          accessibility: {
+            description: `Line point at ${point.x}`,
+            shortLabel: String(point.x),
+            valueType: typeof point.x === 'number' ? 'numeric' : 'categorical',
+          },
+        });
+      }
+    }
+  }
+
+  public moveToIndex(row: number, col: number): void {
+    if (row < 0 || row >= this.points.length || col < 0 || col >= this.points[row].length) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    this.row = row;
+    this.col = col;
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Get the current point based on row and column
+   * @returns The current point or null if invalid
+   */
 }

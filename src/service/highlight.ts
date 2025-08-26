@@ -71,7 +71,11 @@ export class HighlightService implements Observer<HighlightStateUnion>, Disposab
   }
 
   private handleTraceState(state: TraceState): void {
-    if (state.empty || state.highlight.empty) {
+    if (state.empty) {
+      return;
+    }
+
+    if (state.highlight.empty) {
       return;
     }
 

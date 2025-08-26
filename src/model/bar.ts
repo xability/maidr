@@ -14,7 +14,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   protected readonly orientation: Orientation;
   protected readonly min: number[];
   protected readonly max: number[];
-  protected readonly supportsExtrema = true;
 
   protected constructor(layer: MaidrLayer, points: T[][]) {
     super(layer);
@@ -113,8 +112,41 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 }
 
 export class BarTrace extends AbstractBarPlot<BarPoint> {
+  protected readonly supportsExtrema = true;
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
+    this.buildNavigableReferences();
+  }
+
+  /**
+   * Build navigation references for this bar trace
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = [];
+
+    for (let row = 0; row < this.points.length; row++) {
+      for (let col = 0; col < this.points[row].length; col++) {
+        const point = this.points[row][col];
+        const xValue = this.orientation === Orientation.VERTICAL ? point.x : point.y;
+
+        this.navigableReferences.push({
+          id: `bar-${row}-${col}`,
+          value: xValue,
+          type: typeof xValue === 'number' ? 'coordinate' : 'category',
+          position: { row, col },
+          context: {
+            plotType: this.type,
+            orientation: this.orientation,
+            groupIndex: row,
+          },
+          accessibility: {
+            description: `Bar at ${xValue}`, // Remove group reference for simple bars
+            shortLabel: String(xValue),
+            valueType: typeof xValue === 'number' ? 'numeric' : 'categorical',
+          },
+        });
+      }
+    }
   }
 
   /**
@@ -171,12 +203,8 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param target The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
-    // Update the current point index (column)
-    this.col = target.pointIndex;
-
-    // Update visual positioning and notify observers
-    this.updateVisualPointPosition();
-    this.notifyStateUpdate();
+    // Call base implementation which handles initial entry and basic navigation
+    super.navigateToExtrema(target);
   }
 
   /**
@@ -202,7 +230,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;

@@ -4,8 +4,10 @@ import { Orientation } from '@type/grammar';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
+  protected readonly supportsExtrema = false;
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as HistogramPoint[]]);
+    this.buildNavigableReferences();
   }
 
   protected text(): TextState {
@@ -19,5 +21,36 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       ...super.text(),
       range: { min, max },
     };
+  }
+
+  /**
+   * Build navigation references for this histogram
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = [];
+
+    for (let row = 0; row < this.points.length; row++) {
+      for (let col = 0; col < this.points[row].length; col++) {
+        const point = this.points[row][col];
+        const xValue = this.orientation === Orientation.VERTICAL ? point.x : point.y;
+
+        this.navigableReferences.push({
+          id: `histogram-${row}-${col}`,
+          value: xValue,
+          type: typeof xValue === 'number' ? 'bin' : 'category',
+          position: { row, col },
+          context: {
+            plotType: 'histogram',
+            orientation: this.orientation,
+            groupIndex: row,
+          },
+          accessibility: {
+            description: `Histogram bin: ${point.xMin} to ${point.xMax}`,
+            shortLabel: String(xValue),
+            valueType: typeof xValue === 'number' ? 'numeric' : 'categorical',
+          },
+        });
+      }
+    }
   }
 }

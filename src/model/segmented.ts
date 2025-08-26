@@ -1,5 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { XValue } from '@type/navigation';
 import type { HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
@@ -11,9 +12,11 @@ const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
+  protected readonly supportsExtrema = true;
   public constructor(layer: MaidrLayer) {
     super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();
+    this.buildNavigableReferences();
   }
 
   private createSummaryLevel(): void {
@@ -46,8 +49,132 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
+   * Build navigation references for this segmented trace
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = [];
+
+    for (let row = 0; row < this.points.length; row++) {
+      for (let col = 0; col < this.points[row].length; col++) {
+        const point = this.points[row][col];
+        const xValue = this.orientation === Orientation.VERTICAL ? point.x : point.y;
+
+        // Get proper group label
+        const groupLabel = this.getGroupLabel(row);
+
+        this.navigableReferences.push({
+          id: `segmented-${row}-${col}`,
+          value: xValue,
+          type: typeof xValue === 'number' ? 'coordinate' : 'category',
+          position: { row, col },
+          context: {
+            plotType: this.type,
+            orientation: this.orientation,
+            groupIndex: row,
+          },
+          accessibility: {
+            description: `Segmented bar at ${xValue} in ${groupLabel}`,
+            shortLabel: String(xValue),
+            valueType: typeof xValue === 'number' ? 'numeric' : 'categorical',
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Override getAvailableXValues to return deduplicated X values with combined group information
+   * This prevents showing the same X value multiple times for different groups
+   * @returns Array of unique X values with combined group context
+   */
+  public override getAvailableXValues(): XValue[] {
+    // Group references by X value to deduplicate
+    const groupedByValue = new Map<any, Array<{ group: string; description: string; position: any }>>();
+
+    // Filter out the Total row (last row) and process only actual group data
+    const groupRows = this.navigableReferences.filter(ref =>
+      ref.position.row < this.barValues.length - 1, // Exclude the Total row
+    );
+
+    groupRows.forEach((ref) => {
+      const value = ref.value;
+      const groupLabel = this.getGroupLabel(ref.position.row);
+
+      if (!groupedByValue.has(value)) {
+        groupedByValue.set(value, []);
+      }
+
+      groupedByValue.get(value)!.push({
+        group: groupLabel,
+        description: ref.accessibility?.description || ref.accessibility?.shortLabel || String(ref.value),
+        position: ref.position,
+      });
+    });
+
+    // Create deduplicated result - return only the X values (not the enhanced objects)
+    // The enhanced information will be available through getNavigableReferences
+    const result = Array.from(groupedByValue.keys());
+
+    return result;
+  }
+
+  /**
+   * Get X values with group information for the UI
+   * This provides the deduplicated X values with combined group context for stacked/dodged bar plots
+   * @returns Array of X values with group information
+   */
+  public getXValuesWithGroups(): Array<{ value: XValue; group: string; description: string }> {
+    // Check if this is a simple bar plot (only 1 group + summary) or stacked/dodged (multiple groups + summary)
+    const actualGroups = this.barValues.length - 1; // Exclude the summary row
+    const isSimpleBarPlot = actualGroups <= 1;
+
+    // For simple bar plots, don't show group information
+    if (isSimpleBarPlot) {
+      const result = this.getAvailableXValues().map(value => ({
+        value,
+        group: '', // Empty group for simple bar plots
+        description: String(value),
+      }));
+      return result;
+    }
+
+    // For stacked/dodged plots, show group information
+    // Group references by X value to deduplicate
+    const groupedByValue = new Map<XValue, Array<{ group: string; description: string; position: any }>>();
+
+    // Filter out the Total row (last row) and process only actual group data
+    const groupRows = this.navigableReferences.filter(ref =>
+      ref.position.row < this.barValues.length - 1, // Exclude the Total row
+    );
+
+    groupRows.forEach((ref) => {
+      const value = ref.value;
+      const groupLabel = this.getGroupLabel(ref.position.row);
+
+      if (!groupedByValue.has(value)) {
+        groupedByValue.set(value, []);
+      }
+
+      groupedByValue.get(value)!.push({
+        group: groupLabel,
+        description: ref.accessibility?.description || ref.accessibility?.shortLabel || String(ref.value),
+        position: ref.position,
+      });
+    });
+
+    // Create deduplicated result with combined group information
+    const result = Array.from(groupedByValue.entries()).map(([value, groups]) => {
+      const groupNames = groups.map(g => g.group).filter(Boolean);
+      const combinedGroup = groupNames.length > 0 ? groupNames.join(', ') : 'No groups';
+      return { value, group: combinedGroup, description: String(value) };
+    });
+
+    return result;
+  }
+
+  /**
    * Get extrema targets for the current segmented bar plot trace
-   * Returns min and max values within the current group the user is navigating
+   * Returns min and max values within the current group
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -108,18 +235,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * @param target The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
-    // For group-based navigation, stay in same group but move to different category
-    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
-      this.row = target.groupIndex;
-      this.col = target.categoryIndex;
-    } else {
-      // Fallback to point-based navigation
-      this.col = target.pointIndex;
-    }
-
-    // Update visual positioning and notify observers
-    this.updateVisualPointPosition();
-    this.notifyStateUpdate();
+    // Call base implementation which handles initial entry and basic navigation
+    super.navigateToExtrema(target);
   }
 
   /**
@@ -136,9 +253,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         return 'Total';
       }
 
-      // For dodged/stacked plots, use the fill value as group identifier
+      // For dodged/stacked plots, use just the fill value as group identifier
       if (firstPoint.fill) {
-        return `${this.getFillAxisLabel()}: '${firstPoint.fill}'`;
+        return firstPoint.fill; // Just return "Above", "Below" etc.
       }
     }
 
@@ -167,7 +284,10 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * @returns The fill axis label
    */
   private getFillAxisLabel(): string {
-    // Try to get from the layer axes, fallback to generic label
+    // Use the fill axis label stored from the layer
+    if (this.fill && this.fill !== 'unavailable') {
+      return this.fill;
+    }
     return 'Category';
   }
 
@@ -175,7 +295,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;

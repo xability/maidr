@@ -29,6 +29,7 @@ export enum Scope {
   TRACE_LABEL = 'TRACE_LABEL',
   REVIEW = 'REVIEW',
   SETTINGS = 'SETTINGS',
+  GO_TO_SPECIFIC_VALUE = 'GO_TO_SPECIFIC_VALUE',
 }
 
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;

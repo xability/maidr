@@ -90,6 +90,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         controller.dispose();
         controller = null;
       }
+
       const maidrClone = JSON.parse(JSON.stringify(maidr));
       controller = new Controller(maidrClone, plot);
       controller.announceInitialInstruction();

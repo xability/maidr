@@ -104,6 +104,19 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     this.goToExtremaService.returnToTraceScope();
   }
 
+  /**
+   * Gets the X-axis label from the current context state
+   * This provides a meaningful label for the specific value input field
+   */
+  public getXAxisLabel(): string {
+    const contextState = this.context.state;
+    if (contextState.type === 'trace' && !contextState.empty && contextState.xAxis) {
+      return contextState.xAxis;
+    }
+    // Fallback to generic label if no specific X-axis label is available
+    return 'X value';
+  }
+
   public get activeContext(): Context {
     return this.context;
   }
@@ -143,7 +156,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       try {
         activeTrace.navigateToExtrema(target);
       } catch (error) {
-        console.error('Error calling navigateToExtrema:', error);
+        console.error('❌ Error calling navigateToExtrema:', error);
       }
     }
 

@@ -3,11 +3,11 @@ import type { CandlestickPoint, CandlestickSelector, CandlestickTrend, MaidrLaye
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
-import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 // Type alias for highlight elements - can be single elements or arrays of elements
 type HighlightValue = SVGElement | SVGElement[];
@@ -85,7 +85,9 @@ export class Candlestick extends AbstractTrace<number> {
       this.row = 0; // Points to 'open' segment index in sections array
     }
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string | string[] | CandlestickSelector | undefined);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as CandlestickSelector);
+
+    this.buildNavigableReferences();
   }
 
   /**
@@ -155,7 +157,7 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Update visual position for point highlighting
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.row = this.currentPointIndex;
     } else {
@@ -609,8 +611,29 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
+   * Build navigation references for this candlestick trace
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = this.candles.map((point, index) => ({
+      id: `candlestick-${index}`,
+      value: point.value, // Time/category
+      type: 'timestamp',
+      position: { row: 0, col: index },
+      context: {
+        plotType: TraceType.CANDLESTICK,
+        orientation: this.orientation,
+      },
+      accessibility: {
+        description: `Candlestick at ${point.value}`,
+        shortLabel: point.value,
+        valueType: 'temporal',
+      },
+    }));
+  }
+
+  /**
    * Get extrema targets for the current candlestick trace
-   * Only returns extrema for the current segment the user is in
+   * Returns min and max values within the current segment
    * @returns Array of extrema targets for navigation
    */
   public getExtremaTargets(): ExtremaTarget[] {
@@ -673,15 +696,15 @@ export class Candlestick extends AbstractTrace<number> {
    * Navigate to a specific extrema target
    * @param target The extrema target to navigate to
    */
-  public navigateToExtrema(target: ExtremaTarget): void {
-    // Update the current point index
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    // Update the current point index to match the target
     this.currentPointIndex = target.pointIndex;
 
-    // Update the current segment type
-    this.currentSegmentType = target.segment as CandlestickNavSegmentType;
-
+    // Update visual positions
     this.updateVisualPointPosition();
     this.updateVisualSegmentPosition();
-    this.notifyStateUpdate();
+
+    // Call base implementation which handles initial entry and basic navigation
+    super.navigateToExtrema(target);
   }
 }

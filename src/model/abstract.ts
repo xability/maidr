@@ -2,7 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
-import type { XValue } from '@type/navigation';
+import type { NavigableReference, XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Trace } from './plot';
@@ -139,12 +139,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
+  /**
+   * Handle the initial entry into the trace
+   * This method should be called when the trace is first accessed
+   */
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
-    this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    // Safety check: ensure we don't access undefined values
-    const { row: safeRow } = this.getSafeIndices();
-    this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
   public resetToInitialEntry(): void {
@@ -317,6 +317,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
 
   /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  protected updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
+  }
+
+  /**
    * Get available extrema targets for the current navigation context
    * @returns Array of extrema targets that can be navigated to
    * Default implementation returns empty array (no extrema support)
@@ -331,7 +342,21 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    * @param _target The extrema target to navigate to
    */
   public navigateToExtrema(_target: ExtremaTarget): void {
-    throw new Error('Extrema navigation not supported by this plot type');
+    // Check if this plot type supports extrema navigation
+    if (!this.supportsExtrema) {
+      throw new Error(`Extrema navigation is not supported for ${this.type} plots`);
+    }
+
+    // Handle initial entry if this is the first navigation
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    // Default implementation: update position and notify observers
+    // Subclasses can override this method for custom navigation logic
+    this.col = _target.pointIndex;
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
   }
 
   /**
@@ -348,86 +373,80 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract readonly supportsExtrema: boolean;
 
   /**
-   * Base implementation for getting current X value
-   * Subclasses can override if they have different data structures
+   * Pre-computed navigation references for this trace
+   * Subclasses must populate this during construction
+   */
+  protected navigableReferences: NavigableReference[] = [];
+
+  /**
+   * Build navigation references for this trace
+   * Subclasses must implement this to populate navigableReferences
+   */
+  protected abstract buildNavigableReferences(): void;
+
+  /**
+   * Get all available X values for navigation using the pre-computed references
+   * @returns Array of all unique X values in the trace
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.navigableReferences.map(ref => ref.value);
+  }
+
+  /**
+   * Get all navigation references for this trace
+   * @returns Array of all navigation references
+   */
+  public getNavigableReferences(): NavigableReference[] {
+    return [...this.navigableReferences];
+  }
+
+  /**
+   * Find a navigation reference by its value
+   * @param value The X value to find
+   * @returns The navigation reference or undefined if not found
+   */
+  public findNavigableReference(value: XValue): NavigableReference | undefined {
+    return this.navigableReferences.find(ref => ref.value === value);
+  }
+
+  /**
+   * Base implementation for getting current X value using pre-computed references
+   * Subclasses can override if they need custom logic
    */
   public getCurrentXValue(): XValue | null {
-    // Handle traces with points array (BarTrace, LineTrace)
-    if (this.hasPointsArray()) {
-      const points = this.getPointsArray();
-      if (this.isValidPointsArray(points)) {
-        return this.navigationService.extractXValueFromPoints(points, this.row, this.col);
-      }
-    }
+    // Find the reference for the current position
+    const reference = this.navigableReferences.find(ref =>
+      ref.position.row === this.row && ref.position.col === this.col,
+    );
 
-    // Handle traces with values array (generic fallback)
-    if (this.hasValuesArray()) {
-      const values = this.values;
-      if (this.isValidValuesArray(values)) {
-        return this.navigationService.extractXValueFromValues(values as any, this.row, this.col);
-      }
-    }
-
-    return null;
+    return reference ? reference.value : null;
   }
 
   /**
-   * Base implementation for moving to X value
-   * Subclasses can override if they have different data structures
+   * Base implementation for moving to X value using pre-computed references
+   * Subclasses can override if they need custom navigation logic
    */
   public moveToXValue(xValue: XValue): boolean {
-    // Handle traces with points array (BarTrace, LineTrace)
-    if (this.hasPointsArray()) {
-      const points = this.getPointsArray();
-      if (this.isValidPointsArray(points)) {
-        return this.navigationService.moveToXValueInPoints(points, xValue, this.moveToIndex.bind(this));
-      }
+    const reference = this.findNavigableReference(xValue);
+
+    if (!reference) {
+      return false;
     }
 
-    // Handle traces with values array (generic fallback)
-    if (this.hasValuesArray()) {
-      const values = this.values;
-      if (this.isValidValuesArray(values)) {
-        return this.navigationService.moveToXValueInValues(values as any, xValue, this.moveToIndex.bind(this));
-      }
+    // Handle initial entry if this is the first navigation
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
     }
 
-    return false;
-  }
+    // Update position using the pre-computed reference
+    this.row = reference.position.row;
+    this.col = reference.position.col;
 
-  /**
-   * Type guard to check if trace has points array
-   */
-  private hasPointsArray(): boolean {
-    return 'points' in this && this.points !== undefined;
-  }
+    // Update visual positioning and notify observers
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
 
-  /**
-   * Type guard to check if trace has values array
-   */
-  private hasValuesArray(): boolean {
-    return 'values' in this && this.values !== undefined;
-  }
-
-  /**
-   * Safely get points array with proper typing
-   */
-  private getPointsArray(): any[] {
-    return (this as any).points;
-  }
-
-  /**
-   * Validate points array structure
-   */
-  private isValidPointsArray(points: any[]): boolean {
-    return Array.isArray(points) && points.length > 0;
-  }
-
-  /**
-   * Validate values array structure
-   */
-  private isValidValuesArray(values: any[][]): boolean {
-    return Array.isArray(values) && values.length > 0;
+    return true;
   }
 
   public getId(): string {

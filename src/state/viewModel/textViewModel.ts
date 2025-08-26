@@ -106,6 +106,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.store.dispatch(notify(message));
   }
 
+  public clearMessage(): void {
+    this.store.dispatch(clearMessage());
+  }
+
   private setAriaAnnouncement(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
   }

@@ -1,6 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import { TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -76,6 +77,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.maxY = MathUtil.safeMax(this.yValues);
 
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
+
+    this.buildNavigableReferences();
   }
 
   public dispose(): void {
@@ -411,6 +414,26 @@ export class ScatterTrace extends AbstractTrace<number> {
           return true;
       }
     }
+  }
+
+  /**
+   * Build navigation references for this scatter trace
+   */
+  protected buildNavigableReferences(): void {
+    this.navigableReferences = this.xValues.map((xValue, index) => ({
+      id: `scatter-${index}`,
+      value: xValue, // X coordinate
+      type: 'coordinate',
+      position: { row: 0, col: index },
+      context: {
+        plotType: TraceType.SCATTER,
+      },
+      accessibility: {
+        description: `Scatter point at X: ${xValue}`,
+        shortLabel: String(xValue),
+        valueType: 'numeric',
+      },
+    }));
   }
 
   private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {
