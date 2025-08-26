@@ -1,6 +1,5 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
-import { TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -30,8 +29,6 @@ export class Heatmap extends AbstractTrace<number> {
     this.max = max;
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
-
-    this.buildNavigableReferences();
   }
 
   public dispose(): void {
@@ -75,31 +72,6 @@ export class Heatmap extends AbstractTrace<number> {
       cross: { label: this.yAxis, value: this.y[this.row] },
       fill: { label: this.fill, value: String(this.heatmapValues[this.row][this.col]) },
     };
-  }
-
-  /**
-   * Build navigation references for this heatmap
-   */
-  protected buildNavigableReferences(): void {
-    this.navigableReferences = [];
-
-    // X-axis values (columns)
-    for (let col = 0; col < this.x.length; col++) {
-      this.navigableReferences.push({
-        id: `heatmap-x-${col}`,
-        value: this.x[col], // Column label
-        type: 'category',
-        position: { row: 0, col },
-        context: {
-          plotType: TraceType.HEATMAP,
-        },
-        accessibility: {
-          description: `Heatmap column: ${this.x[col]}`,
-          shortLabel: this.x[col],
-          valueType: 'categorical',
-        },
-      });
-    }
   }
 
   private mapToSvgElements(selector?: string): SVGElement[][] | null {

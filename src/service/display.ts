@@ -163,7 +163,6 @@ export class DisplayService implements Disposable {
 
     this.context.toggleScope(focus);
     this.updateFocus(focus);
-
   }
 
   private updateFocus(newScope: Focus): void {

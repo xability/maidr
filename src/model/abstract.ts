@@ -379,10 +379,10 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected navigableReferences: NavigableReference[] = [];
 
   /**
-   * Build navigation references for this trace
-   * Subclasses must implement this to populate navigableReferences
+   * Build navigation references for this trace.
+   * Only implemented by plots that support extrema navigation.
    */
-  protected abstract buildNavigableReferences(): void;
+  protected buildNavigableReferences?(): void;
 
   /**
    * Get all available X values for navigation using the pre-computed references

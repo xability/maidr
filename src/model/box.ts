@@ -1,7 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { BoxplotSection } from '@type/boxplotSection';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -64,8 +64,6 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
     );
-
-    this.buildNavigableReferences();
   }
 
   public dispose(): void {
@@ -73,27 +71,6 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.sections.length = 0;
 
     super.dispose();
-  }
-
-  /**
-   * Build navigation references for this box trace
-   */
-  protected buildNavigableReferences(): void {
-    this.navigableReferences = this.points.map((point, index) => ({
-      id: `box-${index}`,
-      value: point.fill, // Category is the X value
-      type: 'category',
-      position: { row: index, col: 0 },
-      context: {
-        plotType: TraceType.BOX,
-        orientation: this.orientation,
-      },
-      accessibility: {
-        description: `Box plot category: ${point.fill}`,
-        shortLabel: point.fill,
-        valueType: 'categorical',
-      },
-    }));
   }
 
   public moveToIndex(row: number, col: number): void {
