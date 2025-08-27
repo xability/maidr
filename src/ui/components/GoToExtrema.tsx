@@ -5,6 +5,26 @@ import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } 
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+// Helper function to generate styles for target boxes
+const getTargetBoxSx = (isSelected: boolean) => ({
+  p: 1.5,
+  border: isSelected ? 2 : 1,
+  borderColor: isSelected ? 'primary.main' : 'divider',
+  borderRadius: 1,
+  mb: 0.5,
+  cursor: 'pointer',
+  bgcolor: isSelected ? 'action.selected' : 'transparent',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    bgcolor: 'action.hover',
+  },
+  '&:focus': {
+    outline: 'none',
+    borderColor: 'primary.main',
+    bgcolor: 'action.selected',
+  },
+});
+
 export const GoToExtrema: React.FC = () => {
   const goToExtremaViewModel = useViewModel('goToExtrema');
   const state = useViewModelState('goToExtrema');
@@ -29,12 +49,8 @@ export const GoToExtrema: React.FC = () => {
 
   // Available X values from active trace if provided
   const availableXValues = useMemo(() => {
-    const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && 'getAvailableXValues' in activeTrace) {
-      return (activeTrace as any).getAvailableXValues() as XValue[];
-    }
-    return [];
-  }, [goToExtremaViewModel.activeContext]);
+    return goToExtremaViewModel.getAvailableXValues();
+  }, [goToExtremaViewModel]);
 
   // Keep filtered options in sync
   useEffect(() => {
@@ -55,6 +71,32 @@ export const GoToExtrema: React.FC = () => {
   const activeOptionText = dropdownSelectedIndex >= 0 && filteredOptions[dropdownSelectedIndex] !== undefined
     ? String(filteredOptions[dropdownSelectedIndex])
     : undefined;
+
+  // TextField slot props for accessibility and functionality
+  const textFieldSlotProps = {
+    input: {
+      role: 'combobox' as const,
+      'aria-autocomplete': 'list' as const,
+      'aria-haspopup': 'listbox' as const,
+      'aria-controls': 'x-value-listbox',
+      'aria-expanded': isDropdownOpen,
+      'aria-activedescendant': dropdownSelectedIndex >= 0 ? `option-${dropdownSelectedIndex}` : undefined,
+      'aria-valuetext': activeOptionText,
+      'aria-label': 'Search and select X value',
+      endAdornment: (
+        <IconButton
+          aria-label={isDropdownOpen ? 'Close dropdown' : 'Open dropdown'}
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsDropdownOpen(!isDropdownOpen);
+          }}
+        >
+          <KeyboardArrowDown />
+        </IconButton>
+      ),
+    },
+  };
 
   // Announce highlighted option via assertive live region for SRs that ignore activedescendant text
   useEffect(() => {
@@ -96,11 +138,19 @@ export const GoToExtrema: React.FC = () => {
 
   const handleTargetSelect = (target: ExtremaTarget): void => {
     const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && goToExtremaViewModel.isExtremaNavigable(activeTrace)) {
+    if (activeTrace && hasNavigateToExtrema(activeTrace)) {
       activeTrace.navigateToExtrema(target);
     }
     goToExtremaViewModel.hide();
   };
+
+  // Type guard to check if plot supports navigateToExtrema
+  function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
+    return plot !== null && 
+           typeof plot === 'object' && 
+           'navigateToExtrema' in plot && 
+           typeof (plot as any).navigateToExtrema === 'function';
+  }
 
   const handleClose = (): void => {
     const region = document.getElementById('sr-active-option-announcer');
@@ -111,14 +161,22 @@ export const GoToExtrema: React.FC = () => {
 
   const handleOptionSelect = (value: XValue): void => {
     const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && 'moveToXValue' in activeTrace) {
-      (activeTrace as any).moveToXValue(value);
+    if (activeTrace && hasMoveToXValue(activeTrace)) {
+      activeTrace.moveToXValue(value);
       setIsDropdownOpen(false);
       setDropdownSelectedIndex(-1);
       setInputValue('');
       goToExtremaViewModel.hide();
     }
   };
+
+  // Type guard to check if plot supports moveToXValue
+  function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
+    return plot !== null && 
+           typeof plot === 'object' && 
+           'moveToXValue' in plot && 
+           typeof (plot as any).moveToXValue === 'function';
+  }
 
   const focusSearchInput = (): void => {
     // Prefer focusing the actual input element
@@ -262,7 +320,7 @@ export const GoToExtrema: React.FC = () => {
                 aria-selected={state.selectedIndex === index}
                 aria-label={`${target.label}, Value: ${target.value.toFixed(2)}`}
                 tabIndex={0}
-                sx={{ 'p': 1.5, 'border': state.selectedIndex === index ? 2 : 1, 'borderColor': state.selectedIndex === index ? 'primary.main' : 'divider', 'borderRadius': 1, 'mb': 0.5, 'cursor': 'pointer', 'bgcolor': state.selectedIndex === index ? 'action.selected' : 'transparent', 'transition': 'all 0.2s ease', '&:hover': { bgcolor: 'action.hover' }, '&:focus': { outline: 'none', borderColor: 'primary.main', bgcolor: 'action.selected' } }}
+                sx={getTargetBoxSx(state.selectedIndex === index)}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                   {target.label}
@@ -311,18 +369,7 @@ export const GoToExtrema: React.FC = () => {
                     }
                   }}
                   onKeyDown={handleInputKeyDown}
-                  slotProps={{ input: { 'role': 'combobox', 'aria-autocomplete': 'list', 'aria-haspopup': 'listbox', 'aria-controls': 'x-value-listbox', 'aria-expanded': isDropdownOpen, 'aria-activedescendant': dropdownSelectedIndex >= 0 ? `option-${dropdownSelectedIndex}` : undefined, 'aria-valuetext': activeOptionText, 'aria-label': 'Search and select X value', 'endAdornment': (
-                    <IconButton
-                      aria-label={isDropdownOpen ? 'Close dropdown' : 'Open dropdown'}
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsDropdownOpen(!isDropdownOpen);
-                      }}
-                    >
-                      <KeyboardArrowDown />
-                    </IconButton>
-                  ) } }}
+                  slotProps={textFieldSlotProps}
                 />
 
                 {isDropdownOpen && filteredOptions.length > 0 && (

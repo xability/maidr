@@ -342,7 +342,10 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    * @param _target The extrema target to navigate to
    */
   public navigateToExtrema(_target: ExtremaTarget): void {
-    throw new Error('Extrema navigation not supported by this plot type');
+    if (this.supportsExtrema) {
+      throw new Error('Extrema navigation not implemented by this plot type');
+    }
+    // No-op if extrema navigation is not supported
   }
 
   /**

@@ -4,9 +4,15 @@ import type { AppStore } from '@state/store';
 import type { ExtremaTarget } from '@type/extrema';
 import type { TraceType } from '@type/grammar';
 import type { TraceState } from '@type/state';
+import type { XValue } from '@type/navigation';
 import { AbstractTrace } from '@model/abstract';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
+
+// Type for plots that support getAvailableXValues
+interface PlotWithXValues {
+  getAvailableXValues(): XValue[];
+}
 
 interface GoToExtremaState {
   visible: boolean;
@@ -81,8 +87,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // Get the active trace
     const activeTrace = this.context.active;
 
-    // Check if the trace supports extrema navigation using the abstract class method
-    if (activeTrace && this.isExtremaNavigable(activeTrace)) {
+    // Check if the trace supports extrema navigation using the service
+    if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
       // Get extrema targets from the plot class
       const extremaTargets = activeTrace.getExtremaTargets();
 
@@ -145,7 +151,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // Get the active trace and navigate to the selected target
     const activeTrace = this.context.active;
 
-    if (activeTrace && this.isExtremaNavigable(activeTrace)) {
+    if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
       try {
         activeTrace.navigateToExtrema(target);
         // Return scope and close modal after navigation
@@ -169,12 +175,36 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   }
 
   /**
+   * Get available X values from the active trace for search functionality
+   * @returns Array of X values that can be searched/navigated to
+   */
+  public getAvailableXValues(): XValue[] {
+    const activeTrace = this.context.active;
+    if (activeTrace && this.supportsXValueNavigation(activeTrace)) {
+      return (activeTrace as PlotWithXValues).getAvailableXValues();
+    }
+    return [];
+  }
+
+  /**
    * Check if a trace supports extrema navigation
    * @param trace The trace to check
    * @returns True if the trace supports extrema navigation
    */
-  public isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
-    return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
+  public isExtremaNavigable(trace: unknown): boolean {
+    return this.goToExtremaService.isExtremaNavigable(trace);
+  }
+
+  /**
+   * Check if a plot supports X value navigation
+   * @param plot The plot to check
+   * @returns True if the plot supports getAvailableXValues
+   */
+  private supportsXValueNavigation(plot: unknown): plot is PlotWithXValues {
+    return plot !== null && 
+           typeof plot === 'object' && 
+           'getAvailableXValues' in plot && 
+           typeof (plot as any).getAvailableXValues === 'function';
   }
 }
 

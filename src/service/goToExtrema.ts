@@ -25,7 +25,7 @@ export class GoToExtremaService {
     }
   }
 
-  private isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
+  public isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
     return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
   }
 

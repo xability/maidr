@@ -6,6 +6,19 @@ import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 
+// Type for traces that support ensureInitialized method
+interface TraceWithEnsureInitialized {
+  ensureInitialized(): void;
+}
+
+// Type guard to check if trace supports ensureInitialized
+function hasEnsureInitialized(trace: unknown): trace is TraceWithEnsureInitialized {
+  return trace !== null && 
+         typeof trace === 'object' && 
+         'ensureInitialized' in trace && 
+         typeof (trace as any).ensureInitialized === 'function';
+}
+
 interface FocusChangedEvent {
   value: Focus;
 }
@@ -90,8 +103,8 @@ export class DisplayService implements Disposable {
         // Only show trace text if NOT returning from a mode toggle
         if (!this.isReturningFromModeToggle) {
           // Ensure the active trace is initialized exactly once
-          const active = this.context.active as any;
-          if (active && typeof active.ensureInitialized === 'function') {
+          const active = this.context.active;
+          if (active && hasEnsureInitialized(active)) {
             active.ensureInitialized();
           }
           const label = this.getTraceAriaLabel();
