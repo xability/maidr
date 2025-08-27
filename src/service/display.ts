@@ -8,15 +8,15 @@ import { Stack } from '@util/stack';
 
 // Type for traces that support ensureInitialized method
 interface TraceWithEnsureInitialized {
-  ensureInitialized(): void;
+  ensureInitialized: () => void;
 }
 
 // Type guard to check if trace supports ensureInitialized
 function hasEnsureInitialized(trace: unknown): trace is TraceWithEnsureInitialized {
-  return trace !== null && 
-         typeof trace === 'object' && 
-         'ensureInitialized' in trace && 
-         typeof (trace as any).ensureInitialized === 'function';
+  return trace !== null
+    && typeof trace === 'object'
+    && 'ensureInitialized' in trace
+    && typeof (trace as any).ensureInitialized === 'function';
 }
 
 interface FocusChangedEvent {

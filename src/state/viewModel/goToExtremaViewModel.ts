@@ -3,15 +3,14 @@ import type { GoToExtremaService } from '@service/goToExtrema';
 import type { AppStore } from '@state/store';
 import type { ExtremaTarget } from '@type/extrema';
 import type { TraceType } from '@type/grammar';
-import type { TraceState } from '@type/state';
 import type { XValue } from '@type/navigation';
-import { AbstractTrace } from '@model/abstract';
+import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 // Type for plots that support getAvailableXValues
 interface PlotWithXValues {
-  getAvailableXValues(): XValue[];
+  getAvailableXValues: () => XValue[];
 }
 
 interface GoToExtremaState {
@@ -201,10 +200,10 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * @returns True if the plot supports getAvailableXValues
    */
   private supportsXValueNavigation(plot: unknown): plot is PlotWithXValues {
-    return plot !== null && 
-           typeof plot === 'object' && 
-           'getAvailableXValues' in plot && 
-           typeof (plot as any).getAvailableXValues === 'function';
+    return plot !== null
+      && typeof plot === 'object'
+      && 'getAvailableXValues' in plot
+      && typeof (plot as any).getAvailableXValues === 'function';
   }
 }
 

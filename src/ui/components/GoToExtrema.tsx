@@ -6,24 +6,26 @@ import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 // Helper function to generate styles for target boxes
-const getTargetBoxSx = (isSelected: boolean) => ({
-  p: 1.5,
-  border: isSelected ? 2 : 1,
-  borderColor: isSelected ? 'primary.main' : 'divider',
-  borderRadius: 1,
-  mb: 0.5,
-  cursor: 'pointer',
-  bgcolor: isSelected ? 'action.selected' : 'transparent',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    bgcolor: 'action.hover',
-  },
-  '&:focus': {
-    outline: 'none',
-    borderColor: 'primary.main',
-    bgcolor: 'action.selected',
-  },
-});
+function getTargetBoxSx(isSelected: boolean): object {
+  return {
+    'p': 1.5,
+    'border': isSelected ? 2 : 1,
+    'borderColor': isSelected ? 'primary.main' : 'divider',
+    'borderRadius': 1,
+    'mb': 0.5,
+    'cursor': 'pointer',
+    'bgcolor': isSelected ? 'action.selected' : 'transparent',
+    'transition': 'all 0.2s ease',
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
+    '&:focus': {
+      outline: 'none',
+      borderColor: 'primary.main',
+      bgcolor: 'action.selected',
+    },
+  };
+}
 
 export const GoToExtrema: React.FC = () => {
   const goToExtremaViewModel = useViewModel('goToExtrema');
@@ -75,7 +77,7 @@ export const GoToExtrema: React.FC = () => {
   // TextField slot props for accessibility and functionality
   const textFieldSlotProps = {
     input: {
-      role: 'combobox' as const,
+      'role': 'combobox' as const,
       'aria-autocomplete': 'list' as const,
       'aria-haspopup': 'listbox' as const,
       'aria-controls': 'x-value-listbox',
@@ -83,7 +85,7 @@ export const GoToExtrema: React.FC = () => {
       'aria-activedescendant': dropdownSelectedIndex >= 0 ? `option-${dropdownSelectedIndex}` : undefined,
       'aria-valuetext': activeOptionText,
       'aria-label': 'Search and select X value',
-      endAdornment: (
+      'endAdornment': (
         <IconButton
           aria-label={isDropdownOpen ? 'Close dropdown' : 'Open dropdown'}
           size="small"
@@ -146,10 +148,10 @@ export const GoToExtrema: React.FC = () => {
 
   // Type guard to check if plot supports navigateToExtrema
   function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
-    return plot !== null && 
-           typeof plot === 'object' && 
-           'navigateToExtrema' in plot && 
-           typeof (plot as any).navigateToExtrema === 'function';
+    return plot !== null
+      && typeof plot === 'object'
+      && 'navigateToExtrema' in plot
+      && typeof (plot as any).navigateToExtrema === 'function';
   }
 
   const handleClose = (): void => {
@@ -172,10 +174,10 @@ export const GoToExtrema: React.FC = () => {
 
   // Type guard to check if plot supports moveToXValue
   function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
-    return plot !== null && 
-           typeof plot === 'object' && 
-           'moveToXValue' in plot && 
-           typeof (plot as any).moveToXValue === 'function';
+    return plot !== null
+      && typeof plot === 'object'
+      && 'moveToXValue' in plot
+      && typeof (plot as any).moveToXValue === 'function';
   }
 
   const focusSearchInput = (): void => {
