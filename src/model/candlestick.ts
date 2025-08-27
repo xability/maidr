@@ -609,8 +609,16 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
+   * Get available X values for navigation
+   * @returns Array of X values
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.candles.map(candle => candle.value);
+  }
+
+  /**
    * Get extrema targets for the current candlestick trace
-   * Only returns extrema for the current segment the user is in
+   * Returns multiple extrema targets with better labels and descriptions
    * @returns Array of extrema targets for navigation
    */
   public getExtremaTargets(): ExtremaTarget[] {
@@ -619,50 +627,90 @@ export class Candlestick extends AbstractTrace<number> {
 
     // Only add extrema for the current segment
     if (currentSegment === 'volatility') {
-      // For volatility, find min and max
-      const volatilityValues = this.candles.map(c => c.volatility);
-      const maxVolatilityIndex = volatilityValues.indexOf(Math.max(...volatilityValues));
-      const minVolatilityIndex = volatilityValues.indexOf(Math.min(...volatilityValues));
+      // For volatility, find all max and min values (there could be multiple)
+      const volatilityValues = this.candles.map((c, index) => ({ value: c.volatility, index }));
+      // Find all maximum values (there could be multiple candles with the same max volatility)
+      const maxVolatility = Math.max(...volatilityValues.map(v => v.value));
+      const maxVolatilityIndices = volatilityValues
+        .filter(v => v.value === maxVolatility)
+        .map(v => v.index);
 
-      targets.push({
-        label: `Max Volatility`,
-        value: this.candles[maxVolatilityIndex].volatility,
-        pointIndex: maxVolatilityIndex,
-        segment: 'volatility',
-        type: 'max',
-        navigationType: 'point',
+      // Find all minimum values
+      const minVolatility = Math.min(...volatilityValues.map(v => v.value));
+      const minVolatilityIndices = volatilityValues
+        .filter(v => v.value === minVolatility)
+        .map(v => v.index);
+
+      // Add all max volatility targets
+      maxVolatilityIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        targets.push({
+          label: `Max Volatility at ${candle.value}`,
+          value: candle.volatility,
+          pointIndex: index,
+          segment: 'volatility',
+          type: 'max',
+          navigationType: 'point',
+        });
       });
 
-      targets.push({
-        label: `Min Volatility`,
-        value: this.candles[minVolatilityIndex].volatility,
-        pointIndex: minVolatilityIndex,
-        segment: 'volatility',
-        type: 'min',
-        navigationType: 'point',
+      // Add all min volatility targets
+      minVolatilityIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        targets.push({
+          label: `Min Volatility at ${candle.value}`,
+          value: candle.volatility,
+          pointIndex: index,
+          segment: 'volatility',
+          type: 'min',
+          navigationType: 'point',
+        });
       });
     } else {
-      // For OHLC segments, find min and max
-      const segmentValues = this.candles.map(c => c[currentSegment]);
-      const maxIndex = segmentValues.indexOf(Math.max(...segmentValues));
-      const minIndex = segmentValues.indexOf(Math.min(...segmentValues));
+      // For OHLC segments, find all min and max values
+      const segmentValues = this.candles.map((c, index) => ({
+        value: c[currentSegment],
+        index,
+        xValue: c.value,
+      }));
+      // Find all maximum values
+      const maxValue = Math.max(...segmentValues.map(v => v.value));
+      const maxIndices = segmentValues
+        .filter(v => v.value === maxValue)
+        .map(v => v.index);
 
-      targets.push({
-        label: `Max ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
-        value: this.candles[maxIndex][currentSegment],
-        pointIndex: maxIndex,
-        segment: currentSegment,
-        type: 'max',
-        navigationType: 'point',
+      // Find all minimum values
+      const minValue = Math.min(...segmentValues.map(v => v.value));
+      const minIndices = segmentValues
+        .filter(v => v.value === minValue)
+        .map(v => v.index);
+
+      // Add all max targets
+      maxIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        const segmentLabel = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        targets.push({
+          label: `Max ${segmentLabel} at ${candle.value}`,
+          value: candle[currentSegment],
+          pointIndex: index,
+          segment: currentSegment,
+          type: 'max',
+          navigationType: 'point',
+        });
       });
 
-      targets.push({
-        label: `Min ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
-        value: this.candles[minIndex][currentSegment],
-        pointIndex: minIndex,
-        segment: currentSegment,
-        type: 'min',
-        navigationType: 'point',
+      // Add all min targets
+      minIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        const segmentLabel = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        targets.push({
+          label: `Min ${segmentLabel} at ${candle.value}`,
+          value: candle[currentSegment],
+          pointIndex: index,
+          segment: currentSegment,
+          type: 'min',
+          navigationType: 'point',
+        });
       });
     }
 

@@ -18,30 +18,17 @@ export class GoToExtremaService {
       return;
     }
 
-    // Get the active trace
     const activeTrace = this.context.active;
 
-    // Check if the trace supports extrema navigation using the abstract class method
     if (activeTrace && this.isExtremaNavigable(activeTrace)) {
-      // Change scope to GO_TO_EXTREMA - this will activate the GO_TO_EXTREMA_KEYMAP
-      // and deactivate the TRACE_KEYMAP, so arrow keys will work in the modal
       this.display.toggleFocus(Scope.GO_TO_EXTREMA);
     }
   }
 
-  /**
-   * Check if a trace supports extrema navigation
-   * @param trace The trace to check
-   * @returns True if the trace supports extrema navigation
-   */
-  private isExtremaNavigable(trace: any): trace is AbstractTrace<number> {
+  private isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
     return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
   }
 
-  /**
-   * Return focus to the previous scope (usually TRACE)
-   * Called when the modal is closed to restore plot navigation
-   */
   public returnToTraceScope(): void {
     this.display.toggleFocus(Scope.GO_TO_EXTREMA);
   }

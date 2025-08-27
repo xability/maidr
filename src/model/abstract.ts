@@ -147,6 +147,17 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
+  /**
+   * Ensure the trace is initialized exactly once, and announce the initial state.
+   * Subsequent calls are no-ops.
+   */
+  public ensureInitialized(): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+    }
+  }
+
   public resetToInitialEntry(): void {
     this.isInitialEntry = true;
     this.row = 0;

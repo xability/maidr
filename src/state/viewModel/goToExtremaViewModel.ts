@@ -112,7 +112,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     const currentState = this.state;
 
     if (currentState.targets.length > 0) {
-      const newIndex = Math.max(0, (currentState.selectedIndex || 0) - 1);
+      const prevIndex = currentState.selectedIndex || 0;
+      const newIndex = Math.max(0, prevIndex - 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
   }
@@ -121,7 +122,10 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     const currentState = this.state;
 
     if (currentState.targets.length > 0) {
-      const newIndex = Math.min(currentState.targets.length - 1, (currentState.selectedIndex || 0) + 1);
+      // Include search option at index = targets.length
+      const maxIndex = currentState.targets.length;
+      const prevIndex = currentState.selectedIndex || 0;
+      const newIndex = Math.min(maxIndex, prevIndex + 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
   }
@@ -131,7 +135,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     if (currentState.targets.length > 0 && currentState.selectedIndex !== undefined) {
       const target = currentState.targets[currentState.selectedIndex];
-      this.handleTargetSelect(target);
+      if (target) {
+        this.handleTargetSelect(target as ExtremaTarget);
+      }
     }
   }
 
@@ -142,12 +148,14 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     if (activeTrace && this.isExtremaNavigable(activeTrace)) {
       try {
         activeTrace.navigateToExtrema(target);
+        // Return scope and close modal after navigation
+        this.hide();
       } catch (error) {
-        console.error('Error calling navigateToExtrema:', error);
+        this.hide();
       }
+    } else {
+      this.hide();
     }
-
-    this.hide();
   }
 
   /**
