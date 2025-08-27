@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
@@ -5,7 +6,6 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { ExtremaTarget } from '@type/extrema';
 
 const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
@@ -390,6 +390,7 @@ export class LineTrace extends AbstractTrace<number> {
     }
     return stateWithPlotType;
   }
+
   /**
    * Get extrema targets for the current line plot
    * Returns min and max values within the current group
@@ -408,9 +409,7 @@ export class LineTrace extends AbstractTrace<number> {
     }
     // Use pre-computed min/max values instead of recalculating
     const groupMin = this.min[currentGroup];
-    const minValues = groupValues.filter(value => value === groupMin);
     const groupMax = this.max[currentGroup];
-    const maxValues = groupValues.filter(value => value === groupMax);
     // Find indices of min/max values
     const maxIndices = groupValues.reduce((indices: number[], value, index) => {
       if (value === groupMax) {
@@ -426,7 +425,7 @@ export class LineTrace extends AbstractTrace<number> {
     }, []);
 
     // Add max targets
-    for (var maxIndex of maxIndices) {
+    for (const maxIndex of maxIndices) {
       targets.push({
         label: `Max point at ${this.getPointLabel(maxIndex)}`,
         value: groupMax,
@@ -437,9 +436,8 @@ export class LineTrace extends AbstractTrace<number> {
       });
     }
 
-
     // Add min target
-    for (var minIndex of minIndices) {
+    for (const minIndex of minIndices) {
       targets.push({
         label: `Min point at ${this.getPointLabel(minIndex)}`,
         value: groupMin,
@@ -452,6 +450,7 @@ export class LineTrace extends AbstractTrace<number> {
 
     return targets;
   }
+
   /**
    * Navigate to a specific extrema target
    * @param target The extrema target to navigate to
@@ -463,17 +462,20 @@ export class LineTrace extends AbstractTrace<number> {
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
   }
+
   /**
-     * Get a clean label for a specific point
-     * @param pointIndex The index of the point
-     * @returns A clean label for the point
-     */
+   * Get a clean label for a specific point
+   * @param pointIndex The index of the point
+   * @returns A clean label for the point
+   */
   private getPointLabel(pointIndex: number): string {
     if (this.points[this.row] && this.points[this.row][pointIndex]) {
-      const point = this.points[this.row][pointIndex]; return `Point ${pointIndex}`;
+      const point = this.points[this.row][pointIndex];
+      return `${point.x}`;
     }
-    return '';
+    return `Point ${pointIndex}`;
   }
+
   /**
    * Update the visual position of the current point
    * This method should be called when navigation changes
