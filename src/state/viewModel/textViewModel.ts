@@ -82,6 +82,8 @@ export class TextViewModel extends AbstractViewModel<TextState> {
           break;
         case 'stop':
           this.setAriaAnnouncement(true);
+          // Clear the message to prevent initial instruction from being repeated
+          this.store.dispatch(clearMessage());
           break;
       }
     }));
