@@ -93,6 +93,8 @@ export class MoveToRightExtremeCommand implements Command {
   }
 
   public execute(): void {
+    console.log(`[JAWS DEBUG] MoveToRightExtremeCommand.execute() called`);
+    console.log(`[JAWS DEBUG] Stack trace:`, new Error().stack);
     this.context.moveToExtreme('FORWARD');
   }
 }

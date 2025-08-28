@@ -51,6 +51,7 @@ function main(): void {
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
+  let isCreatingController = false;
 
   const onFocusOut = (): void => {
     // Allow React to process all the events before focusing out.
@@ -69,6 +70,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   };
   const onFocusIn = (): void => {
     console.log(`[FOCUS DEBUG] onFocusIn triggered - controller exists:`, !!controller);
+    console.log(`[FOCUS DEBUG] Current active element:`, document.activeElement);
+    
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
       if (!maidrContainer) {
@@ -76,16 +79,19 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         return;
       }
 
-      if (!controller) {
+      if (!controller && !isCreatingController) {
         console.log(`[FOCUS DEBUG] onFocusIn timeout - creating new controller`);
+        isCreatingController = true;
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
+        isCreatingController = false;
         // Announce initial instruction on first focus-in
         console.log(`[FOCUS DEBUG] onFocusIn timeout - announcing initial instruction`);
         controller.announceInitialInstruction();
       } else {
-        console.log(`[FOCUS DEBUG] onFocusIn timeout - controller already exists, not creating new one`);
+        console.log(`[FOCUS DEBUG] onFocusIn timeout - controller already exists or being created, not creating new one`);
+        console.log(`[FOCUS DEBUG] Controller state:`, controller, `isCreating:`, isCreatingController);
       }
     }, 0);
   };
@@ -121,15 +127,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(DomEventType.CLICK, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
 
-  document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
+  //document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));
-
-  (() => {
-    // Create a deep copy to prevent mutations on the original maidr object.
-    const maidrClone = JSON.parse(JSON.stringify(maidr));
-    const controller = new Controller(maidrClone, plot);
-    controller.dispose();
-  })();
 }
