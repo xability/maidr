@@ -78,12 +78,19 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
+          console.log(`[JAWS DEBUG] Autoplay START - disabling ARIA announcements`);
           this.setAriaAnnouncement(false);
           break;
         case 'stop':
+          console.log(`[JAWS DEBUG] Autoplay STOP - re-enabling ARIA announcements and clearing message`);
           this.setAriaAnnouncement(true);
           // Clear the message to prevent initial instruction from being repeated
           this.store.dispatch(clearMessage());
+          console.log(`[JAWS DEBUG] Message cleared, current state:`, {
+            message: this.store.getState().text.message,
+            value: this.store.getState().text.value,
+            announce: this.store.getState().text.announce
+          });
           break;
       }
     }));
