@@ -33,6 +33,7 @@ export const GoToExtrema: React.FC = () => {
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const searchOptionRef = useRef<HTMLDivElement>(null);
 
   // Search combobox state
   const [inputValue, setInputValue] = useState('');
@@ -42,6 +43,7 @@ export const GoToExtrema: React.FC = () => {
   const inputFieldWrapperRef = useRef<HTMLInputElement>(null);
   const inputElRef = useRef<HTMLInputElement>(null); // real input element
   const listboxRef = useRef<HTMLUListElement>(null);
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (modalRef.current) {
@@ -102,11 +104,10 @@ export const GoToExtrema: React.FC = () => {
 
   // Announce highlighted option via assertive live region for SRs that ignore activedescendant text
   useEffect(() => {
-    const region = document.getElementById('sr-active-option-announcer');
-    if (!region)
-      return;
-    const text = activeOptionText ?? '';
-    region.textContent = text;
+    if (liveRegionRef.current) {
+      const text = activeOptionText ?? '';
+      liveRegionRef.current.textContent = text;
+    }
   }, [dropdownSelectedIndex, activeOptionText]);
 
   // Auto-scroll and focus management when selection changes
@@ -155,9 +156,9 @@ export const GoToExtrema: React.FC = () => {
   }
 
   const handleClose = (): void => {
-    const region = document.getElementById('sr-active-option-announcer');
-    if (region)
-      region.textContent = '';
+    if (liveRegionRef.current) {
+      liveRegionRef.current.textContent = '';
+    }
     goToExtremaViewModel.hide();
   };
 
@@ -189,6 +190,12 @@ export const GoToExtrema: React.FC = () => {
     }
   };
 
+  const focusSearchOption = (): void => {
+    if (searchOptionRef.current) {
+      searchOptionRef.current.focus();
+    }
+  };
+
   const handleListboxKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -214,7 +221,11 @@ export const GoToExtrema: React.FC = () => {
         setDropdownSelectedIndex((i) => {
           const next = Math.max(0, i - 1);
           if (next === 0 && i === 0) {
+            // Return to main listbox when reaching top of search results
             setIsDropdownOpen(false);
+            setDropdownSelectedIndex(-1);
+            // Focus back on the search option in main listbox
+            focusSearchOption();
             return -1;
           }
           return next;
@@ -237,6 +248,17 @@ export const GoToExtrema: React.FC = () => {
         if (dropdownSelectedIndex < 0 && filteredOptions.length > 0)
           setDropdownSelectedIndex(0);
         focusSearchInput();
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // If search is open, close it and return to main listbox
+      if (isDropdownOpen) {
+        setIsDropdownOpen(false);
+        setDropdownSelectedIndex(-1);
+        // Focus back on the search option in main listbox
+        focusSearchOption();
       }
     }
   };
@@ -262,10 +284,12 @@ export const GoToExtrema: React.FC = () => {
       event.stopPropagation();
       setIsDropdownOpen(false);
       setDropdownSelectedIndex(-1);
-      const region = document.getElementById('sr-active-option-announcer');
-      if (region)
-        region.textContent = '';
-      (selectedItemRef.current as HTMLElement | null)?.focus();
+      // Clear the live region
+      if (liveRegionRef.current) {
+        liveRegionRef.current.textContent = '';
+      }
+      // Return focus to the search option in main listbox
+      focusSearchOption();
     }
   };
 
@@ -313,22 +337,19 @@ export const GoToExtrema: React.FC = () => {
 
           <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
             {state.targets.map((target: ExtremaTarget, index: number) => (
-              <Box
-                key={`${target.segment}-${target.type}-${target.pointIndex}`}
-                ref={index === state.selectedIndex ? selectedItemRef : null}
-                id={`extrema-target-${index}`}
-                onClick={() => handleTargetSelect(target)}
-                role="option"
-                aria-selected={state.selectedIndex === index}
-                aria-label={`${target.label}, Value: ${target.value.toFixed(2)}`}
-                tabIndex={0}
-                sx={getTargetBoxSx(state.selectedIndex === index)}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  {target.label}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {`Value: ${target.value.toFixed(2)}`}
+                              <Box
+                  key={`${target.segment}-${target.type}-${target.pointIndex}`}
+                  ref={index === state.selectedIndex ? selectedItemRef : null}
+                  id={`extrema-target-${index}`}
+                  onClick={() => handleTargetSelect(target)}
+                  role="option"
+                  aria-selected={state.selectedIndex === index}
+                  aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+                  tabIndex={0}
+                  sx={getTargetBoxSx(state.selectedIndex === index)}
+                >
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
                 </Typography>
               </Box>
             ))}
@@ -336,10 +357,13 @@ export const GoToExtrema: React.FC = () => {
             {/* 4th option: Searchable combobox */}
             {availableXValues.length > 0 && (
               <Box
+                ref={searchOptionRef}
                 id="search-input-option"
                 role="option"
                 aria-selected={state.selectedIndex === state.targets.length}
                 aria-label="Search and navigate to specific X value"
+                aria-expanded={isDropdownOpen}
+                aria-controls="x-value-listbox"
                 tabIndex={0}
                 sx={{ p: 1.5, borderRadius: 1, mb: 0.5, border: state.selectedIndex === state.targets.length ? 2 : 1, borderColor: state.selectedIndex === state.targets.length ? 'primary.main' : 'divider', bgcolor: state.selectedIndex === state.targets.length ? 'action.selected' : 'transparent', position: 'relative' }}
                 onClick={() => {
@@ -375,7 +399,7 @@ export const GoToExtrema: React.FC = () => {
                 />
 
                 {isDropdownOpen && filteredOptions.length > 0 && (
-                  <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
+                  <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
                     {filteredOptions.map((value, idx) => (
                       <ListItem
                         key={`${value}-${idx}`}
@@ -403,6 +427,8 @@ export const GoToExtrema: React.FC = () => {
                             e.stopPropagation();
                             setIsDropdownOpen(false);
                             setDropdownSelectedIndex(-1);
+                            // Return focus to the search option in main listbox
+                            focusSearchOption();
                           }
                         }}
                         sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
@@ -414,6 +440,7 @@ export const GoToExtrema: React.FC = () => {
                 )}
                 {/* Assertive live region for immediate announcement of highlighted option */}
                 <div
+                  ref={liveRegionRef}
                   id="sr-active-option-announcer"
                   aria-live="assertive"
                   aria-atomic="true"
