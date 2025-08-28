@@ -337,17 +337,17 @@ export const GoToExtrema: React.FC = () => {
 
           <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
             {state.targets.map((target: ExtremaTarget, index: number) => (
-                              <Box
-                  key={`${target.segment}-${target.type}-${target.pointIndex}`}
-                  ref={index === state.selectedIndex ? selectedItemRef : null}
-                  id={`extrema-target-${index}`}
-                  onClick={() => handleTargetSelect(target)}
-                  role="option"
-                  aria-selected={state.selectedIndex === index}
-                  aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
-                  tabIndex={0}
-                  sx={getTargetBoxSx(state.selectedIndex === index)}
-                >
+              <Box
+                key={`${target.segment}-${target.type}-${target.pointIndex}`}
+                ref={index === state.selectedIndex ? selectedItemRef : null}
+                id={`extrema-target-${index}`}
+                onClick={() => handleTargetSelect(target)}
+                role="option"
+                aria-selected={state.selectedIndex === index}
+                aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+                tabIndex={0}
+                sx={getTargetBoxSx(state.selectedIndex === index)}
+              >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
                 </Typography>
