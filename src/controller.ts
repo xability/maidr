@@ -58,6 +58,7 @@ export class Controller implements Disposable {
   private readonly keybinding: KeybindingService;
 
   public constructor(maidr: Maidr, plot: HTMLElement) {
+    console.log(`[JAWS DEBUG] Controller constructor called`);
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
@@ -109,6 +110,8 @@ export class Controller implements Disposable {
   }
 
   public announceInitialInstruction(): void {
+    console.log(`[JAWS DEBUG] announceInitialInstruction() called`);
+    console.log(`[JAWS DEBUG] Stack trace:`, new Error().stack);
     this.notificationService.notify(this.displayService.getInstruction(false));
   }
 

@@ -112,6 +112,8 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   }
 
   public notify(message: string): void {
+    console.log(`[JAWS DEBUG] TextViewModel.notify() called with:`, message);
+    console.log(`[JAWS DEBUG] Stack trace:`, new Error().stack);
     this.store.dispatch(notify(message));
   }
 
