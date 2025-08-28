@@ -46,9 +46,14 @@ export class AutoplayForwardCommand implements Command {
   }
 
   public execute(): void {
+    console.log(`[JAWS DEBUG] AutoplayForwardCommand.execute() called`);
+    console.log(`[JAWS DEBUG] Stack trace:`, new Error().stack);
     const state = this.context.state;
     if (state.type === 'trace' && !state.empty) {
+      console.log(`[JAWS DEBUG] Starting forward autoplay`);
       this.autoplay.start('FORWARD', state);
+    } else {
+      console.log(`[JAWS DEBUG] Cannot start autoplay - invalid state:`, state);
     }
   }
 }

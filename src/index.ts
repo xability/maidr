@@ -68,18 +68,24 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }, 0);
   };
   const onFocusIn = (): void => {
+    console.log(`[FOCUS DEBUG] onFocusIn triggered - controller exists:`, !!controller);
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
       if (!maidrContainer) {
+        console.log(`[FOCUS DEBUG] onFocusIn timeout - no maidr container`);
         return;
       }
 
       if (!controller) {
+        console.log(`[FOCUS DEBUG] onFocusIn timeout - creating new controller`);
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
         // Announce initial instruction on first focus-in
+        console.log(`[FOCUS DEBUG] onFocusIn timeout - announcing initial instruction`);
         controller.announceInitialInstruction();
+      } else {
+        console.log(`[FOCUS DEBUG] onFocusIn timeout - controller already exists, not creating new one`);
       }
     }, 0);
   };

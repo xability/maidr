@@ -248,6 +248,7 @@ export class KeybindingService {
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
           if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
+            console.log(`[JAWS DEBUG] Key pressed: ${key} executing command: ${commandName}`);
             const command = this.commandFactory.create(commandName);
             command.execute(event);
           }

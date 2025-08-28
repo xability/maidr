@@ -82,7 +82,10 @@ export class AutoplayService implements Disposable, Observer<Settings> {
   }
 
   public start(direction: MovableDirection, state?: TraceState): void {
+    console.log(`[JAWS DEBUG] AutoplayService.start() called with direction:`, direction);
+    console.log(`[JAWS DEBUG] Stack trace:`, new Error().stack);
     this.stop();
+    console.log(`[JAWS DEBUG] AutoplayService.start() firing 'start' event`);
     this.onChangeEmitter.fire({ type: 'start' });
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
