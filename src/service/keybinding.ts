@@ -15,7 +15,7 @@ const BRAILLE_KEYMAP = {
   AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
   AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
 
-  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
+  STOP_AUTOPLAY: `p`,
   SPEED_UP_AUTOPLAY: `.`,
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
@@ -140,7 +140,7 @@ const TRACE_KEYMAP = {
   AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
   AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
 
-  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
+  STOP_AUTOPLAY: `p`,
   SPEED_UP_AUTOPLAY: `.`,
   SPEED_DOWN_AUTOPLAY: `,`,
   RESET_AUTOPLAY_SPEED: `/`,
