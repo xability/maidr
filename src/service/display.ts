@@ -49,7 +49,13 @@ export class DisplayService implements Disposable {
 
     // Don't set aria attributes during construction - wait for first focus
     this.plot.tabIndex = 0;
+    
+    // Use role="application" with label for clear VoiceOver focus
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    this.plot.setAttribute('aria-label', 'Interactive chart - use arrow keys to navigate');
+    
+    // Ensure VoiceOver can focus on this element
+    this.plot.setAttribute('tabindex', '0');
   }
 
   public dispose(): void {
@@ -90,7 +96,9 @@ export class DisplayService implements Disposable {
     });
     
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
+      // Ensure plot is focusable for VoiceOver
       this.plot.tabIndex = 0;
+      
       setTimeout((): void => {
         // Only show trace text if NOT returning from a mode toggle
         if (!this.isReturningFromModeToggle) {
@@ -111,7 +119,9 @@ export class DisplayService implements Disposable {
           console.log('[ARIA DEBUG] Mode toggle return - no aria-label set');
         }
 
+        // Ensure plot gets focus for VoiceOver
         this.plot.focus();
+        console.log('[VOICEOVER DEBUG] Plot focused, tabIndex:', this.plot.tabIndex);
       }, 0);
     }
 

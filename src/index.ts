@@ -91,6 +91,15 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         maidrContainerId: maidrContainer.id
       });
 
+      // Add VoiceOver-specific debugging
+      console.log('[VOICEOVER DEBUG] Focus event details:', {
+        plotElement: plot.tagName,
+        plotId: plot.id,
+        plotTabIndex: plot.tabIndex,
+        plotRole: plot.getAttribute('role'),
+        plotAriaLabel: plot.getAttribute('aria-label')
+      });
+
       if (!controller) {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
