@@ -47,12 +47,12 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
-    this.removeInstruction();
+    // Don't set aria attributes during construction - wait for first focus
+    this.plot.tabIndex = 0;
   }
 
   public dispose(): void {
-    this.addInstruction();
-
+    // Don't set aria attributes on dispose - just clean up
     this.onChangeEmitter.dispose();
   }
 
@@ -60,19 +60,11 @@ export class DisplayService implements Disposable {
     return this.context.getInstruction(includeClickPrompt);
   }
 
-  private addInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
-    this.plot.setAttribute(Constant.TITLE, this.getInstruction());
-    this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
-    this.plot.tabIndex = 0;
-  }
-
-  private removeInstruction(): void {
-    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
-    this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
-    this.plot.removeAttribute(Constant.TITLE);
+  public setInitialAriaLabel(): void {
+    // Only set aria-label when explicitly requested (e.g., on first focus)
+    console.log('[ARIA DEBUG] setInitialAriaLabel called');
+    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction(false));
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-    this.plot.tabIndex = 0;
   }
 
   private getTraceAriaLabel(): string {
@@ -97,6 +89,12 @@ export class DisplayService implements Disposable {
   }
 
   private updateFocus(newScope: Focus): void {
+    console.log('[ARIA DEBUG] updateFocus:', {
+      newScope,
+      isReturningFromModeToggle: this.isReturningFromModeToggle,
+      hasEnteredInteractive: this.hasEnteredInteractive
+    });
+    
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
       this.plot.tabIndex = 0;
       setTimeout((): void => {
@@ -107,19 +105,28 @@ export class DisplayService implements Disposable {
           if (active && hasEnsureInitialized(active)) {
             active.ensureInitialized();
           }
-          const label = this.getTraceAriaLabel();
-          this.plot.setAttribute(Constant.ARIA_LABEL, label);
+          
+          // Only set aria-label if this is the first time entering interactive mode
+          if (!this.hasEnteredInteractive) {
+            console.log('[ARIA DEBUG] First interactive focus - setting initial aria-label');
+            this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction(false));
+            this.hasEnteredInteractive = true;
+          } else {
+            // For subsequent navigation, only set aria-label if there's actual trace text
+            const label = this.getTraceAriaLabel();
+            if (label && label.trim()) {
+              console.log('[ARIA DEBUG] Setting trace aria-label:', { label, scope: newScope });
+              this.plot.setAttribute(Constant.ARIA_LABEL, label);
+            }
+          }
         } else {
           // Reset the flag and show empty label to avoid announcing initial instruction
           this.isReturningFromModeToggle = false;
+          console.log('[ARIA DEBUG] Setting empty aria-label (returning from mode)');
           this.plot.setAttribute(Constant.ARIA_LABEL, '');
         }
 
-        this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
         this.plot.focus();
-        if (!this.hasEnteredInteractive) {
-          this.hasEnteredInteractive = true;
-        }
       }, 0);
     }
 

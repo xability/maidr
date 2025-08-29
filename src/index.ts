@@ -61,12 +61,22 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
 
       const activeElement = document.activeElement as HTMLElement;
       const isInside = maidrContainer.contains(activeElement);
+      console.log('[FOCUS DEBUG] onFocusOut:', {
+        activeElement: activeElement?.tagName,
+        activeElementId: activeElement?.id,
+        isInside,
+        controllerExists: !!controller,
+        maidrContainerId: maidrContainer.id
+      });
+      
       if (!isInside) {
+        console.log('[FOCUS DEBUG] Disposing controller on focus out');
         controller?.dispose();
         controller = null;
       }
     }, 0);
   };
+  
   const onFocusIn = (): void => {
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
@@ -74,10 +84,18 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         return;
       }
 
+      console.log('[FOCUS DEBUG] onFocusIn:', {
+        controllerExists: !!controller,
+        activeElement: document.activeElement?.tagName,
+        activeElementId: document.activeElement?.id,
+        maidrContainerId: maidrContainer.id
+      });
+
       if (!controller) {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
+        console.log('[FOCUS DEBUG] Created new controller');
         // Announce initial instruction on first focus-in
         controller.announceInitialInstruction();
       }
@@ -86,6 +104,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
 
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
+      console.log('[FOCUS DEBUG] onVisibilityChange: visible, recreating controller');
       if (controller) {
         controller.dispose();
         controller = null;
