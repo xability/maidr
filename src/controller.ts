@@ -63,7 +63,7 @@ export class Controller implements Disposable {
 
     this.notificationService = new NotificationService();
     this.textService = new TextService(this.notificationService);
-    this.displayService = new DisplayService(this.context, plot, this.textService);
+    this.displayService = new DisplayService(this.context, plot);
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
