@@ -10,7 +10,6 @@ const Text: React.FC = () => {
   return (
     <div
       id={Constant.TEXT_CONTAINER}
-      {...(hasContent && { role: 'alert' })}
     >
       {current && (
         <p>
