@@ -412,18 +412,17 @@ export class LineTrace extends AbstractTrace<number> {
     const groupMin = this.min[currentGroup];
     const groupMax = this.max[currentGroup];
     // Find indices of min/max values
-    const maxIndices = groupValues.reduce((indices: number[], value, index) => {
+    const maxIndices: number[] = [];
+    const minIndices: number[] = [];
+    for (let index = 0; index < groupValues.length; index++) {
+      const value = groupValues[index];
       if (value === groupMax) {
-        indices.push(index);
+        maxIndices.push(index);
       }
-      return indices;
-    }, []);
-    const minIndices = groupValues.reduce((indices: number[], value, index) => {
       if (value === groupMin) {
-        indices.push(index);
+        minIndices.push(index);
       }
-      return indices;
-    }, []);
+    }
 
     // Add max targets
     for (const maxIndex of maxIndices) {
