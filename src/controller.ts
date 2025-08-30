@@ -61,14 +61,14 @@ export class Controller implements Disposable {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
+    this.textService = new TextService(this.notificationService);
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.goToExtremaService = new GoToExtremaService(this.context, this.displayService);
-    this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
