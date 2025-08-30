@@ -123,8 +123,11 @@ export class Controller implements Disposable {
 
   public showInitialInstructionInText(): void {
     const text = this.displayService.getInstruction(false);
-    // Visual-only update via Text.tsx
+    // Temporarily disable assertive announcements for the initial instruction
+    this.textViewModel.setAnnounce(false);
     this.textViewModel.update(text);
+    // Restore assertive announcements for navigation
+    this.textViewModel.setAnnounce(true);
   }
 
   // Delegate DOM attribute responsibility to DisplayService for MVC compliance

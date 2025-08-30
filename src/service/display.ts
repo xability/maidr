@@ -141,6 +141,11 @@ export class DisplayService implements Disposable {
     // Check if this is a mode toggle (braille/review) vs a modal return
     this.isReturningFromModeToggle = focus === 'BRAILLE' || focus === 'REVIEW';
 
+    // Detach initial instruction when entering/exiting modal modes
+    if (this.isReturningFromModeToggle) {
+      this.detachDescribedByInstruction();
+    }
+
     if (!this.focusStack.removeLast(focus)) {
       this.focusStack.push(focus);
     }
@@ -167,6 +172,8 @@ export class DisplayService implements Disposable {
           // Reset the flag and show empty label to avoid announcing initial instruction
           this.isReturningFromModeToggle = false;
           this.plot.setAttribute(Constant.ARIA_LABEL, '');
+          // Ensure any initial described-by is removed when returning
+          this.detachDescribedByInstruction();
         }
 
         this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);

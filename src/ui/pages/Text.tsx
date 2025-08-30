@@ -4,17 +4,25 @@ import React from 'react';
 
 const Text: React.FC = () => {
   const { enabled, announce, value, message } = useViewModelState('text');
-  const visual = (enabled && value) || '';
-  const shouldAlert = typeof message === 'string' && message.trim().length > 0;
+
+  const navText = (enabled && value) || '';
+  const messageText = typeof message === 'string' ? message : '';
+
+  // Current text to expose via live region: prefer message, else nav when announce is enabled
+  const current = messageText.trim().length > 0
+    ? messageText
+    : (announce && navText ? navText : '');
+
+  const visual = messageText.trim().length > 0 ? messageText : navText;
 
   return (
     <div
       id={Constant.TEXT_CONTAINER}
-      {...(shouldAlert && { role: 'alert' })}
+      {...(current && { role: 'alert' })}
     >
-      {(shouldAlert || (visual && visual.trim().length > 0)) && (
+      {visual && visual.trim().length > 0 && (
         <p>
-          {shouldAlert ? message : visual}
+          {visual}
         </p>
       )}
     </div>
