@@ -109,7 +109,33 @@ export class Controller implements Disposable {
   }
 
   public announceInitialInstruction(): void {
-    this.notificationService.notify(this.displayService.getInstruction(false));
+    // Prime the live region with an invisible separator to force a DOM-change event
+    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
+    this.notificationService.notify('\u2063');
+    setTimeout(() => {
+      this.notificationService.notify(this.displayService.getInstruction(false));
+    }, 50);
+  }
+
+  public getInitialInstruction(): string {
+    return this.displayService.getInstruction(false);
+  }
+
+  public showInitialInstructionInText(): void {
+    const text = this.displayService.getInstruction(false);
+    // Keep initial instruction visual-only; enable announce later on first nav update
+    this.textViewModel.setAnnounce(false);
+    this.textViewModel.update(text);
+  }
+
+  // Delegate DOM attribute responsibility to DisplayService for MVC compliance
+  public prepareInitialInstructionForScreenReaders(): void {
+    this.displayService.clearPlotAccessibleName();
+    this.displayService.attachDescribedByInstruction(this.displayService.getInstruction(false));
+  }
+
+  public clearInitialInstructionForScreenReaders(): void {
+    this.displayService.detachDescribedByInstruction();
   }
 
   public dispose(): void {
