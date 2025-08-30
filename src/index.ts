@@ -65,7 +65,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       if (!isInside) {
         // Clear SR-only instruction via controller before disposing
         if (controller) {
-          console.log('[MAIDR][a11y] focusout: clearing SR instruction and disposing controller');
           controller.clearInitialInstructionForScreenReaders();
           controller.dispose();
         }
@@ -74,38 +73,26 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
-  const onFocusIn = (event: Event): void => {
+  const onFocusIn = (): void => {
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
       if (!maidrContainer) {
         return;
       }
 
-      console.log('[MAIDR][a11y] focusin handler fired', {
-        eventType: event?.type,
-        hasAnnounced,
-        hasController: Boolean(controller),
-        activeElement: (document.activeElement as HTMLElement)?.id,
-      });
-
       if (!controller) {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
-        console.log('[MAIDR][a11y] controller created');
       }
 
       if (!hasAnnounced) {
         hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
-        console.log('[MAIDR][a11y] preparing initial instruction for SR and Text');
         // Delegate DOM attributes to Controller/DisplayService
         controller.prepareInitialInstructionForScreenReaders();
 
         // Also show visually in Text component (no alert)
         controller.showInitialInstructionInText();
-
-        // Confirm flag
-        console.log('[MAIDR][a11y] marked hasAnnounced=true');
       }
     }, 0);
   };
@@ -113,7 +100,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
       if (controller) {
-        console.log('[MAIDR][a11y] visibilitychange: disposing existing controller');
         controller.dispose();
         controller = null;
       }
@@ -122,7 +108,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       // Do not announce here; focus-in will handle one-shot announcement
       hasAnnounced = false;
       controller.clearInitialInstructionForScreenReaders();
-      console.log('[MAIDR][a11y] visibilitychange: reset hasAnnounced=false and cleared SR instruction');
     }
   };
 

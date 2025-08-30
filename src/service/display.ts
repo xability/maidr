@@ -61,14 +61,14 @@ export class DisplayService implements Disposable {
   }
 
   private addInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, '');
+    this.plot.setAttribute(Constant.ARIA_LABEL, 'MAIDR plot');
     this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
   }
 
   private removeInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, '');
+    this.plot.setAttribute(Constant.ARIA_LABEL, 'MAIDR plot');
     this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot.tabIndex = 0;
@@ -99,16 +99,7 @@ export class DisplayService implements Disposable {
       instructionEl = document.createElement('div');
       instructionEl.id = instructionId;
       // Visually hidden but accessible
-      (instructionEl as HTMLElement).style.position = 'absolute';
-      (instructionEl as HTMLElement).style.width = '1px';
-      (instructionEl as HTMLElement).style.height = '1px';
-      (instructionEl as HTMLElement).style.margin = '-1px';
-      (instructionEl as HTMLElement).style.border = '0';
-      (instructionEl as HTMLElement).style.padding = '0';
-      (instructionEl as HTMLElement).style.whiteSpace = 'nowrap';
-      (instructionEl as HTMLElement).style.clip = 'rect(0 0 0 0)';
-      (instructionEl as HTMLElement).style.clipPath = 'inset(50%)';
-      (instructionEl as HTMLElement).style.overflow = 'hidden';
+      (instructionEl as HTMLElement).classList.add(Constant.SR_ONLY_CLASS);
 
       const reactMount = document.getElementById(`${Constant.REACT_CONTAINER}-${this.context.id}`) || document.body;
       reactMount.appendChild(instructionEl);
