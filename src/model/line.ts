@@ -1,6 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -485,5 +486,29 @@ export class LineTrace extends AbstractTrace<number> {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;
+  }
+
+  /**
+   * Get available X values for navigation
+   * @returns Array of X values
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.points[this.row].map(val => val.x);
+  }
+
+  /**
+   * Move the line plot to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    const targetIndex = this.points[this.row].findIndex(point => point.x === xValue);
+    if (targetIndex !== -1) {
+      this.col = targetIndex;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+    return false;
   }
 }
