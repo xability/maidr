@@ -63,9 +63,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       const activeElement = document.activeElement as HTMLElement;
       const isInside = maidrContainer.contains(activeElement);
       if (!isInside) {
-        // Clear SR-only instruction via controller before disposing
         if (controller) {
-          controller.clearInitialInstructionForScreenReaders();
           controller.dispose();
         }
         controller = null;
@@ -88,8 +86,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
 
       if (!hasAnnounced) {
         hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
-        // Delegate DOM attributes to Controller/DisplayService
-        controller.prepareInitialInstructionForScreenReaders();
 
         // Also show visually in Text component (no alert)
         controller.showInitialInstructionInText();
@@ -107,7 +103,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       controller = new Controller(maidrClone, plot);
       // Do not announce here; focus-in will handle one-shot announcement
       hasAnnounced = false;
-      controller.clearInitialInstructionForScreenReaders();
     }
   };
 
@@ -130,6 +125,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
 
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
+  plot.addEventListener(DomEventType.CLICK, onFocusIn);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));
