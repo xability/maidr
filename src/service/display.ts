@@ -35,6 +35,8 @@ export class DisplayService implements Disposable {
   private hasEnteredInteractive: boolean = false;
   private readonly textService: TextService;
   private isReturningFromModeToggle: boolean = false;
+  private textChangeDisposer: Disposable | null = null;
+  private hasClearedOnFirstNav: boolean = false;
 
   public constructor(context: Context, plot: HTMLElement, textService: TextService) {
     this.context = context;
@@ -48,10 +50,21 @@ export class DisplayService implements Disposable {
     this.onChange = this.onChangeEmitter.event;
 
     this.removeInstruction();
+
+    // One-shot: clear aria-label on the first TextService-driven navigation update
+    this.textChangeDisposer = this.textService.onChange(() => {
+      if (!this.hasClearedOnFirstNav) {
+        this.plot.removeAttribute(Constant.ARIA_LABEL);
+        this.hasClearedOnFirstNav = true;
+      }
+    });
   }
 
   public dispose(): void {
     this.addInstruction();
+
+    this.textChangeDisposer?.dispose();
+    this.textChangeDisposer = null;
 
     this.onChangeEmitter.dispose();
   }
@@ -61,17 +74,25 @@ export class DisplayService implements Disposable {
   }
 
   private addInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, 'MAIDR plot');
-    this.plot.removeAttribute(Constant.TITLE);
+    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
+    this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
   }
 
   private removeInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, 'MAIDR plot');
-    this.plot.removeAttribute(Constant.TITLE);
-    this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-    this.plot.tabIndex = 0;
+    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
+    if (instruction) {
+      this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
+      this.plot.removeAttribute(Constant.TITLE);
+      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+      this.plot.tabIndex = 0;
+    } else {
+      this.plot.removeAttribute(Constant.ARIA_LABEL);
+      this.plot.removeAttribute(Constant.TITLE);
+      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+      this.plot.tabIndex = 0;
+    }
   }
 
   private getTraceAriaLabel(): string {
@@ -82,59 +103,16 @@ export class DisplayService implements Disposable {
     return this.getInstruction(false);
   }
 
-  // --- Initial instruction management (aria-describedby) ---
-  private getInstructionElementId(): string {
-    return `${Constant.MAIDR_INSTRUCTION}-${this.context.id}`;
-  }
-
-  public clearPlotAccessibleName(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, '');
-    this.plot.removeAttribute(Constant.TITLE);
-  }
-
-  public attachDescribedByInstruction(text: string): void {
-    const instructionId = this.getInstructionElementId();
-    let instructionEl = document.getElementById(instructionId);
-    if (!instructionEl) {
-      instructionEl = document.createElement('div');
-      instructionEl.id = instructionId;
-      // Visually hidden but accessible
-      (instructionEl as HTMLElement).classList.add(Constant.SR_ONLY_CLASS);
-
-      const reactMount = document.getElementById(`${Constant.REACT_CONTAINER}-${this.context.id}`) || document.body;
-      reactMount.appendChild(instructionEl);
-    }
-    instructionEl.textContent = text;
-
-    const prev = this.plot.getAttribute('aria-describedby');
-    const tokens = new Set((prev ? prev.split(/\s+/) : []).filter(Boolean));
-    tokens.add(instructionId);
-    this.plot.setAttribute('aria-describedby', Array.from(tokens).join(' '));
-  }
-
-  public detachDescribedByInstruction(): void {
-    const instructionId = this.getInstructionElementId();
-    const current = this.plot.getAttribute('aria-describedby') || '';
-    const remain = current.split(/\s+/).filter(t => t && t !== instructionId).join(' ');
-    if (remain) {
-      this.plot.setAttribute('aria-describedby', remain);
-    } else {
-      this.plot.removeAttribute('aria-describedby');
-    }
-
-    const el = document.getElementById(instructionId);
-    if (el) {
-      el.textContent = '';
-    }
-  }
-
   public toggleFocus(focus: Focus): void {
-    // Check if this is a mode toggle (braille/review) vs a modal return
-    this.isReturningFromModeToggle = focus === 'BRAILLE' || focus === 'REVIEW';
+    // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
+    this.isReturningFromModeToggle
+      = focus === 'BRAILLE'
+        || focus === 'REVIEW'
+        || focus === 'GO_TO_EXTREMA';
 
-    // Detach initial instruction when entering/exiting modal modes
+    // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {
-      this.detachDescribedByInstruction();
+      this.plot.removeAttribute(Constant.ARIA_LABEL);
     }
 
     if (!this.focusStack.removeLast(focus)) {
@@ -150,21 +128,21 @@ export class DisplayService implements Disposable {
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
       this.plot.tabIndex = 0;
       setTimeout((): void => {
-        // Only show trace text if NOT returning from a mode toggle
+        // Only run first-entry init when NOT returning from a modal
         if (!this.isReturningFromModeToggle) {
           // Ensure the active trace is initialized exactly once
           const active = this.context.active;
           if (active && hasEnsureInitialized(active)) {
             active.ensureInitialized();
           }
-          const label = this.getTraceAriaLabel();
-          this.plot.setAttribute(Constant.ARIA_LABEL, label);
+          // Clear initial instruction label on first entry into interactive
+          if (!this.hasEnteredInteractive) {
+            this.plot.removeAttribute(Constant.ARIA_LABEL);
+          }
         } else {
-          // Reset the flag and show empty label to avoid announcing initial instruction
+          // On return from modal, skip setting any aria-label and ensure it's cleared
           this.isReturningFromModeToggle = false;
-          this.plot.setAttribute(Constant.ARIA_LABEL, '');
-          // Ensure any initial described-by is removed when returning
-          this.detachDescribedByInstruction();
+          this.plot.removeAttribute(Constant.ARIA_LABEL);
         }
 
         this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
@@ -172,9 +150,11 @@ export class DisplayService implements Disposable {
         if (!this.hasEnteredInteractive) {
           this.hasEnteredInteractive = true;
         }
+        // Emit change after focus updates (previous working behavior)
+        this.onChangeEmitter.fire({ value: newScope });
       }, 0);
+    } else {
+      this.onChangeEmitter.fire({ value: newScope });
     }
-
-    this.onChangeEmitter.fire({ value: newScope });
   }
 }
