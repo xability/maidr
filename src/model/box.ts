@@ -7,6 +7,8 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 export class BoxTrace extends AbstractTrace<number[] | number> {
+  protected readonly supportsExtrema = false;
+
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;

@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
@@ -13,6 +14,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
   protected readonly orientation: Orientation;
   protected readonly min: number[];
   protected readonly max: number[];
+  protected readonly supportsExtrema = true;
 
   protected constructor(layer: MaidrLayer, points: T[][]) {
     super(layer);
@@ -113,5 +115,97 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 export class BarTrace extends AbstractBarPlot<BarPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
+  }
+
+  /**
+   * Get extrema targets for the current bar plot trace
+   * Returns min and max values within the current group
+   * @returns Array of extrema targets for navigation
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+    const currentGroup = this.row;
+
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return targets;
+    }
+
+    const groupValues = this.barValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+
+    // Use pre-computed min/max values instead of recalculating
+    const groupMin = this.min[currentGroup];
+    const groupMax = this.max[currentGroup];
+
+    // Find indices of min/max values
+    const maxIndex = groupValues.indexOf(groupMax);
+    const minIndex = groupValues.indexOf(groupMin);
+
+    // Add max target
+    targets.push({
+      label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
+      value: groupMax,
+      pointIndex: maxIndex,
+      segment: 'bar',
+      type: 'max',
+      navigationType: 'point',
+    });
+
+    // Add min target
+    targets.push({
+      label: `Min Bar at ${this.getPointLabel(minIndex)}`,
+      value: groupMin,
+      pointIndex: minIndex,
+      segment: 'bar',
+      type: 'min',
+      navigationType: 'point',
+    });
+
+    return targets;
+  }
+
+  /**
+   * Navigate to a specific extrema target
+   * @param target The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    // Update the current point index (column)
+    this.col = target.pointIndex;
+
+    // Update visual positioning and notify observers
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Get a clean label for a specific point
+   * @param pointIndex The index of the point
+   * @returns A clean label for the point
+   */
+  private getPointLabel(pointIndex: number): string {
+    if (this.points[this.row] && this.points[this.row][pointIndex]) {
+      const point = this.points[this.row][pointIndex];
+
+      if (this.orientation === Orientation.VERTICAL) {
+        return `${point.x}`;
+      } else {
+        return `${point.y}`;
+      }
+    }
+
+    return `Point ${pointIndex}`;
+  }
+
+  /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  private updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
   }
 }

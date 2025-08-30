@@ -17,6 +17,10 @@ export abstract class Constant {
   static readonly REACT_CONTAINER = 'maidr-react-container';
   static readonly REVIEW_INPUT = 'maidr-review-input';
   static readonly TEXT_CONTAINER = 'maidr-text-container';
+  static readonly MAIDR_INSTRUCTION = 'maidr-instruction';
+
+  // CSS classes.
+  static readonly SR_ONLY_CLASS = 'maidr-sr-only';
 
   // HTML attributes.
   static readonly ARIA_LABEL = 'aria-label';
