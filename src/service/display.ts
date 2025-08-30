@@ -61,15 +61,14 @@ export class DisplayService implements Disposable {
   }
 
   private addInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
-    this.plot.setAttribute(Constant.TITLE, this.getInstruction());
+    this.plot.setAttribute(Constant.ARIA_LABEL, '');
+    this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
   }
 
   private removeInstruction(): void {
-    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
-    this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
+    this.plot.setAttribute(Constant.ARIA_LABEL, '');
     this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot.tabIndex = 0;
@@ -81,6 +80,61 @@ export class DisplayService implements Disposable {
       return formatted;
     }
     return this.getInstruction(false);
+  }
+
+  // --- Initial instruction management (aria-describedby) ---
+  private getInstructionElementId(): string {
+    return `${Constant.MAIDR_INSTRUCTION}-${this.context.id}`;
+  }
+
+  public clearPlotAccessibleName(): void {
+    this.plot.setAttribute(Constant.ARIA_LABEL, '');
+    this.plot.removeAttribute(Constant.TITLE);
+  }
+
+  public attachDescribedByInstruction(text: string): void {
+    const instructionId = this.getInstructionElementId();
+    let instructionEl = document.getElementById(instructionId);
+    if (!instructionEl) {
+      instructionEl = document.createElement('div');
+      instructionEl.id = instructionId;
+      // Visually hidden but accessible
+      (instructionEl as HTMLElement).style.position = 'absolute';
+      (instructionEl as HTMLElement).style.width = '1px';
+      (instructionEl as HTMLElement).style.height = '1px';
+      (instructionEl as HTMLElement).style.margin = '-1px';
+      (instructionEl as HTMLElement).style.border = '0';
+      (instructionEl as HTMLElement).style.padding = '0';
+      (instructionEl as HTMLElement).style.whiteSpace = 'nowrap';
+      (instructionEl as HTMLElement).style.clip = 'rect(0 0 0 0)';
+      (instructionEl as HTMLElement).style.clipPath = 'inset(50%)';
+      (instructionEl as HTMLElement).style.overflow = 'hidden';
+
+      const reactMount = document.getElementById(`${Constant.REACT_CONTAINER}-${this.context.id}`) || document.body;
+      reactMount.appendChild(instructionEl);
+    }
+    instructionEl.textContent = text;
+
+    const prev = this.plot.getAttribute('aria-describedby');
+    const tokens = new Set((prev ? prev.split(/\s+/) : []).filter(Boolean));
+    tokens.add(instructionId);
+    this.plot.setAttribute('aria-describedby', Array.from(tokens).join(' '));
+  }
+
+  public detachDescribedByInstruction(): void {
+    const instructionId = this.getInstructionElementId();
+    const current = this.plot.getAttribute('aria-describedby') || '';
+    const remain = current.split(/\s+/).filter(t => t && t !== instructionId).join(' ');
+    if (remain) {
+      this.plot.setAttribute('aria-describedby', remain);
+    } else {
+      this.plot.removeAttribute('aria-describedby');
+    }
+
+    const el = document.getElementById(instructionId);
+    if (el) {
+      el.textContent = '';
+    }
   }
 
   public toggleFocus(focus: Focus): void {

@@ -51,6 +51,7 @@ function main(): void {
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
+  let hasAnnounced = false;
 
   const onFocusOut = (): void => {
     // Allow React to process all the events before focusing out.
@@ -62,8 +63,13 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       const activeElement = document.activeElement as HTMLElement;
       const isInside = maidrContainer.contains(activeElement);
       if (!isInside) {
-        controller?.dispose();
+        // Clear SR-only instruction via controller before disposing
+        if (controller) {
+          controller.clearInitialInstructionForScreenReaders();
+          controller.dispose();
+        }
         controller = null;
+        hasAnnounced = false;
       }
     }, 0);
   };
@@ -78,8 +84,19 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
-        // Announce initial instruction on first focus-in
-        controller.announceInitialInstruction();
+      }
+
+      if (!hasAnnounced) {
+        // Delegate DOM attributes to Controller/DisplayService
+        controller.prepareInitialInstructionForScreenReaders();
+
+        // Also show visually in Text component (no alert)
+        controller.showInitialInstructionInText();
+
+        // Mark as announced
+        setTimeout(() => {
+          hasAnnounced = true;
+        }, 100);
       }
     }, 0);
   };
@@ -92,7 +109,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
       const maidrClone = JSON.parse(JSON.stringify(maidr));
       controller = new Controller(maidrClone, plot);
-      controller.announceInitialInstruction();
+      // Do not announce here; focus-in will handle one-shot announcement
+      hasAnnounced = false;
+      controller.clearInitialInstructionForScreenReaders();
     }
   };
 

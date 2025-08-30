@@ -4,17 +4,17 @@ import React from 'react';
 
 const Text: React.FC = () => {
   const { enabled, announce, value, message } = useViewModelState('text');
-  const current = (message || (enabled && value) || '') as string;
-  const hasContent = current.trim().length > 0 && (announce || message);
+  const visual = (enabled && value) || '';
+  const shouldAlert = typeof message === 'string' && message.trim().length > 0;
 
   return (
     <div
       id={Constant.TEXT_CONTAINER}
-      {...(hasContent && { role: 'alert' })}
+      {...(shouldAlert && { role: 'alert' })}
     >
-      {current && (
+      {(shouldAlert || (visual && visual.trim().length > 0)) && (
         <p>
-          {current}
+          {shouldAlert ? message : visual}
         </p>
       )}
     </div>
