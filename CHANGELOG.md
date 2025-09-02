@@ -1,3 +1,10 @@
+# [3.24.0](https://github.com/xability/maidr/compare/v3.23.3...v3.24.0) (2025-09-02)
+
+
+### Features
+
+* go to specific value in candlestick plots ([#427](https://github.com/xability/maidr/issues/427)) ([b1d1191](https://github.com/xability/maidr/commit/b1d11914ee576285db9a6d8d72fc543bdfcdc6bb)), closes [#428](https://github.com/xability/maidr/issues/428)
+
 ## [3.23.3](https://github.com/xability/maidr/compare/v3.23.2...v3.23.3) (2025-08-20)
 
 
