@@ -5,6 +5,8 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 export class Heatmap extends AbstractTrace<number> {
+  protected readonly supportsExtrema = false;
+
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
 

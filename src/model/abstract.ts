@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -144,6 +145,17 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     // Safety check: ensure we don't access undefined values
     const { row: safeRow } = this.getSafeIndices();
     this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
+  }
+
+  /**
+   * Ensure the trace is initialized exactly once, and announce the initial state.
+   * Subsequent calls are no-ops.
+   */
+  public ensureInitialized(): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+    }
   }
 
   public resetToInitialEntry(): void {
@@ -314,6 +326,65 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * Get available extrema targets for the current navigation context
+   * @returns Array of extrema targets that can be navigated to
+   * Default implementation returns empty array (no extrema support)
+   */
+  public getExtremaTargets(): ExtremaTarget[] {
+    return []; // Default: no extrema support
+  }
+
+  /**
+   * Base implementation for navigateToExtrema
+   * Subclasses must override to provide actual implementation
+   * @param _target The extrema target to navigate to
+   */
+  public navigateToExtrema(_target: ExtremaTarget): void {
+    if (this.supportsExtrema) {
+      throw new Error('Extrema navigation not implemented by this plot type');
+    }
+    // No-op if extrema navigation is not supported
+  }
+
+  /**
+   * Common post-navigation cleanup that should be called by subclasses
+   * after they update their internal state
+   */
+  protected finalizeExtremaNavigation(): void {
+    // Ensure we're not in initial entry state after navigation
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    // Update visual positioning
+    this.updateVisualPointPosition();
+
+    // Notify observers of state change
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Default implementation for updating visual point position
+   * Subclasses can override if they need custom positioning logic
+   */
+  protected updateVisualPointPosition(): void {
+    // Default implementation - subclasses should override if needed
+  }
+
+  /**
+   * Check if this plot supports extrema navigation
+   * @returns True if extrema navigation is supported
+   */
+  public supportsExtremaNavigation(): boolean {
+    return this.supportsExtrema;
+  }
+
+  /**
+   * Abstract property that subclasses must implement to indicate extrema support
+   */
+  protected abstract readonly supportsExtrema: boolean;
 
   /**
    * Base implementation for getting current X value

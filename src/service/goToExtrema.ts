@@ -1,16 +1,8 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { TraceState } from '@type/state';
+import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
-import { TraceType } from '@type/grammar';
-
-export interface ExtremaTarget {
-  label: string;
-  value: number;
-  pointIndex: number;
-  segment: string;
-  type: 'max' | 'min';
-}
 
 export class GoToExtremaService {
   private readonly context: Context;
@@ -26,25 +18,23 @@ export class GoToExtremaService {
       return;
     }
 
-    if (state.traceType !== TraceType.CANDLESTICK) {
-      return;
-    }
-
-    // Get the active trace (should be a candlestick)
     const activeTrace = this.context.active;
-
-    if (activeTrace && 'getExtremaTargets' in activeTrace) {
-      // Change scope to GO_TO_EXTREMA - this will activate the GO_TO_EXTREMA_KEYMAP
-      // and deactivate the TRACE_KEYMAP, so arrow keys will work in the modal
-      this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    if (activeTrace && this.isExtremaNavigable(activeTrace)) {
+      // Ensure we're in GO_TO_EXTREMA scope
+      if (this.context.scope !== Scope.GO_TO_EXTREMA) {
+        this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+      }
     }
   }
 
-  /**
-   * Return focus to the previous scope (usually TRACE)
-   * Called when the modal is closed to restore plot navigation
-   */
+  public isExtremaNavigable(trace: unknown): trace is AbstractTrace<number> {
+    return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
+  }
+
   public returnToTraceScope(): void {
-    this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    // Ensure we return to TRACE scope
+    if (this.context.scope !== Scope.TRACE) {
+      this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    }
   }
 }

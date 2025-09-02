@@ -61,14 +61,14 @@ export class Controller implements Disposable {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
+    this.textService = new TextService(this.notificationService);
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 
     this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
     this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.goToExtremaService = new GoToExtremaService(this.context, this.displayService);
-    this.textService = new TextService(this.notificationService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
@@ -109,7 +109,23 @@ export class Controller implements Disposable {
   }
 
   public announceInitialInstruction(): void {
-    this.notificationService.notify(this.displayService.getInstruction(false));
+    // Prime the live region with an invisible separator to force a DOM-change event
+    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
+    this.notificationService.notify('\u2063');
+    setTimeout(() => {
+      this.notificationService.notify(this.displayService.getInstruction(false));
+    }, 50);
+  }
+
+  public getInitialInstruction(): string {
+    return this.displayService.getInstruction(false);
+  }
+
+  public showInitialInstructionInText(): void {
+    const text = this.displayService.getInstruction(false);
+    // Keep initial instruction visual-only; enable announce later on first nav update
+    this.textViewModel.setAnnounce(false);
+    this.textViewModel.update(text);
   }
 
   public dispose(): void {
