@@ -150,7 +150,7 @@ export class DisplayService implements Disposable {
         if (!this.hasEnteredInteractive) {
           this.hasEnteredInteractive = true;
         }
-        // Emit change after focus updates (previous working behavior)
+        // Emit change after focus updates
         this.onChangeEmitter.fire({ value: newScope });
       }, 0);
     } else {

@@ -31,7 +31,7 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
-import { GoToExtremaCommand } from './goTo';
+import { GoToExtremaCommand, GoToExtremaToggleCommand } from './goTo';
 import {
   GoToExtremaCloseCommand,
   GoToExtremaMoveDownCommand,
@@ -148,7 +148,8 @@ export class CommandFactory {
         return new GoToExtremaSelectCommand(this.goToExtremaViewModel);
       case 'GO_TO_EXTREMA_CLOSE':
         return new GoToExtremaCloseCommand(this.goToExtremaViewModel);
-
+      case 'GO_TO_EXTREMA_TOGGLE':
+        return new GoToExtremaToggleCommand(this.context, this.goToExtremaViewModel);
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.context, this.textViewModel);
       case 'DESCRIBE_Y':

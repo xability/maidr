@@ -76,7 +76,7 @@ export class Controller implements Disposable {
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(this.displayService, maidr);
 
-    this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService, this.displayService);
+    this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.goToExtremaViewModel = new GoToExtremaViewModel(store, this.goToExtremaService, this.context);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);

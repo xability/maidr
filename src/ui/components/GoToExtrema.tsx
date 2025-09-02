@@ -190,9 +190,9 @@ export const GoToExtrema: React.FC = () => {
     }
   };
 
-  const focusSearchOption = (): void => {
-    if (searchOptionRef.current) {
-      searchOptionRef.current.focus();
+  const announceToScreenReader = (message: string): void => {
+    if (liveRegionRef.current) {
+      liveRegionRef.current.textContent = message;
     }
   };
 
@@ -201,64 +201,39 @@ export const GoToExtrema: React.FC = () => {
       event.preventDefault();
       event.stopPropagation();
 
-      if (state.selectedIndex === state.targets.length && isDropdownOpen) {
-        setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
-        return;
-      }
-
-      goToExtremaViewModel.moveDown();
-
-      if (state.selectedIndex + 1 === state.targets.length && availableXValues.length > 0) {
+      if (state.selectedIndex === state.targets.length - 1) {
+        // If on last extrema option, move to search
+        focusSearchInput();
         setIsDropdownOpen(true);
         setDropdownSelectedIndex(0);
-        focusSearchInput();
+        announceToScreenReader('Moved to search. Type to filter X values.');
+      } else {
+        goToExtremaViewModel.moveDown();
+        // Announce the newly selected option
+        const newOption = state.targets[state.selectedIndex + 1];
+        announceToScreenReader(`Selected: ${newOption.label}`);
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
 
-      if (state.selectedIndex === state.targets.length && isDropdownOpen) {
-        setDropdownSelectedIndex((i) => {
-          const next = Math.max(0, i - 1);
-          if (next === 0 && i === 0) {
-            // Return to main listbox when reaching top of search results
-            setIsDropdownOpen(false);
-            setDropdownSelectedIndex(-1);
-            // Focus back on the search option in main listbox
-            focusSearchOption();
-            return -1;
-          }
-          return next;
-        });
-        return;
+      if (state.selectedIndex === 0) {
+        announceToScreenReader('At first extrema option');
+      } else {
+        goToExtremaViewModel.moveUp();
+        // Announce the newly selected option
+        const newOption = state.targets[state.selectedIndex - 1];
+        announceToScreenReader(`Selected: ${newOption.label}`);
       }
-
-      goToExtremaViewModel.moveUp();
     } else if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
 
       if (state.selectedIndex < state.targets.length) {
         const target = state.targets[state.selectedIndex];
-        if (target)
+        if (target) {
           handleTargetSelect(target);
-      } else if (state.selectedIndex === state.targets.length) {
-        // Focus input and ensure dropdown open
-        setIsDropdownOpen(true);
-        if (dropdownSelectedIndex < 0 && filteredOptions.length > 0)
-          setDropdownSelectedIndex(0);
-        focusSearchInput();
-      }
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-
-      // If search is open, close it and return to main listbox
-      if (isDropdownOpen) {
-        setIsDropdownOpen(false);
-        setDropdownSelectedIndex(-1);
-        // Focus back on the search option in main listbox
-        focusSearchOption();
+        }
       }
     }
   };
@@ -273,23 +248,36 @@ export const GoToExtrema: React.FC = () => {
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
-      setIsDropdownOpen(true);
-      setDropdownSelectedIndex(i => Math.min(Math.max(0, i) + 1, filteredOptions.length - 1));
+      if (dropdownSelectedIndex === filteredOptions.length - 1) {
+        announceToScreenReader('At last search result');
+      } else {
+        setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
+        // Announce the newly selected search result
+        if (filteredOptions[dropdownSelectedIndex + 1]) {
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex + 1]}`);
+        }
+      }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
-      setDropdownSelectedIndex(i => Math.max(Math.max(0, i) - 1, 0));
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      setIsDropdownOpen(false);
-      setDropdownSelectedIndex(-1);
-      // Clear the live region
-      if (liveRegionRef.current) {
-        liveRegionRef.current.textContent = '';
+      // If on first search result, go back to main options
+      if (dropdownSelectedIndex === 0) {
+        setIsDropdownOpen(false);
+        setDropdownSelectedIndex(-1);
+        // Get the last selected extrema option's label for announcement
+        const lastSelectedOption = state.targets[state.selectedIndex];
+        announceToScreenReader(`Returning to extrema options: ${lastSelectedOption.label}`);
+        // Focus back on the selected option
+        if (selectedItemRef.current) {
+          selectedItemRef.current.focus();
+        }
+      } else {
+        setDropdownSelectedIndex(i => Math.max(0, i - 1));
+        // Announce the newly selected search result
+        if (filteredOptions[dropdownSelectedIndex - 1]) {
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1]}`);
+        }
       }
-      // Return focus to the search option in main listbox
-      focusSearchOption();
     }
   };
 
@@ -422,13 +410,6 @@ export const GoToExtrema: React.FC = () => {
                             e.preventDefault();
                             e.stopPropagation();
                             setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setIsDropdownOpen(false);
-                            setDropdownSelectedIndex(-1);
-                            // Return focus to the search option in main listbox
-                            focusSearchOption();
                           }
                         }}
                         sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}

@@ -152,14 +152,20 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
       try {
+        // First hide the modal to ensure proper scope change
+        this.store.dispatch(hide());
+
+        // Return to trace scope before navigation
+        this.goToExtremaService.returnToTraceScope();
+
+        // Then navigate to the target
         activeTrace.navigateToExtrema(target);
-        // Return scope and close modal after navigation
-        this.hide();
       } catch (error) {
-        this.hide();
+        // If navigation fails, ensure we're back in trace scope
+        this.goToExtremaService.returnToTraceScope();
       }
     } else {
-      this.hide();
+      this.goToExtremaService.returnToTraceScope();
     }
   }
 

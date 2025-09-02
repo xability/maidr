@@ -349,6 +349,31 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   }
 
   /**
+   * Common post-navigation cleanup that should be called by subclasses
+   * after they update their internal state
+   */
+  protected finalizeExtremaNavigation(): void {
+    // Ensure we're not in initial entry state after navigation
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    // Update visual positioning
+    this.updateVisualPointPosition();
+
+    // Notify observers of state change
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Default implementation for updating visual point position
+   * Subclasses can override if they need custom positioning logic
+   */
+  protected updateVisualPointPosition(): void {
+    // Default implementation - subclasses should override if needed
+  }
+
+  /**
    * Check if this plot supports extrema navigation
    * @returns True if extrema navigation is supported
    */
