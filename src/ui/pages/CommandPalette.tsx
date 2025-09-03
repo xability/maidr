@@ -17,6 +17,7 @@ const CommandPalette: React.FC = () => {
   const [announcement] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const enterPressedRef = useRef(false);
 
   // Filter commands based on search
   const filteredCommands = useMemo(() => {
@@ -183,11 +184,22 @@ const CommandPalette: React.FC = () => {
               aria-label={`${command.description} (${command.key})`}
               selected={index === state.selectedIndex}
               tabIndex={index === state.selectedIndex ? 0 : -1}
-              onClick={() => handleCommandSelect(command.commandKey as Keys)}
+              onClick={() => {
+                // Prevent onClick from firing if Enter was just pressed
+                if (enterPressedRef.current) {
+                  return;
+                }
+                handleCommandSelect(command.commandKey as Keys);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   e.stopPropagation();
+                  enterPressedRef.current = true;
+                  // Reset the flag after a short delay
+                  setTimeout(() => {
+                    enterPressedRef.current = false;
+                  }, 100);
                   handleCommandSelect(command.commandKey as Keys);
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();

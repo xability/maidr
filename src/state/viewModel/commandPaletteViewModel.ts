@@ -102,8 +102,6 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
 
   public hide(): void {
     this.store.dispatch(hide());
-
-    // Return scope to TRACE so plot navigation works again
     this.commandPaletteService.returnToTraceScope();
   }
 
