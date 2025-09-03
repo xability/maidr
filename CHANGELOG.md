@@ -1,3 +1,10 @@
+# [3.25.0](https://github.com/xability/maidr/compare/v3.24.0...v3.25.0) (2025-09-03)
+
+
+### Features
+
+* add command palette ([#354](https://github.com/xability/maidr/issues/354)) ([0445e24](https://github.com/xability/maidr/commit/0445e248669400a421f87f96d1b3eef4dfc5bb7a))
+
 # [3.24.0](https://github.com/xability/maidr/compare/v3.23.3...v3.24.0) (2025-09-02)
 
 
