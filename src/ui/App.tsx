@@ -6,6 +6,7 @@ import { Provider } from 'react-redux';
 import { GoToExtrema } from './components/GoToExtrema';
 import Braille from './pages/Braille';
 import Chat from './pages/Chat';
+import CommandPalette from './pages/CommandPalette';
 import Help from './pages/Help';
 import Review from './pages/Review';
 import Settings from './pages/Settings';
@@ -26,6 +27,9 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'CHAT':
         return <Chat />;
+
+      case 'COMMAND_PALETTE':
+        return <CommandPalette />;
 
       case 'GO_TO_EXTREMA':
         return <GoToExtrema />;

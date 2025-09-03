@@ -6,6 +6,9 @@ export function useViewModel<K extends keyof ViewModelMap>(key: K): ViewModelMap
   return ViewModelRegistry.instance.get(key);
 }
 
-export function useViewModelState<K extends keyof ViewModelMap>(key: K): ViewModelMap[K]['state'] {
+// Exclude commandExecutor from ViewModelsWithState since it's not in Redux state
+type ViewModelsWithState = Exclude<keyof ViewModelMap, 'commandExecutor'>;
+
+export function useViewModelState<K extends ViewModelsWithState>(key: K): any {
   return useAppSelector(state => state[key]);
 }

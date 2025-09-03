@@ -49,7 +49,6 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
 
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
-  private shouldEnableAnnounceOnNextNav: boolean = false;
 
   public constructor(
     store: AppStore,
@@ -65,16 +64,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   public dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
-    this.shouldEnableAnnounceOnNextNav = false;
   }
 
   private registerListeners(notification: NotificationService, autoplay: AutoplayService): void {
     this.disposables.push(this.textService.onChange((e) => {
-      // When TextService drives a nav value update, re-enable announce if we deferred it
-      if (this.shouldEnableAnnounceOnNextNav) {
-        this.setAnnounce(true);
-        this.shouldEnableAnnounceOnNextNav = false;
-      }
       this.update(e.value);
     }));
 
@@ -114,10 +107,6 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   }
 
   public setAnnounce(enabled: boolean): void {
-    // If we are turning announce off (for initial instruction), remember to flip it back on next nav update
-    if (!enabled) {
-      this.shouldEnableAnnounceOnNextNav = true;
-    }
     this.store.dispatch(announceText(enabled));
   }
 }

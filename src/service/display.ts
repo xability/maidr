@@ -108,7 +108,8 @@ export class DisplayService implements Disposable {
     this.isReturningFromModeToggle
       = focus === 'BRAILLE'
         || focus === 'REVIEW'
-        || focus === 'GO_TO_EXTREMA';
+        || focus === 'GO_TO_EXTREMA'
+        || focus === 'COMMAND_PALETTE';
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {
