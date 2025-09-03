@@ -26,7 +26,6 @@ const textSlice = createSlice({
   initialState,
   reducers: {
     update(state, action: PayloadAction<string>): void {
-      state.message = null;
       state.value = action.payload;
     },
     announceText(state, action: PayloadAction<boolean>): void {
@@ -38,12 +37,15 @@ const textSlice = createSlice({
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
     },
+    clearMessage(state): void {
+      state.message = null;
+    },
     reset(): TextState {
       return initialState;
     },
   },
 });
-const { update, announceText, toggle, notify, reset } = textSlice.actions;
+const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.actions;
 
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
@@ -76,11 +78,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
-          this.setAriaAnnouncement(false);
+          this.setAnnounce(false);
           break;
-
         case 'stop':
-          this.setAriaAnnouncement(true);
+          this.setAnnounce(true);
           break;
       }
     }));
@@ -98,13 +99,14 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
     this.store.dispatch(update(formattedText));
+    this.store.dispatch(clearMessage());
   }
 
   public notify(message: string): void {
     this.store.dispatch(notify(message));
   }
 
-  private setAriaAnnouncement(enabled: boolean): void {
+  public setAnnounce(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
   }
 }

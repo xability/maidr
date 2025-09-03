@@ -6,7 +6,11 @@ export enum DomEventType {
   DOM_LOADED = 'DOMContentLoaded',
   FOCUS_IN = 'focusin',
   FOCUS_OUT = 'focusout',
+  MOUSE_ENTER = 'mouseenter',
+  MOUSE_LEAVE = 'mouseleave',
+  MOUSE_MOVE = 'mousemove',
   SELECTION_CHANGE = 'selectionchange',
+  VISIBILITY_CHANGE = 'visibilitychange',
 }
 
 export type Status
@@ -17,6 +21,8 @@ export type Status
 export enum Scope {
   BRAILLE = 'BRAILLE',
   CHAT = 'CHAT',
+  COMMAND_PALETTE = 'COMMAND_PALETTE',
+  GO_TO_EXTREMA = 'GO_TO_EXTREMA',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
   SUBPLOT = 'SUBPLOT',

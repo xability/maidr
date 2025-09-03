@@ -1,322 +1,243 @@
-import type { Keys, Scope } from '@type/event';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItem, ListItemButton, ListItemText, TextField } from '@mui/material';
-import { SCOPED_KEYMAP } from '@service/keybinding';
+import type { Keys } from '@type/event';
+import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { useCommandExecutor } from '@state/hook/useCommandExecutor';
-import hotkeys from 'hotkeys-js';
+import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, txt =>
-    txt.charAt(0).toUpperCase() + txt.slice(1));
+interface CommandItem {
+  key: string;
+  description: string;
+  commandKey: Keys;
 }
 
-const styles = {
-  dialogPaper: {
-    position: 'absolute',
-    top: '20%',
-    margin: 0,
-    maxHeight: '60vh',
-  },
-  dialogContent: {
-    p: 0,
-  },
-  searchField: {
-    p: 1,
-  },
-  commandList: {
-    maxHeight: '30vh',
-    overflow: 'auto',
-  },
-  commandListItem: {
-    cursor: 'pointer',
-  },
-  highlightedItem: {
-    cursor: 'pointer',
-    border: '2px solid #1976d2',
-    margin: '6px',
-  },
-} as const;
-
 const CommandPalette: React.FC = () => {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [announcement, setAnnouncement] = useState('');
-  const { executeCommand, currentScope } = useCommandExecutor();
+  const commandPaletteViewModel = useViewModel('commandPalette');
+  const state = useViewModelState('commandPalette');
+  const { executeCommand } = useCommandExecutor();
+  const [announcement] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
-  // Ref for the list container to enable auto-scrolling
-  const listRef = React.useRef<HTMLUListElement>(null);
-  // Ref to track current announcement without causing re-renders
-  const currentAnnouncementRef = useRef<string>('');
-  // Ref to track the source of the current announcement
-  const announcementSourceRef = useRef<'initial' | 'search' | 'navigation' | null>(null);
-
-  const availableCommands = useMemo(() => {
-    const scopeKeymap = SCOPED_KEYMAP[currentScope as Scope];
-    if (!scopeKeymap)
-      return [];
-
-    return Object.entries(scopeKeymap)
-      .filter(([commandKey]) => !commandKey.startsWith('ALLOW_'))
-      .map(([commandKey, key]) => ({
-        key,
-        description: toTitleCase(commandKey.replace(/_/g, ' ').toLowerCase()),
-        commandKey: commandKey as Keys,
-      }));
-  }, [currentScope]);
-
+  // Filter commands based on search
   const filteredCommands = useMemo(() => {
-    if (!search.trim())
-      return availableCommands;
-    const searchLower = search.toLowerCase();
-    return availableCommands.filter(
-      cmd =>
-        cmd.description.toLowerCase().includes(searchLower)
-        || cmd.key.toLowerCase().includes(searchLower),
-    );
-  }, [availableCommands, search]);
-
-  const handleClose = useCallback(() => {
-    setOpen(false);
-    setSearch('');
-    setHighlightedIndex(0);
-    setAnnouncement('');
-    currentAnnouncementRef.current = '';
-    announcementSourceRef.current = null;
-
-    // Restore focus to the plot when command palette closes
-    setTimeout(() => {
-      const plotElement = document.querySelector(
-        '[role="image"]',
-      ) as HTMLElement;
-      if (plotElement) {
-        plotElement.focus();
-      }
-    }, 0);
-  }, []);
-
-  const handleCommandSelect = useCallback(
-    (commandKey: Keys) => {
-      executeCommand(commandKey);
-      handleClose();
-    },
-    [executeCommand, handleClose, currentScope],
-  );
-
-  useEffect(() => {
-    hotkeys('esc', { scope: 'command-palette' }, () => {
-      handleClose();
-    });
-
-    return () => {
-      hotkeys.unbind('esc', 'command-palette');
-    };
-  }, [handleClose]);
-
-  useEffect(() => {
-    const handleOpenCommandPalette = (): void => {
-      setOpen(true);
-      const initialAnnouncement = 'Command palette opened. Use down and up arrows to navigate commands, Enter to select.';
-
-      // Only set announcement if it's different from current
-      if (currentAnnouncementRef.current !== initialAnnouncement) {
-        setAnnouncement(initialAnnouncement);
-        currentAnnouncementRef.current = initialAnnouncement;
-        announcementSourceRef.current = 'initial';
-      }
-    };
-
-    window.addEventListener('openCommandPalette', handleOpenCommandPalette);
-    return () => {
-      window.removeEventListener('openCommandPalette', handleOpenCommandPalette);
-    };
-  }, [currentScope]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
+    if (!state.search.trim()) {
+      return state.commands;
     }
+    const searchLower = state.search.toLowerCase();
+    return state.commands.filter((command: CommandItem) =>
+      command.description.toLowerCase().includes(searchLower)
+      || command.key.toLowerCase().includes(searchLower),
+    );
+  }, [state.commands, state.search]);
 
-    if (listRef.current && filteredCommands.length > 0) {
+  // Ensure search input gets focus when dialog opens or when returning to search
+  useEffect(() => {
+    if (state.visible && searchInputRef.current) {
+      // Use setTimeout to ensure the dialog is fully rendered
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 100);
+    }
+  }, [state.visible]);
+
+  // Focus search input when returning to search (selectedIndex becomes -1)
+  useEffect(() => {
+    // Only handle focus when dialog first opens, not when returning to search
+    if (state.visible && searchInputRef.current && state.selectedIndex === -1) {
+      // Don't auto-focus when returning to search to avoid dialog close issues
+    }
+  }, [state.selectedIndex, state.visible]);
+
+  // Auto-scroll to selected item and focus it
+  useEffect(() => {
+    if (listRef.current && state.selectedIndex >= 0) {
       const listElement = listRef.current;
-      const highlightedElement = listElement.children[highlightedIndex] as HTMLElement;
+      const selectedElement = listElement.children[state.selectedIndex] as HTMLElement;
 
-      if (highlightedElement) {
+      if (selectedElement) {
+        // Focus the selected element for screen reader
+        selectedElement.focus();
+
         const listRect = listElement.getBoundingClientRect();
-        const elementRect = highlightedElement.getBoundingClientRect();
+        const elementRect = selectedElement.getBoundingClientRect();
 
         // Check if element is outside the visible area
         if (elementRect.top < listRect.top || elementRect.bottom > listRect.bottom) {
-          highlightedElement.scrollIntoView({
+          selectedElement.scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
           });
         }
-        // Removed selection live announcements; combobox + aria-activedescendant will announce
       }
     }
-  }, [highlightedIndex, filteredCommands, open]);
+  }, [state.selectedIndex]);
 
-  useEffect(() => {
-    currentAnnouncementRef.current = announcement;
-  }, [announcement]);
+  const handleClose = useCallback(() => {
+    commandPaletteViewModel.hide();
+  }, [commandPaletteViewModel]);
+
+  const handleCommandSelect = useCallback((commandKey: Keys) => {
+    // Execute the command first, then close
+    executeCommand(commandKey);
+    handleClose();
+  }, [executeCommand, handleClose]);
+
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    commandPaletteViewModel.updateSearch(event.target.value);
+  }, [commandPaletteViewModel]);
+
+  if (!state.visible) {
+    return null;
+  }
 
   return (
     <Dialog
-      open={open}
+      open={state.visible}
       onClose={handleClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       disablePortal
       role="dialog"
-      slotProps={{
-        paper: {
-          sx: styles.dialogPaper,
+      aria-modal="true"
+      aria-labelledby="command-palette-title"
+      aria-describedby="command-palette-description"
+      sx={{
+        '& .MuiDialog-paper': {
+          maxHeight: '80vh',
         },
       }}
-      aria-label="Command Palette"
     >
-      <DialogTitle>Command Palette</DialogTitle>
-      <DialogContent sx={styles.dialogContent}>
+      <Box component="h2" id="command-palette-title" sx={{ p: 2, m: 0 }}>
+        <Box component="span" sx={{ fontSize: '1.25rem', fontWeight: 600 }}>
+          Command Palette
+        </Box>
+      </Box>
+
+      <DialogContent dividers sx={{ p: 2, overflow: 'hidden' }}>
+        <Box id="command-palette-description" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
+            Type to search commands, use arrow keys to navigate the list, and press Enter to execute a command
+          </Typography>
+        </Box>
+
         <TextField
-          autoFocus
+          ref={searchInputRef}
           fullWidth
-          placeholder="Type to search commands..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            // Defer highlighting so SRs announce typed text
-            setHighlightedIndex(-1);
-            // Announce the number of filtered results
-            const newSearch = e.target.value.trim();
-            let newAnnouncement: string;
-            if (newSearch) {
-              const searchLower = newSearch.toLowerCase();
-              const results = availableCommands.filter(
-                cmd =>
-                  cmd.description.toLowerCase().includes(searchLower)
-                  || cmd.key.toLowerCase().includes(searchLower),
-              );
-              newAnnouncement = `Found ${results.length} matching commands`;
-            } else {
-              newAnnouncement = `Showing all ${availableCommands.length} commands`;
-            }
-
-            if (currentAnnouncementRef.current !== newAnnouncement) {
-              setAnnouncement(newAnnouncement);
-              currentAnnouncementRef.current = newAnnouncement;
-              announcementSourceRef.current = 'search';
-            }
-          }}
-          onKeyDown={(e) => {
-            if (!filteredCommands.length)
-              return;
-            // Collapse selection to caret so SRs don't re-announce selected text
-            const inputEl = e.currentTarget as unknown as HTMLInputElement;
-            try {
-              const pos = (inputEl.selectionEnd ?? inputEl.value?.length ?? 0) as number;
-              if (typeof (inputEl as HTMLInputElement).setSelectionRange === 'function') {
-                (inputEl as HTMLInputElement).setSelectionRange(pos, pos);
+          placeholder="Search commands..."
+          value={state.search}
+          onChange={handleSearchChange}
+          sx={{ mb: 2 }}
+          autoFocus
+          inputProps={{
+            'role': 'combobox',
+            'aria-autocomplete': 'list',
+            'aria-haspopup': 'listbox',
+            'aria-controls': 'command-list',
+            'aria-expanded': true,
+            'aria-activedescendant': state.selectedIndex >= 0 ? `command-${state.selectedIndex}` : undefined,
+            'aria-label': 'Search commands',
+            'aria-describedby': 'command-palette-description',
+            'onKeyDown': (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (filteredCommands.length > 0 && state.selectedIndex >= 0) {
+                  const selectedCommand = filteredCommands[state.selectedIndex];
+                  if (selectedCommand) {
+                    handleCommandSelect(selectedCommand.commandKey as Keys);
+                  }
+                }
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                e.stopPropagation();
+                commandPaletteViewModel.moveDown();
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                e.stopPropagation();
+                // If we're on the first option (index 0), go back to search
+                if (state.selectedIndex === 0) {
+                  commandPaletteViewModel.moveToSearch();
+                } else {
+                  commandPaletteViewModel.moveUp();
+                }
               }
-            } catch {
-              // no-op safety
-            }
-
-            if (e.key === 'ArrowDown') {
-              setHighlightedIndex(prev =>
-                prev < 0 ? 0 : Math.min(prev + 1, filteredCommands.length - 1),
-              );
-              e.preventDefault();
-            } else if (e.key === 'ArrowUp') {
-              setHighlightedIndex(prev => (prev < 0 ? 0 : Math.max(prev - 1, 0)));
-              e.preventDefault();
-            } else if (e.key === 'Enter') {
-              if (highlightedIndex >= 0) {
-                handleCommandSelect(
-                  filteredCommands[highlightedIndex].commandKey,
-                );
-              }
-              e.preventDefault();
-            }
-          }}
-          sx={styles.searchField}
-          slotProps={{
-            input: {
-              inputProps: {
-                'aria-label': 'Search commands. Use down and up arrows to navigate, Enter to select.',
-                'aria-describedby': 'command-list-instructions',
-                'role': 'combobox',
-                'aria-autocomplete': 'list',
-                'aria-expanded': open,
-                'aria-controls': 'command-list',
-                'aria-activedescendant':
-                  filteredCommands.length > 0 && highlightedIndex >= 0
-                    ? `command-${highlightedIndex}`
-                    : undefined,
-                'autoComplete': 'off',
-                'spellCheck': false,
-              },
             },
           }}
         />
-        <div
-          id="command-list-instructions"
-          aria-live="polite"
-          aria-atomic="true"
-          style={{
-            position: 'absolute',
-            left: '-10000px',
-            width: '1px',
-            height: '1px',
-            overflow: 'hidden',
-          }}
-        >
-          {announcement}
-        </div>
+
         <List
-          id="command-list"
-          sx={styles.commandList}
           ref={listRef}
+          id="command-list"
           role="listbox"
           aria-label="Available commands"
-          aria-activedescendant={
-            filteredCommands.length > 0 && highlightedIndex >= 0
-              ? `command-${highlightedIndex}`
-              : undefined
-          }
+          sx={{ flex: 1, overflow: 'auto', maxHeight: '60vh' }}
         >
-          {filteredCommands.length > 0
-            ? (
-                filteredCommands.map((cmd, idx) => (
-                  <ListItemButton
-                    key={cmd.commandKey}
-                    id={`command-${idx}`}
-                    onClick={() => handleCommandSelect(cmd.commandKey)}
-                    selected={idx === highlightedIndex}
-                    sx={
-                      idx === highlightedIndex
-                        ? styles.highlightedItem
-                        : styles.commandListItem
-                    }
-                    role="option"
-                    aria-selected={idx === highlightedIndex}
-                  >
-                    <ListItemText primary={cmd.description} secondary={cmd.key} />
-                  </ListItemButton>
-                ))
-              )
-            : (
-                <ListItem>
-                  <ListItemText primary="No commands found" />
-                </ListItem>
-              )}
+          {filteredCommands.map((command: CommandItem, index: number) => (
+            <ListItemButton
+              key={command.commandKey}
+              id={`command-${index}`}
+              role="option"
+              aria-selected={index === state.selectedIndex}
+              aria-label={`${command.description} (${command.key})`}
+              selected={index === state.selectedIndex}
+              tabIndex={index === state.selectedIndex ? 0 : -1}
+              onClick={() => handleCommandSelect(command.commandKey as Keys)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCommandSelect(command.commandKey as Keys);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (index === 0) {
+                    // If we're on the first option, go back to search
+                    commandPaletteViewModel.moveToSearch();
+                    // Don't manually focus - let the dialog handle it
+                  } else {
+                    commandPaletteViewModel.moveUp();
+                  }
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  commandPaletteViewModel.moveDown();
+                }
+              }}
+              sx={{
+                'cursor': 'pointer',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'action.selected',
+                },
+              }}
+            >
+              <ListItemText
+                primary={command.description}
+                secondary={`${command.key}`}
+              />
+            </ListItemButton>
+          ))}
         </List>
+
+        {announcement && (
+          <div
+            aria-live="assertive"
+            style={{
+              position: 'absolute',
+              left: '-10000px',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+            }}
+          >
+            {announcement}
+          </div>
+        )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} color="primary" variant="contained">
-          Close
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

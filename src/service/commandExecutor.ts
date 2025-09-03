@@ -12,11 +12,6 @@ export class CommandExecutor {
     this.commandFactory = new CommandFactory(commandContext);
     this.currentScope = initialScope;
     this.context = commandContext;
-
-    // Listen for scope changes in the context
-    commandContext.context.addScopeObserver((scope: Scope) => {
-      this.currentScope = scope;
-    });
   }
 
   public getContext(): CommandContext {

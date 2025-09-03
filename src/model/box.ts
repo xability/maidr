@@ -1,21 +1,14 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
-const LOWER_OUTLIER = 'Lower outlier(s)';
-const UPPER_OUTLIER = 'Upper outlier(s)';
-
-const MIN = 'Minimum';
-const MAX = 'Maximum';
-
-const Q1 = '25%';
-const Q2 = '50%';
-const Q3 = '75%';
-
 export class BoxTrace extends AbstractTrace<number[] | number> {
+  protected readonly supportsExtrema = false;
+
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
@@ -32,7 +25,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
+    this.sections = [
+      BoxplotSection.LOWER_OUTLIER,
+      BoxplotSection.MIN,
+      BoxplotSection.Q1,
+      BoxplotSection.Q2,
+      BoxplotSection.Q3,
+      BoxplotSection.MAX,
+      BoxplotSection.UPPER_OUTLIER,
+    ];
     const sectionAccessors = [
       (p: BoxPoint) => p.lowerOutliers,
       (p: BoxPoint) => p.min,

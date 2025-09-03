@@ -31,7 +31,12 @@
   "github.copilot.chat.startDebugging.enabled": true,
   "github.copilot.chat.scopeSelection": true,
   "chat.agent.enabled": true,
-  "chat.mcp.discovery.enabled": false,
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": false,
+    "windsurf": false,
+    "cursor-global": false,
+    "cursor-workspace": false
+  },
   "chat.agent.maxRequests": 1000,
 
   "githubPullRequests.experimental.chat": true,

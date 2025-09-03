@@ -7,7 +7,9 @@ import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
+import { CommandPaletteService } from '@service/commandPalette';
 import { DisplayService } from '@service/display';
+import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
@@ -19,7 +21,9 @@ import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
+import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
+import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -36,6 +40,7 @@ export class Controller implements Disposable {
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
+  private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
 
@@ -46,28 +51,29 @@ export class Controller implements Disposable {
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
 
   private readonly keybinding: KeybindingService;
   private readonly commandExecutor: CommandExecutor;
 
-  public constructor(maidr: Maidr, plot: HTMLElement, reactContainer: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot, reactContainer);
     this.notificationService = new NotificationService();
-
-    const storageService = new LocalStorageService();
-    this.settingsService = new SettingsService(storageService, this.displayService);
-    this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
-
-    this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
+    this.displayService = new DisplayService(this.context, plot, this.textService);
+    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
+
+    this.audioService = new AudioService(this.notificationService, this.context.state, this.settingsService);
+    this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
+    this.goToExtremaService = new GoToExtremaService(this.context, this.displayService);
     this.reviewService = new ReviewService(this.notificationService, this.displayService, this.textService);
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
@@ -77,13 +83,15 @@ export class Controller implements Disposable {
 
     this.textViewModel = new TextViewModel(store, this.textService, this.notificationService, this.autoplayService);
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
+    this.goToExtremaViewModel = new GoToExtremaViewModel(store, this.goToExtremaService, this.context);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.notificationService.notify(this.context.getInstruction(false));
+    const commandPaletteService = new CommandPaletteService(this.context, this.displayService);
+    this.commandPaletteViewModel = new CommandPaletteViewModel(store, commandPaletteService);
 
     this.keybinding = new KeybindingService(
       {
@@ -95,6 +103,8 @@ export class Controller implements Disposable {
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -110,6 +120,8 @@ export class Controller implements Disposable {
         highlightService: this.highlightService,
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -120,8 +132,27 @@ export class Controller implements Disposable {
 
     this.registerViewModels();
     this.registerObservers();
-    this.settingsService.addObserver(this.highlightService);
     this.keybinding.register(this.context.scope);
+  }
+
+  public announceInitialInstruction(): void {
+    // Prime the live region with an invisible separator to force a DOM-change event
+    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
+    this.notificationService.notify('\u2063');
+    setTimeout(() => {
+      this.notificationService.notify(this.displayService.getInstruction(false));
+    }, 50);
+  }
+
+  public getInitialInstruction(): string {
+    return this.displayService.getInstruction(false);
+  }
+
+  public showInitialInstructionInText(): void {
+    const text = this.displayService.getInstruction(false);
+    // Keep initial instruction visual-only; enable announce later on first nav update
+    this.textViewModel.setAnnounce(false);
+    this.textViewModel.update(text);
   }
 
   public dispose(): void {
@@ -132,9 +163,11 @@ export class Controller implements Disposable {
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
     this.displayViewModel.dispose();
+    this.goToExtremaViewModel.dispose();
     this.reviewViewModel.dispose();
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
+    this.commandPaletteViewModel.dispose();
 
     this.highlightService.dispose();
     this.autoplayService.dispose();
@@ -153,20 +186,22 @@ export class Controller implements Disposable {
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
     ViewModelRegistry.instance.register('braille', this.brailleViewModel);
+    ViewModelRegistry.instance.register('goToExtrema', this.goToExtremaViewModel);
     ViewModelRegistry.instance.register('review', this.reviewViewModel);
     ViewModelRegistry.instance.register('display', this.displayViewModel);
     ViewModelRegistry.instance.register('help', this.helpViewModel);
     ViewModelRegistry.instance.register('chat', this.chatViewModel);
     ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register('commandPalette', this.commandPaletteViewModel);
     ViewModelRegistry.instance.register('commandExecutor', this.commandExecutor);
   }
 
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
+    this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
-      subplot.addObserver(this.audioService);
       subplot.addObserver(this.brailleService);
       subplot.addObserver(this.highlightService);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {

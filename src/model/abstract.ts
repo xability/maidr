@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -146,6 +147,23 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
   }
 
+  /**
+   * Ensure the trace is initialized exactly once, and announce the initial state.
+   * Subsequent calls are no-ops.
+   */
+  public ensureInitialized(): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+    }
+  }
+
+  public resetToInitialEntry(): void {
+    this.isInitialEntry = true;
+    this.row = 0;
+    this.col = 0;
+  }
+
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
@@ -161,7 +179,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
   }
 
-  protected notifyOutOfBounds(): void {
+  public notifyOutOfBounds(): void {
     this.isOutOfBounds = true;
     this.notifyStateUpdate();
     this.isOutOfBounds = false;
@@ -170,6 +188,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
+
+  public notifyObserversWithState(state: State): void {
+    for (const observer of this.observers) {
+      observer.update(state);
+    }
+  }
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
@@ -212,17 +236,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   public get state(): TraceState {
     if (this.isOutOfBounds) {
-      // Safety check: ensure we don't access undefined values
-      const { row: safeRow, col: safeCol } = this.getSafeIndices();
       const values = this.values;
+      const currentRow = this.row;
+      const currentCol = this.col;
 
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: values[safeRow]?.length || 0,
-          index: safeCol,
+          size: values[currentRow]?.length || 0,
+          index: currentCol,
         },
       };
     }
@@ -231,6 +255,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       empty: false,
       type: 'trace',
       traceType: this.type,
+      plotType: this.type, // Default to traceType for other plot types
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
@@ -246,17 +271,17 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
-      // Safety check: ensure we don't access undefined values
-      const { row: safeRow, col: safeCol } = this.getSafeIndices();
       const values = this.values;
+      const currentRow = this.row;
+      const currentCol = this.col;
 
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: values[safeRow]?.length || 0,
-          index: safeCol,
+          size: values[currentRow]?.length || 0,
+          index: currentCol,
         },
       };
     }
@@ -301,6 +326,65 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected abstract text(): TextState;
 
   protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * Get available extrema targets for the current navigation context
+   * @returns Array of extrema targets that can be navigated to
+   * Default implementation returns empty array (no extrema support)
+   */
+  public getExtremaTargets(): ExtremaTarget[] {
+    return []; // Default: no extrema support
+  }
+
+  /**
+   * Base implementation for navigateToExtrema
+   * Subclasses must override to provide actual implementation
+   * @param _target The extrema target to navigate to
+   */
+  public navigateToExtrema(_target: ExtremaTarget): void {
+    if (this.supportsExtrema) {
+      throw new Error('Extrema navigation not implemented by this plot type');
+    }
+    // No-op if extrema navigation is not supported
+  }
+
+  /**
+   * Common post-navigation cleanup that should be called by subclasses
+   * after they update their internal state
+   */
+  protected finalizeExtremaNavigation(): void {
+    // Ensure we're not in initial entry state after navigation
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    // Update visual positioning
+    this.updateVisualPointPosition();
+
+    // Notify observers of state change
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Default implementation for updating visual point position
+   * Subclasses can override if they need custom positioning logic
+   */
+  protected updateVisualPointPosition(): void {
+    // Default implementation - subclasses should override if needed
+  }
+
+  /**
+   * Check if this plot supports extrema navigation
+   * @returns True if extrema navigation is supported
+   */
+  public supportsExtremaNavigation(): boolean {
+    return this.supportsExtrema;
+  }
+
+  /**
+   * Abstract property that subclasses must implement to indicate extrema support
+   */
+  protected abstract readonly supportsExtrema: boolean;
 
   /**
    * Base implementation for getting current X value
@@ -383,5 +467,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
+  }
+
+  public getId(): string {
+    return this.id;
   }
 }

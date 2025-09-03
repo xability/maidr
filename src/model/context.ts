@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { LayerSwitchTraceState, PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -15,14 +15,14 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-  private readonly scopeObservers: Set<(scope: Scope) => void>;
+  private readonly figure: Figure;
 
   public constructor(figure: Figure) {
+    this.figure = figure;
     this.id = figure.id;
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
-    this.scopeObservers = new Set();
 
     // Set the context to figure level.
     const figureState = figure.state;
@@ -43,7 +43,7 @@ export class Context implements Disposable {
       return;
     }
 
-    // Set the context to trace level.
+    // Set the context to trace level (single-layer plot)
     this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
   }
@@ -51,7 +51,6 @@ export class Context implements Disposable {
   public dispose(): void {
     this.plotContext.clear();
     this.scopeContext.clear();
-    this.scopeObservers.clear();
   }
 
   public get active(): Plot {
@@ -63,33 +62,21 @@ export class Context implements Disposable {
   }
 
   public toggleScope(scope: Scope): void {
-    if (!this.scopeContext.removeLast(scope)) {
-      this.scopeContext.push(scope);
-    }
-    hotkeys.setScope(this.scope);
-    this.notifyScopeChange();
+    // Clear the scope context and set the new scope
+    this.scopeContext.clear();
+    this.scopeContext.push(scope);
+
+    hotkeys.setScope(scope);
   }
 
   public get scope(): Scope {
-    return this.scopeContext.peek()!;
+    const currentScope = this.scopeContext.peek()!;
+    return currentScope;
   }
 
-  public addScopeObserver(observer: (scope: Scope) => void): void {
-    this.scopeObservers.add(observer);
+  public isMovable(direction: MovableDirection): boolean {
+    return this.active.isMovable(direction);
   }
-
-  public removeScopeObserver(observer: (scope: Scope) => void): void {
-    this.scopeObservers.delete(observer);
-  }
-
-  private notifyScopeChange(): void {
-    const currentScope = this.scope;
-    this.scopeObservers.forEach(observer => observer(currentScope));
-  }
-
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    return this.active.isMovable(target);
-  };
 
   public moveOnce(direction: MovableDirection): void {
     this.active.moveOnce(direction);
@@ -106,29 +93,41 @@ export class Context implements Disposable {
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
-
       const activeSubplot = this.active as Subplot;
-
-      // Get current trace position before switching
       const currentTrace = activeSubplot.activeTrace;
-
-      // Get current X value using standard interface
+      if (!currentTrace) {
+        return;
+      }
       const currentXValue = currentTrace.getCurrentXValue();
-
       activeSubplot.moveOnce(direction);
-
       const newTrace = activeSubplot.activeTrace;
-
-      // Add the new trace back to the context
       this.plotContext.push(newTrace);
 
-      // Preserve X value using standard interface
-      if (currentXValue !== null) {
-        newTrace.moveToXValue(currentXValue);
+      if (newTrace.getId() === currentTrace.getId()) {
+        newTrace.notifyOutOfBounds();
+        activeSubplot.notifyOutOfBounds();
+        return;
       }
 
-      // Notify state update after context is complete
-      this.active.notifyStateUpdate();
+      newTrace.moveToXValue(currentXValue);
+      if (!newTrace.state.empty) {
+        const index = activeSubplot.getRow() + 1;
+        const size = activeSubplot.getSize();
+        const state: LayerSwitchTraceState = {
+          ...newTrace.state,
+          isLayerSwitch: true,
+          index,
+          size,
+        };
+        newTrace.notifyObserversWithState(state);
+      } else {
+        newTrace.notifyStateUpdate();
+      }
+    } else {
+      const onlySubplot = this.figure.subplots[0][0];
+      const activeTrace = this.active as Trace;
+      activeTrace.notifyOutOfBounds();
+      onlySubplot.notifyOutOfBounds(); // For UI feedback
     }
   }
 
@@ -137,8 +136,9 @@ export class Context implements Disposable {
     if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
-      this.active.notifyStateUpdate();
-      this.plotContext.push(activeFigure.activeSubplot.activeTrace);
+      const trace = activeFigure.activeSubplot.activeTrace;
+      trace.resetToInitialEntry();
+      this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     }
   }
@@ -161,13 +161,23 @@ export class Context implements Disposable {
     const clickPrompt = includeClickPrompt ? 'Click to activate.' : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a MAIDR figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
+        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a MAIDR subplot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        return `This is a maidr plot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
 
-      case 'trace':
-        return `This is a maidr plot of type: ${state.traceType}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+      case 'trace': {
+        // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
+        let effectivePlotType = state.plotType;
+        if (state.plotType === 'multiline' && state.groupCount === 1) {
+          effectivePlotType = 'single line';
+        }
+
+        const groupCountText = effectivePlotType === 'multiline' && state.groupCount
+          ? ` with ${state.groupCount} groups`
+          : '';
+        return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+      }
     }
   }
 }
