@@ -1,3 +1,10 @@
+# [3.26.0](https://github.com/xability/maidr/compare/v3.25.0...v3.26.0) (2025-09-04)
+
+
+### Features
+
+* go to extrema/ Specific point for Line plots via g key ([#426](https://github.com/xability/maidr/issues/426)) ([2ff729c](https://github.com/xability/maidr/commit/2ff729c73428fc74d3c1804af819e6aac171e20d))
+
 # [3.25.0](https://github.com/xability/maidr/compare/v3.24.0...v3.25.0) (2025-09-03)
 
 
