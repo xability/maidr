@@ -1,5 +1,7 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -10,7 +12,7 @@ const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
 
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
@@ -388,5 +390,124 @@ export class LineTrace extends AbstractTrace<number> {
       return { ...stateWithPlotType, intersections };
     }
     return stateWithPlotType;
+  }
+
+  /**
+   * Get extrema targets for the current line plot
+   * Returns min and max values within the current group
+   * @returns Array of extrema targets for navigation
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
+      return targets;
+    }
+
+    const groupValues = this.lineValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+    // Use pre-computed min/max values instead of recalculating
+    const groupMin = this.min[currentGroup];
+    const groupMax = this.max[currentGroup];
+    // Find indices of min/max values
+    const maxIndices: number[] = [];
+    const minIndices: number[] = [];
+    for (let index = 0; index < groupValues.length; index++) {
+      const value = groupValues[index];
+      if (value === groupMax) {
+        maxIndices.push(index);
+      }
+      if (value === groupMin) {
+        minIndices.push(index);
+      }
+    }
+
+    // Add max targets
+    for (const maxIndex of maxIndices) {
+      targets.push({
+        label: `Max point at ${this.getPointLabel(maxIndex)}`,
+        value: groupMax,
+        pointIndex: maxIndex,
+        segment: 'line',
+        type: 'max',
+        navigationType: 'point',
+      });
+    }
+
+    // Add min target
+    for (const minIndex of minIndices) {
+      targets.push({
+        label: `Min point at ${this.getPointLabel(minIndex)}`,
+        value: groupMin,
+        pointIndex: minIndex,
+        segment: 'line',
+        type: 'min',
+        navigationType: 'point',
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Navigate to a specific extrema target
+   * @param target The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    // Update the current point index (column)
+    this.col = target.pointIndex;
+
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
+  }
+
+  /**
+   * Get a clean label for a specific point
+   * @param pointIndex The index of the point
+   * @returns A clean label for the point
+   */
+  private getPointLabel(pointIndex: number): string {
+    if (this.points[this.row] && this.points[this.row][pointIndex]) {
+      const point = this.points[this.row][pointIndex];
+      return `${point.x}`;
+    }
+    return `Point ${pointIndex}`;
+  }
+
+  /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  protected updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
+  }
+
+  /**
+   * Get available X values for navigation
+   * @returns Array of X values
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.points[this.row].map(val => val.x);
+  }
+
+  /**
+   * Move the line plot to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    const targetIndex = this.points[this.row].findIndex(point => point.x === xValue);
+    if (targetIndex !== -1) {
+      this.col = targetIndex;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+    return false;
   }
 }
