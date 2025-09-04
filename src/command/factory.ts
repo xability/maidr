@@ -62,6 +62,12 @@ import {
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
+import {
+  RotorNavigationNextNavUnitCommand,
+  RotorNavigationPrevNavUnitCommand
+} from './rotorNavigation'
+import { RotorNavigationService } from '@service/rotor';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 
 export class CommandFactory {
   private readonly context: Context;
@@ -69,6 +75,7 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
+  private readonly rotorService: RotorNavigationService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -77,6 +84,7 @@ export class CommandFactory {
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
@@ -84,6 +92,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
@@ -92,6 +101,7 @@ export class CommandFactory {
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
+    this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
   public create(command: Keys): Command {
@@ -187,6 +197,10 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
+      case 'ROTOR_NEXT_NAV':
+        return new RotorNavigationNextNavUnitCommand(this.rotorNavigationViewModel);
+      case 'ROTOR_PREV_NAV':
+        return new RotorNavigationPrevNavUnitCommand(this.rotorNavigationViewModel);
 
       default:
         throw new Error(`Invalid command name: ${command}`);

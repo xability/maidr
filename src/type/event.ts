@@ -15,8 +15,8 @@ export enum DomEventType {
 
 export type Status
   = | 'PENDING'
-    | 'SUCCESS'
-    | 'FAILED';
+  | 'SUCCESS'
+  | 'FAILED';
 
 export enum Scope {
   BRAILLE = 'BRAILLE',
@@ -29,6 +29,8 @@ export enum Scope {
   TRACE_LABEL = 'TRACE_LABEL',
   REVIEW = 'REVIEW',
   SETTINGS = 'SETTINGS',
+  ROTOR_NEXT_NAV = 'ROTOR_NEXT_NAV',
+  ROTOR_PREV_NAV = 'ROTOR_PREV_NAV'
 }
 
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;

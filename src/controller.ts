@@ -26,6 +26,8 @@ import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { RotorNavigationService } from '@service/rotor';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -40,6 +42,7 @@ export class Controller implements Disposable {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -54,6 +57,7 @@ export class Controller implements Disposable {
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
   private readonly keybinding: KeybindingService;
 
@@ -85,6 +89,10 @@ export class Controller implements Disposable {
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
+
+    this.rotorNavigationService = new RotorNavigationService(this.context, this.displayService);
+    this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService);
+
     this.keybinding = new KeybindingService(
       {
         context: this.context,
@@ -92,6 +100,7 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -100,6 +109,7 @@ export class Controller implements Disposable {
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel
       },
     );
 
@@ -164,6 +174,7 @@ export class Controller implements Disposable {
         trace.addObserver(this.textService);
         trace.addObserver(this.reviewService);
         trace.addObserver(this.highlightService);
+        // trace.addObserver(this.rotorNavigationService);
       }));
     }));
   }

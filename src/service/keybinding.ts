@@ -176,6 +176,10 @@ const TRACE_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA: `g`,
+
+  //rotor functionality
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
 } as const;
 
 const GO_TO_EXTREMA_KEYMAP = {
@@ -185,6 +189,17 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_SELECT: `enter`,
   GO_TO_EXTREMA_CLOSE: `esc`,
 } as const;
+
+const ROTOR_KEYMAP = {
+  UP: `up`,
+  DOWN: `down`
+}
+const NAVIGATION_INTERACTION_KEYMAP = {
+  MOVE_UP: `up`,
+  MOVE_DOWN: `down`,
+  MOVE_LEFT: `left`,
+  MOVE_RIGHT: `right`
+}
 
 const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
@@ -197,6 +212,8 @@ const SCOPED_KEYMAP = {
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
   [Scope.TRACE]: TRACE_KEYMAP,
   [Scope.TRACE_LABEL]: TRACE_LABEL_KEYMAP,
+  [Scope.ROTOR_NEXT_NAV]: ROTOR_KEYMAP,
+  [Scope.ROTOR_PREV_NAV]: ROTOR_KEYMAP
 } as const;
 
 export type Keymap = {
