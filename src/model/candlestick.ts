@@ -155,12 +155,15 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Update visual position for point highlighting
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.row = this.currentPointIndex;
     } else {
       this.col = this.currentPointIndex;
     }
+
+    // Also update segment position since candlestick needs both
+    this.updateVisualSegmentPosition();
   }
 
   protected handleInitialEntry(): void {
@@ -728,8 +731,7 @@ export class Candlestick extends AbstractTrace<number> {
     // Update the current segment type
     this.currentSegmentType = target.segment as CandlestickNavSegmentType;
 
-    this.updateVisualPointPosition();
-    this.updateVisualSegmentPosition();
-    this.notifyStateUpdate();
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
   }
 }

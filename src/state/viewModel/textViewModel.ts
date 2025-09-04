@@ -78,10 +78,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
-          this.setAriaAnnouncement(false);
+          this.setAnnounce(false);
           break;
         case 'stop':
-          this.setAriaAnnouncement(true);
+          this.setAnnounce(true);
           break;
       }
     }));
@@ -106,7 +106,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.store.dispatch(notify(message));
   }
 
-  private setAriaAnnouncement(enabled: boolean): void {
+  public setAnnounce(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
   }
 }

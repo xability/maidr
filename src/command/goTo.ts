@@ -18,3 +18,27 @@ export class GoToExtremaCommand implements Command {
     }
   }
 }
+
+export class GoToExtremaToggleCommand implements Command {
+  private readonly context: Context;
+  private readonly goToExtremaViewModel: GoToExtremaViewModel;
+
+  public constructor(context: Context, goToExtremaViewModel: GoToExtremaViewModel) {
+    this.context = context;
+    this.goToExtremaViewModel = goToExtremaViewModel;
+  }
+
+  public execute(): void {
+    const state = this.context.state;
+    if (state.type === 'trace') {
+      if (this.goToExtremaViewModel.state.visible) {
+        this.goToExtremaViewModel.hide();
+      } else {
+        const activeTrace = this.context.active;
+        if (activeTrace && this.goToExtremaViewModel.isExtremaNavigable(activeTrace)) {
+          this.goToExtremaViewModel.toggle(state);
+        }
+      }
+    }
+  }
+}

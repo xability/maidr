@@ -458,9 +458,9 @@ export class LineTrace extends AbstractTrace<number> {
   public override navigateToExtrema(target: ExtremaTarget): void {
     // Update the current point index (column)
     this.col = target.pointIndex;
-    // Update visual positioning and notify observers
-    this.updateVisualPointPosition();
-    this.notifyStateUpdate();
+
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
   }
 
   /**
@@ -480,7 +480,7 @@ export class LineTrace extends AbstractTrace<number> {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;

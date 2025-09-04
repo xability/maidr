@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import brailleReducer from './viewModel/brailleViewModel';
 import chatReducer from './viewModel/chatViewModel';
+import commandPaletteReducer from './viewModel/commandPaletteViewModel';
 import displayReducer from './viewModel/displayViewModel';
 import goToExtremaReducer from './viewModel/goToExtremaViewModel';
 import helpMenuReducer from './viewModel/helpViewModel';
@@ -12,6 +13,7 @@ export const store = configureStore({
   reducer: {
     braille: brailleReducer,
     chat: chatReducer,
+    commandPalette: commandPaletteReducer,
     display: displayReducer,
     goToExtrema: goToExtremaReducer,
     help: helpMenuReducer,

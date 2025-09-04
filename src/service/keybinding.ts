@@ -55,7 +55,7 @@ const CHAT_KEYMAP = {
 } as const;
 
 const FIGURE_LABEL_KEYMAP = {
-  DEACTIVATE_FIGURE_LABEL_SCOPE: `*`,
+  DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_TITLE: `t`,
@@ -98,7 +98,7 @@ const SUBPLOT_KEYMAP = {
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
-  DEACTIVATE_TRACE_LABEL_SCOPE: `*`,
+  DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_X: `x`,
@@ -169,26 +169,36 @@ const TRACE_KEYMAP = {
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
+  TOGGLE_COMMAND_PALETTE: `${Platform.ctrl}+shift+p`,
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
   DESCRIBE_POINT: `space`,
 
   // Go To functionality
-  GO_TO_EXTREMA: `g`,
+  GO_TO_EXTREMA_TOGGLE: 'g',
 } as const;
 
 const GO_TO_EXTREMA_KEYMAP = {
   // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: `up`,
-  GO_TO_EXTREMA_MOVE_DOWN: `down`,
-  GO_TO_EXTREMA_SELECT: `enter`,
-  GO_TO_EXTREMA_CLOSE: `esc`,
+  GO_TO_EXTREMA_MOVE_UP: 'up',
+  GO_TO_EXTREMA_MOVE_DOWN: 'down',
+  GO_TO_EXTREMA_SELECT: 'enter',
+  GO_TO_EXTREMA_TOGGLE: 'g',
 } as const;
 
-const SCOPED_KEYMAP = {
+const COMMAND_PALETTE_KEYMAP = {
+  // Navigation within the modal
+  COMMAND_PALETTE_MOVE_UP: 'up',
+  COMMAND_PALETTE_MOVE_DOWN: 'down',
+  COMMAND_PALETTE_SELECT: 'enter',
+  COMMAND_PALETTE_CLOSE: 'esc',
+} as const;
+
+export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
+  [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
