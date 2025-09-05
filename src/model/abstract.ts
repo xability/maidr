@@ -205,6 +205,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   protected readonly yAxis: string;
   protected readonly fill: string;
 
+  // Store original layer configuration for formatting and other settings
+  protected readonly layerConfig: MaidrLayer;
+
   // Service for navigation business logic
   protected readonly navigationService: NavigationService;
 
@@ -218,6 +221,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+    this.layerConfig = layer;
   }
 
   public dispose(): void {
@@ -266,6 +270,7 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
       text: this.text(),
       autoplay: this.autoplay, // Remove parentheses
       highlight: this.highlight(),
+      layerConfig: this.layerConfig,
     };
   }
 
