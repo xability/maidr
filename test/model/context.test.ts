@@ -3,6 +3,17 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 import { Context } from '../../src/model/context';
 import { TraceType } from '../../src/type/grammar';
 
+// Mock layer config for tests
+const mockLayerConfig = {
+  id: 'test-layer',
+  type: TraceType.LINE,
+  axes: {
+    x: 'x',
+    y: 'y'
+  },
+  data: []
+};
+
 /**
  * Helper function to create a minimal mock Context for testing getInstruction
  */
@@ -90,6 +101,7 @@ describe('Context getInstruction method', () => {
 
     beforeEach(() => {
       const singleLineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -129,6 +141,7 @@ describe('Context getInstruction method', () => {
 
     beforeEach(() => {
       const multilineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -167,6 +180,7 @@ describe('Context getInstruction method', () => {
   describe('Multiline plot instructions with different group counts', () => {
     it('should handle multiline plot with 1 group', () => {
       const multilineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -194,6 +208,7 @@ describe('Context getInstruction method', () => {
 
     it('should handle multiline plot with many groups', () => {
       const multilineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -222,6 +237,7 @@ describe('Context getInstruction method', () => {
   describe('Edge cases for multiline instructions', () => {
     it('should handle multiline plot without groupCount property', () => {
       const multilineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -248,6 +264,7 @@ describe('Context getInstruction method', () => {
 
     it('should handle multiline plot with zero groupCount', () => {
       const multilineState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.LINE,
@@ -276,6 +293,7 @@ describe('Context getInstruction method', () => {
   describe('Non-multiline plot types', () => {
     it('should not add group count for bar plots', () => {
       const barState: TraceState = {
+        layerConfig: mockLayerConfig,
         empty: false,
         type: 'trace',
         traceType: TraceType.BAR,
