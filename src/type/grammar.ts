@@ -4,17 +4,129 @@
  */
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
+export interface AxisFormatConfig {
+
+  dateFormat?: {
+
+    style?: 'short' | 'medium' | 'long' | 'full';
+
+    format?: string;
+  };
+
+  numberFormat?: {
+
+    style?: 'decimal' | 'currency' | 'percent' | 'scientific';
+
+    currency?: string;
+
+    minimumFractionDigits?: number;
+
+    maximumFractionDigits?: number;
+
+    useGrouping?: boolean;
+  };
+
+  priceFormat?: {
+
+    currency?: string;
+
+    minimumFractionDigits?: number;
+
+    maximumFractionDigits?: number;
+
+    useGrouping?: boolean;
+  };
+}
+
+export interface FormattingConfig {
+
+  locale?: string;
+
+  timezone?: string;
+
+  numberFormat?: {
+
+    style?: 'decimal' | 'currency' | 'percent' | 'scientific';
+
+    currency?: string;
+
+    minimumFractionDigits?: number;
+
+    maximumFractionDigits?: number;
+
+    useGrouping?: boolean;
+
+    notation?: 'standard' | 'scientific' | 'engineering' | 'compact';
+
+    compactDisplay?: 'short' | 'long';
+  };
+
+  priceFormat?: {
+
+    currency?: string;
+
+    minimumFractionDigits?: number;
+
+    maximumFractionDigits?: number;
+
+    useGrouping?: boolean;
+  };
+
+  dateFormat?: {
+
+    style?: 'short' | 'medium' | 'long' | 'full';
+
+    includeTime?: boolean;
+
+    timeFormat?: '12h' | '24h';
+
+    customFormat?: string;
+
+    relative?: boolean;
+
+    showTime?: boolean;
+
+    showSeconds?: boolean;
+
+    showTimezone?: boolean;
+  };
+
+  textFormat?: {
+
+    maxLength?: number;
+
+    truncateStrategy?: 'end' | 'middle' | 'word';
+
+    case?: 'lower' | 'upper' | 'title' | 'sentence';
+
+    ellipsis?: string;
+  };
+
+  /**
+   * Axis-specific formatting overrides
+   */
+  axes?: {
+    x?: Partial<FormattingConfig>;
+    y?: Partial<FormattingConfig>;
+    volume?: Partial<FormattingConfig>;
+    fill?: Partial<FormattingConfig>;
+  };
+}
+
 export interface Maidr {
   id: string;
   title?: string;
   subtitle?: string;
   caption?: string;
   subplots: MaidrSubplot[][];
+
+  formatting?: FormattingConfig;
 }
 
 export interface MaidrSubplot {
   legend?: string[];
   layers: MaidrLayer[];
+  formatting?: FormattingConfig;
 }
 
 export interface BarPoint {
@@ -112,6 +224,8 @@ export interface MaidrLayer {
     x?: string;
     y?: string;
     fill?: string;
+    xAxisFormat?: AxisFormatConfig;
+    yAxisFormat?: AxisFormatConfig;
   };
   data:
     | BarPoint[]

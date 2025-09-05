@@ -8,6 +8,7 @@ import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
+import { DataFormattingService } from '@service/dataFormatting';
 import { DisplayService } from '@service/display';
 import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
@@ -43,6 +44,7 @@ export class Controller implements Disposable {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly dataFormattingService: DataFormattingService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -67,7 +69,8 @@ export class Controller implements Disposable {
     this.context = new Context(this.figure);
 
     this.notificationService = new NotificationService();
-    this.textService = new TextService(this.notificationService);
+    this.dataFormattingService = new DataFormattingService();
+    this.textService = new TextService(this.notificationService, this.dataFormattingService);
     this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
 

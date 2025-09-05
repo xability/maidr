@@ -1,7 +1,9 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
+import type { AxisFormatConfig } from '@type/grammar';
 import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
+import type { DataFormattingService } from './dataFormatting';
 import type { NotificationService } from './notification';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
@@ -20,6 +22,7 @@ interface TextChangedEvent {
 
 export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
+  private readonly dataFormattingService: DataFormattingService;
 
   private mode: TextMode;
   private currentState: PlotState | null = null;
@@ -28,8 +31,9 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
 
-  public constructor(notification: NotificationService) {
+  public constructor(notification: NotificationService, dataFormattingService: DataFormattingService) {
     this.notification = notification;
+    this.dataFormattingService = dataFormattingService;
 
     this.mode = TextMode.VERBOSE;
 
@@ -47,6 +51,41 @@ export class TextService implements Observer<PlotState>, Disposable {
    */
   public getCurrentState(): PlotState | null {
     return this.currentState;
+  }
+
+  /**
+   * Format a value using the provided axis configuration
+   * @param value The value to format
+   * @param axisConfig The axis-specific formatting configuration
+   * @returns Formatted string value
+   */
+  private formatValue(value: any, axisConfig?: AxisFormatConfig): string {
+    if (axisConfig) {
+      return this.dataFormattingService.formatValueWithAxisConfig(value, axisConfig);
+    }
+
+    // No formatting applied, return as string
+    return String(value);
+  }
+
+  /**
+   * Get axis configurations from current trace state
+   * Returns undefined if state is empty or not a trace
+   */
+  private getAxisConfigs(): { xAxisConfig?: AxisFormatConfig; yAxisConfig?: AxisFormatConfig } | undefined {
+    if (!this.currentState || this.currentState.empty || this.currentState.type !== 'trace') {
+      return undefined;
+    }
+
+    const traceState = this.currentState as TraceState;
+    if (traceState.empty) {
+      return undefined;
+    }
+
+    return {
+      xAxisConfig: traceState.layerConfig.axes?.xAxisFormat,
+      yAxisConfig: traceState.layerConfig.axes?.yAxisFormat,
+    };
   }
 
   /**
@@ -190,16 +229,21 @@ export class TextService implements Observer<PlotState>, Disposable {
   private formatVerboseTraceText(state: TextState): string {
     const verbose = new Array<string>();
 
-    // Format main-axis values.
+    // Get axis configurations from current state
+    const axisConfigs = this.getAxisConfigs();
+    const xAxisConfig = axisConfigs?.xAxisConfig;
+    const yAxisConfig = axisConfigs?.yAxisConfig;
+
+    // Format main-axis values (X-axis)
     verbose.push(state.main.label, Constant.IS);
 
     // Format for histogram and scatter plot.
     if (state.range !== undefined) {
-      verbose.push(String(state.range.min), Constant.THROUGH, String(state.range.max));
+      verbose.push(this.formatValue(state.range.min, yAxisConfig), Constant.THROUGH, this.formatValue(state.range.max, yAxisConfig));
     } else if (Array.isArray(state.main.value)) {
-      verbose.push(state.main.value.join(Constant.COMMA_SPACE));
+      verbose.push(state.main.value.map(v => this.formatValue(v, xAxisConfig)).join(Constant.COMMA_SPACE));
     } else {
-      verbose.push(String(state.main.value));
+      verbose.push(this.formatValue(state.main.value, xAxisConfig));
     }
 
     // Special handling for boxplot outlier sections
@@ -212,14 +256,14 @@ export class TextService implements Observer<PlotState>, Disposable {
       // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
       const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
       const outliers = state.cross.value;
-      const outlierStr = `[${outliers.join(', ')}]`;
+      const outlierStr = `[${outliers.map(v => this.formatValue(v, yAxisConfig)).join(', ')}]`;
       if (outliers.length === 0) {
         // No outliers
-        return `${state.main.label} is ${state.main.value}, no ${state.section.toLowerCase()} for ${label}`;
+        return `${state.main.label} is ${this.formatValue(state.main.value, xAxisConfig)}, no ${state.section.toLowerCase()} for ${label}`;
       } else {
         // Outlier values present
         const verb = outliers.length === 1 ? 'is' : 'are';
-        return `${state.main.label} is ${state.main.value}, ${state.section.toLowerCase()} for ${label} ${verb} ${outlierStr}`;
+        return `${state.main.label} is ${this.formatValue(state.main.value, xAxisConfig)}, ${state.section.toLowerCase()} for ${label} ${verb} ${outlierStr}`;
       }
     }
 
@@ -237,13 +281,13 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(Constant.COMMA_SPACE, state.cross.label);
     }
 
-    // Format cross-axis values.
+    // Format cross-axis values (Y-axis).
     if (!Array.isArray(state.cross.value)) {
-      verbose.push(Constant.IS, String(state.cross.value));
+      verbose.push(Constant.IS, this.formatValue(state.cross.value, yAxisConfig));
     } else if (state.cross.value.length > 1) {
-      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
+      verbose.push(Constant.ARE, state.cross.value.map(v => this.formatValue(v, yAxisConfig)).join(Constant.COMMA_SPACE));
     } else if (state.cross.value.length > 0) {
-      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+      verbose.push(Constant.IS, state.cross.value.map(v => this.formatValue(v, yAxisConfig)).join(Constant.COMMA_SPACE));
     }
 
     // Format for heatmap and scatter plot.
@@ -251,7 +295,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       // Convert candlestick trend values to lowercase for text mode
       const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
         ? state.fill.value.toLowerCase()
-        : state.fill.value;
+        : this.formatValue(state.fill.value, yAxisConfig);
 
       verbose.push(
         Constant.COMMA_SPACE,
@@ -267,10 +311,15 @@ export class TextService implements Observer<PlotState>, Disposable {
   private formatTerseTraceText(state: TextState): string {
     const terse = new Array<string>();
 
+    // Get axis configurations from current state
+    const axisConfigs = this.getAxisConfigs();
+    const xAxisConfig = axisConfigs?.xAxisConfig;
+    const yAxisConfig = axisConfigs?.yAxisConfig;
+
     if (Array.isArray(state.main.value)) {
-      terse.push(Constant.OPEN_BRACKET, state.main.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      terse.push(Constant.OPEN_BRACKET, state.main.value.map(v => this.formatValue(v, xAxisConfig)).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     } else {
-      terse.push(String(state.main.value), Constant.COMMA_SPACE);
+      terse.push(this.formatValue(state.main.value, xAxisConfig), Constant.COMMA_SPACE);
     }
 
     // Special handling for boxplot outlier sections
@@ -281,11 +330,11 @@ export class TextService implements Observer<PlotState>, Disposable {
       && Array.isArray(state.cross.value)
     ) {
       const outliers = state.cross.value;
-      const outlierStr = `[${outliers.join(', ')}]`;
+      const outlierStr = `[${outliers.map(v => this.formatValue(v, yAxisConfig)).join(', ')}]`;
       if (outliers.length === 0) {
-        return `${state.main.value}, no ${state.section.toLowerCase()}`;
+        return `${this.formatValue(state.main.value, xAxisConfig)}, no ${state.section.toLowerCase()}`;
       } else {
-        return `${state.main.value}, ${outliers.length} ${state.section.toLowerCase()} ${outlierStr}`;
+        return `${this.formatValue(state.main.value, xAxisConfig)}, ${outliers.length} ${state.section.toLowerCase()} ${outlierStr}`;
       }
     }
 
@@ -296,24 +345,24 @@ export class TextService implements Observer<PlotState>, Disposable {
       // For candlestick: show section (type) first, then cross.value (price)
       terse.push(state.section!, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value));
+        terse.push(this.formatValue(state.cross.value, yAxisConfig));
       } else {
-        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.map(v => this.formatValue(v, yAxisConfig)).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
     } else if (state.section !== undefined && state.fill === undefined) {
       // For box plots: show section (type) first, then cross.value
       terse.push(state.section!, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value));
+        terse.push(this.formatValue(state.cross.value, yAxisConfig));
       } else {
-        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.map(v => this.formatValue(v, yAxisConfig)).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
     } else {
       // For other plots: show cross.value normally
       if (!Array.isArray(state.cross.value)) {
-        terse.push(String(state.cross.value));
+        terse.push(this.formatValue(state.cross.value, yAxisConfig));
       } else {
-        terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+        terse.push(Constant.OPEN_BRACKET, state.cross.value.map(v => this.formatValue(v, yAxisConfig)).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
     }
 
@@ -322,7 +371,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       // Convert candlestick trend values to lowercase for text mode
       const fillValue = (state.fill.value === 'Bull' || state.fill.value === 'Bear')
         ? state.fill.value.toLowerCase()
-        : state.fill.value;
+        : this.formatValue(state.fill.value, yAxisConfig);
 
       // For candlestick plots, add comma before trend value to show "open 100, bear"
       if (state.section !== undefined) {
