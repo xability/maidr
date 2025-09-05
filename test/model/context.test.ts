@@ -9,9 +9,9 @@ const mockLayerConfig = {
   type: TraceType.LINE,
   axes: {
     x: 'x',
-    y: 'y'
+    y: 'y',
   },
-  data: []
+  data: [],
 };
 
 /**
