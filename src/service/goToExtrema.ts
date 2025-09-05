@@ -19,9 +19,11 @@ export class GoToExtremaService {
     }
 
     const activeTrace = this.context.active;
-
     if (activeTrace && this.isExtremaNavigable(activeTrace)) {
-      this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+      // Ensure we're in GO_TO_EXTREMA scope
+      if (this.context.scope !== Scope.GO_TO_EXTREMA) {
+        this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+      }
     }
   }
 
@@ -30,6 +32,9 @@ export class GoToExtremaService {
   }
 
   public returnToTraceScope(): void {
-    this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    // Ensure we return to TRACE scope
+    if (this.context.scope !== Scope.TRACE) {
+      this.display.toggleFocus(Scope.GO_TO_EXTREMA);
+    }
   }
 }

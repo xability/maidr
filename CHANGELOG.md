@@ -1,3 +1,24 @@
+# [3.26.0](https://github.com/xability/maidr/compare/v3.25.0...v3.26.0) (2025-09-04)
+
+
+### Features
+
+* go to extrema/ Specific point for Line plots via g key ([#426](https://github.com/xability/maidr/issues/426)) ([2ff729c](https://github.com/xability/maidr/commit/2ff729c73428fc74d3c1804af819e6aac171e20d))
+
+# [3.25.0](https://github.com/xability/maidr/compare/v3.24.0...v3.25.0) (2025-09-03)
+
+
+### Features
+
+* add command palette ([#354](https://github.com/xability/maidr/issues/354)) ([0445e24](https://github.com/xability/maidr/commit/0445e248669400a421f87f96d1b3eef4dfc5bb7a))
+
+# [3.24.0](https://github.com/xability/maidr/compare/v3.23.3...v3.24.0) (2025-09-02)
+
+
+### Features
+
+* go to specific value in candlestick plots ([#427](https://github.com/xability/maidr/issues/427)) ([b1d1191](https://github.com/xability/maidr/commit/b1d11914ee576285db9a6d8d72fc543bdfcdc6bb)), closes [#428](https://github.com/xability/maidr/issues/428)
+
 ## [3.23.3](https://github.com/xability/maidr/compare/v3.23.2...v3.23.3) (2025-08-20)
 
 

@@ -33,6 +33,7 @@ export const GoToExtrema: React.FC = () => {
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const searchOptionRef = useRef<HTMLDivElement>(null);
 
   // Search combobox state
   const [inputValue, setInputValue] = useState('');
@@ -42,6 +43,7 @@ export const GoToExtrema: React.FC = () => {
   const inputFieldWrapperRef = useRef<HTMLInputElement>(null);
   const inputElRef = useRef<HTMLInputElement>(null); // real input element
   const listboxRef = useRef<HTMLUListElement>(null);
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (modalRef.current) {
@@ -102,11 +104,10 @@ export const GoToExtrema: React.FC = () => {
 
   // Announce highlighted option via assertive live region for SRs that ignore activedescendant text
   useEffect(() => {
-    const region = document.getElementById('sr-active-option-announcer');
-    if (!region)
-      return;
-    const text = activeOptionText ?? '';
-    region.textContent = text;
+    if (liveRegionRef.current) {
+      const text = activeOptionText ?? '';
+      liveRegionRef.current.textContent = text;
+    }
   }, [dropdownSelectedIndex, activeOptionText]);
 
   // Auto-scroll and focus management when selection changes
@@ -155,9 +156,9 @@ export const GoToExtrema: React.FC = () => {
   }
 
   const handleClose = (): void => {
-    const region = document.getElementById('sr-active-option-announcer');
-    if (region)
-      region.textContent = '';
+    if (liveRegionRef.current) {
+      liveRegionRef.current.textContent = '';
+    }
     goToExtremaViewModel.hide();
   };
 
@@ -189,54 +190,50 @@ export const GoToExtrema: React.FC = () => {
     }
   };
 
+  const announceToScreenReader = (message: string): void => {
+    if (liveRegionRef.current) {
+      liveRegionRef.current.textContent = message;
+    }
+  };
+
   const handleListboxKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
 
-      if (state.selectedIndex === state.targets.length && isDropdownOpen) {
-        setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
-        return;
-      }
-
-      goToExtremaViewModel.moveDown();
-
-      if (state.selectedIndex + 1 === state.targets.length && availableXValues.length > 0) {
+      if (state.selectedIndex === state.targets.length - 1) {
+        // If on last extrema option, move to search
+        focusSearchInput();
         setIsDropdownOpen(true);
         setDropdownSelectedIndex(0);
-        focusSearchInput();
+        announceToScreenReader('Moved to search. Type to filter X values.');
+      } else {
+        goToExtremaViewModel.moveDown();
+        // Announce the newly selected option
+        const newOption = state.targets[state.selectedIndex + 1];
+        announceToScreenReader(`Selected: ${newOption.label}`);
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
 
-      if (state.selectedIndex === state.targets.length && isDropdownOpen) {
-        setDropdownSelectedIndex((i) => {
-          const next = Math.max(0, i - 1);
-          if (next === 0 && i === 0) {
-            setIsDropdownOpen(false);
-            return -1;
-          }
-          return next;
-        });
-        return;
+      if (state.selectedIndex === 0) {
+        announceToScreenReader('At first extrema option');
+      } else {
+        goToExtremaViewModel.moveUp();
+        // Announce the newly selected option
+        const newOption = state.targets[state.selectedIndex - 1];
+        announceToScreenReader(`Selected: ${newOption.label}`);
       }
-
-      goToExtremaViewModel.moveUp();
     } else if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
 
       if (state.selectedIndex < state.targets.length) {
         const target = state.targets[state.selectedIndex];
-        if (target)
+        if (target) {
           handleTargetSelect(target);
-      } else if (state.selectedIndex === state.targets.length) {
-        // Focus input and ensure dropdown open
-        setIsDropdownOpen(true);
-        if (dropdownSelectedIndex < 0 && filteredOptions.length > 0)
-          setDropdownSelectedIndex(0);
-        focusSearchInput();
+        }
       }
     }
   };
@@ -251,178 +248,189 @@ export const GoToExtrema: React.FC = () => {
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
-      setIsDropdownOpen(true);
-      setDropdownSelectedIndex(i => Math.min(Math.max(0, i) + 1, filteredOptions.length - 1));
+      if (dropdownSelectedIndex === filteredOptions.length - 1) {
+        announceToScreenReader('At last search result');
+      } else {
+        setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
+        // Announce the newly selected search result
+        if (filteredOptions[dropdownSelectedIndex + 1]) {
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex + 1]}`);
+        }
+      }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
-      setDropdownSelectedIndex(i => Math.max(Math.max(0, i) - 1, 0));
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      setIsDropdownOpen(false);
-      setDropdownSelectedIndex(-1);
-      const region = document.getElementById('sr-active-option-announcer');
-      if (region)
-        region.textContent = '';
-      (selectedItemRef.current as HTMLElement | null)?.focus();
+      // If on first search result, go back to main options
+      if (dropdownSelectedIndex === 0) {
+        setIsDropdownOpen(false);
+        setDropdownSelectedIndex(-1);
+        // Get the last selected extrema option's label for announcement
+        const lastSelectedOption = state.targets[state.selectedIndex];
+        announceToScreenReader(`Returning to extrema options: ${lastSelectedOption.label}`);
+        // Focus back on the selected option
+        if (selectedItemRef.current) {
+          selectedItemRef.current.focus();
+        }
+      } else {
+        setDropdownSelectedIndex(i => Math.max(0, i - 1));
+        // Announce the newly selected search result
+        if (filteredOptions[dropdownSelectedIndex - 1]) {
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1]}`);
+        }
+      }
     }
   };
 
   // Conditional rendering in JSX, not early return (following codebase pattern)
   return state.visible && state.targets.length > 0
     ? (
-        <Box
-          ref={modalRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="go-to-extrema-title"
-          aria-describedby="go-to-extrema-description"
-          tabIndex={0}
-          sx={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 2,
-            p: 3,
-            boxShadow: 3,
-            zIndex: 1000,
-            minWidth: 300,
-            maxHeight: '80vh',
-            outline: 'none',
-          }}
-        >
-          <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
-              Go To Extrema
-            </Typography>
-            <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
-              <Close />
-            </IconButton>
-          </Box>
-
-          <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-              {state.description || 'Navigate to statistical extremes'}
-            </Typography>
-          </Box>
-
-          <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
-            {state.targets.map((target: ExtremaTarget, index: number) => (
-              <Box
-                key={`${target.segment}-${target.type}-${target.pointIndex}`}
-                ref={index === state.selectedIndex ? selectedItemRef : null}
-                id={`extrema-target-${index}`}
-                onClick={() => handleTargetSelect(target)}
-                role="option"
-                aria-selected={state.selectedIndex === index}
-                aria-label={`${target.label}, Value: ${target.value.toFixed(2)}`}
-                tabIndex={0}
-                sx={getTargetBoxSx(state.selectedIndex === index)}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  {target.label}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {`Value: ${target.value.toFixed(2)}`}
-                </Typography>
-              </Box>
-            ))}
-
-            {/* 4th option: Searchable combobox */}
-            {availableXValues.length > 0 && (
-              <Box
-                id="search-input-option"
-                role="option"
-                aria-selected={state.selectedIndex === state.targets.length}
-                aria-label="Search and navigate to specific X value"
-                tabIndex={0}
-                sx={{ p: 1.5, borderRadius: 1, mb: 0.5, border: state.selectedIndex === state.targets.length ? 2 : 1, borderColor: state.selectedIndex === state.targets.length ? 'primary.main' : 'divider', bgcolor: state.selectedIndex === state.targets.length ? 'action.selected' : 'transparent', position: 'relative' }}
-                onClick={() => {
-                  focusSearchInput();
-                  setIsDropdownOpen(true);
-                  setDropdownSelectedIndex(0);
-                }}
-              >
-                <TextField
-                  ref={inputFieldWrapperRef}
-                  inputRef={inputElRef}
-                  label="Search X values"
-                  placeholder={`Type to search ${availableXValues.length} values`}
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  value={inputValue}
-                  onChange={(e) => {
-                    setInputValue(e.target.value);
-                    setIsDropdownOpen(true);
-                    if (dropdownSelectedIndex < 0) {
-                      setDropdownSelectedIndex(0);
-                    }
-                  }}
-                  onFocus={() => {
-                    setIsDropdownOpen(true);
-                    if (dropdownSelectedIndex < 0) {
-                      setDropdownSelectedIndex(0);
-                    }
-                  }}
-                  onKeyDown={handleInputKeyDown}
-                  slotProps={textFieldSlotProps}
-                />
-
-                {isDropdownOpen && filteredOptions.length > 0 && (
-                  <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
-                    {filteredOptions.map((value, idx) => (
-                      <ListItem
-                        key={`${value}-${idx}`}
-                        id={`option-${idx}`}
-                        role="option"
-                        aria-selected={dropdownSelectedIndex === idx}
-                        aria-label={String(value)}
-                        tabIndex={0}
-                        onClick={() => handleOptionSelect(value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOptionSelect(value);
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
-                          } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setIsDropdownOpen(false);
-                            setDropdownSelectedIndex(-1);
-                          }
-                        }}
-                        sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
-                      >
-                        <ListItemText primary={String(value)} />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-                {/* Assertive live region for immediate announcement of highlighted option */}
-                <div
-                  id="sr-active-option-announcer"
-                  aria-live="assertive"
-                  aria-atomic="true"
-                  style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
-                />
-              </Box>
-            )}
-          </Box>
+      <Box
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="go-to-extrema-title"
+        aria-describedby="go-to-extrema-description"
+        tabIndex={0}
+        sx={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          bgcolor: 'background.paper',
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 2,
+          p: 3,
+          boxShadow: 3,
+          zIndex: 1000,
+          minWidth: 300,
+          maxHeight: '80vh',
+          outline: 'none',
+        }}
+      >
+        <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
+            Go To Extrema
+          </Typography>
+          <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
+            <Close />
+          </IconButton>
         </Box>
-      )
+
+        <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
+            {state.description || 'Navigate to statistical extremes'}
+          </Typography>
+        </Box>
+
+        <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+          {state.targets.map((target: ExtremaTarget, index: number) => (
+            <Box
+              key={`${target.segment}-${target.type}-${target.pointIndex}`}
+              ref={index === state.selectedIndex ? selectedItemRef : null}
+              id={`extrema-target-${index}`}
+              onClick={() => handleTargetSelect(target)}
+              role="option"
+              aria-selected={state.selectedIndex === index}
+              aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+              tabIndex={0}
+              sx={getTargetBoxSx(state.selectedIndex === index)}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+              </Typography>
+            </Box>
+          ))}
+
+          {/* 4th option: Searchable combobox */}
+          {availableXValues.length > 0 && (
+            <Box
+              ref={searchOptionRef}
+              id="search-input-option"
+              role="option"
+              aria-selected={state.selectedIndex === state.targets.length}
+              aria-label="Search and navigate to specific X value"
+              aria-expanded={isDropdownOpen}
+              aria-controls="x-value-listbox"
+              tabIndex={0}
+              sx={{ p: 1.5, borderRadius: 1, mb: 0.5, border: state.selectedIndex === state.targets.length ? 2 : 1, borderColor: state.selectedIndex === state.targets.length ? 'primary.main' : 'divider', bgcolor: state.selectedIndex === state.targets.length ? 'action.selected' : 'transparent', position: 'relative' }}
+              onClick={() => {
+                focusSearchInput();
+                setIsDropdownOpen(true);
+                setDropdownSelectedIndex(0);
+              }}
+            >
+              <TextField
+                ref={inputFieldWrapperRef}
+                inputRef={inputElRef}
+                label="Search X values"
+                placeholder={`Type to search ${availableXValues.length} values`}
+                fullWidth
+                variant="outlined"
+                size="small"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setIsDropdownOpen(true);
+                  if (dropdownSelectedIndex < 0) {
+                    setDropdownSelectedIndex(0);
+                  }
+                }}
+                onFocus={() => {
+                  setIsDropdownOpen(true);
+                  if (dropdownSelectedIndex < 0) {
+                    setDropdownSelectedIndex(0);
+                  }
+                }}
+                onKeyDown={handleInputKeyDown}
+                slotProps={textFieldSlotProps}
+              />
+
+              {isDropdownOpen && filteredOptions.length > 0 && (
+                <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
+                  {filteredOptions.map((value, idx) => (
+                    <ListItem
+                      key={`${value}-${idx}`}
+                      id={`option-${idx}`}
+                      role="option"
+                      aria-selected={dropdownSelectedIndex === idx}
+                      aria-label={String(value)}
+                      tabIndex={0}
+                      onClick={() => handleOptionSelect(value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOptionSelect(value);
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
+                        }
+                      }}
+                      sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
+                    >
+                      <ListItemText primary={String(value)} />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+              {/* Assertive live region for immediate announcement of highlighted option */}
+              <div
+                ref={liveRegionRef}
+                id="sr-active-option-announcer"
+                aria-live="assertive"
+                aria-atomic="true"
+                style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
+    )
     : null;
 };

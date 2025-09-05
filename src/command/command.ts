@@ -5,6 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -26,6 +27,7 @@ export interface CommandContext {
 
   brailleViewModel: BrailleViewModel;
   chatViewModel: ChatViewModel;
+  commandPaletteViewModel: CommandPaletteViewModel;
   goToExtremaViewModel: GoToExtremaViewModel;
   helpViewModel: HelpViewModel;
   reviewViewModel: ReviewViewModel;

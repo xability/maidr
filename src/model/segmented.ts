@@ -26,15 +26,15 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       const point
         = this.orientation === Orientation.VERTICAL
           ? {
-              x: this.points[0][i].x,
-              y: sum,
-              fill: SUM,
-            }
+            x: this.points[0][i].x,
+            y: sum,
+            fill: SUM,
+          }
           : {
-              x: sum,
-              y: this.points[0][i].y,
-              fill: SUM,
-            };
+            x: sum,
+            y: this.points[0][i].y,
+            fill: SUM,
+          };
       summaryPoints.push(point);
     }
     this.points.push(summaryPoints);
@@ -117,9 +117,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       this.col = target.pointIndex;
     }
 
-    // Update visual positioning and notify observers
-    this.updateVisualPointPosition();
-    this.notifyStateUpdate();
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
   }
 
   /**
@@ -175,7 +174,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
