@@ -31,7 +31,8 @@ export enum Scope {
   REVIEW = 'REVIEW',
   SETTINGS = 'SETTINGS',
   ROTOR_NEXT_NAV = 'ROTOR_NEXT_NAV',
-  ROTOR_PREV_NAV = 'ROTOR_PREV_NAV'
+  ROTOR_PREV_NAV = 'ROTOR_PREV_NAV',
+  ROTOR = 'ROTOR'
 }
 
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;

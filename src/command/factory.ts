@@ -70,7 +70,11 @@ import {
 } from './toggle';
 import {
   RotorNavigationNextNavUnitCommand,
-  RotorNavigationPrevNavUnitCommand
+  RotorNavigationPrevNavUnitCommand,
+  RotorNavigationMoveLeft,
+  RotorNavigationMoveRight,
+  RotorNavigationMoveDown,
+  RotorNavigationMoveUp
 } from './rotorNavigation'
 import { RotorNavigationService } from '@service/rotor';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
@@ -217,10 +221,17 @@ export class CommandFactory {
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
       case 'ROTOR_NEXT_NAV':
-        return new RotorNavigationNextNavUnitCommand(this.rotorNavigationViewModel);
+        return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
       case 'ROTOR_PREV_NAV':
-        return new RotorNavigationPrevNavUnitCommand(this.rotorNavigationViewModel);
-
+        return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_UP':
+        return new RotorNavigationMoveUp(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_DOWN':
+        return new RotorNavigationMoveDown(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_LEFT':
+        return new RotorNavigationMoveLeft(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_RIGHT':
+        return new RotorNavigationMoveRight(this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }
