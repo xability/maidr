@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -505,11 +505,6 @@ export class LineTrace extends AbstractTrace<number> {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
-
     return super.moveToXValue(xValue);
-  }
-
-  protected highlight(): HighlightState {
-    return super.highlight();
   }
 }
