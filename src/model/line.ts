@@ -502,14 +502,11 @@ export class LineTrace extends AbstractTrace<number> {
    * @returns true if the position was found and set, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
-    const targetIndex = this.points[this.row].findIndex(point => point.x === xValue);
-    if (targetIndex !== -1) {
-      this.col = targetIndex;
-      this.updateVisualPointPosition();
-      this.notifyStateUpdate();
-      return true;
+    // Handle initial entry properly
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
     }
-    return false;
+    return super.moveToXValue(xValue);
   }
 
   public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
