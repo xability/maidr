@@ -1,3 +1,10 @@
+## [3.26.1](https://github.com/xability/maidr/compare/v3.26.0...v3.26.1) (2025-09-08)
+
+
+### Bug Fixes
+
+* address multi-panel plot navigation ([#432](https://github.com/xability/maidr/issues/432)) ([4d5bab9](https://github.com/xability/maidr/commit/4d5bab9a80ebcf66ca587fde7507e39e98d2b730))
+
 # [3.26.0](https://github.com/xability/maidr/compare/v3.25.0...v3.26.0) (2025-09-04)
 
 
