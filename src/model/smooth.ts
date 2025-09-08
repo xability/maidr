@@ -7,6 +7,27 @@ export class SmoothTrace extends LineTrace {
     super(layer);
   }
 
+  public moveToXValue(xValue: number): boolean {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    const points = this.points;
+    if (!points || !points.length)
+      return false;
+
+    const success = this.navigationService.moveToXValueInPoints(
+      points,
+      xValue,
+      this.moveToIndex.bind(this),
+    );
+
+    if (success) {
+      this.notifyStateUpdate();
+    }
+    return success;
+  }
+
   protected audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
     const col = this.col;
