@@ -118,8 +118,7 @@ const REVIEW_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Allowed actions
-  ALLOW_DEFAULT:
-    `up, down, left, right,
+  ALLOW_DEFAULT: `up, down, left, right,
     ${Platform.ctrl}+up, ${Platform.ctrl}+down,
     ${Platform.ctrl}+left, ${Platform.ctrl}+right,
     pageup, pagedown, home, end,
@@ -176,6 +175,9 @@ const TRACE_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA: `g`,
+
+  // Go to point
+  MOVE_TO_INDEX: `click`,
 } as const;
 
 const GO_TO_EXTREMA_KEYMAP = {
@@ -260,5 +262,36 @@ export class KeybindingService {
 
   public unregister(): void {
     hotkeys.unbind();
+  }
+}
+
+export class Mousebindingservice {
+  private mouseListener: any;
+
+  private readonly commandFactory: CommandFactory;
+  private readonly commandContext: CommandContext;
+
+  public constructor(commandContext: CommandContext) {
+    this.commandFactory = new CommandFactory(commandContext);
+    this.commandContext = commandContext;
+
+    this.registerEvents();
+  }
+
+  private registerEvents(): void {
+    this.mouseListener = document.addEventListener(
+      'click',
+      (event: MouseEvent) => {
+        // get x and y points of the click
+        const x = event.clientX;
+        const y = event.clientY;
+
+        this.commandContext.context.moveToPoint(x, y);
+      },
+    );
+  }
+
+  public unregister(): void {
+    document.removeEventListener('click', this.mouseListener);
   }
 }
