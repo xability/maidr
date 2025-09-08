@@ -148,7 +148,7 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       this.plotContext.pop(); // Remove current Subplot.
       this.active.notifyStateUpdate();
-      this.toggleScope(Scope.TRACE);
+      this.toggleScope(Scope.SUBPLOT);
     }
   }
 

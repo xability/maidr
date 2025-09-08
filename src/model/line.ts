@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -501,13 +501,15 @@ export class LineTrace extends AbstractTrace<number> {
    * @returns true if the position was found and set, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
-    const targetIndex = this.points[this.row].findIndex(point => point.x === xValue);
-    if (targetIndex !== -1) {
-      this.col = targetIndex;
-      this.updateVisualPointPosition();
-      this.notifyStateUpdate();
-      return true;
+    // Handle initial entry properly
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
     }
-    return false;
+
+    return super.moveToXValue(xValue);
+  }
+
+  protected highlight(): HighlightState {
+    return super.highlight();
   }
 }
