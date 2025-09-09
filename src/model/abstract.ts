@@ -446,7 +446,6 @@ export abstract class AbstractTrace<T>
 
   // hover functions
   public moveToPoint(x: number, y: number): void {
-    alert('test test test');
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {

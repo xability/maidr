@@ -268,11 +268,9 @@ export class KeybindingService {
 export class Mousebindingservice {
   private mouseListener: any;
 
-  private readonly commandFactory: CommandFactory;
   private readonly commandContext: CommandContext;
 
   public constructor(commandContext: CommandContext) {
-    this.commandFactory = new CommandFactory(commandContext);
     this.commandContext = commandContext;
 
     this.registerEvents();
