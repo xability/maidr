@@ -71,4 +71,10 @@ export abstract class Constant {
   static readonly HIGHLIGHT_CONTRAST_RATIO = 3.0;
   static readonly HIGHLIGHT_COLOR_RATIO = 0.6;
   static readonly HIGHLIGHT_MAX_COLOR = 255;
+
+  //rotor mode values
+  static readonly HIGHER_VALUE_MODE = 'HIGHER_VALUE_MODE';
+  static readonly LOWER_VALUE_MODE = 'LOWER_VALUE_MODE';
+  static readonly DATA_MODE = 'DATA_MODE';
+  static readonly NO_OF_ROTOR_NAV_MODES = 3;
 }

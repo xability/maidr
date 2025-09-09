@@ -45,7 +45,6 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
     }
 
     public toggle(state: TraceState): void {
-        console.log("view model toggle");
         this.rotorService.toggle(state);
     }
 
@@ -56,17 +55,19 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
         this.rotorService.moveToPrevRotorUnit();
     }
     public moveUp(): void {
-        console.log("move up");
         this.rotorService.moveUp();
     }
     public moveLeft(): void {
-        console.log("move left");
+        this.rotorService.moveLeft();
     }
     public moveDown(): void {
-        console.log("move down");
+        this.rotorService.moveDown();
     }
     public moveRight(): void {
-        console.log("move right");
+        this.rotorService.moveRight();
+    }
+    public close(): void {
+        this.rotorService.close();
     }
 }
 

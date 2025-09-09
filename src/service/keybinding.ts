@@ -199,13 +199,12 @@ const COMMAND_PALETTE_KEYMAP = {
   COMMAND_PALETTE_CLOSE: 'esc',
 } as const;
 
-
-
 const ROTOR_NAVIGATION_INTERACTION_KEYMAP = {
   ROTOR_MOVE_UP: `up`,
   ROTOR_MOVE_DOWN: `down`,
   ROTOR_MOVE_LEFT: `left`,
   ROTOR_MOVE_RIGHT: `right`,
+  ROTOR_CLOSE: `escape`,
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
 }

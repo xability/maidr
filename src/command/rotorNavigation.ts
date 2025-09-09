@@ -29,10 +29,15 @@ export class RotorNavigationPrevNavUnitCommand implements Command {
 
     public execute(): void {
         this.rotorNavigationViewModel.moveToPrevNavUnit();
+        const state = this.context.state;
+        if (state.type === 'trace') {
+            this.rotorNavigationViewModel.toggle(state);
+        }
+
     }
 }
 
-export class RotorNavigationMoveUp implements Command {
+export class RotorNavigationMoveUpCommand implements Command {
     private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
     public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
@@ -40,7 +45,6 @@ export class RotorNavigationMoveUp implements Command {
     }
 
     public execute(): void {
-        console.log("command execute");
         this.rotorNavigationViewModel.moveUp();
         //just noting down: in mode 0, we just change back the toggle out of scope.rotor?
         // in mode 1, move up/ right takes to high value
@@ -48,7 +52,7 @@ export class RotorNavigationMoveUp implements Command {
     }
 }
 
-export class RotorNavigationMoveLeft implements Command {
+export class RotorNavigationMoveLeftCommand implements Command {
     private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
     public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
@@ -60,7 +64,7 @@ export class RotorNavigationMoveLeft implements Command {
     }
 }
 
-export class RotorNavigationMoveDown implements Command {
+export class RotorNavigationMoveDownCommand implements Command {
     private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
     public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
@@ -72,7 +76,7 @@ export class RotorNavigationMoveDown implements Command {
     }
 }
 
-export class RotorNavigationMoveRight implements Command {
+export class RotorNavigationMoveRightCommand implements Command {
     private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
     public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
@@ -81,5 +85,17 @@ export class RotorNavigationMoveRight implements Command {
 
     public execute(): void {
         this.rotorNavigationViewModel.moveRight();
+    }
+}
+
+export class RotorNavigationCloseCommand implements Command {
+    private readonly rotorNavigationViewModel: RotorNavigationViewModel;
+
+    public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
+        this.rotorNavigationViewModel = rotorNavigationViewModel;
+    }
+
+    public execute(): void {
+        this.rotorNavigationViewModel.close();
     }
 }

@@ -71,10 +71,11 @@ import {
 import {
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
-  RotorNavigationMoveLeft,
-  RotorNavigationMoveRight,
-  RotorNavigationMoveDown,
-  RotorNavigationMoveUp
+  RotorNavigationMoveLeftCommand,
+  RotorNavigationMoveRightCommand,
+  RotorNavigationMoveDownCommand,
+  RotorNavigationMoveUpCommand,
+  RotorNavigationCloseCommand
 } from './rotorNavigation'
 import { RotorNavigationService } from '@service/rotor';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
@@ -225,13 +226,15 @@ export class CommandFactory {
       case 'ROTOR_PREV_NAV':
         return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
       case 'ROTOR_MOVE_UP':
-        return new RotorNavigationMoveUp(this.rotorNavigationViewModel);
+        return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
       case 'ROTOR_MOVE_DOWN':
-        return new RotorNavigationMoveDown(this.rotorNavigationViewModel);
+        return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
       case 'ROTOR_MOVE_LEFT':
-        return new RotorNavigationMoveLeft(this.rotorNavigationViewModel);
+        return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
       case 'ROTOR_MOVE_RIGHT':
-        return new RotorNavigationMoveRight(this.rotorNavigationViewModel);
+        return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
+      case 'ROTOR_CLOSE':
+        return new RotorNavigationCloseCommand(this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }
