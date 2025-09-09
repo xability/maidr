@@ -1,11 +1,11 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { XValue } from '@type/navigation';
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
   protected readonly points: T[][];
@@ -209,7 +209,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.col = safeCol;
   }
 
-  public moveToNextCompareValue(direction: "left" | "right", xValue: XValue, type: "lower" | "higher"): boolean {
+  public moveToNextCompareValue(direction: 'left' | 'right', xValue: XValue, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;
@@ -221,7 +221,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     }
 
     const currentIndex = this.col;
-    const step = direction === "right" ? 1 : -1;
+    const step = direction === 'right' ? 1 : -1;
     let i = currentIndex + step;
 
     while (i >= 0 && i < groupValues.length) {
@@ -236,11 +236,12 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
 
     return false;
   }
-  private compare(a: number, b: number, type: "lower" | "higher"): boolean {
-    if (type === "lower") {
+
+  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
       return a < b;
     }
-    if (type === "higher") {
+    if (type === 'higher') {
       return a > b;
     }
     return false;

@@ -15,6 +15,7 @@ import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
+import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
@@ -27,10 +28,9 @@ import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
-import { RotorNavigationService } from '@service/rotor';
-import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -100,7 +100,6 @@ export class Controller implements Disposable {
     const commandPaletteService = new CommandPaletteService(this.context, this.displayService);
     this.commandPaletteViewModel = new CommandPaletteViewModel(store, commandPaletteService);
 
-
     this.keybinding = new KeybindingService(
       {
         context: this.context,
@@ -118,7 +117,7 @@ export class Controller implements Disposable {
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
-        rotorNavigationViewModel: this.rotorNavigationViewModel
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
       },
     );
 
@@ -137,7 +136,7 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
-        rotorNavigationService: this.rotorNavigationService
+        rotorNavigationService: this.rotorNavigationService,
       },
       this.context.scope,
     );

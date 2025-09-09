@@ -7,7 +7,6 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { group } from 'console';
 
 const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
@@ -513,7 +512,7 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  public moveToNextCompareValue(direction: "left" | "right", xValue: XValue, type: "lower" | "higher"): boolean {
+  public moveToNextCompareValue(direction, xValue: XValue, type): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;
@@ -525,7 +524,7 @@ export class LineTrace extends AbstractTrace<number> {
     }
 
     const currentIndex = this.col;
-    const step = direction === "right" ? 1 : -1;
+    const step = direction === 'right' ? 1 : -1;
     let i = currentIndex + step;
 
     while (i >= 0 && i < groupValues.length) {
@@ -540,14 +539,14 @@ export class LineTrace extends AbstractTrace<number> {
 
     return false;
   }
-  private compare(a: number, b: number, type: "lower" | "higher"): boolean {
-    if (type === "lower") {
+
+  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
       return a < b;
     }
-    if (type === "higher") {
+    if (type === 'higher') {
       return a > b;
     }
     return false;
   }
-
 }

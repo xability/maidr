@@ -197,13 +197,12 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
 
   /**
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
-   * Needs to be implemented in Line, Bar, Heatmap
+   * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  public moveToNextCompareValue(direction: string, xValue: XValue, type: string): boolean {
-    /**No op */
+  public moveToNextCompareValue(_direction: 'left' | 'right', _xValue: XValue, _type: 'lower' | 'higher'): boolean {
+    /** No op */
     return false;
   }
-
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
@@ -482,5 +481,4 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
   public getId(): string {
     return this.id;
   }
-
 }
