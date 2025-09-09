@@ -6,9 +6,9 @@ import displayReducer from './viewModel/displayViewModel';
 import goToExtremaReducer from './viewModel/goToExtremaViewModel';
 import helpMenuReducer from './viewModel/helpViewModel';
 import reviewReducer from './viewModel/reviewViewModel';
+import rotorReducer from './viewModel/rotorNavigationViewModel';
 import settingsReducer from './viewModel/settingsViewModel';
 import textReducer from './viewModel/textViewModel';
-import rotorReducer from './viewModel/rotorNavigationViewModel';
 
 export const store = configureStore({
   reducer: {
@@ -21,7 +21,7 @@ export const store = configureStore({
     review: reviewReducer,
     settings: settingsReducer,
     text: textReducer,
-    rotor: rotorReducer
+    rotor: rotorReducer,
   },
 });
 

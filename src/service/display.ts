@@ -107,10 +107,10 @@ export class DisplayService implements Disposable {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
     this.isReturningFromModeToggle
       = focus === 'BRAILLE'
-      || focus === 'REVIEW'
-      || focus === 'GO_TO_EXTREMA'
-      || focus === 'COMMAND_PALETTE'
-      || focus === 'ROTOR'
+        || focus === 'REVIEW'
+        || focus === 'GO_TO_EXTREMA'
+        || focus === 'COMMAND_PALETTE'
+        || focus === 'ROTOR';
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {

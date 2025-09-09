@@ -178,7 +178,7 @@ const TRACE_KEYMAP = {
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: 'g',
 
-  //rotor functionality
+  // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
 } as const;
@@ -207,7 +207,7 @@ const ROTOR_NAVIGATION_INTERACTION_KEYMAP = {
   ROTOR_CLOSE: `escape`,
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
-}
+};
 
 export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
@@ -221,7 +221,7 @@ export const SCOPED_KEYMAP = {
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
   [Scope.TRACE]: TRACE_KEYMAP,
   [Scope.TRACE_LABEL]: TRACE_LABEL_KEYMAP,
-  [Scope.ROTOR]: ROTOR_NAVIGATION_INTERACTION_KEYMAP
+  [Scope.ROTOR]: ROTOR_NAVIGATION_INTERACTION_KEYMAP,
 } as const;
 
 export type Keymap = {
