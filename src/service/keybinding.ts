@@ -177,6 +177,10 @@ const TRACE_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: 'g',
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
 } as const;
 
 const GO_TO_EXTREMA_KEYMAP = {
@@ -195,6 +199,16 @@ const COMMAND_PALETTE_KEYMAP = {
   COMMAND_PALETTE_CLOSE: 'esc',
 } as const;
 
+const ROTOR_NAVIGATION_INTERACTION_KEYMAP = {
+  ROTOR_MOVE_UP: `up`,
+  ROTOR_MOVE_DOWN: `down`,
+  ROTOR_MOVE_LEFT: `left`,
+  ROTOR_MOVE_RIGHT: `right`,
+  ROTOR_CLOSE: `escape`,
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+};
+
 export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
@@ -207,6 +221,7 @@ export const SCOPED_KEYMAP = {
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
   [Scope.TRACE]: TRACE_KEYMAP,
   [Scope.TRACE_LABEL]: TRACE_LABEL_KEYMAP,
+  [Scope.ROTOR]: ROTOR_NAVIGATION_INTERACTION_KEYMAP,
 } as const;
 
 export type Keymap = {

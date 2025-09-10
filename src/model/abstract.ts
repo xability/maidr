@@ -194,6 +194,15 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
       observer.update(state);
     }
   }
+
+  /**
+   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
+   * Needs to be implemented in Line, Bar, Heatmap, Candlestick
+   */
+  public moveToNextCompareValue(_direction: 'left' | 'right', _xValue: XValue, _type: 'lower' | 'higher'): boolean {
+    /** No op */
+    return false;
+  }
 }
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
