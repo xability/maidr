@@ -2811,6 +2811,19 @@ z
                   axes: {
                     x: 'date',
                     y: 'price',
+                    xAxisFormat: {
+                      dateFormat: {
+                        customFormat: 'MMM dd, yyyy',
+                      },
+                    },
+                    yAxisFormat: {
+                      priceFormat: {
+                        currency: 'USD',
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                        useGrouping: true,
+                      },
+                    },
                   },
                   data: [
                     {

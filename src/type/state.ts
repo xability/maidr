@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, MaidrLayer, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
@@ -59,6 +59,10 @@ export type TraceState
       text: TextState;
       autoplay: AutoplayState;
       highlight: HighlightState;
+      /**
+       * Original layer configuration for formatting and other layer-specific settings
+       */
+      layerConfig: MaidrLayer;
       /**
        * Array of audio states for all lines that intersect at the current point.
        * Used for intersection-aware audio playback in multiline plots.

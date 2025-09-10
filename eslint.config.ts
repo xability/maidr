@@ -3,6 +3,7 @@ import antfu from '@antfu/eslint-config';
 const config: ReturnType<typeof antfu> = antfu({
   type: 'lib',
   ignores: [
+    'docs/',
     'README.md',
     'E2E_TESTING.md',
     '.github/',
