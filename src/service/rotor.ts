@@ -53,27 +53,29 @@ export class RotorNavigationService {
     this.display.toggleFocus(Scope.ROTOR);
   }
 
-  public moveToNextRotorUnit(): void {
+  public moveToNextRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
     this.onChangeEmitter.fire({
       value: RotorEvent.ROTOR_CHANGED,
     });
     this.setMode();
+    return this.getMode();
   }
 
-  public moveToPrevRotorUnit(): void {
+  public moveToPrevRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
     this.onChangeEmitter.fire({
       value: RotorEvent.ROTOR_CHANGED,
     });
     this.setMode();
+    return this.getMode();
   }
 
   public getCurrentUnit(): number {
     return this.rotorIndex;
   }
 
-  public callMoveToNextCompareMethod(direction: string): void {
+  public callMoveToNextCompareMethod(direction: "right" | "left"): string | null {
     const activeTrace = this.context.active;
 
     const compare = this.getCompareType();
@@ -81,9 +83,10 @@ export class RotorNavigationService {
     if (activeTrace instanceof AbstractTrace) {
       const xValue = activeTrace.getCurrentXValue(); // Get the current X value
       if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, xValue, compare);
+        const moved = activeTrace.moveToNextCompareValue(direction, xValue, compare as 'lower' | 'higher');
         if (!moved) {
-          console.warn(`No ${compare} value found for the current X value.   `);
+          console.warn(`No ${compare} value found in the ${direction} of the current value.`);
+          return `No ${compare} value found in the ${direction} of the current value.`
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -91,22 +94,23 @@ export class RotorNavigationService {
     } else {
       console.error('The active trace does not support \'moveToNextHigherValue\'.');
     }
+    return null;
   }
 
-  public moveUp(): void {
-    this.callMoveToNextCompareMethod('right');
+  public moveUp(): string | null {
+    return this.callMoveToNextCompareMethod('right');
   }
 
-  public moveDown(): void {
-    this.callMoveToNextCompareMethod('left');
+  public moveDown(): string | null {
+    return this.callMoveToNextCompareMethod('left');
   }
 
-  public moveLeft(): void {
-    this.moveDown();
+  public moveLeft(): string | null {
+    return this.moveDown();
   }
 
-  public moveRight(): void {
-    this.moveUp();
+  public moveRight(): string | null {
+    return this.moveUp();
   }
 
   public setMode(): void {
@@ -126,7 +130,7 @@ export class RotorNavigationService {
     return curr_mode;
   }
 
-  public getCompareType(): string {
+  public getCompareType(): 'lower' | 'higher' {
     const curr_mode = this.getMode();
     if (curr_mode === Constant.HIGHER_VALUE_MODE) {
       return 'higher';

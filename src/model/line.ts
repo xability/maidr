@@ -512,7 +512,7 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  public moveToNextCompareValue(direction, xValue: XValue, type): boolean {
+  public moveToNextCompareValue(direction: string, xValue: XValue, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;

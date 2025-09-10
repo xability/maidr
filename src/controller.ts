@@ -95,7 +95,7 @@ export class Controller implements Disposable {
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
     this.rotorNavigationService = new RotorNavigationService(this.context, this.displayService, this.textService);
-    this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService, this.textService, this.displayService);
+    this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService, this.textViewModel);
 
     const commandPaletteService = new CommandPaletteService(this.context, this.displayService);
     this.commandPaletteViewModel = new CommandPaletteViewModel(store, commandPaletteService);

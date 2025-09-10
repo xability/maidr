@@ -18,6 +18,7 @@ export abstract class Constant {
   static readonly REVIEW_INPUT = 'maidr-review-input';
   static readonly TEXT_CONTAINER = 'maidr-text-container';
   static readonly MAIDR_INSTRUCTION = 'maidr-instruction';
+  static readonly ROTOR_AREA = 'maidr-rotor-area';
 
   // CSS classes.
   static readonly SR_ONLY_CLASS = 'maidr-sr-only';

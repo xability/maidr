@@ -12,6 +12,7 @@ import Review from './pages/Review';
 import Settings from './pages/Settings';
 import Text from './pages/Text';
 import Tooltip from './pages/Tooltip';
+import Rotor from './pages/Rotor';
 
 interface AppProps {
   plot: HTMLElement;
@@ -39,7 +40,8 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'REVIEW':
         return <Review />;
-
+      case 'ROTOR':
+        return <Rotor />
       case 'SETTINGS':
         return <Settings />;
 
