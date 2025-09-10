@@ -266,7 +266,7 @@ export class KeybindingService {
 }
 
 export class Mousebindingservice {
-  private mouseListener: any;
+  private mouseListener!: (event: MouseEvent) => void;
 
   private readonly commandContext: CommandContext;
 
@@ -277,19 +277,19 @@ export class Mousebindingservice {
   }
 
   private registerEvents(): void {
-    this.mouseListener = document.addEventListener(
-      'click',
-      (event: MouseEvent) => {
-        // get x and y points of the click
-        const x = event.clientX;
-        const y = event.clientY;
+    this.mouseListener = (event: MouseEvent) => {
+      const x = event.clientX;
+      const y = event.clientY;
 
-        this.commandContext.context.moveToPoint(x, y);
-      },
-    );
+      this.commandContext.context.moveToPoint(x, y);
+    };
+
+    document.addEventListener('click', this.mouseListener);
   }
 
   public unregister(): void {
-    document.removeEventListener('click', this.mouseListener);
+    if (this.mouseListener) {
+      document.removeEventListener('click', this.mouseListener);
+    }
   }
 }

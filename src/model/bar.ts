@@ -188,7 +188,7 @@ export abstract class AbstractBarPlot<
   }
 }
 
-export abstract class BarTrace extends AbstractBarPlot<BarPoint> {
+export  class BarTrace extends AbstractBarPlot<BarPoint> {
   public isPointInBounds(
     x: number,
     y: number,
