@@ -7,6 +7,7 @@ import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
+import type { RotorNavigationViewModel } from './rotorNavigationViewModel';
 import type { SettingsViewModel } from './settingsViewModel';
 import type { TextViewModel } from './textViewModel';
 
@@ -21,6 +22,7 @@ export interface ViewModelMap {
   review: ReviewViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;
+  rotor: RotorNavigationViewModel;
 }
 
 export class ViewModelRegistry implements Disposable {

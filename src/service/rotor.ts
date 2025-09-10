@@ -75,7 +75,7 @@ export class RotorNavigationService {
     return this.rotorIndex;
   }
 
-  public callMoveToNextCompareMethod(direction: "right" | "left"): string | null {
+  public callMoveToNextCompareMethod(direction: 'right' | 'left'): string | null {
     const activeTrace = this.context.active;
 
     const compare = this.getCompareType();
@@ -86,7 +86,7 @@ export class RotorNavigationService {
         const moved = activeTrace.moveToNextCompareValue(direction, xValue, compare as 'lower' | 'higher');
         if (!moved) {
           console.warn(`No ${compare} value found in the ${direction} of the current value.`);
-          return `No ${compare} value found in the ${direction} of the current value.`
+          return `No ${compare} value found in the ${direction} of the current value.`;
         }
       } else {
         console.error('Unable to retrieve the current X value.');
