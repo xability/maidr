@@ -1,3 +1,4 @@
+import type { Message } from '@type/llm';
 import { Close, Send } from '@mui/icons-material';
 import {
   Dialog,
@@ -124,7 +125,7 @@ const Chat: React.FC = () => {
               },
             }}
           >
-            {messages.map(message => (
+            {messages.map((message: Message) => (
               <MessageBubble
                 key={message.id}
                 message={message}

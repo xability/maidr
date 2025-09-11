@@ -18,15 +18,23 @@ interface TextChangedEvent {
   value: string;
 }
 
+interface TextNavigationEvent {
+  type: 'first_navigation';
+}
+
 export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
   private mode: TextMode;
   private currentState: PlotState | null = null;
   private currentSubplotIndex: number | null = null;
+  private hasHadFirstNavigation: boolean = false;
 
   private readonly onChangeEmitter: Emitter<TextChangedEvent>;
   public readonly onChange: Event<TextChangedEvent>;
+
+  private readonly onNavigationEmitter: Emitter<TextNavigationEvent>;
+  public readonly onNavigation: Event<TextNavigationEvent>;
 
   public constructor(notification: NotificationService) {
     this.notification = notification;
@@ -35,10 +43,14 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     this.onChangeEmitter = new Emitter<TextChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+
+    this.onNavigationEmitter = new Emitter<TextNavigationEvent>();
+    this.onNavigation = this.onNavigationEmitter.event;
   }
 
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.onNavigationEmitter.dispose();
   }
 
   /**
@@ -91,6 +103,22 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     return false;
+  }
+
+  /**
+   * Check if the first navigation has occurred
+   * Returns true if the user has navigated at least once
+   */
+  public getHasHadFirstNavigation(): boolean {
+    return this.hasHadFirstNavigation;
+  }
+
+  /**
+   * Enable announcements after first navigation
+   * This method can be called externally to enable announcements
+   */
+  public enableAnnouncements(): void {
+    this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
   private formatCoordinateText(traceState: TraceState): string | null {
@@ -357,6 +385,13 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
       return;
     }
+
+    // Handle figure-level navigation - this is the first navigation in multi-panel plots
+    if (state.type === 'figure' && !state.empty && !this.hasHadFirstNavigation) {
+      this.hasHadFirstNavigation = true;
+      this.onNavigationEmitter.fire({ type: 'first_navigation' });
+    }
+
     const text = this.format(state);
     if (text) {
       this.onChangeEmitter.fire({ value: text });
