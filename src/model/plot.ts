@@ -36,14 +36,14 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map(row =>
-      row.map(subplot => new Subplot(subplot)),
+    this.subplots = subplots.map((row) =>
+      row.map((subplot) => new Subplot(subplot)),
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
   public dispose(): void {
-    this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
+    this.subplots.forEach((row) => row.forEach((subplot) => subplot.dispose()));
     this.subplots.length = 0;
     super.dispose();
   }
@@ -64,10 +64,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       };
     }
 
-    const currentIndex
-      = this.col
-        + 1
-        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
+    const currentIndex =
+      this.col +
+      1 +
+      this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
 
     const activeSubplot = this.activeSubplot;
 
@@ -205,7 +205,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     const layers = subplot.layers;
     this.size = layers.length;
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    this.traces = layers.map((layer) => [TraceFactory.create(layer)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
@@ -221,7 +221,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   public dispose(): void {
-    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
+    this.traces.forEach((row) => row.forEach((trace) => trace.dispose()));
     this.traces.length = 0;
     super.dispose();
   }

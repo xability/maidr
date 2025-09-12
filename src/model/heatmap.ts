@@ -68,7 +68,10 @@ export class Heatmap extends AbstractTrace<number> {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
-      fill: { label: this.fill, value: String(this.heatmapValues[this.row][this.col]) },
+      fill: {
+        label: this.fill,
+        value: String(this.heatmapValues[this.row][this.col]),
+      },
     };
   }
 

@@ -1,5 +1,5 @@
 import type { Disposable } from '@type/disposable';
-import type { MaidrLayer, TraceType } from '@type/grammar';
+import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -13,6 +13,7 @@ import type {
 } from '@type/state';
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
+import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -218,6 +219,11 @@ export abstract class AbstractTrace<T>
   // Service for navigation business logic
   protected readonly navigationService: NavigationService;
 
+  // For hover functionality
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
+
   protected constructor(layer: MaidrLayer) {
     super();
     this.navigationService = new NavigationService();
@@ -228,6 +234,8 @@ export abstract class AbstractTrace<T>
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -445,6 +453,44 @@ export abstract class AbstractTrace<T>
   }
 
   // hover functions
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    let svgElements: (SVGElement | SVGElement[])[][] | null;
+    svgElements = this.highlightValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        const bbox = targetElement.getBoundingClientRect();
+        centers.push({
+          x: bbox.x + bbox.width / 2,
+          y: bbox.y + bbox.height / 2,
+          row,
+          col,
+          element: targetElement,
+        });
+      }
+    }
+
+    return centers;
+  }
+
+  // parent calls moveToPoint with x y from mouse event
+  // this then finds a nearest point, and checks if it's in bounds
+  // if all is good, it sends row col to context.moveToIndex
   public moveToPoint(x: number, y: number): void {
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
@@ -453,14 +499,65 @@ export abstract class AbstractTrace<T>
       }
     }
   }
-  public abstract findNearestPoint(
+
+  public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null;
+  ): { element: SVGElement; row: number; col: number } | null {
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      // error here, this is ALWAYS null, despite being set in constructor
+      return null;
+    }
 
-  public abstract isPointInBounds(
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - x, center.y - y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex == -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  // used in hover feature
+  // this checks if the x y is within the bounding box of the element
+  // or close enough, if the point is tiny
+  public isPointInBounds(
     x: number,
     y: number,
     { element, row, col }: { element: SVGElement; row: number; col: number },
-  ): boolean;
+  ): boolean {
+    // check if x y is within r distance of the bounding box of the element
+    const bbox = element.getBoundingClientRect();
+    let r: number = 12;
+    // if plot type is heatmap bar stacked or histogram, use 0
+    if (
+      this.type === TraceType.HEATMAP
+      || this.type === TraceType.BAR
+      || this.type === TraceType.STACKED
+      || this.type === TraceType.HISTOGRAM
+    ) {
+      r = 0;
+    }
+    return (
+      x >= bbox.x - r
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r
+    );
+  }
 }
