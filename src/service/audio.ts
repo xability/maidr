@@ -773,6 +773,14 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   }
 
   /**
+   * Stops all currently playing audio.
+   * This is useful for stopping boundary/edge sounds when navigation keys are released.
+   */
+  public stopAllAudio(): void {
+    this.stopAll();
+  }
+
+  /**
    * Play multiple tones simultaneously, all at the same frequency (shared value),
    * using each line's assigned wave type without any special audio techniques.
    * Simple mix of existing wave types at the same musical frequency.

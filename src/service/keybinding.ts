@@ -215,9 +215,12 @@ export type Keymap = {
 
 export class KeybindingService {
   private readonly commandFactory: CommandFactory;
+  private readonly commandContext: CommandContext;
+  private keyupHandler: ((event: KeyboardEvent) => void) | null = null;
 
   public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
+    this.commandContext = commandContext;
   }
 
   public register(initialScope: Scope): void {
@@ -266,9 +269,28 @@ export class KeybindingService {
     }
 
     hotkeys.setScope(initialScope);
+
+    // Add keyup event handler to stop audio when navigation keys are released
+    this.keyupHandler = (event: KeyboardEvent) => {
+      // Navigation keys that can trigger movement and boundary sounds
+      const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
+      if (navigationKeys.includes(event.code)) {
+        // Stop all audio to prevent continued sonification after key release
+        this.commandContext.audioService.stopAllAudio();
+      }
+    };
+
+    document.addEventListener('keyup', this.keyupHandler);
   }
 
   public unregister(): void {
     hotkeys.unbind();
+
+    // Remove keyup event handler
+    if (this.keyupHandler) {
+      document.removeEventListener('keyup', this.keyupHandler);
+      this.keyupHandler = null;
+    }
   }
 }
