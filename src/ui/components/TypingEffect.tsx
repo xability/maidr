@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
@@ -18,9 +18,21 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
   const [isTyping, setIsTyping] = useState(true);
   const messageRef = useRef<HTMLDivElement>(null);
   const settings = useViewModelState('settings');
+  const inIframe = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  }, []);
+  const containerStyle = useMemo<React.CSSProperties>(() => (
+    inIframe
+      ? { contain: 'layout style', willChange: 'auto', overflowWrap: 'anywhere', wordBreak: 'break-word' }
+      : {}
+  ), [inIframe]);
 
   useEffect(() => {
-    if (isUser) {
+    if (isUser || inIframe) {
       setDisplayedText(text);
       setIsTyping(false);
       return;
@@ -28,7 +40,6 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
 
     let currentIndex = 0;
     const typingSpeed = 5;
-
     const typingInterval = setInterval(() => {
       if (currentIndex <= text.length) {
         setDisplayedText(text.slice(0, currentIndex));
@@ -40,7 +51,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
     }, typingSpeed);
 
     return () => clearInterval(typingInterval);
-  }, [text, isUser]);
+  }, [text, isUser, inIframe]);
 
   useEffect(() => {
     if (!isTyping && messageRef.current) {
@@ -50,7 +61,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
   }, [isTyping]);
 
   return (
-    <Box>
+    <Box style={containerStyle}>
       {/* Visual typing effect for users */}
       <div className={`chat-message-content ${isUser ? 'user' : ''}`}>
         <ReactMarkdown
@@ -112,7 +123,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
       >
         {isTyping ? '' : text}
       </div>
-      {isTyping && (
+      {isTyping && !inIframe && (
         <span
           className="typing-cursor"
           aria-hidden="true"
