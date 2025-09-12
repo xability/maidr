@@ -1,3 +1,10 @@
+# [3.27.0](https://github.com/xability/maidr/compare/v3.26.1...v3.27.0) (2025-09-12)
+
+
+### Features
+
+* fix subplot nav announcements & cleanup junk in chat component ([#433](https://github.com/xability/maidr/issues/433)) ([97b88f2](https://github.com/xability/maidr/commit/97b88f24f9bb03bb90b4acc3a12e51f75f97bcd7))
+
 ## [3.26.1](https://github.com/xability/maidr/compare/v3.26.0...v3.26.1) (2025-09-08)
 
 
