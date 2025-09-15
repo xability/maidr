@@ -173,7 +173,7 @@ export class Heatmap extends AbstractTrace<number> {
       }
     }
 
-    if (nearestIndex == -1) {
+    if (nearestIndex === -1) {
       return null;
     }
 
