@@ -11,9 +11,10 @@ import 'katex/dist/katex.min.css';
 interface TypingEffectProps {
   text: string;
   isUser: boolean;
+  onTypingUpdate?: () => void;
 }
 
-export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
+export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypingUpdate }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const messageRef = useRef<HTMLDivElement>(null);
@@ -39,11 +40,16 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
     }
 
     let currentIndex = 0;
-    const typingSpeed = 5;
+    const typingSpeed = 10; // Slightly slower for better scroll compatibility
     const typingInterval = setInterval(() => {
       if (currentIndex <= text.length) {
         setDisplayedText(text.slice(0, currentIndex));
         currentIndex++;
+
+        // Notify parent component about typing updates for auto-scroll
+        if (onTypingUpdate) {
+          onTypingUpdate();
+        }
       } else {
         setIsTyping(false);
         clearInterval(typingInterval);
