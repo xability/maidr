@@ -219,11 +219,6 @@ export abstract class AbstractTrace<T>
   // Service for navigation business logic
   protected readonly navigationService: NavigationService;
 
-  // For hover functionality
-  protected highlightCenters:
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null;
-
   protected constructor(layer: MaidrLayer) {
     super();
     this.navigationService = new NavigationService();
@@ -234,8 +229,6 @@ export abstract class AbstractTrace<T>
     this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
     this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
-
-    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -452,42 +445,12 @@ export abstract class AbstractTrace<T>
     return this.id;
   }
 
+  protected abstract findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null;
+
   // hover functions
-  protected mapSvgElementsToCenters():
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null {
-    let svgElements: (SVGElement | SVGElement[])[][] | null;
-    svgElements = this.highlightValues;
-
-    if (!svgElements) {
-      return null;
-    }
-
-    const centers: {
-      x: number;
-      y: number;
-      row: number;
-      col: number;
-      element: SVGElement;
-    }[] = [];
-    for (let row = 0; row < svgElements.length; row++) {
-      for (let col = 0; col < svgElements[row].length; col++) {
-        const element = svgElements[row][col];
-        const targetElement = Array.isArray(element) ? element[0] : element;
-        const bbox = targetElement.getBoundingClientRect();
-        centers.push({
-          x: bbox.x + bbox.width / 2,
-          y: bbox.y + bbox.height / 2,
-          row,
-          col,
-          element: targetElement,
-        });
-      }
-    }
-
-    return centers;
-  }
-
   // parent calls moveToPoint with x y from mouse event
   // this then finds a nearest point, and checks if it's in bounds
   // if all is good, it sends row col to context.moveToIndex
@@ -498,39 +461,6 @@ export abstract class AbstractTrace<T>
         this.moveToIndex(nearest.row, nearest.col);
       }
     }
-  }
-
-  public findNearestPoint(
-    x: number,
-    y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
-    // loop through highlightCenters to find nearest point
-    if (!this.highlightCenters) {
-      // error here, this is ALWAYS null, despite being set in constructor
-      return null;
-    }
-
-    let nearestDistance = Infinity;
-    let nearestIndex = -1;
-
-    for (let i = 0; i < this.highlightCenters.length; i++) {
-      const center = this.highlightCenters[i];
-      const distance = Math.hypot(center.x - x, center.y - y);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = i;
-      }
-    }
-
-    if (nearestIndex == -1) {
-      return null;
-    }
-
-    return {
-      element: this.highlightCenters[nearestIndex].element,
-      row: this.highlightCenters[nearestIndex].row,
-      col: this.highlightCenters[nearestIndex].col,
-    };
   }
 
   // used in hover feature

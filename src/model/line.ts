@@ -19,6 +19,9 @@ export class LineTrace extends AbstractTrace<number> {
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   protected readonly min: number[];
   protected readonly max: number[];
@@ -38,6 +41,7 @@ export class LineTrace extends AbstractTrace<number> {
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -422,6 +426,42 @@ export class LineTrace extends AbstractTrace<number> {
     return stateWithPlotType;
   }
 
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    let svgElements: (SVGElement | SVGElement[])[][] | null;
+    svgElements = this.highlightValues;
+
+    if (!svgElements) {
+      return null;
+    }
+    // todo / bookmark: getter didn't work, probably delete
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        const bbox = targetElement.getBoundingClientRect();
+        centers.push({
+          x: bbox.x + bbox.width / 2,
+          y: bbox.y + bbox.height / 2,
+          row,
+          col,
+          element: targetElement,
+        });
+      }
+    }
+
+    return centers;
+  }
+
   public findNearestPoint(
     x: number,
     y: number,
@@ -443,15 +483,14 @@ export class LineTrace extends AbstractTrace<number> {
       }
     }
 
-    if (nearestIndex === -1) {
+    if (nearestIndex == -1) {
       return null;
     }
 
-    const nearestCenter = this.highlightCenters[nearestIndex];
     return {
-      element: nearestCenter.element,
-      row: nearestCenter.row,
-      col: nearestCenter.col,
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
     };
   }
 }
