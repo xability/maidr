@@ -175,7 +175,7 @@ export abstract class AbstractBarPlot<
       }
     }
 
-    if (nearestIndex == -1) {
+    if (nearestIndex === -1) {
       return null;
     }
 
