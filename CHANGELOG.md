@@ -1,3 +1,10 @@
+## [3.27.1](https://github.com/xability/maidr/compare/v3.27.0...v3.27.1) (2025-09-15)
+
+
+### Bug Fixes
+
+* address pending welcome message in chat and auto scroll ([#437](https://github.com/xability/maidr/issues/437)) ([609eefb](https://github.com/xability/maidr/commit/609eefb3333f6513d22b27c10c2091f41c584cb0))
+
 # [3.27.0](https://github.com/xability/maidr/compare/v3.26.1...v3.27.0) (2025-09-12)
 
 
