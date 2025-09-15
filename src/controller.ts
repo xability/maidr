@@ -91,8 +91,8 @@ export class Controller implements Disposable {
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
-    this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+    this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
 
     this.rotorNavigationService = new RotorNavigationService(this.context, this.displayService, this.textService);
     this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService);

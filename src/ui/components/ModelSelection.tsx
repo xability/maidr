@@ -36,8 +36,8 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     };
     // The spread operator already creates a proper immutable update
     settingsViewModel.saveSettings(updatedSettings);
-    // Reload the welcome message to reflect the new model version
-    chatViewModel.loadInitialMessage();
+    // Update the welcome message to reflect the new model version
+    chatViewModel.updateWelcomeMessage();
   };
 
   const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
