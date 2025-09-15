@@ -247,7 +247,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
     }
 
-    if (nearestIndex == -1) {
+    if (nearestIndex === -1) {
       return null;
     }
 
