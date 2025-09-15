@@ -138,8 +138,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.chatService.toggle();
   }
 
-  public loadInitialMessage(): void {
-    const timestamp = new Date().toISOString();
+  private getEnabledModelsData(): { enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] } {
     const llmModels = this.snapshot.settings.llm.models;
 
     const enabledModels = Object.entries(llmModels)
@@ -158,6 +157,13 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         name: getModelDisplayName(modelKey),
         version: cfg.version,
       }));
+
+    return { enabledModels, modelSelections };
+  }
+
+  public loadInitialMessage(): void {
+    const timestamp = new Date().toISOString();
+    const { enabledModels, modelSelections } = this.getEnabledModelsData();
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
@@ -178,24 +184,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   public updateWelcomeMessage(): void {
-    const llmModels = this.snapshot.settings.llm.models;
-
-    const enabledModels = Object.entries(llmModels)
-      .filter(([_, cfg]) => cfg.enabled && cfg.apiKey.trim().length > 0)
-      .map(([modelKey, cfg]) => {
-        const labelMap = MODEL_VERSIONS[modelKey as keyof typeof MODEL_VERSIONS]?.labels;
-        const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
-        const displayName = getModelDisplayName(modelKey);
-        return `${displayName} (${versionLabel})`;
-      });
-
-    const modelSelections = Object.entries(llmModels)
-      .filter(([_, cfg]) => cfg.enabled && cfg.apiKey.trim().length > 0)
-      .map(([modelKey, cfg]) => ({
-        modelKey: modelKey as Llm,
-        name: getModelDisplayName(modelKey),
-        version: cfg.version,
-      }));
+    const { enabledModels, modelSelections } = this.getEnabledModelsData();
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
