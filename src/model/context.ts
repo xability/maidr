@@ -89,10 +89,23 @@ export class Context implements Disposable {
     this.active.moveToIndex(row, col);
   }
 
+  /**
+   * Moves the active plot element to the specified (x, y) point.
+   *
+   * @param x - The x-coordinate to move to.
+   * @param y - The y-coordinate to move to.
+   * @remarks
+   * This method assumes that `this.active` is a valid object with a `moveToPoint` method.
+   * If `this.active` is `null` or does not implement `moveToPoint`, this method will do nothing.
+   * 
+   * Limitations:
+   * - If `this.active` is `null` or `undefined`, the method will not perform any action.
+   * - If `this.active` does not implement `moveToPoint`, the method will not perform any action.
+   */
   public moveToPoint(x: number, y: number): void {
-    // bookmark: this.active is null, needs debugging
-    // need to trigger moveToPoint in AbstractTrace somehow
-    this.active.moveToPoint(x, y);
+    if (this.active && typeof this.active.moveToPoint === 'function') {
+      this.active.moveToPoint(x, y);
+    }
   }
 
   public stepTrace(direction: MovableDirection): void {
