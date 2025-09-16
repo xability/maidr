@@ -45,17 +45,17 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       (p: BoxPoint) => p.upperOutliers,
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points.map(point =>
-        sectionAccessors.map(accessor => accessor(point)),
+      this.boxValues = this.points.map((point) =>
+        sectionAccessors.map((accessor) => accessor(point)),
       );
     } else {
-      this.boxValues = sectionAccessors.map(accessor =>
-        this.points.map(point => accessor(point)),
+      this.boxValues = sectionAccessors.map((accessor) =>
+        this.points.map((point) => accessor(point)),
       );
     }
 
-    const flatBoxValues = this.boxValues.map(row =>
-      row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
+    const flatBoxValues = this.boxValues.map((row) =>
+      row.flatMap((cell) => (Array.isArray(cell) ? cell : [cell])),
     );
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
@@ -90,7 +90,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = this.boxValues[this.row][this.col];
     const index = Array.isArray(value)
-      ? value.map(v => v - this.min)
+      ? value.map((v) => v - this.min)
       : value - this.min;
 
     return {
@@ -154,10 +154,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
+      const lowerOutliers = selector.lowerOutliers.flatMap((s) =>
         Svg.selectAllElements(s),
       );
-      const upperOutliers = selector.upperOutliers.flatMap(s =>
+      const upperOutliers = selector.upperOutliers.flatMap((s) =>
         Svg.selectAllElements(s),
       );
 
@@ -247,7 +247,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
     }
 
-    if (nearestIndex == -1) {
+    if (nearestIndex === -1) {
       return null;
     }
 
