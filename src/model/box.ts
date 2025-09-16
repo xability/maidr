@@ -167,13 +167,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
       const [q1, q3] = isVertical
         ? [
-          Svg.createLineElement(iq, 'top'),
-          Svg.createLineElement(iq, 'bottom'),
-        ]
+            Svg.createLineElement(iq, 'top'),
+            Svg.createLineElement(iq, 'bottom'),
+          ]
         : [
-          Svg.createLineElement(iq, 'left'),
-          Svg.createLineElement(iq, 'right'),
-        ];
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
+          ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
@@ -187,25 +187,22 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     return svgElements;
   }
+
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
       return false;
     }
-    console.log(this.row, this.col);
-    let values: any[] = []
+    let values: any[] = [];
     let currentIndex = 0;
 
     if (direction === 'left' || direction === 'right') {
       values = this.boxValues[this.row];
       currentIndex = this.col;
-    }
-    else {
+    } else {
       values = this.boxValues.map(box => box[this.col]);
       currentIndex = this.row;
     }
-
-    console.log(values);
     if (values.length <= 0) {
       return false;
     }
@@ -219,7 +216,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       if (Array.isArray(next_value) || Array.isArray(current_value)) {
         return true;
       }
-      console.log('Comparing ', next_value, ' and ', current_value);
+
       if (this.compare(next_value, current_value, type)) {
         this.set_point(direction, i);
         this.updateVisualPointPosition();
@@ -231,14 +228,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     return false;
   }
+
   public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
     if (direction === 'left' || direction === 'right') {
       this.col = pointIndex;
-    }
-    else {
+    } else {
       this.row = pointIndex;
     }
   }
+
   /**
    * The behavior of upward and downward arrows is to move between the segments within a candle(within the scope of ROTOR trace)
    * @returns null
@@ -258,19 +256,20 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
     return this.moveToNextCompareValue('down', mode);
   }
+
   public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.moveOnce('BACKWARD')
+      this.moveOnce('BACKWARD');
       return true;
     }
     return this.moveToNextCompareValue('left', mode);
   }
+
   public moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.moveOnce('FORWARD')
+      this.moveOnce('FORWARD');
       return true;
     }
     return this.moveToNextCompareValue('right', mode);
   }
-
 }

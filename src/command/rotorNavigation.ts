@@ -83,4 +83,3 @@ export class RotorNavigationMoveRightCommand implements Command {
     this.rotorNavigationViewModel.moveRight();
   }
 }
-

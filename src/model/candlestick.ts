@@ -741,7 +741,7 @@ export class Candlestick extends AbstractTrace<number> {
       return false;
     }
     const currentSegment = this.currentSegmentType ?? 'open';
-    console.log(this.candles);
+
     const segmentValues = this.candles.map((c, index) => ({
       value: c[currentSegment],
       index,
@@ -764,6 +764,7 @@ export class Candlestick extends AbstractTrace<number> {
 
     return false;
   }
+
   /**
    * The behavior of upward and downward arrows is to move between the segments within a candle(within the scope of ROTOR trace)
    * @returns null

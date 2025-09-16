@@ -3,7 +3,6 @@ import type { AudioState, BrailleState, TextState } from '@type/state';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { XValue } from '@type/navigation';
 
 export class Heatmap extends AbstractTrace<number> {
   protected readonly supportsExtrema = false;
@@ -111,6 +110,7 @@ export class Heatmap extends AbstractTrace<number> {
 
     return svgElements;
   }
+
   /**
    * Update the visual position of the current point
    * This method should be called when navigation changes
@@ -121,30 +121,28 @@ export class Heatmap extends AbstractTrace<number> {
     this.row = safeRow;
     this.col = safeCol;
   }
-  //new
-  public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
 
+  // new
+  public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     switch (direction) {
       case 'left':
       case 'right':
-        console.log('searching in row');
         return this.search_in_row(direction, type);
       case 'up':
       case 'down':
-        console.log('searching in col');
         return this.search_in_col(direction, type);
       default:
         return false;
     }
   }
-  public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    let cols = this.y.length;
-    let current_col = this.col;
 
-    let step = direction === 'left' ? -1 : 1;
+  public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const cols = this.y.length;
+    const current_col = this.col;
+
+    const step = direction === 'left' ? -1 : 1;
     let i = current_col + step;
     while (i >= 0 && i < cols) {
-      console.log('row comparing', this.heatmapValues[this.row][i], 'and', this.heatmapValues[this.row][current_col])
       if (this.compare(this.heatmapValues[this.row][i], this.heatmapValues[this.row][current_col], type)) {
         this.col = i;
         this.updateVisualPointPosition();
@@ -157,18 +155,16 @@ export class Heatmap extends AbstractTrace<number> {
   }
 
   public search_in_col(direction: 'up' | 'down', type: 'lower' | 'higher'): boolean {
-    let rows = this.x.length;
-    let current_row = this.row;
+    const rows = this.x.length;
+    const current_row = this.row;
 
-    let step = direction === 'up' ? 1 : -1;
+    const step = direction === 'up' ? 1 : -1;
     let i = current_row + step;
     while (i >= 0 && i < rows) {
-      console.log('col comparing', this.heatmapValues[i][this.col], 'and', this.heatmapValues[current_row][this.col]);
       if (this.compare(this.heatmapValues[i][this.col], this.heatmapValues[current_row][this.col], type)) {
         this.row = i;
         this.updateVisualPointPosition();
         this.notifyStateUpdate();
-        console.log('finished', this.row, this.col);
         return true;
       }
       i += step;
@@ -179,6 +175,7 @@ export class Heatmap extends AbstractTrace<number> {
   public override moveUpRotor(mode: 'lower' | 'higher'): boolean {
     return this.moveToNextCompareValue('up', mode);
   }
+
   public override moveDownRotor(mode: 'lower' | 'higher'): boolean {
     return this.moveToNextCompareValue('down', mode);
   }

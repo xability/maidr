@@ -203,12 +203,13 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     /** No op */
     return false;
   }
+
   /**
-   * 
+   *
    * @param a Utility function to compare point values for rotor functionality
-   * @param b 
-   * @param type 
-   * @returns 
+   * @param b
+   * @param type
+   * @returns boolean value
    */
   protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
@@ -219,23 +220,26 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     }
     return false;
   }
+
   /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
-  public moveUpRotor(mode?: 'lower' | 'higher'): boolean {
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
-  public moveDownRotor(mode?: 'lower' | 'higher'): boolean {
+
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
-  public moveLeftRotor(mode?: 'lower' | 'higher'): boolean {
+
+  public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move left function is not defined for this trace');
   }
-  public moveRightRotor(mode?: 'lower' | 'higher'): boolean {
+
+  public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
   }
 }
-
 
 export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
   protected readonly id: string;

@@ -6,71 +6,70 @@ import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 interface RotorState {
-    value: string | null;
+  value: string | null;
 
 }
 
 const initialState: RotorState = {
-    value: '',
+  value: '',
 
 };
 const rotorNavigationSlice = createSlice({
-    name: 'rotorNavigation',
-    initialState,
-    reducers: {
-        show(): RotorState {
-            return {
-                value: '',
+  name: 'rotorNavigation',
+  initialState,
+  reducers: {
+    show(): RotorState {
+      return {
+        value: '',
 
-            };
-        },
-        setValue(state, action: PayloadAction<string | null>) {
-            state.value = action.payload;
-        },
+      };
     },
+    setValue(state, action: PayloadAction<string | null>) {
+      state.value = action.payload;
+    },
+  },
 });
 export const { setValue } = rotorNavigationSlice.actions;
 export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
-    private readonly rotorService: RotorNavigationService;
-    public constructor(store: AppStore, rotorService: RotorNavigationService) {
-        super(store);
-        this.rotorService = rotorService;
-    }
+  private readonly rotorService: RotorNavigationService;
+  public constructor(store: AppStore, rotorService: RotorNavigationService) {
+    super(store);
+    this.rotorService = rotorService;
+  }
 
-    public get state(): RotorState {
-        return this.store.getState().rotor;
-    }
+  public get state(): RotorState {
+    return this.store.getState().rotor;
+  }
 
-    public toggle(state: TraceState): void {
-        this.rotorService.toggle(state);
-    }
+  public toggle(state: TraceState): void {
+    this.rotorService.toggle(state);
+  }
 
-    public moveToNextNavUnit(): void {
-        const curr_mode = this.rotorService.moveToNextRotorUnit();
-        this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
-    }
+  public moveToNextNavUnit(): void {
+    const curr_mode = this.rotorService.moveToNextRotorUnit();
+    this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
+  }
 
-    public moveToPrevNavUnit(): void {
-        const curr_mode = this.rotorService.moveToPrevRotorUnit();
-        this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
-    }
+  public moveToPrevNavUnit(): void {
+    const curr_mode = this.rotorService.moveToPrevRotorUnit();
+    this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
+  }
 
-    public moveUp(): void {
-        this.store.dispatch(setValue(this.rotorService.moveUp()));
-    }
+  public moveUp(): void {
+    this.store.dispatch(setValue(this.rotorService.moveUp()));
+  }
 
-    public moveLeft(): void {
-        this.store.dispatch(setValue(this.rotorService.moveLeft()));
-    }
+  public moveLeft(): void {
+    this.store.dispatch(setValue(this.rotorService.moveLeft()));
+  }
 
-    public moveDown(): void {
-        this.store.dispatch(setValue(this.rotorService.moveDown()));
-    }
+  public moveDown(): void {
+    this.store.dispatch(setValue(this.rotorService.moveDown()));
+  }
 
-    public moveRight(): void {
-        this.store.dispatch(setValue(this.rotorService.moveRight()));
-    }
-
+  public moveRight(): void {
+    this.store.dispatch(setValue(this.rotorService.moveRight()));
+  }
 }
 
 export default rotorNavigationSlice.reducer;

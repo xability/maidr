@@ -33,7 +33,7 @@ export class RotorNavigationService {
     this.context = context;
     this.display = display;
     this.text = text;
-    this.rotorIndex = 0; //default is DATA_MODE
+    this.rotorIndex = 0; // default is DATA_MODE
     this.onChangeEmitter = new Emitter<RotorChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
   }
@@ -103,14 +103,13 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveUpRotor(this.getCompareType());
         if (!moved) {
-          let msg = `No ${this.getCompareType()} value found above the current value.`
+          const msg = `No ${this.getCompareType()} value found above the current value.`;
           console.warn(msg);
           return msg;
         }
       }
-    }
-    catch {
-      //default behavior is to mirror move right
+    } catch {
+      // default behavior is to mirror move right
       return this.moveRight();
     }
     return null;
@@ -122,18 +121,16 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveDownRotor(this.getCompareType());
         if (!moved) {
-          let msg = `No ${this.getCompareType()} value found below the current value.`
+          const msg = `No ${this.getCompareType()} value found below the current value.`;
           console.warn(msg);
           return msg;
         }
       }
-    }
-    catch {
-      //default behavior is to mirror move left
+    } catch {
+      // default behavior is to mirror move left
       return this.moveLeft();
     }
     return null;
-
   }
 
   public moveLeft(): string | null {
@@ -142,14 +139,13 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
-          let msg = `No ${this.getCompareType()} value found below the current value.`
+          const msg = `No ${this.getCompareType()} value found below the current value.`;
           console.warn(msg);
           return msg;
         }
       }
-    }
-    catch {
-      //default behavior is to mirror move left
+    } catch {
+      // default behavior is to mirror move left
       return this.callMoveToNextCompareMethod('left');
     }
     return null;
@@ -161,18 +157,16 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
-          let msg = `No ${this.getCompareType()} value found below the current value.`
+          const msg = `No ${this.getCompareType()} value found below the current value.`;
           console.warn(msg);
           return msg;
         }
       }
-    }
-    catch {
-      //default behavior is to mirror move left
+    } catch {
+      // default behavior is to mirror move left
       return this.callMoveToNextCompareMethod('right');
     }
     return null;
-
   }
 
   public setMode(): void {

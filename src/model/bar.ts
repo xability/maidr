@@ -1,6 +1,5 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
-import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';

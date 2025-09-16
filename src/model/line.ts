@@ -550,12 +550,12 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  public moveUpRotor(mode?: 'lower' | 'higher'): boolean {
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
 
-  public moveDownRotor(mode?: 'lower' | 'higher'): boolean {
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
     return true;
   }
