@@ -15,6 +15,7 @@ import { HighlightService } from '@service/highlight';
 import { KeybindingService } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
+import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
@@ -27,6 +28,7 @@ import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 
@@ -43,6 +45,7 @@ export class Controller implements Disposable {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -57,6 +60,7 @@ export class Controller implements Disposable {
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
 
   private readonly keybinding: KeybindingService;
@@ -90,6 +94,9 @@ export class Controller implements Disposable {
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
     this.chatViewModel = new ChatViewModel(store, this.chatService, this.audioService);
 
+    this.rotorNavigationService = new RotorNavigationService(this.context, this.displayService, this.textService);
+    this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService);
+
     const commandPaletteService = new CommandPaletteService(this.context, this.displayService);
     this.commandPaletteViewModel = new CommandPaletteViewModel(store, commandPaletteService);
 
@@ -100,6 +107,7 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -109,6 +117,7 @@ export class Controller implements Disposable {
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
       },
     );
 
@@ -126,10 +135,11 @@ export class Controller implements Disposable {
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
+        rotorNavigationService: this.rotorNavigationService,
       },
       this.context.scope,
     );
-
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);
@@ -210,6 +220,7 @@ export class Controller implements Disposable {
         trace.addObserver(this.textService);
         trace.addObserver(this.reviewService);
         trace.addObserver(this.highlightService);
+        // trace.addObserver(this.rotorNavigationService);
       }));
     }));
   }

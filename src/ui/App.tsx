@@ -9,6 +9,7 @@ import Chat from './pages/Chat';
 import CommandPalette from './pages/CommandPalette';
 import Help from './pages/Help';
 import Review from './pages/Review';
+import Rotor from './pages/Rotor';
 import Settings from './pages/Settings';
 import Text from './pages/Text';
 import Tooltip from './pages/Tooltip';
@@ -39,7 +40,8 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'REVIEW':
         return <Review />;
-
+      case 'ROTOR':
+        return <Rotor />;
       case 'SETTINGS':
         return <Settings />;
 
