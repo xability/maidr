@@ -1,5 +1,6 @@
 import type { Disposable } from '@type/disposable';
-import type { MaidrLayer } from '@type/grammar';
+import type { ExtremaTarget } from '@type/extrema';
+import { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -11,9 +12,8 @@ import type {
   TextState,
   TraceState,
 } from '@type/state';
-import type { Trace } from './plot';
+import { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
-import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -22,7 +22,8 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
+  implements Movable, Observable<State>, Disposable
+{
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -84,8 +85,8 @@ implements Movable, Observable<State>, Disposable {
   protected getSafeIndices(): { row: number; col: number } {
     const values = this.values;
     const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
-    const safeCol
-      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    const safeCol =
+      this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -130,10 +131,10 @@ implements Movable, Observable<State>, Disposable {
       const [row, col] = target;
       const { row: safeRow } = this.getSafeIndices();
       return (
-        row >= 0
-        && row < this.values.length
-        && col >= 0
-        && col < (this.values[safeRow]?.length || 0)
+        row >= 0 &&
+        row < this.values.length &&
+        col >= 0 &&
+        col < (this.values[safeRow]?.length || 0)
       );
     }
 
@@ -163,6 +164,17 @@ implements Movable, Observable<State>, Disposable {
     );
   }
 
+  /**
+   * Ensure the trace is initialized exactly once, and announce the initial state.
+   * Subsequent calls are no-ops.
+   */
+  public ensureInitialized(): void {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+    }
+  }
+
   public resetToInitialEntry(): void {
     this.isInitialEntry = true;
     this.row = 0;
@@ -174,7 +186,7 @@ implements Movable, Observable<State>, Disposable {
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -202,7 +214,7 @@ implements Movable, Observable<State>, Disposable {
 
   /**
    * Moves the element to the specified (x, y) point.
-   * 
+   *
    * This base implementation is intentionally left empty. Subclasses should override
    * this method to provide specific logic for moving to a point, such as updating
    * highlight values or managing selection boxes.
@@ -217,7 +229,8 @@ implements Movable, Observable<State>, Disposable {
 
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
-  implements Trace {
+  implements Trace
+{
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
@@ -245,10 +258,10 @@ export abstract class AbstractTrace<T>
     this.values.length = 0;
 
     if (this.highlightValues) {
-      this.highlightValues.forEach(row =>
+      this.highlightValues.forEach((row) =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach(element => element.remove());
+          elements.forEach((element) => element.remove());
         }),
       );
       this.highlightValues.length = 0;
@@ -351,6 +364,65 @@ export abstract class AbstractTrace<T>
   protected abstract get highlightValues():
     | (SVGElement[] | SVGElement)[][]
     | null;
+
+  /**
+   * Get available extrema targets for the current navigation context
+   * @returns Array of extrema targets that can be navigated to
+   * Default implementation returns empty array (no extrema support)
+   */
+  public getExtremaTargets(): ExtremaTarget[] {
+    return []; // Default: no extrema support
+  }
+
+  /**
+   * Base implementation for navigateToExtrema
+   * Subclasses must override to provide actual implementation
+   * @param _target The extrema target to navigate to
+   */
+  public navigateToExtrema(_target: ExtremaTarget): void {
+    if (this.supportsExtrema) {
+      throw new Error('Extrema navigation not implemented by this plot type');
+    }
+    // No-op if extrema navigation is not supported
+  }
+
+  /**
+   * Common post-navigation cleanup that should be called by subclasses
+   * after they update their internal state
+   */
+  protected finalizeExtremaNavigation(): void {
+    // Ensure we're not in initial entry state after navigation
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    // Update visual positioning
+    this.updateVisualPointPosition();
+
+    // Notify observers of state change
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Default implementation for updating visual point position
+   * Subclasses can override if they need custom positioning logic
+   */
+  protected updateVisualPointPosition(): void {
+    // Default implementation - subclasses should override if needed
+  }
+
+  /**
+   * Check if this plot supports extrema navigation
+   * @returns True if extrema navigation is supported
+   */
+  public supportsExtremaNavigation(): boolean {
+    return this.supportsExtrema;
+  }
+
+  /**
+   * Abstract property that subclasses must implement to indicate extrema support
+   */
+  protected abstract readonly supportsExtrema: boolean;
 
   /**
    * Base implementation for getting current X value
@@ -490,18 +562,18 @@ export abstract class AbstractTrace<T>
     let r: number = 12;
     // if plot type is heatmap bar stacked or histogram, use 0
     if (
-      this.type === TraceType.HEATMAP
-      || this.type === TraceType.BAR
-      || this.type === TraceType.STACKED
-      || this.type === TraceType.HISTOGRAM
+      this.type === TraceType.HEATMAP ||
+      this.type === TraceType.BAR ||
+      this.type === TraceType.STACKED ||
+      this.type === TraceType.HISTOGRAM
     ) {
       r = 0;
     }
     return (
-      x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r
+      x >= bbox.x - r &&
+      x <= bbox.x + bbox.width + r &&
+      y >= bbox.y - r &&
+      y <= bbox.y + bbox.height + r
     );
   }
 }

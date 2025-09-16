@@ -21,6 +21,8 @@ interface ScatterYPoint {
 }
 
 export class ScatterTrace extends AbstractTrace<number> {
+  protected readonly supportsExtrema = false;
+
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[];

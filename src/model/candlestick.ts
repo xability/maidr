@@ -1,4 +1,4 @@
-import type { ExtremaTarget } from '@service/goToExtrema';
+import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
   CandlestickSelector,
@@ -24,6 +24,8 @@ type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
 export class Candlestick extends AbstractTrace<number> {
+  protected readonly supportsExtrema = true;
+
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
@@ -65,7 +67,7 @@ export class Candlestick extends AbstractTrace<number> {
     this.navigationService = new NavigationService();
 
     const data = layer.data as CandlestickPoint[];
-    this.candles = data.map(candle => ({
+    this.candles = data.map((candle) => ({
       ...candle,
       volatility:
         Math.round(
@@ -81,8 +83,8 @@ export class Candlestick extends AbstractTrace<number> {
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.candleValues = this.sections.map(key =>
-      this.candles.map(c => c[key]),
+    this.candleValues = this.sections.map((key) =>
+      this.candles.map((c) => c[key]),
     );
 
     this.min = MathUtil.minFrom2D(this.candleValues);
@@ -122,9 +124,9 @@ export class Candlestick extends AbstractTrace<number> {
         'high',
       ];
       const sortedOhlc = ohlcSegments
-        .map(seg => [seg, candle[seg]] as [CandlestickSegmentType, number])
+        .map((seg) => [seg, candle[seg]] as [CandlestickSegmentType, number])
         .sort((a, b) => a[1] - b[1])
-        .map(pair => pair[0]);
+        .map((pair) => pair[0]);
       return ['volatility', ...sortedOhlc];
     });
   }
@@ -183,12 +185,15 @@ export class Candlestick extends AbstractTrace<number> {
   /**
    * Update visual position for point highlighting
    */
-  private updateVisualPointPosition(): void {
+  protected updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.row = this.currentPointIndex;
     } else {
       this.col = this.currentPointIndex;
     }
+
+    // Also update segment position since candlestick needs both
+    this.updateVisualSegmentPosition();
   }
 
   protected handleInitialEntry(): void {
@@ -229,8 +234,8 @@ export class Candlestick extends AbstractTrace<number> {
           this.notifyOutOfBounds();
           return;
         }
-        const newSegmentPosition
-          = direction === 'UPWARD'
+        const newSegmentPosition =
+          direction === 'UPWARD'
             ? currentSegmentPosition + 1
             : currentSegmentPosition - 1;
         if (newSegmentPosition >= 0 && newSegmentPosition < navOrder.length) {
@@ -246,8 +251,8 @@ export class Candlestick extends AbstractTrace<number> {
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: navigate between candlesticks while preserving segment type
-        const newPointIndex
-          = direction === 'FORWARD'
+        const newPointIndex =
+          direction === 'FORWARD'
             ? this.currentPointIndex + 1
             : this.currentPointIndex - 1;
 
@@ -274,16 +279,16 @@ export class Candlestick extends AbstractTrace<number> {
     switch (direction) {
       case 'UPWARD': {
         // Move to the highest value segment in current candlestick
-        const currentSorted
-          = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSorted =
+          this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSorted[currentSorted.length - 1];
         this.updateVisualSegmentPosition();
         break;
       }
       case 'DOWNWARD': {
         // Move to the lowest value segment in current candlestick
-        const currentSortedDown
-          = this.sortedSegmentsByPoint[this.currentPointIndex];
+        const currentSortedDown =
+          this.sortedSegmentsByPoint[this.currentPointIndex];
         this.currentSegmentType = currentSortedDown[0];
         this.updateVisualSegmentPosition();
         break;
@@ -314,8 +319,8 @@ export class Candlestick extends AbstractTrace<number> {
     }
 
     // Use navigation service to compute the mapping
-    const { pointIndex, segmentType }
-      = this.navigationService.computeIndexAndSegment(
+    const { pointIndex, segmentType } =
+      this.navigationService.computeIndexAndSegment(
         row,
         col,
         this.orientation,
@@ -354,8 +359,8 @@ export class Candlestick extends AbstractTrace<number> {
         const currentSegmentPosition = navOrder.indexOf(
           this.currentSegmentType ?? 'open',
         );
-        const newSegmentPosition
-          = target === 'UPWARD'
+        const newSegmentPosition =
+          target === 'UPWARD'
             ? currentSegmentPosition + 1
             : currentSegmentPosition - 1;
         return newSegmentPosition >= 0 && newSegmentPosition < navOrder.length;
@@ -364,8 +369,8 @@ export class Candlestick extends AbstractTrace<number> {
       case 'FORWARD':
       case 'BACKWARD': {
         // Horizontal movement: check if we can move between candlesticks
-        const newPointIndex
-          = target === 'FORWARD'
+        const newPointIndex =
+          target === 'FORWARD'
             ? this.currentPointIndex + 1
             : this.currentPointIndex - 1;
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
@@ -407,7 +412,7 @@ export class Candlestick extends AbstractTrace<number> {
     // Return the braille state with the current candle values and segment type
 
     // get an array for bear or bull
-    const bearOrBull = this.candles.map(candle => candle.trend);
+    const bearOrBull = this.candles.map((candle) => candle.trend);
 
     // Set row to the position in navigation order (volatility first, then value-sorted OHLC) for the current segment of the current candle
     const valueSortedRow = this.getSegmentPositionInSortedOrder(
@@ -417,8 +422,8 @@ export class Candlestick extends AbstractTrace<number> {
     this.row = valueSortedRow;
 
     // Compute per-row min/max for all segments (including volatility)
-    const perRowMin = this.candleValues.map(row => Math.min(...row));
-    const perRowMax = this.candleValues.map(row => Math.max(...row));
+    const perRowMin = this.candleValues.map((row) => Math.min(...row));
+    const perRowMax = this.candleValues.map((row) => Math.max(...row));
 
     return {
       empty: false,
@@ -433,8 +438,7 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   private collectElements(selector?: string | string[]): SVGElement[] {
-    if (!selector)
-      return [];
+    if (!selector) return [];
     const selectorArray = Array.isArray(selector) ? selector : [selector];
     const elements: SVGElement[] = [];
     for (const sel of selectorArray) {
@@ -487,10 +491,8 @@ export class Candlestick extends AbstractTrace<number> {
     if (highs.length === 0 || lows.length === 0) {
       const combined = this.collectElements(cs.wick);
       if (combined.length > 0) {
-        if (highs.length === 0)
-          highs = combined;
-        if (lows.length === 0)
-          lows = combined;
+        if (highs.length === 0) highs = combined;
+        if (lows.length === 0) lows = combined;
       }
     }
     const opens = this.collectElements(cs.open);
@@ -498,11 +500,14 @@ export class Candlestick extends AbstractTrace<number> {
     // Volatility will be composed from [wickHigh, body, wickLow]; no direct selectors used
 
     const derivedOpen: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
+      Svg.createEmptyElement(),
+    );
     const derivedClose: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
+      Svg.createEmptyElement(),
+    );
     const derivedVolatility: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
+      Svg.createEmptyElement(),
+    );
 
     for (let i = 0; i < N; i++) {
       // Open (explicit otherwise derive from body using data)
@@ -511,8 +516,8 @@ export class Candlestick extends AbstractTrace<number> {
         const body = this.getElementAt(bodies, i);
         if (body) {
           const { open, close } = this.candles[i];
-          const edge: 'top' | 'bottom'
-            = close > open ? 'bottom' : close < open ? 'top' : 'bottom';
+          const edge: 'top' | 'bottom' =
+            close > open ? 'bottom' : close < open ? 'top' : 'bottom';
           openEl = Svg.createLineElement(body, edge);
         } else {
           openEl = Svg.createEmptyElement();
@@ -526,8 +531,8 @@ export class Candlestick extends AbstractTrace<number> {
         const body = this.getElementAt(bodies, i);
         if (body) {
           const { open, close } = this.candles[i];
-          const edge: 'top' | 'bottom'
-            = close > open ? 'top' : close < open ? 'bottom' : 'top';
+          const edge: 'top' | 'bottom' =
+            close > open ? 'top' : close < open ? 'bottom' : 'top';
           closeEl = Svg.createLineElement(body, edge);
         } else {
           closeEl = Svg.createEmptyElement();
@@ -557,12 +562,9 @@ export class Candlestick extends AbstractTrace<number> {
               const body = this.getElementAt(bodies, pointIndex);
               const hi = this.getElementAt(highs, pointIndex) ?? body;
               const lo = this.getElementAt(lows, pointIndex) ?? body;
-              if (hi)
-                parts.push(hi);
-              if (body)
-                parts.push(body);
-              if (lo)
-                parts.push(lo);
+              if (hi) parts.push(hi);
+              if (body) parts.push(body);
+              if (lo) parts.push(lo);
               const unique = Array.from(new Set(parts));
               el = unique.length > 0 ? unique : [Svg.createEmptyElement()];
             }
@@ -574,16 +576,16 @@ export class Candlestick extends AbstractTrace<number> {
             el = derivedClose[pointIndex];
             break;
           case 'high':
-            el
-              = this.getElementAt(highs, pointIndex)
-                ?? this.getElementAt(bodies, pointIndex)
-                ?? Svg.createEmptyElement();
+            el =
+              this.getElementAt(highs, pointIndex) ??
+              this.getElementAt(bodies, pointIndex) ??
+              Svg.createEmptyElement();
             break;
           case 'low':
-            el
-              = this.getElementAt(lows, pointIndex)
-                ?? this.getElementAt(bodies, pointIndex)
-                ?? Svg.createEmptyElement();
+            el =
+              this.getElementAt(lows, pointIndex) ??
+              this.getElementAt(bodies, pointIndex) ??
+              Svg.createEmptyElement();
             break;
           default:
             el = Svg.createEmptyElement();
@@ -638,8 +640,8 @@ export class Candlestick extends AbstractTrace<number> {
    */
   public getCurrentXValue(): XValue | null {
     if (
-      this.currentPointIndex >= 0
-      && this.currentPointIndex < this.candles.length
+      this.currentPointIndex >= 0 &&
+      this.currentPointIndex < this.candles.length
     ) {
       return this.candles[this.currentPointIndex].value;
     }
@@ -653,7 +655,7 @@ export class Candlestick extends AbstractTrace<number> {
    */
   public moveToXValue(xValue: XValue): boolean {
     const targetIndex = this.candles.findIndex(
-      candle => candle.value === xValue,
+      (candle) => candle.value === xValue,
     );
     if (targetIndex !== -1) {
       this.currentPointIndex = targetIndex;
@@ -667,8 +669,16 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
+   * Get available X values for navigation
+   * @returns Array of X values
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.candles.map((candle) => candle.value);
+  }
+
+  /**
    * Get extrema targets for the current candlestick trace
-   * Only returns extrema for the current segment the user is in
+   * Returns multiple extrema targets with better labels and descriptions
    * @returns Array of extrema targets for navigation
    */
   public getExtremaTargets(): ExtremaTarget[] {
@@ -677,50 +687,95 @@ export class Candlestick extends AbstractTrace<number> {
 
     // Only add extrema for the current segment
     if (currentSegment === 'volatility') {
-      // For volatility, find min and max
-      const volatilityValues = this.candles.map(c => c.volatility);
-      const maxVolatilityIndex = volatilityValues.indexOf(
-        Math.max(...volatilityValues),
-      );
-      const minVolatilityIndex = volatilityValues.indexOf(
-        Math.min(...volatilityValues),
-      );
+      // For volatility, find all max and min values (there could be multiple)
+      const volatilityValues = this.candles.map((c, index) => ({
+        value: c.volatility,
+        index,
+      }));
+      // Find all maximum values (there could be multiple candles with the same max volatility)
+      const maxVolatility = Math.max(...volatilityValues.map((v) => v.value));
+      const maxVolatilityIndices = volatilityValues
+        .filter((v) => v.value === maxVolatility)
+        .map((v) => v.index);
 
-      targets.push({
-        label: `Max Volatility`,
-        value: this.candles[maxVolatilityIndex].volatility,
-        pointIndex: maxVolatilityIndex,
-        segment: 'volatility',
-        type: 'max',
+      // Find all minimum values
+      const minVolatility = Math.min(...volatilityValues.map((v) => v.value));
+      const minVolatilityIndices = volatilityValues
+        .filter((v) => v.value === minVolatility)
+        .map((v) => v.index);
+
+      // Add all max volatility targets
+      maxVolatilityIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        targets.push({
+          label: `Max Volatility at ${candle.value}`,
+          value: candle.volatility,
+          pointIndex: index,
+          segment: 'volatility',
+          type: 'max',
+          navigationType: 'point',
+        });
       });
 
-      targets.push({
-        label: `Min Volatility`,
-        value: this.candles[minVolatilityIndex].volatility,
-        pointIndex: minVolatilityIndex,
-        segment: 'volatility',
-        type: 'min',
+      // Add all min volatility targets
+      minVolatilityIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        targets.push({
+          label: `Min Volatility at ${candle.value}`,
+          value: candle.volatility,
+          pointIndex: index,
+          segment: 'volatility',
+          type: 'min',
+          navigationType: 'point',
+        });
       });
     } else {
-      // For OHLC segments, find min and max
-      const segmentValues = this.candles.map(c => c[currentSegment]);
-      const maxIndex = segmentValues.indexOf(Math.max(...segmentValues));
-      const minIndex = segmentValues.indexOf(Math.min(...segmentValues));
+      // For OHLC segments, find all min and max values
+      const segmentValues = this.candles.map((c, index) => ({
+        value: c[currentSegment],
+        index,
+        xValue: c.value,
+      }));
+      // Find all maximum values
+      const maxValue = Math.max(...segmentValues.map((v) => v.value));
+      const maxIndices = segmentValues
+        .filter((v) => v.value === maxValue)
+        .map((v) => v.index);
 
-      targets.push({
-        label: `Max ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
-        value: this.candles[maxIndex][currentSegment],
-        pointIndex: maxIndex,
-        segment: currentSegment,
-        type: 'max',
+      // Find all minimum values
+      const minValue = Math.min(...segmentValues.map((v) => v.value));
+      const minIndices = segmentValues
+        .filter((v) => v.value === minValue)
+        .map((v) => v.index);
+
+      // Add all max targets
+      maxIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        const segmentLabel =
+          currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        targets.push({
+          label: `Max ${segmentLabel} at ${candle.value}`,
+          value: candle[currentSegment],
+          pointIndex: index,
+          segment: currentSegment,
+          type: 'max',
+          navigationType: 'point',
+        });
       });
 
-      targets.push({
-        label: `Min ${currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1)}`,
-        value: this.candles[minIndex][currentSegment],
-        pointIndex: minIndex,
-        segment: currentSegment,
-        type: 'min',
+      // Add all min targets
+      minIndices.forEach((index, _count) => {
+        const candle = this.candles[index];
+        const segmentLabel =
+          currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        targets.push({
+          label: `Min ${segmentLabel} at ${candle.value}`,
+          value: candle[currentSegment],
+          pointIndex: index,
+          segment: currentSegment,
+          type: 'min',
+          navigationType: 'point',
+        });
       });
     }
 
@@ -738,9 +793,8 @@ export class Candlestick extends AbstractTrace<number> {
     // Update the current segment type
     this.currentSegmentType = target.segment as CandlestickNavSegmentType;
 
-    this.updateVisualPointPosition();
-    this.updateVisualSegmentPosition();
-    this.notifyStateUpdate();
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
   }
 
   protected mapSvgElementsToCenters():

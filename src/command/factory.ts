@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -31,7 +32,7 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
-import { GoToExtremaCommand } from './goTo';
+import { GoToExtremaCommand, GoToExtremaToggleCommand } from './goTo';
 import {
   GoToExtremaCloseCommand,
   GoToExtremaMoveDownCommand,
@@ -53,9 +54,14 @@ import {
   MoveUpCommand,
 } from './move';
 import {
+  CommandPaletteCloseCommand,
+  CommandPaletteMoveDownCommand,
+  CommandPaletteMoveUpCommand,
+  CommandPaletteSelectCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
+  ToggleCommandPaletteCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScopeCommand,
@@ -72,6 +78,7 @@ export class CommandFactory {
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
@@ -87,6 +94,7 @@ export class CommandFactory {
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
+    this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
@@ -135,6 +143,8 @@ export class CommandFactory {
         return new ToggleHelpCommand(this.helpViewModel);
       case 'TOGGLE_CHAT':
         return new ToggleChatCommand(this.chatViewModel);
+      case 'TOGGLE_COMMAND_PALETTE':
+        return new ToggleCommandPaletteCommand(this.commandPaletteViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
 
@@ -148,7 +158,16 @@ export class CommandFactory {
         return new GoToExtremaSelectCommand(this.goToExtremaViewModel);
       case 'GO_TO_EXTREMA_CLOSE':
         return new GoToExtremaCloseCommand(this.goToExtremaViewModel);
-
+      case 'GO_TO_EXTREMA_TOGGLE':
+        return new GoToExtremaToggleCommand(this.context, this.goToExtremaViewModel);
+      case 'COMMAND_PALETTE_MOVE_UP':
+        return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_MOVE_DOWN':
+        return new CommandPaletteMoveDownCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_SELECT':
+        return new CommandPaletteSelectCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_CLOSE':
+        return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.context, this.textViewModel);
       case 'DESCRIBE_Y':

@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.23.3",
+  "version": "3.27.1",
   "main": "dist/maidr.js",
   "files": [
     "dist"
@@ -27,10 +27,13 @@
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.7.0",
+    "@types/katex": "^0.16.7",
     "hotkeys-js": "3.13.10",
+    "katex": "^0.16.22",
     "react": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-redux": "^9.2.0",
+    "rehype-katex": "^7.0.1",
     "rehype-mathjax": "^5.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
