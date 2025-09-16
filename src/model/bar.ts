@@ -209,7 +209,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.col = safeCol;
   }
 
-  public moveToNextCompareValue(direction: 'before' | 'after', xValue: XValue, type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;
@@ -221,7 +221,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     }
 
     const currentIndex = this.col;
-    const step = direction === 'after' ? 1 : -1;
+    const step = direction === 'right' ? 1 : -1;
     let i = currentIndex + step;
 
     while (i >= 0 && i < groupValues.length) {

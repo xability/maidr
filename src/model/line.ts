@@ -512,7 +512,7 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  public moveToNextCompareValue(direction: string, xValue: XValue, type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;
@@ -524,7 +524,7 @@ export class LineTrace extends AbstractTrace<number> {
     }
 
     const currentIndex = this.col;
-    const step = direction === 'after' ? 1 : -1;
+    const step = direction === 'right' ? 1 : -1;
     let i = currentIndex + step;
 
     while (i >= 0 && i < groupValues.length) {

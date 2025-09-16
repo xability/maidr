@@ -75,7 +75,7 @@ export class RotorNavigationService {
     return this.rotorIndex;
   }
 
-  public callMoveToNextCompareMethod(direction: 'before' | 'after'): string | null {
+  public callMoveToNextCompareMethod(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
 
     const compare = this.getCompareType();
@@ -83,10 +83,10 @@ export class RotorNavigationService {
     if (activeTrace instanceof AbstractTrace) {
       const xValue = activeTrace.getCurrentXValue(); // Get the current X value
       if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, xValue, compare as 'lower' | 'higher');
+        const moved = activeTrace.moveToNextCompareValue(direction, compare as 'lower' | 'higher');
         if (!moved) {
-          console.warn(`No ${compare} value found ${direction} the current value.`);
-          return `No ${compare} value found ${direction} the current value.`;
+          console.warn(`No ${compare} value found to the ${direction} of the current value.`);
+          return `No ${compare} value found to the ${direction} of the current value.`;
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -101,34 +101,47 @@ export class RotorNavigationService {
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
-        return activeTrace.moveUpRotor();
+        const moved = activeTrace.moveUpRotor(this.getCompareType());
+        if (!moved) {
+          let msg = `No ${this.getCompareType()} value found above the current value.`
+          console.warn(msg);
+          return msg;
+        }
       }
     }
     catch {
       //default behavior is to mirror move right
+      return this.moveRight();
     }
-    return this.moveRight();
+    return null;
   }
 
   public moveDown(): string | null {
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
-        return activeTrace.moveDownRotor();
+        const moved = activeTrace.moveDownRotor(this.getCompareType());
+        if (!moved) {
+          let msg = `No ${this.getCompareType()} value found below the current value.`
+          console.warn(msg);
+          return msg;
+        }
       }
     }
     catch {
-      //default behavior is to mirror move right
+      //default behavior is to mirror move left
+      return this.moveLeft();
     }
-    return this.moveLeft();
+    return null;
+
   }
 
   public moveLeft(): string | null {
-    return this.callMoveToNextCompareMethod('before');
+    return this.callMoveToNextCompareMethod('left');
   }
 
   public moveRight(): string | null {
-    return this.callMoveToNextCompareMethod('after');
+    return this.callMoveToNextCompareMethod('right');
   }
 
   public setMode(): void {

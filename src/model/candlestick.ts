@@ -735,7 +735,7 @@ export class Candlestick extends AbstractTrace<number> {
     this.finalizeExtremaNavigation();
   }
 
-  public moveToNextCompareValue(direction: 'before' | 'after', xValue: XValue, type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.candles.length) {
       return false;
@@ -749,7 +749,7 @@ export class Candlestick extends AbstractTrace<number> {
     }));
 
     const currentIndex = this.col;
-    const step = direction === 'after' ? 1 : -1;
+    const step = direction === 'right' ? 1 : -1;
     let i = currentIndex + step;
     while (i >= 0 && i < segmentValues.length) {
       if (this.compare(segmentValues[i].value, segmentValues[currentIndex].value, type)) {
@@ -768,13 +768,13 @@ export class Candlestick extends AbstractTrace<number> {
    * The behavior of upward and downward arrows is to move between the segments within a candle(within the scope of ROTOR trace)
    * @returns null
    */
-  public moveUpRotor(): string | null {
+  public moveUpRotor(): boolean {
     this.moveOnce('UPWARD');
-    return null;
+    return true;
   }
 
-  public moveDownRotor(): string | null {
+  public moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
-    return null;
+    return true;
   }
 }

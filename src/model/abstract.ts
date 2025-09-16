@@ -199,7 +199,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  public moveToNextCompareValue(_direction: 'before' | 'after', _xValue: XValue, _type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     /** No op */
     return false;
   }
@@ -222,10 +222,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   /**
    * Override upward and downward navigation functionality in rotor
    */
-  public moveUpRotor(): string | null {
+  public moveUpRotor(mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
-  public moveDownRotor(): string | null {
+  public moveDownRotor(mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
 }
