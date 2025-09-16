@@ -220,13 +220,19 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     return false;
   }
   /**
-   * Override upward and downward navigation functionality in rotor
+   * Override left, right, upward and downward navigation functionality in rotor
    */
   public moveUpRotor(mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
   public moveDownRotor(mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
+  }
+  public moveLeftRotor(mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move left function is not defined for this trace');
+  }
+  public moveRightRotor(mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move right function is not defined for this trace');
   }
 }
 

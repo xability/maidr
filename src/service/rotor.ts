@@ -137,11 +137,42 @@ export class RotorNavigationService {
   }
 
   public moveLeft(): string | null {
-    return this.callMoveToNextCompareMethod('left');
+    const activeTrace = this.context.active;
+    try {
+      if (activeTrace instanceof AbstractTrace) {
+        const moved = activeTrace.moveLeftRotor(this.getCompareType());
+        if (!moved) {
+          let msg = `No ${this.getCompareType()} value found below the current value.`
+          console.warn(msg);
+          return msg;
+        }
+      }
+    }
+    catch {
+      //default behavior is to mirror move left
+      return this.callMoveToNextCompareMethod('left');
+    }
+    return null;
   }
 
   public moveRight(): string | null {
-    return this.callMoveToNextCompareMethod('right');
+    const activeTrace = this.context.active;
+    try {
+      if (activeTrace instanceof AbstractTrace) {
+        const moved = activeTrace.moveRightRotor(this.getCompareType());
+        if (!moved) {
+          let msg = `No ${this.getCompareType()} value found below the current value.`
+          console.warn(msg);
+          return msg;
+        }
+      }
+    }
+    catch {
+      //default behavior is to mirror move left
+      return this.callMoveToNextCompareMethod('right');
+    }
+    return null;
+
   }
 
   public setMode(): void {
