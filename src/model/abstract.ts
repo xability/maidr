@@ -458,6 +458,10 @@ export abstract class AbstractTrace<T>
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
         this.moveToIndex(nearest.row, nearest.col);
       }
     }

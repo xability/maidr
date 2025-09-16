@@ -155,6 +155,7 @@ export class Controller implements Disposable {
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);
+    this.mousebinding.registerEvents();
   }
 
   public announceInitialInstruction(): void {

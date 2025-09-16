@@ -90,8 +90,6 @@ export class Context implements Disposable {
   }
 
   public moveToPoint(x: number, y: number): void {
-    // bookmark: this.active is null, needs debugging
-    // need to trigger moveToPoint in AbstractTrace somehow
     this.active.moveToPoint(x, y);
   }
 

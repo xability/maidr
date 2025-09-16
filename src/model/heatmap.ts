@@ -125,7 +125,6 @@ export class Heatmap extends AbstractTrace<number> {
     if (!svgElements) {
       return null;
     }
-    // todo / bookmark: getter didn't work, probably delete
 
     const centers: {
       x: number;

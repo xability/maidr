@@ -272,11 +272,9 @@ export class Mousebindingservice {
 
   public constructor(commandContext: CommandContext) {
     this.commandContext = commandContext;
-
-    this.registerEvents();
   }
 
-  private registerEvents(): void {
+  public registerEvents(): void {
     this.mouseListener = (event: MouseEvent) => {
       const x = event.clientX;
       const y = event.clientY;
@@ -284,12 +282,12 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    document.addEventListener('click', this.mouseListener);
+    document.addEventListener('pointermove', this.mouseListener);
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      document.removeEventListener('click', this.mouseListener);
+      document.removeEventListener('pointermove', this.mouseListener);
     }
   }
 }
