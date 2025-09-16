@@ -33,7 +33,7 @@ export class RotorNavigationService {
     this.context = context;
     this.display = display;
     this.text = text;
-    this.rotorIndex = 0;
+    this.rotorIndex = 0; //default is DATA_MODE
     this.onChangeEmitter = new Emitter<RotorChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
   }
@@ -75,7 +75,7 @@ export class RotorNavigationService {
     return this.rotorIndex;
   }
 
-  public callMoveToNextCompareMethod(direction: 'right' | 'left'): string | null {
+  public callMoveToNextCompareMethod(direction: 'before' | 'after'): string | null {
     const activeTrace = this.context.active;
 
     const compare = this.getCompareType();
@@ -85,8 +85,8 @@ export class RotorNavigationService {
       if (xValue !== null) {
         const moved = activeTrace.moveToNextCompareValue(direction, xValue, compare as 'lower' | 'higher');
         if (!moved) {
-          console.warn(`No ${compare} value found in the ${direction} of the current value.`);
-          return `No ${compare} value found in the ${direction} of the current value.`;
+          console.warn(`No ${compare} value found ${direction} the current value.`);
+          return `No ${compare} value found ${direction} the current value.`;
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -98,19 +98,37 @@ export class RotorNavigationService {
   }
 
   public moveUp(): string | null {
-    return this.callMoveToNextCompareMethod('right');
+    const activeTrace = this.context.active;
+    try {
+      if (activeTrace instanceof AbstractTrace) {
+        return activeTrace.moveUpRotor();
+      }
+    }
+    catch {
+      //default behavior is to mirror move right
+    }
+    return this.moveRight();
   }
 
   public moveDown(): string | null {
-    return this.callMoveToNextCompareMethod('left');
+    const activeTrace = this.context.active;
+    try {
+      if (activeTrace instanceof AbstractTrace) {
+        return activeTrace.moveDownRotor();
+      }
+    }
+    catch {
+      //default behavior is to mirror move right
+    }
+    return this.moveLeft();
   }
 
   public moveLeft(): string | null {
-    return this.moveDown();
+    return this.callMoveToNextCompareMethod('before');
   }
 
   public moveRight(): string | null {
-    return this.moveUp();
+    return this.callMoveToNextCompareMethod('after');
   }
 
   public setMode(): void {
@@ -138,9 +156,5 @@ export class RotorNavigationService {
       return 'lower';
     }
     return 'lower'; // fallback
-  }
-
-  public close(): void {
-    this.returnToTraceScope();
   }
 }

@@ -524,7 +524,7 @@ export class LineTrace extends AbstractTrace<number> {
     }
 
     const currentIndex = this.col;
-    const step = direction === 'right' ? 1 : -1;
+    const step = direction === 'after' ? 1 : -1;
     let i = currentIndex + step;
 
     while (i >= 0 && i < groupValues.length) {

@@ -3,6 +3,7 @@ import type { AudioState, BrailleState, TextState } from '@type/state';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { XValue } from '@type/navigation';
 
 export class Heatmap extends AbstractTrace<number> {
   protected readonly supportsExtrema = false;
@@ -109,5 +110,21 @@ export class Heatmap extends AbstractTrace<number> {
     }
 
     return svgElements;
+  }
+  public override moveToNextCompareValue(direction: 'before' | 'after', _xValue: XValue, _type: 'lower' | 'higher'): boolean {
+    const currentIndex = this.col;
+    const step = direction === 'after' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+    return false;
   }
 }

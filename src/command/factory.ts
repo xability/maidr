@@ -56,7 +56,6 @@ import {
   MoveUpCommand,
 } from './move';
 import {
-  RotorNavigationCloseCommand,
   RotorNavigationMoveDownCommand,
   RotorNavigationMoveLeftCommand,
   RotorNavigationMoveRightCommand,
@@ -233,8 +232,6 @@ export class CommandFactory {
         return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
       case 'ROTOR_MOVE_RIGHT':
         return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
-      case 'ROTOR_CLOSE':
-        return new RotorNavigationCloseCommand(this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

@@ -45,9 +45,6 @@ export class RotorNavigationMoveUpCommand implements Command {
 
   public execute(): void {
     this.rotorNavigationViewModel.moveUp();
-    // just noting down: in mode 0, we just change back the toggle out of scope.rotor?
-    // in mode 1, move up/ right takes to high value
-    // in  mode 3, left/down to lower value
   }
 }
 
@@ -87,14 +84,3 @@ export class RotorNavigationMoveRightCommand implements Command {
   }
 }
 
-export class RotorNavigationCloseCommand implements Command {
-  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
-
-  public constructor(rotorNavigationViewModel: RotorNavigationViewModel) {
-    this.rotorNavigationViewModel = rotorNavigationViewModel;
-  }
-
-  public execute(): void {
-    this.rotorNavigationViewModel.close();
-  }
-}
