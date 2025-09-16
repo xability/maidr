@@ -89,6 +89,19 @@ export class Context implements Disposable {
     this.active.moveToIndex(row, col);
   }
 
+  /**
+   * Moves the active plot element to the specified (x, y) point.
+   *
+   * @param x - The x-coordinate to move to.
+   * @param y - The y-coordinate to move to.
+   * @remarks
+   * This method assumes that `this.active` is a valid object with a `moveToPoint` method.
+   * If `this.active` is `null` or does not implement `moveToPoint`, this method will do nothing.
+   *
+   * Limitations:
+   * - If `this.active` is `null` or `undefined`, the method will not perform any action.
+   * - If `this.active` does not implement `moveToPoint`, the method will not perform any action.
+   */
   public moveToPoint(x: number, y: number): void {
     this.active.moveToPoint(x, y);
   }
@@ -178,8 +191,8 @@ export class Context implements Disposable {
           effectivePlotType = 'single line';
         }
 
-        const groupCountText
-          = effectivePlotType === 'multiline' && state.groupCount
+        const groupCountText =
+          effectivePlotType === 'multiline' && state.groupCount
             ? ` with ${state.groupCount} groups`
             : '';
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
