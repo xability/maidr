@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import { MaidrLayer, TraceType } from '@type/grammar';
+import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -12,8 +12,9 @@ import type {
   TextState,
   TraceState,
 } from '@type/state';
-import { Trace } from './plot';
+import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
+import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -22,8 +23,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-  implements Movable, Observable<State>, Disposable
-{
+implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -85,8 +85,8 @@ export abstract class AbstractObservableElement<Element, State>
   protected getSafeIndices(): { row: number; col: number } {
     const values = this.values;
     const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
-    const safeCol =
-      this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    const safeCol
+      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -131,10 +131,10 @@ export abstract class AbstractObservableElement<Element, State>
       const [row, col] = target;
       const { row: safeRow } = this.getSafeIndices();
       return (
-        row >= 0 &&
-        row < this.values.length &&
-        col >= 0 &&
-        col < (this.values[safeRow]?.length || 0)
+        row >= 0
+        && row < this.values.length
+        && col >= 0
+        && col < (this.values[safeRow]?.length || 0)
       );
     }
 
@@ -186,7 +186,7 @@ export abstract class AbstractObservableElement<Element, State>
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter((obs) => obs !== observer);
+    this.observers = this.observers.filter(obs => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -229,8 +229,7 @@ export abstract class AbstractObservableElement<Element, State>
 
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
-  implements Trace
-{
+  implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
@@ -258,10 +257,10 @@ export abstract class AbstractTrace<T>
     this.values.length = 0;
 
     if (this.highlightValues) {
-      this.highlightValues.forEach((row) =>
+      this.highlightValues.forEach(row =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach((element) => element.remove());
+          elements.forEach(element => element.remove());
         }),
       );
       this.highlightValues.length = 0;
@@ -562,18 +561,18 @@ export abstract class AbstractTrace<T>
     let r: number = 12;
     // if plot type is heatmap bar stacked or histogram, use 0
     if (
-      this.type === TraceType.HEATMAP ||
-      this.type === TraceType.BAR ||
-      this.type === TraceType.STACKED ||
-      this.type === TraceType.HISTOGRAM
+      this.type === TraceType.HEATMAP
+      || this.type === TraceType.BAR
+      || this.type === TraceType.STACKED
+      || this.type === TraceType.HISTOGRAM
     ) {
       r = 0;
     }
     return (
-      x >= bbox.x - r &&
-      x <= bbox.x + bbox.width + r &&
-      y >= bbox.y - r &&
-      y <= bbox.y + bbox.height + r
+      x >= bbox.x - r
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r
     );
   }
 }
