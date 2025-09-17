@@ -1,3 +1,10 @@
+# [3.28.0](https://github.com/xability/maidr/compare/v3.27.1...v3.28.0) (2025-09-17)
+
+
+### Features
+
+* support mouse hover visual highlight ([#436](https://github.com/xability/maidr/issues/436)) ([621b5fe](https://github.com/xability/maidr/commit/621b5fed13d2e4881529d1fe49207e782b6d7780))
+
 ## [3.27.1](https://github.com/xability/maidr/compare/v3.27.0...v3.27.1) (2025-09-15)
 
 
