@@ -2,12 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type {
-  FigureState,
-  HighlightState,
-  SubplotState,
-  TraceState,
-} from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
@@ -36,9 +31,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map(row =>
-      row.map(subplot => new Subplot(subplot)),
-    );
+    this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
@@ -64,10 +57,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       };
     }
 
-    const currentIndex
-      = this.col
-        + 1
-        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
+    const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
+      .reduce((sum, r) => sum + r.length, 0);
 
     const activeSubplot = this.activeSubplot;
 
@@ -103,9 +94,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       const numCols = this.subplots[0]?.length || 1;
       const subplotIndex = this.row * numCols + this.col + 1;
       const subplotSelector = `g[id="axes_${subplotIndex}"]`;
-      const subplotElement = document.querySelector(
-        subplotSelector,
-      ) as SVGElement;
+      const subplotElement = document.querySelector(subplotSelector) as SVGElement;
 
       if (subplotElement) {
         return {
@@ -183,12 +172,6 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         this.col -= 1;
         break;
     }
-    this.notifyStateUpdate();
-  }
-
-  public moveToPoint(x: number, y: number): void {
-    // implement in plot classes
-    this.activeSubplot.activeTrace;
     this.notifyStateUpdate();
   }
 }
@@ -292,15 +275,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
-  public moveToPoint(x: number, y: number): void {
-    // implement in plot classes
-    this.notifyStateUpdate();
-  }
-
-  public getStateWithFigurePosition(
-    _figureRow: number,
-    _figureCol: number,
-  ): SubplotState {
+  public getStateWithFigurePosition(_figureRow: number, _figureCol: number): SubplotState {
     return this.state;
   }
 }
