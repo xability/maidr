@@ -2,19 +2,13 @@ import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import type {
-  FigureState,
-  HighlightState,
-  SubplotState,
-  TraceState,
-} from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
-export class HighlightService
-implements Observer<HighlightStateUnion>, Disposable {
+export class HighlightService implements Observer<HighlightStateUnion>, Disposable {
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
   private currentHighlightColor: string;
@@ -39,10 +33,7 @@ implements Observer<HighlightStateUnion>, Disposable {
       throw new TypeError('Invalid element provided for highlight creation');
     }
 
-    const clone = Svg.createHighlightElement(
-      element,
-      this.currentHighlightColor,
-    );
+    const clone = Svg.createHighlightElement(element, this.currentHighlightColor);
     clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
     return clone;
   }
@@ -51,9 +42,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     this.currentHighlightColor = settings.general.highlightColor;
   }
 
-  private handleStateUpdate(
-    state: SubplotState | TraceState | FigureState,
-  ): void {
+  private handleStateUpdate(state: SubplotState | TraceState | FigureState): void {
     if (state.empty) {
       return;
     }
@@ -109,9 +98,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     if (highlight.empty) {
       return [];
     }
-    return Array.isArray(highlight.elements)
-      ? highlight.elements
-      : [highlight.elements];
+    return Array.isArray(highlight.elements) ? highlight.elements : [highlight.elements];
   }
 
   private isMultiPlotScenario(): boolean {
@@ -132,17 +119,10 @@ implements Observer<HighlightStateUnion>, Disposable {
 
   private highlightSubplotElements(elements: SVGElement[]): void {
     this.unhighlightSubplotElements();
-    const figure = document.querySelector(
-      'g[id^="maidr-"] > path[style*="fill"]',
-    )?.parentElement as SVGElement | null;
-    const figureBgElement
-      = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    const figure = document.querySelector('g[id^="maidr-"] > path[style*="fill"]')?.parentElement as SVGElement | null;
+    const figureBgElement = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {
-      Svg.setSubplotHighlightSvgWithAdaptiveColor(
-        element,
-        this.currentHighlightColor,
-        figureBgElement,
-      );
+      Svg.setSubplotHighlightSvgWithAdaptiveColor(element, this.currentHighlightColor, figureBgElement);
       this.highlightedSubplots.add(element);
     }
   }
