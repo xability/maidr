@@ -1,12 +1,20 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer, TraceType } from '@type/grammar';
+import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
+import type {
+  AudioState,
+  AutoplayState,
+  BrailleState,
+  HighlightState,
+  TextState,
+  TraceState,
+} from '@type/state';
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
+import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -14,7 +22,8 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State> implements Movable, Observable<State>, Disposable {
+export abstract class AbstractObservableElement<Element, State>
+  implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -76,7 +85,8 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   protected getSafeIndices(): { row: number; col: number } {
     const values = this.values;
     const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
-    const safeCol = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    const safeCol
+      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -95,7 +105,9 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
       case 'FORWARD': {
         // Safety check: ensure we don't access undefined values
         const { row: safeRow } = this.getSafeIndices();
-        this.col = this.values[safeRow]?.length ? this.values[safeRow].length - 1 : 0;
+        this.col = this.values[safeRow]?.length
+          ? this.values[safeRow].length - 1
+          : 0;
         break;
       }
       case 'BACKWARD':
@@ -119,8 +131,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
       const [row, col] = target;
       const { row: safeRow } = this.getSafeIndices();
       return (
-        row >= 0 && row < this.values.length
-        && col >= 0 && col < (this.values[safeRow]?.length || 0)
+        row >= 0
+        && row < this.values.length
+        && col >= 0
+        && col < (this.values[safeRow]?.length || 0)
       );
     }
 
@@ -144,7 +158,10 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
     // Safety check: ensure we don't access undefined values
     const { row: safeRow } = this.getSafeIndices();
-    this.col = Math.max(0, Math.min(this.col, (this.values[safeRow]?.length || 0) - 1));
+    this.col = Math.max(
+      0,
+      Math.min(this.col, (this.values[safeRow]?.length || 0) - 1),
+    );
   }
 
   /**
@@ -239,9 +256,25 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
   }
+
+  /**
+   * Moves the element to the specified (x, y) point.
+   *
+   * This base implementation is intentionally left empty. Subclasses should override
+   * this method to provide specific logic for moving to a point, such as updating
+   * highlight values or managing selection boxes.
+   *
+   * @param x - The x-coordinate to move to.
+   * @param y - The y-coordinate to move to.
+   */
+  public moveToPoint(x: number, y: number): void {
+    // implement basic stuff, assuming something like highlightValues that holds the points and boxes
+  }
 }
 
-export abstract class AbstractTrace<T> extends AbstractObservableElement<T, TraceState> implements Trace {
+export abstract class AbstractTrace<T>
+  extends AbstractObservableElement<T, TraceState>
+  implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
@@ -269,10 +302,12 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     this.values.length = 0;
 
     if (this.highlightValues) {
-      this.highlightValues.forEach(row => row.forEach((el) => {
-        const elements = Array.isArray(el) ? el : [el];
-        elements.forEach(element => element.remove());
-      }));
+      this.highlightValues.forEach(row =>
+        row.forEach((el) => {
+          const elements = Array.isArray(el) ? el : [el];
+          elements.forEach(element => element.remove());
+        }),
+      );
       this.highlightValues.length = 0;
     }
 
@@ -370,7 +405,9 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   protected abstract text(): TextState;
 
-  protected abstract get highlightValues(): (SVGElement[] | SVGElement)[][] | null;
+  protected abstract get highlightValues():
+    | (SVGElement[] | SVGElement)[][]
+    | null;
 
   /**
    * Get available extrema targets for the current navigation context
@@ -440,7 +477,11 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.extractXValueFromPoints(points, this.row, this.col);
+        return this.navigationService.extractXValueFromPoints(
+          points,
+          this.row,
+          this.col,
+        );
       }
     }
 
@@ -448,7 +489,11 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.extractXValueFromValues(values as any, this.row, this.col);
+        return this.navigationService.extractXValueFromValues(
+          values as any,
+          this.row,
+          this.col,
+        );
       }
     }
 
@@ -464,7 +509,11 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.moveToXValueInPoints(points, xValue, this.moveToIndex.bind(this));
+        return this.navigationService.moveToXValueInPoints(
+          points,
+          xValue,
+          this.moveToIndex.bind(this),
+        );
       }
     }
 
@@ -472,7 +521,11 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.moveToXValueInValues(values as any, xValue, this.moveToIndex.bind(this));
+        return this.navigationService.moveToXValueInValues(
+          values as any,
+          xValue,
+          this.moveToIndex.bind(this),
+        );
       }
     }
 
@@ -516,5 +569,55 @@ export abstract class AbstractTrace<T> extends AbstractObservableElement<T, Trac
 
   public getId(): string {
     return this.id;
+  }
+
+  protected abstract findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null;
+
+  // hover functions
+  // parent calls moveToPoint with x y from mouse event
+  // this then finds a nearest point, and checks if it's in bounds
+  // if all is good, it sends row col to context.moveToIndex
+  public moveToPoint(x: number, y: number): void {
+    const nearest = this.findNearestPoint(x, y);
+    if (nearest) {
+      if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
+        this.moveToIndex(nearest.row, nearest.col);
+      }
+    }
+  }
+
+  // used in hover feature
+  // this checks if the x y is within the bounding box of the element
+  // or close enough, if the point is tiny
+  public isPointInBounds(
+    x: number,
+    y: number,
+    { element, row, col }: { element: SVGElement; row: number; col: number },
+  ): boolean {
+    // check if x y is within r distance of the bounding box of the element
+    const bbox = element.getBoundingClientRect();
+    let r: number = 12;
+    // if plot type is heatmap bar stacked or histogram, use 0
+    if (
+      this.type === TraceType.HEATMAP
+      || this.type === TraceType.BAR
+      || this.type === TraceType.STACKED
+      || this.type === TraceType.HISTOGRAM
+    ) {
+      r = 0;
+    }
+    return (
+      x >= bbox.x - r
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r
+    );
   }
 }
