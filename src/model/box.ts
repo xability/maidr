@@ -12,9 +12,6 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
-  protected highlightCenters:
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null;
 
   private readonly orientation: Orientation;
   private readonly sections: string[];
@@ -67,7 +64,6 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
     );
-    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {

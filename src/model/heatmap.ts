@@ -9,9 +9,6 @@ export class Heatmap extends AbstractTrace<number> {
 
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
-  protected highlightCenters:
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null;
 
   private readonly x: string[];
   private readonly y: string[];
@@ -32,7 +29,6 @@ export class Heatmap extends AbstractTrace<number> {
     this.max = max;
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
-    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -74,10 +70,7 @@ export class Heatmap extends AbstractTrace<number> {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
-      fill: {
-        label: this.fill,
-        value: String(this.heatmapValues[this.row][this.col]),
-      },
+      fill: { label: this.fill, value: String(this.heatmapValues[this.row][this.col]) },
     };
   }
 
