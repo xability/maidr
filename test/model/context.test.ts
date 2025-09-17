@@ -18,6 +18,7 @@ function createMockContext(traceState: TraceState): Context {
     resetToInitialEntry: () => {},
     isMovable: () => false,
     moveOnce: () => {},
+    moveToPoint: () => {},
     moveToExtreme: () => {},
     moveToIndex: () => {},
     dispose: () => {},
@@ -36,7 +37,11 @@ function createMockContext(traceState: TraceState): Context {
         size: 1,
         index: 0,
         trace: traceState,
-        highlight: { empty: true as const, type: 'trace' as const, audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true as const,
+          type: 'trace' as const,
+          audio: { size: 10, index: 5 },
+        },
       };
     },
     traces: [[mockTrace]],
@@ -47,6 +52,7 @@ function createMockContext(traceState: TraceState): Context {
     getSize: () => 1,
     isMovable: () => false,
     moveOnce: () => {},
+    moveToPoint: () => {},
     moveToExtreme: () => {},
     moveToIndex: () => {},
     dispose: () => {},
@@ -68,7 +74,11 @@ function createMockContext(traceState: TraceState): Context {
         index: 0,
         subplot: mockSubplot.state,
         traceTypes: ['line'],
-        highlight: { empty: true as const, type: 'trace' as const, audio: { size: 0, index: 0 } },
+        highlight: {
+          empty: true as const,
+          type: 'trace' as const,
+          audio: { size: 0, index: 0 },
+        },
       };
     },
     get activeSubplot() {
@@ -76,6 +86,7 @@ function createMockContext(traceState: TraceState): Context {
     },
     isMovable: () => false,
     moveOnce: () => {},
+    moveToPoint: () => {},
     moveToExtreme: () => {},
     moveToIndex: () => {},
     dispose: () => {},
@@ -100,10 +111,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
       };
 
       context = createMockContext(singleLineState);
@@ -139,10 +162,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         groupCount: 5,
       };
 
@@ -177,10 +212,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         groupCount: 1,
       };
 
@@ -204,10 +251,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         groupCount: 10,
       };
 
@@ -232,10 +291,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         // No groupCount property
       };
 
@@ -258,10 +329,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.LINE, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.LINE,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         groupCount: 0,
       };
 
@@ -286,10 +369,22 @@ describe('Context getInstruction method', () => {
         fill: 'blue',
         hasMultiPoints: true,
         audio: { min: 0, max: 100, size: 10, value: 50, index: 5 },
-        braille: { empty: true, type: 'trace', traceType: TraceType.BAR, audio: { size: 10, index: 5 } },
-        text: { main: { label: 'X', value: 5 }, cross: { label: 'Y', value: 50 } },
+        braille: {
+          empty: true,
+          type: 'trace',
+          traceType: TraceType.BAR,
+          audio: { size: 10, index: 5 },
+        },
+        text: {
+          main: { label: 'X', value: 5 },
+          cross: { label: 'Y', value: 50 },
+        },
         autoplay: { FORWARD: 1, BACKWARD: 1, UPWARD: 1, DOWNWARD: 1 },
-        highlight: { empty: true, type: 'trace', audio: { size: 10, index: 5 } },
+        highlight: {
+          empty: true,
+          type: 'trace',
+          audio: { size: 10, index: 5 },
+        },
         groupCount: 5, // Should be ignored since it's not multiline
       };
 
