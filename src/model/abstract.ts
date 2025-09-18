@@ -199,8 +199,8 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
-    /** No op */
+  protected moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+    // no-op
     return false;
   }
 

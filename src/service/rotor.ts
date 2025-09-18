@@ -92,7 +92,7 @@ export class RotorNavigationService {
         console.error('Unable to retrieve the current X value.');
       }
     } else {
-      console.error('The active trace does not support \'moveToNextHigherValue\'.');
+      console.error('The active trace does not support \'callMoveToNextCompareMethod\'.');
     }
     return null;
   }

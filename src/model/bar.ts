@@ -207,8 +207,13 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.row = safeRow;
     this.col = safeCol;
   }
-
-  public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  /**
+   * Bar specific implementation of the rotor move to lower or higher feature
+   * @param direction 
+   * @param type 
+   * @returns 
+   */
+  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;
