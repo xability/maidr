@@ -1,3 +1,11 @@
+# [3.30.0](https://github.com/xability/maidr/compare/v3.29.0...v3.30.0) (2025-09-18)
+
+
+### Features
+
+* remove boxplot hover functionality ([#442](https://github.com/xability/maidr/issues/442)) ([d28f54d](https://github.com/xability/maidr/commit/d28f54da14aa35849fbe516c0b70f992abca36a1))
+* retain boxplot labels case ([#441](https://github.com/xability/maidr/issues/441)) ([6a94a5d](https://github.com/xability/maidr/commit/6a94a5dd62277916310ceaaa240df2233359911d))
+
 # [3.29.0](https://github.com/xability/maidr/compare/v3.28.0...v3.29.0) (2025-09-18)
 
 
