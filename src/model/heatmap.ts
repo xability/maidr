@@ -139,14 +139,16 @@ export class Heatmap extends AbstractTrace<number> {
       for (let col = 0; col < svgElements[row].length; col++) {
         const element = svgElements[row][col];
         const targetElement = Array.isArray(element) ? element[0] : element;
-        const bbox = targetElement.getBoundingClientRect();
-        centers.push({
-          x: bbox.x + bbox.width / 2,
-          y: bbox.y + bbox.height / 2,
-          row,
-          col,
-          element: targetElement,
-        });
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
       }
     }
 

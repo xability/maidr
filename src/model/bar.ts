@@ -27,15 +27,15 @@ export abstract class AbstractBarPlot<
     this.points = points;
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.barValues = points.map(row =>
-      row.map(point =>
+    this.barValues = points.map((row) =>
+      row.map((point) =>
         this.orientation === Orientation.VERTICAL
           ? Number(point.y)
           : Number(point.x),
       ),
     );
-    this.min = this.barValues.map(row => MathUtil.safeMin(row));
-    this.max = this.barValues.map(row => MathUtil.safeMax(row));
+    this.min = this.barValues.map((row) => MathUtil.safeMin(row));
+    this.max = this.barValues.map((row) => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
@@ -142,13 +142,15 @@ export abstract class AbstractBarPlot<
         const element = svgElements[row][col];
         const targetElement = Array.isArray(element) ? element[0] : element;
         const bbox = targetElement.getBoundingClientRect();
-        centers.push({
-          x: bbox.x + bbox.width / 2,
-          y: bbox.y + bbox.height / 2,
-          row,
-          col,
-          element: targetElement,
-        });
+        if (targetElement) {
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
       }
     }
 
@@ -173,10 +175,10 @@ export abstract class AbstractBarPlot<
         const targetElement = Array.isArray(element) ? element[0] : element;
         const bbox = targetElement.getBoundingClientRect();
         if (
-          x >= bbox.x
-          && x <= bbox.x + bbox.width
-          && y >= bbox.y
-          && y <= bbox.y + bbox.height
+          x >= bbox.x &&
+          x <= bbox.x + bbox.width &&
+          y >= bbox.y &&
+          y <= bbox.y + bbox.height
         ) {
           return { element: targetElement, row, col };
         }
@@ -196,10 +198,10 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // check if x y is within the bounding box of the element
     const bbox = element.getBoundingClientRect();
     return (
-      x >= bbox.x
-      && x <= bbox.x + bbox.width
-      && y >= bbox.y
-      && y <= bbox.y + bbox.height
+      x >= bbox.x &&
+      x <= bbox.x + bbox.width &&
+      y >= bbox.y &&
+      y <= bbox.y + bbox.height
     );
   }
 
