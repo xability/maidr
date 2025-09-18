@@ -238,7 +238,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && Array.isArray(state.cross.value)
     ) {
       // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
-      const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+      const label = state.cross.label;
       const outliers = state.cross.value;
       const outlierStr = `[${outliers.join(', ')}]`;
       if (outliers.length === 0) {
@@ -254,8 +254,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Format cross-axis label.
     if (state.section !== undefined) {
       if (this.isBoxPlotWithSection(state)) {
-        // For box plots: "section cross.label" (e.g., "minimum life expectancy")
-        const label = typeof state.cross.label === 'string' ? state.cross.label.toLowerCase() : state.cross.label;
+        const label = state.cross.label;
         verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
       } else {
         // For candlestick plots: "section cross.label" (e.g., "high Price")
