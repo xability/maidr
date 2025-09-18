@@ -1,3 +1,10 @@
+# [3.29.0](https://github.com/xability/maidr/compare/v3.28.0...v3.29.0) (2025-09-18)
+
+
+### Features
+
+* revert onhover ([#440](https://github.com/xability/maidr/issues/440)) ([9e45d5e](https://github.com/xability/maidr/commit/9e45d5e9143eaafa1f98569796ff832e044cd174))
+
 # [3.28.0](https://github.com/xability/maidr/compare/v3.27.1...v3.28.0) (2025-09-17)
 
 
