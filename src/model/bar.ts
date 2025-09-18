@@ -6,10 +6,15 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
-export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<number> {
+export abstract class AbstractBarPlot<
+  T extends BarPoint,
+> extends AbstractTrace<number> {
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -22,15 +27,17 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
     this.points = points;
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.barValues = points.map(row =>
-      row.map(point => this.orientation === Orientation.VERTICAL
-        ? Number(point.y)
-        : Number(point.x),
+    this.barValues = points.map((row) =>
+      row.map((point) =>
+        this.orientation === Orientation.VERTICAL
+          ? Number(point.y)
+          : Number(point.x),
       ),
     );
-    this.min = this.barValues.map(row => MathUtil.safeMin(row));
-    this.max = this.barValues.map(row => MathUtil.safeMax(row));
+    this.min = this.barValues.map((row) => MathUtil.safeMin(row));
+    this.max = this.barValues.map((row) => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -48,7 +55,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical ? this.barValues[this.row].length : this.barValues.length;
+    const size = isVertical
+      ? this.barValues[this.row].length
+      : this.barValues.length;
     const index = isVertical ? this.col : this.row;
     const value = isVertical
       ? this.barValues[this.row][this.col]
@@ -110,9 +119,92 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace<
 
     return svgElements;
   }
+
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    let svgElements: (SVGElement | SVGElement[])[][] | null;
+    svgElements = this.highlightValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        const bbox = targetElement.getBoundingClientRect();
+        if (targetElement) {
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
+  public findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // we differ from the base implementation (which is to loop through centers and return one),
+    // as sometimes the closest center is not the bar we clicked on
+    // so instead, we just do the hard thing and loop through all highlightValues
+    if (!this.highlightValues) {
+      return null;
+    }
+
+    // loop through all highlightValues, and check bounding boxes against x, y
+    for (let row = 0; row < this.highlightValues.length; row++) {
+      for (let col = 0; col < this.highlightValues[row].length; col++) {
+        const element = this.highlightValues[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        const bbox = targetElement.getBoundingClientRect();
+        if (
+          x >= bbox.x &&
+          x <= bbox.x + bbox.width &&
+          y >= bbox.y &&
+          y <= bbox.y + bbox.height
+        ) {
+          return { element: targetElement, row, col };
+        }
+      }
+    }
+
+    return null;
+  }
 }
 
 export class BarTrace extends AbstractBarPlot<BarPoint> {
+  public isPointInBounds(
+    x: number,
+    y: number,
+    { element, row, col }: { element: SVGElement; row: number; col: number },
+  ): boolean {
+    // check if x y is within the bounding box of the element
+    const bbox = element.getBoundingClientRect();
+    return (
+      x >= bbox.x &&
+      x <= bbox.x + bbox.width &&
+      y >= bbox.y &&
+      y <= bbox.y + bbox.height
+    );
+  }
+
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }
