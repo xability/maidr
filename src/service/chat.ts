@@ -2,6 +2,7 @@ import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
 import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse } from '@type/llm';
 import type { PromptContext } from './prompts';
+import type { TextService } from './text';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
@@ -9,15 +10,17 @@ import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 export class ChatService {
   private readonly display: DisplayService;
+  private readonly textService: TextService;
   private readonly models: Record<Llm, LlmModel>;
 
-  public constructor(display: DisplayService, maidr: Maidr) {
+  public constructor(display: DisplayService, textService: TextService, maidr: Maidr) {
     this.display = display;
+    this.textService = textService;
 
     this.models = {
-      OPENAI: new Gpt(display.plot, maidr, 'gpt-4o'),
-      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, 'claude-3-7-sonnet-latest'),
-      GOOGLE_GEMINI: new Gemini(display.plot, maidr, 'gemini-2.0-flash'),
+      OPENAI: new Gpt(display.plot, maidr, textService, 'gpt-4o'),
+      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, 'claude-3-7-sonnet-latest'),
+      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, 'gemini-2.0-flash'),
     };
   }
 
@@ -61,13 +64,15 @@ interface GeminiResponse {
 abstract class AbstractLlmModel<T> implements LlmModel {
   protected readonly svg: HTMLElement;
   protected readonly json: string;
+  protected readonly textService: TextService;
 
   private readonly maidrBaseUrl: string;
   private readonly codeQueryParam: string;
 
-  protected constructor(svg: HTMLElement, maidr: Maidr) {
+  protected constructor(svg: HTMLElement, maidr: Maidr, textService: TextService) {
     this.svg = svg;
     this.json = JSON.stringify(maidr);
+    this.textService = textService;
 
     this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
@@ -78,11 +83,15 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       const image = await Svg.toBase64(this.svg);
       // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
       const expertiseLevel = request.expertise === 'custom' ? 'advanced' : request.expertise;
+
+      // Get current position text from TextService
+      const currentPositionText = this.textService.getCoordinateText() || '';
+
       const payload = this.getPayload(
         request.customInstruction,
         this.json,
         image,
-        '',
+        currentPositionText,
         request.message,
         expertiseLevel,
       );
@@ -151,8 +160,8 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 class Gpt extends AbstractLlmModel<GptResponse> {
   private readonly version: GptVersion;
 
-  public constructor(svg: HTMLElement, maidr: Maidr, version: GptVersion) {
-    super(svg, maidr);
+  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: GptVersion) {
+    super(svg, maidr, textService);
     this.version = version;
   }
 
@@ -230,8 +239,8 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 class Claude extends AbstractLlmModel<ClaudeResponse> {
   private readonly version: ClaudeVersion;
 
-  public constructor(svg: HTMLElement, maidr: Maidr, version: ClaudeVersion) {
-    super(svg, maidr);
+  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: ClaudeVersion) {
+    super(svg, maidr, textService);
     this.version = version;
   }
 
@@ -308,8 +317,8 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 class Gemini extends AbstractLlmModel<GeminiResponse> {
   private readonly version: GeminiVersion;
 
-  public constructor(svg: HTMLElement, maidr: Maidr, version: GeminiVersion) {
-    super(svg, maidr);
+  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: GeminiVersion) {
+    super(svg, maidr, textService);
     this.version = version;
   }
 
@@ -340,23 +349,21 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
       expertiseLevel: expertise,
     };
 
-    return JSON.stringify({
-      generationConfig: {},
+    const systemPrompt = formatSystemPrompt(customInstruction, context.expertiseLevel);
+    const userPrompt = formatUserPrompt(context);
+    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+    const payload = JSON.stringify({
+      generationConfig: {
+        maxOutputTokens: 1000,
+      },
       safetySettings: [],
       contents: [
         {
           role: 'user',
           parts: [
             {
-              text: formatSystemPrompt(customInstruction, context.expertiseLevel),
-            },
-          ],
-        },
-        {
-          role: 'user',
-          parts: [
-            {
-              text: formatUserPrompt(context),
+              text: combinedPrompt,
             },
             {
               inlineData: {
@@ -368,6 +375,8 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
         },
       ],
     });
+
+    return payload;
   }
 
   protected formatResponse(response: GeminiResponse): LlmResponse {
