@@ -8,6 +8,11 @@ import { Api } from '@util/api';
 import { Svg } from '@util/svg';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
+// Token limits for different LLM providers
+const GPT_MAX_TOKENS = 1000;
+const CLAUDE_MAX_TOKENS = 256;
+const GEMINI_MAX_TOKENS = 1000;
+
 export class ChatService {
   private readonly display: DisplayService;
   private readonly textService: TextService;
@@ -84,7 +89,6 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
       const expertiseLevel = request.expertise === 'custom' ? 'advanced' : request.expertise;
 
-      // Get current position text from TextService
       const currentPositionText = this.textService.getCoordinateText() || '';
 
       const payload = this.getPayload(
@@ -191,7 +195,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 
     return JSON.stringify({
       model: this.version,
-      max_tokens: 1000,
+      max_tokens: GPT_MAX_TOKENS,
       messages: [
         {
           role: 'system',
@@ -270,7 +274,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
     return JSON.stringify({
       anthropic_version: this.version,
-      max_tokens: 256,
+      max_tokens: CLAUDE_MAX_TOKENS,
       messages: [
         {
           role: 'user',
@@ -355,7 +359,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
 
     const payload = JSON.stringify({
       generationConfig: {
-        maxOutputTokens: 1000,
+        maxOutputTokens: GEMINI_MAX_TOKENS,
       },
       safetySettings: [],
       contents: [
