@@ -85,8 +85,8 @@ export abstract class AbstractObservableElement<Element, State>
   protected getSafeIndices(): { row: number; col: number } {
     const values = this.values;
     const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
-    const safeCol =
-      this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    const safeCol
+      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -131,10 +131,10 @@ export abstract class AbstractObservableElement<Element, State>
       const [row, col] = target;
       const { row: safeRow } = this.getSafeIndices();
       return (
-        row >= 0 &&
-        row < this.values.length &&
-        col >= 0 &&
-        col < (this.values[safeRow]?.length || 0)
+        row >= 0
+        && row < this.values.length
+        && col >= 0
+        && col < (this.values[safeRow]?.length || 0)
       );
     }
 
@@ -186,7 +186,7 @@ export abstract class AbstractObservableElement<Element, State>
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter((obs) => obs !== observer);
+    this.observers = this.observers.filter(obs => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -264,10 +264,10 @@ export abstract class AbstractObservableElement<Element, State>
    * this method to provide specific logic for moving to a point, such as updating
    * highlight values or managing selection boxes.
    *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
+   * @param _x - The x-coordinate to move to.
+   * @param _y - The y-coordinate to move to.
    */
-  public moveToPoint(x: number, y: number): void {
+  public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
 
@@ -278,10 +278,10 @@ export abstract class AbstractObservableElement<Element, State>
    * this method to provide specific logic for moving to a point, such as updating
    * highlight values or managing selection boxes.
    *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
+   * @param _x - The x-coordinate to move to.
+   * @param _y - The y-coordinate to move to.
    */
-  public moveToPoint(x: number, y: number): void {
+  public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
 }
@@ -316,10 +316,10 @@ export abstract class AbstractTrace<T>
     this.values.length = 0;
 
     if (this.highlightValues) {
-      this.highlightValues.forEach((row) =>
+      this.highlightValues.forEach(row =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach((element) => element.remove());
+          elements.forEach(element => element.remove());
         }),
       );
       this.highlightValues.length = 0;
@@ -617,25 +617,25 @@ export abstract class AbstractTrace<T>
   public isPointInBounds(
     x: number,
     y: number,
-    { element, row, col }: { element: SVGElement; row: number; col: number },
+    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();
     let r: number = 12;
     // if plot type is heatmap bar stacked or histogram, use 0
     if (
-      this.type === TraceType.HEATMAP ||
-      this.type === TraceType.BAR ||
-      this.type === TraceType.STACKED ||
-      this.type === TraceType.HISTOGRAM
+      this.type === TraceType.HEATMAP
+      || this.type === TraceType.BAR
+      || this.type === TraceType.STACKED
+      || this.type === TraceType.HISTOGRAM
     ) {
       r = 0;
     }
     return (
-      x >= bbox.x - r &&
-      x <= bbox.x + bbox.width + r &&
-      y >= bbox.y - r &&
-      y <= bbox.y + bbox.height + r
+      x >= bbox.x - r
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r
     );
   }
 }

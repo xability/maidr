@@ -14,8 +14,8 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 const TYPE = 'Group';
-const SVG_PATH_LINE_POINT_REGEX =
-  /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_LINE_POINT_REGEX
+  = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
   protected readonly supportsExtrema = true;
@@ -39,11 +39,11 @@ export class LineTrace extends AbstractTrace<number> {
 
     this.points = layer.data as LinePoint[][];
 
-    this.lineValues = this.points.map((row) =>
-      row.map((point) => Number(point.y)),
+    this.lineValues = this.points.map(row =>
+      row.map(point => Number(point.y)),
     );
-    this.min = this.lineValues.map((row) => MathUtil.safeMin(row));
-    this.max = this.lineValues.map((row) => MathUtil.safeMax(row));
+    this.min = this.lineValues.map(row => MathUtil.safeMin(row));
+    this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
     this.highlightCenters = this.mapSvgElementsToCenters();
@@ -103,10 +103,10 @@ export class LineTrace extends AbstractTrace<number> {
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill =
-          this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
+        const prevFill
+          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
         if (lineTypes.includes(prevFill)) {
-          lineTypes = [prevFill, ...lineTypes.filter((l) => l !== prevFill)];
+          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
         }
       }
 
@@ -221,7 +221,7 @@ export class LineTrace extends AbstractTrace<number> {
 
     for (let r = 0; r < this.points.length; r++) {
       const c = this.points[r].findIndex(
-        (p) => p.x === currentX && p.y === currentY,
+        p => p.x === currentX && p.y === currentY,
       );
       if (c !== -1) {
         intersections.push({
@@ -242,10 +242,10 @@ export class LineTrace extends AbstractTrace<number> {
     if (Array.isArray(target)) {
       const [row, col] = target;
       return (
-        row >= 0 &&
-        row < this.values.length &&
-        col >= 0 &&
-        col < this.values[row].length // Fixed: use target row instead of current row
+        row >= 0
+        && row < this.values.length
+        && col >= 0
+        && col < this.values[row].length // Fixed: use target row instead of current row
       );
     }
 
@@ -303,8 +303,8 @@ export class LineTrace extends AbstractTrace<number> {
       const lineY = this.points[row][matchingPointIndex].y;
 
       // Check if this line's y value is in the desired direction
-      const isValidDirection =
-        direction === 'UPWARD'
+      const isValidDirection
+        = direction === 'UPWARD'
           ? lineY > this.points[this.row][this.col].y
           : lineY < this.points[this.row][this.col].y;
       const distance = Math.abs(lineY - this.points[this.row][this.col].y);
@@ -331,7 +331,7 @@ export class LineTrace extends AbstractTrace<number> {
    * @returns The column index, or -1 if not found
    */
   private findColumnByXValue(row: number, xValue: number | string): number {
-    return this.points[row].findIndex((point) => point.x === xValue);
+    return this.points[row].findIndex(point => point.x === xValue);
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
@@ -352,8 +352,8 @@ export class LineTrace extends AbstractTrace<number> {
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
         SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
-        let match: RegExpExecArray | null =
-          SVG_PATH_LINE_POINT_REGEX.exec(pathD);
+        let match: RegExpExecArray | null
+          = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         while (match !== null) {
           coordinates.push({
             x: Number.parseFloat(match[1]),
@@ -362,8 +362,8 @@ export class LineTrace extends AbstractTrace<number> {
           match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         }
       } else if (lineElement instanceof SVGPolylineElement) {
-        const pointsAttr =
-          lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
+        const pointsAttr
+          = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
         const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
         for (const coordinate of strCoords) {
           const [x, y] = coordinate.split(Constant.COMMA);
@@ -412,7 +412,8 @@ export class LineTrace extends AbstractTrace<number> {
 
   public get state(): TraceState {
     const baseState = super.state;
-    if (baseState.empty) return baseState;
+    if (baseState.empty)
+      return baseState;
 
     const isMultiline = this.points.length > 1;
     // Add the plotType field for non-empty states
@@ -433,8 +434,7 @@ export class LineTrace extends AbstractTrace<number> {
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
-    let svgElements: (SVGElement | SVGElement[])[][] | null;
-    svgElements = this.highlightValues;
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
 
     if (!svgElements) {
       return null;
@@ -599,7 +599,7 @@ export class LineTrace extends AbstractTrace<number> {
    * @returns Array of X values
    */
   public getAvailableXValues(): XValue[] {
-    return this.points[this.row].map((val) => val.x);
+    return this.points[this.row].map(val => val.x);
   }
 
   /**

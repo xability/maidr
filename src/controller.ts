@@ -110,7 +110,7 @@ export class Controller implements Disposable {
     );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
-    this.chatService = new ChatService(this.displayService, maidr);
+    this.chatService = new ChatService(this.displayService, this.textService, maidr);
 
     this.textViewModel = new TextViewModel(
       store,
