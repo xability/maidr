@@ -121,8 +121,7 @@ export class Heatmap extends AbstractTrace<number> {
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
-    let svgElements: (SVGElement | SVGElement[])[][] | null;
-    svgElements = this.highlightValues;
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
 
     if (!svgElements) {
       return null;
