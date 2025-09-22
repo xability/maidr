@@ -1,3 +1,10 @@
+## [3.30.1](https://github.com/xability/maidr/compare/v3.30.0...v3.30.1) (2025-09-22)
+
+
+### Bug Fixes
+
+* addressed an issue where the LLM response hangs on chart descriptions regardless of the user prompt ([#443](https://github.com/xability/maidr/issues/443)) ([faf63fe](https://github.com/xability/maidr/commit/faf63feda47294d6f830409c5ea526629a291e43))
+
 # [3.30.0](https://github.com/xability/maidr/compare/v3.29.0...v3.30.0) (2025-09-18)
 
 
