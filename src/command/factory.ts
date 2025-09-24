@@ -32,7 +32,7 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
-import { GoToExtremaCommand, GoToExtremaToggleCommand } from './goTo';
+import { GoToExtremaToggleCommand } from './goTo';
 import {
   GoToExtremaCloseCommand,
   GoToExtremaMoveDownCommand,
@@ -148,8 +148,6 @@ export class CommandFactory {
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
 
-      case 'GO_TO_EXTREMA':
-        return new GoToExtremaCommand(this.context, this.goToExtremaViewModel);
       case 'GO_TO_EXTREMA_MOVE_UP':
         return new GoToExtremaMoveUpCommand(this.goToExtremaViewModel);
       case 'GO_TO_EXTREMA_MOVE_DOWN':
@@ -193,9 +191,9 @@ export class CommandFactory {
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
-
+      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.TRACE);
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_DOWNWARD':
