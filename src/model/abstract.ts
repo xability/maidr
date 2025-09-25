@@ -538,10 +538,6 @@ export abstract class AbstractTrace<T>
   // this then finds a nearest point, and checks if it's in bounds
   // if all is good, it sends row col to context.moveToIndex
   public moveToPoint(x: number, y: number): void {
-    // temp: don't run for boxplot. remove when boxplot is fixed
-    if (this.type === TraceType.BOX) {
-      return;
-    }
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {
@@ -574,11 +570,11 @@ export abstract class AbstractTrace<T>
     ) {
       r = 0;
     }
-    return (
+    const isInbounds =
       x >= bbox.x - r &&
       x <= bbox.x + bbox.width + r &&
       y >= bbox.y - r &&
-      y <= bbox.y + bbox.height + r
-    );
+      y <= bbox.y + bbox.height + r;
+    return isInbounds;
   }
 }

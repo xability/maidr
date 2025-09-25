@@ -293,12 +293,12 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    document.addEventListener('pointermove', this.mouseListener);
+    document.addEventListener('click', this.mouseListener);
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      document.removeEventListener('pointermove', this.mouseListener);
+      document.removeEventListener('click', this.mouseListener);
     }
   }
 }

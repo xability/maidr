@@ -260,4 +260,20 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       col: this.highlightCenters[nearestIndex].col,
     };
   }
+  public moveToPoint(x: number, y: number): void {
+    // Exceptions:
+    // temp: don't run for boxplot. remove when boxplot is fixed
+    return;
+
+    //const nearest = this.findNearestPoint(x, y);
+    //if (nearest) {
+    //if (this.isPointInBounds(x, y, nearest)) {
+    //// don't move if we're already there
+    //if (this.row === nearest.row && this.col === nearest.col) {
+    //return;
+    //}
+    //this.moveToIndex(nearest.row, nearest.col);
+    //}
+    //}
+  }
 }
