@@ -28,6 +28,7 @@ export class SettingsService implements Observable<Settings> {
         maxFrequency: 1000,
         autoplayDuration: 4000,
         ariaMode: 'assertive',
+        hoverMode: 'pointermove',
       },
       llm: {
         expertiseLevel: 'basic',
@@ -68,7 +69,7 @@ export class SettingsService implements Observable<Settings> {
   }
 
   public removeObserver(observer: Observer<Settings>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {

@@ -4,6 +4,7 @@ import { CommandFactory } from '@command/factory';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Platform } from '@util/platform';
+import type { SettingsService } from '@service/settings';
 import hotkeys from 'hotkeys-js';
 
 const BRAILLE_KEYMAP = {
@@ -281,8 +282,15 @@ export class Mousebindingservice {
 
   private readonly commandContext: CommandContext;
 
-  public constructor(commandContext: CommandContext) {
+  private hoverMode: string = 'none';
+
+  public constructor(
+    commandContext: CommandContext,
+    settingsService: SettingsService,
+  ) {
     this.commandContext = commandContext;
+    const initialSettings = settingsService.loadSettings();
+    this.hoverMode = initialSettings.general.hoverMode;
   }
 
   public registerEvents(): void {
@@ -293,12 +301,22 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    document.addEventListener('click', this.mouseListener);
+    if (this.hoverMode === 'pointermove') {
+      document.addEventListener('pointermove', this.mouseListener);
+    }
+    if (this.hoverMode === 'click') {
+      document.addEventListener('click', this.mouseListener);
+    }
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      document.removeEventListener('click', this.mouseListener);
+      if (this.hoverMode === 'pointermove') {
+        document.removeEventListener('pointermove', this.mouseListener);
+      }
+      if (this.hoverMode === 'click') {
+        document.removeEventListener('click', this.mouseListener);
+      }
     }
   }
 }

@@ -26,6 +26,7 @@ export interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   ariaMode: AriaMode;
+  hoverMode: 'off' | 'pointermove' | 'click';
 }
 
 export interface Settings {
