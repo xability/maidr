@@ -3,6 +3,7 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
   GeneralSettings,
+  HoverMode,
   LlmModelSettings,
   LlmSettings,
 } from '@type/settings';
@@ -263,7 +264,7 @@ const Settings: React.FC = () => {
 
   const handleGeneralChange = (
     key: keyof GeneralSettings,
-    value: string | number | AriaMode,
+    value: string | number | AriaMode | HoverMode,
   ): void => {
     // Expanded value type for ariaMode
     setGeneralSettings((prev) => ({
@@ -565,7 +566,7 @@ const Settings: React.FC = () => {
                     onChange={(e) =>
                       handleGeneralChange(
                         'hoverMode',
-                        e.target.value as 'off' | 'pointermove' | 'click',
+                        e.target.value as HoverMode,
                       )
                     }
                     aria-label="Hover Mode"
