@@ -43,12 +43,19 @@ export class RotorNavigationService {
       return;
     }
 
-    const activeTrace = this.context.active;
-    if (activeTrace && this.context.scope !== Scope.ROTOR && this.getMode() !== Constant.DATA_MODE) {
+    if (this.shouldToggleToRotorScope(state)) {
       this.display.toggleFocus(Scope.ROTOR);
     }
   }
 
+  private shouldToggleToRotorScope(state: TraceState): boolean {
+    const activeTrace = this.context.active;
+    return (
+      activeTrace &&
+      this.context.scope !== Scope.ROTOR &&
+      this.getMode() !== Constant.DATA_MODE
+    );
+  }
   public returnToTraceScope(): void {
     this.display.toggleFocus(Scope.ROTOR);
   }
