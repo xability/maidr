@@ -766,8 +766,8 @@ export class Candlestick extends AbstractTrace<number> {
   }
 
   /**
-   * The behavior of upward and downward arrows is to move between the segments within a candle(within the scope of ROTOR trace)
-   * @returns null
+   * The behavior of upward and downward arrows is to move between the segments within a candle (within the scope of ROTOR trace)
+   * @returns {boolean} True if the move was successful.
    */
   public moveUpRotor(): boolean {
     this.moveOnce('UPWARD');

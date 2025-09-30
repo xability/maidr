@@ -238,8 +238,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * The behavior of upward and downward arrows is to move between the segments within a candle(within the scope of ROTOR trace)
-   * @returns null
+   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
+   * @returns {boolean} True if the move was successful, false otherwise.
    */
   public moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {

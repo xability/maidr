@@ -122,7 +122,14 @@ export class Heatmap extends AbstractTrace<number> {
     this.col = safeCol;
   }
 
-  // new
+  /**
+   * Moves the current selection to the next value in the specified direction
+   * that is either lower or higher than the current value, depending on the type.
+   *
+   * @param direction - The direction to move ('left', 'right', 'up', or 'down').
+   * @param type - The comparison type ('lower' or 'higher').
+   * @returns True if a suitable value was found and the selection was moved; otherwise, false.
+   */
   public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     switch (direction) {
       case 'left':
