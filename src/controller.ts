@@ -220,7 +220,6 @@ export class Controller implements Disposable {
         trace.addObserver(this.textService);
         trace.addObserver(this.reviewService);
         trace.addObserver(this.highlightService);
-        // trace.addObserver(this.rotorNavigationService);
       }));
     }));
   }

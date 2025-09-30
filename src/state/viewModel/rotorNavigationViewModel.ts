@@ -19,7 +19,6 @@ const rotorNavigationSlice = createSlice({
     show(): RotorState {
       return {
         value: '',
-
       };
     },
     setValue(state, action: PayloadAction<string | null>) {

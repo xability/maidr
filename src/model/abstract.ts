@@ -229,7 +229,7 @@ export abstract class AbstractObservableElement<Element, State> implements Movab
   }
 
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
-    throw new Error('Move up function is not defined for this trace');
+    throw new Error('Move down function is not defined for this trace');
   }
 
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
