@@ -7,9 +7,7 @@ import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 interface RotorState {
   value: string | null;
-
 }
-
 const initialState: RotorState = {
   value: '',
 
