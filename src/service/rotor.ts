@@ -11,11 +11,11 @@ export enum RotorEvent {
   ROTOR_CHANGED = 'ROTOR_CHANGED',
   NAV_TARGET_NOT_FOUND = 'NAV_TARGET_NOT_FOUND',
 }
-enum ROTOR_MODES {
-  DATA_MODE = 0,
-  LOWER_VALUE_MODE = 1,
-  HIGHER_VALUE_MODE = 2,
-}
+const ROTOR_MODES: Record<number, string> = {
+  0: Constant.DATA_MODE,
+  1: Constant.LOWER_VALUE_MODE,
+  2: Constant.HIGHER_VALUE_MODE,
+};
 
 interface RotorChangedEvent {
   value: string;
@@ -48,14 +48,15 @@ export class RotorNavigationService {
     }
   }
 
-  private shouldToggleToRotorScope(state: TraceState): boolean {
+  private shouldToggleToRotorScope(_state: TraceState): boolean {
     const activeTrace = this.context.active;
     return (
-      activeTrace &&
-      this.context.scope !== Scope.ROTOR &&
-      this.getMode() !== Constant.DATA_MODE
+      activeTrace
+      && this.context.scope !== Scope.ROTOR
+      && this.getMode() !== Constant.DATA_MODE
     );
   }
+
   public returnToTraceScope(): void {
     this.display.toggleFocus(Scope.ROTOR);
   }

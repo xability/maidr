@@ -44,12 +44,12 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
 
   public moveToNextNavUnit(): void {
     const curr_mode = this.rotorService.moveToNextRotorUnit();
-    this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
+    this.store.dispatch(setValue(`${curr_mode}`));
   }
 
   public moveToPrevNavUnit(): void {
     const curr_mode = this.rotorService.moveToPrevRotorUnit();
-    this.store.dispatch(setValue(`Rotor mode is ${curr_mode}`));
+    this.store.dispatch(setValue(`${curr_mode}`));
   }
 
   public moveUp(): void {

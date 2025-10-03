@@ -74,8 +74,8 @@ export abstract class Constant {
   static readonly HIGHLIGHT_MAX_COLOR = 255;
 
   // rotor mode values
-  static readonly HIGHER_VALUE_MODE = 'HIGHER_VALUE_MODE';
-  static readonly LOWER_VALUE_MODE = 'LOWER_VALUE_MODE';
-  static readonly DATA_MODE = 'DATA_MODE';
+  static readonly HIGHER_VALUE_MODE = 'HIGHER VALUE NAVIGATION';
+  static readonly LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
+  static readonly DATA_MODE = 'DATA POINT NAVIGATION';
   static readonly NO_OF_ROTOR_NAV_MODES = 3;
 }
