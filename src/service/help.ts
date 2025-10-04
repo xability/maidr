@@ -29,6 +29,10 @@ const TRACE_HELP_MENU = [
 
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
   { description: 'Open Chat', key: `?` },
+
+  { description: 'Move to next navigation mode in Rotor', key: `${Platform.alt}+shift+up` },
+  { description: 'Move to previous navigation mode in Rotor', key: `${Platform.alt}+shift+down` },
+
 ];
 
 const SUBPLOT_HELP_MENU = [

@@ -4,12 +4,13 @@ import type { AppStore } from '@state/store';
 import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { Constant } from '@util/constant';
 
 interface RotorState {
-  value: string | null;
+  rotor_value: string | null;
 }
 const initialState: RotorState = {
-  value: '',
+  rotor_value: Constant.DATA_MODE,
 
 };
 const rotorNavigationSlice = createSlice({
@@ -18,11 +19,11 @@ const rotorNavigationSlice = createSlice({
   reducers: {
     show(): RotorState {
       return {
-        value: '',
+        rotor_value: '',
       };
     },
     setValue(state, action: PayloadAction<string | null>) {
-      state.value = action.payload;
+      state.rotor_value = action.payload;
     },
   },
 });

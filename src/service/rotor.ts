@@ -1,41 +1,28 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { Event } from '@type/event';
 import type { TraceState } from '@type/state';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
-import { Emitter, Scope } from '@type/event';
+import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
-export enum RotorEvent {
-  ROTOR_CHANGED = 'ROTOR_CHANGED',
-  NAV_TARGET_NOT_FOUND = 'NAV_TARGET_NOT_FOUND',
-}
 const ROTOR_MODES: Record<number, string> = {
   0: Constant.DATA_MODE,
   1: Constant.LOWER_VALUE_MODE,
   2: Constant.HIGHER_VALUE_MODE,
 };
 
-interface RotorChangedEvent {
-  value: string;
-}
-
 export class RotorNavigationService {
   private readonly context: Context;
   private readonly display: DisplayService;
   private readonly text: TextService;
   private rotorIndex: number;
-  private readonly onChangeEmitter: Emitter<RotorChangedEvent>;
-  public readonly onChange: Event<RotorChangedEvent>;
 
   public constructor(context: Context, display: DisplayService, text: TextService) {
     this.context = context;
     this.display = display;
     this.text = text;
     this.rotorIndex = 0; // default is DATA_MODE
-    this.onChangeEmitter = new Emitter<RotorChangedEvent>();
-    this.onChange = this.onChangeEmitter.event;
   }
 
   public toggle(state: TraceState): void {
@@ -63,18 +50,14 @@ export class RotorNavigationService {
 
   public moveToNextRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
-    this.onChangeEmitter.fire({
-      value: RotorEvent.ROTOR_CHANGED,
-    });
+
     this.setMode();
     return this.getMode();
   }
 
   public moveToPrevRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
-    this.onChangeEmitter.fire({
-      value: RotorEvent.ROTOR_CHANGED,
-    });
+
     this.setMode();
     return this.getMode();
   }
@@ -93,8 +76,9 @@ export class RotorNavigationService {
       if (xValue !== null) {
         const moved = activeTrace.moveToNextCompareValue(direction, compare as 'lower' | 'higher');
         if (!moved) {
-          console.warn(`No ${compare} value found to the ${direction} of the current value.`);
-          return `No ${compare} value found to the ${direction} of the current value.`;
+          const msg = `No ${compare} value found to the ${direction} of the current value.`;
+          console.warn(msg);
+          return msg;
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -147,7 +131,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found below the current value.`;
+          const msg = `No ${this.getCompareType()} value found to the left of the current value.`;
           console.warn(msg);
           return msg;
         }
@@ -165,13 +149,13 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found below the current value.`;
+          const msg = `No ${this.getCompareType()} value found to the right of the current value.`;
           console.warn(msg);
           return msg;
         }
       }
     } catch {
-      // default behavior is to mirror move left
+      // default behavior is to mirror move right
       return this.callMoveToNextCompareMethod('right');
     }
     return null;
@@ -179,10 +163,6 @@ export class RotorNavigationService {
 
   public setMode(): void {
     const curr_mode = ROTOR_MODES[this.rotorIndex];
-    const curr_mode_text = this.text.format(curr_mode);
-    if (curr_mode_text) {
-      this.onChangeEmitter.fire({ value: curr_mode_text });
-    }
     if (curr_mode === Constant.DATA_MODE) {
       // DATA MODE return to default TRACE scope
       this.returnToTraceScope();
