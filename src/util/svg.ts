@@ -139,8 +139,8 @@ export abstract class Svg {
     return line;
   }
 
-  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;  // Ignore very faint fills
-  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.0; // Preserve faint strokes
+  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
+  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.0;
 
   private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
     const parsed = value ? Number.parseFloat(value) : Number.NaN;
