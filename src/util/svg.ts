@@ -143,7 +143,7 @@ export abstract class Svg {
   private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.0;
 
   private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
-    const parsed = value ? parseFloat(value) : Number.NaN;
+    const parsed = value ? Number.parseFloat(value) : Number.NaN;
 
     if (!Number.isNaN(parsed) && parsed > minThreshold) {
       return value!;
