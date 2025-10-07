@@ -148,6 +148,27 @@ export abstract class Svg {
       : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
 
+    const fillOpacity = window.getComputedStyle(element).getPropertyValue('fill-opacity');
+    const strokeOpacity = window.getComputedStyle(element).getPropertyValue('stroke-opacity');
+
+    const parsedFillOpacity = fillOpacity ? Number.parseFloat(fillOpacity) : NaN;
+    if (!Number.isNaN(parsedFillOpacity) && parsedFillOpacity > 0 && parsedFillOpacity !== 1) {
+      clone.setAttribute('fill-opacity', fillOpacity);
+      clone.style.fillOpacity = fillOpacity;
+    } else {
+      clone.removeAttribute('fill-opacity');
+      clone.style.fillOpacity = '1';
+    }
+
+    const parsedStrokeOpacity = strokeOpacity ? Number.parseFloat(strokeOpacity) : NaN;
+    if (!Number.isNaN(parsedStrokeOpacity) && parsedStrokeOpacity > 0 && parsedStrokeOpacity !== 1) {
+      clone.setAttribute('stroke-opacity', strokeOpacity);
+      clone.style.strokeOpacity = strokeOpacity;
+    } else {
+      clone.removeAttribute('stroke-opacity');
+      clone.style.strokeOpacity = '1';
+    }
+
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
     clone.setAttribute(Constant.STROKE, color);
     clone.setAttribute(Constant.FILL, color);
