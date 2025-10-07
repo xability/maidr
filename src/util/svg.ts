@@ -151,7 +151,7 @@ export abstract class Svg {
     const fillOpacity = window.getComputedStyle(element).getPropertyValue('fill-opacity');
     const strokeOpacity = window.getComputedStyle(element).getPropertyValue('stroke-opacity');
 
-    const parsedFillOpacity = fillOpacity ? Number.parseFloat(fillOpacity) : NaN;
+    const parsedFillOpacity = fillOpacity ? Number.parseFloat(fillOpacity) : Number.NaN;
     if (!Number.isNaN(parsedFillOpacity) && parsedFillOpacity > 0 && parsedFillOpacity !== 1) {
       clone.setAttribute('fill-opacity', fillOpacity);
       clone.style.fillOpacity = fillOpacity;
@@ -160,7 +160,7 @@ export abstract class Svg {
       clone.style.fillOpacity = '1';
     }
 
-    const parsedStrokeOpacity = strokeOpacity ? Number.parseFloat(strokeOpacity) : NaN;
+    const parsedStrokeOpacity = strokeOpacity ? Number.parseFloat(strokeOpacity) : Number.NaN;
     if (!Number.isNaN(parsedStrokeOpacity) && parsedStrokeOpacity > 0 && parsedStrokeOpacity !== 1) {
       clone.setAttribute('stroke-opacity', strokeOpacity);
       clone.style.strokeOpacity = strokeOpacity;
