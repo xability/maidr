@@ -139,6 +139,18 @@ export abstract class Svg {
     return line;
   }
 
+  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;  // Ignore very faint fills
+  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.0; // Preserve faint strokes
+
+  private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
+    const parsed = value ? Number.parseFloat(value) : Number.NaN;
+
+    if (!Number.isNaN(parsed) && parsed > minThreshold && parsed !== 1) {
+      return value!;
+    }
+    return '1';
+  }
+
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
     const tag = element.tagName.toLowerCase();
@@ -151,18 +163,8 @@ export abstract class Svg {
     const fillOpacity = window.getComputedStyle(element).getPropertyValue('fill-opacity');
     const strokeOpacity = window.getComputedStyle(element).getPropertyValue('stroke-opacity');
 
-    const parsedFillOpacity = fillOpacity ? Number.parseFloat(fillOpacity) : Number.NaN;
-    if (!Number.isNaN(parsedFillOpacity) && parsedFillOpacity > 0.01 && parsedFillOpacity !== 1) {
-      clone.style.fillOpacity = fillOpacity;
-    } else {
-      clone.style.fillOpacity = '1';
-    }
-    const parsedStrokeOpacity = strokeOpacity ? Number.parseFloat(strokeOpacity) : Number.NaN;
-    if (!Number.isNaN(parsedStrokeOpacity) && parsedStrokeOpacity > 0 && parsedStrokeOpacity !== 1) {
-      clone.style.strokeOpacity = strokeOpacity;
-    } else {
-      clone.style.strokeOpacity = '1';
-    }
+    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
+    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
 
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
     clone.setAttribute(Constant.STROKE, color);
