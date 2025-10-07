@@ -152,20 +152,15 @@ export abstract class Svg {
     const strokeOpacity = window.getComputedStyle(element).getPropertyValue('stroke-opacity');
 
     const parsedFillOpacity = fillOpacity ? Number.parseFloat(fillOpacity) : Number.NaN;
-    if (!Number.isNaN(parsedFillOpacity) && parsedFillOpacity > 0 && parsedFillOpacity !== 1) {
-      clone.setAttribute('fill-opacity', fillOpacity);
+    if (!Number.isNaN(parsedFillOpacity) && parsedFillOpacity > 0.01 && parsedFillOpacity !== 1) {
       clone.style.fillOpacity = fillOpacity;
     } else {
-      clone.removeAttribute('fill-opacity');
       clone.style.fillOpacity = '1';
     }
-
     const parsedStrokeOpacity = strokeOpacity ? Number.parseFloat(strokeOpacity) : Number.NaN;
     if (!Number.isNaN(parsedStrokeOpacity) && parsedStrokeOpacity > 0 && parsedStrokeOpacity !== 1) {
-      clone.setAttribute('stroke-opacity', strokeOpacity);
       clone.style.strokeOpacity = strokeOpacity;
     } else {
-      clone.removeAttribute('stroke-opacity');
       clone.style.strokeOpacity = '1';
     }
 
