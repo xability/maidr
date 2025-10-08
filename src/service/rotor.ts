@@ -69,14 +69,18 @@ export class RotorNavigationService {
   public callMoveToNextCompareMethod(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
 
-    const compare = this.getCompareType();
+    const compareType = this.getCompareType();
+    if (compareType !== 'lower' && compareType !== 'higher') {
+      console.error(`Unexpected compare type: ${compareType}`);
+      return null;
+    }
     // Check if activeTrace is an instance of AbstractTrace and supports moveToNextHigherValue
     if (activeTrace instanceof AbstractTrace) {
       const xValue = activeTrace.getCurrentXValue(); // Get the current X value
       if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, compare as 'lower' | 'higher');
+        const moved = activeTrace.moveToNextCompareValue(direction, compareType);
         if (!moved) {
-          const msg = `No ${compare} value found to the ${direction} of the current value.`;
+          const msg = `No ${compareType} value found to the ${direction} of the current value.`;
           console.warn(msg);
           return msg;
         }
