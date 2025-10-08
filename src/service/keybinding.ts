@@ -287,21 +287,21 @@ export class KeybindingService {
       if (parentScope) {
         const parentMap = (SCOPED_KEYMAP as any)[parentScope] as Record<string, string> | undefined;
         if (parentMap) {
-          for (const [k, v] of Object.entries(parentMap)) {
-            mergedKeymap[k] = v;
+          for (const [commandKey, v] of Object.entries(parentMap)) {
+            mergedKeymap[commandKey] = v;
           }
         }
       }
       const overrides = CHILD_OVERRIDES[scope as Scope] as Record<string, string>;
 
       if (overrides) {
-        for (const [k] of Object.entries(overrides)) {
-          delete mergedKeymap[k];
+        for (const [commandKey] of Object.entries(overrides)) {
+          delete mergedKeymap[commandKey];
         }
       }
 
-      for (const [k, v] of Object.entries(keymap as Record<string, string>)) {
-        mergedKeymap[k] = v;
+      for (const [commandKey, v] of Object.entries(keymap as Record<string, string>)) {
+        mergedKeymap[commandKey] = v;
       }
 
       for (const [commandName, key] of Object.entries(mergedKeymap) as [

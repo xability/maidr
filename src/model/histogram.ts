@@ -23,7 +23,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
 
   /**
    * Histogram specific implementation of moving to the next higher/lower value
-   * @param direction indicates the direction of search- left (before the currernt value) and right (after)
+   * @param direction indicates the direction of search- left (before the current value) and right (after)
    * @param type indicates the value to look for
    * @returns boolean (true: if target was found, false: else)
    */
