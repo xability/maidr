@@ -162,7 +162,7 @@ export class Controller implements Disposable {
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
-      rotorNavigationService: this.rotorNavigationService
+      rotorNavigationService: this.rotorNavigationService,
     });
     this.mousebinding = new Mousebindingservice({
       context: this.context,
