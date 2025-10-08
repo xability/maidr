@@ -177,7 +177,7 @@ export abstract class Svg {
       // Preserve units when increasing stroke width
       const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
       if (match) {
-        const value = parseFloat(match[1]);
+        const value = Number.parseFloat(match[1]);
         const unit = match[2] || '';
         clone.setAttribute(Constant.STROKE_WIDTH, `${value + 2}${unit}`);
       } else {
