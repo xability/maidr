@@ -145,7 +145,7 @@ export abstract class Svg {
   private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
     const parsed = value ? Number.parseFloat(value) : Number.NaN;
     if (!Number.isNaN(parsed) && parsed > minThreshold) {
-      return value!;
+      return parsed.toString();
     }
     return '1';
   }
