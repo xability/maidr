@@ -1,37 +1,55 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import rehypeMathjax from 'rehype-mathjax/svg';
+import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 
 interface TypingEffectProps {
   text: string;
   isUser: boolean;
+  onTypingUpdate?: () => void;
 }
 
-export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
+export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypingUpdate }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const messageRef = useRef<HTMLDivElement>(null);
   const settings = useViewModelState('settings');
+  const inIframe = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  }, []);
+  const containerStyle = useMemo<React.CSSProperties>(() => (
+    inIframe
+      ? { contain: 'layout style', willChange: 'auto', overflowWrap: 'anywhere', wordBreak: 'break-word' }
+      : {}
+  ), [inIframe]);
 
   useEffect(() => {
-    if (isUser) {
+    if (isUser || inIframe) {
       setDisplayedText(text);
       setIsTyping(false);
       return;
     }
 
     let currentIndex = 0;
-    const typingSpeed = 5;
-
+    const typingSpeed = 10; // Slightly slower for better scroll compatibility
     const typingInterval = setInterval(() => {
       if (currentIndex <= text.length) {
         setDisplayedText(text.slice(0, currentIndex));
         currentIndex++;
+
+        // Notify parent component about typing updates for auto-scroll
+        if (onTypingUpdate) {
+          onTypingUpdate();
+        }
       } else {
         setIsTyping(false);
         clearInterval(typingInterval);
@@ -39,7 +57,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
     }, typingSpeed);
 
     return () => clearInterval(typingInterval);
-  }, [text, isUser]);
+  }, [text, isUser, inIframe]);
 
   useEffect(() => {
     if (!isTyping && messageRef.current) {
@@ -49,12 +67,12 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
   }, [isTyping]);
 
   return (
-    <Box>
+    <Box style={containerStyle}>
       {/* Visual typing effect for users */}
       <div className={`chat-message-content ${isUser ? 'user' : ''}`}>
         <ReactMarkdown
           rehypePlugins={[
-            rehypeMathjax,
+            rehypeKatex,
             [rehypeSanitize, {
               attributes: {
                 '*': ['className', 'aria-label', 'aria-hidden', 'role', 'aria-busy', 'aria-live', 'aria-atomic'],
@@ -111,7 +129,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser }) => {
       >
         {isTyping ? '' : text}
       </div>
-      {isTyping && (
+      {isTyping && !inIframe && (
         <span
           className="typing-cursor"
           aria-hidden="true"

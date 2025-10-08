@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   message: Message;
   disabled?: boolean;
   _onOpenSettings?: () => void;
+  onTypingUpdate?: () => void;
 }
 
 function getModelDisplayName(model?: string): string {
@@ -25,7 +26,7 @@ function getModelDisplayName(model?: string): string {
   }
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings, onTypingUpdate }) => {
   const getLLMAvatar = (): React.ReactElement => {
     return message.isUser ? <AccountCircle /> : <ModelIcon model={message.model} />;
   };
@@ -80,7 +81,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
               {getModelDisplayName(message.model)}
             </Typography>
           )}
-          <TypingEffect text={message.text} isUser={message.isUser} />
+          <TypingEffect text={message.text} isUser={message.isUser} onTypingUpdate={onTypingUpdate} />
 
           {message.isWelcomeMessage && message.modelSelections && (
             <ModelSelection enabledModels={message.modelSelections} />

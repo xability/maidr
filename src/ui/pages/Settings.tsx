@@ -325,7 +325,7 @@ const Settings: React.FC = () => {
 
   const handleSave = (): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
-    chatViewModel.loadInitialMessage();
+    chatViewModel.refreshInitialMessage();
   };
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {

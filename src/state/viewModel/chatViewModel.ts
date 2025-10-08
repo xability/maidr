@@ -88,12 +88,22 @@ const chatSlice = createSlice({
     updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
       state.suggestions = action.payload;
     },
+    updateWelcomeMessage: (state, action: PayloadAction<{ text: string; modelSelections?: { modelKey: Llm; name: string; version: string }[] }>) => {
+      // Find the welcome message (first system message with isWelcomeMessage flag)
+      const welcomeMessageIndex = state.messages.findIndex(msg => msg.isWelcomeMessage);
+      if (welcomeMessageIndex !== -1) {
+        state.messages[welcomeMessageIndex].text = action.payload.text;
+        if (action.payload.modelSelections) {
+          state.messages[welcomeMessageIndex].modelSelections = action.payload.modelSelections;
+        }
+      }
+    },
     reset() {
       return initialState;
     },
   },
 });
-const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, reset } = chatSlice.actions;
+const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, updateWelcomeMessage, reset } = chatSlice.actions;
 
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
@@ -121,19 +131,18 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
   public get canSend(): boolean {
     const { llm } = this.snapshot.settings;
-    return Object.values(llm.models).some(model => model.enabled);
+    return Object.values(llm.models).some(model => model.enabled && model.apiKey.trim().length > 0);
   }
 
   public toggle(): void {
     this.chatService.toggle();
   }
 
-  public loadInitialMessage(): void {
-    const timestamp = new Date().toISOString();
+  private getEnabledModelsData(): { enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] } {
     const llmModels = this.snapshot.settings.llm.models;
 
     const enabledModels = Object.entries(llmModels)
-      .filter(([_, cfg]) => cfg.enabled)
+      .filter(([_, cfg]) => cfg.enabled && cfg.apiKey.trim().length > 0)
       .map(([modelKey, cfg]) => {
         const labelMap = MODEL_VERSIONS[modelKey as keyof typeof MODEL_VERSIONS]?.labels;
         const versionLabel = labelMap?.[cfg.version as keyof typeof labelMap] || cfg.version;
@@ -142,22 +151,48 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       });
 
     const modelSelections = Object.entries(llmModels)
-      .filter(([_, cfg]) => cfg.enabled)
+      .filter(([_, cfg]) => cfg.enabled && cfg.apiKey.trim().length > 0)
       .map(([modelKey, cfg]) => ({
         modelKey: modelKey as Llm,
         name: getModelDisplayName(modelKey),
         version: cfg.version,
       }));
 
+    return { enabledModels, modelSelections };
+  }
+
+  public loadInitialMessage(): void {
+    const timestamp = new Date().toISOString();
+    const { enabledModels, modelSelections } = this.getEnabledModelsData();
+
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent in the settings page.';
+      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
 
     this.store.dispatch(addSystemMessage({
       text,
       timestamp,
       modelSelections,
       isWelcomeMessage: true,
+    }));
+  }
+
+  public refreshInitialMessage(): void {
+    // Clear existing messages and reload initial message
+    this.store.dispatch(reset());
+    this.loadInitialMessage();
+  }
+
+  public updateWelcomeMessage(): void {
+    const { enabledModels, modelSelections } = this.getEnabledModelsData();
+
+    const text = enabledModels.length > 0
+      ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
+      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
+
+    this.store.dispatch(updateWelcomeMessage({
+      text,
+      modelSelections,
     }));
   }
 
@@ -231,7 +266,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     }));
 
     const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled);
+      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey.trim().length > 0);
     await Promise.all(enabledModels.map(async (model) => {
       const audioId = this.audioService.playWaitingTone();
       try {

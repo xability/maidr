@@ -284,153 +284,171 @@ export const GoToExtrema: React.FC = () => {
   // Conditional rendering in JSX, not early return (following codebase pattern)
   return state.visible && state.targets.length > 0
     ? (
-        <Box
-          ref={modalRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="go-to-extrema-title"
-          aria-describedby="go-to-extrema-description"
-          tabIndex={0}
-          sx={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 2,
-            p: 3,
-            boxShadow: 3,
-            zIndex: 1000,
-            minWidth: 300,
-            maxHeight: '80vh',
-            outline: 'none',
-          }}
-        >
-          <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
-              Go To Extrema
-            </Typography>
-            <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
-              <Close />
-            </IconButton>
-          </Box>
+        <>
+          {/* Backdrop/Overlay */}
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 9999,
+            }}
+            onClick={handleClose}
+            aria-hidden="true"
+          />
 
-          <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-              {state.description || 'Navigate to statistical extremes'}
-            </Typography>
-          </Box>
+          {/* Modal Content */}
+          <Box
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="go-to-extrema-title"
+            aria-describedby="go-to-extrema-description"
+            tabIndex={0}
+            sx={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              bgcolor: 'background.paper',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 2,
+              p: 3,
+              boxShadow: 3,
+              zIndex: 10000,
+              minWidth: 300,
+              maxHeight: '80vh',
+              outline: 'none',
+            }}
+          >
+            <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
+                Go To Extrema
+              </Typography>
+              <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
+                <Close />
+              </IconButton>
+            </Box>
 
-          <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
-            {state.targets.map((target: ExtremaTarget, index: number) => (
-              <Box
-                key={`${target.segment}-${target.type}-${target.pointIndex}`}
-                ref={index === state.selectedIndex ? selectedItemRef : null}
-                id={`extrema-target-${index}`}
-                onClick={() => handleTargetSelect(target)}
-                role="option"
-                aria-selected={state.selectedIndex === index}
-                aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
-                tabIndex={0}
-                sx={getTargetBoxSx(state.selectedIndex === index)}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
-                </Typography>
-              </Box>
-            ))}
+            <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
+                {state.description || 'Navigate to statistical extremes'}
+              </Typography>
+            </Box>
 
-            {/* 4th option: Searchable combobox */}
-            {availableXValues.length > 0 && (
-              <Box
-                ref={searchOptionRef}
-                id="search-input-option"
-                role="option"
-                aria-selected={state.selectedIndex === state.targets.length}
-                aria-label="Search and navigate to specific X value"
-                aria-expanded={isDropdownOpen}
-                aria-controls="x-value-listbox"
-                tabIndex={0}
-                sx={{ p: 1.5, borderRadius: 1, mb: 0.5, border: state.selectedIndex === state.targets.length ? 2 : 1, borderColor: state.selectedIndex === state.targets.length ? 'primary.main' : 'divider', bgcolor: state.selectedIndex === state.targets.length ? 'action.selected' : 'transparent', position: 'relative' }}
-                onClick={() => {
-                  focusSearchInput();
-                  setIsDropdownOpen(true);
-                  setDropdownSelectedIndex(0);
-                }}
-              >
-                <TextField
-                  ref={inputFieldWrapperRef}
-                  inputRef={inputElRef}
-                  label="Search X values"
-                  placeholder={`Type to search ${availableXValues.length} values`}
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  value={inputValue}
-                  onChange={(e) => {
-                    setInputValue(e.target.value);
+            <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+              {state.targets.map((target: ExtremaTarget, index: number) => (
+                <Box
+                  key={`${target.segment}-${target.type}-${target.pointIndex}`}
+                  ref={index === state.selectedIndex ? selectedItemRef : null}
+                  id={`extrema-target-${index}`}
+                  onClick={() => handleTargetSelect(target)}
+                  role="option"
+                  aria-selected={state.selectedIndex === index}
+                  aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+                  tabIndex={0}
+                  sx={getTargetBoxSx(state.selectedIndex === index)}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
+                  </Typography>
+                </Box>
+              ))}
+
+              {/* 4th option: Searchable combobox */}
+              {availableXValues.length > 0 && (
+                <Box
+                  ref={searchOptionRef}
+                  id="search-input-option"
+                  role="option"
+                  aria-selected={state.selectedIndex === state.targets.length}
+                  aria-label="Search and navigate to specific X value"
+                  aria-expanded={isDropdownOpen}
+                  aria-controls="x-value-listbox"
+                  tabIndex={0}
+                  sx={{ p: 1.5, borderRadius: 1, mb: 0.5, border: state.selectedIndex === state.targets.length ? 2 : 1, borderColor: state.selectedIndex === state.targets.length ? 'primary.main' : 'divider', bgcolor: state.selectedIndex === state.targets.length ? 'action.selected' : 'transparent', position: 'relative' }}
+                  onClick={() => {
+                    focusSearchInput();
                     setIsDropdownOpen(true);
-                    if (dropdownSelectedIndex < 0) {
-                      setDropdownSelectedIndex(0);
-                    }
+                    setDropdownSelectedIndex(0);
                   }}
-                  onFocus={() => {
-                    setIsDropdownOpen(true);
-                    if (dropdownSelectedIndex < 0) {
-                      setDropdownSelectedIndex(0);
-                    }
-                  }}
-                  onKeyDown={handleInputKeyDown}
-                  slotProps={textFieldSlotProps}
-                />
+                >
+                  <TextField
+                    ref={inputFieldWrapperRef}
+                    inputRef={inputElRef}
+                    label="Search X values"
+                    placeholder={`Type to search ${availableXValues.length} values`}
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    value={inputValue}
+                    onChange={(e) => {
+                      setInputValue(e.target.value);
+                      setIsDropdownOpen(true);
+                      if (dropdownSelectedIndex < 0) {
+                        setDropdownSelectedIndex(0);
+                      }
+                    }}
+                    onFocus={() => {
+                      setIsDropdownOpen(true);
+                      if (dropdownSelectedIndex < 0) {
+                        setDropdownSelectedIndex(0);
+                      }
+                    }}
+                    onKeyDown={handleInputKeyDown}
+                    slotProps={textFieldSlotProps}
+                  />
 
-                {isDropdownOpen && filteredOptions.length > 0 && (
-                  <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
-                    {filteredOptions.map((value, idx) => (
-                      <ListItem
-                        key={`${value}-${idx}`}
-                        id={`option-${idx}`}
-                        role="option"
-                        aria-selected={dropdownSelectedIndex === idx}
-                        aria-label={String(value)}
-                        tabIndex={0}
-                        onClick={() => handleOptionSelect(value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOptionSelect(value);
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
-                          } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
-                          }
-                        }}
-                        sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
-                      >
-                        <ListItemText primary={String(value)} />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-                {/* Assertive live region for immediate announcement of highlighted option */}
-                <div
-                  ref={liveRegionRef}
-                  id="sr-active-option-announcer"
-                  aria-live="assertive"
-                  aria-atomic="true"
-                  style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
-                />
-              </Box>
-            )}
+                  {isDropdownOpen && filteredOptions.length > 0 && (
+                    <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
+                      {filteredOptions.map((value, idx) => (
+                        <ListItem
+                          key={`${value}-${idx}`}
+                          id={`option-${idx}`}
+                          role="option"
+                          aria-selected={dropdownSelectedIndex === idx}
+                          aria-label={String(value)}
+                          tabIndex={0}
+                          onClick={() => handleOptionSelect(value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOptionSelect(value);
+                            } else if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
+                            }
+                          }}
+                          sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
+                        >
+                          <ListItemText primary={String(value)} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                  {/* Assertive live region for immediate announcement of highlighted option */}
+                  <div
+                    ref={liveRegionRef}
+                    id="sr-active-option-announcer"
+                    aria-live="assertive"
+                    aria-atomic="true"
+                    style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+                  />
+                </Box>
+              )}
+            </Box>
           </Box>
-        </Box>
+        </>
       )
     : null;
 };

@@ -71,6 +71,12 @@ export class TextViewModel extends AbstractViewModel<TextState> {
       this.update(e.value);
     }));
 
+    this.disposables.push(this.textService.onNavigation((e) => {
+      if (e.type === 'first_navigation') {
+        this.setAnnounce(true);
+      }
+    }));
+
     this.disposables.push(notification.onChange((e) => {
       this.notify(e.value);
     }));

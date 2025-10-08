@@ -118,8 +118,7 @@ const REVIEW_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Allowed actions
-  ALLOW_DEFAULT:
-    `up, down, left, right,
+  ALLOW_DEFAULT: `up, down, left, right,
     ${Platform.ctrl}+up, ${Platform.ctrl}+down,
     ${Platform.ctrl}+left, ${Platform.ctrl}+right,
     pageup, pagedown, home, end,
@@ -176,7 +175,10 @@ const TRACE_KEYMAP = {
   DESCRIBE_POINT: `space`,
 
   // Go To functionality
-  GO_TO_EXTREMA_TOGGLE: 'g',
+  GO_TO_EXTREMA_TOGGLE: `g`,
+
+  // Go to point
+  MOVE_TO_INDEX: `click`,
 
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
@@ -188,6 +190,7 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_MOVE_UP: 'up',
   GO_TO_EXTREMA_MOVE_DOWN: 'down',
   GO_TO_EXTREMA_SELECT: 'enter',
+  GO_TO_EXTREMA_CLOSE: 'esc',
   GO_TO_EXTREMA_TOGGLE: 'g',
 } as const;
 
@@ -330,5 +333,32 @@ export class KeybindingService {
 
   public unregister(): void {
     hotkeys.unbind();
+  }
+}
+
+export class Mousebindingservice {
+  private mouseListener!: (event: MouseEvent) => void;
+
+  private readonly commandContext: CommandContext;
+
+  public constructor(commandContext: CommandContext) {
+    this.commandContext = commandContext;
+  }
+
+  public registerEvents(): void {
+    this.mouseListener = (event: MouseEvent) => {
+      const x = event.clientX;
+      const y = event.clientY;
+
+      this.commandContext.context.moveToPoint(x, y);
+    };
+
+    document.addEventListener('pointermove', this.mouseListener);
+  }
+
+  public unregister(): void {
+    if (this.mouseListener) {
+      document.removeEventListener('pointermove', this.mouseListener);
+    }
   }
 }
