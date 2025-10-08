@@ -141,6 +141,7 @@ export abstract class Svg {
 
   private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
   private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
+  private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
 
   private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
     const parsed = value ? Number.parseFloat(value) : Number.NaN;
@@ -174,15 +175,13 @@ export abstract class Svg {
 
     if (isLineElement) {
       const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
-      // Preserve units when increasing stroke width
       const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
       if (match) {
         const value = Number.parseFloat(match[1]);
         const unit = match[2] || '';
-        clone.setAttribute(Constant.STROKE_WIDTH, `${value + 2}${unit}`);
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
       } else {
-        // Fallback: just add 2, no unit
-        clone.setAttribute(Constant.STROKE_WIDTH, `${Number.parseFloat(strokeWidth) + 2}`);
+        clone.setAttribute(Constant.STROKE_WIDTH, `${Number.parseFloat(strokeWidth) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}`);
       }
     }
 
