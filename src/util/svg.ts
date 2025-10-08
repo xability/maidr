@@ -174,7 +174,16 @@ export abstract class Svg {
 
     if (isLineElement) {
       const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
-      clone.setAttribute(Constant.STROKE_WIDTH, `${Number.parseFloat(strokeWidth) + 2}`);
+      // Preserve units when increasing stroke width
+      const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
+      if (match) {
+        const value = parseFloat(match[1]);
+        const unit = match[2] || '';
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value + 2}${unit}`);
+      } else {
+        // Fallback: just add 2, no unit
+        clone.setAttribute(Constant.STROKE_WIDTH, `${Number.parseFloat(strokeWidth) + 2}`);
+      }
     }
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);
