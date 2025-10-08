@@ -23,7 +23,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-  implements Movable, Observable<State>, Disposable {
+implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
