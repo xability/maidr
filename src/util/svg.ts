@@ -181,7 +181,9 @@ export abstract class Svg {
         const unit = match[2] || '';
         clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
       } else {
-        clone.setAttribute(Constant.STROKE_WIDTH, `${Number.parseFloat(strokeWidth) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}`);
+        const parsed = Number.parseFloat(strokeWidth);
+        const value = Number.isNaN(parsed) ? this.STROKE_WIDTH_HIGHLIGHT_INCREASE : parsed + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
       }
     }
 
