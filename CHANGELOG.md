@@ -1,3 +1,15 @@
+# [3.31.0](https://github.com/xability/maidr/compare/v3.30.1...v3.31.0) (2025-10-10)
+
+
+### Bug Fixes
+
+* address issue where esc doesn't work after toggling to label scope ([#444](https://github.com/xability/maidr/issues/444)) ([b54cd4b](https://github.com/xability/maidr/commit/b54cd4b9ddb3fc8db025bb5940fd9802cbdbced3))
+
+
+### Features
+
+* support outlier visual highlight in boxplots ([#450](https://github.com/xability/maidr/issues/450)) ([979a390](https://github.com/xability/maidr/commit/979a3905ed3ef5af5fd7c137842837d9309d5ff5))
+
 ## [3.30.1](https://github.com/xability/maidr/compare/v3.30.0...v3.30.1) (2025-09-22)
 
 
