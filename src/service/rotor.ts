@@ -12,42 +12,42 @@ const ROTOR_MODES: Record<number, string> = {
   2: Constant.HIGHER_VALUE_MODE,
 };
 /**
-   * Manages rotor-based navigation for the active trace.
-   *
-   * Purpose:
-   * - Provide modal navigation over a trace by rotating through three modes.
-   *
-   * Navigation modes:
-   * - DATA_MODE: Default data browsing. Focus remains in the trace scope; no compare behavior.
-   * - LOWER_VALUE_MODE: Navigate to the next/previous data point with a lower y-value relative
-   *   to the current point (supports left/right and, when available, up/down semantics).
-   * - HIGHER_VALUE_MODE: Navigate to the next/previous data point with a higher y-value relative
-   *   to the current point (supports left/right and, when available, up/down semantics).
-   *
-   * Responsibilities:
-   * - Track the current rotor mode and expose helpers to cycle forward/backward across modes.
-   * - Coordinate scope focus: entering a compare mode (LOWER/HIGHER) may switch focus to
-   *   the rotor scope; returning to DATA_MODE restores focus to the trace scope.
-   * - Delegate directional movement to the active {@link AbstractTrace} implementation using
-   *   rotor-aware APIs, with a fallback to compare-based traversal when rotor methods are
-   *   unavailable.
-   *
-   * Mode management:
-   * - getMode(): Returns the symbolic mode string for the current index.
-   * - setMode(): Applies mode side-effects (e.g., restore trace scope in DATA_MODE).
-   * - getCompareType(): Maps the current mode to 'lower' or 'higher' for compare operations
-   *   (DATA_MODE falls back to 'lower').
-   *
-   * Dependencies:
-   * - Context: Provides the active trace and current scope.
-   * - DisplayService: Toggles UI focus between scopes (trace vs. rotor).
-   * - TextService: Reserved for user-facing feedback/messages and parity with other services.
-   *
-   * Notes:
-   * - UI-agnostic: this service contains no rendering logic and does not depend on the UI.
-   * - Returns user-facing messages from movement methods when a move is not possible; callers
-   *   may surface these through the ViewModel/UI.
-   */
+ * Manages rotor-based navigation for the active trace.
+ *
+ * Purpose:
+ * - Provide modal navigation over a trace by rotating through three modes.
+ *
+ * Navigation modes:
+ * - DATA_MODE: Default data browsing. Focus remains in the trace scope; no compare behavior.
+ * - LOWER_VALUE_MODE: Navigate to the next/previous data point with a lower y-value relative
+ *   to the current point (supports left/right and, when available, up/down semantics).
+ * - HIGHER_VALUE_MODE: Navigate to the next/previous data point with a higher y-value relative
+ *   to the current point (supports left/right and, when available, up/down semantics).
+ *
+ * Responsibilities:
+ * - Track the current rotor mode and expose helpers to cycle forward/backward across modes.
+ * - Coordinate scope focus: entering a compare mode (LOWER/HIGHER) may switch focus to
+ *   the rotor scope; returning to DATA_MODE restores focus to the trace scope.
+ * - Delegate directional movement to the active {@link AbstractTrace} implementation using
+ *   rotor-aware APIs, with a fallback to compare-based traversal when rotor methods are
+ *   unavailable.
+ *
+ * Mode management:
+ * - getMode(): Returns the symbolic mode string for the current index.
+ * - setMode(): Applies mode side-effects (e.g., restore trace scope in DATA_MODE).
+ * - getCompareType(): Maps the current mode to 'lower' or 'higher' for compare operations
+ *   (DATA_MODE falls back to 'lower').
+ *
+ * Dependencies:
+ * - Context: Provides the active trace and current scope.
+ * - DisplayService: Toggles UI focus between scopes (trace vs. rotor).
+ * - TextService: Reserved for user-facing feedback/messages and parity with other services.
+ *
+ * Notes:
+ * - UI-agnostic: this service contains no rendering logic and does not depend on the UI.
+ * - Returns user-facing messages from movement methods when a move is not possible; callers
+ *   may surface these through the ViewModel/UI.
+ */
 export class RotorNavigationService {
   private readonly context: Context;
   private readonly display: DisplayService;

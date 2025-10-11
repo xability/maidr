@@ -19,6 +19,7 @@ interface AppProps {
 
 const App: React.FC<AppProps> = ({ plot }) => {
   const { focus, tooltip } = useViewModelState('display');
+  const { enabled: brailleEnabled } = useViewModelState('braille');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
@@ -42,6 +43,8 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'SETTINGS':
         return <Settings />;
+      case 'ROTOR':
+        return brailleEnabled ? <Braille /> : null;
 
       default:
         return null;

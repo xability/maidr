@@ -47,6 +47,11 @@ const BRAILLE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+
 } as const;
 
 const CHAT_KEYMAP = {
