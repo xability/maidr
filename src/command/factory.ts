@@ -2,12 +2,14 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Keys } from '@type/event';
@@ -54,6 +56,14 @@ import {
   MoveUpCommand,
 } from './move';
 import {
+  RotorNavigationMoveDownCommand,
+  RotorNavigationMoveLeftCommand,
+  RotorNavigationMoveRightCommand,
+  RotorNavigationMoveUpCommand,
+  RotorNavigationNextNavUnitCommand,
+  RotorNavigationPrevNavUnitCommand,
+} from './rotorNavigation';
+import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
   CommandPaletteMoveUpCommand,
@@ -75,6 +85,7 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
+  private readonly rotorService: RotorNavigationService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -84,6 +95,7 @@ export class CommandFactory {
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
@@ -91,6 +103,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
@@ -100,6 +113,7 @@ export class CommandFactory {
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
+    this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
   public create(command: Keys): Command {
@@ -210,7 +224,18 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
-
+      case 'ROTOR_NEXT_NAV':
+        return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
+      case 'ROTOR_PREV_NAV':
+        return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_UP':
+        return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_DOWN':
+        return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_LEFT':
+        return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
+      case 'ROTOR_MOVE_RIGHT':
+        return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

@@ -18,6 +18,7 @@ export abstract class Constant {
   static readonly REVIEW_INPUT = 'maidr-review-input';
   static readonly TEXT_CONTAINER = 'maidr-text-container';
   static readonly MAIDR_INSTRUCTION = 'maidr-instruction';
+  static readonly ROTOR_AREA = 'maidr-rotor-area';
 
   // CSS classes.
   static readonly SR_ONLY_CLASS = 'maidr-sr-only';
@@ -71,4 +72,10 @@ export abstract class Constant {
   static readonly HIGHLIGHT_CONTRAST_RATIO = 3.0;
   static readonly HIGHLIGHT_COLOR_RATIO = 0.6;
   static readonly HIGHLIGHT_MAX_COLOR = 255;
+
+  // rotor mode values
+  static readonly HIGHER_VALUE_MODE = 'HIGHER VALUE NAVIGATION';
+  static readonly LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
+  static readonly DATA_MODE = 'DATA POINT NAVIGATION';
+  static readonly NO_OF_ROTOR_NAV_MODES = 3;
 }

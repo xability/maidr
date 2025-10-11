@@ -19,6 +19,7 @@ const SVG_PATH_LINE_POINT_REGEX
 
 export class LineTrace extends AbstractTrace<number> {
   protected readonly supportsExtrema = true;
+  protected readonly rotorSupport = true;
 
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
@@ -612,5 +613,53 @@ export class LineTrace extends AbstractTrace<number> {
       this.handleInitialEntry();
     }
     return super.moveToXValue(xValue);
+  }
+
+  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
+      return false;
+    }
+
+    const groupValues = this.lineValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
+
+  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
+      return a < b;
+    }
+    if (type === 'higher') {
+      return a > b;
+    }
+    return false;
+  }
+
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+    this.moveOnce('UPWARD');
+    return true;
+  }
+
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+    this.moveOnce('DOWNWARD');
+    return true;
   }
 }
