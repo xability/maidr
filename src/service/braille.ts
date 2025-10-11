@@ -657,17 +657,17 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.context.moveToIndex(row, col);
   }
 
-  public toggle(state: TraceState): void {
+  public toggle(state: TraceState): boolean {
     if (state.empty) {
       const noInfo = 'No info for braille';
       this.notification.notify(noInfo);
-      return;
+      return this.enabled;
     }
 
     if (state.braille.empty) {
       const notSupported = `Braille is not supported for plot type: ${state.braille.traceType}`;
       this.notification.notify(notSupported);
-      return;
+      return this.enabled;
     }
 
     this.enabled = !this.enabled;
@@ -676,5 +676,6 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
     this.notification.notify(message);
+    return this.enabled;
   }
 }

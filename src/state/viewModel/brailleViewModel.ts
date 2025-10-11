@@ -8,19 +8,21 @@ import { AbstractViewModel } from '@state/viewModel/viewModel';
 interface BrailleState {
   value: string;
   index: number;
+  enabled: boolean;
 }
 
 const initialState: BrailleState = {
   value: '',
   index: -1,
+  enabled: false,
 };
 
 const brailleSlice = createSlice({
   name: 'braille',
   initialState,
   reducers: {
-    update(_, action: PayloadAction<BrailleState>): BrailleState {
-      return action.payload;
+    update(state, action: PayloadAction<Partial<BrailleState>>): BrailleState {
+      return { ...state, ...action.payload } as BrailleState;
     },
     reset(): BrailleState {
       return initialState;
@@ -62,7 +64,8 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   }
 
   public toggle(state: TraceState): void {
-    this.brailleService.toggle(state);
+    const enabled = this.brailleService.toggle(state);
+    this.store.dispatch(update({ enabled }));
   }
 }
 
