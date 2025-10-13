@@ -186,9 +186,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.notifyStateUpdate();
   }
 
-  public moveToPoint(x: number, y: number): void {
+  public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
-    this.activeSubplot.activeTrace;
     this.notifyStateUpdate();
   }
 }
@@ -292,7 +291,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
-  public moveToPoint(x: number, y: number): void {
+  public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
   }

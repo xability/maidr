@@ -176,11 +176,10 @@ const TRACE_KEYMAP = {
   DESCRIBE_POINT: `space`,
 
   // Go To functionality
-  GO_TO_EXTREMA: `g`,
+  GO_TO_EXTREMA_TOGGLE: `g`,
 
   // Go to point
   MOVE_TO_INDEX: `click`,
-  GO_TO_EXTREMA_TOGGLE: "g",
 } as const;
 
 const GO_TO_EXTREMA_KEYMAP = {
@@ -188,6 +187,7 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_MOVE_UP: "up",
   GO_TO_EXTREMA_MOVE_DOWN: "down",
   GO_TO_EXTREMA_SELECT: "enter",
+  GO_TO_EXTREMA_CLOSE: "esc",
   GO_TO_EXTREMA_TOGGLE: "g",
 } as const;
 

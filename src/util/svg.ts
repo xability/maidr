@@ -139,23 +139,54 @@ export abstract class Svg {
     return line;
   }
 
+  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
+  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
+  private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
+
+  private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
+    const parsed = value ? Number.parseFloat(value) : Number.NaN;
+    if (!Number.isNaN(parsed) && parsed > minThreshold) {
+      return parsed.toString();
+    }
+    return '1';
+  }
+
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+
+    const computed = window.getComputedStyle(element);
     const originalColor = isLineElement
-      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
-      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
+      ? computed.getPropertyValue(Constant.STROKE)
+      : computed.getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
+
+    const fillOpacity = computed.getPropertyValue('fill-opacity');
+    const strokeOpacity = computed.getPropertyValue('stroke-opacity');
+    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
+    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
 
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
     clone.setAttribute(Constant.STROKE, color);
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
     clone.style.stroke = color;
+
     if (isLineElement) {
       const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
-      clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
+      const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
+      if (match) {
+        const value = Number.parseFloat(match[1]);
+        const unit = match[2] || '';
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
+      } else {
+        const parsed = Number.parseFloat(strokeWidth);
+        const value = Number.isNaN(parsed)
+          ? this.STROKE_WIDTH_HIGHLIGHT_INCREASE
+          : parsed + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
+      }
     }
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);

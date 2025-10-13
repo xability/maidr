@@ -1,9 +1,9 @@
-import type { Disposable } from '@type/disposable';
-import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer } from '@type/grammar';
-import type { Movable, MovableDirection } from '@type/movable';
-import type { XValue } from '@type/navigation';
-import type { Observable, Observer } from '@type/observable';
+import type { Disposable } from "@type/disposable";
+import type { ExtremaTarget } from "@type/extrema";
+import type { MaidrLayer } from "@type/grammar";
+import type { Movable, MovableDirection } from "@type/movable";
+import type { XValue } from "@type/navigation";
+import type { Observable, Observer } from "@type/observable";
 import type {
   AudioState,
   AutoplayState,
@@ -11,16 +11,16 @@ import type {
   HighlightState,
   TextState,
   TraceState,
-} from '@type/state';
-import type { Trace } from './plot';
-import { NavigationService } from '@service/navigation';
-import { TraceType } from '@type/grammar';
+} from "@type/state";
+import type { Trace } from "./plot";
+import { NavigationService } from "@service/navigation";
+import { TraceType } from "@type/grammar";
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+const DEFAULT_SUBPLOT_TITLE = "unavailable";
 
-const DEFAULT_X_AXIS = 'X';
-const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'unavailable';
+const DEFAULT_X_AXIS = "X";
+const DEFAULT_Y_AXIS = "Y";
+const DEFAULT_FILL_AXIS = "unavailable";
 
 export abstract class AbstractObservableElement<Element, State>
   implements Movable, Observable<State>, Disposable
@@ -63,16 +63,16 @@ export abstract class AbstractObservableElement<Element, State>
     }
 
     switch (direction) {
-      case 'UPWARD':
+      case "UPWARD":
         this.row += 1;
         break;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         this.row -= 1;
         break;
-      case 'FORWARD':
+      case "FORWARD":
         this.col += 1;
         break;
-      case 'BACKWARD':
+      case "BACKWARD":
         this.col -= 1;
         break;
     }
@@ -97,13 +97,13 @@ export abstract class AbstractObservableElement<Element, State>
     }
 
     switch (direction) {
-      case 'UPWARD':
+      case "UPWARD":
         this.row = this.values.length - 1;
         break;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         this.row = 0;
         break;
-      case 'FORWARD': {
+      case "FORWARD": {
         // Safety check: ensure we don't access undefined values
         const { row: safeRow } = this.getSafeIndices();
         this.col = this.values[safeRow]?.length
@@ -111,7 +111,7 @@ export abstract class AbstractObservableElement<Element, State>
           : 0;
         break;
       }
-      case 'BACKWARD':
+      case "BACKWARD":
         this.col = 0;
         break;
     }
@@ -140,16 +140,16 @@ export abstract class AbstractObservableElement<Element, State>
     }
 
     switch (target) {
-      case 'UPWARD':
+      case "UPWARD":
         return this.row < this.values.length - 1;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         return this.row > 0;
-      case 'FORWARD': {
+      case "FORWARD": {
         // Safety check: ensure we don't access undefined values
         const { row: safeRow } = this.getSafeIndices();
         return this.col < (this.values[safeRow]?.length || 0) - 1;
       }
-      case 'BACKWARD':
+      case "BACKWARD":
         return this.col > 0;
     }
   }
@@ -220,10 +220,10 @@ export abstract class AbstractObservableElement<Element, State>
    * this method to provide specific logic for moving to a point, such as updating
    * highlight values or managing selection boxes.
    *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
+   * @param _x - The x-coordinate to move to.
+   * @param _y - The y-coordinate to move to.
    */
-  public moveToPoint(x: number, y: number): void {
+  public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
 }
@@ -279,7 +279,7 @@ export abstract class AbstractTrace<T>
 
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           size: values[currentRow]?.length || 0,
@@ -290,7 +290,7 @@ export abstract class AbstractTrace<T>
 
     return {
       empty: false,
-      type: 'trace',
+      type: "trace",
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
@@ -314,7 +314,7 @@ export abstract class AbstractTrace<T>
 
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           size: values[currentRow]?.length || 0,
@@ -382,7 +382,7 @@ export abstract class AbstractTrace<T>
    */
   public navigateToExtrema(_target: ExtremaTarget): void {
     if (this.supportsExtrema) {
-      throw new Error('Extrema navigation not implemented by this plot type');
+      throw new Error("Extrema navigation not implemented by this plot type");
     }
     // No-op if extrema navigation is not supported
   }
@@ -493,14 +493,14 @@ export abstract class AbstractTrace<T>
    * Type guard to check if trace has points array
    */
   private hasPointsArray(): boolean {
-    return 'points' in this && this.points !== undefined;
+    return "points" in this && this.points !== undefined;
   }
 
   /**
    * Type guard to check if trace has values array
    */
   private hasValuesArray(): boolean {
-    return 'values' in this && this.values !== undefined;
+    return "values" in this && this.values !== undefined;
   }
 
   /**
@@ -556,7 +556,11 @@ export abstract class AbstractTrace<T>
   public isPointInBounds(
     x: number,
     y: number,
-    { element, row, col }: { element: SVGElement; row: number; col: number },
+    {
+      element,
+      row: _row,
+      col: _col,
+    }: { element: SVGElement; row: number; col: number },
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();
