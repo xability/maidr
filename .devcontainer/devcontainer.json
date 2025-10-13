@@ -15,7 +15,8 @@
         "esbenp.prettier-vscode",
         "GitHub.copilot",
         "GitHub.vscode-pull-request-github",
-        "GitHub.codespaces"
+        "GitHub.codespaces",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "typescript.tsdk": "/workspace/node_modules/typescript/lib",

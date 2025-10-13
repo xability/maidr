@@ -1,10 +1,11 @@
-import type { CommandContext } from '@command/command';
-import type { Keys } from '@type/event';
-import { CommandFactory } from '@command/factory';
-import { Scope } from '@type/event';
-import { Constant } from '@util/constant';
-import { Platform } from '@util/platform';
-import hotkeys from 'hotkeys-js';
+import type { CommandContext } from "@command/command";
+import type { Keys } from "@type/event";
+import { CommandFactory } from "@command/factory";
+import { Scope } from "@type/event";
+import { Constant } from "@util/constant";
+import { Platform } from "@util/platform";
+import type { SettingsService } from "@service/settings";
+import hotkeys from "hotkeys-js";
 
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
@@ -183,19 +184,19 @@ const TRACE_KEYMAP = {
 
 const GO_TO_EXTREMA_KEYMAP = {
   // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: 'up',
-  GO_TO_EXTREMA_MOVE_DOWN: 'down',
-  GO_TO_EXTREMA_SELECT: 'enter',
-  GO_TO_EXTREMA_CLOSE: 'esc',
-  GO_TO_EXTREMA_TOGGLE: 'g',
+  GO_TO_EXTREMA_MOVE_UP: "up",
+  GO_TO_EXTREMA_MOVE_DOWN: "down",
+  GO_TO_EXTREMA_SELECT: "enter",
+  GO_TO_EXTREMA_CLOSE: "esc",
+  GO_TO_EXTREMA_TOGGLE: "g",
 } as const;
 
 const COMMAND_PALETTE_KEYMAP = {
   // Navigation within the modal
-  COMMAND_PALETTE_MOVE_UP: 'up',
-  COMMAND_PALETTE_MOVE_DOWN: 'down',
-  COMMAND_PALETTE_SELECT: 'enter',
-  COMMAND_PALETTE_CLOSE: 'esc',
+  COMMAND_PALETTE_MOVE_UP: "up",
+  COMMAND_PALETTE_MOVE_DOWN: "down",
+  COMMAND_PALETTE_SELECT: "enter",
+  COMMAND_PALETTE_CLOSE: "esc",
 } as const;
 
 export const SCOPED_KEYMAP = {
@@ -249,8 +250,8 @@ export class KeybindingService {
       ][]) {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
-        if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
+        if (commandName === "STOP_AUTOPLAY") {
+          hotkeys("*", Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);
@@ -259,7 +260,7 @@ export class KeybindingService {
         }
 
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
-          if (commandName !== 'ALLOW_DEFAULT') {
+          if (commandName !== "ALLOW_DEFAULT") {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);
             command.execute(event);
@@ -281,8 +282,15 @@ export class Mousebindingservice {
 
   private readonly commandContext: CommandContext;
 
-  public constructor(commandContext: CommandContext) {
+  private hoverMode: string = "none";
+
+  public constructor(
+    commandContext: CommandContext,
+    settingsService: SettingsService,
+  ) {
     this.commandContext = commandContext;
+    const initialSettings = settingsService.loadSettings();
+    this.hoverMode = initialSettings.general.hoverMode;
   }
 
   public registerEvents(): void {
@@ -293,12 +301,32 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    document.addEventListener('pointermove', this.mouseListener);
+    const id = this.commandContext.context.id;
+    if (this.hoverMode === "pointermove") {
+      document
+        .getElementById(id)
+        ?.addEventListener("pointermove", this.mouseListener);
+    }
+    if (this.hoverMode === "click") {
+      document
+        .getElementById(id)
+        ?.addEventListener("click", this.mouseListener);
+    }
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      document.removeEventListener('pointermove', this.mouseListener);
+      const id = this.commandContext.context.id;
+      if (this.hoverMode === "pointermove") {
+        document
+          .getElementById(id)
+          ?.removeEventListener("pointermove", this.mouseListener);
+      }
+      if (this.hoverMode === "click") {
+        document
+          .getElementById(id)
+          ?.removeEventListener("click", this.mouseListener);
+      }
     }
   }
 }

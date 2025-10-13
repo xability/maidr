@@ -1,9 +1,9 @@
-import type { Disposable } from '@type/disposable';
-import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer } from '@type/grammar';
-import type { Movable, MovableDirection } from '@type/movable';
-import type { XValue } from '@type/navigation';
-import type { Observable, Observer } from '@type/observable';
+import type { Disposable } from "@type/disposable";
+import type { ExtremaTarget } from "@type/extrema";
+import type { MaidrLayer } from "@type/grammar";
+import type { Movable, MovableDirection } from "@type/movable";
+import type { XValue } from "@type/navigation";
+import type { Observable, Observer } from "@type/observable";
 import type {
   AudioState,
   AutoplayState,
@@ -11,19 +11,20 @@ import type {
   HighlightState,
   TextState,
   TraceState,
-} from '@type/state';
-import type { Trace } from './plot';
-import { NavigationService } from '@service/navigation';
-import { TraceType } from '@type/grammar';
+} from "@type/state";
+import type { Trace } from "./plot";
+import { NavigationService } from "@service/navigation";
+import { TraceType } from "@type/grammar";
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+const DEFAULT_SUBPLOT_TITLE = "unavailable";
 
-const DEFAULT_X_AXIS = 'X';
-const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'unavailable';
+const DEFAULT_X_AXIS = "X";
+const DEFAULT_Y_AXIS = "Y";
+const DEFAULT_FILL_AXIS = "unavailable";
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
+  implements Movable, Observable<State>, Disposable
+{
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -62,16 +63,16 @@ implements Movable, Observable<State>, Disposable {
     }
 
     switch (direction) {
-      case 'UPWARD':
+      case "UPWARD":
         this.row += 1;
         break;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         this.row -= 1;
         break;
-      case 'FORWARD':
+      case "FORWARD":
         this.col += 1;
         break;
-      case 'BACKWARD':
+      case "BACKWARD":
         this.col -= 1;
         break;
     }
@@ -85,8 +86,8 @@ implements Movable, Observable<State>, Disposable {
   protected getSafeIndices(): { row: number; col: number } {
     const values = this.values;
     const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
-    const safeCol
-      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+    const safeCol =
+      this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -96,13 +97,13 @@ implements Movable, Observable<State>, Disposable {
     }
 
     switch (direction) {
-      case 'UPWARD':
+      case "UPWARD":
         this.row = this.values.length - 1;
         break;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         this.row = 0;
         break;
-      case 'FORWARD': {
+      case "FORWARD": {
         // Safety check: ensure we don't access undefined values
         const { row: safeRow } = this.getSafeIndices();
         this.col = this.values[safeRow]?.length
@@ -110,7 +111,7 @@ implements Movable, Observable<State>, Disposable {
           : 0;
         break;
       }
-      case 'BACKWARD':
+      case "BACKWARD":
         this.col = 0;
         break;
     }
@@ -131,24 +132,24 @@ implements Movable, Observable<State>, Disposable {
       const [row, col] = target;
       const { row: safeRow } = this.getSafeIndices();
       return (
-        row >= 0
-        && row < this.values.length
-        && col >= 0
-        && col < (this.values[safeRow]?.length || 0)
+        row >= 0 &&
+        row < this.values.length &&
+        col >= 0 &&
+        col < (this.values[safeRow]?.length || 0)
       );
     }
 
     switch (target) {
-      case 'UPWARD':
+      case "UPWARD":
         return this.row < this.values.length - 1;
-      case 'DOWNWARD':
+      case "DOWNWARD":
         return this.row > 0;
-      case 'FORWARD': {
+      case "FORWARD": {
         // Safety check: ensure we don't access undefined values
         const { row: safeRow } = this.getSafeIndices();
         return this.col < (this.values[safeRow]?.length || 0) - 1;
       }
-      case 'BACKWARD':
+      case "BACKWARD":
         return this.col > 0;
     }
   }
@@ -186,7 +187,7 @@ implements Movable, Observable<State>, Disposable {
   }
 
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {
@@ -229,7 +230,8 @@ implements Movable, Observable<State>, Disposable {
 
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
-  implements Trace {
+  implements Trace
+{
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
@@ -257,10 +259,10 @@ export abstract class AbstractTrace<T>
     this.values.length = 0;
 
     if (this.highlightValues) {
-      this.highlightValues.forEach(row =>
+      this.highlightValues.forEach((row) =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach(element => element.remove());
+          elements.forEach((element) => element.remove());
         }),
       );
       this.highlightValues.length = 0;
@@ -277,7 +279,7 @@ export abstract class AbstractTrace<T>
 
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           size: values[currentRow]?.length || 0,
@@ -288,7 +290,7 @@ export abstract class AbstractTrace<T>
 
     return {
       empty: false,
-      type: 'trace',
+      type: "trace",
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
@@ -312,7 +314,7 @@ export abstract class AbstractTrace<T>
 
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           size: values[currentRow]?.length || 0,
@@ -380,7 +382,7 @@ export abstract class AbstractTrace<T>
    */
   public navigateToExtrema(_target: ExtremaTarget): void {
     if (this.supportsExtrema) {
-      throw new Error('Extrema navigation not implemented by this plot type');
+      throw new Error("Extrema navigation not implemented by this plot type");
     }
     // No-op if extrema navigation is not supported
   }
@@ -491,14 +493,14 @@ export abstract class AbstractTrace<T>
    * Type guard to check if trace has points array
    */
   private hasPointsArray(): boolean {
-    return 'points' in this && this.points !== undefined;
+    return "points" in this && this.points !== undefined;
   }
 
   /**
    * Type guard to check if trace has values array
    */
   private hasValuesArray(): boolean {
-    return 'values' in this && this.values !== undefined;
+    return "values" in this && this.values !== undefined;
   }
 
   /**
@@ -536,10 +538,6 @@ export abstract class AbstractTrace<T>
   // this then finds a nearest point, and checks if it's in bounds
   // if all is good, it sends row col to context.moveToIndex
   public moveToPoint(x: number, y: number): void {
-    // temp: don't run for boxplot. remove when boxplot is fixed
-    if (this.type === TraceType.BOX) {
-      return;
-    }
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {
@@ -558,25 +556,29 @@ export abstract class AbstractTrace<T>
   public isPointInBounds(
     x: number,
     y: number,
-    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
+    {
+      element,
+      row: _row,
+      col: _col,
+    }: { element: SVGElement; row: number; col: number },
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();
     let r: number = 12;
     // if plot type is heatmap bar stacked or histogram, use 0
     if (
-      this.type === TraceType.HEATMAP
-      || this.type === TraceType.BAR
-      || this.type === TraceType.STACKED
-      || this.type === TraceType.HISTOGRAM
+      this.type === TraceType.HEATMAP ||
+      this.type === TraceType.BAR ||
+      this.type === TraceType.STACKED ||
+      this.type === TraceType.HISTOGRAM
     ) {
       r = 0;
     }
-    return (
-      x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r
-    );
+    const isInbounds =
+      x >= bbox.x - r &&
+      x <= bbox.x + bbox.width + r &&
+      y >= bbox.y - r &&
+      y <= bbox.y + bbox.height + r;
+    return isInbounds;
   }
 }

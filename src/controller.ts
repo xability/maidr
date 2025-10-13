@@ -155,22 +155,25 @@ export class Controller implements Disposable {
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
     });
-    this.mousebinding = new Mousebindingservice({
-      context: this.context,
+    this.mousebinding = new Mousebindingservice(
+      {
+        context: this.context,
 
-      audioService: this.audioService,
-      autoplayService: this.autoplayService,
-      highlightService: this.highlightService,
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
 
-      brailleViewModel: this.brailleViewModel,
-      chatViewModel: this.chatViewModel,
-      commandPaletteViewModel: this.commandPaletteViewModel,
-      goToExtremaViewModel: this.goToExtremaViewModel,
-      helpViewModel: this.helpViewModel,
-      reviewViewModel: this.reviewViewModel,
-      settingsViewModel: this.settingsViewModel,
-      textViewModel: this.textViewModel,
-    });
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+      },
+      this.settingsService,
+    );
 
     this.commandExecutor = new CommandExecutor(
       {
@@ -273,12 +276,12 @@ export class Controller implements Disposable {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach(subplotRow =>
+    this.figure.subplots.forEach((subplotRow) =>
       subplotRow.forEach((subplot) => {
         subplot.addObserver(this.textService);
         subplot.addObserver(this.brailleService);
         subplot.addObserver(this.highlightService);
-        subplot.traces.forEach(traceRow =>
+        subplot.traces.forEach((traceRow) =>
           traceRow.forEach((trace) => {
             trace.addObserver(this.audioService);
             trace.addObserver(this.brailleService);

@@ -5,7 +5,7 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings { }
+interface SettingsState extends Settings {}
 
 const initialState: SettingsState = {
   general: {
@@ -16,6 +16,7 @@ const initialState: SettingsState = {
     maxFrequency: 1000,
     autoplayDuration: 4000,
     ariaMode: 'assertive',
+    hoverMode: 'pointermove',
   },
   llm: {
     expertiseLevel: 'basic',
