@@ -10,7 +10,6 @@ interface RotorState {
 }
 const initialState: RotorState = {
   rotor_value: Constant.DATA_MODE,
-
 };
 const rotorNavigationSlice = createSlice({
   name: 'rotorNavigation',

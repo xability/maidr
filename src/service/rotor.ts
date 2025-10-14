@@ -1,6 +1,4 @@
 import type { Context } from '@model/context';
-import type { DisplayService } from '@service/display';
-import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
 
@@ -48,14 +46,10 @@ const ROTOR_MODES: Record<number, string> = {
  */
 export class RotorNavigationService {
   private readonly context: Context;
-  private readonly display: DisplayService;
-  private readonly text: TextService;
   private rotorIndex: number;
 
-  public constructor(context: Context, display: DisplayService, text: TextService) {
+  public constructor(context: Context) {
     this.context = context;
-    this.display = display;
-    this.text = text;
     this.rotorIndex = 0;
   }
 
