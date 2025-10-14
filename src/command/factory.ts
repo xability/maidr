@@ -119,12 +119,24 @@ export class CommandFactory {
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
+        }
         return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
+        }
         return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
+        }
         return new MoveLeftCommand(this.context);
       case 'MOVE_RIGHT':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
+        }
         return new MoveRightCommand(this.context);
       case 'MOVE_TO_TOP_EXTREME':
         return new MoveToTopExtremeCommand(this.context);
@@ -228,14 +240,6 @@ export class CommandFactory {
         return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
       case 'ROTOR_PREV_NAV':
         return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
-      case 'ROTOR_MOVE_UP':
-        return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
-      case 'ROTOR_MOVE_DOWN':
-        return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
-      case 'ROTOR_MOVE_LEFT':
-        return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
-      case 'ROTOR_MOVE_RIGHT':
-        return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

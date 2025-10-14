@@ -1,9 +1,7 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { TraceState } from '@type/state';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
-import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 
 const ROTOR_MODES: Record<number, string> = {
@@ -58,30 +56,7 @@ export class RotorNavigationService {
     this.context = context;
     this.display = display;
     this.text = text;
-    this.rotorIndex = 0; // default is DATA_MODE
-  }
-
-  public toggle(state: TraceState): void {
-    if (state.empty) {
-      return;
-    }
-
-    if (this.shouldToggleToRotorScope(state)) {
-      this.display.toggleFocus(Scope.ROTOR);
-    }
-  }
-
-  private shouldToggleToRotorScope(_state: TraceState): boolean {
-    const activeTrace = this.context.active;
-    return (
-      activeTrace
-      && this.context.scope !== Scope.ROTOR
-      && this.getMode() !== Constant.DATA_MODE
-    );
-  }
-
-  public returnToTraceScope(): void {
-    this.display.toggleFocus(Scope.ROTOR);
+    this.rotorIndex = 0;
   }
 
   public moveToNextRotorUnit(): string {
@@ -204,9 +179,10 @@ export class RotorNavigationService {
   public setMode(): void {
     const curr_mode = ROTOR_MODES[this.rotorIndex];
     if (curr_mode === Constant.DATA_MODE) {
-      // DATA MODE return to default TRACE scope
-      this.returnToTraceScope();
+      this.context.setRotorEnabled(false);
+      return;
     }
+    this.context.setRotorEnabled(true);
   }
 
   public getMode(): string {

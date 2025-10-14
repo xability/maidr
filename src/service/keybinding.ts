@@ -208,23 +208,6 @@ const COMMAND_PALETTE_KEYMAP = {
   COMMAND_PALETTE_CLOSE: 'esc',
 } as const;
 
-const ROTOR_NAVIGATION_INTERACTION_KEYMAP = {
-  ROTOR_MOVE_UP: `up`,
-  ROTOR_MOVE_DOWN: `down`,
-  ROTOR_MOVE_LEFT: `left`,
-  ROTOR_MOVE_RIGHT: `right`,
-  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
-  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
-};
-
-const ROTOR_OVERRIDES = {
-  MOVE_UP: 'ROTOR_MOVE_UP',
-  MOVE_DOWN: 'ROTOR_MOVE_DOWN',
-  MOVE_LEFT: 'ROTOR_MOVE_LEFT',
-  MOVE_RIGHT: 'ROTOR_MOVE_RIGHT',
-
-};
-
 export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
@@ -237,21 +220,7 @@ export const SCOPED_KEYMAP = {
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
   [Scope.TRACE]: TRACE_KEYMAP,
   [Scope.TRACE_LABEL]: TRACE_LABEL_KEYMAP,
-  [Scope.ROTOR]: ROTOR_NAVIGATION_INTERACTION_KEYMAP,
 } as const;
-
-/**
- * Optional parent mapping to allow a scope to inherit another scope's keymap.
- * Child scope keybindings will override parent's entries where they overlap.
- * This lets ROTOR reuse TRACE keybindings and only override a few keys.
- */
-const SCOPE_PARENTS: Partial<Record<Scope, Scope>> = {
-  [Scope.ROTOR]: Scope.TRACE,
-};
-
-const CHILD_OVERRIDES: Partial<Record<Scope, object>> = {
-  [Scope.ROTOR]: ROTOR_OVERRIDES,
-};
 
 export type Keymap = {
   [K in Scope]: (typeof SCOPED_KEYMAP)[K];
@@ -279,37 +248,12 @@ export class KeybindingService {
       }
     };
 
-    // Register all bindings. For scopes that declare a parent, compose the
-    // parent's keymap first so the child inherits all keys and only needs
-    // to override the ones it wants to change.
+    // Register all bindings.
     for (const [scope, keymap] of Object.entries(SCOPED_KEYMAP) as [
       Scope,
       Keymap[Scope],
     ][]) {
-      // Compose merged keymap from parent -> child
-      const parentScope = SCOPE_PARENTS[scope as Scope];
-      const mergedKeymap: Record<string, string> = {};
-      if (parentScope) {
-        const parentMap = (SCOPED_KEYMAP as any)[parentScope] as Record<string, string> | undefined;
-        if (parentMap) {
-          for (const [commandKey, v] of Object.entries(parentMap)) {
-            mergedKeymap[commandKey] = v;
-          }
-        }
-      }
-      const overrides = CHILD_OVERRIDES[scope as Scope] as Record<string, string>;
-
-      if (overrides) {
-        for (const [commandKey] of Object.entries(overrides)) {
-          delete mergedKeymap[commandKey];
-        }
-      }
-
-      for (const [commandKey, v] of Object.entries(keymap as Record<string, string>)) {
-        mergedKeymap[commandKey] = v;
-      }
-
-      for (const [commandName, key] of Object.entries(mergedKeymap) as [
+      for (const [commandName, key] of Object.entries(keymap) as [
         Keys,
         string,
       ][]) {
