@@ -1,3 +1,10 @@
+# [3.32.0](https://github.com/xability/maidr/compare/v3.31.0...v3.32.0) (2025-10-15)
+
+
+### Features
+
+* support reverse dom ordering for dodged/stacked plots ([#453](https://github.com/xability/maidr/issues/453)) ([f61e7e0](https://github.com/xability/maidr/commit/f61e7e0a9d9c64808d043b3f98b81f262c554365))
+
 # [3.31.0](https://github.com/xability/maidr/compare/v3.30.1...v3.31.0) (2025-10-10)
 
 
