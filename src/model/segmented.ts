@@ -228,6 +228,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
+      // Use parent implementation for SVGPathElement
       for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
         const row = new Array<SVGElement>();
         for (let c = 0; c < this.barValues[r].length; c++) {
@@ -245,14 +246,27 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       for (let r = 0; r < this.barValues.length; r++) {
         svgElements.push(new Array<SVGElement>());
       }
+
       for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-        for (let r = this.barValues.length - 1; r >= 0; r--) {
-          if (domIndex >= domElements.length) {
-            return new Array<Array<SVGElement>>();
-          } else if (this.barValues[r][c] === 0) {
-            svgElements[r].push(Svg.createEmptyElement());
-          } else {
-            svgElements[r].push(domElements[domIndex++]);
+        if (this.layer.domOrder === 'forward') {
+          for (let r = 0; r < this.barValues.length; r++) {
+            if (domIndex >= domElements.length) {
+              return new Array<Array<SVGElement>>();
+            } else if (this.barValues[r][c] === 0) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else {
+              svgElements[r].push(domElements[domIndex++]);
+            }
+          }
+        } else {
+          for (let r = this.barValues.length - 1; r >= 0; r--) {
+            if (domIndex >= domElements.length) {
+              return new Array<Array<SVGElement>>();
+            } else if (this.barValues[r][c] === 0) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else {
+              svgElements[r].push(domElements[domIndex++]);
+            }
           }
         }
       }

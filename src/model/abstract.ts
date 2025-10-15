@@ -238,11 +238,13 @@ export abstract class AbstractTrace<T>
   protected readonly yAxis: string;
   protected readonly fill: string;
 
-  // Service for navigation business logic
   protected readonly navigationService: NavigationService;
+
+  protected readonly layer: MaidrLayer;
 
   protected constructor(layer: MaidrLayer) {
     super();
+    this.layer = layer;
     this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;

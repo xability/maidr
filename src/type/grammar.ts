@@ -108,6 +108,7 @@ export interface MaidrLayer {
   title?: string;
   selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
+  domOrder?: 'forward' | 'reverse';
   axes?: {
     x?: string;
     y?: string;
