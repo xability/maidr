@@ -1,19 +1,19 @@
-import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { MovableDirection } from '@type/movable';
+import type { MaidrLayer, ScatterPoint } from "@type/grammar";
+import type { MovableDirection } from "@type/movable";
 import type {
   AudioState,
   AutoplayState,
   BrailleState,
   HighlightState,
   TextState,
-} from '@type/state';
-import { MathUtil } from '@util/math';
-import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+} from "@type/state";
+import { MathUtil } from "@util/math";
+import { Svg } from "@util/svg";
+import { AbstractTrace } from "./abstract";
 
 enum NavMode {
-  COL = 'column',
-  ROW = 'row',
+  COL = "column",
+  ROW = "row",
 }
 
 interface ScatterXPoint {
@@ -76,8 +76,8 @@ export class ScatterTrace extends AbstractTrace<number> {
       currentY.x.push(point.x);
     }
 
-    this.xValues = this.xPoints.map(p => p.x);
-    this.yValues = this.yPoints.map(p => p.y);
+    this.xValues = this.xPoints.map((p) => p.x);
+    this.yValues = this.yPoints.map((p) => p.y);
 
     this.minX = MathUtil.safeMin(this.xValues);
     this.maxX = MathUtil.safeMax(this.xValues);
@@ -98,11 +98,11 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.yValues.length = 0;
 
     if (this.highlightXValues) {
-      this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightXValues.forEach((row) => row.forEach((el) => el.remove()));
       this.highlightXValues.length = 0;
     }
     if (this.highlightYValues) {
-      this.highlightYValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightYValues.forEach((row) => row.forEach((el) => el.remove()));
       this.highlightYValues.length = 0;
     }
 
@@ -184,7 +184,7 @@ export class ScatterTrace extends AbstractTrace<number> {
   protected braille(): BrailleState {
     return {
       empty: true,
-      type: 'trace',
+      type: "trace",
       traceType: this.type,
       audio: {
         index: 0,
@@ -223,7 +223,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     if (this.highlightValues === null) {
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           index: 0,
@@ -233,8 +233,8 @@ export class ScatterTrace extends AbstractTrace<number> {
       };
     }
 
-    const elements
-      = this.mode === NavMode.COL
+    const elements =
+      this.mode === NavMode.COL
         ? this.col < this.highlightValues.length
           ? this.highlightValues![this.col]
           : null
@@ -244,7 +244,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     if (!elements) {
       return {
         empty: true,
-        type: 'trace',
+        type: "trace",
         traceType: this.type,
         audio: {
           index: 0,
@@ -279,8 +279,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     if (this.mode === NavMode.COL) {
       // Switch from COL to ROW mode
       const currentXPoint = this.xPoints[this.col];
-      const middleYValue
-        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
+      const middleYValue =
+        currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
       const targetRow = this.yValues.indexOf(middleYValue);
 
       // Safety check: ensure the calculated row is valid
@@ -294,8 +294,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     } else {
       // Switch from ROW to COL mode
       const currentYPoint = this.yPoints[this.row];
-      const middleXValue
-        = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
+      const middleXValue =
+        currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
       const targetCol = this.xValues.indexOf(middleXValue);
 
       // Safety check: ensure the calculated col is valid
@@ -324,28 +324,28 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     if (this.mode === NavMode.COL) {
       switch (direction) {
-        case 'FORWARD':
+        case "FORWARD":
           this.col++;
           break;
-        case 'BACKWARD':
+        case "BACKWARD":
           this.col--;
           break;
-        case 'UPWARD':
-        case 'DOWNWARD': {
+        case "UPWARD":
+        case "DOWNWARD": {
           this.toggleNavigation();
           break;
         }
       }
     } else {
       switch (direction) {
-        case 'UPWARD':
+        case "UPWARD":
           this.row++;
           break;
-        case 'DOWNWARD':
+        case "DOWNWARD":
           this.row--;
           break;
-        case 'FORWARD':
-        case 'BACKWARD': {
+        case "FORWARD":
+        case "BACKWARD": {
           this.toggleNavigation();
           break;
         }
@@ -362,34 +362,34 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     if (this.mode === NavMode.COL) {
       switch (direction) {
-        case 'UPWARD':
+        case "UPWARD":
           this.toggleNavigation();
           this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
-        case 'DOWNWARD':
+        case "DOWNWARD":
           this.toggleNavigation();
           this.row = 0; // Go to first Y coordinate
           break;
-        case 'FORWARD':
+        case "FORWARD":
           this.col = this.xPoints.length - 1;
           break;
-        case 'BACKWARD':
+        case "BACKWARD":
           this.col = 0;
           break;
       }
     } else {
       switch (direction) {
-        case 'UPWARD':
+        case "UPWARD":
           this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
-        case 'DOWNWARD':
+        case "DOWNWARD":
           this.row = 0; // Go to first Y coordinate
           break;
-        case 'FORWARD':
+        case "FORWARD":
           this.toggleNavigation();
           this.col = this.xPoints.length - 1;
           break;
-        case 'BACKWARD':
+        case "BACKWARD":
           this.toggleNavigation();
           this.col = 0;
           break;
@@ -425,30 +425,30 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD': {
+        case "FORWARD": {
           const forwardResult = this.col < this.xPoints.length - 1;
           return forwardResult;
         }
-        case 'BACKWARD': {
+        case "BACKWARD": {
           const backwardResult = this.col > 0;
           return backwardResult;
         }
-        case 'UPWARD':
-        case 'DOWNWARD':
+        case "UPWARD":
+        case "DOWNWARD":
           return true;
       }
     } else {
       switch (target) {
-        case 'UPWARD': {
+        case "UPWARD": {
           const upwardResult = this.row < this.yPoints.length - 1;
           return upwardResult;
         }
-        case 'DOWNWARD': {
+        case "DOWNWARD": {
           const downwardResult = this.row > 0;
           return downwardResult;
         }
-        case 'FORWARD':
-        case 'BACKWARD':
+        case "FORWARD":
+        case "BACKWARD":
           return true;
       }
     }
@@ -469,18 +469,16 @@ export class ScatterTrace extends AbstractTrace<number> {
     const xGroups = new Map<number, SVGElement[]>();
     const yGroups = new Map<number, SVGElement[]>();
     elements.forEach((element) => {
-      const x = Number.parseFloat(element.getAttribute('x') || '');
-      const y = Number.parseFloat(element.getAttribute('y') || '');
+      const x = Number.parseFloat(element.getAttribute("x") || "");
+      const y = Number.parseFloat(element.getAttribute("y") || "");
 
       if (!Number.isNaN(x)) {
-        if (!xGroups.has(x))
-          xGroups.set(x, []);
+        if (!xGroups.has(x)) xGroups.set(x, []);
         xGroups.get(x)!.push(element);
       }
 
       if (!Number.isNaN(y)) {
-        if (!yGroups.has(y))
-          yGroups.set(y, []);
+        if (!yGroups.has(y)) yGroups.set(y, []);
         yGroups.get(y)!.push(element);
       }
     });
@@ -546,7 +544,7 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     for (let i = 0; i < this.highlightCenters.length; i++) {
       const center = this.highlightCenters[i];
-      const distance = Math.hypot(center.x - x, center.y - y);
+      const distance = Math.hypot(center.x - _x, center.y - _y);
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearestIndex = i;
