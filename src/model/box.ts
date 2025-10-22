@@ -1,10 +1,10 @@
-import type { BoxPoint, BoxSelector, MaidrLayer } from "@type/grammar";
-import type { AudioState, BrailleState, TextState } from "@type/state";
-import { BoxplotSection } from "@type/boxplotSection";
-import { Orientation } from "@type/grammar";
-import { MathUtil } from "@util/math";
-import { Svg } from "@util/svg";
-import { AbstractTrace } from "./abstract";
+import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import { BoxplotSection } from '@type/boxplotSection';
+import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
 
 export class BoxTrace extends AbstractTrace<number[] | number> {
   protected readonly supportsExtrema = false;
@@ -48,21 +48,21 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
       this.boxValues = this.points
-        .map((point) => sectionAccessors.map((accessor) => accessor(point)))
+        .map(point => sectionAccessors.map(accessor => accessor(point)))
         .reverse();
     } else {
-      this.boxValues = sectionAccessors.map((accessor) =>
-        this.points.map((point) => accessor(point)),
+      this.boxValues = sectionAccessors.map(accessor =>
+        this.points.map(point => accessor(point)),
       );
     }
 
-    const flatBoxValues = this.boxValues.map((row) =>
-      row.flatMap((cell) => (Array.isArray(cell) ? cell : [cell])),
+    const flatBoxValues = this.boxValues.map(row =>
+      row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    //this.row = this.boxValues.length - 1;
+    // this.row = this.boxValues.length - 1;
 
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
@@ -96,7 +96,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = this.boxValues[this.row][this.col];
     const index = Array.isArray(value)
-      ? value.map((v) => v - this.min)
+      ? value.map(v => v - this.min)
       : value - this.min;
 
     return {
@@ -160,10 +160,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap((s) =>
+      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
         Svg.selectAllElements(s),
       );
-      const upperOutliers = selector.upperOutliers.flatMap((s) =>
+      const upperOutliers = selector.upperOutliers.flatMap(s =>
         Svg.selectAllElements(s),
       );
 
@@ -175,12 +175,12 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
       const [q1, q3] = isVertical
         ? [
-            Svg.createLineElement(iq, "top"),
-            Svg.createLineElement(iq, "bottom"),
+            Svg.createLineElement(iq, 'top'),
+            Svg.createLineElement(iq, 'bottom'),
           ]
         : [
-            Svg.createLineElement(iq, "left"),
-            Svg.createLineElement(iq, "right"),
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
           ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
@@ -199,8 +199,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
-    const svgElements: (SVGElement | SVGElement[])[][] | null =
-      this.highlightValues;
+    const svgElements: (SVGElement | SVGElement[])[][] | null
+      = this.highlightValues;
 
     if (!svgElements) {
       return null;
