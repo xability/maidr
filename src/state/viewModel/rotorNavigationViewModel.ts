@@ -9,7 +9,7 @@ interface RotorState {
   rotor_value: string | null;
 }
 const initialState: RotorState = {
-  rotor_value: Constant.DATA_MODE,
+  rotor_value: '',
 };
 const rotorNavigationSlice = createSlice({
   name: 'rotorNavigation',
