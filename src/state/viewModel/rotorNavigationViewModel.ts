@@ -3,7 +3,6 @@ import type { RotorNavigationService } from '@service/rotor';
 import type { AppStore } from '@state/store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
-import { Constant } from '@util/constant';
 
 interface RotorState {
   rotor_value: string | null;
