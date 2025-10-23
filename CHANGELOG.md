@@ -1,3 +1,10 @@
+# [3.33.0](https://github.com/xability/maidr/compare/v3.32.0...v3.33.0) (2025-10-23)
+
+
+### Features
+
+* starting position is always lower left ([#455](https://github.com/xability/maidr/issues/455)) ([96c3a75](https://github.com/xability/maidr/commit/96c3a75fecafbbc76eab73c63a0b65c05bd3d7dd))
+
 # [3.32.0](https://github.com/xability/maidr/compare/v3.31.0...v3.32.0) (2025-10-15)
 
 
