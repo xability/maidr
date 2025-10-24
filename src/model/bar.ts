@@ -298,4 +298,38 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.row = safeRow;
     this.col = safeCol;
   }
+
+  /**
+   * Bar specific implementation of the rotor move to lower or higher feature
+   * @param direction
+   * @param type
+   * @returns boolean (true: a target was found, false: else)
+   */
+  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return false;
+    }
+
+    const groupValues = this.barValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
 }

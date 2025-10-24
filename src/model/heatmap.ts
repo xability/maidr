@@ -118,6 +118,82 @@ export class Heatmap extends AbstractTrace<number> {
     return svgElements;
   }
 
+  /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  protected updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
+  }
+
+  /**
+   * Moves the current selection to the next value in the specified direction
+   * that is either lower or higher than the current value, depending on the type.
+   *
+   * @param direction - The direction to move ('left', 'right', 'up', or 'down').
+   * @param type - The comparison type ('lower' or 'higher').
+   * @returns True if a suitable value was found and the selection was moved; otherwise, false.
+   */
+  public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
+    switch (direction) {
+      case 'left':
+      case 'right':
+        return this.search_in_row(direction, type);
+      case 'up':
+      case 'down':
+        return this.search_in_col(direction, type);
+      default:
+        return false;
+    }
+  }
+
+  public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const cols = this.y.length;
+    const current_col = this.col;
+
+    const step = direction === 'left' ? -1 : 1;
+    let i = current_col + step;
+    while (i >= 0 && i < cols) {
+      if (this.compare(this.heatmapValues[this.row][i], this.heatmapValues[this.row][current_col], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+    return false;
+  }
+
+  public search_in_col(direction: 'up' | 'down', type: 'lower' | 'higher'): boolean {
+    const rows = this.x.length;
+    const current_row = this.row;
+
+    const step = direction === 'up' ? 1 : -1;
+    let i = current_row + step;
+    while (i >= 0 && i < rows) {
+      if (this.compare(this.heatmapValues[i][this.col], this.heatmapValues[current_row][this.col], type)) {
+        this.row = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+    return false;
+  }
+
+  public override moveUpRotor(mode: 'lower' | 'higher'): boolean {
+    return this.moveToNextCompareValue('up', mode);
+  }
+
+  public override moveDownRotor(mode: 'lower' | 'higher'): boolean {
+    return this.moveToNextCompareValue('down', mode);
+  }
+
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {

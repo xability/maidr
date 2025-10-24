@@ -196,11 +196,95 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return svgElements;
   }
 
+  public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
+      return false;
+    }
+    let values: any[] = [];
+    let currentIndex = 0;
+
+    if (direction === 'left' || direction === 'right') {
+      values = this.boxValues[this.row];
+      currentIndex = this.col;
+    } else {
+      values = this.boxValues.map(box => box[this.col]);
+      currentIndex = this.row;
+    }
+    if (values.length <= 0) {
+      return false;
+    }
+
+    const step = direction === 'right' || direction === 'up' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < values.length) {
+      const current_value = values[currentIndex];
+      const next_value = values[i];
+      if (Array.isArray(next_value) || Array.isArray(current_value)) {
+        return true;
+      }
+
+      if (this.compare(next_value, current_value, type)) {
+        this.set_point(direction, i);
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
+
+  public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
+    if (direction === 'left' || direction === 'right') {
+      this.col = pointIndex;
+    } else {
+      this.row = pointIndex;
+    }
+  }
+
+  /**
+   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
+   * @returns {boolean} True if the move was successful, false otherwise.
+   */
+  public moveUpRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.VERTICAL) {
+      this.moveOnce('UPWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('up', mode);
+  }
+
+  public moveDownRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.VERTICAL) {
+      this.moveOnce('DOWNWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('down', mode);
+  }
+
+  public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.moveOnce('BACKWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('left', mode);
+  }
+
+  public moveRightRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.moveOnce('FORWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('right', mode);
+  }
+
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
-    const svgElements: (SVGElement | SVGElement[])[][] | null
-      = this.highlightValues;
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
 
     if (!svgElements) {
       return null;

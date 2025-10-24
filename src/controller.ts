@@ -15,6 +15,7 @@ import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
+import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
@@ -27,6 +28,7 @@ import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 
@@ -43,6 +45,7 @@ export class Controller implements Disposable {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -57,6 +60,7 @@ export class Controller implements Disposable {
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
 
   private readonly keybinding: KeybindingService;
@@ -124,6 +128,12 @@ export class Controller implements Disposable {
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+
+    this.rotorNavigationService = new RotorNavigationService(this.context);
+    this.rotorNavigationViewModel = new RotorNavigationViewModel(
+      store,
+      this.rotorNavigationService,
+    );
     this.chatViewModel = new ChatViewModel(
       store,
       this.chatService,
@@ -141,7 +151,6 @@ export class Controller implements Disposable {
 
     this.keybinding = new KeybindingService({
       context: this.context,
-
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       highlightService: this.highlightService,
@@ -154,14 +163,14 @@ export class Controller implements Disposable {
       reviewViewModel: this.reviewViewModel,
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
+      rotorNavigationViewModel: this.rotorNavigationViewModel,
+      rotorNavigationService: this.rotorNavigationService,
     });
     this.mousebinding = new Mousebindingservice({
       context: this.context,
-
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       highlightService: this.highlightService,
-
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
@@ -170,6 +179,7 @@ export class Controller implements Disposable {
       reviewViewModel: this.reviewViewModel,
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
+      rotorNavigationViewModel: this.rotorNavigationViewModel,
     });
 
     this.commandExecutor = new CommandExecutor(
@@ -186,10 +196,11 @@ export class Controller implements Disposable {
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
+        rotorNavigationService: this.rotorNavigationService,
       },
       this.context.scope,
     );
-
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);

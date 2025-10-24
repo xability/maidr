@@ -213,6 +213,51 @@ implements Movable, Observable<State>, Disposable {
   }
 
   /**
+   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
+   * Needs to be implemented in Line, Bar, Heatmap, Candlestick
+   */
+  protected moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+    // no-op
+    return false;
+  }
+
+  /**
+   *
+   * @param a Utility function to compare point values for rotor functionality
+   * @param b
+   * @param type
+   * @returns boolean value
+   */
+  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
+      return a < b;
+    }
+    if (type === 'higher') {
+      return a > b;
+    }
+    return false;
+  }
+
+  /**
+   * Override left, right, upward and downward navigation functionality in rotor
+   */
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move up function is not defined for this trace');
+  }
+
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move down function is not defined for this trace');
+  }
+
+  public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move left function is not defined for this trace');
+  }
+
+  public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
+    throw new Error('Move right function is not defined for this trace');
+  }
+
+  /**
    * Moves the element to the specified (x, y) point.
    *
    * This base implementation is intentionally left empty. Subclasses should override

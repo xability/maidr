@@ -16,6 +16,7 @@ export class Context implements Disposable {
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
   private readonly figure: Figure;
+  private isRotorActive: boolean;
 
   public constructor(figure: Figure) {
     this.figure = figure;
@@ -23,6 +24,8 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
+
+    this.isRotorActive = false;
 
     // Set the context to figure level.
     const figureState = figure.state;
@@ -59,6 +62,25 @@ export class Context implements Disposable {
 
   public get state(): PlotState {
     return this.active.state;
+  }
+
+  /**
+   * Enable or disable rotor navigation for the current context.
+   *
+   * @param enable - true to enable rotor mode, false to disable
+   */
+  public setRotorEnabled(enable: boolean): void {
+    this.isRotorActive = enable;
+    // TODO: emit event / notify observers if needed
+  }
+
+  /**
+   * Return whether rotor navigation is currently enabled.
+   *
+   * @returns boolean
+   */
+  public isRotorEnabled(): boolean {
+    return this.isRotorActive;
   }
 
   public toggleScope(scope: Scope): void {
