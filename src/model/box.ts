@@ -175,13 +175,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
       const [q1, q3] = isVertical
         ? [
-          Svg.createLineElement(iq, 'top'),
-          Svg.createLineElement(iq, 'bottom'),
-        ]
+            Svg.createLineElement(iq, 'top'),
+            Svg.createLineElement(iq, 'bottom'),
+          ]
         : [
-          Svg.createLineElement(iq, 'left'),
-          Svg.createLineElement(iq, 'right'),
-        ];
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
+          ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
