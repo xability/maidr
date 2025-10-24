@@ -5,14 +5,14 @@ on:
   schedule:
     - cron: '0 2 */2 * *' # Run every 2 days at 9 PM CDT (2 AM UTC next day)
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Run e2e tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code

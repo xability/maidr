@@ -8,13 +8,13 @@ on:
       - 'examples/**'
       - 'src/ui/**'
 
+permissions:
+  contents: read
+
 jobs:
   e2e:
     name: Run E2E Tests for UI/Example Changes
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code

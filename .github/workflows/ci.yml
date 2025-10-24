@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
   pull_request:
 
+permissions:
+      contents: read
+
 jobs:
   commitlint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code
