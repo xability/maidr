@@ -140,9 +140,6 @@ export class Controller implements Disposable {
       this.audioService,
     );
 
-    this.rotorNavigationService = new RotorNavigationService(this.context, this.displayService, this.textService);
-    this.rotorNavigationViewModel = new RotorNavigationViewModel(store, this.rotorNavigationService);
-
     const commandPaletteService = new CommandPaletteService(
       this.context,
       this.displayService,
