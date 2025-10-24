@@ -23,7 +23,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
+  implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -283,11 +283,13 @@ export abstract class AbstractTrace<T>
   protected readonly yAxis: string;
   protected readonly fill: string;
 
-  // Service for navigation business logic
   protected readonly navigationService: NavigationService;
+
+  protected readonly layer: MaidrLayer;
 
   protected constructor(layer: MaidrLayer) {
     super();
+    this.layer = layer;
     this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;

@@ -1,3 +1,29 @@
+# [3.33.0](https://github.com/xability/maidr/compare/v3.32.0...v3.33.0) (2025-10-23)
+
+
+### Features
+
+* starting position is always lower left ([#455](https://github.com/xability/maidr/issues/455)) ([96c3a75](https://github.com/xability/maidr/commit/96c3a75fecafbbc76eab73c63a0b65c05bd3d7dd))
+
+# [3.32.0](https://github.com/xability/maidr/compare/v3.31.0...v3.32.0) (2025-10-15)
+
+
+### Features
+
+* support reverse dom ordering for dodged/stacked plots ([#453](https://github.com/xability/maidr/issues/453)) ([f61e7e0](https://github.com/xability/maidr/commit/f61e7e0a9d9c64808d043b3f98b81f262c554365))
+
+# [3.31.0](https://github.com/xability/maidr/compare/v3.30.1...v3.31.0) (2025-10-10)
+
+
+### Bug Fixes
+
+* address issue where esc doesn't work after toggling to label scope ([#444](https://github.com/xability/maidr/issues/444)) ([b54cd4b](https://github.com/xability/maidr/commit/b54cd4b9ddb3fc8db025bb5940fd9802cbdbced3))
+
+
+### Features
+
+* support outlier visual highlight in boxplots ([#450](https://github.com/xability/maidr/issues/450)) ([979a390](https://github.com/xability/maidr/commit/979a3905ed3ef5af5fd7c137842837d9309d5ff5))
+
 ## [3.30.1](https://github.com/xability/maidr/compare/v3.30.0...v3.30.1) (2025-09-22)
 
 

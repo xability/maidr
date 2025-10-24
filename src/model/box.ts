@@ -47,9 +47,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       (p: BoxPoint) => p.upperOutliers,
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points.map(point =>
-        sectionAccessors.map(accessor => accessor(point)),
-      );
+      this.boxValues = this.points
+        .map(point => sectionAccessors.map(accessor => accessor(point)))
+        .reverse();
     } else {
       this.boxValues = sectionAccessors.map(accessor =>
         this.points.map(point => accessor(point)),
@@ -62,11 +62,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    this.row = this.boxValues.length - 1;
+    // this.row = this.boxValues.length - 1;
 
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
     );
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.highlightValues?.reverse();
+    }
+
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
@@ -171,13 +175,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
       const [q1, q3] = isVertical
         ? [
-            Svg.createLineElement(iq, 'top'),
-            Svg.createLineElement(iq, 'bottom'),
-          ]
+          Svg.createLineElement(iq, 'top'),
+          Svg.createLineElement(iq, 'bottom'),
+        ]
         : [
-            Svg.createLineElement(iq, 'left'),
-            Svg.createLineElement(iq, 'right'),
-          ];
+          Svg.createLineElement(iq, 'left'),
+          Svg.createLineElement(iq, 'right'),
+        ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
