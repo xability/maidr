@@ -184,7 +184,6 @@ const TRACE_KEYMAP = {
 
   // Go to point
   MOVE_TO_INDEX: `click`,
-  GO_TO_EXTREMA_TOGGLE: 'g',
 
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,

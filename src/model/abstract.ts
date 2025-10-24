@@ -270,20 +270,6 @@ implements Movable, Observable<State>, Disposable {
   public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
-
-  /**
-   * Moves the element to the specified (x, y) point.
-   *
-   * This base implementation is intentionally left empty. Subclasses should override
-   * this method to provide specific logic for moving to a point, such as updating
-   * highlight values or managing selection boxes.
-   *
-   * @param _x - The x-coordinate to move to.
-   * @param _y - The y-coordinate to move to.
-   */
-  public moveToPoint(_x: number, _y: number): void {
-    // implement basic stuff, assuming something like highlightValues that holds the points and boxes
-  }
 }
 
 export abstract class AbstractTrace<T>
