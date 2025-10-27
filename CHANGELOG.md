@@ -1,3 +1,11 @@
+# [3.34.0](https://github.com/xability/maidr/compare/v3.33.0...v3.34.0) (2025-10-27)
+
+
+### Features
+
+* support rotor-based navigation via alt+shift+arrowup or arrowdown ([#429](https://github.com/xability/maidr/issues/429)) ([3ff61ec](https://github.com/xability/maidr/commit/3ff61ecaee55744390d1174245b68be0908371c2)), closes [#432](https://github.com/xability/maidr/issues/432) [#433](https://github.com/xability/maidr/issues/433) [#437](https://github.com/xability/maidr/issues/437) [#436](https://github.com/xability/maidr/issues/436)
+* trigger release for rotor fature ([#457](https://github.com/xability/maidr/issues/457)) ([bd6e5ff](https://github.com/xability/maidr/commit/bd6e5ff33006d882b6904f6b1115f2f7083abee7))
+
 # [3.33.0](https://github.com/xability/maidr/compare/v3.32.0...v3.33.0) (2025-10-23)
 
 
