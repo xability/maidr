@@ -8,7 +8,7 @@ const ROTOR_MODES: Record<number, string> = {
   2: Constant.HIGHER_VALUE_MODE,
 };
 /**
- * Manages rotor-based navigation for the active trace.
+ * Manages rotor-based navigation for the active trace via alt+shift+up and alt+shift+down
  *
  * Purpose:
  * - Provide modal navigation over a trace by rotating through three modes.
