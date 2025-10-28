@@ -22,8 +22,29 @@ function main(): void {
     }
 
     try {
-      const maidr = JSON.parse(maidrData);
-      initMaidr(maidr, plot);
+      const maidrConfig = JSON.parse(maidrData);
+
+      // Check for dataSource parameter
+      const dataSource = maidrConfig.dataSource;
+
+      // CASE 1: Explicitly requested external source
+      if (dataSource === Constant.DATASOURCE_EXTERNAL) {
+        const externalMaidr = window.maidr;
+        if (!externalMaidr) {
+          return;
+        }
+
+        // Verify ID matches
+        if (externalMaidr.id !== maidrConfig.id) {
+          return;
+        }
+
+        initMaidr(externalMaidr, plot);
+        return;
+      }
+
+      // CASE 2: Explicitly requested inline OR no parameter (default behavior)
+      initMaidr(maidrConfig, plot);
     } catch (error) {
       console.error('Error parsing maidr attribute:', error);
     }
@@ -45,6 +66,7 @@ function main(): void {
   if (!plot) {
     return;
   }
+
   initMaidr(maidr, plot);
 }
 

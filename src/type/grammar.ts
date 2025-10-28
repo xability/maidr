@@ -9,6 +9,7 @@ export interface Maidr {
   title?: string;
   subtitle?: string;
   caption?: string;
+  dataSource?: 'inline' | 'external';
   subplots: MaidrSubplot[][];
 }
 
