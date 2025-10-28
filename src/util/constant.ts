@@ -43,11 +43,11 @@ export abstract class Constant {
 
   // MAIDR Terms
   static readonly MAIDR_SUBPLOT = 'subplot';
-  
+
   // Data source types
   static readonly DATASOURCE_INLINE = 'inline';
   static readonly DATASOURCE_EXTERNAL = 'external';
-  
+
   // Attribute values.
   static readonly AFTER_END = 'afterend';
   static readonly APPLICATION = 'application';
