@@ -5,6 +5,7 @@ import { Scope } from "@type/event";
 import { Constant } from "@util/constant";
 import { Platform } from "@util/platform";
 import type { SettingsService } from "@service/settings";
+import { DisplayService } from "@service/display";
 import hotkeys from "hotkeys-js";
 
 const BRAILLE_KEYMAP = {
@@ -281,16 +282,18 @@ export class Mousebindingservice {
   private mouseListener!: (event: MouseEvent) => void;
 
   private readonly commandContext: CommandContext;
-
   private hoverMode: string = "none";
+  private readonly plot: HTMLElement;
 
   public constructor(
     commandContext: CommandContext,
     settingsService: SettingsService,
+    displayService: DisplayService,
   ) {
     this.commandContext = commandContext;
     const initialSettings = settingsService.loadSettings();
     this.hoverMode = initialSettings.general.hoverMode;
+    this.plot = displayService.plot;
   }
 
   public registerEvents(): void {
@@ -301,31 +304,23 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    const id = this.commandContext.context.id;
     if (this.hoverMode === "pointermove") {
-      document
-        .getElementById(id)
-        ?.addEventListener("pointermove", this.mouseListener);
+      this.plot.addEventListener("pointermove", this.mouseListener);
     }
     if (this.hoverMode === "click") {
-      document
-        .getElementById(id)
-        ?.addEventListener("click", this.mouseListener);
+      this.plot.addEventListener("click", this.mouseListener);
     }
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      const id = this.commandContext.context.id;
+      this.plot.removeEventListener("pointermove", this.mouseListener);
+      this.plot.removeEventListener("click", this.mouseListener);
       if (this.hoverMode === "pointermove") {
-        document
-          .getElementById(id)
-          ?.removeEventListener("pointermove", this.mouseListener);
+        this.plot.removeEventListener("pointermove", this.mouseListener);
       }
       if (this.hoverMode === "click") {
-        document
-          .getElementById(id)
-          ?.removeEventListener("click", this.mouseListener);
+        this.plot.removeEventListener("click", this.mouseListener);
       }
     }
   }
