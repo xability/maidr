@@ -1,12 +1,28 @@
 import type { MaidrLayer } from '@type/grammar';
 import { SmoothTrace } from './smooth';
 import { SmoothTraceSvgXY } from './smoothSvgXY';
+import { ViolinTrace } from './violin';
 
 function isSmoothPoint(pt: any): pt is { svg_x: number; svg_y: number } {
   return typeof pt?.svg_x === 'number' && typeof pt?.svg_y === 'number';
 }
 
-export function createSmoothTrace(layer: MaidrLayer): SmoothTrace | SmoothTraceSvgXY {
+function isViolinPoint(pt: any): pt is { density?: number } {
+  return pt && typeof pt === 'object' && 'density' in pt;
+}
+
+export function createSmoothTrace(layer: MaidrLayer): SmoothTrace | SmoothTraceSvgXY | ViolinTrace {
+  // Check if this is a violin plot (has density data)
+  const isViolinPlot = Array.isArray(layer.data)
+    && layer.data.length > 0
+    && Array.isArray(layer.data[0])
+    && layer.data[0].length > 0
+    && isViolinPoint(layer.data[0][0]);
+
+  if (isViolinPlot) {
+    return new ViolinTrace(layer);
+  }
+
   // If the data has svg_x/svg_y, use the special class
   const hasSvgXY = Array.isArray(layer.data)
     && layer.data.length > 0

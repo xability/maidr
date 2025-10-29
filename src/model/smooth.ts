@@ -1,5 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { AudioState } from '@type/state';
+import type { AudioState, TextState } from '@type/state';
+import type { MovableDirection } from '@type/movable';
+import { Svg } from '@util/svg';
 import { LineTrace } from './line';
 
 export class SmoothTrace extends LineTrace {
@@ -49,5 +51,138 @@ export class SmoothTrace extends LineTrace {
       // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
       ...this.getAudioGroupIndex(),
     };
+  }
+
+  protected text(): TextState {
+    const point = this.points[this.row][this.col];
+    const baseText = super.text();
+
+    // If this is a violin plot with density data, add density to the output
+    if (point.density !== undefined && point.density !== null) {
+      return {
+        ...baseText,
+        density: {
+          label: 'Width',
+          value: point.density.toFixed(4),
+        },
+      };
+    }
+
+    return baseText;
+  }
+
+  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
+      return false;
+    }
+
+    const groupValues = this.lineValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    // For smooth plots, map up/down to horizontal movement instead of left/right
+    const step = (direction === 'up' || direction === 'right') ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compareValues(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
+
+  private compareValues(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
+      return a < b;
+    }
+    if (type === 'higher') {
+      return a > b;
+    }
+    return false;
+  }
+
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+    // For smooth plots, up arrow should move forward (right) along the line
+    this.moveOnce('FORWARD');
+    return true;
+  }
+
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+    // For smooth plots, down arrow should move backward (left) along the line
+    this.moveOnce('BACKWARD');
+    return true;
+  }
+
+  public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
+    // For smooth plots, left arrow should move backward along the line
+    this.moveOnce('BACKWARD');
+    return true;
+  }
+
+  public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
+    // For smooth plots, right arrow should move forward along the line
+    this.moveOnce('FORWARD');
+    return true;
+  }
+
+  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+    if (!selectors || selectors.length !== this.lineValues.length) {
+      return null;
+    }
+
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
+    for (let r = 0; r < selectors.length; r++) {
+      const lineElement = Svg.selectElement(selectors[r], false);
+      if (!lineElement) {
+        svgElements.push([]);
+        continue;
+      }
+
+      // For violin plots, we need to work with the path element directly
+      // Check if this is a violin plot by looking for density data
+      const isViolinPlot = this.points?.[r]?.some(pt => 'density' in pt);
+      
+      if (isViolinPlot) {
+        // For violin plots, temporarily disable highlighting to prevent visual issues
+        // TODO: Implement proper violin plot highlighting
+        svgElements.push([]);
+        allFailed = false;
+      } else {
+        // For regular smooth plots, create point elements along the line
+        const linePointElements: SVGElement[] = [];
+        const dataPoints = this.points?.[r];
+        if (dataPoints) {
+          for (const pt of dataPoints) {
+            if (typeof pt.x === 'number' && typeof pt.y === 'number') {
+              // Convert data coordinates to SVG coordinates
+              // This is a simplified approach - in practice, you'd need proper coordinate transformation
+              const svgX = pt.x; // This should be converted to actual SVG coordinates
+              const svgY = pt.y; // This should be converted to actual SVG coordinates
+              linePointElements.push(Svg.createCircleElement(svgX, svgY, lineElement));
+            }
+          }
+        }
+
+        if (linePointElements.length > 0) {
+          allFailed = false;
+        }
+        svgElements.push(linePointElements);
+      }
+    }
+
+    if (allFailed) {
+      return null;
+    }
+    return svgElements;
   }
 }

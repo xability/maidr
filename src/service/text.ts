@@ -150,6 +150,13 @@ export class TextService implements Observer<PlotState>, Disposable {
       parts.push(`${text.fill.label} is ${text.fill.value}`);
     }
 
+    if (text.density && text.density.value !== undefined) {
+      const densityValue = typeof text.density.value === 'number'
+        ? text.density.value.toFixed(4)
+        : String(text.density.value);
+      parts.push(`${text.density.label} is ${densityValue}`);
+    }
+
     return parts.length > 0 ? parts.join(', ') : null;
   }
 
@@ -167,6 +174,12 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
       if (state.text.fill && state.text.fill.value !== undefined) {
         parts.push(`${state.text.fill.label} is ${state.text.fill.value}`);
+      }
+      if (state.text.density && state.text.density.value !== undefined) {
+        const densityValue = typeof state.text.density.value === 'number'
+          ? state.text.density.value.toFixed(4)
+          : String(state.text.density.value);
+        parts.push(`${state.text.density.label} is ${densityValue}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -288,6 +301,19 @@ export class TextService implements Observer<PlotState>, Disposable {
       );
     }
 
+    // Format density/width for violin plots
+    if (state.density !== undefined && state.density.value !== undefined) {
+      const densityValue = typeof state.density.value === 'number'
+        ? state.density.value.toFixed(4)
+        : String(state.density.value);
+      verbose.push(
+        Constant.COMMA_SPACE,
+        state.density.label,
+        Constant.IS,
+        densityValue,
+      );
+    }
+
     return verbose.join(Constant.EMPTY);
   }
 
@@ -342,6 +368,14 @@ export class TextService implements Observer<PlotState>, Disposable {
       } else {
         terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
+    }
+
+    // Format density/width for violin plots in terse mode
+    if (state.density !== undefined && state.density.value !== undefined) {
+      const densityValue = typeof state.density.value === 'number'
+        ? state.density.value.toFixed(4)
+        : String(state.density.value);
+      terse.push(Constant.COMMA_SPACE, state.density.label, Constant.IS, densityValue);
     }
 
     // Format for heatmap and segmented plots.

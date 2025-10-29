@@ -172,6 +172,7 @@ export interface TextState {
   fill?: { label: string; value: string };
   range?: { min: number; max: number };
   section?: string;
+  density?: { label: string; value: string | number }; // For violin plots: width/density
 }
 
 export type AutoplayState = {

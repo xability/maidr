@@ -70,6 +70,7 @@ export interface LinePoint {
   x: number | string;
   y: number;
   fill?: string;
+  density?: number; // For violin plots: width/density at this y-level
 }
 
 export interface ScatterPoint {
@@ -86,6 +87,7 @@ export interface SmoothPoint {
   y: number;
   svg_x: number;
   svg_y: number;
+  density?: number; // For violin plots: width/density at this y-level
 }
 
 export enum Orientation {
