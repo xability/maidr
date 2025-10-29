@@ -1,5 +1,6 @@
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
 /**
@@ -10,6 +11,78 @@ import { SmoothTrace } from './smooth';
 export class ViolinTrace extends SmoothTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
+    console.log('ViolinTrace: Constructor called for violin plot');
+  }
+
+  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+    if (!selectors || selectors.length !== this.lineValues.length) {
+      return null;
+    }
+
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
+    for (let r = 0; r < selectors.length; r++) {
+      // For violin plots, try to find the actual rendered element
+      let lineElement = Svg.selectElement(selectors[r], false);
+      
+      // If selector targets defs > path, try to find the use element that references it
+      if (!lineElement && selectors[r].includes('defs > path')) {
+        // For selectors like "g[id='...'] > defs > path", look for the clipped group containing the use element
+        const groupId = selectors[r].match(/g\[id='([^']+)'\]/);
+        if (groupId && groupId[1]) {
+          const groupElement = document.querySelector(`g[id='${groupId[1]}']`) as SVGElement | null;
+          if (groupElement) {
+            // Look for the clipped group containing the use element
+            const clippedGroup = groupElement.querySelector('g[clip-path]') as SVGElement | null;
+            if (clippedGroup) {
+              // Use the clipped group for highlighting - this contains the actual rendered use element
+              lineElement = clippedGroup;
+            } else {
+              // Fallback: look for use element and use its parent
+              const useElement = groupElement.querySelector('use');
+              if (useElement && useElement.parentElement instanceof SVGElement) {
+                lineElement = useElement.parentElement as SVGElement;
+              }
+            }
+          }
+        }
+      }
+      
+      // If we still don't have a lineElement, try to find the use element directly
+      if (!lineElement) {
+        const groupId = selectors[r].match(/g\[id='([^']+)'\]/);
+        if (groupId && groupId[1]) {
+          const groupElement = document.querySelector(`g[id='${groupId[1]}']`) as SVGElement | null;
+          if (groupElement) {
+            // Look for the clipped group containing the use element
+            const clippedGroup = groupElement.querySelector('g[clip-path]') as SVGElement | null;
+            if (clippedGroup) {
+              lineElement = clippedGroup;
+            } else {
+              // Fallback: look for use element directly
+              const useElement = groupElement.querySelector('use');
+              if (useElement && useElement.parentElement instanceof SVGElement) {
+                lineElement = useElement.parentElement as SVGElement;
+              }
+            }
+          }
+        }
+      }
+
+      // For violin plots, highlight the entire violin shape
+      const linePointElements: SVGElement[] = [];
+      if (lineElement && lineElement instanceof SVGElement) {
+        linePointElements.push(lineElement);
+        allFailed = false;
+      }
+
+      svgElements.push(linePointElements);
+    }
+
+    if (allFailed) {
+      return null;
+    }
+    return svgElements;
   }
 
   public moveOnce(direction: MovableDirection): void {
