@@ -13,6 +13,19 @@ if (document.readyState === 'loading') {
   main();
 }
 
+function parseAndInit(
+  plot: HTMLElement,
+  json: string,
+  source: 'maidr' | 'maidr-data',
+): void {
+  try {
+    const maidr = JSON.parse(json) as Maidr;
+    initMaidr(maidr, plot);
+  } catch (error) {
+    console.error(`Error parsing ${source} attribute:`, error);
+  }
+}
+
 function main(): void {
   const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
     Constant.MAIDR_JSON_SELECTOR,
@@ -26,12 +39,7 @@ function main(): void {
         return;
       }
 
-      try {
-        const maidr = JSON.parse(maidrAttr);
-        initMaidr(maidr, plot);
-      } catch (error) {
-        console.error('Error parsing maidr attribute:', error);
-      }
+      parseAndInit(plot, maidrAttr, 'maidr');
     });
 
     return;
@@ -44,12 +52,7 @@ function main(): void {
       return;
     }
 
-    try {
-      const maidr = JSON.parse(maidrData);
-      initMaidr(maidr, plot);
-    } catch (error) {
-      console.error('Error parsing maidr-data attribute:', error);
-    }
+    parseAndInit(plot, maidrData, 'maidr-data');
   });
 
   // Fall back to window.maidr if no attribute found.
