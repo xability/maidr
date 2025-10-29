@@ -67,6 +67,10 @@ export class ViolinTrace extends SmoothTrace {
                     // Try to find it in the same group
                     pathElement = groupElement.querySelector(`#${pathId}`) as SVGElement | null;
                   }
+                  if (!pathElement) {
+                    // Try to find it in the entire document
+                    pathElement = groupElement.closest('svg')?.querySelector(`#${pathId}`) as SVGElement | null;
+                  }
                   console.log('ViolinTrace: Found referenced path element:', pathElement);
                   if (pathElement) {
                     lineElement = pathElement;
@@ -87,53 +91,65 @@ export class ViolinTrace extends SmoothTrace {
         }
       }
       
-      // If we still don't have a lineElement, try to find the use element directly
+      // If we still don't have a lineElement, the path is in defs and needs special handling
+      // For violin plots with paths in defs, we can't directly highlight the defs path
+      // Instead, we need to work with the use element or find another approach
       if (!lineElement) {
-        const groupId = selectors[r].match(/g\[id='([^']+)'\]/);
-        if (groupId && groupId[1]) {
-          const groupElement = document.querySelector(`g[id='${groupId[1]}']`) as SVGElement | null;
-          if (groupElement) {
-            // Look for the clipped group containing the use element
-            const clippedGroup = groupElement.querySelector('g[clip-path]') as SVGElement | null;
-            if (clippedGroup) {
-              // Find the use element inside the clipped group - this is the actual rendered violin shape
-              const useElement = clippedGroup.querySelector('use');
-              if (useElement) {
-                // Get the path element that the use element references
-                const href = useElement.getAttribute('href') || useElement.getAttribute('xlink:href');
-                if (href) {
-                  const pathId = href.replace('#', '');
-                  // Try multiple ways to find the path element
-                  let pathElement = document.getElementById(pathId) as SVGElement | null;
-                  if (!pathElement) {
-                    // Try querySelector as fallback
-                    pathElement = document.querySelector(`#${pathId}`) as SVGElement | null;
-                  }
-                  if (!pathElement) {
-                    // Try to find it in the same group
-                    pathElement = groupElement.querySelector(`#${pathId}`) as SVGElement | null;
-                  }
-                  if (pathElement) {
-                    lineElement = pathElement;
-                    console.log('ViolinTrace: Found path element in fallback search:', pathElement);
-                  }
-                }
-              }
-            }
-          }
-        }
+        console.log('ViolinTrace: Could not find path element for highlighting');
       }
       
       console.log('ViolinTrace: Final lineElement:', lineElement);
 
-      // For violin plots, we need to find the actual path element for highlighting
+      // For violin plots, we need to find the actual rendered element for highlighting
       const linePointElements: SVGElement[] = [];
       if (lineElement && lineElement instanceof SVGElement) {
-        // Only add the element if it's a path element (not a group)
+        // Check if this path is in defs - if so, we need to find the use element
         if (lineElement.tagName === 'path') {
-          linePointElements.push(lineElement);
-          allFailed = false;
-          console.log('ViolinTrace: Added path element to linePointElements');
+          const isInDefs = lineElement.closest('defs') !== null;
+          
+          // Find the actual rendered element (use element for defs paths, or the path itself)
+          let actualElement: SVGElement | null = null;
+          if (isInDefs) {
+            console.log('ViolinTrace: Path is in defs, finding use element');
+            const pathId = lineElement.getAttribute('id');
+            if (pathId) {
+              // Fallback: query all use elements and check attributes
+              // This is necessary because IDs starting with numbers are not valid CSS selectors
+              const allUseElements = document.querySelectorAll('use');
+              for (const useEl of Array.from(allUseElements)) {
+                const href = useEl.getAttribute('href') || useEl.getAttribute('xlink:href');
+                if (href === `#${pathId}`) {
+                  actualElement = useEl as SVGElement;
+                  break;
+                }
+              }
+              if (actualElement) {
+                console.log('ViolinTrace: Found use element for defs path');
+              }
+            }
+          } else {
+            actualElement = lineElement;
+          }
+          
+          if (actualElement) {
+            // Create circle elements for each point on the violin shape, similar to LineTrace
+            // Find the parent container that will hold the circles
+            const container = actualElement.closest('g[clip-path]') || actualElement.parentElement;
+            if (container) {
+              for (const point of this.points[r]) {
+                // For violin plots, points have svg_x and svg_y properties
+                const smoothPoint = point as any;
+                if (smoothPoint.svg_x !== undefined && smoothPoint.svg_y !== undefined) {
+                  const circle = Svg.createCircleElement(smoothPoint.svg_x, smoothPoint.svg_y, actualElement);
+                  linePointElements.push(circle);
+                }
+              }
+              allFailed = false;
+              console.log('ViolinTrace: Created', linePointElements.length, 'circle elements for highlighting');
+            }
+          } else {
+            console.log('ViolinTrace: Could not find actual rendered element for path');
+          }
         } else {
           console.log('ViolinTrace: Skipping non-path element:', lineElement.tagName);
         }
@@ -142,9 +158,11 @@ export class ViolinTrace extends SmoothTrace {
       }
 
       svgElements.push(linePointElements);
+      console.log('ViolinTrace: Pushed elements for this selector:', linePointElements.length, 'elements');
     }
 
     console.log('ViolinTrace: Final svgElements:', svgElements);
+    console.log('ViolinTrace: Total elements across all selectors:', svgElements.reduce((sum, arr) => sum + arr.length, 0));
     console.log('ViolinTrace: allFailed:', allFailed);
 
     if (allFailed) {
@@ -267,6 +285,35 @@ export class ViolinTrace extends SmoothTrace {
 
     // For violin plots, display Y value, X coordinate, and density (width)
     if (point.density !== undefined && point.density !== null) {
+      // Find the min and max density values across all points
+      const allDensities = this.points[this.row]
+        .map(p => (p as any).density)
+        .filter(d => d !== undefined && d !== null) as number[];
+      
+      const maxDensity = Math.max(...allDensities);
+      const minDensity = Math.min(...allDensities);
+      const currentDensity = (point as any).density;
+      
+      console.log('ViolinTrace: Density check - current:', currentDensity, 'max:', maxDensity, 'min:', minDensity);
+      console.log('ViolinTrace: All densities:', allDensities);
+      
+      // Determine if current point has max or min density
+      let densityLabel = 'Width (Density)';
+      const tolerance = 0.0001; // Tolerance for floating point comparison
+      
+      const isHigh = Math.abs(currentDensity - maxDensity) < tolerance;
+      const isLow = Math.abs(currentDensity - minDensity) < tolerance;
+      
+      console.log('ViolinTrace: isHigh:', isHigh, 'isLow:', isLow, 'diff from max:', Math.abs(currentDensity - maxDensity), 'diff from min:', Math.abs(currentDensity - minDensity));
+      
+      if (isHigh) {
+        densityLabel = 'Width (Density) - High density';
+        console.log('ViolinTrace: High density detected');
+      } else if (isLow) {
+        densityLabel = 'Width (Density) - Low density';
+        console.log('ViolinTrace: Low density detected');
+      }
+      
       const textState = {
         ...baseText,
         main: {
@@ -278,11 +325,12 @@ export class ViolinTrace extends SmoothTrace {
           value: typeof point.x === 'number' ? point.x.toFixed(4) : String(point.x),
         },
         density: {
-          label: 'Width (Density)',
-          value: point.density.toFixed(4), // Density represents the width at this y-level
+          label: densityLabel,
+          value: currentDensity.toFixed(4), // Density represents the width at this y-level
         },
       };
       console.log('ViolinTrace: returning text state:', textState);
+      console.log('ViolinTrace: Density label being returned:', densityLabel);
       return textState;
     }
 
