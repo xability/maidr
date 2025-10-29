@@ -12,14 +12,39 @@ function isViolinPoint(pt: any): pt is { density?: number } {
 }
 
 export function createSmoothTrace(layer: MaidrLayer): SmoothTrace | SmoothTraceSvgXY | ViolinTrace {
+  console.log('SmoothTraceFactory: createSmoothTrace called with layer:', layer);
+  console.log('SmoothTraceFactory: Layer type:', layer.type);
+  console.log('SmoothTraceFactory: Layer data:', layer.data);
+  
   // Check if this is a violin plot (has density data)
-  const isViolinPlot = Array.isArray(layer.data)
-    && layer.data.length > 0
-    && Array.isArray(layer.data[0])
-    && layer.data[0].length > 0
-    && isViolinPoint(layer.data[0][0]);
+  // First ensure we have the right data structure for smooth plots
+  const isSmoothData = Array.isArray(layer.data) && layer.data.length > 0;
+  let isViolinPlot = false;
+  let firstPoint: any = null;
+  
+  if (isSmoothData) {
+    const firstRow = (layer.data as any[])[0];
+    if (Array.isArray(firstRow) && firstRow.length > 0) {
+      firstPoint = firstRow[0];
+      isViolinPlot = isViolinPoint(firstPoint);
+    }
+  }
+
+  console.log('SmoothTraceFactory: Checking layer data:', {
+    isArray: Array.isArray(layer.data),
+    hasData: layer.data && Array.isArray(layer.data) && layer.data.length > 0,
+    firstRow: isSmoothData ? (layer.data as any[])[0] : null,
+    isViolinPlot,
+    firstPoint
+  });
+  
+  console.log('SmoothTraceFactory: First point details:', firstPoint);
+  console.log('SmoothTraceFactory: Has density property:', firstPoint && 'density' in firstPoint);
+  console.log('SmoothTraceFactory: isViolinPoint check:', isViolinPlot);
+  console.log('SmoothTraceFactory: Density value:', firstPoint?.density);
 
   if (isViolinPlot) {
+    console.log('SmoothTraceFactory: Creating ViolinTrace');
     return new ViolinTrace(layer);
   }
 

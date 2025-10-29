@@ -57,16 +57,8 @@ export class SmoothTrace extends LineTrace {
     const point = this.points[this.row][this.col];
     const baseText = super.text();
 
-    // If this is a violin plot with density data, add density to the output
-    if (point.density !== undefined && point.density !== null) {
-      return {
-        ...baseText,
-        density: {
-          label: 'Width',
-          value: point.density.toFixed(4),
-        },
-      };
-    }
+    // Note: Violin plots are handled by ViolinTrace class, not here
+    // This method is for regular smooth plots without density data
 
     return baseText;
   }
@@ -153,8 +145,8 @@ export class SmoothTrace extends LineTrace {
       const isViolinPlot = this.points?.[r]?.some(pt => 'density' in pt);
       
       if (isViolinPlot) {
-        // For violin plots, temporarily disable highlighting to prevent visual issues
-        // TODO: Implement proper violin plot highlighting
+        // For violin plots, let the ViolinTrace class handle this
+        // Don't interfere with violin plot rendering
         svgElements.push([]);
         allFailed = false;
       } else {
