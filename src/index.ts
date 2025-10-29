@@ -14,6 +14,29 @@ if (document.readyState === 'loading') {
 }
 
 function main(): void {
+  const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
+    Constant.MAIDR_JSON_SELECTOR,
+  );
+
+  if (plotsWithMaidr.length > 0) {
+    plotsWithMaidr.forEach((plot) => {
+      const maidrAttr = plot.getAttribute(Constant.MAIDR);
+
+      if (!maidrAttr) {
+        return;
+      }
+
+      try {
+        const maidr = JSON.parse(maidrAttr);
+        initMaidr(maidr, plot);
+      } catch (error) {
+        console.error('Error parsing maidr attribute:', error);
+      }
+    });
+
+    return;
+  }
+
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
     const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
@@ -25,7 +48,7 @@ function main(): void {
       const maidr = JSON.parse(maidrData);
       initMaidr(maidr, plot);
     } catch (error) {
-      console.error('Error parsing maidr attribute:', error);
+      console.error('Error parsing maidr-data attribute:', error);
     }
   });
 
@@ -43,6 +66,7 @@ function main(): void {
 
   const plot = document.getElementById(maidr.id);
   if (!plot) {
+    console.error('Plot not found for maidr:', maidr.id);
     return;
   }
   initMaidr(maidr, plot);
