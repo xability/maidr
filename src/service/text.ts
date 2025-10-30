@@ -265,25 +265,33 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis label.
-    if (state.section !== undefined) {
-      if (this.isBoxPlotWithSection(state)) {
-        const label = state.cross.label;
-        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+    const hasCrossLabel = typeof state.cross.label === 'string' && state.cross.label.trim().length > 0;
+    if (hasCrossLabel) {
+      if (state.section !== undefined) {
+        if (this.isBoxPlotWithSection(state)) {
+          const label = state.cross.label;
+          verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+        } else {
+          // For candlestick plots: "section cross.label" (e.g., "high Price")
+          verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+        }
       } else {
-        // For candlestick plots: "section cross.label" (e.g., "high Price")
-        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+        verbose.push(Constant.COMMA_SPACE, state.cross.label);
       }
-    } else {
-      verbose.push(Constant.COMMA_SPACE, state.cross.label);
     }
 
-    // Format cross-axis values.
-    if (!Array.isArray(state.cross.value)) {
-      verbose.push(Constant.IS, String(state.cross.value));
-    } else if (state.cross.value.length > 1) {
-      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
-    } else if (state.cross.value.length > 0) {
-      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+    // Format cross-axis values (only if we printed the label and value is present).
+    if (hasCrossLabel) {
+      if (!Array.isArray(state.cross.value)) {
+        const v = String(state.cross.value).trim();
+        if (v.length > 0) {
+          verbose.push(Constant.IS, v);
+        }
+      } else if (state.cross.value.length > 1) {
+        verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
+      } else if (state.cross.value.length > 0) {
+        verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+      }
     }
 
     // Format for heatmap and scatter plot.

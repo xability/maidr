@@ -178,9 +178,11 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
         audio.min,
         audio.max,
         audio.size,
-        Array.isArray(audio.index) ? audio.index[0] : audio.index,
+        audio.index as number,
         paletteEntry,
+        (audio as any).volumeScale ?? 1,
       );
+      return;
     } else if (Array.isArray(audio.value)) {
       // multiple discrete values
       const values = audio.value as number[];
@@ -398,9 +400,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     frequency: number,
     panning: number = 0,
     paletteEntry?: AudioPaletteEntry,
+    volumeScale: number = 1,
   ): AudioId {
     const duration = DEFAULT_DURATION;
-    const volume = this.getVolume();
+    const volume = this.getVolume() * Math.max(0, volumeScale);
 
     // Use base palette entry (index 0) if no palette entry provided (for backwards compatibility)
     if (!paletteEntry) {
@@ -532,12 +535,13 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     size: number,
     index: number,
     paletteEntry?: AudioPaletteEntry,
+    volumeScale: number = 1,
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
     const freqRange = this.getFrequencyRange();
-    const currentVolume = this.getVolume();
+    const currentVolume = this.getVolume() * Math.max(0, volumeScale);
 
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
