@@ -1,3 +1,10 @@
+# [3.35.0](https://github.com/xability/maidr/compare/v3.34.0...v3.35.0) (2025-10-30)
+
+
+### Features
+
+* support for both maidr-data & maidr payload within svg ([#460](https://github.com/xability/maidr/issues/460)) ([8611c69](https://github.com/xability/maidr/commit/8611c6983eff11ca6f1b910235460b866f6345bb))
+
 # [3.34.0](https://github.com/xability/maidr/compare/v3.33.0...v3.34.0) (2025-10-27)
 
 
