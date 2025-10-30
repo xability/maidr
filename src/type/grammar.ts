@@ -108,7 +108,24 @@ export interface MaidrLayer {
   title?: string;
   selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
-  domOrder?: 'forward' | 'reverse';
+  /**
+   * Optional DOM mapping hints. When provided, individual traces can opt-in
+   * to use these hints to map DOM elements to the internal row-major data grid
+   * without changing default behavior when omitted.
+   */
+  domMapping?: {
+    /**
+     * Specify DOM flattening order for grid-like traces.
+     * 'row' => row-major, 'column' => column-major.
+     */
+    order?: 'row' | 'column';
+    /**
+     * For segmented/dodged bars, control the per-column group/level iteration.
+     * 'forward' => iterate groups top-to-bottom (as previously domOrder='forward').
+     * 'reverse' => iterate bottom-to-top (default).
+     */
+    groupDirection?: 'forward' | 'reverse';
+  };
   axes?: {
     x?: string;
     y?: string;
