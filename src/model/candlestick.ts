@@ -21,14 +21,13 @@ const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
-const SECTIONS = ['volatility','open', 'high', 'low','close'] as const;
+const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
 
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
 export class Candlestick extends AbstractTrace {
   protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
-
 
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
@@ -44,6 +43,7 @@ export class Candlestick extends AbstractTrace {
     CandlestickNavSegmentType,
     number
   >[];
+
   private readonly sections: typeof SECTIONS;
 
   private readonly min: number;

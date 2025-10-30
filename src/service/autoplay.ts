@@ -2,8 +2,6 @@ import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
-import type { Observer } from '@type/observable';
-import type { Settings } from '@type/settings';
 import type { TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';

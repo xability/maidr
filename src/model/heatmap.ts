@@ -1,5 +1,4 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
-import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';

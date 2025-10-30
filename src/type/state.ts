@@ -1,19 +1,35 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 export type PlotState = FigureState | SubplotState | TraceState;
 
-interface AudioEmptyState {
-  y: number;
-  x: number;
-  rows: number;
-  cols: number;
+export interface AudioEmptyState {
+  index: number;
+  size: number;
+  groupIndex?: number;
 }
 
 interface FigureEmptyState {
   empty: true;
   type: 'figure';
   audio: AudioEmptyState;
+}
+
+export type NonEmptyTraceState = Extract<TraceState, { empty: false }>;
+
+export interface LayerSwitchTraceState extends NonEmptyTraceState {
+  isLayerSwitch: true;
+  index: number;
+  size: number;
+}
+
+export function isLayerSwitchTraceState(state: TraceState): state is LayerSwitchTraceState {
+  return (
+    !state.empty
+    && (state as Partial<LayerSwitchTraceState>).isLayerSwitch === true
+    && typeof (state as Partial<LayerSwitchTraceState>).index === 'number'
+    && typeof (state as Partial<LayerSwitchTraceState>).size === 'number'
+  );
 }
 
 export type FigureState
@@ -52,7 +68,6 @@ interface TraceEmptyState {
   type: 'trace';
   traceType: TraceType;
   audio: AudioEmptyState;
-  audio: AudioEmptyState;
 }
 
 export type TraceState
@@ -89,12 +104,6 @@ export interface AudioState {
   isContinuous?: boolean;
 }
 
-export type BrailleState
-  = | TraceEmptyState
-    | BarBrailleState
-    | BoxBrailleState
-    | HeatmapBrailleState
-    | LineBrailleState;
 export type BrailleState
   = | TraceEmptyState
     | BarBrailleState

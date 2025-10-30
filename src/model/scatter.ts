@@ -1,7 +1,8 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, HighlightState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Svg } from '@util/svg';
-import { AbstractTrace, Dimension } from './abstract';
+import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
 
 interface ScatterXPoint {
@@ -14,12 +15,10 @@ interface ScatterYPoint {
   y: number;
 }
 
-export class ScatterTrace extends AbstractTrace{
+export class ScatterTrace extends AbstractTrace {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
-
-
 
   private readonly xPoints: ScatterXPoint[];
   private readonly yPoints: ScatterYPoint[];
@@ -93,7 +92,7 @@ export class ScatterTrace extends AbstractTrace{
   }
 
   protected get highlightValues(): SVGElement[][] | null {
-    return this.movable.mode === "col"
+    return this.movable.mode === 'col'
       ? this.highlightXValues
       : this.highlightYValues;
   }
@@ -194,7 +193,6 @@ export class ScatterTrace extends AbstractTrace{
   protected get hasMultiPoints(): boolean {
     return true;
   }
-
 
   private mapToSvgElements(
     selector?: string,

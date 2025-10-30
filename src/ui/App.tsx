@@ -11,7 +11,6 @@ import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
 
-
 interface AppProps {
   plot: HTMLElement;
 }

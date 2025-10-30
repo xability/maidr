@@ -34,7 +34,11 @@ const displaySlice = createSlice({
       state.tooltip = { ...state.tooltip, visible: true, value: action.payload };
     },
     updateFocus(state, action: PayloadAction<Focus>): void {
-
+      state.focus = action.payload;
+    },
+    clearFocus(state): void {
+      state.focus = null;
+    },
   },
 });
 const { hideTooltip, showTooltip, updateFocus, clearFocus } = displaySlice.actions;

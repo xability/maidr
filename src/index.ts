@@ -65,7 +65,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
       if (!maidrContainer) {
-      if (!maidrContainer) {
         return;
       }
 
@@ -76,21 +75,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
-  const onVisibilityChange = (): void => {
-    // Allow React to process all the events before focusing in.
-    setTimeout(() => {
-      if (document.visibilityState === 'hidden') {
-        return;
-      }
-
-      if (controller) {
-        controller.dispose();
-        controller = null;
-        onFocusIn();
-      }
-    }, 0);
-  };
-
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
       if (controller) {
@@ -115,7 +99,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   articleElement.appendChild(figureElement);
 
   const reactContainer = document.createElement(Constant.DIV);
-  const reactContainer = document.createElement(Constant.DIV);
   reactContainer.id = `${Constant.REACT_CONTAINER}-${maidr.id}`;
   figureElement.appendChild(reactContainer);
 
@@ -130,7 +113,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.
     const maidrClone = JSON.parse(JSON.stringify(maidr));
-    const controller = new Controller(maidrClone, plot);
     const controller = new Controller(maidrClone, plot);
     controller.dispose();
   })();

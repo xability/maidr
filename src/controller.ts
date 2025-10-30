@@ -6,31 +6,31 @@ import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
+import { CommandExecutor } from '@service/commandExecutor';
+import { CommandPaletteService } from '@service/commandPalette';
 import { DisplayService } from '@service/display';
+import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
+import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
 import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
+import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
+import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
-import { CommandExecutor } from '@service/commandExecutor';
-import { CommandPaletteService } from '@service/commandPalette';
-import { GoToExtremaService } from '@service/goToExtrema';
-import { RotorNavigationService } from '@service/rotor';
-import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
-import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
-import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -71,17 +71,15 @@ export class Controller implements Disposable {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
-    this.settingsService = new SettingsService(new LocalStorageService(), this.displayService);
-
-    this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
-    this.brailleService = new BrailleService(this.context, this.notificationService, this.displayService);
     this.textService = new TextService(this.notificationService);
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(
       new LocalStorageService(),
       this.displayService,
     );
+    this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
+
 
     this.brailleService = new BrailleService(
       this.context,
@@ -120,7 +118,7 @@ export class Controller implements Disposable {
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.rotorNavigationService = new RotorNavigationService(this.displayService);
+    this.rotorNavigationService = new RotorNavigationService(this.context);
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,
       this.rotorNavigationService,

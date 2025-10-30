@@ -1,13 +1,12 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
-import { BoxplotSection } from '@type/boxplotSection';
 import type { Dimension } from './abstract';
+import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { MovableGrid } from './movable';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -19,7 +18,7 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxTrace extends AbstractTrace{
+export class BoxTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
 
@@ -160,14 +159,6 @@ export class BoxTrace extends AbstractTrace{
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
-    };
-  }
-
-  protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    return {
-      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
-      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
     };
   }
 

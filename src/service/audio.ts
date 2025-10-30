@@ -100,7 +100,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
-
   }
 
   private initCompressor(): DynamicsCompressorNode {

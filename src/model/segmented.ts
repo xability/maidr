@@ -44,7 +44,6 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.max.push(summaryMax);
   }
 
-
   /**
    * Get extrema targets for the current segmented bar plot trace
    * Returns min and max values within the current group the user is navigating

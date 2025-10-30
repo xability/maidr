@@ -102,5 +102,5 @@
       "label": "Mentioned Me",
       "query": "repo:${owner}/${repository} is:open mentions:${user}"
     }
-],
+  ]
 }

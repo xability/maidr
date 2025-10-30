@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -14,7 +14,6 @@ import type {
 } from '@type/state';
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
-import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -37,9 +36,11 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public dispose(): void {
     this.observers.length = 0;
   }
-    public get isInitialEntry(): boolean {
+
+  public get isInitialEntry(): boolean {
     return this.movable.isInitialEntry;
   }
+
   public get row(): number {
     return this.movable.row;
   }
@@ -47,6 +48,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public get col(): number {
     return this.movable.col;
   }
+
   /**
    * Gets safe row and column indices to prevent accessing undefined values
    * @returns Object with safe row and column indices
@@ -119,7 +121,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   protected abstract get outOfBoundsState(): State;
 
   protected abstract get movable(): Movable;
-
 
   public notifyObserversWithState(state: State): void {
     for (const observer of this.observers) {

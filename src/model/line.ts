@@ -1,6 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { Movable, Node } from '@type/movable';
+import type { Node } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';

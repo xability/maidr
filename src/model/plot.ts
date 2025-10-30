@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable, MovableDirection } from '@type/movable';
+import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
@@ -84,18 +84,11 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
-  protected highlight(): HighlightState {
+  private get highlight(): HighlightState {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
 
     if (totalSubplots <= 1) {
-      return {
-        empty: true,
-        type: 'trace',
-        audio: {
-          size: this.values[this.row].length,
-          index: this.col,
-        },
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     try {
@@ -183,9 +176,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
     this.highlightValue = this.mapToSvgElement(subplot.selector);
     this.movable = new MovableGrid<Trace>(this.traces);
-
   }
-
 
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
@@ -200,18 +191,6 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
   }
-
-  protected highlight(): HighlightState {
-    return {
-      empty: true,
-      type: 'trace',
-      audio: {
-        size: this.values[this.row].length,
-        index: this.col,
-      },
-    };
-  }
-
 
   public get state(): SubplotState {
     return {
