@@ -1,8 +1,10 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import { BoxplotSection } from '@type/boxplotSection';
 import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
@@ -17,12 +19,16 @@ const Q1 = '25%';
 const Q2 = '50%';
 const Q3 = '75%';
 
-export class BoxTrace extends AbstractTrace {
+export class BoxTrace extends AbstractTrace{
+  protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
 
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   private readonly orientation: Orientation;
   private readonly sections: string[];
@@ -36,7 +42,15 @@ export class BoxTrace extends AbstractTrace {
     this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.sections = [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER];
+    this.sections = [
+      BoxplotSection.LOWER_OUTLIER,
+      BoxplotSection.MIN,
+      BoxplotSection.Q1,
+      BoxplotSection.Q2,
+      BoxplotSection.Q3,
+      BoxplotSection.MAX,
+      BoxplotSection.UPPER_OUTLIER,
+    ];
     const sectionAccessors = [
       (p: BoxPoint) => p.lowerOutliers,
       (p: BoxPoint) => p.min,
@@ -47,9 +61,9 @@ export class BoxTrace extends AbstractTrace {
       (p: BoxPoint) => p.upperOutliers,
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points.map(point =>
-        sectionAccessors.map(accessor => accessor(point)),
-      );
+      this.boxValues = this.points
+        .map(point => sectionAccessors.map(accessor => accessor(point)))
+        .reverse();
     } else {
       this.boxValues = sectionAccessors.map(accessor =>
         this.points.map(point => accessor(point)),
@@ -59,11 +73,19 @@ export class BoxTrace extends AbstractTrace {
     const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
-    this.min = Math.min(...flatBoxValues.flat());
-    this.max = Math.max(...flatBoxValues.flat());
+    this.min = MathUtil.minFrom2D(flatBoxValues);
+    this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as BoxSelector[]);
-    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: this.boxValues.length - 1 });
+    // this.row = this.boxValues.length - 1;
+
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as BoxSelector[],
+    );
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.highlightValues?.reverse();
+    }
+
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -80,13 +102,16 @@ export class BoxTrace extends AbstractTrace {
     return super.moveToIndex(row, col);
   }
 
-  protected get audio(): AudioState {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const value = isHorizontal ? this.boxValues[this.row][this.col] : this.boxValues[this.col][this.row];
-    const index = isHorizontal ? this.col : this.row;
-    const panning = Array.isArray(value)
-      ? value.length === 0 ? index : value[value.length - 1] - this.min
-      : Number.isNaN(value) ? index : value - this.min;
+  protected get values(): (number[] | number)[][] {
+    return this.boxValues;
+  }
+
+  protected audio(): AudioState {
+    // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const value = this.boxValues[this.row][this.col];
+    const index = Array.isArray(value)
+      ? value.map(v => v - this.min)
+      : value - this.min;
 
     return {
       freq: {
@@ -146,7 +171,17 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  private mapToSvgElements(selectors: BoxSelector[]): (SVGElement[] | SVGElement)[][] | null {
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    return {
+      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
+      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
+    };
+  }
+
+  private mapToSvgElements(
+    selectors: BoxSelector[],
+  ): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.points.length) {
       return null;
     }
@@ -161,8 +196,12 @@ export class BoxTrace extends AbstractTrace {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s => Svg.selectAllElements(s));
-      const upperOutliers = selector.upperOutliers.flatMap(s => Svg.selectAllElements(s));
+      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
+        Svg.selectAllElements(s),
+      );
+      const upperOutliers = selector.upperOutliers.flatMap(s =>
+        Svg.selectAllElements(s),
+      );
 
       const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
       const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
@@ -171,8 +210,14 @@ export class BoxTrace extends AbstractTrace {
       const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
 
       const [q1, q3] = isVertical
-        ? [Svg.createLineElement(iq, 'top'), Svg.createLineElement(iq, 'bottom')]
-        : [Svg.createLineElement(iq, 'left'), Svg.createLineElement(iq, 'right')];
+        ? [
+            Svg.createLineElement(iq, 'top'),
+            Svg.createLineElement(iq, 'bottom'),
+          ]
+        : [
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
+          ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
@@ -185,5 +230,158 @@ export class BoxTrace extends AbstractTrace {
     });
 
     return svgElements;
+  }
+
+  public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
+      return false;
+    }
+    let values: any[] = [];
+    let currentIndex = 0;
+
+    if (direction === 'left' || direction === 'right') {
+      values = this.boxValues[this.row];
+      currentIndex = this.col;
+    } else {
+      values = this.boxValues.map(box => box[this.col]);
+      currentIndex = this.row;
+    }
+    if (values.length <= 0) {
+      return false;
+    }
+
+    const step = direction === 'right' || direction === 'up' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < values.length) {
+      const current_value = values[currentIndex];
+      const next_value = values[i];
+      if (Array.isArray(next_value) || Array.isArray(current_value)) {
+        return true;
+      }
+
+      if (this.compare(next_value, current_value, type)) {
+        this.set_point(direction, i);
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
+
+  public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
+    if (direction === 'left' || direction === 'right') {
+      this.col = pointIndex;
+    } else {
+      this.row = pointIndex;
+    }
+  }
+
+  /**
+   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
+   * @returns {boolean} True if the move was successful, false otherwise.
+   */
+  public moveUpRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.VERTICAL) {
+      this.moveOnce('UPWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('up', mode);
+  }
+
+  public moveDownRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.VERTICAL) {
+      this.moveOnce('DOWNWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('down', mode);
+  }
+
+  public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.moveOnce('BACKWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('left', mode);
+  }
+
+  public moveRightRotor(mode: 'lower' | 'higher'): boolean {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.moveOnce('FORWARD');
+      return true;
+    }
+    return this.moveToNextCompareValue('right', mode);
+  }
+
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
+  public findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      return null;
+    }
+
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - x, center.y - y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex === -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
   }
 }

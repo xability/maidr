@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { Constant } from '@util/constant';
@@ -34,7 +34,9 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map(row => row.map(subplot => new Subplot(subplot)));
+    this.subplots = subplots.map(row =>
+      row.map(subplot => new Subplot(subplot)),
+    );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
 
     this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
@@ -55,8 +57,20 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   public get state(): FigureState {
-    const currentIndex = this.col + 1 + this.subplots.slice(0, this.row)
-      .reduce((sum, r) => sum + r.length, 0);
+    if (this.isOutOfBounds) {
+      return {
+        empty: true,
+        type: 'figure',
+      };
+    }
+
+    const currentIndex
+      = this.col
+        + 1
+        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
+
+    const activeSubplot = this.activeSubplot;
+
     return {
       empty: false,
       type: 'figure',
@@ -65,9 +79,71 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       caption: this.caption,
       size: this.size,
       index: currentIndex,
-      subplot: this.activeSubplot.state,
-      traceTypes: this.activeSubplot.traceTypes,
+      subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
+      traceTypes: activeSubplot.traceTypes,
     };
+  }
+
+  protected highlight(): HighlightState {
+    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
+
+    if (totalSubplots <= 1) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    try {
+      const numCols = this.subplots[0]?.length || 1;
+      const subplotIndex = this.row * numCols + this.col + 1;
+      const subplotSelector = `g[id="axes_${subplotIndex}"]`;
+      const subplotElement = document.querySelector(
+        subplotSelector,
+      ) as SVGElement;
+
+      if (subplotElement) {
+        return {
+          empty: false,
+          elements: subplotElement,
+        };
+      }
+
+      const allSubplots = document.querySelectorAll('g[id^="axes_"]');
+      if (allSubplots.length > 0 && subplotIndex - 1 < allSubplots.length) {
+        return {
+          empty: false,
+          elements: allSubplots[subplotIndex - 1] as SVGElement,
+        };
+      }
+    } catch (error) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          size: this.values[this.row].length,
+          index: this.col,
+        },
+      };
+    }
+
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
+    };
+  }
+
+  public moveToPoint(_x: number, _y: number): void {
+    // implement in plot classes
+    this.notifyStateUpdate();
   }
 
   protected get outOfBoundsState(): FigureState {
@@ -107,7 +183,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
     this.highlightValue = this.mapToSvgElement(subplot.selector);
     this.movable = new MovableGrid<Trace>(this.traces);
+
   }
+
 
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
@@ -122,6 +200,18 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
   }
+
+  protected highlight(): HighlightState {
+    return {
+      empty: true,
+      type: 'trace',
+      audio: {
+        size: this.values[this.row].length,
+        index: this.col,
+      },
+    };
+  }
+
 
   public get state(): SubplotState {
     return {
@@ -158,9 +248,47 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
+  public moveToPoint(_x: number, _y: number): void {
+    // implement in plot classes
+    this.notifyStateUpdate();
+  }
+
+  public getStateWithFigurePosition(
+    _figureRow: number,
+    _figureCol: number,
+  ): SubplotState {
+    return this.state;
+  }
+
   private mapToSvgElement(selector?: string): SVGElement | null {
     return selector ? Svg.selectElement(selector) ?? null : null;
   }
 }
 
-export interface Trace extends Movable, Observable<TraceState>, Disposable {}
+export interface Trace extends Movable, Observable<TraceState>, Disposable {
+  getId: () => string;
+  /**
+   * Get the current X value from the trace
+   * @returns The current X value or null if not available
+   */
+  getCurrentXValue: () => any;
+
+  /**
+   * Move the trace to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  moveToXValue: (xValue: any) => boolean;
+
+  /**
+   * Notify observers that the trace is out of bounds
+   */
+  notifyOutOfBounds: () => void;
+
+  /**
+   * Reset the trace to initial entry state
+   * This sets isInitialEntry to true and position to (0, 0)
+   */
+  resetToInitialEntry: () => void;
+  notifyObserversWithState: (state: TraceState) => void;
+}

@@ -55,6 +55,7 @@ export class SettingsService implements Disposable {
   public constructor(storage: StorageService, display: DisplayService) {
     this.storage = storage;
     this.display = display;
+    this.observers = [];
 
     this.defaultSettings = DEFAULT_SETTINGS;
 

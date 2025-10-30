@@ -6,7 +6,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings {}
+interface SettingsState extends Settings { }
 
 const initialState = DEFAULT_SETTINGS;
 
@@ -34,6 +34,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   public dispose(): void {
+    super.dispose();
     this.store.dispatch(reset());
   }
 
@@ -52,13 +53,18 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.toggle();
   }
 
-  public toggle(): void {
-    this.settingsService.toggle();
+  public saveSettings(settings: Settings): void {
+    this.settingsService.saveSettings(settings);
+    this.store.dispatch(update(settings));
   }
 
   public reset(): void {
     const settings = this.settingsService.resetSettings();
     this.store.dispatch(update(settings));
+  }
+
+  public toggle(): void {
+    this.settingsService.toggle();
   }
 }
 

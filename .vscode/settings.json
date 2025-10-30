@@ -71,15 +71,19 @@
   "github.copilot.chat.languageContext.fix.typescript.enabled": true,
   "github.copilot.chat.languageContext.inline.typescript.enabled": true,
   "github.copilot.chat.generateTests.codeLens": true,
+  "github.copilot.chat.enableUserPreferences": true,
   "github.copilot.chat.editor.temporalContext.enabled": true,
   "github.copilot.chat.startDebugging.enabled": true,
   "github.copilot.chat.scopeSelection": true,
-
   "chat.agent.enabled": true,
-  "chat.mcp.discovery.enabled": false,
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": false,
+    "windsurf": false,
+    "cursor-global": false,
+    "cursor-workspace": false
+  },
   "chat.agent.maxRequests": 1000,
 
-  "githubPullRequests.pullRequestDescription": "Copilot",
   "githubPullRequests.experimental.chat": true,
   "githubPullRequests.queries": [
     {

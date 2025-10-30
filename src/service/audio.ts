@@ -95,10 +95,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   public dispose(): void {
     this.stopAll();
+
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
+
   }
 
   private initCompressor(): DynamicsCompressorNode {
@@ -124,7 +126,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     const traceState = state.type === 'subplot' ? state.trace : state;
-    if (traceState.empty || traceState.hasMultiPoints === this.isCombinedAudio) {
+    if (
+      traceState.empty
+      || traceState.hasMultiPoints === this.isCombinedAudio
+    ) {
       return;
     }
 
@@ -307,6 +312,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
     this.activeAudioIds.set(audioId, oscillators);
+    this.activeAudioIds.set(audioId, oscillators);
     return audioId;
   }
 
@@ -396,6 +402,22 @@ export class AudioService implements Observer<PlotState>, Disposable {
     for (let i = 0; i < frequencies.length; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      const stereoPannerNode = this.audioContext.createStereoPanner();
+      const pannerNode = new PannerNode(this.audioContext, {
+        distanceModel: 'linear',
+        positionX: 0.0,
+        positionY: 0.0,
+        positionZ: 0.0,
+        orientationX: 0.0,
+        orientationY: 0.0,
+        orientationZ: -1.0,
+        refDistance: 1,
+        maxDistance: 1e4,
+        rolloffFactor: 10,
+        coneInnerAngle: 40,
+        coneOuterAngle: 50,
+        coneOuterGain: 0.4,
+      });
 
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
@@ -404,7 +426,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
       gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, now + duration);
 
       osc.connect(gain);
-      gain.connect(masterGain);
+      gain.connect(stereoPannerNode);
+      stereoPannerNode.connect(pannerNode);
+      pannerNode.connect(masterGain);
 
       osc.start(now);
       osc.stop(now + duration);
@@ -433,11 +457,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   public playWaitingTone(): AudioId {
-    return setInterval(() => this.playOscillator(WAITING_FREQUENCY), 1000);
+    return setInterval(
+      () => this.playOscillator(WAITING_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
+      1000,
+    );
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY);
+    return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
@@ -457,7 +484,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
-        this.mode = this.isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
+        this.mode = this.isCombinedAudio
+          ? AudioMode.COMBINED
+          : AudioMode.SEPARATE;
         break;
 
       case AudioMode.SEPARATE:
@@ -485,7 +514,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
         clearInterval(audioId);
         return;
       }
-
       const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
         node?.disconnect();

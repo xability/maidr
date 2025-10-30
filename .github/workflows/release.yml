@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   release:
@@ -30,8 +31,13 @@ jobs:
           node-version: 'lts/*'
           cache: npm
 
+      - name: Clean dependencies
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run commit linter
         run: npm run commitlint --verbose

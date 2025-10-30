@@ -1,0 +1,14 @@
+name: CodeQL Custom Configuration
+
+queries:
+  - uses: security-extended # Broad security coverage
+  - uses: security-and-quality # Code quality checks
+
+paths:
+  - src
+  - e2e_tests
+
+paths-ignore:
+  - '**/node_modules'
+  - '**/dist'
+  - '**/build'

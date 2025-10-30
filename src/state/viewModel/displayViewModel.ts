@@ -3,7 +3,7 @@ import type { DisplayService } from '@service/display';
 import type { AppStore } from '@state/store';
 import type { Focus } from '@type/event';
 import { createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from './viewModel';
+import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 interface TooltipState {
   visible: boolean;
@@ -34,11 +34,10 @@ const displaySlice = createSlice({
       state.tooltip = { ...state.tooltip, visible: true, value: action.payload };
     },
     updateFocus(state, action: PayloadAction<Focus>): void {
-      state.focus = action.payload;
-    },
+
   },
 });
-const { hideTooltip, showTooltip, updateFocus } = displaySlice.actions;
+const { hideTooltip, showTooltip, updateFocus, clearFocus } = displaySlice.actions;
 
 export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   private readonly displayService: DisplayService;
@@ -47,6 +46,7 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
     super(store);
 
     this.displayService = displayService;
+
     this.registerListeners();
 
     this.store.dispatch(hideTooltip());

@@ -1,0 +1,120 @@
+name: CodeQL Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: Languages to analyze
+        required: true
+        default: typescript
+        type: choice
+        options:
+          - typescript
+          - javascript
+      severity-level:
+        description: Minimum severity to create issues for
+        required: false
+        default: high
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ github.event.inputs.languages }}
+          config-file: ./.github/codeql/codeql-config.yml
+          queries: +security-extended, security-and-quality # Include additional security queries and override default queries
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ github.event.inputs.languages }}'
+
+      - name: Create GitHub Issues for Findings
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the minimum severity from workflow input
+            const minSeverity = '${{ github.event.inputs.severity-level || 'high' }}'.toLowerCase();
+            const severityOrder = ['critical', 'high', 'medium', 'low'];
+            const minSeverityIndex = severityOrder.indexOf(minSeverity);
+
+            // Get all open CodeQL alerts
+            const { data: alerts } = await github.rest.codeScanning.listAlertsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              tool_name: 'CodeQL'
+            });
+
+            // Filter alerts by severity
+            const relevantAlerts = alerts.filter(alert => {
+              const alertSeverity = alert.rule.severity.toLowerCase();
+              return severityOrder.indexOf(alertSeverity) <= minSeverityIndex;
+            });
+
+            // Create issues for each qualifying alert
+            for (const alert of relevantAlerts) {
+              try {
+                // Check if issue already exists
+                const existingIssues = await github.rest.search.issuesAndPullRequests({
+                  q: `repo:${context.repo.owner}/${context.repo.repo} type:issue in:title "[CodeQL] ${alert.rule.id}"`
+                });
+
+                if (existingIssues.data.total_count === 0) {
+                  await github.rest.issues.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: `[CodeQL] ${alert.rule.id}: ${alert.rule.description.substring(0, 100)}`,
+                    body: '### CodeQL Security Finding\n\n' +
+                      '**Severity:** ' + alert.rule.severity + '\n' +
+                      '**Rule:** ' + alert.rule.id + '\n' +
+                      '**State:** ' + alert.state + '\n\n' +
+                      '**Location:**\n' +
+                      alert.most_recent_instance.location.path + ':' + alert.most_recent_instance.location.start_line + '\n\n' +
+                      '**Description:**\n' +
+                      alert.rule.description + '\n\n' +
+                      '**Recommendation:**\n' +
+                      (alert.rule.tags.includes('security') ? 'Security vulnerability - please address immediately.' : 'Please review this finding.') + '\n\n' +
+                      '**View in Code Scanning:**\n' +
+                      alert.html_url + '\n\n' +
+                      '---\n' +
+                      '*Automatically created by CodeQL analysis (Workflow Run: ' + context.runId + ')*',
+                    labels: [
+                      'security',
+                      'codeql',
+                      alert.rule.severity.toLowerCase(),
+                      'automated'
+                    ]
+                  });
+                  console.log(`Created issue for ${alert.rule.id}`);
+                } else {
+                  console.log(`Issue already exists for ${alert.rule.id}`);
+                }
+              } catch (error) {
+                console.error(`Error creating issue for ${alert.rule.id}: ${error.message}`);
+              }
+            }

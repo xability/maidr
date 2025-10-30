@@ -41,6 +41,7 @@ function overrideFigureMargin(): void {
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
+  let hasAnnounced = false;
 
   const onFocusOut = (): void => {
     // Allow React to process all the events before focusing out.
@@ -50,15 +51,20 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
 
       const activeElement = document.activeElement as HTMLElement;
-      if (!maidrContainer.contains(activeElement)) {
-        controller?.dispose();
+      const isInside = maidrContainer.contains(activeElement);
+      if (!isInside) {
+        if (controller) {
+          controller.dispose();
+        }
         controller = null;
+        hasAnnounced = false;
       }
     }, 0);
   };
   const onFocusIn = (): void => {
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
+      if (!maidrContainer) {
       if (!maidrContainer) {
         return;
       }
@@ -85,6 +91,19 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
     }, 0);
   };
 
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      if (controller) {
+        controller.dispose();
+        controller = null;
+      }
+      const maidrClone = JSON.parse(JSON.stringify(maidr));
+      controller = new Controller(maidrClone, plot);
+      // Do not announce here; focus-in will handle one-shot announcement
+      hasAnnounced = false;
+    }
+  };
+
   const figureElement = document.createElement(Constant.FIGURE);
   figureElement.id = `${Constant.MAIDR_FIGURE}-${maidr.id}`;
   plot.parentNode!.replaceChild(figureElement, plot);
@@ -96,12 +115,12 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   articleElement.appendChild(figureElement);
 
   const reactContainer = document.createElement(Constant.DIV);
+  const reactContainer = document.createElement(Constant.DIV);
   reactContainer.id = `${Constant.REACT_CONTAINER}-${maidr.id}`;
   figureElement.appendChild(reactContainer);
 
   maidrContainer = figureElement;
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
-  plot.addEventListener(DomEventType.CLICK, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
 
@@ -111,6 +130,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   (() => {
     // Create a deep copy to prevent mutations on the original maidr object.
     const maidrClone = JSON.parse(JSON.stringify(maidr));
+    const controller = new Controller(maidrClone, plot);
     const controller = new Controller(maidrClone, plot);
     controller.dispose();
   })();

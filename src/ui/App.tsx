@@ -11,12 +11,12 @@ import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
 
+
 interface AppProps {
   plot: HTMLElement;
 }
 
 const App: React.FC<AppProps> = ({ plot }) => {
-  const { enabled, message } = useViewModelState('text');
   const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
@@ -26,6 +26,12 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'CHAT':
         return <Chat />;
+
+      case 'COMMAND_PALETTE':
+        return <CommandPalette />;
+
+      case 'GO_TO_EXTREMA':
+        return <GoToExtrema />;
 
       case 'HELP':
         return <Help />;
@@ -44,7 +50,7 @@ const App: React.FC<AppProps> = ({ plot }) => {
   return (
     <>
       {tooltip.visible && <Tooltip plot={plot} />}
-      {(enabled || message) && <Text />}
+      <Text />
       {renderFocusedComponent(focus)}
     </>
   );

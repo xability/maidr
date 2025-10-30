@@ -1,0 +1,99 @@
+name: Validate Changes
+
+on:
+  pull_request:
+    types: [] # Disabled - no triggers
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Required to add comments to PRs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper diff
+
+      - name: Detect changes
+        id: detect-changes
+        run: |
+          # Get all changed files
+          CHANGED_FILES=$(git diff --name-only origin/main)
+
+          # Check for UI/example changes
+          if echo "$CHANGED_FILES" | grep -E '^(examples/|src/ui/)' > /dev/null; then
+            echo "ui_examples_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in examples/ or src/ui/"
+          else
+            echo "ui_examples_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes in examples/ or src/ui/"
+          fi
+
+          # Check for model changes (excluding UI)
+          if echo "$CHANGED_FILES" | grep -E '^src/(model|type|service|util)/' > /dev/null; then
+            echo "model_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in model-related files"
+          else
+            echo "model_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes in model-related files"
+          fi
+
+      - name: Add comment for UI/example changes
+        if: steps.detect-changes.outputs.ui_examples_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { repo, owner } = context.repo;
+            const prNumber = context.issue.number;
+
+            const comment = [
+              '⚠️ **Changes detected in examples or UI directory**',
+              '',
+              'This PR contains changes to files in the `examples/` or `src/ui/` directories. Before merging, please ensure:',
+              '',
+              '1. Run the e2e tests locally:',
+              '   ```bash',
+              '   npm run e2e',
+              '   ```',
+              '',
+              '2. Verify that all examples still work as expected',
+              '3. Update any relevant documentation if needed',
+              '',
+              `If you need help running the tests, please refer to our [testing documentation](https://github.com/${owner}/${repo}/blob/main/E2E_TESTING.md).`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: comment
+            });
+
+      - name: Add comment for model changes
+        if: steps.detect-changes.outputs.model_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { repo, owner } = context.repo;
+            const prNumber = context.issue.number;
+
+            const comment = [
+              '⚠️ **Changes detected in model-related files**',
+              '',
+              'This PR contains changes to files that affect the model layer and unit tests. Before merging, please ensure:',
+              '',
+              '1. Run the unit tests locally:',
+              '   ```bash',
+              '   npm run test',
+              '   ```',
+              '',
+              '2. Update tests if necessary'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: comment
+            });

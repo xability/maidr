@@ -98,7 +98,10 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
   private readonly Q2 = 'q2';
   private readonly Q3 = 'q3';
 
-  public encode(state: BoxBrailleState, size: number = DEFAULT_BRAILLE_SIZE): EncodedBraille {
+  public encode(
+    state: BoxBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
     const values = new Array<string>();
     const indexToCell = new Array<Cell>();
     const cellToIndex = new Array<Array<number>>();
@@ -107,13 +110,19 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       const box = state.values[row];
       const boxValData = [
         { type: this.GLOBAL_MIN, value: state.min },
-        ...box.lowerOutliers.map(v => ({ type: this.LOWER_OUTLIER, value: v })),
+        ...box.lowerOutliers.map(v => ({
+          type: this.LOWER_OUTLIER,
+          value: v,
+        })),
         { type: this.MIN, value: box.min },
         { type: this.Q1, value: box.q1 },
         { type: this.Q2, value: box.q2 },
         { type: this.Q3, value: box.q3 },
         { type: this.MAX, value: box.max },
-        ...box.upperOutliers.map(v => ({ type: this.UPPER_OUTLIER, value: v })),
+        ...box.upperOutliers.map(v => ({
+          type: this.UPPER_OUTLIER,
+          value: v,
+        })),
         { type: this.GLOBAL_MAX, value: state.max },
       ];
 
@@ -130,20 +139,29 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           ? Math.abs(next.value - curr.value)
           : Math.abs(curr.value - boxValData[i - 1].value);
 
-        if (curr.type === this.LOWER_OUTLIER || curr.type === this.UPPER_OUTLIER) {
+        if (
+          curr.type === this.LOWER_OUTLIER
+          || curr.type === this.UPPER_OUTLIER
+        ) {
           lenData.push({ type: curr.type, length: 0, numChars: 1 });
           lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
         } else if (curr.type === this.Q2) {
           isBeforeMid = false;
           lenData.push({ type: this.Q2, length: 0, numChars: 2 });
-        } else if (curr.type === this.GLOBAL_MIN || curr.type === this.GLOBAL_MAX) {
+        } else if (
+          curr.type === this.GLOBAL_MIN
+          || curr.type === this.GLOBAL_MAX
+        ) {
           lenData.push({ type: this.BLANK, length: diff, numChars: 0 });
         } else {
           lenData.push({ type: curr.type, length: diff, numChars: 1 });
         }
       }
 
-      let preAllocated = lenData.reduce((sum, l) => sum + (l.numChars > 0 ? l.numChars : 0), 0);
+      let preAllocated = lenData.reduce(
+        (sum, l) => sum + (l.numChars > 0 ? l.numChars : 0),
+        0,
+      );
       let [locMin, locMax, locQ1, locQ3] = [-1, -1, -1, -1];
       for (let i = 0; i < lenData.length; i++) {
         if (lenData[i].type === this.MIN && lenData[i].length > 0)
@@ -155,7 +173,11 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         if (lenData[i].type === this.Q3)
           locQ3 = i;
       }
-      if (locMin !== -1 && locMax !== -1 && lenData[locMin].length !== lenData[locMax].length) {
+      if (
+        locMin !== -1
+        && locMax !== -1
+        && lenData[locMin].length !== lenData[locMax].length
+      ) {
         if (lenData[locMin].length > lenData[locMax].length) {
           lenData[locMin].numChars++;
           preAllocated++;
@@ -164,7 +186,11 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           preAllocated++;
         }
       }
-      if (locQ1 !== -1 && locQ3 !== -1 && lenData[locQ1].length !== lenData[locQ3].length) {
+      if (
+        locQ1 !== -1
+        && locQ3 !== -1
+        && lenData[locQ1].length !== lenData[locQ3].length
+      ) {
         if (lenData[locQ1].length > lenData[locQ3].length) {
           lenData[locQ1].numChars++;
           preAllocated++;
@@ -181,7 +207,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       );
       for (const section of lenData) {
         if (section.type !== this.Q2 && section.length > 0) {
-          const allocated = Math.round((section.length / totalLength) * available);
+          const allocated = Math.round(
+            (section.length / totalLength) * available,
+          );
           section.numChars += allocated;
         }
       }
@@ -191,7 +219,11 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       let adjustIndex = 0;
       while (diff !== 0) {
         const section = lenData[adjustIndex % lenData.length];
-        if (section.type !== this.BLANK && section.type !== this.Q2 && section.length > 0) {
+        if (
+          section.type !== this.BLANK
+          && section.type !== this.Q2
+          && section.length > 0
+        ) {
           section.numChars += diff > 0 ? 1 : -1;
           diff += diff > 0 ? -1 : 1;
         }
@@ -199,10 +231,24 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       let col = -1;
-      const sections = [this.LOWER_OUTLIER, this.MIN, this.Q1, this.Q2, this.Q3, this.MAX, this.UPPER_OUTLIER];
-      cellToIndex.push(Array.from({ length: sections.length }).fill(-1) as number[]);
+      const sections = [
+        this.LOWER_OUTLIER,
+        this.MIN,
+        this.Q1,
+        this.Q2,
+        this.Q3,
+        this.MAX,
+        this.UPPER_OUTLIER,
+      ];
+      cellToIndex.push(
+        Array.from({ length: sections.length }).fill(-1) as number[],
+      );
       for (const section of lenData) {
-        if (section.type !== this.BLANK && section.type !== this.GLOBAL_MIN && section.type !== this.GLOBAL_MAX) {
+        if (
+          section.type !== this.BLANK
+          && section.type !== this.GLOBAL_MIN
+          && section.type !== this.GLOBAL_MAX
+        ) {
           col = sections.indexOf(section.type);
           cellToIndex[row][col] = values.length;
         }
@@ -216,7 +262,10 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
             brailleChar = '⠿';
           } else if (section.type === this.Q2) {
             brailleChar = j === 0 ? '⠸' : '⠇';
-          } else if (section.type === this.LOWER_OUTLIER || section.type === this.UPPER_OUTLIER) {
+          } else if (
+            section.type === this.LOWER_OUTLIER
+            || section.type === this.UPPER_OUTLIER
+          ) {
             brailleChar = '⠂';
           } else if (section.type === this.BLANK) {
             brailleChar = '⠀';
@@ -292,7 +341,8 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
   }
 }
 
-abstract class AbstractTimeSeriesEncoder<T extends TimeSeries> implements BrailleEncoder<T> {
+abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
+implements BrailleEncoder<T> {
   public encode(state: T): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -306,7 +356,14 @@ abstract class AbstractTimeSeriesEncoder<T extends TimeSeries> implements Braill
         const currentValue = state.values[row][col];
         const prevValue = col > 0 ? state.values[row][col - 1] : null;
 
-        const brailleChar = this.getBrailleChar(currentValue, prevValue, low, medium, mediumHigh, high);
+        const brailleChar = this.getBrailleChar(
+          currentValue,
+          prevValue,
+          low,
+          medium,
+          high,
+          mediumHigh,
+        );
         values.push(brailleChar);
 
         cellToIndex[row].push(indexToCell.length);
@@ -321,21 +378,27 @@ abstract class AbstractTimeSeriesEncoder<T extends TimeSeries> implements Braill
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
   }
 
-  protected abstract getThresholds(row: number, state: T): {
+  protected abstract getThresholds(
+    row: number,
+    state: T,
+  ): {
     low: number;
     medium: number;
-    mediumHigh: number;
+    mediumHigh?: number;
     high: number;
   };
 
-  private getBrailleChar(
+  public getBrailleChar(
     current: number,
     prev: number | null,
     low: number,
     medium: number,
-    mediumHigh: number,
     high: number,
+    mediumHigh?: number,
   ): string {
+    if (mediumHigh === undefined) {
+      mediumHigh = high;
+    }
     if (current <= low && prev !== null && prev > low) {
       if (prev <= medium)
         return '⢄';
@@ -371,26 +434,124 @@ abstract class AbstractTimeSeriesEncoder<T extends TimeSeries> implements Braill
     }
     return '';
   }
+
+  public getBraille6Char(
+    current: number,
+    prev: number | null,
+    low: number,
+    medium: number,
+    high: number,
+  ): string {
+    const level = (val: number): 'low' | 'medium' | 'high' => {
+      if (val <= low)
+        return 'low';
+      if (val <= medium)
+        return 'medium';
+      if (val <= high)
+        return 'high';
+      return 'high';
+    };
+
+    const currLevel = level(current);
+    const prevLevel = prev !== null ? level(prev) : null;
+
+    const brailleMap: Record<string, string> = {
+      'low,medium': '⠢', // down from med
+      'low,high': '⠣', // down from high
+      'low,null': '⠤', // steady low
+      'low,low': '⠤', // steady low (same level)
+      'medium,low': '⠔', // up from low
+      'medium,high': '⠑', // down from high
+      'medium,null': '⠒', // steady medium
+      'medium,medium': '⠒', // steady medium (same level)
+      'high,low': '⠜', // up from low
+      'high,medium': '⠊', // up from med
+      'high,null': '⠉', // steady high
+      'high,high': '⠉', // steady high (same level)
+    };
+
+    const key = `${currLevel},${prevLevel}`;
+    return brailleMap[key] || '';
+  }
+
+  public addDot8(char: string): string {
+    if (!char || char.length === 0) {
+      // If no base character, return just dot 8 (⣀)
+      return String.fromCharCode(0x2800 + 0x80);
+    }
+    const code = char.charCodeAt(0);
+    const dotPattern = code - 0x2800;
+    const withDot8 = dotPattern | 0x80;
+    return String.fromCharCode(0x2800 + withDot8);
+  }
 }
 
 class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBrailleState> {
-  protected getThresholds(_: number, state: CandlestickBrailleState): {
+  protected getThresholds(
+    row: number,
+    state: CandlestickBrailleState,
+  ): {
     low: number;
     medium: number;
-    mediumHigh: number;
     high: number;
   } {
-    const range = (state.max - state.min) / 4;
-    const low = state.min + range;
+    // Defensive: support both array and single value for min/max
+    const min = Array.isArray(state.min) ? state.min[row] : state.min;
+    const max = Array.isArray(state.max) ? state.max[row] : state.max;
+    const range = (max - min) / 3;
+    const low = min + range;
     const medium = low + range;
-    const mediumHigh = medium + range;
-    const high = state.max;
-    return { low, medium, mediumHigh, high };
+    const high = max;
+    return { low, medium, high };
+  }
+
+  public encode(state: CandlestickBrailleState): EncodedBraille {
+    const values = new Array<string>();
+    const cellToIndex = new Array<Array<number>>();
+    const indexToCell = new Array<Cell>();
+
+    for (let row = 0; row < state.values.length; row++) {
+      cellToIndex.push(new Array<number>());
+      const { low, medium, high } = this.getThresholds(row, state);
+
+      for (let col = 0; col < state.values[row].length; col++) {
+        const currentValue = state.values[row][col];
+        const prevValue = col > 0 ? state.values[row][col - 1] : null;
+
+        // get the standard 6 dot braille character
+        let brailleChar = this.getBraille6Char(
+          currentValue,
+          prevValue,
+          low,
+          medium,
+          high,
+        );
+
+        // add Bear indicator
+        if (state.custom?.[col] === 'Bear') {
+          brailleChar = this.addDot8(brailleChar);
+        }
+
+        values.push(brailleChar);
+
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col });
+      }
+
+      values.push(Constant.NEW_LINE);
+      cellToIndex[row].push(indexToCell.length);
+      indexToCell.push({ row, col: state.values[row].length });
+    }
+
+    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
   }
 }
 
 class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
-  protected getThresholds(row: number, state: LineBrailleState): {
+  protected getThresholds(
+    row: number,
+    state: LineBrailleState,
+  ): {
     low: number;
     medium: number;
     mediumHigh: number;
@@ -405,7 +566,8 @@ class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
   }
 }
 
-export class BrailleService implements Observer<SubplotState | TraceState>, Disposable {
+export class BrailleService
+implements Observer<SubplotState | TraceState>, Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
@@ -418,7 +580,11 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
 
-  public constructor(context: Context, notification: NotificationService, display: DisplayService) {
+  public constructor(
+    context: Context,
+    notification: NotificationService,
+    display: DisplayService,
+  ) {
     this.context = context;
     this.notification = notification;
     this.display = display;
@@ -456,7 +622,11 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
     }
 
     const trace = state.type === 'subplot' ? state.trace : state;
-    if (trace.empty || trace.braille.empty || !this.encoders.has(trace.traceType)) {
+    if (
+      trace.empty
+      || trace.braille.empty
+      || !this.encoders.has(trace.traceType)
+    ) {
       return;
     }
 
@@ -474,7 +644,12 @@ export class BrailleService implements Observer<SubplotState | TraceState>, Disp
   }
 
   public moveToIndex(index: number): void {
-    if (!this.enabled || this.cache === null || index < 0 || index >= this.cache.indexToCell.length) {
+    if (
+      !this.enabled
+      || this.cache === null
+      || index < 0
+      || index >= this.cache.indexToCell.length
+    ) {
       return;
     }
 

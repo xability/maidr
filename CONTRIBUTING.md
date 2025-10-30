@@ -124,9 +124,7 @@ We use ESLint to enforce a consistent code style and formatting. Please run `npm
 We use Playwright for end-to-end testing. Please refer to the [documentation](https://playwright.dev/docs/intro) if you are new to Playwright.
 
 1. Use `npm run e2e` to run the end-to-end tests
-
 2. Use `npm run e2e:ui` to run tests with UI mode
-
 3. Use `npm run e2e:debug` to debug tests
 
 ### Committing Your Changes

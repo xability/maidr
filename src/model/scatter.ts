@@ -1,8 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, Dimension } from './abstract';
 import { MovablePlane } from './movable';
 
 interface ScatterXPoint {
@@ -15,11 +14,18 @@ interface ScatterYPoint {
   y: number;
 }
 
-export class ScatterTrace extends AbstractTrace {
+export class ScatterTrace extends AbstractTrace{
+  private mode: NavMode;
   protected readonly movable: MovablePlane;
+  protected readonly supportsExtrema = false;
+
+
 
   private readonly xPoints: ScatterXPoint[];
   private readonly yPoints: ScatterYPoint[];
+
+  private readonly xValues: number[];
+  private readonly yValues: number[];
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
@@ -56,25 +62,13 @@ export class ScatterTrace extends AbstractTrace {
       currentY.x.push(point.x);
     }
 
-    let [minX, maxX] = [Infinity, -Infinity];
-    for (const p of this.xPoints) {
-      if (p.x < minX)
-        minX = p.x;
-      if (p.x > maxX)
-        maxX = p.x;
-    }
-    this.minX = minX;
-    this.maxX = maxX;
+    this.xValues = this.xPoints.map(p => p.x);
+    this.yValues = this.yPoints.map(p => p.y);
 
-    let [minY, maxY] = [Infinity, -Infinity];
-    for (const p of this.yPoints) {
-      if (p.y < minY)
-        minY = p.y;
-      if (p.y > maxY)
-        maxY = p.y;
-    }
-    this.minY = minY;
-    this.maxY = maxY;
+    this.minX = MathUtil.safeMin(this.xValues);
+    this.maxX = MathUtil.safeMax(this.xValues);
+    this.minY = MathUtil.safeMin(this.yValues);
+    this.maxY = MathUtil.safeMax(this.yValues);
 
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
@@ -99,7 +93,27 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get highlightValues(): SVGElement[][] | null {
-    return this.movable.mode === 'col' ? this.highlightXValues : this.highlightYValues;
+    return this.movable.mode === "col"
+      ? this.highlightXValues
+      : this.highlightYValues;
+  }
+
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Rationale for returning empty object instead of groupIndex:
+    //
+    // Scatterplots fundamentally differ from other plot types in their grouping semantics:
+    // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
+    // - Heatmaps: groupIndex can represent different data dimensions
+    // - Scatterplots: Each point represents an individual observation, not a group
+    //
+    // Using groupIndex for scatterplots would cause different audio tones for what should be
+    // conceptually similar data points, potentially confusing users who expect consistent
+    // audio feedback when exploring point-by-point data.
+    //
+    // Future enhancement: When scatterplots support explicit multi-series data (e.g., different
+    // colors/shapes for distinct categories), this method should be updated to return the
+    // appropriate groupIndex for true categorical distinctions.
+    return {};
   }
 
   protected get audio(): AudioState {
@@ -134,10 +148,6 @@ export class ScatterTrace extends AbstractTrace {
         },
       };
     }
-  }
-
-  protected get braille(): BrailleState {
-    return this.outOfBoundsState as BrailleState;
   }
 
   protected get text(): TextState {
@@ -185,7 +195,10 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
-  private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {
+
+  private mapToSvgElements(
+    selector?: string,
+  ): [SVGElement[][], SVGElement[][]] | [null, null] {
     if (!selector) {
       return [null, null];
     }
@@ -222,5 +235,13 @@ export class ScatterTrace extends AbstractTrace {
       .map(([_, elements]) => elements);
 
     return [sortedXElements, sortedYElements];
+  }
+
+  public findNearestPoint(
+    _x: number,
+    _y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // to implement later
+    return null;
   }
 }
