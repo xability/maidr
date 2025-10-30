@@ -12,13 +12,20 @@ import { SmoothTrace } from './smooth';
 export class ViolinTrace extends SmoothTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
+    console.log('========================================');
     console.log('ViolinTrace: Constructor called - ViolinTrace is being used!');
     console.log('ViolinTrace: Layer data:', layer);
     console.log('ViolinTrace: Points data:', this.points);
+    console.log('ViolinTrace: First point:', this.points[0]?.[0]);
+    console.log('ViolinTrace: First point has density?', this.points[0]?.[0] && 'density' in this.points[0][0]);
+    console.log('========================================');
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+    console.log('========================================');
     console.log('ViolinTrace: mapToSvgElements called with selectors:', selectors);
+    console.log('ViolinTrace: lineValues length:', this.lineValues?.length);
+    console.log('========================================');
     
     if (!selectors || selectors.length !== this.lineValues.length) {
       console.log('ViolinTrace: Invalid selectors or lineValues length mismatch');
@@ -52,31 +59,11 @@ export class ViolinTrace extends SmoothTrace {
               const useElement = clippedGroup.querySelector('use');
               console.log('ViolinTrace: Found use element in clipped group:', useElement);
               if (useElement) {
-                // Get the path element that the use element references
-                const href = useElement.getAttribute('href') || useElement.getAttribute('xlink:href');
-                console.log('ViolinTrace: Use element href:', href);
-                if (href) {
-                  const pathId = href.replace('#', '');
-                  // Try multiple ways to find the path element
-                  let pathElement = document.getElementById(pathId) as SVGElement | null;
-                  if (!pathElement) {
-                    // Try querySelector as fallback
-                    pathElement = document.querySelector(`#${pathId}`) as SVGElement | null;
-                  }
-                  if (!pathElement) {
-                    // Try to find it in the same group
-                    pathElement = groupElement.querySelector(`#${pathId}`) as SVGElement | null;
-                  }
-                  if (!pathElement) {
-                    // Try to find it in the entire document
-                    pathElement = groupElement.closest('svg')?.querySelector(`#${pathId}`) as SVGElement | null;
-                  }
-                  console.log('ViolinTrace: Found referenced path element:', pathElement);
-                  if (pathElement) {
-                    lineElement = pathElement;
-                    console.log('ViolinTrace: Using referenced path element as lineElement');
-                  }
-                }
+                // Use the use element directly instead of the defs path
+                lineElement = useElement as SVGElement;
+                console.log('ViolinTrace: Using use element as lineElement');
+                // Reset any debugging styles - don't modify the violin shape
+                console.log('ViolinTrace: Found and using use element');
               }
             } else {
               // Fallback: look for use element and use its parent
@@ -100,58 +87,59 @@ export class ViolinTrace extends SmoothTrace {
       
       console.log('ViolinTrace: Final lineElement:', lineElement);
 
-      // For violin plots, we need to find the actual rendered element for highlighting
+      // For violin plots, create circle elements for each point (like LineTrace does)
+      // This avoids the issue with highlighting defs paths or use elements
       const linePointElements: SVGElement[] = [];
       if (lineElement && lineElement instanceof SVGElement) {
-        // Check if this path is in defs - if so, we need to find the use element
-        if (lineElement.tagName === 'path') {
-          const isInDefs = lineElement.closest('defs') !== null;
-          
-          // Find the actual rendered element (use element for defs paths, or the path itself)
-          let actualElement: SVGElement | null = null;
-          if (isInDefs) {
-            console.log('ViolinTrace: Path is in defs, finding use element');
-            const pathId = lineElement.getAttribute('id');
-            if (pathId) {
-              // Fallback: query all use elements and check attributes
-              // This is necessary because IDs starting with numbers are not valid CSS selectors
-              const allUseElements = document.querySelectorAll('use');
-              for (const useEl of Array.from(allUseElements)) {
-                const href = useEl.getAttribute('href') || useEl.getAttribute('xlink:href');
-                if (href === `#${pathId}`) {
-                  actualElement = useEl as SVGElement;
-                  break;
-                }
-              }
-              if (actualElement) {
-                console.log('ViolinTrace: Found use element for defs path');
+        // Check if this is a path in defs - if so, we need to create circles for highlighting
+        if (lineElement.tagName === 'path' && lineElement.closest('defs')) {
+          console.log('ViolinTrace: Path is in defs, creating circle elements for highlighting');
+          // Create circle elements for each point along the violin curve
+          const dataPoints = this.points?.[r] as any[];
+          if (dataPoints) {
+            for (const pt of dataPoints) {
+              if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
+                // Create a circle element for this point
+                const circleElement = Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement);
+                // Override the radius to make it smaller (3px instead of the default)
+                circleElement.setAttribute('r', '3');
+                linePointElements.push(circleElement);
+                console.log('ViolinTrace: Created circle element at', pt.svg_x, pt.svg_y, 'element:', circleElement);
               }
             }
-          } else {
-            actualElement = lineElement;
           }
+          if (linePointElements.length > 0) {
+            allFailed = false;
+            console.log('ViolinTrace: Created', linePointElements.length, 'circle elements for highlighting');
+          }
+        } else if (lineElement.tagName === 'use') {
+          console.log('ViolinTrace: Found use element, making it visible for highlighting');
+          // For use elements, try to make them visible and highlightable
+          // Make the use element visible and add it to linePointElements
+          linePointElements.push(lineElement);
+          allFailed = false;
+          console.log('ViolinTrace: Added use element to linePointElements');
           
-          if (actualElement) {
-            // Create circle elements for each point on the violin shape, similar to LineTrace
-            // Find the parent container that will hold the circles
-            const container = actualElement.closest('g[clip-path]') || actualElement.parentElement;
-            if (container) {
-              for (const point of this.points[r]) {
-                // For violin plots, points have svg_x and svg_y properties
-                const smoothPoint = point as any;
-                if (smoothPoint.svg_x !== undefined && smoothPoint.svg_y !== undefined) {
-                  const circle = Svg.createCircleElement(smoothPoint.svg_x, smoothPoint.svg_y, actualElement);
-                  linePointElements.push(circle);
-                }
+          // Also create circles for each point for better visibility
+          const dataPoints = this.points?.[r] as any[];
+          if (dataPoints) {
+            for (const pt of dataPoints) {
+              if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
+                // Create a circle element for this point
+                const circleElement = Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement);
+                // Override the radius to make it smaller (3px instead of the default)
+                circleElement.setAttribute('r', '3');
+                linePointElements.push(circleElement);
+                console.log('ViolinTrace: Created circle element at', pt.svg_x, pt.svg_y, 'element:', circleElement);
               }
-              allFailed = false;
-              console.log('ViolinTrace: Created', linePointElements.length, 'circle elements for highlighting');
             }
-          } else {
-            console.log('ViolinTrace: Could not find actual rendered element for path');
+          }
+          if (linePointElements.length > 0) {
+            allFailed = false;
+            console.log('ViolinTrace: Created', linePointElements.length, 'elements for highlighting');
           }
         } else {
-          console.log('ViolinTrace: Skipping non-path element:', lineElement.tagName);
+          console.log('ViolinTrace: Skipping non-path/non-use element:', lineElement.tagName);
         }
       } else {
         console.log('ViolinTrace: No valid lineElement found for this selector');
@@ -281,60 +269,52 @@ export class ViolinTrace extends SmoothTrace {
     const point = this.points[this.row][this.col];
     const baseText = super.text();
 
-    console.log('ViolinTrace: text() called with point:', point);
-
     // For violin plots, display Y value, X coordinate, and density (width)
     if (point.density !== undefined && point.density !== null) {
       // Find the min and max density values across all points
+      // Filter to get unique densities (in case of duplicate points)
       const allDensities = this.points[this.row]
         .map(p => (p as any).density)
         .filter(d => d !== undefined && d !== null) as number[];
       
-      const maxDensity = Math.max(...allDensities);
-      const minDensity = Math.min(...allDensities);
+      // Get unique density values
+      const uniqueDensities = Array.from(new Set(allDensities));
+      
+      const maxDensity = Math.max(...uniqueDensities);
+      const minDensity = Math.min(...uniqueDensities);
       const currentDensity = (point as any).density;
       
-      console.log('ViolinTrace: Density check - current:', currentDensity, 'max:', maxDensity, 'min:', minDensity);
-      console.log('ViolinTrace: All densities:', allDensities);
-      
       // Determine if current point has max or min density
-      let densityLabel = 'Width (Density)';
+      let densityLabel = 'Density';
       const tolerance = 0.0001; // Tolerance for floating point comparison
       
       const isHigh = Math.abs(currentDensity - maxDensity) < tolerance;
       const isLow = Math.abs(currentDensity - minDensity) < tolerance;
       
-      console.log('ViolinTrace: isHigh:', isHigh, 'isLow:', isLow, 'diff from max:', Math.abs(currentDensity - maxDensity), 'diff from min:', Math.abs(currentDensity - minDensity));
-      
       if (isHigh) {
-        densityLabel = 'Width (Density) - High density';
-        console.log('ViolinTrace: High density detected');
+        densityLabel = 'Density - High density';
       } else if (isLow) {
-        densityLabel = 'Width (Density) - Low density';
-        console.log('ViolinTrace: Low density detected');
+        densityLabel = 'Density - Low density';
       }
       
       const textState = {
         ...baseText,
         main: {
           label: 'Y Value',
-          value: point.y.toFixed(2),
+          value: point.y, // Keep as number for proper formatting
         },
         cross: {
           label: 'X Coordinate',
-          value: typeof point.x === 'number' ? point.x.toFixed(4) : String(point.x),
+          value: typeof point.x === 'number' ? point.x : Number(point.x),
         },
         density: {
           label: densityLabel,
-          value: currentDensity.toFixed(4), // Density represents the width at this y-level
+          value: currentDensity, // Density represents the width at this y-level
         },
       };
-      console.log('ViolinTrace: returning text state:', textState);
-      console.log('ViolinTrace: Density label being returned:', densityLabel);
       return textState;
     }
 
-    console.log('ViolinTrace: no density data, returning base text');
     return baseText;
   }
 }

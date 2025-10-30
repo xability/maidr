@@ -140,16 +140,8 @@ export class SmoothTrace extends LineTrace {
         continue;
       }
 
-      // For violin plots, we need to work with the path element directly
-      // Check if this is a violin plot by looking for density data
-      const isViolinPlot = this.points?.[r]?.some(pt => 'density' in pt);
-      
-      if (isViolinPlot) {
-        // For violin plots, let the ViolinTrace class handle this
-        // Don't interfere with violin plot rendering
-        svgElements.push([]);
-        allFailed = false;
-      } else {
+      // For regular smooth plots, create point elements along the line
+      {
         // For regular smooth plots, create point elements along the line
         const linePointElements: SVGElement[] = [];
         const dataPoints = this.points?.[r];
