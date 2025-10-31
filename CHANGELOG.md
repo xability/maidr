@@ -1,3 +1,10 @@
+# [3.36.0](https://github.com/xability/maidr/compare/v3.35.0...v3.36.0) (2025-10-31)
+
+
+### Features
+
+* support custom dom ordering ([#461](https://github.com/xability/maidr/issues/461)) ([ddf3bf4](https://github.com/xability/maidr/commit/ddf3bf43d42140c60abfb925ea70a6a881ba8f68))
+
 # [3.35.0](https://github.com/xability/maidr/compare/v3.34.0...v3.35.0) (2025-10-30)
 
 
