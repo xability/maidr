@@ -8,11 +8,12 @@ import type {
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
-import { AbstractTrace } from '@model/abstract';
+import { AbstractTrace, Dimension } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { MovableGrid } from './movable';
 
 // Type alias for highlight elements - can be single elements or arrays of elements
 type HighlightValue = SVGElement | SVGElement[];
@@ -107,6 +108,10 @@ export class Candlestick extends AbstractTrace {
       layer.selectors as string | string[] | CandlestickSelector | undefined,
     );
     this.highlightCenters = this.mapSvgElementsToCenters();
+    const options = this.orientation === Orientation.HORIZONTAL
+      ? { col: this.sections.length - 1 }
+      : { row: this.sections.length - 1 };
+    this.movable = new MovableGrid<number>(this.candleValues, options);
   }
 
   /**
@@ -208,16 +213,16 @@ export class Candlestick extends AbstractTrace {
   /**
    * Override moveOnce to handle segment type preservation and value-based sorting
    */
-  public moveOnce(direction: MovableDirection): void {
+  public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     switch (direction) {
@@ -230,7 +235,7 @@ export class Candlestick extends AbstractTrace {
         );
         if (currentSegmentPosition === -1) {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         const newSegmentPosition
           = direction === 'UPWARD'
@@ -241,7 +246,7 @@ export class Candlestick extends AbstractTrace {
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         break;
       }
@@ -260,16 +265,17 @@ export class Candlestick extends AbstractTrace {
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         break;
       }
     }
 
     this.notifyStateUpdate();
+    return true;
   }
 
-  public override moveToExtreme(direction: MovableDirection): void {
+  public override moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -308,9 +314,10 @@ export class Candlestick extends AbstractTrace {
     }
 
     this.notifyStateUpdate();
+    return true;
   }
 
-  public moveToIndex(row: number, col: number): void {
+  public moveToIndex(row: number, col: number): boolean {
     // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -334,6 +341,7 @@ export class Candlestick extends AbstractTrace {
     this.updateVisualSegmentPosition();
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
+    return true;
   }
 
   /**
@@ -386,8 +394,9 @@ export class Candlestick extends AbstractTrace {
     return this.candleValues;
   }
 
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     let value: number;
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     if (this.currentSegmentType === 'volatility') {
       value = this.candles[this.currentPointIndex].volatility;
     } else if (this.currentSegmentType) {
@@ -397,11 +406,17 @@ export class Candlestick extends AbstractTrace {
     }
 
     return {
-      min: this.min,
-      max: this.max,
-      size: this.candles.length,
-      index: this.currentPointIndex,
-      value,
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: value,
+      },
+      panning: {
+        x: isHorizontal ? this.row : this.col,
+        y: isHorizontal ? this.col : this.row,
+        rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+        cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+      },
       trend: this.candles[this.currentPointIndex].trend,
     };
   }
@@ -907,6 +922,13 @@ export class Candlestick extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    return {
+      rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+      cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
     };
   }
 }

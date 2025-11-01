@@ -39,11 +39,20 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   public get isInitialEntry(): boolean {
+    console.log("is intial entry?",this.movable.isInitialEntry);
     return this.movable.isInitialEntry;
   }
 
   public set isInitialEntry(value: boolean) {
     this.movable.isInitialEntry=value;
+  }
+
+  public get isOutOfBounds(): boolean {
+    return this.movable.isOutOfBounds;
+  }
+
+  public set isOutOfBounds(value: boolean){
+    this.movable.isOutOfBounds = value;
   }
 
   public get row(): number {
@@ -89,9 +98,10 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     this.observers.forEach(observer => observer.update(currentState));
   }
 
-  notifyOutOfBounds(): void {
-    const outOfBoundsState = this.outOfBoundsState;
-    this.observers.forEach(observer => observer.update(outOfBoundsState));
+  public notifyOutOfBounds(): void {
+    this.isOutOfBounds = true;
+    this.notifyStateUpdate();
+    this.isOutOfBounds = false;
   }
 
   public moveOnce(direction: MovableDirection): boolean {

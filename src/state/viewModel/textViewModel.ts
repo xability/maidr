@@ -35,6 +35,7 @@ const textSlice = createSlice({
       state.enabled = action.payload;
     },
     notify(state, action: PayloadAction<string>): void {
+      console.log("state.message is set tp",action.payload);
       state.message = action.payload;
     },
     clearMessage(state): void {

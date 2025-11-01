@@ -192,7 +192,9 @@ export class Context implements Disposable {
   }
 
   public getInstruction(includeClickPrompt: boolean): string {
+    console.log("entered get INstruction");
     const state = this.instructionContext.state;
+    console.log(state);
     if (state.empty) {
       return `No ${state.type} info available`;
     }
@@ -214,14 +216,17 @@ export class Context implements Disposable {
       case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
         let effectivePlotType = state.plotType;
+        console.log(effectivePlotType);
         if (state.plotType === 'multiline' && state.groupCount === 1) {
           effectivePlotType = 'single line';
         }
+        console.log(effectivePlotType);
 
         const groupCountText
           = effectivePlotType === 'multiline' && state.groupCount
             ? ` with ${state.groupCount} groups`
             : '';
+        console.log(groupCountText);
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }

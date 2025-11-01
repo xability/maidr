@@ -5,8 +5,14 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
+import { Movable } from '@type/movable';
 
 export class Heatmap extends AbstractTrace {
+  protected get values(): (Object | Element)[][] {
+    return this.heatmapValues;
+  }
+  protected readonly supportsExtrema = false;
+  protected readonly movable: Movable;
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
   protected highlightCenters:

@@ -6,7 +6,7 @@ const Text: React.FC = () => {
   const { enabled, announce, value, message } = useViewModelState('text');
   const { rotor_value } = useViewModelState('rotor');
   const settings = useViewModelState('settings');
-  console.log(enabled, announce, value, message);
+  console.trace(value);
   const navText = (enabled && value) || '';
   const messageText = typeof message === 'string' ? message : '';
 

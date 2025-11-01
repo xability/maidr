@@ -9,12 +9,14 @@ interface MovableOptions {
 
 abstract class AbstractMovable implements Movable {
   public isInitialEntry: boolean;
+  public isOutOfBounds: boolean;
 
   public row: number;
   public col: number;
 
   protected constructor(options?: MovableOptions) {
     this.isInitialEntry = options?.isInitialEntry ?? true;
+    this.isOutOfBounds = false;
     this.row = options?.row ?? 0;
     this.col = options?.col ?? 0;
   }
