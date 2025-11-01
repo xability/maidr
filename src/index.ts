@@ -73,6 +73,12 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
       }
+      if (!hasAnnounced) {
+        hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
+
+        // Also show visually in Text component (no alert)
+        controller.showInitialInstructionInText();
+      }
     }, 0);
   };
   const onVisibilityChange = (): void => {

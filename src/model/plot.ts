@@ -3,9 +3,10 @@ import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
-import { AbstractPlot, Dimension } from './abstract';
+import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
@@ -16,10 +17,11 @@ const DEFAULT_CAPTION = 'unavailable';
 export class Figure extends AbstractPlot<FigureState> implements Movable, Observable<FigureState>, Disposable {
   protected get dimension(): Dimension {
     return {
-      rows:this.subplots.length,
+      rows: this.subplots.length,
       cols: this.subplots[this.row].length,
-    }
+    };
   }
+
   public readonly id: string;
   protected readonly movable: Movable;
 
@@ -62,7 +64,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     return this.subplots[this.row][this.col];
   }
 
-    public get state(): FigureState {
+  public get state(): FigureState {
     if (this.isOutOfBounds) {
       return {
         empty: true,
@@ -99,11 +101,11 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
         empty: true,
         type: 'trace',
         audio: {
-        y: this.row,
-        x: this.col,
-        rows: this.subplots.length,
-        cols: this.subplots[this.row].length,
-      },
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
+        },
       };
     }
 
@@ -134,11 +136,11 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
         empty: true,
         type: 'trace',
         audio: {
-        y: this.row,
-        x: this.col,
-        rows: this.subplots.length,
-        cols: this.subplots[this.row].length,
-      },
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
+        },
       };
     }
 
@@ -153,8 +155,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       },
     };
   }
-
-
 
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
@@ -176,6 +176,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       cols: this.values[this.row].length,
     };
   }
+
   protected readonly movable: Movable;
 
   public readonly traces: Trace[][];
@@ -244,14 +245,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     if (this.highlightValue === null) {
       return {
         empty: true,
-        type: "trace",
+        type: 'trace',
         audio: {
-        y: this.row,
-        x: this.col,
-        rows: this.values.length,
-        cols: this.values[this.row].length,
-      },
-      }
+          y: this.row,
+          x: this.col,
+          rows: this.values.length,
+          cols: this.values[this.row].length,
+        },
+      };
     }
 
     return {
@@ -292,7 +293,7 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   moveToXValue: (xValue: any) => boolean;
 
-  moveToPoint: (x:number, y:number) => void;
+  moveToPoint: (x: number, y: number) => void;
 
   /**
    * Notify observers that the trace is out of bounds

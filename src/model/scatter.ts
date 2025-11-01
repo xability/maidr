@@ -4,6 +4,7 @@ import type { Dimension } from './abstract';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
+import { MathUtil } from '@util/math';
 
 interface ScatterXPoint {
   x: number;

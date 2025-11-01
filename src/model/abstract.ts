@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import { MaidrLayer, TraceType } from '@type/grammar';
+import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -14,6 +14,7 @@ import type {
 } from '@type/state';
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
+import { TraceType } from '@type/grammar';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -39,19 +40,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   public get isInitialEntry(): boolean {
-    console.log("is intial entry?",this.movable.isInitialEntry);
     return this.movable.isInitialEntry;
   }
 
   public set isInitialEntry(value: boolean) {
-    this.movable.isInitialEntry=value;
+    this.movable.isInitialEntry = value;
   }
 
   public get isOutOfBounds(): boolean {
     return this.movable.isOutOfBounds;
   }
 
-  public set isOutOfBounds(value: boolean){
+  public set isOutOfBounds(value: boolean) {
     this.movable.isOutOfBounds = value;
   }
 
@@ -63,12 +63,13 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     return this.movable.col;
   }
 
-  public set row(value: number){
-    this.movable.row=value;
+  public set row(value: number) {
+    console.log(`value: ${value} and row: ${this.movable.row}`);
+    this.movable.row = value;
   }
 
-  public set col(value: number){
-    this.movable.col=value;
+  public set col(value: number) {
+    this.movable.col = value;
   }
 
   /**
@@ -302,6 +303,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       BACKWARD: this.dimension.cols,
     };
   }
+
   public resetToInitialEntry(): void {
     this.isInitialEntry = true;
     this.row = 0;
@@ -377,7 +379,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   public supportsExtremaNavigation(): boolean {
     return this.supportsExtrema;
   }
-  protected abstract get values(): (Element | Object)[][];
+  protected abstract get values(): (Element | number | number[])[][];
 
   /**
    * Abstract property that subclasses must implement to indicate extrema support
@@ -447,6 +449,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     return false;
   }
+
   /**
    * Type guard to check if trace has points array
    */
@@ -539,5 +542,4 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       && y <= bbox.y + bbox.height + r
     );
   }
-
 }

@@ -1,21 +1,26 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { Node } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { MovableDirection, Node } from '@type/movable';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGraph } from './movable';
+import { XValue } from '@type/navigation';
 
 const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX
   = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace {
+  protected get values(): number[][] {
+    return this.lineValues;
+  }
   protected readonly supportsExtrema = true;
   protected readonly rotorSupport = true;
+  protected readonly movable;
 
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
@@ -121,8 +126,8 @@ export class LineTrace extends AbstractTrace {
         raw: this.lineValues[this.row][this.col],
       },
       panning: {
-        x: this.col,
-        y: this.row,
+        x: this.row,
+        y: this.col,
         rows: this.lineValues.length,
         cols: this.lineValues[this.row].length,
       },
@@ -154,7 +159,7 @@ export class LineTrace extends AbstractTrace {
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
-        const lineIndex = intersection.groupIndex!;
+        const lineIndex = intersection.group!;
         return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
       });
 
@@ -192,17 +197,17 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  public moveOnce(direction: MovableDirection): void {
+  public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
-      this.handleInitialEntry();
+      this.movable.handleInitialEntry();
       this.previousRow = null;
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     // Store previous row before moving
@@ -235,16 +240,16 @@ export class LineTrace extends AbstractTrace {
           } else {
             this.notifyStateUpdate();
           }
-          return;
+          return true;
         } else {
           // No matching X value found in target line
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
       } else {
         // No valid line found based on y values - hit boundary
         this.notifyOutOfBounds();
-        return;
+        return false;
       }
     }
 
@@ -272,6 +277,7 @@ export class LineTrace extends AbstractTrace {
     } else {
       this.notifyStateUpdate();
     }
+    return true;
   }
 
   /**
@@ -288,14 +294,21 @@ export class LineTrace extends AbstractTrace {
         p => p.x === currentX && p.y === currentY,
       );
       if (c !== -1) {
-        intersections.push({
-          min: this.min[r],
-          max: this.max[r],
-          size: this.points[r].length,
-          index: c,
-          value: currentY,
-          groupIndex: r,
-        });
+        intersections.push(
+          {
+            freq: {
+              min: this.min[r],
+              max: this.max[c],
+              raw: currentY
+            },
+            panning: {
+              x: this.row,
+              y: this.col,
+              rows: this.lineValues.length,
+              cols: this.lineValues[this.row].length,
+            },
+            group: r,
+          });
       }
     }
 
@@ -674,7 +687,7 @@ export class LineTrace extends AbstractTrace {
   public moveToXValue(xValue: XValue): boolean {
     // Handle initial entry properly
     if (this.isInitialEntry) {
-      this.handleInitialEntry();
+      this.movable.handleInitialEntry();
     }
     return super.moveToXValue(xValue);
   }
@@ -707,7 +720,7 @@ export class LineTrace extends AbstractTrace {
     return false;
   }
 
-  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }

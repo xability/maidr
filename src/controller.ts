@@ -80,7 +80,6 @@ export class Controller implements Disposable {
     );
     this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
 
-
     this.brailleService = new BrailleService(
       this.context,
       this.notificationService,

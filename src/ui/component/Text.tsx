@@ -6,10 +6,8 @@ const Text: React.FC = () => {
   const { enabled, announce, value, message } = useViewModelState('text');
   const { rotor_value } = useViewModelState('rotor');
   const settings = useViewModelState('settings');
-  console.trace(value);
   const navText = (enabled && value) || '';
   const messageText = typeof message === 'string' ? message : '';
-
 
   // Current text to expose via live region: prefer message, else nav when announce is enabled
   const current = messageText.trim().length > 0
@@ -17,9 +15,6 @@ const Text: React.FC = () => {
     : (announce && navText ? navText : '');
 
   const visual = messageText.trim().length > 0 ? messageText : navText;
-
-  console.log(navText, messageText, visual, current);
-  console.log(rotor_value);
 
   return (
     <div>

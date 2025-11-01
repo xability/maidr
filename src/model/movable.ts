@@ -129,7 +129,7 @@ export class MovableGrid<Element> extends AbstractMovable {
     }
   }
 
-  private handleInitialEntry(): void {
+  public handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.elements.length - 1));
     this.col = Math.max(0, Math.min(this.col, this.elements[this.row].length - 1));
@@ -242,7 +242,7 @@ export class MovableGraph extends AbstractMovable {
     }
   }
 
-  private handleInitialEntry(): void {
+  public handleInitialEntry(): void {
     this.isInitialEntry = false;
 
     if (this.isMovable([0, 0])) {

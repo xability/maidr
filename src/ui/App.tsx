@@ -5,12 +5,12 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import Braille from './component/Braille';
 import Chat from './component/Chat';
+import CommandPalette from './component/CommandPalette';
 import Help from './component/Help';
 import Review from './component/Review';
 import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
-import CommandPalette from './component/CommandPalette';
 import { GoToExtrema } from './components/GoToExtrema';
 
 interface AppProps {

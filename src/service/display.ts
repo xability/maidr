@@ -74,7 +74,6 @@ export class DisplayService implements Disposable {
   }
 
   private addInstruction(): void {
-    console.log("addInsturction");
     this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
     this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);

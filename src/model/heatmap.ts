@@ -1,16 +1,17 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
-import { Movable } from '@type/movable';
 
 export class Heatmap extends AbstractTrace {
-  protected get values(): (Object | Element)[][] {
+  protected get values(): number[][] {
     return this.heatmapValues;
   }
+
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
   private readonly heatmapValues: number[][];

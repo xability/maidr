@@ -9,16 +9,6 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
-const LOWER_OUTLIER = 'Lower outlier(s)';
-const UPPER_OUTLIER = 'Upper outlier(s)';
-
-const MIN = 'Minimum';
-const MAX = 'Maximum';
-
-const Q1 = '25%';
-const Q2 = '50%';
-const Q3 = '75%';
-
 export class BoxTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
@@ -107,7 +97,7 @@ export class BoxTrace extends AbstractTrace {
     return this.boxValues;
   }
 
- protected get audio(): AudioState {
+  protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = isHorizontal ? this.boxValues[this.row][this.col] : this.boxValues[this.col][this.row];
     const index = isHorizontal ? this.col : this.row;

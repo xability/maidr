@@ -1,3 +1,4 @@
+import type { Dimension } from '@model/abstract';
 import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
@@ -8,7 +9,7 @@ import type {
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
-import { AbstractTrace, Dimension } from '@model/abstract';
+import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
@@ -924,6 +925,7 @@ export class Candlestick extends AbstractTrace {
       col: this.highlightCenters[nearestIndex].col,
     };
   }
+
   protected get dimension(): Dimension {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     return {

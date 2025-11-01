@@ -118,7 +118,6 @@ export class TextService implements Observer<PlotState>, Disposable {
    * This method can be called externally to enable announcements
    */
   public enableAnnouncements(): void {
-    console.log("first navigation");
     this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
