@@ -7,6 +7,7 @@ import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
 const LOWER_OUTLIER = 'Lower outlier(s)';
 const UPPER_OUTLIER = 'Upper outlier(s)';
@@ -85,6 +86,7 @@ export class BoxTrace extends AbstractTrace {
     }
 
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: this.boxValues.length - 1 });
   }
 
   public dispose(): void {
@@ -105,12 +107,13 @@ export class BoxTrace extends AbstractTrace {
     return this.boxValues;
   }
 
-  protected audio(): AudioState {
-    // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const value = this.boxValues[this.row][this.col];
-    const index = Array.isArray(value)
-      ? value.map(v => v - this.min)
-      : value - this.min;
+ protected get audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const value = isHorizontal ? this.boxValues[this.row][this.col] : this.boxValues[this.col][this.row];
+    const index = isHorizontal ? this.col : this.row;
+    const panning = Array.isArray(value)
+      ? value.length === 0 ? index : value[value.length - 1] - this.min
+      : Number.isNaN(value) ? index : value - this.min;
 
     return {
       freq: {

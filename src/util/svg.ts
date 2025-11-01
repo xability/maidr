@@ -61,7 +61,6 @@ export abstract class Svg {
 
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-
         element.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
@@ -154,15 +153,6 @@ export abstract class Svg {
 
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
-    const originalColor = this.getColor(element);
-    const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
-
-    this.setColor(clone, highlightColor);
-    element.insertAdjacentElement(Constant.AFTER_END, clone);
-    return clone;
-  }
-
-  public static getColor(element: SVGElement): string {
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
 
@@ -198,6 +188,9 @@ export abstract class Svg {
         clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
       }
     }
+
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
   }
 
   private static getHighlightColor(originalColor: string, fallbackColor: string): string {

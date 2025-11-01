@@ -6,8 +6,13 @@ export interface Movable {
   isMovable: (target: [number, number] | MovableDirection) => boolean;
 
   get isInitialEntry(): boolean;
+  set isInitialEntry(value: boolean);
+
   get row(): number;
+  set row(value: number);
+
   get col(): number;
+  set col(value: number);
 }
 
 export type MovableDirection

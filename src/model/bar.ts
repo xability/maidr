@@ -114,6 +114,10 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
   }
 
+  protected get values(): number[][] {
+    return this.barValues;
+  }
+
   protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;

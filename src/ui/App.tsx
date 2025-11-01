@@ -10,6 +10,8 @@ import Review from './component/Review';
 import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
+import CommandPalette from './component/CommandPalette';
+import { GoToExtrema } from './components/GoToExtrema';
 
 interface AppProps {
   plot: HTMLElement;

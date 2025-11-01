@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer, TraceType } from '@type/grammar';
+import { MaidrLayer, TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { Observable, Observer } from '@type/observable';
@@ -32,6 +32,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   protected constructor() {
     this.observers = new Array<Observer<State>>();
   }
+  protected abstract get dimension(): Dimension;
 
   public dispose(): void {
     this.observers.length = 0;
@@ -39,6 +40,10 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 
   public get isInitialEntry(): boolean {
     return this.movable.isInitialEntry;
+  }
+
+  public set isInitialEntry(value: boolean) {
+    this.movable.isInitialEntry=value;
   }
 
   public get row(): number {
@@ -49,15 +54,22 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     return this.movable.col;
   }
 
+  public set row(value: number){
+    this.movable.row=value;
+  }
+
+  public set col(value: number){
+    this.movable.col=value;
+  }
+
   /**
    * Gets safe row and column indices to prevent accessing undefined values
    * @returns Object with safe row and column indices
    */
   protected getSafeIndices(): { row: number; col: number } {
-    const values = this.values;
-    const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
+    const safeRow = this.row >= 0 && this.row < this.dimension.rows ? this.row : 0;
     const safeCol
-      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+      = this.col >= 0 && this.col < this.dimension.cols ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -77,7 +89,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     this.observers.forEach(observer => observer.update(currentState));
   }
 
-  protected notifyOutOfBounds(): void {
+  notifyOutOfBounds(): void {
     const outOfBoundsState = this.outOfBoundsState;
     this.observers.forEach(observer => observer.update(outOfBoundsState));
   }
@@ -132,7 +144,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  protected moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     // no-op
     return false;
   }
@@ -280,6 +292,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       BACKWARD: this.dimension.cols,
     };
   }
+  public resetToInitialEntry(): void {
+    this.isInitialEntry = true;
+    this.row = 0;
+    this.col = 0;
+  }
 
   protected get hasMultiPoints(): boolean {
     return false;
@@ -350,6 +367,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   public supportsExtremaNavigation(): boolean {
     return this.supportsExtrema;
   }
+  protected abstract get values(): (Element | Object)[][];
 
   /**
    * Abstract property that subclasses must implement to indicate extrema support
@@ -419,4 +437,97 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     return false;
   }
+  /**
+   * Type guard to check if trace has points array
+   */
+  private hasPointsArray(): boolean {
+    return 'points' in this && this.points !== undefined;
+  }
+
+  /**
+   * Type guard to check if trace has values array
+   */
+  private hasValuesArray(): boolean {
+    return 'values' in this && this.values !== undefined;
+  }
+
+  /**
+   * Safely get points array with proper typing
+   */
+  private getPointsArray(): any[] {
+    return (this as any).points;
+  }
+
+  /**
+   * Validate points array structure
+   */
+  private isValidPointsArray(points: any[]): boolean {
+    return Array.isArray(points) && points.length > 0;
+  }
+
+  /**
+   * Validate values array structure
+   */
+  private isValidValuesArray(values: any[][]): boolean {
+    return Array.isArray(values) && values.length > 0;
+  }
+
+  public getId(): string {
+    return this.id;
+  }
+
+  protected abstract findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null;
+
+  // hover functions
+  // parent calls moveToPoint with x y from mouse event
+  // this then finds a nearest point, and checks if it's in bounds
+  // if all is good, it sends row col to context.moveToIndex
+  public moveToPoint(x: number, y: number): void {
+    // temp: don't run for boxplot. remove when boxplot is fixed
+    if (this.type === TraceType.BOX) {
+      return;
+    }
+    const nearest = this.findNearestPoint(x, y);
+    if (nearest) {
+      if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
+        this.moveToIndex(nearest.row, nearest.col);
+      }
+    }
+  }
+
+  // used in hover feature
+  // this checks if the x y is within the bounding box of the element
+  // or close enough, if the point is tiny
+  public isPointInBounds(
+    x: number,
+    y: number,
+    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
+  ): boolean {
+    // check if x y is within r distance of the bounding box of the element
+    const bbox = element.getBoundingClientRect();
+    let r: number = 12;
+    // if plot type is heatmap bar stacked or histogram, use 0
+    if (
+      this.type === TraceType.HEATMAP
+      || this.type === TraceType.BAR
+      || this.type === TraceType.STACKED
+      || this.type === TraceType.HISTOGRAM
+    ) {
+      r = 0;
+    }
+    return (
+      x >= bbox.x - r
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r
+    );
+  }
+
 }

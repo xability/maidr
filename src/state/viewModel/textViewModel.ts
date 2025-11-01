@@ -59,6 +59,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     super(store);
     this.textService = text;
     this.registerListeners(notification, autoplay);
+    console.log("Constructor")
   }
 
   public dispose(): void {
@@ -72,6 +73,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(this.textService.onNavigation((e) => {
+      console.log("first nva?",e)
       if (e.type === 'first_navigation') {
         this.setAnnounce(true);
       }
