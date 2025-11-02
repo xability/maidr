@@ -28,7 +28,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // For horizontal orientation, reverse points to match visual order (lower-left start)
-    // This ensures points[row] aligns with boxValues[row] after reversal
+    // This ensures points[row] will align with boxValues[row] in the subsequent processing
     if (this.orientation === Orientation.HORIZONTAL) {
       this.points = [...(layer.data as BoxPoint[])].reverse();
     } else {
@@ -77,7 +77,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       selectors = [...selectors].reverse();
     }
 
-    this.highlightValues = this.mapToSvgElements(selectors ?? []);
+    this.highlightValues = this.mapToSvgElements(selectors);
 
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
@@ -90,9 +90,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   public moveToIndex(row: number, col: number): void {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    row = isHorizontal ? row : col;
-    col = isHorizontal ? col : row;
+    // No coordinate swap needed - navigation already passes (row, col) matching boxValues structure
+    // Vertical: boxValues[section][box] → row=section, col=box
+    // Horizontal: boxValues[box][section] → row=box, col=section
     super.moveToIndex(row, col);
   }
 
@@ -152,7 +152,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   private mapToSvgElements(
-    selectors: BoxSelector[],
+    selectors: BoxSelector[] | undefined,
   ): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.points.length) {
       return null;
@@ -168,27 +168,34 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     }
 
     selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
+      const lowerOutliers = selector.lowerOutliers?.flatMap(s =>
         Svg.selectAllElements(s),
-      );
-      const upperOutliers = selector.upperOutliers.flatMap(s =>
+      ) ?? [];
+      const upperOutliers = selector.upperOutliers?.flatMap(s =>
         Svg.selectAllElements(s),
-      );
+      ) ?? [];
 
       const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
       const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
 
-      const iq = Svg.selectElement(selector.iq) ?? Svg.createEmptyElement();
+      const iq = Svg.selectElement(selector.iq);
       const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
 
-      const [q1, q3] = isVertical
-        ? [
-            Svg.createLineElement(iq, 'top'),
-            Svg.createLineElement(iq, 'bottom'),
-          ]
+      // Only create line elements if iq selector exists and element was found
+      // If iq is empty/missing, create empty line elements instead
+      const [q1, q3] = iq
+        ? (isVertical
+            ? [
+                Svg.createLineElement(iq, 'bottom'), // Q1 (25%) = lower boundary = bottom edge
+                Svg.createLineElement(iq, 'top'), // Q3 (75%) = upper boundary = top edge
+              ]
+            : [
+                Svg.createLineElement(iq, 'left'), // Q1 (25%) = left boundary
+                Svg.createLineElement(iq, 'right'), // Q3 (75%) = right boundary
+              ])
         : [
-            Svg.createLineElement(iq, 'left'),
-            Svg.createLineElement(iq, 'right'),
+            Svg.createEmptyElement('line'), // Empty line element for Q1
+            Svg.createEmptyElement('line'), // Empty line element for Q3
           ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
