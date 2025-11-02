@@ -1,3 +1,10 @@
+## [3.36.1](https://github.com/xability/maidr/compare/v3.36.0...v3.36.1) (2025-11-02)
+
+
+### Bug Fixes
+
+* address boxplot label misalignment ([#464](https://github.com/xability/maidr/issues/464)) ([6ec7db7](https://github.com/xability/maidr/commit/6ec7db715e84da6dc64f3c20010dedb2204db593))
+
 # [3.36.0](https://github.com/xability/maidr/compare/v3.35.0...v3.36.0) (2025-10-31)
 
 
