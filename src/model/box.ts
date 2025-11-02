@@ -25,8 +25,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+
+    // For horizontal orientation, reverse points to match visual order (lower-left start)
+    // This ensures points[row] aligns with boxValues[row] after reversal
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.points = [...(layer.data as BoxPoint[])].reverse();
+    } else {
+      this.points = layer.data as BoxPoint[];
+    }
 
     this.sections = [
       BoxplotSection.LOWER_OUTLIER,
@@ -47,9 +54,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       (p: BoxPoint) => p.upperOutliers,
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points
-        .map(point => sectionAccessors.map(accessor => accessor(point)))
-        .reverse();
+      this.boxValues = this.points.map(point =>
+        sectionAccessors.map(accessor => accessor(point)),
+      );
     } else {
       this.boxValues = sectionAccessors.map(accessor =>
         this.points.map(point => accessor(point)),
@@ -64,12 +71,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     // this.row = this.boxValues.length - 1;
 
-    this.highlightValues = this.mapToSvgElements(
-      layer.selectors as BoxSelector[],
-    );
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.highlightValues?.reverse();
+    // For horizontal orientation, reverse selectors to match reversed points order
+    let selectors = layer.selectors as BoxSelector[] | undefined;
+    if (this.orientation === Orientation.HORIZONTAL && selectors) {
+      selectors = [...selectors].reverse();
     }
+
+    this.highlightValues = this.mapToSvgElements(selectors ?? []);
 
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
