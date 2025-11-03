@@ -29,8 +29,15 @@ export class BoxTrace extends AbstractTrace {
   constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+
+    // For horizontal orientation, reverse points to match visual order (lower-left start)
+    // This ensures points[row] will align with boxValues[row] in the subsequent processing
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.points = [...(layer.data as BoxPoint[])].reverse();
+    } else {
+      this.points = layer.data as BoxPoint[];
+    }
 
     this.sections = [
       BoxplotSection.LOWER_OUTLIER,
@@ -66,17 +73,16 @@ export class BoxTrace extends AbstractTrace {
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    // this.row = this.boxValues.length - 1;
-
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
     );
+
     if (this.orientation === Orientation.HORIZONTAL) {
       this.highlightValues?.reverse();
     }
 
     this.highlightCenters = this.mapSvgElementsToCenters();
-    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: this.boxValues.length - 1 });
+    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
   }
 
   public dispose(): void {
@@ -99,12 +105,12 @@ export class BoxTrace extends AbstractTrace {
 
   protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const value = isHorizontal ? this.boxValues[this.row][this.col] : this.boxValues[this.col][this.row];
+    const value = this.boxValues[this.row][this.col];
     const index = isHorizontal ? this.col : this.row;
+
     const panning = Array.isArray(value)
       ? value.length === 0 ? index : value[value.length - 1] - this.min
       : Number.isNaN(value) ? index : value - this.min;
-
     return {
       freq: {
         min: this.min,
