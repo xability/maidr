@@ -3,6 +3,7 @@ import type { Observer } from '@type/observable';
 import type { PlotState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
+import { AudioPaletteIndex } from './audioPalette';
 
 interface HarmonicComponent {
   type: OscillatorType;
@@ -40,6 +41,7 @@ const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
 const DEFAULT_DURATION = 0.3;
+const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
 enum AudioMode {
   OFF = 'off',
@@ -154,7 +156,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     if (state.empty) {
-      this.playEmptyTone(state.audio);
+      this.playEmptyTone({
+        x: 0,
+        y: 0,
+        rows: 0,
+        cols: 0,
+      });
       return;
     }
     if (state.type !== 'trace') {
@@ -457,13 +464,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   public playWaitingTone(): AudioId {
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
       1000,
     );
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
+    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
