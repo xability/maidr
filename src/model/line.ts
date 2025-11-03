@@ -1,6 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection, Node } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
@@ -8,7 +9,6 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGraph } from './movable';
-import { XValue } from '@type/navigation';
 
 const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX
@@ -18,6 +18,7 @@ export class LineTrace extends AbstractTrace {
   protected get values(): number[][] {
     return this.lineValues;
   }
+
   protected readonly supportsExtrema = true;
   protected readonly rotorSupport = true;
   protected readonly movable;
@@ -299,7 +300,7 @@ export class LineTrace extends AbstractTrace {
             freq: {
               min: this.min[r],
               max: this.max[c],
-              raw: currentY
+              raw: currentY,
             },
             panning: {
               x: this.row,
@@ -308,7 +309,8 @@ export class LineTrace extends AbstractTrace {
               cols: this.lineValues[this.row].length,
             },
             group: r,
-          });
+          },
+        );
       }
     }
 

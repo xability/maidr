@@ -1,10 +1,10 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
-import type { AudioState, HighlightState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
-import { MathUtil } from '@util/math';
 
 interface ScatterXPoint {
   x: number;
@@ -14,6 +14,10 @@ interface ScatterXPoint {
 interface ScatterYPoint {
   x: number[];
   y: number;
+}
+enum NavMode {
+  COL = 'column',
+  ROW = 'row',
 }
 
 export class ScatterTrace extends AbstractTrace {
@@ -37,6 +41,7 @@ export class ScatterTrace extends AbstractTrace {
 
   public constructor(layer: MaidrLayer) {
     super(layer);
+    this.mode = NavMode.COL;
 
     const data = layer.data as ScatterPoint[];
 
@@ -114,6 +119,40 @@ export class ScatterTrace extends AbstractTrace {
     // colors/shapes for distinct categories), this method should be updated to return the
     // appropriate groupIndex for true categorical distinctions.
     return {};
+  }
+
+  protected get values(): number[][] {
+    // Always return a 2D array with both X and Y values
+    // This ensures this.values[this.row] always exists
+    // The navigation logic in moveOnce and isMovable handles the mode-specific behavior
+    const result = [this.xValues, this.yValues];
+
+    // Safety check: ensure row is within bounds for the current mode
+    if (this.mode === NavMode.COL) {
+      // In COL mode, row should be 0 since we navigate through xValues
+      if (this.row !== 0) {
+        this.row = 0;
+      }
+    } else {
+      // In ROW mode, row should be within yPoints bounds
+      if (this.row < 0 || this.row >= this.yPoints.length) {
+        this.row = 0;
+      }
+    }
+
+    return result;
+  }
+
+  protected get braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.values,
+      min: 0,
+      max: 0,
+      row: this.row,
+      col: this.col,
+    };
   }
 
   protected get audio(): AudioState {

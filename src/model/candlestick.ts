@@ -86,6 +86,10 @@ export class Candlestick extends AbstractTrace {
     this.candleValues = this.sections.map(key =>
       this.candles.map(c => c[key]),
     );
+    const options = this.orientation === Orientation.HORIZONTAL
+      ? { col: this.sections.length - 1 }
+      : { row: this.sections.length - 1 };
+    this.movable = new MovableGrid<number>(this.candleValues, options);
 
     this.min = MathUtil.minFrom2D(this.candleValues);
     this.max = MathUtil.maxFrom2D(this.candleValues);
@@ -109,10 +113,6 @@ export class Candlestick extends AbstractTrace {
       layer.selectors as string | string[] | CandlestickSelector | undefined,
     );
     this.highlightCenters = this.mapSvgElementsToCenters();
-    const options = this.orientation === Orientation.HORIZONTAL
-      ? { col: this.sections.length - 1 }
-      : { row: this.sections.length - 1 };
-    this.movable = new MovableGrid<number>(this.candleValues, options);
   }
 
   /**

@@ -64,7 +64,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   public set row(value: number) {
-    console.log(`value: ${value} and row: ${this.movable.row}`);
     this.movable.row = value;
   }
 

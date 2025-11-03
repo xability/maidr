@@ -663,7 +663,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       this.notification.notify(noInfo);
       return;
     }
-    console.log(state);
+
     if (state.braille.empty) {
       const notSupported = `Braille is not supported for plot type: ${state.braille.traceType}`;
       this.notification.notify(notSupported);
