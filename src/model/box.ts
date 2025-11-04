@@ -2,6 +2,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
+import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -167,31 +168,76 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
     }
 
-    selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers?.flatMap(s =>
-        Svg.selectAllElements(s),
+    // Phase 1: Collect all original elements without cloning (prevents nth-child() DOM shifts)
+    const originals: Array<{
+      lowerOutliers: SVGElement[];
+      upperOutliers: SVGElement[];
+      min: SVGElement | null;
+      max: SVGElement | null;
+      iq: SVGElement | null;
+      q2: SVGElement | null;
+    }> = [];
+
+    selectors.forEach((selector) => {
+      const lowerOutliersOriginals = selector.lowerOutliers?.flatMap(s =>
+        Svg.selectAllElements(s, false),
       ) ?? [];
-      const upperOutliers = selector.upperOutliers?.flatMap(s =>
-        Svg.selectAllElements(s),
+      const upperOutliersOriginals = selector.upperOutliers?.flatMap(s =>
+        Svg.selectAllElements(s, false),
       ) ?? [];
 
-      const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
-      const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
+      const minOriginal = Svg.selectElement(selector.min, false);
+      const maxOriginal = Svg.selectElement(selector.max, false);
+      const iqOriginal = Svg.selectElement(selector.iq, false);
+      const q2Original = Svg.selectElement(selector.q2, false);
 
-      const iq = Svg.selectElement(selector.iq);
-      const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
+      originals.push({
+        lowerOutliers: lowerOutliersOriginals,
+        upperOutliers: upperOutliersOriginals,
+        min: minOriginal,
+        max: maxOriginal,
+        iq: iqOriginal,
+        q2: q2Original,
+      });
+    });
+
+    // Phase 2: Clone and create elements from originals (DOM queries complete)
+    originals.forEach((original, boxIdx) => {
+      const lowerOutliers = original.lowerOutliers.map((el) => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        el.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+      const upperOutliers = original.upperOutliers.map((el) => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        el.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+
+      const min = this.cloneElementOrEmpty(original.min);
+      const max = this.cloneElementOrEmpty(original.max);
+      const q2 = this.cloneElementOrEmpty(original.q2);
 
       // Only create line elements if iq selector exists and element was found
       // If iq is empty/missing, create empty line elements instead
-      const [q1, q3] = iq
+      // Check if IQR direction should be reversed (for Base R vertical boxplots)
+      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+      const [q1, q3] = original.iq
         ? (isVertical
-            ? [
-                Svg.createLineElement(iq, 'bottom'), // Q1 (25%) = lower boundary = bottom edge
-                Svg.createLineElement(iq, 'top'), // Q3 (75%) = upper boundary = top edge
-              ]
+            ? isIqrReversed
+              ? [
+                  Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
+                  Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
+                ]
+              : [
+                  Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
+                  Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
+                ]
             : [
-                Svg.createLineElement(iq, 'left'), // Q1 (25%) = left boundary
-                Svg.createLineElement(iq, 'right'), // Q3 (75%) = right boundary
+                Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
+                Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
               ])
         : [
             Svg.createEmptyElement('line'), // Empty line element for Q1
@@ -209,6 +255,20 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     });
 
     return svgElements;
+  }
+
+  /**
+   * Clones an SVG element with hidden visibility and inserts it after the original,
+   * or returns an empty element if the original is null.
+   */
+  private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
+    if (!original) {
+      return Svg.createEmptyElement();
+    }
+    const clone = original.cloneNode(true) as SVGElement;
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    original.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
   }
 
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {

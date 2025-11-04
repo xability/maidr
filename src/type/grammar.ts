@@ -125,6 +125,12 @@ export interface MaidrLayer {
      * 'reverse' => iterate bottom-to-top (default).
      */
     groupDirection?: 'forward' | 'reverse';
+    /**
+     * For boxplots, control the Q1/Q3 edge mapping for IQR box.
+     * 'forward' => Q1=bottom, Q3=top (default for vertical)
+     * 'reverse' => Q1=top, Q3=bottom (for Base R vertical boxplots)
+     */
+    iqrDirection?: 'forward' | 'reverse';
   };
   axes?: {
     x?: string;
