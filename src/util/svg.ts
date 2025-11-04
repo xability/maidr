@@ -91,7 +91,7 @@ export abstract class Svg {
     const style = window.getComputedStyle(parent);
     const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
-    const radius = Number.parseFloat(strokeWidth) * 2;
+    const radius = Number.parseFloat(strokeWidth) * 1; // Reduced from * 2 to * 1 for smaller circle
     const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
 
     element.setAttribute(Constant.CIRCLE_X, String(cx));

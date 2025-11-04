@@ -151,10 +151,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     if (text.density && text.density.value !== undefined) {
-      const densityValue = typeof text.density.value === 'number'
-        ? text.density.value.toFixed(4)
-        : String(text.density.value);
-      parts.push(`${text.density.label} is ${densityValue}`);
+      parts.push(`${text.density.label} is ${text.density.value}`);
     }
 
     return parts.length > 0 ? parts.join(', ') : null;
@@ -176,10 +173,7 @@ export class TextService implements Observer<PlotState>, Disposable {
         parts.push(`${state.text.fill.label} is ${state.text.fill.value}`);
       }
       if (state.text.density && state.text.density.value !== undefined) {
-        const densityValue = typeof state.text.density.value === 'number'
-          ? state.text.density.value.toFixed(4)
-          : String(state.text.density.value);
-        parts.push(`${state.text.density.label} is ${densityValue}`);
+        parts.push(`${state.text.density.label} is ${state.text.density.value}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -311,14 +305,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format density/width for violin plots
     if (state.density !== undefined && state.density.value !== undefined) {
-      const densityValue = typeof state.density.value === 'number'
-        ? state.density.value.toFixed(4)
-        : String(state.density.value);
       verbose.push(
         Constant.COMMA_SPACE,
         state.density.label,
         Constant.IS,
-        densityValue,
+        String(state.density.value),
       );
     }
 
@@ -380,10 +371,7 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format density/width for violin plots in terse mode
     if (state.density !== undefined && state.density.value !== undefined) {
-      const densityValue = typeof state.density.value === 'number'
-        ? state.density.value.toFixed(4)
-        : String(state.density.value);
-      terse.push(Constant.COMMA_SPACE, state.density.label, Constant.IS, densityValue);
+      terse.push(Constant.COMMA_SPACE, state.density.label, Constant.IS, String(state.density.value));
     }
 
     // Format for heatmap and segmented plots.
