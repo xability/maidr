@@ -1,3 +1,10 @@
+## [3.36.2](https://github.com/xability/maidr/compare/v3.36.1...v3.36.2) (2025-11-04)
+
+
+### Bug Fixes
+
+* address selector failures in boxplot ([#465](https://github.com/xability/maidr/issues/465)) ([76ef8d3](https://github.com/xability/maidr/commit/76ef8d33f99b885fb360f3a17e2736cc991fdd57))
+
 ## [3.36.1](https://github.com/xability/maidr/compare/v3.36.0...v3.36.1) (2025-11-02)
 
 
