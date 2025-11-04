@@ -216,31 +216,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
         return clone;
       });
 
-      const min = original.min
-        ? (() => {
-            const clone = original.min!.cloneNode(true) as SVGElement;
-            clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-            original.min!.insertAdjacentElement(Constant.AFTER_END, clone);
-            return clone;
-          })()
-        : Svg.createEmptyElement();
-      const max = original.max
-        ? (() => {
-            const clone = original.max!.cloneNode(true) as SVGElement;
-            clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-            original.max!.insertAdjacentElement(Constant.AFTER_END, clone);
-            return clone;
-          })()
-        : Svg.createEmptyElement();
-
-      const q2 = original.q2
-        ? (() => {
-            const clone = original.q2!.cloneNode(true) as SVGElement;
-            clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-            original.q2!.insertAdjacentElement(Constant.AFTER_END, clone);
-            return clone;
-          })()
-        : Svg.createEmptyElement();
+      const min = this.cloneElementOrEmpty(original.min);
+      const max = this.cloneElementOrEmpty(original.max);
+      const q2 = this.cloneElementOrEmpty(original.q2);
 
       // Only create line elements if iq selector exists and element was found
       // If iq is empty/missing, create empty line elements instead
@@ -277,6 +255,20 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     });
 
     return svgElements;
+  }
+
+  /**
+   * Clones an SVG element with hidden visibility and inserts it after the original,
+   * or returns an empty element if the original is null.
+   */
+  private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
+    if (!original) {
+      return Svg.createEmptyElement();
+    }
+    const clone = original.cloneNode(true) as SVGElement;
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    original.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
   }
 
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
