@@ -1,12 +1,15 @@
-import type { CommandContext } from "@command/command";
-import type { Keys } from "@type/event";
-import { CommandFactory } from "@command/factory";
-import { Scope } from "@type/event";
-import { Constant } from "@util/constant";
-import { Platform } from "@util/platform";
-import type { SettingsService } from "@service/settings";
-import { DisplayService } from "@service/display";
-import hotkeys from "hotkeys-js";
+import type { CommandContext } from '@command/command';
+import type { DisplayService } from '@service/display';
+import type { SettingsService } from '@service/settings';
+import type { Disposable } from '@type/disposable';
+import type { Keys } from '@type/event';
+import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
+import { CommandFactory } from '@command/factory';
+import { Scope } from '@type/event';
+import { Constant } from '@util/constant';
+import { Platform } from '@util/platform';
+import hotkeys from 'hotkeys-js';
 
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
@@ -185,19 +188,19 @@ const TRACE_KEYMAP = {
 
 const GO_TO_EXTREMA_KEYMAP = {
   // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: "up",
-  GO_TO_EXTREMA_MOVE_DOWN: "down",
-  GO_TO_EXTREMA_SELECT: "enter",
-  GO_TO_EXTREMA_CLOSE: "esc",
-  GO_TO_EXTREMA_TOGGLE: "g",
+  GO_TO_EXTREMA_MOVE_UP: 'up',
+  GO_TO_EXTREMA_MOVE_DOWN: 'down',
+  GO_TO_EXTREMA_SELECT: 'enter',
+  GO_TO_EXTREMA_CLOSE: 'esc',
+  GO_TO_EXTREMA_TOGGLE: 'g',
 } as const;
 
 const COMMAND_PALETTE_KEYMAP = {
   // Navigation within the modal
-  COMMAND_PALETTE_MOVE_UP: "up",
-  COMMAND_PALETTE_MOVE_DOWN: "down",
-  COMMAND_PALETTE_SELECT: "enter",
-  COMMAND_PALETTE_CLOSE: "esc",
+  COMMAND_PALETTE_MOVE_UP: 'up',
+  COMMAND_PALETTE_MOVE_DOWN: 'down',
+  COMMAND_PALETTE_SELECT: 'enter',
+  COMMAND_PALETTE_CLOSE: 'esc',
 } as const;
 
 export const SCOPED_KEYMAP = {
@@ -251,8 +254,8 @@ export class KeybindingService {
       ][]) {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
-        if (commandName === "STOP_AUTOPLAY") {
-          hotkeys("*", Scope.TRACE, (event: KeyboardEvent): void => {
+        if (commandName === 'STOP_AUTOPLAY') {
+          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);
@@ -261,7 +264,7 @@ export class KeybindingService {
         }
 
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
-          if (commandName !== "ALLOW_DEFAULT") {
+          if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);
             command.execute(event);
@@ -278,12 +281,13 @@ export class KeybindingService {
   }
 }
 
-export class Mousebindingservice {
+export class Mousebindingservice implements Observer<Settings>, Disposable {
   private mouseListener!: (event: MouseEvent) => void;
 
   private readonly commandContext: CommandContext;
-  private hoverMode: string = "none";
+  private hoverMode: string = 'none';
   private readonly plot: HTMLElement;
+  private readonly settingsService: SettingsService;
 
   public constructor(
     commandContext: CommandContext,
@@ -291,37 +295,63 @@ export class Mousebindingservice {
     displayService: DisplayService,
   ) {
     this.commandContext = commandContext;
+    this.settingsService = settingsService;
     const initialSettings = settingsService.loadSettings();
     this.hoverMode = initialSettings.general.hoverMode;
     this.plot = displayService.plot;
+
+    // Register as observer to listen for settings changes
+    this.settingsService.addObserver(this);
   }
 
   public registerEvents(): void {
-    this.mouseListener = (event: MouseEvent) => {
-      const x = event.clientX;
-      const y = event.clientY;
+    // Create the mouse listener if it doesn't exist
+    if (!this.mouseListener) {
+      this.mouseListener = (event: MouseEvent) => {
+        const x = event.clientX;
+        const y = event.clientY;
 
-      this.commandContext.context.moveToPoint(x, y);
-    };
-
-    if (this.hoverMode === "pointermove") {
-      this.plot.addEventListener("pointermove", this.mouseListener);
+        this.commandContext.context.moveToPoint(x, y);
+      };
     }
-    if (this.hoverMode === "click") {
-      this.plot.addEventListener("click", this.mouseListener);
+
+    // Remove any existing listeners first to avoid duplicates
+    this.removeEventListeners();
+
+    // Add appropriate listeners based on hover mode
+    if (this.hoverMode === 'pointermove') {
+      this.plot.addEventListener('pointermove', this.mouseListener);
+    } else if (this.hoverMode === 'click') {
+      this.plot.addEventListener('click', this.mouseListener);
+    }
+  }
+
+  private removeEventListeners(): void {
+    if (this.mouseListener) {
+      this.plot.removeEventListener('pointermove', this.mouseListener);
+      this.plot.removeEventListener('click', this.mouseListener);
     }
   }
 
   public unregister(): void {
-    if (this.mouseListener) {
-      this.plot.removeEventListener("pointermove", this.mouseListener);
-      this.plot.removeEventListener("click", this.mouseListener);
-      if (this.hoverMode === "pointermove") {
-        this.plot.removeEventListener("pointermove", this.mouseListener);
-      }
-      if (this.hoverMode === "click") {
-        this.plot.removeEventListener("click", this.mouseListener);
-      }
+    this.removeEventListeners();
+  }
+
+  // Observer pattern implementation
+  public update(settings: Settings): void {
+    const newHoverMode = settings.general.hoverMode;
+
+    // Only update if the hover mode has changed
+    if (this.hoverMode !== newHoverMode) {
+      this.hoverMode = newHoverMode;
+
+      // Re-register events with the new hover mode
+      this.registerEvents();
     }
+  }
+
+  public dispose(): void {
+    this.unregister();
+    this.settingsService.removeObserver(this);
   }
 }

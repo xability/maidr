@@ -90,10 +90,14 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const [isValid, setIsValid] = useState<boolean | null>(null);
 
   const getHelperText = (): string => {
-    if (!modelSettings.enabled) return '';
-    if (isValidating) return 'Validating API key...';
-    if (isValid === false) return `${modelSettings.name} API key is invalid`;
-    if (isValid === true) return `${modelSettings.name} API key is valid`;
+    if (!modelSettings.enabled)
+      return '';
+    if (isValidating)
+      return 'Validating API key...';
+    if (isValid === false)
+      return `${modelSettings.name} API key is invalid`;
+    if (isValid === true)
+      return `${modelSettings.name} API key is valid`;
     return '';
   };
 
@@ -148,12 +152,12 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   return (
     <SettingRow
       label={modelSettings.name}
-      input={
+      input={(
         <Grid container spacing={1} alignItems="center">
           <Grid>
             <Switch
               checked={modelSettings.enabled}
-              onChange={(e) => onToggle(modelKey, e.target.checked)}
+              onChange={e => onToggle(modelKey, e.target.checked)}
               slotProps={{
                 input: { 'aria-label': `Enable ${modelSettings.name}` },
               }}
@@ -166,7 +170,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 fullWidth
                 size="small"
                 value={modelSettings.apiKey}
-                onChange={(e) => onChangeKey(modelKey, e.target.value)}
+                onChange={e => onChangeKey(modelKey, e.target.value)}
                 placeholder={`Enter ${modelSettings.name} API Key`}
                 type="password"
                 error={isValid === false}
@@ -175,7 +179,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                   input: {
                     'aria-label': `${modelSettings.name} API Key`,
                     'aria-describedby': `${modelKey}-status`,
-                    endAdornment: (
+                    'endAdornment': (
                       <InputAdornment position="end">
                         <div
                           id={`${modelKey}-status`}
@@ -191,13 +195,19 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                                   : ''
                           }
                         >
-                          {isValidating ? (
-                            <CircularProgress size={20} />
-                          ) : isValid === true ? (
-                            <CheckIcon color="success" />
-                          ) : isValid === false ? (
-                            <ErrorIcon color="error" />
-                          ) : null}
+                          {isValidating
+                            ? (
+                                <CircularProgress size={20} />
+                              )
+                            : isValid === true
+                              ? (
+                                  <CheckIcon color="success" />
+                                )
+                              : isValid === false
+                                ? (
+                                    <ErrorIcon color="error" />
+                                  )
+                                : null}
                         </div>
                       </InputAdornment>
                     ),
@@ -215,9 +225,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                   onChangeVersion(modelKey, newVersion);
                 }}
                 disabled={
-                  !modelSettings.enabled ||
-                  !modelSettings.apiKey.trim() ||
-                  !isValid
+                  !modelSettings.enabled
+                  || !modelSettings.apiKey.trim()
+                  || !isValid
                 }
                 fullWidth
                 size="small"
@@ -238,7 +248,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
             </FormControl>
           </Grid>
         </Grid>
-      }
+      )}
     />
   );
 };
@@ -249,8 +259,8 @@ const Settings: React.FC = () => {
   const chatViewModel = useViewModel('chat');
   const { general, llm } = viewModel.state;
 
-  const [generalSettings, setGeneralSettings] =
-    useState<GeneralSettings>(general);
+  const [generalSettings, setGeneralSettings]
+    = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
@@ -267,7 +277,7 @@ const Settings: React.FC = () => {
     value: string | number | AriaMode | HoverMode,
   ): void => {
     // Expanded value type for ariaMode
-    setGeneralSettings((prev) => ({
+    setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
@@ -277,7 +287,7 @@ const Settings: React.FC = () => {
     key: keyof LlmSettings,
     value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
   ): void => {
-    setLlmSettings((prev) => ({
+    setLlmSettings(prev => ({
       ...prev,
       [key]: value,
     }));
@@ -288,7 +298,7 @@ const Settings: React.FC = () => {
     propKey: keyof LlmModelSettings,
     value: string | boolean | LlmVersion,
   ): void => {
-    setLlmSettings((prev) => ({
+    setLlmSettings(prev => ({
       ...prev,
       models: {
         ...prev.models,
@@ -333,9 +343,9 @@ const Settings: React.FC = () => {
     [handleLlmChange],
   );
 
-  const isCustomInstructionValid =
-    llmSettings.expertiseLevel !== 'custom' ||
-    llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
+  const isCustomInstructionValid
+    = llmSettings.expertiseLevel !== 'custom'
+      || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
   return (
     <Dialog
@@ -347,7 +357,7 @@ const Settings: React.FC = () => {
       fullWidth
       disablePortal
       disableEnforceFocus
-      onClick={(e) => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
       className="settings-dialog"
     >
       <DialogContent className="settings-dialog-content">
@@ -362,13 +372,12 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <SettingRow
               label="Volume"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <Slider
                     value={generalSettings.volume}
                     onChange={(_, value) =>
-                      handleGeneralChange('volume', Number(value))
-                    }
+                      handleGeneralChange('volume', Number(value))}
                     min={0}
                     max={100}
                     step={1}
@@ -384,22 +393,21 @@ const Settings: React.FC = () => {
                     className="settings-slider-value-label"
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Outline Color"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <TextField
                     fullWidth
                     type="color"
                     size="small"
                     value={generalSettings.highlightColor}
-                    onChange={(e) =>
-                      handleGeneralChange('highlightColor', e.target.value)
-                    }
+                    onChange={e =>
+                      handleGeneralChange('highlightColor', e.target.value)}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -409,25 +417,24 @@ const Settings: React.FC = () => {
                     }}
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Braille Display Size"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplaySize}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'brailleDisplaySize',
                         Number(e.target.value),
-                      )
-                    }
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -437,25 +444,24 @@ const Settings: React.FC = () => {
                     }}
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.minFrequency}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'minFrequency',
                         Number(e.target.value),
-                      )
-                    }
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -465,25 +471,24 @@ const Settings: React.FC = () => {
                     }}
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Max Frequency (Hz)"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.maxFrequency}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'maxFrequency',
                         Number(e.target.value),
-                      )
-                    }
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -493,25 +498,24 @@ const Settings: React.FC = () => {
                     }}
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Autoplay Duration (ms)"
-              input={
+              input={(
                 <FormControl fullWidth>
                   <TextField
                     fullWidth
                     type="number"
                     size="small"
                     value={generalSettings.autoplayDuration}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'autoplayDuration',
                         Number(e.target.value),
-                      )
-                    }
+                      )}
                     slotProps={{
                       input: {
                         inputProps: {
@@ -521,23 +525,22 @@ const Settings: React.FC = () => {
                     }}
                   />
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="ARIA Mode"
-              input={
+              input={(
                 <FormControl>
                   <RadioGroup
                     row
                     value={generalSettings.ariaMode}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'ariaMode',
                         e.target.value as AriaMode,
-                      )
-                    }
+                      )}
                     aria-label="ARIA Mode"
                   >
                     <FormControlLabel
@@ -552,23 +555,22 @@ const Settings: React.FC = () => {
                     />
                   </RadioGroup>
                 </FormControl>
-              }
+              )}
             />
           </Grid>
           <Grid size={12}>
             <SettingRow
               label="Hover Mode"
-              input={
+              input={(
                 <FormControl>
                   <RadioGroup
                     row
                     value={generalSettings.hoverMode}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleGeneralChange(
                         'hoverMode',
                         e.target.value as HoverMode,
-                      )
-                    }
+                      )}
                     aria-label="Hover Mode"
                   >
                     <FormControlLabel
@@ -588,7 +590,7 @@ const Settings: React.FC = () => {
                     />
                   </RadioGroup>
                 </FormControl>
-              }
+              )}
             />
           </Grid>
         </Grid>
@@ -618,14 +620,11 @@ const Settings: React.FC = () => {
                   modelKey={modelKey}
                   modelSettings={model}
                   onToggle={(key, enabled) =>
-                    handleLlmModelChange(key, 'enabled', enabled)
-                  }
+                    handleLlmModelChange(key, 'enabled', enabled)}
                   onChangeKey={(key, value) =>
-                    handleLlmModelChange(key, 'apiKey', value)
-                  }
+                    handleLlmModelChange(key, 'apiKey', value)}
                   onChangeVersion={(key, value) =>
-                    handleLlmModelChange(key, 'version', value)
-                  }
+                    handleLlmModelChange(key, 'version', value)}
                 />
               </Grid>
             );
@@ -640,7 +639,7 @@ const Settings: React.FC = () => {
             >
               <SettingRow
                 label="Expertise Level"
-                input={
+                input={(
                   <Select
                     value={llmSettings.expertiseLevel}
                     onChange={handleSelectChange}
@@ -662,7 +661,7 @@ const Settings: React.FC = () => {
                     <MenuItem value="advanced">Advanced</MenuItem>
                     <MenuItem value="custom">Custom</MenuItem>
                   </Select>
-                }
+                )}
               />
             </FormControl>
           </Grid>
@@ -687,9 +686,8 @@ const Settings: React.FC = () => {
                       minRows={3}
                       maxRows={6}
                       value={llmSettings.customInstruction}
-                      onChange={(e) =>
-                        handleLlmChange('customInstruction', e.target.value)
-                      }
+                      onChange={e =>
+                        handleLlmChange('customInstruction', e.target.value)}
                       style={{
                         width: '100%',
                         padding: '8px',
@@ -701,12 +699,15 @@ const Settings: React.FC = () => {
                     />
                   </FormControl>
                 </Grid>
-                {llmSettings.customInstruction.length <
-                  MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                {llmSettings.customInstruction.length
+                  < MIN_CUSTOM_INSTRUCTION_LENGTH && (
                   <Grid size={12} sx={{ mt: 1 }}>
                     <Alert severity="warning">
-                      Custom instructions must be at least{' '}
-                      {MIN_CUSTOM_INSTRUCTION_LENGTH} characters long
+                      Custom instructions must be at least
+                      {' '}
+                      {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                      {' '}
+                      characters long
                     </Alert>
                   </Grid>
                 )}
