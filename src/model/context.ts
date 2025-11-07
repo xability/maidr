@@ -11,7 +11,7 @@ type Plot = Figure | Subplot | Trace;
 
 export class Context implements Disposable {
   public readonly id: string;
-  private readonly instructionContext: Plot;
+  public readonly instructionContext: Plot;
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;

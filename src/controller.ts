@@ -1,36 +1,36 @@
-import type { Disposable } from '@type/disposable';
-import type { Maidr } from '@type/grammar';
-import { Context } from '@model/context';
-import { Figure } from '@model/plot';
-import { AudioService } from '@service/audio';
-import { AutoplayService } from '@service/autoplay';
-import { BrailleService } from '@service/braille';
-import { ChatService } from '@service/chat';
-import { CommandExecutor } from '@service/commandExecutor';
-import { CommandPaletteService } from '@service/commandPalette';
-import { DisplayService } from '@service/display';
-import { GoToExtremaService } from '@service/goToExtrema';
-import { HelpService } from '@service/help';
-import { HighlightService } from '@service/highlight';
-import { KeybindingService, Mousebindingservice } from '@service/keybinding';
-import { NotificationService } from '@service/notification';
-import { ReviewService } from '@service/review';
-import { RotorNavigationService } from '@service/rotor';
-import { SettingsService } from '@service/settings';
-import { LocalStorageService } from '@service/storage';
-import { TextService } from '@service/text';
-import { store } from '@state/store';
-import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
-import { ChatViewModel } from '@state/viewModel/chatViewModel';
-import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
-import { DisplayViewModel } from '@state/viewModel/displayViewModel';
-import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
-import { HelpViewModel } from '@state/viewModel/helpViewModel';
-import { ViewModelRegistry } from '@state/viewModel/registry';
-import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
-import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
-import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
-import { TextViewModel } from '@state/viewModel/textViewModel';
+import type { Disposable } from "@type/disposable";
+import type { Maidr } from "@type/grammar";
+import { Context } from "@model/context";
+import { Figure } from "@model/plot";
+import { AudioService } from "@service/audio";
+import { AutoplayService } from "@service/autoplay";
+import { BrailleService } from "@service/braille";
+import { ChatService } from "@service/chat";
+import { CommandExecutor } from "@service/commandExecutor";
+import { CommandPaletteService } from "@service/commandPalette";
+import { DisplayService } from "@service/display";
+import { GoToExtremaService } from "@service/goToExtrema";
+import { HelpService } from "@service/help";
+import { HighlightService } from "@service/highlight";
+import { KeybindingService, Mousebindingservice } from "@service/keybinding";
+import { NotificationService } from "@service/notification";
+import { ReviewService } from "@service/review";
+import { RotorNavigationService } from "@service/rotor";
+import { SettingsService } from "@service/settings";
+import { LocalStorageService } from "@service/storage";
+import { TextService } from "@service/text";
+import { store } from "@state/store";
+import { BrailleViewModel } from "@state/viewModel/brailleViewModel";
+import { ChatViewModel } from "@state/viewModel/chatViewModel";
+import { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
+import { DisplayViewModel } from "@state/viewModel/displayViewModel";
+import { GoToExtremaViewModel } from "@state/viewModel/goToExtremaViewModel";
+import { HelpViewModel } from "@state/viewModel/helpViewModel";
+import { ViewModelRegistry } from "@state/viewModel/registry";
+import { ReviewViewModel } from "@state/viewModel/reviewViewModel";
+import { RotorNavigationViewModel } from "@state/viewModel/rotorNavigationViewModel";
+import { SettingsViewModel } from "@state/viewModel/settingsViewModel";
+import { TextViewModel } from "@state/viewModel/textViewModel";
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -110,7 +110,11 @@ export class Controller implements Disposable {
     );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
-    this.chatService = new ChatService(this.displayService, this.textService, maidr);
+    this.chatService = new ChatService(
+      this.displayService,
+      this.textService,
+      maidr,
+    );
 
     this.textViewModel = new TextViewModel(
       store,
@@ -151,9 +155,12 @@ export class Controller implements Disposable {
 
     this.keybinding = new KeybindingService({
       context: this.context,
+
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       highlightService: this.highlightService,
+      settingsService: this.settingsService,
+      rotorNavigationService: this.rotorNavigationService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
@@ -164,13 +171,16 @@ export class Controller implements Disposable {
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
-      rotorNavigationService: this.rotorNavigationService,
     });
     this.mousebinding = new Mousebindingservice({
       context: this.context,
+
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       highlightService: this.highlightService,
+      settingsService: this.settingsService,
+      rotorNavigationService: this.rotorNavigationService,
+
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
@@ -185,9 +195,13 @@ export class Controller implements Disposable {
     this.commandExecutor = new CommandExecutor(
       {
         context: this.context,
+
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         highlightService: this.highlightService,
+        settingsService: this.settingsService,
+        rotorNavigationService: this.rotorNavigationService,
+
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
@@ -197,7 +211,6 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
-        rotorNavigationService: this.rotorNavigationService,
       },
       this.context.scope,
     );
@@ -210,7 +223,7 @@ export class Controller implements Disposable {
   public announceInitialInstruction(): void {
     // Prime the live region with an invisible separator to force a DOM-change event
     // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
-    this.notificationService.notify('\u2063');
+    this.notificationService.notify("\u2063");
     setTimeout(() => {
       this.notificationService.notify(
         this.displayService.getInstruction(false),
@@ -259,23 +272,23 @@ export class Controller implements Disposable {
   }
 
   private registerViewModels(): void {
-    ViewModelRegistry.instance.register('text', this.textViewModel);
-    ViewModelRegistry.instance.register('braille', this.brailleViewModel);
+    ViewModelRegistry.instance.register("text", this.textViewModel);
+    ViewModelRegistry.instance.register("braille", this.brailleViewModel);
     ViewModelRegistry.instance.register(
-      'goToExtrema',
+      "goToExtrema",
       this.goToExtremaViewModel,
     );
-    ViewModelRegistry.instance.register('review', this.reviewViewModel);
-    ViewModelRegistry.instance.register('display', this.displayViewModel);
-    ViewModelRegistry.instance.register('help', this.helpViewModel);
-    ViewModelRegistry.instance.register('chat', this.chatViewModel);
-    ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register("review", this.reviewViewModel);
+    ViewModelRegistry.instance.register("display", this.displayViewModel);
+    ViewModelRegistry.instance.register("help", this.helpViewModel);
+    ViewModelRegistry.instance.register("chat", this.chatViewModel);
+    ViewModelRegistry.instance.register("settings", this.settingsViewModel);
     ViewModelRegistry.instance.register(
-      'commandPalette',
+      "commandPalette",
       this.commandPaletteViewModel,
     );
     ViewModelRegistry.instance.register(
-      'commandExecutor',
+      "commandExecutor",
       this.commandExecutor,
     );
   }
@@ -284,12 +297,12 @@ export class Controller implements Disposable {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach(subplotRow =>
+    this.figure.subplots.forEach((subplotRow) =>
       subplotRow.forEach((subplot) => {
         subplot.addObserver(this.textService);
         subplot.addObserver(this.brailleService);
         subplot.addObserver(this.highlightService);
-        subplot.traces.forEach(traceRow =>
+        subplot.traces.forEach((traceRow) =>
           traceRow.forEach((trace) => {
             trace.addObserver(this.audioService);
             trace.addObserver(this.brailleService);
