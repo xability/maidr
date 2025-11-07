@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -101,6 +102,66 @@ export class ToggleSettingsCommand implements Command {
 
   public execute(): void {
     this.settingsViewModel.toggle();
+  }
+}
+
+export class ToggleCommandPaletteCommand implements Command {
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+
+  public constructor(commandPaletteViewModel: CommandPaletteViewModel) {
+    this.commandPaletteViewModel = commandPaletteViewModel;
+  }
+
+  public execute(): void {
+    this.commandPaletteViewModel.toggle();
+  }
+}
+
+export class CommandPaletteCloseCommand implements Command {
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+
+  public constructor(commandPaletteViewModel: CommandPaletteViewModel) {
+    this.commandPaletteViewModel = commandPaletteViewModel;
+  }
+
+  public execute(): void {
+    this.commandPaletteViewModel.hide();
+  }
+}
+
+export class CommandPaletteMoveUpCommand implements Command {
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+
+  public constructor(commandPaletteViewModel: CommandPaletteViewModel) {
+    this.commandPaletteViewModel = commandPaletteViewModel;
+  }
+
+  public execute(): void {
+    this.commandPaletteViewModel.moveUp();
+  }
+}
+
+export class CommandPaletteMoveDownCommand implements Command {
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+
+  public constructor(commandPaletteViewModel: CommandPaletteViewModel) {
+    this.commandPaletteViewModel = commandPaletteViewModel;
+  }
+
+  public execute(): void {
+    this.commandPaletteViewModel.moveDown();
+  }
+}
+
+export class CommandPaletteSelectCommand implements Command {
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+
+  public constructor(commandPaletteViewModel: CommandPaletteViewModel) {
+    this.commandPaletteViewModel = commandPaletteViewModel;
+  }
+
+  public execute(): void {
+    this.commandPaletteViewModel.selectCurrent();
   }
 }
 

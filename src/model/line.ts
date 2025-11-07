@@ -1,18 +1,32 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { XValue } from '@type/navigation';
+import type {
+  AudioState,
+  BrailleState,
+  TextState,
+  TraceState,
+} from '@type/state';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
 const TYPE = 'Group';
-const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_LINE_POINT_REGEX
+  = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
 export class LineTrace extends AbstractTrace<number> {
+  protected readonly supportsExtrema = true;
+  protected readonly rotorSupport = true;
+
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   protected readonly min: number[];
   protected readonly max: number[];
@@ -25,11 +39,14 @@ export class LineTrace extends AbstractTrace<number> {
 
     this.points = layer.data as LinePoint[][];
 
-    this.lineValues = this.points.map(row => row.map(point => Number(point.y)));
+    this.lineValues = this.points.map(row =>
+      row.map(point => Number(point.y)),
+    );
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -73,7 +90,9 @@ export class LineTrace extends AbstractTrace<number> {
 
     // Check for intersections at current point
     const intersections = this.findIntersections();
-    let fillData: { fill: { label: string; value: string } } | Record<string, never> = {};
+    let fillData:
+      | { fill: { label: string; value: string } }
+      | Record<string, never> = {};
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
@@ -84,7 +103,8 @@ export class LineTrace extends AbstractTrace<number> {
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
+        const prevFill
+          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
         if (lineTypes.includes(prevFill)) {
           lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
         }
@@ -98,9 +118,7 @@ export class LineTrace extends AbstractTrace<number> {
       };
     } else {
       // Single line or no intersection - use normal fill data
-      fillData = point.fill
-        ? { fill: { label: TYPE, value: point.fill } }
-        : {};
+      fillData = point.fill ? { fill: { label: TYPE, value: point.fill } } : {};
     }
 
     return {
@@ -143,7 +161,10 @@ export class LineTrace extends AbstractTrace<number> {
           const intersections = this.findIntersections();
           if (intersections.length > 1) {
             const baseState = super.state;
-            const stateWithIntersections = { ...baseState, intersections } as TraceState;
+            const stateWithIntersections = {
+              ...baseState,
+              intersections,
+            } as TraceState;
             for (const observer of this.observers) {
               observer.update(stateWithIntersections);
             }
@@ -177,7 +198,10 @@ export class LineTrace extends AbstractTrace<number> {
     const intersections = this.findIntersections();
     if (intersections.length > 1) {
       const baseState = super.state;
-      const stateWithIntersections = { ...baseState, intersections } as TraceState;
+      const stateWithIntersections = {
+        ...baseState,
+        intersections,
+      } as TraceState;
       for (const observer of this.observers) {
         observer.update(stateWithIntersections);
       }
@@ -196,7 +220,9 @@ export class LineTrace extends AbstractTrace<number> {
     const intersections: AudioState[] = [];
 
     for (let r = 0; r < this.points.length; r++) {
-      const c = this.points[r].findIndex(p => p.x === currentX && p.y === currentY);
+      const c = this.points[r].findIndex(
+        p => p.x === currentX && p.y === currentY,
+      );
       if (c !== -1) {
         intersections.push({
           min: this.min[r],
@@ -216,8 +242,10 @@ export class LineTrace extends AbstractTrace<number> {
     if (Array.isArray(target)) {
       const [row, col] = target;
       return (
-        row >= 0 && row < this.values.length
-        && col >= 0 && col < this.values[row].length // Fixed: use target row instead of current row
+        row >= 0
+        && row < this.values.length
+        && col >= 0
+        && col < this.values[row].length // Fixed: use target row instead of current row
       );
     }
 
@@ -246,7 +274,9 @@ export class LineTrace extends AbstractTrace<number> {
    * @param direction The direction to search (UPWARD for higher Y values, DOWNWARD for lower Y values)
    * @returns The row index of the target line, or null if no suitable line is found
    */
-  private findLineByXAndYDirection(direction: 'UPWARD' | 'DOWNWARD'): number | null {
+  private findLineByXAndYDirection(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): number | null {
     const currentX = this.points[this.row][this.col].x;
 
     let bestRow: number | null = null;
@@ -273,7 +303,10 @@ export class LineTrace extends AbstractTrace<number> {
       const lineY = this.points[row][matchingPointIndex].y;
 
       // Check if this line's y value is in the desired direction
-      const isValidDirection = direction === 'UPWARD' ? lineY > this.points[this.row][this.col].y : lineY < this.points[this.row][this.col].y;
+      const isValidDirection
+        = direction === 'UPWARD'
+          ? lineY > this.points[this.row][this.col].y
+          : lineY < this.points[this.row][this.col].y;
       const distance = Math.abs(lineY - this.points[this.row][this.col].y);
 
       if (!isValidDirection) {
@@ -319,17 +352,25 @@ export class LineTrace extends AbstractTrace<number> {
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
         SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
-        let match: RegExpExecArray | null = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
+        let match: RegExpExecArray | null
+          = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         while (match !== null) {
-          coordinates.push({ x: Number.parseFloat(match[1]), y: Number.parseFloat(match[2]) });
+          coordinates.push({
+            x: Number.parseFloat(match[1]),
+            y: Number.parseFloat(match[2]),
+          });
           match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
         }
       } else if (lineElement instanceof SVGPolylineElement) {
-        const pointsAttr = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
+        const pointsAttr
+          = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
         const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
         for (const coordinate of strCoords) {
           const [x, y] = coordinate.split(Constant.COMMA);
-          coordinates.push({ x: Number.parseFloat(x), y: Number.parseFloat(y) });
+          coordinates.push({
+            x: Number.parseFloat(x),
+            y: Number.parseFloat(y),
+          });
         }
       }
       if (coordinates.length !== this.lineValues[r].length) {
@@ -349,7 +390,9 @@ export class LineTrace extends AbstractTrace<number> {
           lineFailed = true;
           break;
         }
-        linePointElements.push(Svg.createCircleElement(coordinate.x, coordinate.y, lineElement));
+        linePointElements.push(
+          Svg.createCircleElement(coordinate.x, coordinate.y, lineElement),
+        );
       }
       if (lineFailed) {
         svgElements.push([]);
@@ -372,10 +415,12 @@ export class LineTrace extends AbstractTrace<number> {
     if (baseState.empty)
       return baseState;
 
+    const isMultiline = this.points.length > 1;
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
-      plotType: this.points.length > 1 ? 'multiline' : 'single line',
+      plotType: isMultiline ? 'multiline' : 'single line',
+      ...(isMultiline && { groupCount: this.points.length }),
     };
 
     // Check for intersection at current (x, y)
@@ -384,5 +429,237 @@ export class LineTrace extends AbstractTrace<number> {
       return { ...stateWithPlotType, intersections };
     }
     return stateWithPlotType;
+  }
+
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
+  public findNearestPoint(
+    x: number,
+    y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      return null;
+    }
+
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - x, center.y - y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex === -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  /**
+   * Get extrema targets for the current line plot
+   * Returns min and max values within the current group
+   * @returns Array of extrema targets for navigation
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
+      return targets;
+    }
+
+    const groupValues = this.lineValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+    // Use pre-computed min/max values instead of recalculating
+    const groupMin = this.min[currentGroup];
+    const groupMax = this.max[currentGroup];
+    // Find indices of min/max values
+    const maxIndices: number[] = [];
+    const minIndices: number[] = [];
+    for (let index = 0; index < groupValues.length; index++) {
+      const value = groupValues[index];
+      if (value === groupMax) {
+        maxIndices.push(index);
+      }
+      if (value === groupMin) {
+        minIndices.push(index);
+      }
+    }
+
+    // Add max targets
+    for (const maxIndex of maxIndices) {
+      targets.push({
+        label: `Max point at ${this.getPointLabel(maxIndex)}`,
+        value: groupMax,
+        pointIndex: maxIndex,
+        segment: 'line',
+        type: 'max',
+        navigationType: 'point',
+      });
+    }
+
+    // Add min target
+    for (const minIndex of minIndices) {
+      targets.push({
+        label: `Min point at ${this.getPointLabel(minIndex)}`,
+        value: groupMin,
+        pointIndex: minIndex,
+        segment: 'line',
+        type: 'min',
+        navigationType: 'point',
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Navigate to a specific extrema target
+   * @param target The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    // Update the current point index (column)
+    this.col = target.pointIndex;
+
+    // Use common finalization method
+    this.finalizeExtremaNavigation();
+  }
+
+  /**
+   * Get a clean label for a specific point
+   * @param pointIndex The index of the point
+   * @returns A clean label for the point
+   */
+  private getPointLabel(pointIndex: number): string {
+    if (this.points[this.row] && this.points[this.row][pointIndex]) {
+      const point = this.points[this.row][pointIndex];
+      return `${point.x}`;
+    }
+    return `Point ${pointIndex}`;
+  }
+
+  /**
+   * Update the visual position of the current point
+   * This method should be called when navigation changes
+   */
+  protected updateVisualPointPosition(): void {
+    // Ensure we're within bounds
+    const { row: safeRow, col: safeCol } = this.getSafeIndices();
+    this.row = safeRow;
+    this.col = safeCol;
+  }
+
+  /**
+   * Get available X values for navigation
+   * @returns Array of X values
+   */
+  public getAvailableXValues(): XValue[] {
+    return this.points[this.row].map(val => val.x);
+  }
+
+  /**
+   * Move the line plot to the position that matches the given X value
+   * @param xValue The X value to move to
+   * @returns true if the position was found and set, false otherwise
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    // Handle initial entry properly
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+    return super.moveToXValue(xValue);
+  }
+
+  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
+      return false;
+    }
+
+    const groupValues = this.lineValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
+  }
+
+  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+    if (type === 'lower') {
+      return a < b;
+    }
+    if (type === 'higher') {
+      return a > b;
+    }
+    return false;
+  }
+
+  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+    this.moveOnce('UPWARD');
+    return true;
+  }
+
+  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+    this.moveOnce('DOWNWARD');
+    return true;
   }
 }

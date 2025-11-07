@@ -3,8 +3,10 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
+import { GoToExtrema } from './components/GoToExtrema';
 import Braille from './pages/Braille';
 import Chat from './pages/Chat';
+import CommandPalette from './pages/CommandPalette';
 import Help from './pages/Help';
 import Review from './pages/Review';
 import Settings from './pages/Settings';
@@ -16,7 +18,6 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ plot }) => {
-  const { enabled, message } = useViewModelState('text');
   const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
@@ -26,6 +27,12 @@ const App: React.FC<AppProps> = ({ plot }) => {
 
       case 'CHAT':
         return <Chat />;
+
+      case 'COMMAND_PALETTE':
+        return <CommandPalette />;
+
+      case 'GO_TO_EXTREMA':
+        return <GoToExtrema />;
 
       case 'HELP':
         return <Help />;
@@ -44,7 +51,7 @@ const App: React.FC<AppProps> = ({ plot }) => {
   return (
     <>
       {tooltip.visible && <Tooltip plot={plot} />}
-      {(enabled || message) && <Text />}
+      <Text />
       {renderFocusedComponent(focus)}
     </>
   );

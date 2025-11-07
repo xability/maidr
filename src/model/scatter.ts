@@ -1,6 +1,12 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import type {
+  AudioState,
+  AutoplayState,
+  BrailleState,
+  HighlightState,
+  TextState,
+} from '@type/state';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -21,6 +27,8 @@ interface ScatterYPoint {
 }
 
 export class ScatterTrace extends AbstractTrace<number> {
+  protected readonly supportsExtrema = false;
+
   private mode: NavMode;
 
   private readonly xPoints: ScatterXPoint[];
@@ -73,7 +81,9 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.minY = MathUtil.safeMin(this.yValues);
     this.maxY = MathUtil.safeMax(this.yValues);
 
-    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
+    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(
+      layer.selectors as string,
+    );
   }
 
   public dispose(): void {
@@ -118,7 +128,9 @@ export class ScatterTrace extends AbstractTrace<number> {
   }
 
   protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
+    return this.mode === NavMode.COL
+      ? this.highlightXValues
+      : this.highlightYValues;
   }
 
   protected getAudioGroupIndex(): { groupIndex?: number } {
@@ -217,9 +229,14 @@ export class ScatterTrace extends AbstractTrace<number> {
       };
     }
 
-    const elements = this.mode === NavMode.COL
-      ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
-      : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
+    const elements
+      = this.mode === NavMode.COL
+        ? this.col < this.highlightValues.length
+          ? this.highlightValues![this.col]
+          : null
+        : this.row < this.highlightValues.length
+          ? this.highlightValues![this.row]
+          : null;
     if (!elements) {
       return {
         empty: true,
@@ -258,7 +275,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     if (this.mode === NavMode.COL) {
       // Switch from COL to ROW mode
       const currentXPoint = this.xPoints[this.col];
-      const middleYValue = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
+      const middleYValue
+        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
       const targetRow = this.yValues.indexOf(middleYValue);
 
       // Safety check: ensure the calculated row is valid
@@ -272,7 +290,8 @@ export class ScatterTrace extends AbstractTrace<number> {
     } else {
       // Switch from ROW to COL mode
       const currentYPoint = this.yPoints[this.row];
-      const middleXValue = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
+      const middleXValue
+        = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
       const targetCol = this.xValues.indexOf(middleXValue);
 
       // Safety check: ensure the calculated col is valid
@@ -411,7 +430,9 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {
+  private mapToSvgElements(
+    selector?: string,
+  ): [SVGElement[][], SVGElement[][]] | [null, null] {
     if (!selector) {
       return [null, null];
     }
@@ -448,5 +469,13 @@ export class ScatterTrace extends AbstractTrace<number> {
       .map(([_, elements]) => elements);
 
     return [sortedXElements, sortedYElements];
+  }
+
+  public findNearestPoint(
+    _x: number,
+    _y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // to implement later
+    return null;
   }
 }

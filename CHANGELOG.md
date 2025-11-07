@@ -1,3 +1,185 @@
+## [3.36.2](https://github.com/xability/maidr/compare/v3.36.1...v3.36.2) (2025-11-04)
+
+
+### Bug Fixes
+
+* address selector failures in boxplot ([#465](https://github.com/xability/maidr/issues/465)) ([76ef8d3](https://github.com/xability/maidr/commit/76ef8d33f99b885fb360f3a17e2736cc991fdd57))
+
+## [3.36.1](https://github.com/xability/maidr/compare/v3.36.0...v3.36.1) (2025-11-02)
+
+
+### Bug Fixes
+
+* address boxplot label misalignment ([#464](https://github.com/xability/maidr/issues/464)) ([6ec7db7](https://github.com/xability/maidr/commit/6ec7db715e84da6dc64f3c20010dedb2204db593))
+
+# [3.36.0](https://github.com/xability/maidr/compare/v3.35.0...v3.36.0) (2025-10-31)
+
+
+### Features
+
+* support custom dom ordering ([#461](https://github.com/xability/maidr/issues/461)) ([ddf3bf4](https://github.com/xability/maidr/commit/ddf3bf43d42140c60abfb925ea70a6a881ba8f68))
+
+# [3.35.0](https://github.com/xability/maidr/compare/v3.34.0...v3.35.0) (2025-10-30)
+
+
+### Features
+
+* support for both maidr-data & maidr payload within svg ([#460](https://github.com/xability/maidr/issues/460)) ([8611c69](https://github.com/xability/maidr/commit/8611c6983eff11ca6f1b910235460b866f6345bb))
+
+# [3.34.0](https://github.com/xability/maidr/compare/v3.33.0...v3.34.0) (2025-10-27)
+
+
+### Features
+
+* support rotor-based navigation via alt+shift+arrowup or arrowdown ([#429](https://github.com/xability/maidr/issues/429)) ([3ff61ec](https://github.com/xability/maidr/commit/3ff61ecaee55744390d1174245b68be0908371c2)), closes [#432](https://github.com/xability/maidr/issues/432) [#433](https://github.com/xability/maidr/issues/433) [#437](https://github.com/xability/maidr/issues/437) [#436](https://github.com/xability/maidr/issues/436)
+* trigger release for rotor fature ([#457](https://github.com/xability/maidr/issues/457)) ([bd6e5ff](https://github.com/xability/maidr/commit/bd6e5ff33006d882b6904f6b1115f2f7083abee7))
+
+# [3.33.0](https://github.com/xability/maidr/compare/v3.32.0...v3.33.0) (2025-10-23)
+
+
+### Features
+
+* starting position is always lower left ([#455](https://github.com/xability/maidr/issues/455)) ([96c3a75](https://github.com/xability/maidr/commit/96c3a75fecafbbc76eab73c63a0b65c05bd3d7dd))
+
+# [3.32.0](https://github.com/xability/maidr/compare/v3.31.0...v3.32.0) (2025-10-15)
+
+
+### Features
+
+* support reverse dom ordering for dodged/stacked plots ([#453](https://github.com/xability/maidr/issues/453)) ([f61e7e0](https://github.com/xability/maidr/commit/f61e7e0a9d9c64808d043b3f98b81f262c554365))
+
+# [3.31.0](https://github.com/xability/maidr/compare/v3.30.1...v3.31.0) (2025-10-10)
+
+
+### Bug Fixes
+
+* address issue where esc doesn't work after toggling to label scope ([#444](https://github.com/xability/maidr/issues/444)) ([b54cd4b](https://github.com/xability/maidr/commit/b54cd4b9ddb3fc8db025bb5940fd9802cbdbced3))
+
+
+### Features
+
+* support outlier visual highlight in boxplots ([#450](https://github.com/xability/maidr/issues/450)) ([979a390](https://github.com/xability/maidr/commit/979a3905ed3ef5af5fd7c137842837d9309d5ff5))
+
+## [3.30.1](https://github.com/xability/maidr/compare/v3.30.0...v3.30.1) (2025-09-22)
+
+
+### Bug Fixes
+
+* addressed an issue where the LLM response hangs on chart descriptions regardless of the user prompt ([#443](https://github.com/xability/maidr/issues/443)) ([faf63fe](https://github.com/xability/maidr/commit/faf63feda47294d6f830409c5ea526629a291e43))
+
+# [3.30.0](https://github.com/xability/maidr/compare/v3.29.0...v3.30.0) (2025-09-18)
+
+
+### Features
+
+* remove boxplot hover functionality ([#442](https://github.com/xability/maidr/issues/442)) ([d28f54d](https://github.com/xability/maidr/commit/d28f54da14aa35849fbe516c0b70f992abca36a1))
+* retain boxplot labels case ([#441](https://github.com/xability/maidr/issues/441)) ([6a94a5d](https://github.com/xability/maidr/commit/6a94a5dd62277916310ceaaa240df2233359911d))
+
+# [3.29.0](https://github.com/xability/maidr/compare/v3.28.0...v3.29.0) (2025-09-18)
+
+
+### Features
+
+* revert onhover ([#440](https://github.com/xability/maidr/issues/440)) ([9e45d5e](https://github.com/xability/maidr/commit/9e45d5e9143eaafa1f98569796ff832e044cd174))
+
+# [3.28.0](https://github.com/xability/maidr/compare/v3.27.1...v3.28.0) (2025-09-17)
+
+
+### Features
+
+* support mouse hover visual highlight ([#436](https://github.com/xability/maidr/issues/436)) ([621b5fe](https://github.com/xability/maidr/commit/621b5fed13d2e4881529d1fe49207e782b6d7780))
+
+## [3.27.1](https://github.com/xability/maidr/compare/v3.27.0...v3.27.1) (2025-09-15)
+
+
+### Bug Fixes
+
+* address pending welcome message in chat and auto scroll ([#437](https://github.com/xability/maidr/issues/437)) ([609eefb](https://github.com/xability/maidr/commit/609eefb3333f6513d22b27c10c2091f41c584cb0))
+
+# [3.27.0](https://github.com/xability/maidr/compare/v3.26.1...v3.27.0) (2025-09-12)
+
+
+### Features
+
+* fix subplot nav announcements & cleanup junk in chat component ([#433](https://github.com/xability/maidr/issues/433)) ([97b88f2](https://github.com/xability/maidr/commit/97b88f24f9bb03bb90b4acc3a12e51f75f97bcd7))
+
+## [3.26.1](https://github.com/xability/maidr/compare/v3.26.0...v3.26.1) (2025-09-08)
+
+
+### Bug Fixes
+
+* address multi-panel plot navigation ([#432](https://github.com/xability/maidr/issues/432)) ([4d5bab9](https://github.com/xability/maidr/commit/4d5bab9a80ebcf66ca587fde7507e39e98d2b730))
+
+# [3.26.0](https://github.com/xability/maidr/compare/v3.25.0...v3.26.0) (2025-09-04)
+
+
+### Features
+
+* go to extrema/ Specific point for Line plots via g key ([#426](https://github.com/xability/maidr/issues/426)) ([2ff729c](https://github.com/xability/maidr/commit/2ff729c73428fc74d3c1804af819e6aac171e20d))
+
+# [3.25.0](https://github.com/xability/maidr/compare/v3.24.0...v3.25.0) (2025-09-03)
+
+
+### Features
+
+* add command palette ([#354](https://github.com/xability/maidr/issues/354)) ([0445e24](https://github.com/xability/maidr/commit/0445e248669400a421f87f96d1b3eef4dfc5bb7a))
+
+# [3.24.0](https://github.com/xability/maidr/compare/v3.23.3...v3.24.0) (2025-09-02)
+
+
+### Features
+
+* go to specific value in candlestick plots ([#427](https://github.com/xability/maidr/issues/427)) ([b1d1191](https://github.com/xability/maidr/commit/b1d11914ee576285db9a6d8d72fc543bdfcdc6bb)), closes [#428](https://github.com/xability/maidr/issues/428)
+
+## [3.23.3](https://github.com/xability/maidr/compare/v3.23.2...v3.23.3) (2025-08-20)
+
+
+### Bug Fixes
+
+* address nav bug after title diplay ([#424](https://github.com/xability/maidr/issues/424)) ([f309eff](https://github.com/xability/maidr/commit/f309effe588fd34360851a1f414b7298e80bb632))
+
+## [3.23.2](https://github.com/xability/maidr/compare/v3.23.1...v3.23.2) (2025-08-20)
+
+
+### Bug Fixes
+
+* address boundary spatial audio bug ([#423](https://github.com/xability/maidr/issues/423)) ([7a97d0b](https://github.com/xability/maidr/commit/7a97d0b2f2488af54db119501153fa632aaf4e0a))
+
+## [3.23.1](https://github.com/xability/maidr/compare/v3.23.0...v3.23.1) (2025-08-19)
+
+
+### Bug Fixes
+
+* address boundary spatial audio bug ([#422](https://github.com/xability/maidr/issues/422)) ([008bf22](https://github.com/xability/maidr/commit/008bf2245f1faf271a0f167d451b5187f6b65b92))
+
+# [3.23.0](https://github.com/xability/maidr/compare/v3.22.1...v3.23.0) (2025-08-19)
+
+
+### Features
+
+* go-to navigation for candlestick plots ([#418](https://github.com/xability/maidr/issues/418)) ([91a00ff](https://github.com/xability/maidr/commit/91a00ffdd3cce385eb57feba9a6cde393803d6a9))
+
+## [3.22.1](https://github.com/xability/maidr/compare/v3.22.0...v3.22.1) (2025-08-15)
+
+
+### Bug Fixes
+
+* address screen reader announcement freeze ([#416](https://github.com/xability/maidr/issues/416)) ([caa6229](https://github.com/xability/maidr/commit/caa62290d34e0215913d34363227aacfba73c7cf))
+
+# [3.22.0](https://github.com/xability/maidr/compare/v3.21.1...v3.22.0) (2025-08-12)
+
+
+### Features
+
+* announce group count in multiline plot instructions with edge case handling ([#409](https://github.com/xability/maidr/issues/409)) ([84db540](https://github.com/xability/maidr/commit/84db54020525941468bcb4baa0545e660cf983d9))
+
+## [3.21.1](https://github.com/xability/maidr/compare/v3.21.0...v3.21.1) (2025-08-12)
+
+
+### Bug Fixes
+
+* **display:** reset focus on teardown to prevent missing braille view ([#410](https://github.com/xability/maidr/issues/410)) ([c1d6a94](https://github.com/xability/maidr/commit/c1d6a94624d4c27c2a969e9b7de3e052dcfbe72a))
+
 # [3.21.0](https://github.com/xability/maidr/compare/v3.20.4...v3.21.0) (2025-08-11)
 
 

@@ -65,6 +65,11 @@ export type TraceState
        * null/undefined for normal points (single line or no intersection).
        */
       intersections?: AudioState[] | null;
+      /**
+       * Number of groups/series in the plot.
+       * Only present for multiline plots where plotType === 'multiline'.
+       */
+      groupCount?: number;
     };
 
 export type NonEmptyTraceState = Extract<TraceState, { empty: false }>;

@@ -13,7 +13,38 @@ if (document.readyState === 'loading') {
   main();
 }
 
+function parseAndInit(
+  plot: HTMLElement,
+  json: string,
+  source: 'maidr' | 'maidr-data',
+): void {
+  try {
+    const maidr = JSON.parse(json) as Maidr;
+    initMaidr(maidr, plot);
+  } catch (error) {
+    console.error(`Error parsing ${source} attribute:`, error);
+  }
+}
+
 function main(): void {
+  const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
+    Constant.MAIDR_JSON_SELECTOR,
+  );
+
+  if (plotsWithMaidr.length > 0) {
+    plotsWithMaidr.forEach((plot) => {
+      const maidrAttr = plot.getAttribute(Constant.MAIDR);
+
+      if (!maidrAttr) {
+        return;
+      }
+
+      parseAndInit(plot, maidrAttr, 'maidr');
+    });
+
+    return;
+  }
+
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
     const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
@@ -21,12 +52,7 @@ function main(): void {
       return;
     }
 
-    try {
-      const maidr = JSON.parse(maidrData);
-      initMaidr(maidr, plot);
-    } catch (error) {
-      console.error('Error parsing maidr attribute:', error);
-    }
+    parseAndInit(plot, maidrData, 'maidr-data');
   });
 
   // Fall back to window.maidr if no attribute found.
@@ -43,6 +69,7 @@ function main(): void {
 
   const plot = document.getElementById(maidr.id);
   if (!plot) {
+    console.error('Plot not found for maidr:', maidr.id);
     return;
   }
   initMaidr(maidr, plot);
@@ -51,6 +78,7 @@ function main(): void {
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
+  let hasAnnounced = false;
 
   const onFocusOut = (): void => {
     // Allow React to process all the events before focusing out.
@@ -60,9 +88,13 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
 
       const activeElement = document.activeElement as HTMLElement;
-      if (!maidrContainer.contains(activeElement)) {
-        controller?.dispose();
+      const isInside = maidrContainer.contains(activeElement);
+      if (!isInside) {
+        if (controller) {
+          controller.dispose();
+        }
         controller = null;
+        hasAnnounced = false;
       }
     }, 0);
   };
@@ -78,6 +110,13 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
       }
+
+      if (!hasAnnounced) {
+        hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
+
+        // Also show visually in Text component (no alert)
+        controller.showInitialInstructionInText();
+      }
     }, 0);
   };
 
@@ -89,6 +128,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
       const maidrClone = JSON.parse(JSON.stringify(maidr));
       controller = new Controller(maidrClone, plot);
+      // Do not announce here; focus-in will handle one-shot announcement
+      hasAnnounced = false;
     }
   };
 
@@ -108,10 +149,10 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
 
   maidrContainer = figureElement;
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
-  plot.addEventListener(DomEventType.CLICK, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
 
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
+  plot.addEventListener(DomEventType.CLICK, onFocusIn);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));

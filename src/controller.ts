@@ -1,29 +1,36 @@
-import type { Disposable } from '@type/disposable';
-import type { Maidr } from '@type/grammar';
-import { Context } from '@model/context';
-import { Figure } from '@model/plot';
-import { AudioService } from '@service/audio';
-import { AutoplayService } from '@service/autoplay';
-import { BrailleService } from '@service/braille';
-import { ChatService } from '@service/chat';
-import { DisplayService } from '@service/display';
-import { HelpService } from '@service/help';
-import { HighlightService } from '@service/highlight';
-import { KeybindingService } from '@service/keybinding';
-import { NotificationService } from '@service/notification';
-import { ReviewService } from '@service/review';
-import { SettingsService } from '@service/settings';
-import { LocalStorageService } from '@service/storage';
-import { TextService } from '@service/text';
-import { store } from '@state/store';
-import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
-import { ChatViewModel } from '@state/viewModel/chatViewModel';
-import { DisplayViewModel } from '@state/viewModel/displayViewModel';
-import { HelpViewModel } from '@state/viewModel/helpViewModel';
-import { ViewModelRegistry } from '@state/viewModel/registry';
-import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
-import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
-import { TextViewModel } from '@state/viewModel/textViewModel';
+import type { Disposable } from "@type/disposable";
+import type { Maidr } from "@type/grammar";
+import { Context } from "@model/context";
+import { Figure } from "@model/plot";
+import { AudioService } from "@service/audio";
+import { AutoplayService } from "@service/autoplay";
+import { BrailleService } from "@service/braille";
+import { ChatService } from "@service/chat";
+import { CommandExecutor } from "@service/commandExecutor";
+import { CommandPaletteService } from "@service/commandPalette";
+import { DisplayService } from "@service/display";
+import { GoToExtremaService } from "@service/goToExtrema";
+import { HelpService } from "@service/help";
+import { HighlightService } from "@service/highlight";
+import { KeybindingService, Mousebindingservice } from "@service/keybinding";
+import { NotificationService } from "@service/notification";
+import { ReviewService } from "@service/review";
+import { RotorNavigationService } from "@service/rotor";
+import { SettingsService } from "@service/settings";
+import { LocalStorageService } from "@service/storage";
+import { TextService } from "@service/text";
+import { store } from "@state/store";
+import { BrailleViewModel } from "@state/viewModel/brailleViewModel";
+import { ChatViewModel } from "@state/viewModel/chatViewModel";
+import { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
+import { DisplayViewModel } from "@state/viewModel/displayViewModel";
+import { GoToExtremaViewModel } from "@state/viewModel/goToExtremaViewModel";
+import { HelpViewModel } from "@state/viewModel/helpViewModel";
+import { ViewModelRegistry } from "@state/viewModel/registry";
+import { ReviewViewModel } from "@state/viewModel/reviewViewModel";
+import { RotorNavigationViewModel } from "@state/viewModel/rotorNavigationViewModel";
+import { SettingsViewModel } from "@state/viewModel/settingsViewModel";
+import { TextViewModel } from "@state/viewModel/textViewModel";
 
 export class Controller implements Disposable {
   private readonly figure: Figure;
@@ -35,8 +42,10 @@ export class Controller implements Disposable {
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
+  private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
+  private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
@@ -45,20 +54,30 @@ export class Controller implements Disposable {
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly settingsViewModel: SettingsViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
 
   private readonly keybinding: KeybindingService;
+  private readonly mousebinding: Mousebindingservice;
+  private readonly commandExecutor: CommandExecutor;
 
   public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
-    this.displayService = new DisplayService(this.context, plot);
     this.notificationService = new NotificationService();
+    this.textService = new TextService(this.notificationService);
+    this.displayService = new DisplayService(
+      this.context,
+      plot,
+      this.textService,
+    );
     this.settingsService = new SettingsService(
       new LocalStorageService(),
       this.displayService,
@@ -74,7 +93,10 @@ export class Controller implements Disposable {
       this.notificationService,
       this.displayService,
     );
-    this.textService = new TextService(this.notificationService);
+    this.goToExtremaService = new GoToExtremaService(
+      this.context,
+      this.displayService,
+    );
     this.reviewService = new ReviewService(
       this.notificationService,
       this.displayService,
@@ -88,7 +110,11 @@ export class Controller implements Disposable {
     );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
-    this.chatService = new ChatService(this.displayService, maidr);
+    this.chatService = new ChatService(
+      this.displayService,
+      this.textService,
+      maidr,
+    );
 
     this.textViewModel = new TextViewModel(
       store,
@@ -97,17 +123,35 @@ export class Controller implements Disposable {
       this.autoplayService,
     );
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
+    this.goToExtremaViewModel = new GoToExtremaViewModel(
+      store,
+      this.goToExtremaService,
+      this.context,
+    );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
+    this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+
+    this.rotorNavigationService = new RotorNavigationService(this.context);
+    this.rotorNavigationViewModel = new RotorNavigationViewModel(
+      store,
+      this.rotorNavigationService,
+    );
     this.chatViewModel = new ChatViewModel(
       store,
       this.chatService,
       this.audioService,
     );
-    this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.notificationService.notify(this.displayService.getInstruction(false));
+    const commandPaletteService = new CommandPaletteService(
+      this.context,
+      this.displayService,
+    );
+    this.commandPaletteViewModel = new CommandPaletteViewModel(
+      store,
+      commandPaletteService,
+    );
 
     this.keybinding = new KeybindingService({
       context: this.context,
@@ -115,31 +159,103 @@ export class Controller implements Disposable {
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       highlightService: this.highlightService,
+      settingsService: this.settingsService,
+      rotorNavigationService: this.rotorNavigationService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
+      commandPaletteViewModel: this.commandPaletteViewModel,
+      goToExtremaViewModel: this.goToExtremaViewModel,
       helpViewModel: this.helpViewModel,
       reviewViewModel: this.reviewViewModel,
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
+      rotorNavigationViewModel: this.rotorNavigationViewModel,
+    });
+    this.mousebinding = new Mousebindingservice({
+      context: this.context,
+
+      audioService: this.audioService,
+      autoplayService: this.autoplayService,
+      highlightService: this.highlightService,
+      settingsService: this.settingsService,
+      rotorNavigationService: this.rotorNavigationService,
+
+      brailleViewModel: this.brailleViewModel,
+      chatViewModel: this.chatViewModel,
+      commandPaletteViewModel: this.commandPaletteViewModel,
+      goToExtremaViewModel: this.goToExtremaViewModel,
+      helpViewModel: this.helpViewModel,
+      reviewViewModel: this.reviewViewModel,
+      settingsViewModel: this.settingsViewModel,
+      textViewModel: this.textViewModel,
+      rotorNavigationViewModel: this.rotorNavigationViewModel,
     });
 
+    this.commandExecutor = new CommandExecutor(
+      {
+        context: this.context,
+
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
+        settingsService: this.settingsService,
+        rotorNavigationService: this.rotorNavigationService,
+
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
+      },
+      this.context.scope,
+    );
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);
+    this.mousebinding.registerEvents();
+  }
+
+  public announceInitialInstruction(): void {
+    // Prime the live region with an invisible separator to force a DOM-change event
+    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
+    this.notificationService.notify("\u2063");
+    setTimeout(() => {
+      this.notificationService.notify(
+        this.displayService.getInstruction(false),
+      );
+    }, 50);
+  }
+
+  public getInitialInstruction(): string {
+    return this.displayService.getInstruction(false);
+  }
+
+  public showInitialInstructionInText(): void {
+    const text = this.displayService.getInstruction(false);
+    // Keep initial instruction visual-only; enable announce later on first nav update
+    this.textViewModel.setAnnounce(false);
+    this.textViewModel.update(text);
   }
 
   public dispose(): void {
     this.keybinding.unregister();
+    this.mousebinding.unregister();
 
     ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
     this.displayViewModel.dispose();
+    this.goToExtremaViewModel.dispose();
     this.reviewViewModel.dispose();
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
+    this.commandPaletteViewModel.dispose();
 
     this.highlightService.dispose();
     this.autoplayService.dispose();
@@ -156,13 +272,25 @@ export class Controller implements Disposable {
   }
 
   private registerViewModels(): void {
-    ViewModelRegistry.instance.register('text', this.textViewModel);
-    ViewModelRegistry.instance.register('braille', this.brailleViewModel);
-    ViewModelRegistry.instance.register('review', this.reviewViewModel);
-    ViewModelRegistry.instance.register('display', this.displayViewModel);
-    ViewModelRegistry.instance.register('help', this.helpViewModel);
-    ViewModelRegistry.instance.register('chat', this.chatViewModel);
-    ViewModelRegistry.instance.register('settings', this.settingsViewModel);
+    ViewModelRegistry.instance.register("text", this.textViewModel);
+    ViewModelRegistry.instance.register("braille", this.brailleViewModel);
+    ViewModelRegistry.instance.register(
+      "goToExtrema",
+      this.goToExtremaViewModel,
+    );
+    ViewModelRegistry.instance.register("review", this.reviewViewModel);
+    ViewModelRegistry.instance.register("display", this.displayViewModel);
+    ViewModelRegistry.instance.register("help", this.helpViewModel);
+    ViewModelRegistry.instance.register("chat", this.chatViewModel);
+    ViewModelRegistry.instance.register("settings", this.settingsViewModel);
+    ViewModelRegistry.instance.register(
+      "commandPalette",
+      this.commandPaletteViewModel,
+    );
+    ViewModelRegistry.instance.register(
+      "commandExecutor",
+      this.commandExecutor,
+    );
   }
 
   private registerObservers(): void {

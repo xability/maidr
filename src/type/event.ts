@@ -21,6 +21,8 @@ export type Status
 export enum Scope {
   BRAILLE = 'BRAILLE',
   CHAT = 'CHAT',
+  COMMAND_PALETTE = 'COMMAND_PALETTE',
+  GO_TO_EXTREMA = 'GO_TO_EXTREMA',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
   SUBPLOT = 'SUBPLOT',
@@ -28,6 +30,9 @@ export enum Scope {
   TRACE_LABEL = 'TRACE_LABEL',
   REVIEW = 'REVIEW',
   SETTINGS = 'SETTINGS',
+  ROTOR_NEXT_NAV = 'ROTOR_NEXT_NAV',
+  ROTOR_PREV_NAV = 'ROTOR_PREV_NAV',
+  ROTOR = 'ROTOR',
 }
 
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;

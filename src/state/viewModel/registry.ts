@@ -1,20 +1,28 @@
+import type { CommandExecutor } from '@service/commandExecutor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
+import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
-import type { ChatViewModel } from './chatViewModel';
-import type { HelpViewModel } from './helpViewModel';
+import type { RotorNavigationViewModel } from './rotorNavigationViewModel';
 import type { SettingsViewModel } from './settingsViewModel';
 import type { TextViewModel } from './textViewModel';
 
 export interface ViewModelMap {
   braille: BrailleViewModel;
   chat: ChatViewModel;
+  commandExecutor: CommandExecutor;
+  commandPalette: CommandPaletteViewModel;
   display: DisplayViewModel;
+  goToExtrema: GoToExtremaViewModel;
   help: HelpViewModel;
   review: ReviewViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;
+  rotor: RotorNavigationViewModel;
 }
 
 export class ViewModelRegistry implements Disposable {
