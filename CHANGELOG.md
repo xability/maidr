@@ -1,3 +1,10 @@
+## [3.36.3](https://github.com/xability/maidr/compare/v3.36.2...v3.36.3) (2025-11-11)
+
+
+### Bug Fixes
+
+* address smooth plot braille not functional ([#468](https://github.com/xability/maidr/issues/468)) ([7c79cc1](https://github.com/xability/maidr/commit/7c79cc1429b2d132a9c433499809118e2171e05a))
+
 ## [3.36.2](https://github.com/xability/maidr/compare/v3.36.1...v3.36.2) (2025-11-04)
 
 
