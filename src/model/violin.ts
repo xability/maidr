@@ -1,6 +1,6 @@
 import type { MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { TextState } from '@type/state';
+import type { BrailleState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
@@ -129,8 +129,12 @@ export class ViolinTrace extends SmoothTrace {
       return;
     }
 
-    // For violin plots, disable left/right arrows completely
+    // For violin plots, left/right arrows switch between violin KDE layers
+    // Each violin's KDE layer is a separate SMOOTH trace, so let the subplot handle trace switching
+    // This allows left/right to navigate from one violin's KDE layer to another violin's KDE layer
     if (direction === 'FORWARD' || direction === 'BACKWARD') {
+      // Don't handle FORWARD/BACKWARD - let it fall through to subplot for trace switching
+      // This allows left/right arrows to switch between violin KDE layers (SMOOTH traces)
       this.notifyOutOfBounds();
       return;
     }
@@ -140,8 +144,8 @@ export class ViolinTrace extends SmoothTrace {
       return;
     }
 
-    // For violin plots, map up/down arrows to column movement along the density curve
-    // This is different from the base class which maps up/down to row movement
+    // For violin plots, up/down arrows navigate along the smooth violin curve (density curve)
+    // This moves along the density curve within a violin (col movement)
     switch (direction) {
       case 'UPWARD':
         // Up arrow moves forward along the density curve (increase column)
@@ -158,21 +162,29 @@ export class ViolinTrace extends SmoothTrace {
     }
   }
 
-  public isMovable(direction: MovableDirection): boolean {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    // Handle array-based movements
+    if (Array.isArray(target)) {
+      return super.isMovable(target);
+    }
+
+    const direction = target;
     
-    // For violin plots, disable left/right arrows completely
+    // For violin plots, left/right arrows switch between violin KDE layers
+    // Each violin's KDE layer is a separate SMOOTH trace, so let the subplot handle trace switching
     if (direction === 'FORWARD' || direction === 'BACKWARD') {
+      // Return false so the subplot can handle trace switching between KDE layers
       return false;
     }
 
-    // For violin plots, map up/down arrows to column movement
+    // For violin plots, up/down arrows navigate along the density curve within a violin
     switch (direction) {
       case 'UPWARD':
-        // Up arrow: check if we can move forward (increase column)
+        // Up arrow: check if we can move forward (increase column) along density curve
         const canMoveUp = this.col < this.lineValues[this.row].length - 1;
         return canMoveUp;
       case 'DOWNWARD':
-        // Down arrow: check if we can move backward (decrease column)
+        // Down arrow: check if we can move backward (decrease column) along density curve
         const canMoveDown = this.col > 0;
         return canMoveDown;
       default:
@@ -183,29 +195,33 @@ export class ViolinTrace extends SmoothTrace {
   }
 
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
-    // For violin plots, up arrow moves forward along the density curve (rightward)
-    // This navigates through the KDE density points from left to right
-    this.moveOnce('UPWARD');
+    // Fn+Up switches between BOX and KDE layers within a violin
+    // Let the subplot handle layer switching by not handling UPWARD
+    // This allows Fn+Up/Down to switch between BOX and KDE layers
+    // Regular Up/Down navigates along the density curve
+    this.notifyOutOfBounds(); // Let subplot handle layer switching
     return true;
   }
 
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
-    // For violin plots, down arrow moves backward along the density curve (leftward)
-    // This navigates through the KDE density points from right to left
-    this.moveOnce('DOWNWARD');
+    // Fn+Down switches between BOX and KDE layers within a violin
+    // Let the subplot handle layer switching by not handling DOWNWARD
+    // This allows Fn+Up/Down to switch between BOX and KDE layers
+    // Regular Up/Down navigates along the density curve
+    this.notifyOutOfBounds(); // Let subplot handle layer switching
     return true;
   }
 
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
-    // Left arrow is disabled for violin plots
-    // Only up/down arrows are allowed for violin plot KDE navigation
-    return false;
+    // Left arrow switches between violin layers (BACKWARD)
+    this.moveOnce('BACKWARD');
+    return true;
   }
 
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
-    // Right arrow is disabled for violin plots
-    // Only up/down arrows are allowed for violin plot KDE navigation
-    return false;
+    // Right arrow switches between violin layers (FORWARD)
+    this.moveOnce('FORWARD');
+    return true;
   }
 
   protected audio() {
@@ -235,6 +251,20 @@ export class ViolinTrace extends SmoothTrace {
       isContinuous: true,
       volumeScale,
       ...this.getAudioGroupIndex(),
+    };
+  }
+
+  protected braille(): BrailleState {
+    // Ensure braille is properly displayed for violin plots
+    // ViolinTrace inherits lineValues, min, max from LineTrace, so this should work
+    return {
+      empty: false,
+      id: this.id,
+      values: this.lineValues,
+      min: this.min,
+      max: this.max,
+      row: this.row,
+      col: this.col,
     };
   }
 

@@ -16,7 +16,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
-  private readonly orientation: Orientation;
+  protected readonly orientation: Orientation;
   private readonly sections: string[];
 
   private readonly min: number;

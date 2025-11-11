@@ -126,34 +126,18 @@ export class CommandFactory {
     switch (command) {
       case 'MOVE_UP':
         // For violin plots, always use MoveUpCommand to ensure ViolinTrace methods are called
-        const activeTraceUp = this.context.active.activeTrace;
-        console.log('CommandFactory: MOVE_UP - activeTrace:', activeTraceUp?.constructor.name);
         return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
         // For violin plots, always use MoveDownCommand to ensure ViolinTrace methods are called
-        const activeTraceDown = this.context.active.activeTrace;
-        console.log('CommandFactory: MOVE_DOWN - activeTrace:', activeTraceDown?.constructor.name);
         return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
-        // Check if current trace is a violin plot and disable left arrow
-        const activeTrace = this.context.active.activeTrace;
-        console.log('CommandFactory: MOVE_LEFT - activeTrace:', activeTrace?.constructor.name);
-        if (activeTrace && activeTrace.constructor.name === 'ViolinTrace') {
-          console.log('CommandFactory: Left arrow disabled for violin plots');
-          return new NoOpCommand();
-        }
+        // Allow left arrow for violin plots to switch between violin layers
         if (this.context.isRotorEnabled()) {
           return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
         }
         return new MoveLeftCommand(this.context);
       case 'MOVE_RIGHT':
-        // Check if current trace is a violin plot and disable right arrow
-        const activeTraceRight = this.context.active.activeTrace;
-        console.log('CommandFactory: MOVE_RIGHT - activeTrace:', activeTraceRight?.constructor.name);
-        if (activeTraceRight && activeTraceRight.constructor.name === 'ViolinTrace') {
-          console.log('CommandFactory: Right arrow disabled for violin plots');
-          return new NoOpCommand();
-        }
+        // Allow right arrow for violin plots to switch between violin layers
         if (this.context.isRotorEnabled()) {
           return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
         }

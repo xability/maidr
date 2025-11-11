@@ -204,7 +204,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     const layers = subplot.layers;
     this.size = layers.length;
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    // Pass all layers to factory so it can detect violin plot box plots
+    this.traces = layers.map(layer => [TraceFactory.create(layer, layers)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
@@ -256,6 +257,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       return;
     }
 
+    // Track previous position to detect trace switching
+    const previousCol = this.col;
+    const previousRow = this.row;
+
     switch (direction) {
       case 'UPWARD':
         this.row += 1;
@@ -270,6 +275,17 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
         this.col -= 1;
         break;
     }
+
+    // If we switched traces (col changed) and the new trace is a ViolinBoxTrace,
+    // reset its position to MIN when navigating between box plots in violin plots
+    if (previousCol !== this.col && (direction === 'FORWARD' || direction === 'BACKWARD')) {
+      const newTrace = this.activeTrace;
+      // Check if it's a ViolinBoxTrace by checking if it has the resetToMin method
+      if (newTrace && typeof (newTrace as any).resetToMin === 'function') {
+        (newTrace as any).resetToMin();
+      }
+    }
+
     this.notifyStateUpdate();
   }
 
