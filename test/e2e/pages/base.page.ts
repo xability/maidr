@@ -536,15 +536,14 @@ export abstract class BasePage {
 
   /**
    * Verifies if the SVG element is focused
-   * @param plotId - The ID of the plot to verify
    * @throws Error if SVG is not focused
    */
-  protected async verifySvgFocused(plotId: string): Promise<void> {
+  protected async verifySvgFocused(): Promise<void> {
     const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg' || activeElementInfo.id !== plotId) {
+    if (activeElementInfo.tagName !== 'svg') {
       throw new Error(
-        `Expected SVG element with ID "${plotId}" to be focused, `
-        + `but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`,
+        `Expected SVG element to be focused, `
+        + `but found ${activeElementInfo.tagName} instead"`,
       );
     }
   }

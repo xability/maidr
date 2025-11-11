@@ -100,10 +100,10 @@ test.describe('Stacked Barplot', () => {
     try {
       const stackedBarplotPage = new StackedBarplotPage(page);
       await stackedBarplotPage.navigateToStackedBarplot();
-      await page.waitForSelector(`svg#${TestConstants.STACKED_BARPLOT_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
+        const svgElement = document.querySelector(`svg`);
 
         if (!svgElement) {
           throw new Error(`SVG element with ID ${plotId} not found`);

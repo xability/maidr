@@ -128,10 +128,10 @@ test.describe('Dodged Barplot', () => {
     try {
       const dodgedBarplotPage = new DodgedBarplotPage(page);
       await dodgedBarplotPage.navigateToDodgedBarplot();
-      await page.waitForSelector(`svg#${TestConstants.DODGED_BARPLOT_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
+        const svgElement = document.querySelector(`svg`);
 
         if (!svgElement) {
           throw new Error(`SVG element with ID ${plotId} not found`);

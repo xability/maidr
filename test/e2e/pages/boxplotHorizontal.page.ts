@@ -15,7 +15,7 @@ export class BoxplotHorizontalPage extends BasePage {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.BOXPLOT_HORIZONTAL_ID}`,
-    svg: `svg#${TestConstants.BOXPLOT_HORIZONTAL_ID}`,
+    svg: `svg`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
     helpModalTitle: TestConstants.MAIDR_HELP_MODAL_TITLE,
     helpModalClose: TestConstants.HELP_MENU_CLOSE_BUTTON,

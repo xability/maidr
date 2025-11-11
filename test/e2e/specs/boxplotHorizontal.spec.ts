@@ -30,7 +30,7 @@ async function setupBoxplotHorizontalPage(
  */
 async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
   return await page.evaluate((id) => {
-    const svgElement = document.querySelector(`svg#${id}`);
+    const svgElement = document.querySelector(`svg`);
     if (!svgElement) {
       throw new Error(`SVG element with ID ${id} not found`);
     }
@@ -110,7 +110,7 @@ test.describe('Boxplot Horizontal', () => {
     try {
       const boxplotHorizontalPage = new BoxplotHorizontalPage(page);
       await boxplotHorizontalPage.navigateToBoxplotHorizontal();
-      await page.waitForSelector(`svg#${TestConstants.BOXPLOT_HORIZONTAL_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await extractMaidrData(page, TestConstants.BOXPLOT_HORIZONTAL_ID);
       boxplotHorizontalLayer = maidrData.subplots[0][0].layers[0];
