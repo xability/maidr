@@ -6,8 +6,8 @@ import { SmoothTrace } from './smooth';
 
 /**
  * ViolinTrace extends SmoothTrace to provide violin-specific navigation behavior.
- * For violin plots, only up/down arrows are allowed for navigation along the density curve.
- * Left/right arrows are disabled to ensure consistent navigation for KDE density exploration.
+ * For violin plots, up/down arrows navigate within a single violin's density curve.
+ * Left/right arrows switch between violins within the same KDE layer when available.
  */
 export class ViolinTrace extends SmoothTrace {
   public constructor(layer: MaidrLayer) {
@@ -129,13 +129,23 @@ export class ViolinTrace extends SmoothTrace {
       return;
     }
 
-    // For violin plots, left/right arrows switch between violin KDE layers
-    // Each violin's KDE layer is a separate SMOOTH trace, so let the subplot handle trace switching
-    // This allows left/right to navigate from one violin's KDE layer to another violin's KDE layer
     if (direction === 'FORWARD' || direction === 'BACKWARD') {
-      // Don't handle FORWARD/BACKWARD - let it fall through to subplot for trace switching
-      // This allows left/right arrows to switch between violin KDE layers (SMOOTH traces)
-      this.notifyOutOfBounds();
+      const nextRow = direction === 'FORWARD' ? this.row + 1 : this.row - 1;
+      const lastRowIndex = this.lineValues.length - 1;
+      if (nextRow < 0 || nextRow > lastRowIndex) {
+        this.notifyOutOfBounds();
+        return;
+      }
+
+      this.row = nextRow;
+      const targetRowLength = this.lineValues[this.row]?.length ?? 0;
+      if (targetRowLength === 0) {
+        this.col = 0;
+      } else if (this.col >= targetRowLength) {
+        this.col = targetRowLength - 1;
+      }
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
       return;
     }
 
@@ -170,11 +180,11 @@ export class ViolinTrace extends SmoothTrace {
 
     const direction = target;
     
-    // For violin plots, left/right arrows switch between violin KDE layers
-    // Each violin's KDE layer is a separate SMOOTH trace, so let the subplot handle trace switching
     if (direction === 'FORWARD' || direction === 'BACKWARD') {
-      // Return false so the subplot can handle trace switching between KDE layers
-      return false;
+      if (direction === 'FORWARD') {
+        return this.row < this.lineValues.length - 1;
+      }
+      return this.row > 0;
     }
 
     // For violin plots, up/down arrows navigate along the density curve within a violin

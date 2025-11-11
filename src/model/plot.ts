@@ -1,5 +1,6 @@
 import type { Disposable } from '@type/disposable';
-import type { Maidr, MaidrSubplot } from '@type/grammar';
+import type { Maidr, MaidrLayer, MaidrSubplot, SmoothPoint } from '@type/grammar';
+import { TraceType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type {
@@ -15,6 +16,95 @@ import { TraceFactory } from './factory';
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
+
+function isViolinSmoothLayer(layer: MaidrLayer): boolean {
+  if (layer.type !== TraceType.SMOOTH) {
+    return false;
+  }
+
+  const data = layer.data as SmoothPoint[][];
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+
+  return data.some(
+    row =>
+      Array.isArray(row)
+      && row.some(
+        point => point && typeof point === 'object' && typeof point.density === 'number',
+      ),
+  );
+}
+
+function normalizeSmoothSelectors(selectors: MaidrLayer['selectors']): string[] {
+  if (!selectors) {
+    return [];
+  }
+  if (Array.isArray(selectors)) {
+    return selectors.filter((selector): selector is string => typeof selector === 'string');
+  }
+  return typeof selectors === 'string' ? [selectors] : [];
+}
+
+function createCombinedViolinLayer(group: MaidrLayer[]): MaidrLayer {
+  if (group.length === 1) {
+    return group[0];
+  }
+
+  const [first] = group;
+  const combinedData: SmoothPoint[][] = [];
+  const combinedSelectors: string[] = [];
+
+  for (const layer of group) {
+    const layerData = layer.data as SmoothPoint[][];
+    if (Array.isArray(layerData)) {
+      layerData.forEach(row => combinedData.push(row));
+    }
+    const selectors = normalizeSmoothSelectors(layer.selectors);
+    selectors.forEach(selector => combinedSelectors.push(selector));
+  }
+
+  if (combinedSelectors.length < combinedData.length) {
+    const filler = combinedSelectors[combinedSelectors.length - 1] ?? '';
+    while (combinedSelectors.length < combinedData.length) {
+      combinedSelectors.push(filler);
+    }
+  } else if (combinedSelectors.length > combinedData.length) {
+    combinedSelectors.length = combinedData.length;
+  }
+
+  return {
+    ...first,
+    id: `${first.id}-combined`,
+    data: combinedData,
+    selectors: combinedSelectors,
+  };
+}
+
+function combineViolinSmoothLayers(layers: MaidrLayer[]): MaidrLayer[] {
+  const processedLayers: MaidrLayer[] = [];
+  let pendingGroup: MaidrLayer[] = [];
+
+  const flushPending = () => {
+    if (pendingGroup.length === 0) {
+      return;
+    }
+    processedLayers.push(createCombinedViolinLayer(pendingGroup));
+    pendingGroup = [];
+  };
+
+  for (const layer of layers) {
+    if (isViolinSmoothLayer(layer)) {
+      pendingGroup.push(layer);
+    } else {
+      flushPending();
+      processedLayers.push(layer);
+    }
+  }
+
+  flushPending();
+  return processedLayers;
+}
 
 export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly id: string;
@@ -202,7 +292,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     this.isInitialEntry = false;
 
-    const layers = subplot.layers;
+    const originalLayers = subplot.layers;
+    const layers = combineViolinSmoothLayers(originalLayers);
     this.size = layers.length;
     // Pass all layers to factory so it can detect violin plot box plots
     this.traces = layers.map(layer => [TraceFactory.create(layer, layers)]);
