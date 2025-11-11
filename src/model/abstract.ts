@@ -99,9 +99,8 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   public notifyOutOfBounds(): void {
-    this.isOutOfBounds = true;
-    this.notifyStateUpdate();
-    this.isOutOfBounds = false;
+    const outOfBoundsState = this.outOfBoundsState;
+    this.observers.forEach(observer => observer.update(outOfBoundsState));
   }
 
   public moveOnce(direction: MovableDirection): boolean {
