@@ -1,7 +1,8 @@
-import type { BoxPoint, MaidrLayer } from '@type/grammar';
+import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { XValue } from '@type/grammar';
+import type { XValue } from '@type/navigation';
 import { Orientation } from '@type/grammar';
+import { Svg } from '@util/svg';
 import { BoxTrace } from './box';
 
 /**
@@ -12,6 +13,78 @@ import { BoxTrace } from './box';
 export class ViolinBoxTrace extends BoxTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
+    // Ensure we start at the first violin when the trace is created
+    // For vertical: col = violin index (0 = first violin), row = section (1 = MIN)
+    // For horizontal: row = violin index (0 = first violin), col = section (1 = MIN)
+    if (this.orientation === Orientation.VERTICAL) {
+      this.col = 0; // First violin
+      this.row = 1; // MIN section
+      console.log(`[ViolinBoxTrace] Initialized: col=${this.col} (first violin), row=${this.row} (MIN section)`);
+      console.log(`[ViolinBoxTrace] Points array:`, this.points.map(p => p.fill));
+    } else {
+      this.row = 0; // First violin
+      this.col = 1; // MIN section
+      console.log(`[ViolinBoxTrace] Initialized: row=${this.row} (first violin), col=${this.col} (MIN section)`);
+      console.log(`[ViolinBoxTrace] Points array:`, this.points.map(p => p.fill));
+    }
+  }
+
+  /**
+   * Override mapToSvgElements to fix Q1/Q3 mapping for violin plots.
+   * In violin plots, Q1 should be at the bottom and Q3 at the top of the IQR box.
+   */
+  protected mapToSvgElements(
+    selectors: BoxSelector[],
+  ): (SVGElement[] | SVGElement)[][] | null {
+    if (!selectors || selectors.length !== this.points.length) {
+      return null;
+    }
+
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const svgElements = new Array<Array<SVGElement[] | SVGElement>>();
+
+    if (isVertical) {
+      for (let i = 0; i < this.sections.length; i++) {
+        svgElements.push(Array.from({ length: selectors.length }));
+      }
+    }
+
+    selectors.forEach((selector, boxIdx) => {
+      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
+        Svg.selectAllElements(s),
+      );
+      const upperOutliers = selector.upperOutliers.flatMap(s =>
+        Svg.selectAllElements(s),
+      );
+
+      const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
+      const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
+
+      const iq = Svg.selectElement(selector.iq) ?? Svg.createEmptyElement();
+      const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
+
+      // For violin plots: Q1 is at bottom, Q3 is at top (opposite of regular boxplots)
+      const [q1, q3] = isVertical
+        ? [
+            Svg.createLineElement(iq, 'bottom'),
+            Svg.createLineElement(iq, 'top'),
+          ]
+        : [
+            Svg.createLineElement(iq, 'left'),
+            Svg.createLineElement(iq, 'right'),
+          ];
+      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+
+      if (isVertical) {
+        sections.forEach((section, sectionIdx) => {
+          svgElements[sectionIdx][boxIdx] = section;
+        });
+      } else {
+        svgElements.push(sections);
+      }
+    });
+
+    return svgElements;
   }
 
   /**
@@ -81,12 +154,13 @@ export class ViolinBoxTrace extends BoxTrace {
 
   protected handleInitialEntry(): void {
     super.handleInitialEntry();
-    // Reset to MIN section when entering the box plot
-    // For vertical box plots: row 1 = MIN
-    // For horizontal box plots: col 1 = MIN
+    // Ensure we start at the first violin (col = 0 for vertical, row = 0 for horizontal)
+    // and MIN section (row = 1 for vertical, col = 1 for horizontal)
     if (this.orientation === Orientation.VERTICAL) {
+      this.col = 0; // First violin
       this.row = 1; // MIN section
     } else {
+      this.row = 0; // First violin
       this.col = 1; // MIN section
     }
   }

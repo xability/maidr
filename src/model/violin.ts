@@ -1,5 +1,6 @@
-import type { MaidrLayer, SmoothPoint, XValue } from '@type/grammar';
+import type { MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { BrailleState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
@@ -235,31 +236,25 @@ export class ViolinTrace extends SmoothTrace {
   }
 
   protected audio() {
-    // Use density (width) to drive pitch and volume for KDE layer
-    const rowPoints = this.points[this.row] as Array<any>;
-    const densities = rowPoints.map(p => typeof p.density === 'number' ? p.density : 0);
-    const minD = Math.min(...densities);
-    const maxD = Math.max(...densities);
-    const safeRange = maxD - minD || 1; // avoid divide-by-zero
-
+    // Use same audio logic as SmoothTrace (regular KDE plots) - use Y values instead of density
+    const rowYValues = this.lineValues[this.row];
     const col = this.col;
-    const getD = (i: number) => densities[Math.max(0, Math.min(i, densities.length - 1))];
-    const prev = col > 0 ? getD(col - 1) : getD(col);
-    const curr = getD(col);
-    const next = col < densities.length - 1 ? getD(col + 1) : getD(col);
 
-    // Volume scale proportional to normalized density at current point
-    const normalized = (curr - minD) / safeRange; // 0..1
-    const volumeScale = Math.max(0.05, normalized); // keep audible floor
+    const getY = (i: number): number =>
+      rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
+
+    const prev = col > 0 ? getY(col - 1) : getY(col);
+    const curr = getY(col);
+    const next = col < rowYValues.length - 1 ? getY(col + 1) : getY(col);
 
     return {
-      min: minD,
-      max: maxD,
-      size: densities.length,
+      min: this.min[this.row],
+      max: this.max[this.row],
+      size: rowYValues.length,
       index: col,
-      value: [prev, curr, next], // drive frequency curve from density
+      value: [prev, curr, next],
       isContinuous: true,
-      volumeScale,
+      // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
       ...this.getAudioGroupIndex(),
     };
   }
@@ -332,7 +327,11 @@ export class ViolinTrace extends SmoothTrace {
         return true;
       }
     }
-    // Fall back to parent implementation for other cases
-    return super.moveToXValue(xValue);
+    // Fall back to parent implementation for other cases (only if xValue is a number)
+    if (typeof xValue === 'number') {
+      return super.moveToXValue(xValue);
+    }
+    // Violin plots use numeric indices, so string values are not supported
+    return false;
   }
 }
