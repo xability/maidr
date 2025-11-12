@@ -6,6 +6,8 @@ const config: ReturnType<typeof antfu> = antfu({
     'README.md',
     'E2E_TESTING.md',
     '.github/',
+    'docs/',
+    'CLAUDE.md',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],
