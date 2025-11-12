@@ -178,7 +178,7 @@ export abstract class BasePage {
   ): Promise<void> {
     try {
       await this.page.keyboard.down(modifierKey);
-      await this.page.waitForTimeout(delay);
+      // await this.page.waitForTimeout(delay);
       await this.pressKey(key, context);
       await this.page.keyboard.up(modifierKey);
     } catch (error) {
@@ -296,13 +296,13 @@ export abstract class BasePage {
    * Shows the Settings menu and verifies it appears correctly
    * @throws AssertionError if Settings menu does not appear or doesn't have expected content
    */
+  //TODO: make this the main page
   public async showSettingsMenu(): Promise<void> {
     try {
-      await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+      await this.pressKey(
+        TestConstants.CONTROL_KEY+'+'+
         TestConstants.COMMA_KEY,
-        'show settings menu',
-        100,
+        'show settings menu'
       );
 
       await this.verifyModal(

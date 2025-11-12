@@ -80,6 +80,7 @@ export abstract class TestConstants {
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
   static readonly COMMAND_KEY = 'Meta';
+  static readonly CONTROL_KEY = 'Control';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';
@@ -182,7 +183,7 @@ export abstract class TestConstants {
   /**
    * Multi-layer plot identifiers
    */
-  static readonly MULTI_LAYER_PLOT_UP_SWITCH = 'Layer 2 of 2: line plot';
+  static readonly MULTI_LAYER_PLOT_UP_SWITCH = 'Layer 2 of 2: single line plot';
   static readonly MULTI_LAYER_PLOT_DOWN_SWITCH = 'Layer 1 of 2: bar plot';
 
   /**
