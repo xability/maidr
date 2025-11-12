@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import { AbstractTrace } from '@model/abstract';
+import { ViolinTrace } from '@model/violin';
 import { Constant } from '@util/constant';
 
 const ROTOR_MODES: Record<number, string> = {
@@ -83,7 +84,8 @@ export class RotorNavigationService {
     if (activeTrace instanceof AbstractTrace) {
       const xValue = activeTrace.getCurrentXValue(); // Get the current X value
       if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, compareType);
+        // Use type assertion to access moveToNextCompareValue which may be public in subclasses
+        const moved = (activeTrace as any).moveToNextCompareValue?.(direction, compareType);
         if (!moved) {
           const msg = `No ${compareType} value found to the ${direction} of the current value.`;
           console.warn(msg);
@@ -108,6 +110,18 @@ export class RotorNavigationService {
           console.warn(msg);
           return msg;
         }
+        // If trace handled the command and it's a ViolinTrace, try switching layers
+        // This is used by ViolinTrace to signal layer switching is needed
+        if (moved && activeTrace instanceof ViolinTrace) {
+          // Try to switch to next layer (UPWARD direction)
+          // stepTrace will handle checking if we're in a multi-layer subplot
+          try {
+            this.context.stepTrace('UPWARD');
+          } catch {
+            // If stepTrace fails, the trace handled the movement internally
+            // This is expected behavior for traces that don't need layer switching
+          }
+        }
       }
     } catch {
       // default behavior is to mirror move right
@@ -125,6 +139,18 @@ export class RotorNavigationService {
           const msg = `No ${this.getCompareType()} value found below the current value.`;
           console.warn(msg);
           return msg;
+        }
+        // If trace handled the command and it's a ViolinTrace, try switching layers
+        // This is used by ViolinTrace to signal layer switching is needed
+        if (moved && activeTrace instanceof ViolinTrace) {
+          // Try to switch to previous layer (DOWNWARD direction)
+          // stepTrace will handle checking if we're in a multi-layer subplot
+          try {
+            this.context.stepTrace('DOWNWARD');
+          } catch {
+            // If stepTrace fails, the trace handled the movement internally
+            // This is expected behavior for traces that don't need layer switching
+          }
         }
       }
     } catch {

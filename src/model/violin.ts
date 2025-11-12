@@ -1,4 +1,4 @@
-import type { MaidrLayer, SmoothPoint } from '@type/grammar';
+import type { MaidrLayer, SmoothPoint, XValue } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { BrailleState, TextState } from '@type/state';
 import { Svg } from '@util/svg';
@@ -303,5 +303,36 @@ export class ViolinTrace extends SmoothTrace {
     }
 
     return baseText;
+  }
+
+  /**
+   * Override to return the row index (which violin) for layer switching.
+   * This allows switching from KDE to BOX layer while preserving the violin position.
+   */
+  public getCurrentXValue(): XValue | null {
+    // For ViolinTrace: row = which violin
+    return this.row;
+  }
+
+  /**
+   * Override to handle layer switching from ViolinBoxTrace.
+   * When switching from BOX layer, the X value will be the violin index (column from box plot).
+   * Set the row to match that violin index.
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    // If xValue is a number, it's likely the violin index from ViolinBoxTrace
+    if (typeof xValue === 'number') {
+      // Check if this is a valid violin index (row index)
+      if (xValue >= 0 && xValue < this.lineValues.length) {
+        this.row = Math.floor(xValue);
+        // Reset to start of density curve (col = 0) when switching layers
+        this.col = 0;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+    // Fall back to parent implementation for other cases
+    return super.moveToXValue(xValue);
   }
 }
