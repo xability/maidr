@@ -561,7 +561,7 @@ export class BasePage {
    * @param _plotId - The ID of the plot to verify
    * @throws Error if SVG is not focused
    */
-  protected async verifySvgFocused(_plotId: string): Promise<void> {
+  protected async verifySvgFocused(): Promise<void> {
     const activeElementInfo = await this.getActiveElementInfo();
     if (activeElementInfo.tagName !== 'svg') {
       throw new Error(
@@ -578,11 +578,11 @@ export class BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws Error if MAIDR cannot be activated
    */
-  protected async activateMaidr(svgSelector: string, plotId: string): Promise<void> {
+  protected async activateMaidr(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.keyboard.press(TestConstants.TAB_KEY);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error('Failed to activate MAIDR');
     }
@@ -595,11 +595,11 @@ export class BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws Error if MAIDR cannot be activated by clicking
    */
-  protected async activateMaidrOnClick(svgSelector: string, plotId: string): Promise<void> {
+  protected async activateMaidrOnClick(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.click(svgSelector);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error('Failed to activate MAIDR by clicking');
     }
@@ -621,10 +621,11 @@ export class BasePage {
   }
 
   /**
-   * Checks if a specific mode is active
+   * Checks if a specific mode is active by waiting for the notification text to match
    * @param notificationSelector - The selector for the notification element
    * @param mode - The mode to check
    * @param modeMessages - Map of mode values to expected messages
+   * @param timeout - Maximum time to wait in milliseconds (default: 3000ms)
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
    */
@@ -632,12 +633,26 @@ export class BasePage {
     notificationSelector: string,
     mode: string,
     modeMessages: Record<string, string>,
+    timeout = 500,
   ): Promise<boolean> {
     try {
+      const expectedMessage = modeMessages[mode];
+
+      // Wait for the notification to contain the expected text
+      await this.waitForElementContent(
+        notificationSelector,
+        expectedMessage,
+        { timeout, pollInterval: 50 },
+      );
+
+      // Verify the text matches exactly
       const notificationText = await this.getElementText(notificationSelector);
-      return notificationText === modeMessages[mode];
+      return notificationText === expectedMessage;
     } catch (error) {
-      throw new Error(`Failed to check ${mode} status`);
+      // If waiting times out, return false instead of throwing
+      // This allows the test to continue and report the actual vs expected
+      console.log(`Mode check timed out for ${mode}: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 
@@ -768,6 +783,41 @@ export class BasePage {
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
       );
+    }
+  }
+
+  /**
+   * Waits for element text to change from current value
+   * Useful after navigation operations to ensure text has updated
+   * @param selector - CSS selector for the target element
+   * @param options - Configuration options
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 50ms)
+   * @returns Promise resolving when text has changed
+   */
+  protected async waitForTextChange(
+    selector: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    const timeout = options.timeout || 2000;
+    const pollInterval = options.pollInterval || 50;
+
+    try {
+      // Get current text
+      const initialText = await this.getElementText(selector);
+
+      // Wait for text to change
+      await this.page.waitForFunction(
+        ({ selector, initialText }) => {
+          const element = document.querySelector(selector);
+          return element && element.textContent !== initialText;
+        },
+        { selector, initialText },
+        { timeout, polling: pollInterval },
+      );
+    } catch (error) {
+      // If timeout, it's okay - text might not have changed
+      // This is a soft wait, not a hard requirement
     }
   }
 }

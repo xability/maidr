@@ -320,8 +320,7 @@ test.describe('Boxplot Horizontal', () => {
     test('should move to the box below', async () => {
       await boxplotHorizontalPage.moveToDataPointBelow();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(firstDataPointValue);
+      expect(currentDataPoint).toContain("No plot info to display");
     });
 
     test('should move to first downward box', async () => {

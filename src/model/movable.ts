@@ -50,6 +50,7 @@ export class MovableGrid<Element> extends AbstractMovable {
   public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
+      return true;
     }
 
     if (!this.isMovable(direction)) {

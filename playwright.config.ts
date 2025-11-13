@@ -44,7 +44,7 @@ const config: PlaywrightTestConfig = {
     viewport: null,
 
     // Capture traces and screenshots on failure
-    trace: 'on-first-retry',
+    trace: 'on',
     screenshot: 'only-on-failure',
   },
 

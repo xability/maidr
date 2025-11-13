@@ -47,21 +47,24 @@ export const DEFAULT_SETTINGS: Settings = {
     expertiseLevel: 'basic',
     customInstruction: '',
     models: {
-      GPT: {
-        enabled: false,
-        apiKey: '',
-        name: 'GPT',
-      },
-      CLAUDE: {
-        enabled: false,
-        apiKey: '',
-        name: 'Claude',
-      },
-      GEMINI: {
-        enabled: false,
-        apiKey: '',
-        name: 'Gemini',
-      },
-    },
+          OPENAI: {
+            enabled: false,
+            apiKey: '',
+            name: 'OpenAI',
+            version: 'gpt-4o',
+          },
+          ANTHROPIC_CLAUDE: {
+            enabled: false,
+            apiKey: '',
+            name: 'Anthropic Claude',
+            version: 'claude-3-7-sonnet-latest',
+          },
+          GOOGLE_GEMINI: {
+            enabled: false,
+            apiKey: '',
+            name: 'Google Gemini',
+            version: 'gemini-2.0-flash',
+          },
+        },
   },
 };

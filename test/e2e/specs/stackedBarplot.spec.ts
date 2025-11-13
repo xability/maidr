@@ -199,8 +199,8 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.toggleSonification();
       const isSoundModeOn = await stackedBarplotPage.isSonificationActive(TestConstants.SOUND_ON);
 
-      expect(isSoundModeOff).toBe(false);
-      expect(isSoundModeOn).toBe(false);
+      expect(isSoundModeOff).toBe(true);
+      expect(isSoundModeOn).toBe(true);
     });
 
     test('should toggle review mode on and off', async ({ page }) => {

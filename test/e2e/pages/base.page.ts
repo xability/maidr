@@ -178,7 +178,7 @@ export abstract class BasePage {
   ): Promise<void> {
     try {
       await this.page.keyboard.down(modifierKey);
-      // await this.page.waitForTimeout(delay);
+      await this.page.waitForTimeout(delay);
       await this.pressKey(key, context);
       await this.page.keyboard.up(modifierKey);
     } catch (error) {
@@ -575,7 +575,7 @@ export abstract class BasePage {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.keyboard.press(TestConstants.TAB_KEY);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error(`Failed to activate MAIDR. ${error}`);
     }
@@ -592,7 +592,7 @@ export abstract class BasePage {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.click(svgSelector);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error(`Failed to activate MAIDR by clicking. ${error}`);
     }
@@ -628,6 +628,7 @@ export abstract class BasePage {
   ): Promise<boolean> {
     try {
       const notificationText = await this.getElementText(notificationSelector);
+      console.log(notificationText, modeMessages[mode]);
       return notificationText === modeMessages[mode];
     } catch (error) {
       throw new Error(`Failed to check ${mode} status. ${error}`);

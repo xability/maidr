@@ -206,7 +206,7 @@ export class Context implements Disposable {
         Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a maidr subplot containing ${state.size} layers, and
+        return `This is a maidr plot containing ${state.size} layers, and
         this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
