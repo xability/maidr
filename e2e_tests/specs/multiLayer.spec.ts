@@ -391,8 +391,9 @@ test.describe('Multi Layer Plot', () => {
 
       test('should switch to bottom layer', async ({ page }) => {
             const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-            await multiLayerPlotPage.switchToUpperLayer(); //switching to top layer
-            await multiLayerPlotPage.switchToLowerLayer();
+            await multiLayerPlotPage.switchToUpperLayer(); //switching to first layer
+            await multiLayerPlotPage.switchToUpperLayer(); //switching to second layer
+            await multiLayerPlotPage.switchToLowerLayer(); //switch to first layer
             const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
             expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });

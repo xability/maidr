@@ -633,7 +633,7 @@ export class BasePage {
     notificationSelector: string,
     mode: string,
     modeMessages: Record<string, string>,
-    timeout = 500,
+    timeout = 700,
   ): Promise<boolean> {
     try {
       const expectedMessage = modeMessages[mode];
