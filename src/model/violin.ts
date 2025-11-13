@@ -33,13 +33,10 @@ export class ViolinTrace extends SmoothTrace {
         const boxLayer = allLayers.find(l => l.type === TraceType.BOX);
         if (boxLayer) {
           this.boxPlotLayerData = boxLayer;
-          console.log('[ViolinTrace] Found box plot layer for fill fallback:', boxLayer);
-        } else {
-          console.log('[ViolinTrace] No box plot layer found in allLayers:', allLayers.map(l => l.type));
         }
       }
     } catch (e) {
-      console.log('[ViolinTrace] Error caching box plot layer:', e);
+      // Error caching box plot layer - continue without fallback
     }
   }
 
@@ -86,9 +83,6 @@ export class ViolinTrace extends SmoothTrace {
       // If we still don't have a lineElement, the path is in defs and needs special handling
       // For violin plots with paths in defs, we can't directly highlight the defs path
       // Instead, we need to work with the use element or find another approach
-      if (!lineElement) {
-        // console.log('Could not find path element for highlighting');
-      }
       
       // For violin plots, create circle elements for each point (like LineTrace does)
       // This avoids the issue with highlighting defs paths or use elements
@@ -134,11 +128,7 @@ export class ViolinTrace extends SmoothTrace {
           if (linePointElements.length > 0) {
             allFailed = false;
           }
-        } else {
-          // console.log('Skipping non-path/non-use element:', lineElement.tagName);
         }
-      } else {
-        // console.log('No valid lineElement found for this selector');
       }
 
       svgElements.push(linePointElements);
@@ -350,14 +340,6 @@ export class ViolinTrace extends SmoothTrace {
       let xValue = '';
       const rowPoints = this.points[this.row];
       
-      // Debug: log the point structure to see what's available
-      if (rowPoints && rowPoints.length > 0) {
-        console.log('[ViolinTrace] First point in row:', rowPoints[0]);
-        console.log('[ViolinTrace] Current point:', point);
-        const layerData = this.layer.data as any;
-        console.log('[ViolinTrace] Layer data sample:', layerData?.[this.row]?.[0]);
-      }
-      
       // First try the current point
       if ((point as any).fill) {
         xValue = String((point as any).fill);
@@ -409,35 +391,52 @@ export class ViolinTrace extends SmoothTrace {
             const boxPoint = boxData[this.row];
             if (boxPoint && typeof boxPoint === 'object' && boxPoint.fill) {
               xValue = String(boxPoint.fill);
-              console.log('[ViolinTrace] Got xValue from cached box plot layer:', xValue);
             }
           }
         } catch (e) {
-          console.log('[ViolinTrace] Error accessing box plot layer data:', e);
+          // Error accessing box plot layer data - continue without fallback
         }
       }
       
-      console.log('[ViolinTrace] Final xValue:', xValue);
+      // Exclude 'fill' from baseText to avoid duplicate "Group" display
+      // We only need main, cross, and density for violin plots
+      // Explicitly construct the object without fill property
+      // Format y value and density to 4 decimal places as strings to preserve precision
+      const yValue = typeof point.y === 'number' ? point.y : Number(point.y);
+      const densityValue = typeof point.density === 'number' ? point.density : Number(point.density);
+      const formattedYValue = yValue.toFixed(4);
+      const formattedDensity = densityValue.toFixed(4);
       
-      const textState = {
-        ...baseText,
+      const textState: TextState = {
         main: {
           label: this.xAxis,
           value: xValue,
         },
         cross: {
           label: this.yAxis,
-          value: typeof point.y === 'number' ? point.y : Number(point.y),
+          value: formattedYValue,
         },
         density: {
           label: 'Volume',
-          value: point.density,
+          value: formattedDensity,
         },
+        // Include other optional fields from baseText if they exist (range, section)
+        ...(baseText.range !== undefined && { range: baseText.range }),
+        ...(baseText.section !== undefined && { section: baseText.section }),
       };
       return textState;
     }
 
-    return baseText;
+    // For non-violin plots, also exclude fill to avoid duplicates
+    // Explicitly construct the object without fill property
+    const result: TextState = {
+      main: baseText.main,
+      cross: baseText.cross,
+      ...(baseText.range !== undefined && { range: baseText.range }),
+      ...(baseText.section !== undefined && { section: baseText.section }),
+      ...(baseText.density !== undefined && { density: baseText.density }),
+    };
+    return result;
   }
 
   /**

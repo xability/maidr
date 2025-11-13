@@ -22,10 +22,8 @@ export abstract class TraceFactory {
         // Check if this is a violin plot box plot by checking if there are SMOOTH layers in the same subplot
         // Violin plots have both BOX and SMOOTH layers
         if (allLayers && allLayers.some(l => l.type === TraceType.SMOOTH)) {
-          console.log('[ViolinBoxTrace] Creating ViolinBoxTrace for violin plot box plot');
           return new ViolinBoxTrace(layer);
         }
-        console.log('[BoxTrace] Creating regular BoxTrace');
         return new BoxTrace(layer);
 
       case TraceType.CANDLESTICK:
