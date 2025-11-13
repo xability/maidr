@@ -124,7 +124,7 @@ test.describe('Multi Layer Plot', () => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
     });
     });
 
@@ -353,7 +353,7 @@ test.describe('Multi Layer Plot', () => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
     });
   });
 
@@ -366,8 +366,9 @@ test.describe('Multi Layer Plot', () => {
     async function setupSecondLayerTest(page: Page): Promise<MultiLayerPlotPage> {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
+      await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
       return multiLayerPlotPage;
     }
 

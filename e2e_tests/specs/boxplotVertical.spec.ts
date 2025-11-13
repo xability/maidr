@@ -340,6 +340,7 @@ test.describe('Boxplot Vertical', () => {
 
     test('should execute downward autoplay', async () => {
       const lastDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
+      await boxplotVerticalPage.moveToTop();
       await boxplotVerticalPage.startDownwardAutoplay(lastDataPointValue);
     });
 

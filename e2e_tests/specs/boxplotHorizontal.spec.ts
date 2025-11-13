@@ -317,17 +317,11 @@ test.describe('Boxplot Horizontal', () => {
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
 
-    test('should move to the box below', async () => {
+    test('should move to the first box', async () => {
       await boxplotHorizontalPage.moveToDataPointBelow();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-      expect(currentDataPoint).toContain("No plot info to display");
-    });
-
-    test('should move to first downward box', async () => {
-      await boxplotHorizontalPage.moveToLastBox();
-      const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-      const expectedDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
-      expect(currentDataPoint).toContain(expectedDataPointValue);
+      const firstDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
+      expect(currentDataPoint).toContain(firstDataPointValue);
     });
   });
 
@@ -350,12 +344,12 @@ test.describe('Boxplot Horizontal', () => {
     });
 
     test('should execute downward autoplay', async () => {
+      await boxplotHorizontalPage.moveToLastBox();
       const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       await boxplotHorizontalPage.startDownwardAutoplay(lastDataPointValue);
     });
 
     test('should execute upward autoplay', async () => {
-      await boxplotHorizontalPage.moveToLastBox();
       const lastDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       await boxplotHorizontalPage.startUpwardAutoplay(lastDataPointValue);
     });
