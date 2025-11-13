@@ -13,7 +13,38 @@ if (document.readyState === 'loading') {
   main();
 }
 
+function parseAndInit(
+  plot: HTMLElement,
+  json: string,
+  source: 'maidr' | 'maidr-data',
+): void {
+  try {
+    const maidr = JSON.parse(json) as Maidr;
+    initMaidr(maidr, plot);
+  } catch (error) {
+    console.error(`Error parsing ${source} attribute:`, error);
+  }
+}
+
 function main(): void {
+  const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
+    Constant.MAIDR_JSON_SELECTOR,
+  );
+
+  if (plotsWithMaidr.length > 0) {
+    plotsWithMaidr.forEach((plot) => {
+      const maidrAttr = plot.getAttribute(Constant.MAIDR);
+
+      if (!maidrAttr) {
+        return;
+      }
+
+      parseAndInit(plot, maidrAttr, 'maidr');
+    });
+
+    return;
+  }
+
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
     const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
@@ -21,12 +52,7 @@ function main(): void {
       return;
     }
 
-    try {
-      const maidr = JSON.parse(maidrData);
-      initMaidr(maidr, plot);
-    } catch (error) {
-      console.error('Error parsing maidr attribute:', error);
-    }
+    parseAndInit(plot, maidrData, 'maidr-data');
   });
 
   // Fall back to window.maidr if no attribute found.
@@ -43,6 +69,7 @@ function main(): void {
 
   const plot = document.getElementById(maidr.id);
   if (!plot) {
+    console.error('Plot not found for maidr:', maidr.id);
     return;
   }
   initMaidr(maidr, plot);

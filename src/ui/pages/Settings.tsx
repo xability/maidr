@@ -3,6 +3,7 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
   GeneralSettings,
+  HoverMode,
   LlmModelSettings,
   LlmSettings,
 } from '@type/settings';
@@ -273,7 +274,7 @@ const Settings: React.FC = () => {
 
   const handleGeneralChange = (
     key: keyof GeneralSettings,
-    value: string | number | AriaMode,
+    value: string | number | AriaMode | HoverMode,
   ): void => {
     // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
@@ -551,6 +552,41 @@ const Settings: React.FC = () => {
                       value="polite"
                       control={<Radio size="small" />}
                       label="Polite"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Hover Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.hoverMode}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'hoverMode',
+                        e.target.value as HoverMode,
+                      )}
+                    aria-label="Hover Mode"
+                  >
+                    <FormControlLabel
+                      value="off"
+                      control={<Radio size="small" />}
+                      label="Off"
+                    />
+                    <FormControlLabel
+                      value="pointermove"
+                      control={<Radio size="small" />}
+                      label="Hover"
+                    />
+                    <FormControlLabel
+                      value="click"
+                      control={<Radio size="small" />}
+                      label="Click"
                     />
                   </RadioGroup>
                 </FormControl>

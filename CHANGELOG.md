@@ -1,3 +1,53 @@
+# [3.37.0](https://github.com/xability/maidr/compare/v3.36.3...v3.37.0) (2025-11-13)
+
+
+### Features
+
+* add onHover settings for scatterplots ([#446](https://github.com/xability/maidr/issues/446)) ([ba27f08](https://github.com/xability/maidr/commit/ba27f087ffc1e509c550d08c4d3c0a7b61a9030a)), closes [#453](https://github.com/xability/maidr/issues/453) [#454](https://github.com/xability/maidr/issues/454) [#447](https://github.com/xability/maidr/issues/447)
+
+## [3.36.3](https://github.com/xability/maidr/compare/v3.36.2...v3.36.3) (2025-11-11)
+
+
+### Bug Fixes
+
+* address smooth plot braille not functional ([#468](https://github.com/xability/maidr/issues/468)) ([7c79cc1](https://github.com/xability/maidr/commit/7c79cc1429b2d132a9c433499809118e2171e05a))
+
+## [3.36.2](https://github.com/xability/maidr/compare/v3.36.1...v3.36.2) (2025-11-04)
+
+
+### Bug Fixes
+
+* address selector failures in boxplot ([#465](https://github.com/xability/maidr/issues/465)) ([76ef8d3](https://github.com/xability/maidr/commit/76ef8d33f99b885fb360f3a17e2736cc991fdd57))
+
+## [3.36.1](https://github.com/xability/maidr/compare/v3.36.0...v3.36.1) (2025-11-02)
+
+
+### Bug Fixes
+
+* address boxplot label misalignment ([#464](https://github.com/xability/maidr/issues/464)) ([6ec7db7](https://github.com/xability/maidr/commit/6ec7db715e84da6dc64f3c20010dedb2204db593))
+
+# [3.36.0](https://github.com/xability/maidr/compare/v3.35.0...v3.36.0) (2025-10-31)
+
+
+### Features
+
+* support custom dom ordering ([#461](https://github.com/xability/maidr/issues/461)) ([ddf3bf4](https://github.com/xability/maidr/commit/ddf3bf43d42140c60abfb925ea70a6a881ba8f68))
+
+# [3.35.0](https://github.com/xability/maidr/compare/v3.34.0...v3.35.0) (2025-10-30)
+
+
+### Features
+
+* support for both maidr-data & maidr payload within svg ([#460](https://github.com/xability/maidr/issues/460)) ([8611c69](https://github.com/xability/maidr/commit/8611c6983eff11ca6f1b910235460b866f6345bb))
+
+# [3.34.0](https://github.com/xability/maidr/compare/v3.33.0...v3.34.0) (2025-10-27)
+
+
+### Features
+
+* support rotor-based navigation via alt+shift+arrowup or arrowdown ([#429](https://github.com/xability/maidr/issues/429)) ([3ff61ec](https://github.com/xability/maidr/commit/3ff61ecaee55744390d1174245b68be0908371c2)), closes [#432](https://github.com/xability/maidr/issues/432) [#433](https://github.com/xability/maidr/issues/433) [#437](https://github.com/xability/maidr/issues/437) [#436](https://github.com/xability/maidr/issues/436)
+* trigger release for rotor fature ([#457](https://github.com/xability/maidr/issues/457)) ([bd6e5ff](https://github.com/xability/maidr/commit/bd6e5ff33006d882b6904f6b1115f2f7083abee7))
+
 # [3.33.0](https://github.com/xability/maidr/compare/v3.32.0...v3.33.0) (2025-10-23)
 
 

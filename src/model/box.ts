@@ -2,6 +2,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
+import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -25,8 +26,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+
+    // For horizontal orientation, reverse points to match visual order (lower-left start)
+    // This ensures points[row] will align with boxValues[row] in the subsequent processing
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.points = [...(layer.data as BoxPoint[])].reverse();
+    } else {
+      this.points = layer.data as BoxPoint[];
+    }
 
     this.sections = [
       BoxplotSection.LOWER_OUTLIER,
@@ -47,9 +55,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       (p: BoxPoint) => p.upperOutliers,
     ];
     if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points
-        .map(point => sectionAccessors.map(accessor => accessor(point)))
-        .reverse();
+      this.boxValues = this.points.map(point =>
+        sectionAccessors.map(accessor => accessor(point)),
+      );
     } else {
       this.boxValues = sectionAccessors.map(accessor =>
         this.points.map(point => accessor(point)),
@@ -64,12 +72,13 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     // this.row = this.boxValues.length - 1;
 
-    this.highlightValues = this.mapToSvgElements(
-      layer.selectors as BoxSelector[],
-    );
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.highlightValues?.reverse();
+    // For horizontal orientation, reverse selectors to match reversed points order
+    let selectors = layer.selectors as BoxSelector[] | undefined;
+    if (this.orientation === Orientation.HORIZONTAL && selectors) {
+      selectors = [...selectors].reverse();
     }
+
+    this.highlightValues = this.mapToSvgElements(selectors);
 
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
@@ -82,9 +91,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   public moveToIndex(row: number, col: number): void {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    row = isHorizontal ? row : col;
-    col = isHorizontal ? col : row;
+    // No coordinate swap needed - navigation already passes (row, col) matching boxValues structure
+    // Vertical: boxValues[section][box] → row=section, col=box
+    // Horizontal: boxValues[box][section] → row=box, col=section
     super.moveToIndex(row, col);
   }
 
@@ -159,28 +168,80 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
     }
 
-    selectors.forEach((selector, boxIdx) => {
-      const lowerOutliers = selector.lowerOutliers.flatMap(s =>
-        Svg.selectAllElements(s),
-      );
-      const upperOutliers = selector.upperOutliers.flatMap(s =>
-        Svg.selectAllElements(s),
-      );
+    // Phase 1: Collect all original elements without cloning (prevents nth-child() DOM shifts)
+    const originals: Array<{
+      lowerOutliers: SVGElement[];
+      upperOutliers: SVGElement[];
+      min: SVGElement | null;
+      max: SVGElement | null;
+      iq: SVGElement | null;
+      q2: SVGElement | null;
+    }> = [];
 
-      const min = Svg.selectElement(selector.min) ?? Svg.createEmptyElement();
-      const max = Svg.selectElement(selector.max) ?? Svg.createEmptyElement();
+    selectors.forEach((selector) => {
+      const lowerOutliersOriginals = selector.lowerOutliers?.flatMap(s =>
+        Svg.selectAllElements(s, false),
+      ) ?? [];
+      const upperOutliersOriginals = selector.upperOutliers?.flatMap(s =>
+        Svg.selectAllElements(s, false),
+      ) ?? [];
 
-      const iq = Svg.selectElement(selector.iq) ?? Svg.createEmptyElement();
-      const q2 = Svg.selectElement(selector.q2) ?? Svg.createEmptyElement();
+      const minOriginal = Svg.selectElement(selector.min, false);
+      const maxOriginal = Svg.selectElement(selector.max, false);
+      const iqOriginal = Svg.selectElement(selector.iq, false);
+      const q2Original = Svg.selectElement(selector.q2, false);
 
-      const [q1, q3] = isVertical
-        ? [
-            Svg.createLineElement(iq, 'top'),
-            Svg.createLineElement(iq, 'bottom'),
-          ]
+      originals.push({
+        lowerOutliers: lowerOutliersOriginals,
+        upperOutliers: upperOutliersOriginals,
+        min: minOriginal,
+        max: maxOriginal,
+        iq: iqOriginal,
+        q2: q2Original,
+      });
+    });
+
+    // Phase 2: Clone and create elements from originals (DOM queries complete)
+    originals.forEach((original, boxIdx) => {
+      const lowerOutliers = original.lowerOutliers.map((el) => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        el.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+      const upperOutliers = original.upperOutliers.map((el) => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        el.insertAdjacentElement(Constant.AFTER_END, clone);
+        return clone;
+      });
+
+      const min = this.cloneElementOrEmpty(original.min);
+      const max = this.cloneElementOrEmpty(original.max);
+      const q2 = this.cloneElementOrEmpty(original.q2);
+
+      // Only create line elements if iq selector exists and element was found
+      // If iq is empty/missing, create empty line elements instead
+      // Check if IQR direction should be reversed (for Base R vertical boxplots)
+      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+      const [q1, q3] = original.iq
+        ? (isVertical
+            ? isIqrReversed
+              ? [
+                  Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
+                  Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
+                ]
+              : [
+                  Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
+                  Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
+                ]
+            : [
+                Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
+                Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
+              ])
         : [
-            Svg.createLineElement(iq, 'left'),
-            Svg.createLineElement(iq, 'right'),
+            Svg.createEmptyElement('line'), // Empty line element for Q1
+            Svg.createEmptyElement('line'), // Empty line element for Q3
           ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
@@ -194,6 +255,20 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     });
 
     return svgElements;
+  }
+
+  /**
+   * Clones an SVG element with hidden visibility and inserts it after the original,
+   * or returns an empty element if the original is null.
+   */
+  private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
+    if (!original) {
+      return Svg.createEmptyElement();
+    }
+    const clone = original.cloneNode(true) as SVGElement;
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    original.insertAdjacentElement(Constant.AFTER_END, clone);
+    return clone;
   }
 
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
@@ -347,5 +422,21 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
     };
+  }
+
+  public moveToPoint(_x: number, _y: number): void {
+    // Exceptions:
+    // temp: don't run for boxplot. remove when boxplot is fixed
+
+    // const nearest = this.findNearestPoint(x, y);
+    // if (nearest) {
+    // if (this.isPointInBounds(x, y, nearest)) {
+    /// / don't move if we're already there
+    // if (this.row === nearest.row && this.col === nearest.col) {
+    // return;
+    // }
+    // this.moveToIndex(nearest.row, nearest.col);
+    // }
+    // }
   }
 }
