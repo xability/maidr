@@ -80,7 +80,6 @@ export abstract class TestConstants {
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
   static readonly COMMAND_KEY = 'Meta';
-  static readonly CONTROL_KEY = 'Control';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';
@@ -96,7 +95,7 @@ export abstract class TestConstants {
   static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: single line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
@@ -185,6 +184,7 @@ export abstract class TestConstants {
    */
   static readonly MULTI_LAYER_PLOT_UP_SWITCH = 'Layer 2 of 2: single line plot';
   static readonly MULTI_LAYER_PLOT_DOWN_SWITCH = 'Layer 1 of 2: bar plot';
+  static readonly MULTI_LAYER_NO_ADDITIONAL_LAYERS = 'No additional layer'
 
   /**
    * Time constants (in milliseconds)

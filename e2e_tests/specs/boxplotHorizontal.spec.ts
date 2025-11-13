@@ -324,10 +324,10 @@ test.describe('Boxplot Horizontal', () => {
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
 
-    test('should move to last downward box', async () => {
+    test('should move to first downward box', async () => {
       await boxplotHorizontalPage.moveToLastBox();
       const currentDataPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
-      const expectedDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, 0);
+      const expectedDataPointValue = getBoxplotHorizontalDisplayValue(boxplotHorizontalLayer, dataLength - 1);
       expect(currentDataPoint).toContain(expectedDataPointValue);
     });
   });

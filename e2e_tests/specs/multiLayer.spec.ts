@@ -349,13 +349,6 @@ test.describe('Multi Layer Plot', () => {
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
       expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
     });
-
-    test('should switch to bottom layer', async ({ page }) => {
-      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-      await multiLayerPlotPage.switchToLowerLayer();
-      const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_DOWN_SWITCH);
-    });
   });
 
   test.describe('Second Layer', () => {
@@ -388,6 +381,13 @@ test.describe('Multi Layer Plot', () => {
         const layerInfoText = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(layerInfoText).not.toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
       });
+
+      test('should switch to bottom layer', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+      await multiLayerPlotPage.switchToLowerLayer();
+      const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_DOWN_SWITCH);
+    });
     });
 
     test.describe('Mode Controls', () => {

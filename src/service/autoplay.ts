@@ -150,7 +150,7 @@ export class AutoplayService implements Disposable {
 
     if (state && !state.empty) {
       const calculatedRate = Math.ceil(
-        this.currentDuration / state.autoplay[direction],
+        this.totalDuration / state.autoplay[direction],
       );
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);

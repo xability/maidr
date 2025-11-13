@@ -212,6 +212,22 @@ export abstract class BasePage {
     }
   }
 
+   /**
+   * Closes setting menu using the Close button
+   * @param modalSelector - The selector for the modal
+   * @param timeout - Optional timeout in milliseconds
+   * @throws AssertionError if modal cannot be closed
+   */
+  protected async closeSettingsMenu(
+    modalSelector: string,
+    timeout = 2000,
+  ): Promise<void> {
+    const modal = this.page.locator(modalSelector);
+    const closeButton = this.page.locator("//button[text()='Close']")
+    closeButton.click();
+    await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
+  }
+
   /**
    * Closes a modal using the Escape key
    * @param modalSelector - The selector for the modal
@@ -299,8 +315,8 @@ export abstract class BasePage {
   //TODO: make this the main page
   public async showSettingsMenu(): Promise<void> {
     try {
-      await this.pressKey(
-        TestConstants.CONTROL_KEY+'+'+
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
         TestConstants.COMMA_KEY,
         'show settings menu'
       );
@@ -310,7 +326,7 @@ export abstract class BasePage {
         TestConstants.SETTINGS_MENU_TITLE,
       );
 
-      await this.closeModal(this.selectors.settingsModal);
+      await this.closeSettingsMenu(this.selectors.settingsModal);
     } catch (error) {
       throw new AssertionError(`Failed to show settings menu. ${error}`);
     }
