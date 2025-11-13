@@ -5,6 +5,8 @@ import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
+import { ViolinBoxTrace } from './violinBox';
+import { ViolinTrace } from './violin';
 import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
@@ -148,7 +150,18 @@ export class Context implements Disposable {
         return;
       }
 
-      newTrace.moveToXValue(currentXValue);
+      // If switching from ViolinBoxTrace to ViolinTrace, preserve Y level
+      if (currentTrace instanceof ViolinBoxTrace && newTrace instanceof ViolinTrace) {
+        const currentYValue = currentTrace.getCurrentYValue();
+        if (currentYValue !== null && typeof (newTrace as any).moveToXAndYValue === 'function') {
+          (newTrace as any).moveToXAndYValue(currentXValue, currentYValue);
+        } else {
+          newTrace.moveToXValue(currentXValue);
+        }
+      } else {
+        newTrace.moveToXValue(currentXValue);
+      }
+
       if (!newTrace.state.empty) {
         const index = activeSubplot.getRow() + 1;
         const size = activeSubplot.getSize();

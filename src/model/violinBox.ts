@@ -98,6 +98,42 @@ export class ViolinBoxTrace extends BoxTrace {
   }
 
   /**
+   * Get the current Y value from the box plot.
+   * This is used when switching to KDE layer to preserve the Y level.
+   */
+  public getCurrentYValue(): number | null {
+    const values = this.values;
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: row = section index, col = violin index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value or median
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    } else {
+      // For horizontal: row = violin index, col = section index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value or median
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Override to handle layer switching from ViolinTrace.
    * When switching from KDE layer, the X value will be the violin index (row from violin trace).
    * Set the column to match that violin index.

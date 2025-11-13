@@ -373,4 +373,48 @@ export class ViolinTrace extends SmoothTrace {
     // Violin plots use numeric indices, so string values are not supported
     return false;
   }
+
+  /**
+   * Move to a specific violin (X value) and find the closest point on the KDE curve
+   * with the given Y value. This is used when switching from box plot layer to preserve Y level.
+   */
+  public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    // First set the violin (row) from X value
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    if (violinIndex < 0 || violinIndex >= this.lineValues.length) {
+      return false;
+    }
+
+    this.row = violinIndex;
+    const rowPoints = this.points[this.row];
+    const rowYValues = this.lineValues[this.row];
+
+    if (!rowPoints || rowPoints.length === 0 || !rowYValues || rowYValues.length === 0) {
+      this.col = 0;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+
+    // Find the point with the closest Y value
+    let closestIndex = 0;
+    let minDistance = Math.abs(rowYValues[0] - yValue);
+
+    for (let i = 1; i < rowYValues.length; i++) {
+      const distance = Math.abs(rowYValues[i] - yValue);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    this.col = closestIndex;
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+    return true;
+  }
 }
