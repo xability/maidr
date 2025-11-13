@@ -2,7 +2,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer, SmoothPoint } from '@type/gramm
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { BrailleState, TextState } from '@type/state';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { BoxTrace } from './box';
@@ -14,8 +14,33 @@ import { SmoothTrace } from './smooth';
  * Left/right arrows switch between violins within the same KDE layer when available.
  */
 export class ViolinTrace extends SmoothTrace {
-  public constructor(layer: MaidrLayer) {
+  private boxPlotLayerData: MaidrLayer | null = null; // Cache for box plot layer data if available
+
+  public constructor(layer: MaidrLayer, allLayers?: MaidrLayer[]) {
     super(layer);
+    // Try to find and cache box plot layer data for fill fallback
+    // This is a workaround since fill might not be in KDE layer data
+    this.cacheBoxPlotLayerData(allLayers);
+  }
+
+  /**
+   * Try to cache box plot layer data to get fill values as fallback
+   */
+  private cacheBoxPlotLayerData(allLayers?: MaidrLayer[]): void {
+    try {
+      // Find the box plot layer in the same subplot
+      if (allLayers) {
+        const boxLayer = allLayers.find(l => l.type === TraceType.BOX);
+        if (boxLayer) {
+          this.boxPlotLayerData = boxLayer;
+          console.log('[ViolinTrace] Found box plot layer for fill fallback:', boxLayer);
+        } else {
+          console.log('[ViolinTrace] No box plot layer found in allLayers:', allLayers.map(l => l.type));
+        }
+      }
+    } catch (e) {
+      console.log('[ViolinTrace] Error caching box plot layer:', e);
+    }
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
@@ -318,17 +343,91 @@ export class ViolinTrace extends SmoothTrace {
     const point = this.points[this.row][this.col];
     const baseText = super.text();
 
-    // For violin plots, display Y value, X coordinate, and density (width) -- simplified
+    // For violin plots, display X axis (violin/category), Y value, and density (volume)
     if (point.density !== undefined && point.density !== null) {
+      // Get the X axis value (violin/category name) from the fill property
+      // Try multiple approaches to find the fill value
+      let xValue = '';
+      const rowPoints = this.points[this.row];
+      
+      // Debug: log the point structure to see what's available
+      if (rowPoints && rowPoints.length > 0) {
+        console.log('[ViolinTrace] First point in row:', rowPoints[0]);
+        console.log('[ViolinTrace] Current point:', point);
+        const layerData = this.layer.data as any;
+        console.log('[ViolinTrace] Layer data sample:', layerData?.[this.row]?.[0]);
+      }
+      
+      // First try the current point
+      if ((point as any).fill) {
+        xValue = String((point as any).fill);
+      }
+      // Then try the first point in the row
+      else if (rowPoints && rowPoints.length > 0) {
+        const firstPoint = rowPoints[0] as any;
+        if (firstPoint.fill) {
+          xValue = String(firstPoint.fill);
+        }
+      }
+      // Try any point in the row
+      if (!xValue && rowPoints) {
+        for (const p of rowPoints) {
+          const pAny = p as any;
+          if (pAny.fill) {
+            xValue = String(pAny.fill);
+            break;
+          }
+        }
+      }
+      // Last resort: check the layer's original data structure
+      if (!xValue && this.layer.data) {
+        const layerData = this.layer.data as any;
+        if (Array.isArray(layerData) && layerData[this.row]) {
+          const rowData = layerData[this.row];
+          if (Array.isArray(rowData) && rowData.length > 0) {
+            const firstPointData = rowData[0];
+            if (firstPointData && typeof firstPointData === 'object') {
+              // Check all possible property names
+              if ('fill' in firstPointData && firstPointData.fill) {
+                xValue = String(firstPointData.fill);
+              } else if ('Fill' in firstPointData && firstPointData.Fill) {
+                xValue = String(firstPointData.Fill);
+              } else if ('FILL' in firstPointData && firstPointData.FILL) {
+                xValue = String(firstPointData.FILL);
+              }
+            }
+          }
+        }
+      }
+      
+      // If still no value, get it from the cached box plot layer data
+      // This is a workaround since the fill might not be in the KDE layer data
+      if (!xValue && this.boxPlotLayerData) {
+        try {
+          const boxData = this.boxPlotLayerData.data as any;
+          if (Array.isArray(boxData) && boxData.length > this.row) {
+            const boxPoint = boxData[this.row];
+            if (boxPoint && typeof boxPoint === 'object' && boxPoint.fill) {
+              xValue = String(boxPoint.fill);
+              console.log('[ViolinTrace] Got xValue from cached box plot layer:', xValue);
+            }
+          }
+        } catch (e) {
+          console.log('[ViolinTrace] Error accessing box plot layer data:', e);
+        }
+      }
+      
+      console.log('[ViolinTrace] Final xValue:', xValue);
+      
       const textState = {
         ...baseText,
         main: {
-          label: 'Y Value',
-          value: typeof point.y === 'number' ? point.y : Number(point.y),
+          label: this.xAxis,
+          value: xValue,
         },
         cross: {
-          label: '',
-          value: '',
+          label: this.yAxis,
+          value: typeof point.y === 'number' ? point.y : Number(point.y),
         },
         density: {
           label: 'Volume',
@@ -348,6 +447,26 @@ export class ViolinTrace extends SmoothTrace {
   public getCurrentXValue(): XValue | null {
     // For ViolinTrace: row = which violin
     return this.row;
+  }
+
+  /**
+   * Get the current Y value from the KDE curve.
+   * This is used when switching to box plot layer to preserve the Y level.
+   */
+  public getCurrentYValue(): number | null {
+    const rowPoints = this.points[this.row];
+    const rowYValues = this.lineValues[this.row];
+    
+    if (!rowPoints || rowPoints.length === 0 || !rowYValues || rowYValues.length === 0) {
+      return null;
+    }
+    
+    if (this.col >= 0 && this.col < rowYValues.length) {
+      const yValue = rowYValues[this.col];
+      return typeof yValue === 'number' ? yValue : null;
+    }
+    
+    return null;
   }
 
   /**
@@ -587,6 +706,107 @@ export class ViolinBoxTrace extends BoxTrace {
     }
     // Fall back to parent implementation for other cases
     return super.moveToXValue(xValue);
+  }
+
+  /**
+   * Move to a specific violin (X value) and find the closest box plot section
+   * with the given Y value. This is used when switching from KDE layer to preserve Y level.
+   */
+  public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    // First set the violin from X value
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    const values = this.values;
+
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: col = which violin, row = section index
+      const numViolins = values.length > 0 ? values[0].length : 0;
+      if (violinIndex < 0 || violinIndex >= numViolins) {
+        return false;
+      }
+
+      this.col = violinIndex;
+
+      // Find the section (row) with the closest Y value
+      let closestRow = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      for (let row = 0; row < values.length; row++) {
+        const rowValues = values[row];
+        if (Array.isArray(rowValues) && violinIndex < rowValues.length) {
+          const value = rowValues[violinIndex];
+          
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestRow = row;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestRow = row;
+            }
+          }
+        }
+      }
+
+      this.row = closestRow;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    } else {
+      // For horizontal: row = which violin, col = section index
+      if (violinIndex < 0 || violinIndex >= values.length) {
+        return false;
+      }
+
+      this.row = violinIndex;
+
+      // Find the section (col) with the closest Y value
+      let closestCol = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      const rowValues = values[violinIndex];
+      if (Array.isArray(rowValues)) {
+        for (let col = 0; col < rowValues.length; col++) {
+          const value = rowValues[col];
+          
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestCol = col;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestCol = col;
+            }
+          }
+        }
+      }
+
+      this.col = closestCol;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
   }
 
   /**

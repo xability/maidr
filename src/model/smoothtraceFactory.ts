@@ -11,7 +11,7 @@ function isViolinPoint(pt: any): pt is { density?: number } {
   return pt && typeof pt === 'object' && 'density' in pt;
 }
 
-export function createSmoothTrace(layer: MaidrLayer): SmoothTrace | SmoothTraceSvgXY | ViolinTrace {
+export function createSmoothTrace(layer: MaidrLayer, allLayers?: MaidrLayer[]): SmoothTrace | SmoothTraceSvgXY | ViolinTrace {
   console.log('========================================');
   console.log('SmoothTraceFactory: createSmoothTrace called with layer:', layer);
   console.log('SmoothTraceFactory: Layer type:', layer.type);
@@ -47,7 +47,7 @@ export function createSmoothTrace(layer: MaidrLayer): SmoothTrace | SmoothTraceS
 
         if (isViolinPlot) {
           console.log('SmoothTraceFactory: Creating ViolinTrace');
-          const violinTrace = new ViolinTrace(layer);
+          const violinTrace = new ViolinTrace(layer, allLayers);
           console.log('SmoothTraceFactory: ViolinTrace created successfully:', violinTrace);
           return violinTrace;
         }

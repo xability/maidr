@@ -149,8 +149,17 @@ export class Context implements Disposable {
         return;
       }
 
-      // If switching from ViolinBoxTrace to ViolinTrace, preserve Y level
+      // If switching between ViolinBoxTrace and ViolinTrace, preserve Y level
       if (currentTrace instanceof ViolinBoxTrace && newTrace instanceof ViolinTrace) {
+        // Switching from box plot to KDE layer
+        const currentYValue = currentTrace.getCurrentYValue();
+        if (currentYValue !== null && typeof (newTrace as any).moveToXAndYValue === 'function') {
+          (newTrace as any).moveToXAndYValue(currentXValue, currentYValue);
+        } else {
+          newTrace.moveToXValue(currentXValue);
+        }
+      } else if (currentTrace instanceof ViolinTrace && newTrace instanceof ViolinBoxTrace) {
+        // Switching from KDE to box plot layer
         const currentYValue = currentTrace.getCurrentYValue();
         if (currentYValue !== null && typeof (newTrace as any).moveToXAndYValue === 'function') {
           (newTrace as any).moveToXAndYValue(currentXValue, currentYValue);

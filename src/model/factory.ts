@@ -44,7 +44,7 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return createSmoothTrace(layer);
+        return createSmoothTrace(layer, allLayers);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:
