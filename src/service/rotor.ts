@@ -1,7 +1,7 @@
 import type { Context } from '@model/context';
+import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
-import { TextService } from './text';
 
 const ROTOR_MODES: Record<number, string> = {
   0: Constant.DATA_MODE,
@@ -197,16 +197,14 @@ export class RotorNavigationService {
     return 'lower'; // fallback
   }
 
-  public getMessage(nav_type: string, direction: string) {
+  public getMessage(nav_type: string, direction: string): string {
     if (this.text.isOff()) {
-      return "";
-    }
-    else if (this.text.isTerse()) {
-      let preposition = direction === "above" || direction === "below" ? "" : "on the";
+      return '';
+    } else if (this.text.isTerse()) {
+      const preposition = direction === 'above' || direction === 'below' ? '' : 'on the';
       return `No ${nav_type} value found ${preposition} ${direction}`;
     }
-    let position = direction === "above" || direction === "below" ? "" : `to the ${direction} of`;
+    const position = direction === 'above' || direction === 'below' ? '' : `to the ${direction} of`;
     return `No ${nav_type} value found ${position} the current value.`;
-
   }
 }

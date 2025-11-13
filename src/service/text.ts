@@ -409,7 +409,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     return this.mode === TextMode.OFF;
   }
 
-
   public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
