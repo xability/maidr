@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
+import { TextService } from './text';
 
 /**
  * Current rotor modes: data point navigation, lower value and higher value navigation
