@@ -397,6 +397,19 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
   }
 
+  public isVerbose(): boolean {
+    return this.mode === TextMode.VERBOSE;
+  }
+
+  public isTerse(): boolean {
+    return this.mode === TextMode.TERSE;
+  }
+
+  public isOff(): boolean {
+    return this.mode === TextMode.OFF;
+  }
+
+
   public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:

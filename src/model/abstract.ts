@@ -23,7 +23,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
+  implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -216,7 +216,7 @@ implements Movable, Observable<State>, Disposable {
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  protected moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     // no-op
     return false;
   }
@@ -621,9 +621,9 @@ export abstract class AbstractTrace<T>
     }
     const isInbounds
       = x >= bbox.x - r
-        && x <= bbox.x + bbox.width + r
-        && y >= bbox.y - r
-        && y <= bbox.y + bbox.height + r;
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r;
     return isInbounds;
   }
 }
