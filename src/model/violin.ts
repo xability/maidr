@@ -1,7 +1,7 @@
-import type { BoxPoint, BoxSelector, MaidrLayer, SmoothPoint } from '@type/grammar';
+import type { BoxSelector, MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
 import { Orientation, TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -41,7 +41,6 @@ export class ViolinTrace extends SmoothTrace {
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
-    
     if (!selectors || selectors.length !== this.lineValues.length) {
       return null;
     }
@@ -49,10 +48,9 @@ export class ViolinTrace extends SmoothTrace {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
     for (let r = 0; r < selectors.length; r++) {
-      
       // For violin plots, try to find the actual rendered element
       let lineElement = Svg.selectElement(selectors[r], false);
-      
+
       // If selector targets defs > path, try to find the use element that references it
       if (!lineElement && selectors[r].includes('defs > path')) {
         // For selectors like "g[id='...'] > defs > path", look for the clipped group containing the use element
@@ -79,11 +77,11 @@ export class ViolinTrace extends SmoothTrace {
           }
         }
       }
-      
+
       // If we still don't have a lineElement, the path is in defs and needs special handling
       // For violin plots with paths in defs, we can't directly highlight the defs path
       // Instead, we need to work with the use element or find another approach
-      
+
       // For violin plots, create circle elements for each point (like LineTrace does)
       // This avoids the issue with highlighting defs paths or use elements
       const linePointElements: SVGElement[] = [];
@@ -205,18 +203,21 @@ export class ViolinTrace extends SmoothTrace {
 
     // For violin plots, up/down arrows navigate along the density curve within a violin
     switch (direction) {
-      case 'UPWARD':
+      case 'UPWARD': {
         // Up arrow: check if we can move forward (increase column) along density curve
         const canMoveUp = this.col < this.lineValues[this.row].length - 1;
         return canMoveUp;
-      case 'DOWNWARD':
+      }
+      case 'DOWNWARD': {
         // Down arrow: check if we can move backward (decrease column) along density curve
         const canMoveDown = this.col > 0;
         return canMoveDown;
-      default:
+      }
+      default: {
         // Handle array-based movements (for compatibility)
         const superMovable = super.isMovable(direction);
         return superMovable;
+      }
     }
   }
 
@@ -250,7 +251,7 @@ export class ViolinTrace extends SmoothTrace {
     return true;
   }
 
-  protected audio() {
+  protected audio(): AudioState {
     // For violin plots, use density values for pitch (frequency)
     // Higher density = higher pitch, lower density = lower pitch
     const rowPoints = this.points[this.row];
@@ -265,14 +266,14 @@ export class ViolinTrace extends SmoothTrace {
     // Calculate min/max density for this violin
     const densityMin = MathUtil.safeMin(densityValues);
     const densityMax = MathUtil.safeMax(densityValues);
-    
+
     // Safety check: if min === max, add a small range to avoid division by zero in interpolation
     // Ensure we don't go negative if min is 0
-    const safeDensityMin = densityMin === densityMax 
-      ? Math.max(0, densityMin - 0.001) 
+    const safeDensityMin = densityMin === densityMax
+      ? Math.max(0, densityMin - 0.001)
       : densityMin;
-    const safeDensityMax = densityMin === densityMax 
-      ? densityMax + 0.001 
+    const safeDensityMax = densityMin === densityMax
+      ? densityMax + 0.001
       : densityMax;
 
     const getDensity = (i: number): number =>
@@ -339,13 +340,12 @@ export class ViolinTrace extends SmoothTrace {
       // Try multiple approaches to find the fill value
       let xValue = '';
       const rowPoints = this.points[this.row];
-      
+
       // First try the current point
       if ((point as any).fill) {
         xValue = String((point as any).fill);
-      }
-      // Then try the first point in the row
-      else if (rowPoints && rowPoints.length > 0) {
+      } else if (rowPoints && rowPoints.length > 0) {
+        // Then try the first point in the row
         const firstPoint = rowPoints[0] as any;
         if (firstPoint.fill) {
           xValue = String(firstPoint.fill);
@@ -381,7 +381,7 @@ export class ViolinTrace extends SmoothTrace {
           }
         }
       }
-      
+
       // If still no value, get it from the cached box plot layer data
       // This is a workaround since the fill might not be in the KDE layer data
       if (!xValue && this.boxPlotLayerData) {
@@ -406,7 +406,7 @@ export class ViolinTrace extends SmoothTrace {
       const densityValue = typeof point.density === 'number' ? point.density : Number(point.density);
       const formattedYValue = yValue.toFixed(4);
       const formattedDensity = densityValue.toFixed(4);
-      
+
       const textState: TextState = {
         main: {
           label: this.xAxis,
@@ -472,16 +472,16 @@ export class ViolinTrace extends SmoothTrace {
   public getCurrentYValue(): number | null {
     const rowPoints = this.points[this.row];
     const rowYValues = this.lineValues[this.row];
-    
+
     if (!rowPoints || rowPoints.length === 0 || !rowYValues || rowYValues.length === 0) {
       return null;
     }
-    
+
     if (this.col >= 0 && this.col < rowYValues.length) {
       const yValue = rowYValues[this.col];
       return typeof yValue === 'number' ? yValue : null;
     }
-    
+
     return null;
   }
 
@@ -616,10 +616,10 @@ export class ViolinBoxTrace extends BoxTrace {
       const [q1, q3] = isVertical
         ? [
             Svg.createLineElement(iq, 'bottom'), // Q1 (25%) = bottom edge
-            Svg.createLineElement(iq, 'top'),    // Q3 (75%) = top edge
+            Svg.createLineElement(iq, 'top'), // Q3 (75%) = top edge
           ]
         : [
-            Svg.createLineElement(iq, 'left'),  // Q1 (25%) = left boundary
+            Svg.createLineElement(iq, 'left'), // Q1 (25%) = left boundary
             Svg.createLineElement(iq, 'right'), // Q3 (75%) = right boundary
           ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
@@ -754,7 +754,7 @@ export class ViolinBoxTrace extends BoxTrace {
         const rowValues = values[row];
         if (Array.isArray(rowValues) && violinIndex < rowValues.length) {
           const value = rowValues[violinIndex];
-          
+
           // Handle arrays (outliers) - check all values in the array
           if (Array.isArray(value)) {
             for (const v of value) {
@@ -796,7 +796,7 @@ export class ViolinBoxTrace extends BoxTrace {
       if (Array.isArray(rowValues)) {
         for (let col = 0; col < rowValues.length; col++) {
           const value = rowValues[col];
-          
+
           // Handle arrays (outliers) - check all values in the array
           if (Array.isArray(value)) {
             for (const v of value) {

@@ -182,7 +182,6 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
         paletteEntry,
         (audio as any).volumeScale ?? 1,
       );
-      return;
     } else if (Array.isArray(audio.value)) {
       // multiple discrete values
       const values = audio.value as number[];

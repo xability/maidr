@@ -17,7 +17,7 @@ export function createSmoothTrace(layer: MaidrLayer, allLayers?: MaidrLayer[]): 
   const isSmoothData = Array.isArray(layer.data) && layer.data.length > 0;
   let isViolinPlot = false;
   let firstPoint: any = null;
-  
+
   if (isSmoothData) {
     const firstRow = (layer.data as any[])[0];
     if (Array.isArray(firstRow) && firstRow.length > 0) {

@@ -1,6 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import type { MovableDirection } from '@type/movable';
 import { Svg } from '@util/svg';
 import { LineTrace } from './line';
 
@@ -54,7 +53,6 @@ export class SmoothTrace extends LineTrace {
   }
 
   protected text(): TextState {
-    const point = this.points[this.row][this.col];
     const baseText = super.text();
 
     // Note: Violin plots are handled by ViolinTrace class, not here

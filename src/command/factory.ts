@@ -56,10 +56,8 @@ import {
   MoveUpCommand,
 } from './move';
 import {
-  RotorNavigationMoveDownCommand,
   RotorNavigationMoveLeftCommand,
   RotorNavigationMoveRightCommand,
-  RotorNavigationMoveUpCommand,
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
@@ -80,7 +78,7 @@ import {
 } from './toggle';
 
 // NoOpCommand - does nothing, used to disable commands
-class NoOpCommand implements Command {
+class _NoOpCommand implements Command {
   public execute(): void {
     // Do nothing
   }

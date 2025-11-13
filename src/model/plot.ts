@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Maidr, MaidrLayer, MaidrSubplot, SmoothPoint } from '@type/grammar';
 import { TraceType } from '@type/grammar';
-import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type {
   FigureState,
@@ -85,7 +85,7 @@ function combineViolinSmoothLayers(layers: MaidrLayer[]): MaidrLayer[] {
   const processedLayers: MaidrLayer[] = [];
   let pendingGroup: MaidrLayer[] = [];
 
-  const flushPending = () => {
+  const flushPending = (): void => {
     if (pendingGroup.length === 0) {
       return;
     }
@@ -350,7 +350,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     // Track previous position to detect trace switching
     const previousCol = this.col;
-    const previousRow = this.row;
+    const _previousRow = this.row;
 
     switch (direction) {
       case 'UPWARD':
