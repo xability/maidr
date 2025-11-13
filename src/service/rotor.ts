@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
+import { TextService } from './text';
 
 const ROTOR_MODES: Record<number, string> = {
   0: Constant.DATA_MODE,
@@ -46,11 +47,13 @@ const ROTOR_MODES: Record<number, string> = {
  */
 export class RotorNavigationService {
   private readonly context: Context;
+  private readonly text: TextService;
   private rotorIndex: number;
 
-  public constructor(context: Context) {
+  public constructor(context: Context, text: TextService) {
     this.context = context;
     this.rotorIndex = 0;
+    this.text = text;
   }
 
   public moveToNextRotorUnit(): string {
@@ -85,7 +88,7 @@ export class RotorNavigationService {
       if (xValue !== null) {
         const moved = activeTrace.moveToNextCompareValue(direction, compareType);
         if (!moved) {
-          const msg = `No ${compareType} value found to the ${direction} of the current value.`;
+          const msg = this.getMessage(compareType, direction);
           console.warn(msg);
           return msg;
         }
@@ -104,7 +107,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveUpRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found above the current value.`;
+          const msg = this.getMessage(this.getCompareType(), 'above');
           console.warn(msg);
           return msg;
         }
@@ -122,7 +125,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveDownRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found below the current value.`;
+          const msg = this.getMessage(this.getCompareType(), 'below');
           console.warn(msg);
           return msg;
         }
@@ -140,7 +143,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found to the left of the current value.`;
+          const msg = this.getMessage(this.getCompareType(), 'left');
           console.warn(msg);
           return msg;
         }
@@ -158,7 +161,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
-          const msg = `No ${this.getCompareType()} value found to the right of the current value.`;
+          const msg = this.getMessage(this.getCompareType(), 'right');
           console.warn(msg);
           return msg;
         }
@@ -192,5 +195,18 @@ export class RotorNavigationService {
       return 'lower';
     }
     return 'lower'; // fallback
+  }
+
+  public getMessage(nav_type: string, direction: string) {
+    if (this.text.isOff()) {
+      return "";
+    }
+    else if (this.text.isTerse()) {
+      let preposition = direction === "above" || direction === "below" ? "" : "on the";
+      return `No ${nav_type} value found ${preposition} ${direction}`;
+    }
+    let position = direction === "above" || direction === "below" ? "" : `to the ${direction} of`;
+    return `No ${nav_type} value found ${position} the current value.`;
+
   }
 }
