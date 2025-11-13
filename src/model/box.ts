@@ -153,7 +153,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   protected mapToSvgElements(
-    selectors: BoxSelector[],
+    selectors: BoxSelector[] | undefined,
   ): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.points.length) {
       return null;
