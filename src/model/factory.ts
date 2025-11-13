@@ -10,7 +10,7 @@ import { LineTrace } from './line';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
-import { ViolinBoxTrace } from './violinBox';
+import { ViolinBoxTrace } from './violin';
 
 export abstract class TraceFactory {
   public static create(layer: MaidrLayer, allLayers?: MaidrLayer[]): Trace {

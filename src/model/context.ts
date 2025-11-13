@@ -5,8 +5,7 @@ import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { ViolinBoxTrace } from './violinBox';
-import { ViolinTrace } from './violin';
+import { ViolinBoxTrace, ViolinTrace } from './violin';
 import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
