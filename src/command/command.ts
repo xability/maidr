@@ -3,6 +3,7 @@ import type { AudioService } from "@service/audio";
 import type { AutoplayService } from "@service/autoplay";
 import type { HighlightService } from "@service/highlight";
 import type { SettingsService } from "@service/settings";
+import type { DisplayService } from "@service/display";
 import type { RotorNavigationService } from "@service/rotor";
 import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
 import type { ChatViewModel } from "@state/viewModel/chatViewModel";
@@ -25,6 +26,7 @@ export interface CommandContext {
   autoplayService: AutoplayService;
   highlightService: HighlightService;
   settingsService: SettingsService;
+  displayService: DisplayService;
   rotorNavigationService: RotorNavigationService;
 
   brailleViewModel: BrailleViewModel;

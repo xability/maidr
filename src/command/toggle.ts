@@ -1,15 +1,16 @@
-import type { Context } from '@model/context';
-import type { AudioService } from '@service/audio';
-import type { HighlightService } from '@service/highlight';
-import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
-import type { ChatViewModel } from '@state/viewModel/chatViewModel';
-import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
-import type { HelpViewModel } from '@state/viewModel/helpViewModel';
-import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
-import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
-import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { Scope } from '@type/event';
-import type { Command } from './command';
+import type { Context } from "@model/context";
+import type { AudioService } from "@service/audio";
+import type { HighlightService } from "@service/highlight";
+import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
+import type { ChatViewModel } from "@state/viewModel/chatViewModel";
+import type { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
+import type { HelpViewModel } from "@state/viewModel/helpViewModel";
+import type { ReviewViewModel } from "@state/viewModel/reviewViewModel";
+import type { SettingsViewModel } from "@state/viewModel/settingsViewModel";
+import type { TextViewModel } from "@state/viewModel/textViewModel";
+import type { Scope } from "@type/event";
+import type { Command } from "./command";
+import { DisplayService } from "@service/display";
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
@@ -22,7 +23,7 @@ export class ToggleBrailleCommand implements Command {
 
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace') {
+    if (state.type === "trace") {
       this.brailleViewModel.toggle(state);
     }
   }
@@ -63,7 +64,7 @@ export class ToggleReviewCommand implements Command {
 
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace') {
+    if (state.type === "trace") {
       this.reviewViewModel.toggle(state);
     }
   }
@@ -181,13 +182,19 @@ export class ToggleScopeCommand implements Command {
 export class ToggleHighContrast implements Command {
   private readonly context: Context;
   private readonly highlightService: HighlightService;
+  private readonly displayService: DisplayService;
 
-  public constructor(context: Context, highlightService: HighlightService) {
+  public constructor(
+    context: Context,
+    highlightService: HighlightService,
+    displayService: DisplayService,
+  ) {
     this.context = context;
     this.highlightService = highlightService;
+    this.displayService = displayService;
   }
 
   public execute(): void {
-    this.highlightService.toggleHighContrast(this.context);
+    this.highlightService.toggleHighContrast(this.context, this.displayService);
   }
 }

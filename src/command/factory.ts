@@ -3,6 +3,7 @@ import type { AudioService } from "@service/audio";
 import type { AutoplayService } from "@service/autoplay";
 import type { HighlightService } from "@service/highlight";
 import type { SettingsService } from "@service/settings";
+import { DisplayService } from "@service/display";
 import type { RotorNavigationService } from "@service/rotor";
 import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
 import type { ChatViewModel } from "@state/viewModel/chatViewModel";
@@ -107,6 +108,7 @@ export class CommandFactory {
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
     this.settingsService = commandContext.settingsService;
+    this.displayService = commandContext.displayService;
     this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
@@ -177,7 +179,11 @@ export class CommandFactory {
       case "TOGGLE_REVIEW":
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
       case "TOGGLE_HIGH_CONTRAST":
-        return new ToggleHighContrast(this.context, this.highlightService);
+        return new ToggleHighContrast(
+          this.context,
+          this.highlightService,
+          this.displayService,
+        );
 
       case "TOGGLE_HELP":
         return new ToggleHelpCommand(this.helpViewModel);

@@ -1,10 +1,10 @@
-import type { CommandContext } from '@command/command';
-import type { Keys } from '@type/event';
-import { CommandFactory } from '@command/factory';
-import { Scope } from '@type/event';
-import { Constant } from '@util/constant';
-import { Platform } from '@util/platform';
-import hotkeys from 'hotkeys-js';
+import type { CommandContext } from "@command/command";
+import type { Keys } from "@type/event";
+import { CommandFactory } from "@command/factory";
+import { Scope } from "@type/event";
+import { Constant } from "@util/constant";
+import { Platform } from "@util/platform";
+import hotkeys from "hotkeys-js";
 
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
@@ -39,7 +39,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_HIGH_CONTRAST: `h`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -52,7 +52,6 @@ const BRAILLE_KEYMAP = {
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
-
 } as const;
 
 const CHAT_KEYMAP = {
@@ -122,7 +121,7 @@ const REVIEW_KEYMAP = {
   // Modes
   TOGGLE_BRAILLE: `b`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_HIGH_CONTRAST: `h`,
 
   // Allowed actions
   ALLOW_DEFAULT: `up, down, left, right,
@@ -171,7 +170,7 @@ const TRACE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_HIGH_CONTRAST: `h`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -195,19 +194,19 @@ const TRACE_KEYMAP = {
 
 const GO_TO_EXTREMA_KEYMAP = {
   // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: 'up',
-  GO_TO_EXTREMA_MOVE_DOWN: 'down',
-  GO_TO_EXTREMA_SELECT: 'enter',
-  GO_TO_EXTREMA_CLOSE: 'esc',
-  GO_TO_EXTREMA_TOGGLE: 'g',
+  GO_TO_EXTREMA_MOVE_UP: "up",
+  GO_TO_EXTREMA_MOVE_DOWN: "down",
+  GO_TO_EXTREMA_SELECT: "enter",
+  GO_TO_EXTREMA_CLOSE: "esc",
+  GO_TO_EXTREMA_TOGGLE: "g",
 } as const;
 
 const COMMAND_PALETTE_KEYMAP = {
   // Navigation within the modal
-  COMMAND_PALETTE_MOVE_UP: 'up',
-  COMMAND_PALETTE_MOVE_DOWN: 'down',
-  COMMAND_PALETTE_SELECT: 'enter',
-  COMMAND_PALETTE_CLOSE: 'esc',
+  COMMAND_PALETTE_MOVE_UP: "up",
+  COMMAND_PALETTE_MOVE_DOWN: "down",
+  COMMAND_PALETTE_SELECT: "enter",
+  COMMAND_PALETTE_CLOSE: "esc",
 } as const;
 
 export const SCOPED_KEYMAP = {
@@ -261,8 +260,8 @@ export class KeybindingService {
       ][]) {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
-        if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
+        if (commandName === "STOP_AUTOPLAY") {
+          hotkeys("*", Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);
@@ -271,7 +270,7 @@ export class KeybindingService {
         }
 
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
-          if (commandName !== 'ALLOW_DEFAULT') {
+          if (commandName !== "ALLOW_DEFAULT") {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);
             command.execute(event);
@@ -305,12 +304,12 @@ export class Mousebindingservice {
       this.commandContext.context.moveToPoint(x, y);
     };
 
-    document.addEventListener('pointermove', this.mouseListener);
+    document.addEventListener("pointermove", this.mouseListener);
   }
 
   public unregister(): void {
     if (this.mouseListener) {
-      document.removeEventListener('pointermove', this.mouseListener);
+      document.removeEventListener("pointermove", this.mouseListener);
     }
   }
 }
