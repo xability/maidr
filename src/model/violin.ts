@@ -2,6 +2,7 @@ import type { MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { BrailleState, TextState } from '@type/state';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
@@ -139,12 +140,9 @@ export class ViolinTrace extends SmoothTrace {
       }
 
       this.row = nextRow;
-      const targetRowLength = this.lineValues[this.row]?.length ?? 0;
-      if (targetRowLength === 0) {
-        this.col = 0;
-      } else if (this.col >= targetRowLength) {
-        this.col = targetRowLength - 1;
-      }
+      // Reset to bottom of KDE curve (col = 0) when switching between violins
+      // This matches the behavior of ViolinBoxTrace which resets to MIN section
+      this.col = 0;
       this.updateVisualPointPosition();
       this.notifyStateUpdate();
       return;
@@ -236,27 +234,68 @@ export class ViolinTrace extends SmoothTrace {
   }
 
   protected audio() {
-    // Use same audio logic as SmoothTrace (regular KDE plots) - use Y values instead of density
-    const rowYValues = this.lineValues[this.row];
+    // For violin plots, use density values for pitch (frequency)
+    // Higher density = higher pitch, lower density = lower pitch
+    const rowPoints = this.points[this.row];
     const col = this.col;
 
-    const getY = (i: number): number =>
-      rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];
+    // Extract density values for the current violin (row)
+    const densityValues = rowPoints.map(point => {
+      const violinPoint = point as SmoothPoint & { density?: number };
+      return violinPoint.density ?? 0;
+    });
 
-    const prev = col > 0 ? getY(col - 1) : getY(col);
-    const curr = getY(col);
-    const next = col < rowYValues.length - 1 ? getY(col + 1) : getY(col);
+    // Calculate min/max density for this violin
+    const densityMin = MathUtil.safeMin(densityValues);
+    const densityMax = MathUtil.safeMax(densityValues);
+    
+    // Safety check: if min === max, add a small range to avoid division by zero in interpolation
+    // Ensure we don't go negative if min is 0
+    const safeDensityMin = densityMin === densityMax 
+      ? Math.max(0, densityMin - 0.001) 
+      : densityMin;
+    const safeDensityMax = densityMin === densityMax 
+      ? densityMax + 0.001 
+      : densityMax;
+
+    const getDensity = (i: number): number =>
+      densityValues[Math.max(0, Math.min(i, densityValues.length - 1))];
+
+    const prevDensity = col > 0 ? getDensity(col - 1) : getDensity(col);
+    const currDensity = getDensity(col);
+    const nextDensity = col < densityValues.length - 1 ? getDensity(col + 1) : getDensity(col);
 
     return {
-      min: this.min[this.row],
-      max: this.max[this.row],
-      size: rowYValues.length,
+      min: safeDensityMin,
+      max: safeDensityMax,
+      size: densityValues.length,
       index: col,
-      value: [prev, curr, next],
+      value: [prevDensity, currDensity, nextDensity],
       isContinuous: true,
-      // Only use groupIndex if there are multiple lines (actual multiline smooth plot)
-      ...this.getAudioGroupIndex(),
+      // Don't include groupIndex for violin plots - audio should be same format for all violins
+      // This matches regular KDE plots which don't have groupIndex
     };
+  }
+
+  /**
+   * Override to prevent groupIndex from being included in audio.
+   * This ensures the audio format is the same for all violins and matches regular KDE plots.
+   */
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Return empty object - no groupIndex for violin plots
+    // This makes the audio format consistent across all violins, matching regular KDE plots
+    return {};
+  }
+
+  /**
+   * Override to ensure we start at the bottom of the KDE curve (col = 0) and first violin (row = 0).
+   * This matches the behavior of ViolinBoxTrace which starts at MIN section.
+   */
+  protected handleInitialEntry(): void {
+    super.handleInitialEntry();
+    // Start at the first violin (row = 0) and bottom of KDE curve (col = 0)
+    this.row = 0;
+    this.col = 0;
   }
 
   protected braille(): BrailleState {

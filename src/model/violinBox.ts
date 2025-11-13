@@ -19,13 +19,9 @@ export class ViolinBoxTrace extends BoxTrace {
     if (this.orientation === Orientation.VERTICAL) {
       this.col = 0; // First violin
       this.row = 1; // MIN section
-      console.log(`[ViolinBoxTrace] Initialized: col=${this.col} (first violin), row=${this.row} (MIN section)`);
-      console.log(`[ViolinBoxTrace] Points array:`, this.points.map(p => p.fill));
     } else {
       this.row = 0; // First violin
       this.col = 1; // MIN section
-      console.log(`[ViolinBoxTrace] Initialized: row=${this.row} (first violin), col=${this.col} (MIN section)`);
-      console.log(`[ViolinBoxTrace] Points array:`, this.points.map(p => p.fill));
     }
   }
 
@@ -204,14 +200,12 @@ export class ViolinBoxTrace extends BoxTrace {
       // Vertical: col = box plot, row = section
       if (previousCol !== this.col && (direction === 'FORWARD' || direction === 'BACKWARD')) {
         // Reset to MIN section (row 1) when switching between box plots
-        console.log(`[ViolinBoxTrace] Switching box plots: col ${previousCol} -> ${this.col}, resetting row to MIN (1)`);
         this.row = 1;
       }
     } else {
       // Horizontal: row = box plot, col = section
       if (previousRow !== this.row && (direction === 'UPWARD' || direction === 'DOWNWARD')) {
         // Reset to MIN section (col 1) when switching between box plots
-        console.log(`[ViolinBoxTrace] Switching box plots: row ${previousRow} -> ${this.row}, resetting col to MIN (1)`);
         this.col = 1;
       }
     }
