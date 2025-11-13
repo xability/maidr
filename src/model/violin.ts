@@ -1,7 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer, SmoothPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { BrailleState, TextState } from '@type/state';
+import type { BrailleState, TextState, TraceState } from '@type/state';
 import { Orientation, TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -437,6 +437,23 @@ export class ViolinTrace extends SmoothTrace {
       ...(baseText.density !== undefined && { density: baseText.density }),
     };
     return result;
+  }
+
+  /**
+   * Override state getter to set plotType to 'kde' for violin plots.
+   * This ensures the text display shows "kde plot" instead of "multiline plot".
+   */
+  public get state(): TraceState {
+    const baseState = super.state;
+    if (baseState.empty) {
+      return baseState;
+    }
+    
+    // Override plotType to 'kde' for violin plots
+    return {
+      ...baseState,
+      plotType: 'kde',
+    };
   }
 
   /**
