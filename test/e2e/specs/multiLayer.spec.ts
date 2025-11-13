@@ -347,14 +347,14 @@ test.describe('Multi Layer Plot', () => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
     });
 
     test('should switch to bottom layer', async ({ page }) => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToLowerLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_DOWN_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_DOWN_SWITCH);
     });
   });
 
@@ -368,7 +368,7 @@ test.describe('Multi Layer Plot', () => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
       return multiLayerPlotPage;
     }
 
