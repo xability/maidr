@@ -472,10 +472,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
   }
 
-  /**
-   * Toggles between text modes (OFF, TERSE, VERBOSE) in sequence.
-   * @returns True if text mode is now active (not OFF), false otherwise
-   */
   public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
