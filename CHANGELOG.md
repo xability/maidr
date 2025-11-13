@@ -1,3 +1,10 @@
+# [3.37.0](https://github.com/xability/maidr/compare/v3.36.3...v3.37.0) (2025-11-13)
+
+
+### Features
+
+* add onHover settings for scatterplots ([#446](https://github.com/xability/maidr/issues/446)) ([ba27f08](https://github.com/xability/maidr/commit/ba27f087ffc1e509c550d08c4d3c0a7b61a9030a)), closes [#453](https://github.com/xability/maidr/issues/453) [#454](https://github.com/xability/maidr/issues/454) [#447](https://github.com/xability/maidr/issues/447)
+
 ## [3.36.3](https://github.com/xability/maidr/compare/v3.36.2...v3.36.3) (2025-11-11)
 
 
