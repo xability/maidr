@@ -140,17 +140,13 @@ export class SmoothTrace extends LineTrace {
 
       // For regular smooth plots, create point elements along the line
       {
-        // For regular smooth plots, create point elements along the line
         const linePointElements: SVGElement[] = [];
         const dataPoints = this.points?.[r];
         if (dataPoints) {
           for (const pt of dataPoints) {
-            if (typeof pt.x === 'number' && typeof pt.y === 'number') {
-              // Convert data coordinates to SVG coordinates
-              // This is a simplified approach - in practice, you'd need proper coordinate transformation
-              const svgX = pt.x; // This should be converted to actual SVG coordinates
-              const svgY = pt.y; // This should be converted to actual SVG coordinates
-              linePointElements.push(Svg.createCircleElement(svgX, svgY, lineElement));
+            if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
+              // Use SVG coordinates directly from the point data
+              linePointElements.push(Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement));
             }
           }
         }

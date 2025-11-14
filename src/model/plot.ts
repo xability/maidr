@@ -12,6 +12,7 @@ import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
+import { ViolinBoxTrace } from './violin';
 
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -350,7 +351,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     // Track previous position to detect trace switching
     const previousCol = this.col;
-    const _previousRow = this.row;
 
     switch (direction) {
       case 'UPWARD':
@@ -371,9 +371,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     // reset its position to MIN when navigating between box plots in violin plots
     if (previousCol !== this.col && (direction === 'FORWARD' || direction === 'BACKWARD')) {
       const newTrace = this.activeTrace;
-      // Check if it's a ViolinBoxTrace by checking if it has the resetToMin method
-      if (newTrace && typeof (newTrace as any).resetToMin === 'function') {
-        (newTrace as any).resetToMin();
+      if (newTrace instanceof ViolinBoxTrace) {
+        newTrace.resetToMin();
       }
     }
 

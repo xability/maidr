@@ -77,13 +77,6 @@ import {
   ToggleTextCommand,
 } from './toggle';
 
-// NoOpCommand - does nothing, used to disable commands
-class _NoOpCommand implements Command {
-  public execute(): void {
-    // Do nothing
-  }
-}
-
 export class CommandFactory {
   private readonly context: Context;
 

@@ -180,7 +180,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
         audio.size,
         audio.index as number,
         paletteEntry,
-        (audio as any).volumeScale ?? 1,
+        audio.volumeScale ?? 1,
       );
     } else if (Array.isArray(audio.value)) {
       // multiple discrete values

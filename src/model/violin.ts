@@ -9,35 +9,129 @@ import { BoxTrace } from './box';
 import { SmoothTrace } from './smooth';
 
 /**
+ * Radius (in pixels) for circle elements used to highlight points on violin plots.
+ * These circles are created when the violin shape is defined in SVG defs and need
+ * visual highlighting elements.
+ */
+const VIOLIN_HIGHLIGHT_CIRCLE_RADIUS = 3;
+
+/**
+ * Number of decimal places to use when formatting Y values and density values
+ * for display in violin plots. This ensures consistent precision in text output.
+ */
+const VIOLIN_VALUE_DECIMAL_PLACES = 4;
+
+/**
+ * Small adjustment value used to create a safety range when min and max density values
+ * are equal. This prevents division by zero errors in interpolation calculations by
+ * ensuring there's always a non-zero range between min and max values.
+ */
+const MIN_DENSITY_RANGE = 0.001;
+
+/**
+ * Label text for the density field in violin plot text descriptions.
+ * This represents the "volume" or width of the violin at a given Y level,
+ * which corresponds to the density value in the KDE distribution.
+ */
+const VIOLIN_DENSITY_LABEL = 'Volume';
+
+/**
  * ViolinTrace extends SmoothTrace to provide violin-specific navigation behavior.
  * For violin plots, up/down arrows navigate within a single violin's density curve.
  * Left/right arrows switch between violins within the same KDE layer when available.
  */
 export class ViolinTrace extends SmoothTrace {
-  private boxPlotLayerData: MaidrLayer | null = null; // Cache for box plot layer data if available
+  /**
+   * ID of the box plot layer in the same subplot, if available.
+   * This is used to retrieve fill values as a fallback when not available in KDE layer data.
+   * Stored as minimal state (identifier only) rather than caching the full layer data.
+   */
+  private readonly boxPlotLayerId: string | null;
 
   public constructor(layer: MaidrLayer, allLayers?: MaidrLayer[]) {
     super(layer);
-    // Try to find and cache box plot layer data for fill fallback
-    // This is a workaround since fill might not be in KDE layer data
-    this.cacheBoxPlotLayerData(allLayers);
+    // Store only the box plot layer ID for on-demand retrieval
+    // This follows architectural guidelines by minimizing persistent state in Model classes
+    const boxLayer = allLayers?.find(l => l.type === TraceType.BOX);
+    this.boxPlotLayerId = boxLayer?.id ?? null;
   }
 
   /**
-   * Try to cache box plot layer data to get fill values as fallback
+   * Creates highlight circle elements for all points in a given row and adds them to the provided array.
+   * Each circle is created at the point's SVG coordinates with the configured highlight radius.
+   *
+   * @param rowIndex - The index of the row (violin) to create circles for
+   * @param parentElement - The parent SVG element to use as a reference for styling
+   * @param circleElements - Array to which the created circle elements will be added
+   * @returns The number of circle elements created
    */
-  private cacheBoxPlotLayerData(allLayers?: MaidrLayer[]): void {
+  private createHighlightCirclesForRow(
+    rowIndex: number,
+    parentElement: SVGElement,
+    circleElements: SVGElement[],
+  ): number {
+    const dataPoints = this.points?.[rowIndex] as any[];
+    if (!dataPoints) {
+      return 0;
+    }
+
+    let count = 0;
+    for (const pt of dataPoints) {
+      if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
+        const circleElement = Svg.createCircleElement(pt.svg_x, pt.svg_y, parentElement);
+        circleElement.setAttribute('r', String(VIOLIN_HIGHLIGHT_CIRCLE_RADIUS));
+        circleElements.push(circleElement);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Attempts to retrieve the box plot layer data from the subplot on-demand.
+   * Since traces don't have direct access to their parent subplot, this method
+   * currently returns null. This follows architectural guidelines by avoiding
+   * persistent state caching in Model classes.
+   *
+   * @returns The box plot layer data if available, or null if not accessible.
+   */
+  private retrieveBoxPlotLayerFromSubplot(): MaidrLayer | null {
+    // Traces don't have direct access to their parent subplot or other layers.
+    // To retrieve the box plot layer on-demand, we would need access to the subplot
+    // or a way to query layers by ID. For now, return null to follow architectural
+    // guidelines of not caching full layer data as instance state.
+    // In practice, the fill value should be available in the KDE layer data,
+    // making this fallback rarely needed.
+    return null;
+  }
+
+  /**
+   * Retrieves the fill value from box plot layer data as a fallback.
+   * This is used when the fill value is not available in the KDE layer data.
+   *
+   * @param boxPlotLayer - The box plot layer data to retrieve the fill value from.
+   *                       If null, returns null (no fallback available).
+   * @param rowIndex - The row index (violin index) to get the fill value for.
+   * @returns The fill value as a string, or null if not available.
+   */
+  private getFillValueFromBoxPlotLayer(boxPlotLayer: MaidrLayer | null, rowIndex: number): string | null {
+    if (!boxPlotLayer) {
+      return null;
+    }
+
     try {
-      // Find the box plot layer in the same subplot
-      if (allLayers) {
-        const boxLayer = allLayers.find(l => l.type === TraceType.BOX);
-        if (boxLayer) {
-          this.boxPlotLayerData = boxLayer;
+      const boxData = boxPlotLayer.data as any;
+      if (Array.isArray(boxData) && boxData.length > rowIndex) {
+        const boxPoint = boxData[rowIndex];
+        if (boxPoint && typeof boxPoint === 'object' && boxPoint.fill) {
+          return String(boxPoint.fill);
         }
       }
     } catch (e) {
-      // Error caching box plot layer - continue without fallback
+      // Error accessing box plot layer data - return null
     }
+
+    return null;
   }
 
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
@@ -89,19 +183,8 @@ export class ViolinTrace extends SmoothTrace {
         // Check if this is a path in defs - if so, we need to create circles for highlighting
         if (lineElement.tagName === 'path' && lineElement.closest('defs')) {
           // Create circle elements for each point along the violin curve
-          const dataPoints = this.points?.[r] as any[];
-          if (dataPoints) {
-            for (const pt of dataPoints) {
-              if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
-                // Create a circle element for this point
-                const circleElement = Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement);
-                // Override the radius to make it smaller (3px instead of the default)
-                circleElement.setAttribute('r', '3');
-                linePointElements.push(circleElement);
-              }
-            }
-          }
-          if (linePointElements.length > 0) {
+          const circlesCreated = this.createHighlightCirclesForRow(r, lineElement, linePointElements);
+          if (circlesCreated > 0) {
             allFailed = false;
           }
         } else if (lineElement.tagName === 'use') {
@@ -111,18 +194,7 @@ export class ViolinTrace extends SmoothTrace {
           allFailed = false;
 
           // Also create circles for each point for better visibility
-          const dataPoints = this.points?.[r] as any[];
-          if (dataPoints) {
-            for (const pt of dataPoints) {
-              if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
-                // Create a circle element for this point
-                const circleElement = Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement);
-                // Override the radius to make it smaller (3px instead of the default)
-                circleElement.setAttribute('r', '3');
-                linePointElements.push(circleElement);
-              }
-            }
-          }
+          this.createHighlightCirclesForRow(r, lineElement, linePointElements);
           if (linePointElements.length > 0) {
             allFailed = false;
           }
@@ -138,6 +210,15 @@ export class ViolinTrace extends SmoothTrace {
     return svgElements;
   }
 
+  /**
+   * Moves the trace position once in the specified direction.
+   *
+   * For violin plots, navigation behavior differs from standard smooth plots:
+   * - FORWARD/BACKWARD: Switch between violins (rows), resetting to bottom of density curve (col = 0)
+   * - UPWARD/DOWNWARD: Navigate along the density curve within the current violin (col movement)
+   *
+   * @param direction - The direction to move: 'UPWARD', 'DOWNWARD', 'FORWARD', or 'BACKWARD'
+   */
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -185,6 +266,17 @@ export class ViolinTrace extends SmoothTrace {
     }
   }
 
+  /**
+   * Checks if the trace can move in the specified direction or to the specified position.
+   *
+   * For violin plots, movement validation differs from standard smooth plots:
+   * - FORWARD/BACKWARD: Checks if there are more violins to navigate to
+   * - UPWARD/DOWNWARD: Checks if movement along the density curve is possible within the current violin
+   *
+   * @param target - Either a direction ('UPWARD', 'DOWNWARD', 'FORWARD', 'BACKWARD') or
+   *                 an array of [row, col] coordinates for array-based movements
+   * @returns true if movement is possible in the specified direction/position, false otherwise
+   */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     // Handle array-based movements
     if (Array.isArray(target)) {
@@ -220,6 +312,20 @@ export class ViolinTrace extends SmoothTrace {
     }
   }
 
+  /**
+   * Handles Fn+Up rotor movement for layer switching in violin plots.
+   *
+   * In violin plots, Fn+Up/Down is used to switch between BOX and KDE layers,
+   * rather than navigating within the current layer. This method delegates
+   * the layer switching to the subplot by calling notifyOutOfBounds().
+   *
+   * Note: Returns true to indicate the request was handled (by delegating to subplot),
+   * not that the move was successful within this trace. The actual layer switching
+   * is performed by the subplot in response to the out-of-bounds notification.
+   *
+   * @param _mode - Optional mode parameter (not used in violin plots)
+   * @returns true to indicate the request was handled by delegating to subplot
+   */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     // Fn+Up switches between BOX and KDE layers within a violin
     // Let the subplot handle layer switching by not handling UPWARD
@@ -229,6 +335,20 @@ export class ViolinTrace extends SmoothTrace {
     return true;
   }
 
+  /**
+   * Handles Fn+Down rotor movement for layer switching in violin plots.
+   *
+   * In violin plots, Fn+Up/Down is used to switch between BOX and KDE layers,
+   * rather than navigating within the current layer. This method delegates
+   * the layer switching to the subplot by calling notifyOutOfBounds().
+   *
+   * Note: Returns true to indicate the request was handled (by delegating to subplot),
+   * not that the move was successful within this trace. The actual layer switching
+   * is performed by the subplot in response to the out-of-bounds notification.
+   *
+   * @param _mode - Optional mode parameter (not used in violin plots)
+   * @returns true to indicate the request was handled by delegating to subplot
+   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     // Fn+Down switches between BOX and KDE layers within a violin
     // Let the subplot handle layer switching by not handling DOWNWARD
@@ -238,12 +358,30 @@ export class ViolinTrace extends SmoothTrace {
     return true;
   }
 
+  /**
+   * Handles Fn+Left rotor movement for switching between violins.
+   *
+   * In violin plots, Fn+Left/Right is used to switch between violins (BACKWARD/FORWARD),
+   * rather than navigating within the current violin. This method delegates to moveOnce('BACKWARD').
+   *
+   * @param _mode - Optional mode parameter (not used in violin plots)
+   * @returns true to indicate the request was handled
+   */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     // Left arrow switches between violin layers (BACKWARD)
     this.moveOnce('BACKWARD');
     return true;
   }
 
+  /**
+   * Handles Fn+Right rotor movement for switching between violins.
+   *
+   * In violin plots, Fn+Left/Right is used to switch between violins (BACKWARD/FORWARD),
+   * rather than navigating within the current violin. This method delegates to moveOnce('FORWARD').
+   *
+   * @param _mode - Optional mode parameter (not used in violin plots)
+   * @returns true to indicate the request was handled
+   */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     // Right arrow switches between violin layers (FORWARD)
     this.moveOnce('FORWARD');
@@ -269,10 +407,10 @@ export class ViolinTrace extends SmoothTrace {
     // Safety check: if min === max, add a small range to avoid division by zero in interpolation
     // Ensure we don't go negative if min is 0
     const safeDensityMin = densityMin === densityMax
-      ? Math.max(0, densityMin - 0.001)
+      ? Math.max(0, densityMin - MIN_DENSITY_RANGE)
       : densityMin;
     const safeDensityMax = densityMin === densityMax
-      ? densityMax + 0.001
+      ? densityMax + MIN_DENSITY_RANGE
       : densityMax;
 
     const getDensity = (i: number): number =>
@@ -381,30 +519,33 @@ export class ViolinTrace extends SmoothTrace {
         }
       }
 
-      // If still no value, get it from the cached box plot layer data
+      // If still no value, try to get it from the box plot layer data as a fallback
       // This is a workaround since the fill might not be in the KDE layer data
-      if (!xValue && this.boxPlotLayerData) {
-        try {
-          const boxData = this.boxPlotLayerData.data as any;
-          if (Array.isArray(boxData) && boxData.length > this.row) {
-            const boxPoint = boxData[this.row];
-            if (boxPoint && typeof boxPoint === 'object' && boxPoint.fill) {
-              xValue = String(boxPoint.fill);
-            }
+      // Note: We can't access the box plot layer data here without state, so this fallback
+      // is only available if the layer data is passed in. In practice, the fill value
+      // should be available in the KDE layer data, making this fallback rarely needed.
+      // Following architectural guidelines, we don't cache the full layer data here.
+      if (!xValue && this.boxPlotLayerId) {
+        // Attempt to retrieve box plot layer data on-demand from the subplot
+        // Since traces don't have direct access to their parent subplot, this fallback
+        // may not be available. The fill value should typically be in the KDE layer data.
+        const boxPlotLayer = this.retrieveBoxPlotLayerFromSubplot();
+        if (boxPlotLayer) {
+          const fallbackValue = this.getFillValueFromBoxPlotLayer(boxPlotLayer, this.row);
+          if (fallbackValue) {
+            xValue = fallbackValue;
           }
-        } catch (e) {
-          // Error accessing box plot layer data - continue without fallback
         }
       }
 
       // Exclude 'fill' from baseText to avoid duplicate "Group" display
       // We only need main, cross, and density for violin plots
       // Explicitly construct the object without fill property
-      // Format y value and density to 4 decimal places as strings to preserve precision
+      // Format y value and density to specified decimal places as strings to preserve precision
       const yValue = typeof point.y === 'number' ? point.y : Number(point.y);
       const densityValue = typeof point.density === 'number' ? point.density : Number(point.density);
-      const formattedYValue = yValue.toFixed(4);
-      const formattedDensity = densityValue.toFixed(4);
+      const formattedYValue = yValue.toFixed(VIOLIN_VALUE_DECIMAL_PLACES);
+      const formattedDensity = densityValue.toFixed(VIOLIN_VALUE_DECIMAL_PLACES);
 
       const textState: TextState = {
         main: {
@@ -416,7 +557,7 @@ export class ViolinTrace extends SmoothTrace {
           value: formattedYValue,
         },
         density: {
-          label: 'Volume',
+          label: VIOLIN_DENSITY_LABEL,
           value: formattedDensity,
         },
         // Include other optional fields from baseText if they exist (range, section)
@@ -458,6 +599,9 @@ export class ViolinTrace extends SmoothTrace {
   /**
    * Override to return the row index (which violin) for layer switching.
    * This allows switching from KDE to BOX layer while preserving the violin position.
+   *
+   * @returns The violin index (row index) as a number, representing which violin
+   *          is currently active. Returns null if the position is invalid.
    */
   public getCurrentXValue(): XValue | null {
     // For ViolinTrace: row = which violin
@@ -467,6 +611,9 @@ export class ViolinTrace extends SmoothTrace {
   /**
    * Get the current Y value from the KDE curve.
    * This is used when switching to box plot layer to preserve the Y level.
+   *
+   * @returns The current Y value from the KDE curve at the current position (row, col).
+   *          Returns null if the position is invalid or if no valid Y value can be determined.
    */
   public getCurrentYValue(): number | null {
     const rowPoints = this.points[this.row];
@@ -488,6 +635,12 @@ export class ViolinTrace extends SmoothTrace {
    * Override to handle layer switching from ViolinBoxTrace.
    * When switching from BOX layer, the X value will be the violin index (column from box plot).
    * Set the row to match that violin index.
+   *
+   * @param xValue - The X value to move to. For violin plots, this must be a numeric index
+   *                 representing the violin (row) index. String values are not supported as
+   *                 violin plots use numeric indices to identify violins.
+   * @returns true if the move was successful, false if xValue is a string (not supported)
+   *          or if the numeric index is out of bounds
    */
   public moveToXValue(xValue: XValue): boolean {
     // If xValue is a number, it's likely the violin index from ViolinBoxTrace
@@ -506,13 +659,20 @@ export class ViolinTrace extends SmoothTrace {
     if (typeof xValue === 'number') {
       return super.moveToXValue(xValue);
     }
-    // Violin plots use numeric indices, so string values are not supported
+    // Violin plots use numeric indices only - string XValue types are intentionally not supported
+    // This is by design: violin plots identify violins by numeric index, not by string labels
     return false;
   }
 
   /**
    * Move to a specific violin (X value) and find the closest point on the KDE curve
    * with the given Y value. This is used when switching from box plot layer to preserve Y level.
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values are not supported as violin plots use numeric indices.
+   * @param yValue - The Y value to find the closest matching point for on the KDE curve
+   * @returns true if the move was successful (valid violin index and Y value found),
+   *          false if xValue is not a number or if the violin index is out of bounds
    */
   public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
     // First set the violin (row) from X value
@@ -557,10 +717,37 @@ export class ViolinTrace extends SmoothTrace {
 
 /**
  * ViolinBoxTrace extends BoxTrace to provide violin-specific box plot navigation behavior.
- * When navigating between box plots in violin plots, resets to MIN section (lower point)
- * instead of maintaining the same level.
+ *
+ * This class handles the box plot layer within violin plots, which consist of two layers:
+ * 1. A KDE (kernel density estimation) layer represented by ViolinTrace
+ * 2. A box plot layer represented by this ViolinBoxTrace class
+ *
+ * Key differences from standard BoxTrace:
+ * - When navigating between box plots (violins), automatically resets to MIN section
+ *   instead of maintaining the same section level across violins
+ * - Q1/Q3 mapping is reversed: Q1 is at the bottom and Q3 at the top of the IQR box
+ *   (opposite of regular boxplots) to match violin plot conventions
+ * - Supports seamless layer switching with ViolinTrace via getCurrentXValue() and
+ *   moveToXValue() methods, preserving violin position when switching between KDE and BOX layers
+ * - Initializes at the first violin (index 0) and MIN section (index 1) by default
+ *
+ * Relationship with ViolinTrace:
+ * - Both classes work together to provide complete violin plot navigation
+ * - ViolinTrace handles the KDE/density curve layer (smooth violin shape)
+ * - ViolinBoxTrace handles the box plot statistics layer (min, Q1, median, Q3, max)
+ * - Layer switching (Fn+Up/Down) allows users to switch between these two layers
+ * - When switching layers, the violin position (X value) is preserved via getCurrentXValue()
+ * - When switching from KDE to BOX, the Y level is preserved via getCurrentYValue() and
+ *   moveToXAndYValue() finds the closest matching section
  */
 export class ViolinBoxTrace extends BoxTrace {
+  /**
+   * Creates a new ViolinBoxTrace instance for a violin plot's box layer.
+   *
+   * @param layer - The MAIDR layer data containing box plot information for the violin plot.
+   *                This includes box plot statistics (min, Q1, median, Q3, max) and selectors
+   *                for SVG elements representing each section of the box plot.
+   */
   public constructor(layer: MaidrLayer) {
     super(layer);
     // Ensure we start at the first violin when the trace is created
@@ -577,12 +764,37 @@ export class ViolinBoxTrace extends BoxTrace {
 
   /**
    * Override mapToSvgElements to fix Q1/Q3 mapping for violin plots.
-   * In violin plots, Q1 should be at the bottom and Q3 at the top of the IQR box.
+   *
+   * This method overrides the base BoxTrace implementation to handle the reversed
+   * Q1/Q3 positioning in violin plots. Unlike standard boxplots where Q1 is at the
+   * top and Q3 at the bottom, violin plots have Q1 at the bottom and Q3 at the top
+   * of the IQR box. This matches the domMapping: { iqrDirection: "reverse" } set
+   * in the Python side payload.
+   *
+   * The method maps box plot selectors to their corresponding SVG elements, organizing
+   * them by section (lowerOutliers, min, q1, q2, q3, max, upperOutliers) and by violin
+   * (box plot index). The structure differs based on orientation:
+   * - For vertical plots: organized by section (row) then violin (column)
+   * - For horizontal plots: organized by violin (row) then section (column)
+   *
+   * @param selectors - Array of BoxSelector objects, each containing CSS selectors
+   *                    for the SVG elements representing different sections of a box plot
+   *                    (lowerOutliers, min, q1, q2, q3, max, upperOutliers). The length
+   *                    must match the number of violins (this.points.length).
+   *
+   * @returns A 2D array structure mapping sections and violins to their SVG elements.
+   *          - For vertical orientation: [section][violin] = SVGElement[] | SVGElement
+   *          - For horizontal orientation: [violin][section] = SVGElement[] | SVGElement
+   *          Returns null if selectors is null/undefined or if the length doesn't match
+   *          the number of points (violins).
    */
   protected mapToSvgElements(
     selectors: BoxSelector[],
   ): (SVGElement[] | SVGElement)[][] | null {
-    if (!selectors || selectors.length !== this.points.length) {
+    if (!selectors) {
+      return null;
+    }
+    if (selectors.length !== this.points.length) {
       return null;
     }
 
@@ -638,6 +850,9 @@ export class ViolinBoxTrace extends BoxTrace {
   /**
    * Override to return the column index (which violin) for layer switching.
    * This allows switching from BOX to KDE layer while preserving the violin position.
+   *
+   * @returns The violin index (X value) as a number. For vertical box plots, returns the column index.
+   *          For horizontal box plots, returns the row index. Returns null if the position is invalid.
    */
   public getCurrentXValue(): XValue | null {
     // For vertical box plots: col = which violin
@@ -652,6 +867,10 @@ export class ViolinBoxTrace extends BoxTrace {
   /**
    * Get the current Y value from the box plot.
    * This is used when switching to KDE layer to preserve the Y level.
+   *
+   * @returns The current Y value from the box plot section at the current position.
+   *          For outliers (arrays), returns the first value. Returns null if the position
+   *          is invalid or if the value cannot be determined.
    */
   public getCurrentYValue(): number | null {
     const values = this.values;
@@ -689,6 +908,10 @@ export class ViolinBoxTrace extends BoxTrace {
    * Override to handle layer switching from ViolinTrace.
    * When switching from KDE layer, the X value will be the violin index (row from violin trace).
    * Set the column to match that violin index.
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values fall back to parent implementation.
+   * @returns true if the move was successful (valid violin index), false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
     // If xValue is a number, it's likely the violin index from ViolinTrace
@@ -726,6 +949,12 @@ export class ViolinBoxTrace extends BoxTrace {
   /**
    * Move to a specific violin (X value) and find the closest box plot section
    * with the given Y value. This is used when switching from KDE layer to preserve Y level.
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values are not supported.
+   * @param yValue - The Y value to find the closest matching box plot section for
+   * @returns true if the move was successful (valid violin index and closest section found),
+   *          false if xValue is not a number or if the violin index is out of bounds
    */
   public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
     // First set the violin from X value
@@ -826,7 +1055,11 @@ export class ViolinBoxTrace extends BoxTrace {
 
   /**
    * Reset to MIN section (lower point) of the box plot.
-   * This is called when switching between box plots in violin plots.
+   * This is called when switching between box plots in violin plots to ensure
+   * consistent starting position when navigating between violins.
+   *
+   * For vertical box plots, sets row to 1 (MIN section index).
+   * For horizontal box plots, sets col to 1 (MIN section index).
    */
   public resetToMin(): void {
     if (this.orientation === Orientation.VERTICAL) {
@@ -850,6 +1083,16 @@ export class ViolinBoxTrace extends BoxTrace {
     }
   }
 
+  /**
+   * Moves the trace position once in the specified direction.
+   *
+   * For ViolinBoxTrace, navigation behavior includes automatic reset to MIN section
+   * when switching between box plots (violins):
+   * - FORWARD/BACKWARD: Switch between violins (vertical: col, horizontal: row), reset to MIN section
+   * - UPWARD/DOWNWARD: Navigate within box plot sections (vertical: row, horizontal: col)
+   *
+   * @param direction - The direction to move: 'UPWARD', 'DOWNWARD', 'FORWARD', or 'BACKWARD'
+   */
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();

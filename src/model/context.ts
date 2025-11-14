@@ -150,21 +150,24 @@ export class Context implements Disposable {
       }
 
       // If switching between ViolinBoxTrace and ViolinTrace, preserve Y level
+      // Use explicit type guards to ensure TypeScript properly narrows the types
       if (currentTrace instanceof ViolinBoxTrace && newTrace instanceof ViolinTrace) {
         // Switching from box plot to KDE layer
+        const violinTrace = newTrace; // TypeScript now knows this is ViolinTrace
         const currentYValue = currentTrace.getCurrentYValue();
-        if (currentYValue !== null && typeof (newTrace as any).moveToXAndYValue === 'function') {
-          (newTrace as any).moveToXAndYValue(currentXValue, currentYValue);
+        if (currentYValue !== null) {
+          violinTrace.moveToXAndYValue(currentXValue, currentYValue);
         } else {
-          newTrace.moveToXValue(currentXValue);
+          violinTrace.moveToXValue(currentXValue);
         }
       } else if (currentTrace instanceof ViolinTrace && newTrace instanceof ViolinBoxTrace) {
         // Switching from KDE to box plot layer
+        const violinBoxTrace = newTrace; // TypeScript now knows this is ViolinBoxTrace
         const currentYValue = currentTrace.getCurrentYValue();
-        if (currentYValue !== null && typeof (newTrace as any).moveToXAndYValue === 'function') {
-          (newTrace as any).moveToXAndYValue(currentXValue, currentYValue);
+        if (currentYValue !== null) {
+          violinBoxTrace.moveToXAndYValue(currentXValue, currentYValue);
         } else {
-          newTrace.moveToXValue(currentXValue);
+          violinBoxTrace.moveToXValue(currentXValue);
         }
       } else {
         newTrace.moveToXValue(currentXValue);
