@@ -1,7 +1,6 @@
 import type { Disposable } from '@type/disposable';
-import type { Movable, MovableDirection } from '@type/movable';
 import type { Maidr, MaidrLayer, MaidrSubplot, SmoothPoint } from '@type/grammar';
-import { TraceType } from '@type/grammar';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type {
   FigureState,
@@ -9,6 +8,7 @@ import type {
   SubplotState,
   TraceState,
 } from '@type/state';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';

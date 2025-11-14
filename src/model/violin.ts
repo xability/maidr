@@ -109,7 +109,7 @@ export class ViolinTrace extends SmoothTrace {
           // Make the use element visible and add it to linePointElements
           linePointElements.push(lineElement);
           allFailed = false;
-          
+
           // Also create circles for each point for better visibility
           const dataPoints = this.points?.[r] as any[];
           if (dataPoints) {
@@ -139,7 +139,6 @@ export class ViolinTrace extends SmoothTrace {
   }
 
   public moveOnce(direction: MovableDirection): void {
-    
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -193,7 +192,7 @@ export class ViolinTrace extends SmoothTrace {
     }
 
     const direction = target;
-    
+
     if (direction === 'FORWARD' || direction === 'BACKWARD') {
       if (direction === 'FORWARD') {
         return this.row < this.lineValues.length - 1;
@@ -258,7 +257,7 @@ export class ViolinTrace extends SmoothTrace {
     const col = this.col;
 
     // Extract density values for the current violin (row)
-    const densityValues = rowPoints.map(point => {
+    const densityValues = rowPoints.map((point) => {
       const violinPoint = point as SmoothPoint & { density?: number };
       return violinPoint.density ?? 0;
     });
@@ -397,7 +396,7 @@ export class ViolinTrace extends SmoothTrace {
           // Error accessing box plot layer data - continue without fallback
         }
       }
-      
+
       // Exclude 'fill' from baseText to avoid duplicate "Group" display
       // We only need main, cross, and density for violin plots
       // Explicitly construct the object without fill property
@@ -448,7 +447,7 @@ export class ViolinTrace extends SmoothTrace {
     if (baseState.empty) {
       return baseState;
     }
-    
+
     // Override plotType to 'kde' for violin plots
     return {
       ...baseState,

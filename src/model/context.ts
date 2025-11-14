@@ -4,8 +4,8 @@ import type { LayerSwitchTraceState, PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
-import hotkeys from 'hotkeys-js';
 import { Stack } from '@util/stack';
+import hotkeys from 'hotkeys-js';
 import { ViolinBoxTrace, ViolinTrace } from './violin';
 
 type Plot = Figure | Subplot | Trace;
