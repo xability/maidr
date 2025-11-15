@@ -1,4 +1,4 @@
-import type { BoxSelector, MaidrLayer, SmoothPoint } from '@type/grammar';
+import type { BoxSelector, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
@@ -396,8 +396,7 @@ export class ViolinTrace extends SmoothTrace {
 
     // Extract density values for the current violin (row)
     const densityValues = rowPoints.map((point) => {
-      const violinPoint = point as SmoothPoint & { density?: number };
-      return violinPoint.density ?? 0;
+      return point.density ?? 0;
     });
 
     // Calculate min/max density for this violin

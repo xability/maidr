@@ -259,8 +259,8 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis label.
-    const hasCrossLabel = typeof state.cross.label === 'string' && state.cross.label.trim().length > 0;
-    if (hasCrossLabel) {
+    const hasNonEmptyCrossLabel = typeof state.cross.label === 'string' && state.cross.label.trim().length > 0;
+    if (hasNonEmptyCrossLabel) {
       if (state.section !== undefined) {
         if (this.isBoxPlotWithSection(state)) {
           const label = state.cross.label;
@@ -275,7 +275,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis values (only if we printed the label and value is present).
-    if (hasCrossLabel) {
+    if (hasNonEmptyCrossLabel) {
       if (!Array.isArray(state.cross.value)) {
         const v = String(state.cross.value).trim();
         if (v.length > 0) {

@@ -1,6 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, TextState } from '@type/state';
-import { Svg } from '@util/svg';
 import { LineTrace } from './line';
 
 export class SmoothTrace extends LineTrace {
@@ -124,43 +123,6 @@ export class SmoothTrace extends LineTrace {
     return true;
   }
 
-  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
-    if (!selectors || selectors.length !== this.lineValues.length) {
-      return null;
-    }
-
-    const svgElements: SVGElement[][] = [];
-    let allFailed = true;
-    for (let r = 0; r < selectors.length; r++) {
-      const lineElement = Svg.selectElement(selectors[r], false);
-      if (!lineElement) {
-        svgElements.push([]);
-        continue;
-      }
-
-      // For regular smooth plots, create point elements along the line
-      {
-        const linePointElements: SVGElement[] = [];
-        const dataPoints = this.points?.[r];
-        if (dataPoints) {
-          for (const pt of dataPoints) {
-            if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
-              // Use SVG coordinates directly from the point data
-              linePointElements.push(Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement));
-            }
-          }
-        }
-
-        if (linePointElements.length > 0) {
-          allFailed = false;
-        }
-        svgElements.push(linePointElements);
-      }
-    }
-
-    if (allFailed) {
-      return null;
-    }
-    return svgElements;
-  }
+  // Use parent class implementation which parses SVG path/polyline to get coordinates
+  // SmoothTraceSvgXY handles the case where points have svg_x/svg_y properties
 }
