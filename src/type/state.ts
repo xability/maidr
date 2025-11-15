@@ -119,6 +119,10 @@ export interface AudioState {
    * Only applicable for candlestick traces.
    */
   trend?: CandlestickTrend;
+  /**
+   * Optional per-state volume scale (0..1+). Used to modulate loudness based on data (e.g., KDE width).
+   */
+  volumeScale?: number;
 }
 
 export type BrailleState
@@ -172,6 +176,7 @@ export interface TextState {
   fill?: { label: string; value: string };
   range?: { min: number; max: number };
   section?: string;
+  density?: { label: string; value: string | number }; // For violin plots: width/density
 }
 
 export type AutoplayState = {

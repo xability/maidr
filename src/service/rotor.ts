@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import { AbstractTrace } from '@model/abstract';
+import { ViolinTrace } from '@model/violin';
 import { Constant } from '@util/constant';
 
 const ROTOR_MODES: Record<number, string> = {
@@ -79,15 +80,22 @@ export class RotorNavigationService {
       console.error(`Unexpected compare type: ${compareType}`);
       return null;
     }
-    // Check if activeTrace is an instance of AbstractTrace and supports moveToNextHigherValue
+    // Check if activeTrace is an instance of AbstractTrace and supports moveToNextCompareValue
     if (activeTrace instanceof AbstractTrace) {
       const xValue = activeTrace.getCurrentXValue(); // Get the current X value
       if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, compareType);
-        if (!moved) {
-          const msg = `No ${compareType} value found to the ${direction} of the current value.`;
-          console.warn(msg);
-          return msg;
+        // Check if the method exists before calling it
+        const traceWithMethod = activeTrace as any;
+        if (typeof traceWithMethod.moveToNextCompareValue === 'function') {
+          const moved = traceWithMethod.moveToNextCompareValue(direction, compareType);
+          if (!moved) {
+            const msg = `No ${compareType} value found to the ${direction} of the current value.`;
+            console.warn(msg);
+            return msg;
+          }
+        } else {
+          // Method doesn't exist on this trace type - this is expected for some trace types
+          return null;
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -108,6 +116,20 @@ export class RotorNavigationService {
           console.warn(msg);
           return msg;
         }
+        // For ViolinTrace, moveUpRotor returns true to signal that layer switching should be performed
+        // The trace itself doesn't perform the switch - it delegates to the context via notifyOutOfBounds()
+        // and returns true to indicate the request was "handled" (by requesting layer switch)
+        if (moved && activeTrace instanceof ViolinTrace) {
+          // Perform the actual layer switch (UPWARD direction)
+          // stepTrace will handle checking if we're in a multi-layer subplot
+          try {
+            this.context.stepTrace('UPWARD');
+          } catch (error) {
+            // If stepTrace fails, there may not be another layer to switch to
+            // This is expected behavior when already on the last layer
+            console.warn('Layer switching failed:', error);
+          }
+        }
       }
     } catch {
       // default behavior is to mirror move right
@@ -125,6 +147,19 @@ export class RotorNavigationService {
           const msg = `No ${this.getCompareType()} value found below the current value.`;
           console.warn(msg);
           return msg;
+        }
+        // If trace handled the command and it's a ViolinTrace, try switching layers
+        // This is used by ViolinTrace to signal layer switching is needed
+        if (moved && activeTrace instanceof ViolinTrace) {
+          // Try to switch to previous layer (DOWNWARD direction)
+          // stepTrace will handle checking if we're in a multi-layer subplot
+          try {
+            this.context.stepTrace('DOWNWARD');
+          } catch (error) {
+            // If stepTrace fails, the trace handled the movement internally
+            // This is expected behavior for traces that don't need layer switching
+            console.warn('Layer switching failed:', error);
+          }
         }
       }
     } catch {

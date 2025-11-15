@@ -6,6 +6,7 @@ import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
+import { ViolinBoxTrace, ViolinTrace } from './violin';
 
 type Plot = Figure | Subplot | Trace;
 
@@ -148,7 +149,30 @@ export class Context implements Disposable {
         return;
       }
 
-      newTrace.moveToXValue(currentXValue);
+      // If switching between ViolinBoxTrace and ViolinTrace, preserve Y level
+      // Use explicit type guards to ensure TypeScript properly narrows the types
+      if (currentTrace instanceof ViolinBoxTrace && newTrace instanceof ViolinTrace) {
+        // Switching from box plot to KDE layer
+        const violinTrace = newTrace; // TypeScript now knows this is ViolinTrace
+        const currentYValue = currentTrace.getCurrentYValue();
+        if (currentYValue !== null) {
+          violinTrace.moveToXAndYValue(currentXValue, currentYValue);
+        } else {
+          violinTrace.moveToXValue(currentXValue);
+        }
+      } else if (currentTrace instanceof ViolinTrace && newTrace instanceof ViolinBoxTrace) {
+        // Switching from KDE to box plot layer
+        const violinBoxTrace = newTrace; // TypeScript now knows this is ViolinBoxTrace
+        const currentYValue = currentTrace.getCurrentYValue();
+        if (currentYValue !== null) {
+          violinBoxTrace.moveToXAndYValue(currentXValue, currentYValue);
+        } else {
+          violinBoxTrace.moveToXValue(currentXValue);
+        }
+      } else {
+        newTrace.moveToXValue(currentXValue);
+      }
+
       if (!newTrace.state.empty) {
         const index = activeSubplot.getRow() + 1;
         const size = activeSubplot.getSize();

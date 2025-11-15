@@ -1,5 +1,5 @@
 import type { Disposable } from '@type/disposable';
-import type { Maidr, MaidrSubplot } from '@type/grammar';
+import type { Maidr, MaidrLayer, MaidrSubplot, SmoothPoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type {
@@ -8,13 +8,142 @@ import type {
   SubplotState,
   TraceState,
 } from '@type/state';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
+import { ViolinBoxTrace } from './violin';
 
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
+
+/**
+ * Determines if a layer is a violin smooth layer by checking for density data.
+ * Violin plots use SMOOTH layers with density information to represent the
+ * kernel density estimation (KDE) curves.
+ *
+ * @param layer - The MAIDR layer to check
+ * @returns true if the layer is a SMOOTH type and contains points with density data,
+ *          false otherwise
+ */
+function isViolinSmoothLayer(layer: MaidrLayer): boolean {
+  if (layer.type !== TraceType.SMOOTH) {
+    return false;
+  }
+
+  const data = layer.data as SmoothPoint[][];
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+
+  return data.some(
+    row =>
+      Array.isArray(row)
+      && row.some(
+        point => point && typeof point === 'object' && typeof point.density === 'number',
+      ),
+  );
+}
+
+/**
+ * Normalizes selector data to an array of strings.
+ * Handles various selector formats (null, string, array of strings) and
+ * filters out non-string values to ensure type safety.
+ *
+ * @param selectors - The selectors from a MAIDR layer, which can be null, a string,
+ *                    or an array of strings
+ * @returns An array of string selectors, empty array if selectors is null or
+ *          contains no valid string selectors
+ */
+function normalizeSmoothSelectors(selectors: MaidrLayer['selectors']): string[] {
+  if (!selectors) {
+    return [];
+  }
+  if (Array.isArray(selectors)) {
+    return selectors.filter((selector): selector is string => typeof selector === 'string');
+  }
+  return typeof selectors === 'string' ? [selectors] : [];
+}
+
+/**
+ * Combines multiple violin smooth layers into a single layer.
+ * Merges data rows and selectors from all layers in the group, and ensures
+ * the selector array length matches the data array length by padding or truncating.
+ * If only one layer is provided, returns it unchanged.
+ *
+ * @param group - An array of MAIDR layers to combine, all should be violin smooth layers
+ * @returns A single combined MAIDR layer with merged data and selectors,
+ *          or the original layer if group contains only one layer
+ */
+function createCombinedViolinLayer(group: MaidrLayer[]): MaidrLayer {
+  if (group.length === 1) {
+    return group[0];
+  }
+
+  const [first] = group;
+  const combinedData: SmoothPoint[][] = [];
+  const combinedSelectors: string[] = [];
+
+  for (const layer of group) {
+    const layerData = layer.data as SmoothPoint[][];
+    if (Array.isArray(layerData)) {
+      layerData.forEach(row => combinedData.push(row));
+    }
+    const selectors = normalizeSmoothSelectors(layer.selectors);
+    selectors.forEach(selector => combinedSelectors.push(selector));
+  }
+
+  if (combinedSelectors.length < combinedData.length) {
+    const filler = combinedSelectors[combinedSelectors.length - 1] ?? '';
+    while (combinedSelectors.length < combinedData.length) {
+      combinedSelectors.push(filler);
+    }
+  } else if (combinedSelectors.length > combinedData.length) {
+    combinedSelectors.length = combinedData.length;
+  }
+
+  return {
+    ...first,
+    id: `${first.id}-combined`,
+    data: combinedData,
+    selectors: combinedSelectors,
+  };
+}
+
+/**
+ * Processes an array of layers and combines consecutive violin smooth layers.
+ * Groups adjacent violin smooth layers together and combines them into a single layer,
+ * while preserving non-violin layers as-is. This is used to handle violin plots
+ * that may be split across multiple SMOOTH layers.
+ *
+ * @param layers - An array of MAIDR layers to process
+ * @returns An array of processed layers with consecutive violin smooth layers combined
+ */
+function combineViolinSmoothLayers(layers: MaidrLayer[]): MaidrLayer[] {
+  const processedLayers: MaidrLayer[] = [];
+  let pendingGroup: MaidrLayer[] = [];
+
+  const flushPending = (): void => {
+    if (pendingGroup.length === 0) {
+      return;
+    }
+    processedLayers.push(createCombinedViolinLayer(pendingGroup));
+    pendingGroup = [];
+  };
+
+  for (const layer of layers) {
+    if (isViolinSmoothLayer(layer)) {
+      pendingGroup.push(layer);
+    } else {
+      flushPending();
+      processedLayers.push(layer);
+    }
+  }
+
+  flushPending();
+  return processedLayers;
+}
 
 export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly id: string;
@@ -202,9 +331,11 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     this.isInitialEntry = false;
 
-    const layers = subplot.layers;
+    const originalLayers = subplot.layers;
+    const layers = combineViolinSmoothLayers(originalLayers);
     this.size = layers.length;
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    // Pass all layers to factory so it can detect violin plot box plots
+    this.traces = layers.map(layer => [TraceFactory.create(layer, layers)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
@@ -256,6 +387,9 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       return;
     }
 
+    // Track previous position to detect trace switching
+    const previousCol = this.col;
+
     switch (direction) {
       case 'UPWARD':
         this.row += 1;
@@ -270,6 +404,16 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
         this.col -= 1;
         break;
     }
+
+    // If we switched traces (col changed) and the new trace is a ViolinBoxTrace,
+    // reset its position to MIN when navigating between box plots in violin plots
+    if (previousCol !== this.col && (direction === 'FORWARD' || direction === 'BACKWARD')) {
+      const newTrace = this.activeTrace;
+      if (newTrace instanceof ViolinBoxTrace) {
+        newTrace.resetToMin();
+      }
+    }
+
     this.notifyStateUpdate();
   }
 

@@ -28,6 +28,7 @@
     "@mui/material": "^7.0.2",
     "@reduxjs/toolkit": "^2.7.0",
     "@types/katex": "^0.16.7",
+    "g": "^2.0.1",
     "hotkeys-js": "3.13.10",
     "katex": "^0.16.22",
     "react": "^19.1.0",

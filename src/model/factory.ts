@@ -10,14 +10,20 @@ import { LineTrace } from './line';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
+import { ViolinBoxTrace } from './violin';
 
 export abstract class TraceFactory {
-  public static create(layer: MaidrLayer): Trace {
+  public static create(layer: MaidrLayer, allLayers?: MaidrLayer[]): Trace {
     switch (layer.type) {
       case TraceType.BAR:
         return new BarTrace(layer);
 
       case TraceType.BOX:
+        // Check if this is a violin plot box plot by checking if there are SMOOTH layers in the same subplot
+        // Violin plots have both BOX and SMOOTH layers
+        if (allLayers && allLayers.some(l => l.type === TraceType.SMOOTH)) {
+          return new ViolinBoxTrace(layer);
+        }
         return new BoxTrace(layer);
 
       case TraceType.CANDLESTICK:
@@ -36,7 +42,7 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return createSmoothTrace(layer);
+        return createSmoothTrace(layer, allLayers);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:

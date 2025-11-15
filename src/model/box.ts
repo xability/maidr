@@ -10,15 +10,15 @@ import { AbstractTrace } from './abstract';
 export class BoxTrace extends AbstractTrace<number[] | number> {
   protected readonly supportsExtrema = false;
 
-  private readonly points: BoxPoint[];
+  protected readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
-  private readonly orientation: Orientation;
-  private readonly sections: string[];
+  protected readonly orientation: Orientation;
+  protected readonly sections: string[];
 
   private readonly min: number;
   private readonly max: number;
@@ -152,7 +152,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
-  private mapToSvgElements(
+  protected mapToSvgElements(
     selectors: BoxSelector[] | undefined,
   ): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.points.length) {

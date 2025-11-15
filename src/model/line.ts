@@ -643,7 +643,7 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }

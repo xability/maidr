@@ -150,6 +150,10 @@ export class TextService implements Observer<PlotState>, Disposable {
       parts.push(`${text.fill.label} is ${text.fill.value}`);
     }
 
+    if (text.density && text.density.value !== undefined) {
+      parts.push(`${text.density.label} is ${text.density.value}`);
+    }
+
     return parts.length > 0 ? parts.join(', ') : null;
   }
 
@@ -167,6 +171,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
       if (state.text.fill && state.text.fill.value !== undefined) {
         parts.push(`${state.text.fill.label} is ${state.text.fill.value}`);
+      }
+      if (state.text.density && state.text.density.value !== undefined) {
+        parts.push(`${state.text.density.label} is ${state.text.density.value}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -252,25 +259,33 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis label.
-    if (state.section !== undefined) {
-      if (this.isBoxPlotWithSection(state)) {
-        const label = state.cross.label;
-        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+    const hasNonEmptyCrossLabel = typeof state.cross.label === 'string' && state.cross.label.trim().length > 0;
+    if (hasNonEmptyCrossLabel) {
+      if (state.section !== undefined) {
+        if (this.isBoxPlotWithSection(state)) {
+          const label = state.cross.label;
+          verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+        } else {
+          // For candlestick plots: "section cross.label" (e.g., "high Price")
+          verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+        }
       } else {
-        // For candlestick plots: "section cross.label" (e.g., "high Price")
-        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+        verbose.push(Constant.COMMA_SPACE, state.cross.label);
       }
-    } else {
-      verbose.push(Constant.COMMA_SPACE, state.cross.label);
     }
 
-    // Format cross-axis values.
-    if (!Array.isArray(state.cross.value)) {
-      verbose.push(Constant.IS, String(state.cross.value));
-    } else if (state.cross.value.length > 1) {
-      verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
-    } else if (state.cross.value.length > 0) {
-      verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+    // Format cross-axis values (only if we printed the label and value is present).
+    if (hasNonEmptyCrossLabel) {
+      if (!Array.isArray(state.cross.value)) {
+        const v = String(state.cross.value).trim();
+        if (v.length > 0) {
+          verbose.push(Constant.IS, v);
+        }
+      } else if (state.cross.value.length > 1) {
+        verbose.push(Constant.ARE, state.cross.value.join(Constant.COMMA_SPACE));
+      } else if (state.cross.value.length > 0) {
+        verbose.push(Constant.IS, state.cross.value.join(Constant.COMMA_SPACE));
+      }
     }
 
     // Format for heatmap and scatter plot.
@@ -285,6 +300,16 @@ export class TextService implements Observer<PlotState>, Disposable {
         state.fill.label,
         Constant.IS,
         fillValue,
+      );
+    }
+
+    // Format density/width for violin plots
+    if (state.density !== undefined && state.density.value !== undefined) {
+      verbose.push(
+        Constant.COMMA_SPACE,
+        state.density.label,
+        Constant.IS,
+        String(state.density.value),
       );
     }
 
@@ -342,6 +367,11 @@ export class TextService implements Observer<PlotState>, Disposable {
       } else {
         terse.push(Constant.OPEN_BRACKET, state.cross.value.join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
+    }
+
+    // Format density/width for violin plots in terse mode
+    if (state.density !== undefined && state.density.value !== undefined) {
+      terse.push(Constant.COMMA_SPACE, state.density.label, Constant.IS, String(state.density.value));
     }
 
     // Format for heatmap and segmented plots.
