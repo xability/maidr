@@ -14,6 +14,7 @@ import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Keys } from '@type/event';
 import type { Command, CommandContext } from './command';
+import { ViolinBoxTrace, ViolinTrace } from '@model/violin';
 import { Scope } from '@type/event';
 import {
   AutoplayBackwardCommand,
@@ -56,8 +57,10 @@ import {
   MoveUpCommand,
 } from './move';
 import {
+  RotorNavigationMoveDownCommand,
   RotorNavigationMoveLeftCommand,
   RotorNavigationMoveRightCommand,
+  RotorNavigationMoveUpCommand,
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
@@ -113,13 +116,33 @@ export class CommandFactory {
     this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
+  /**
+   * Checks if the current active trace is a violin plot (either ViolinTrace or ViolinBoxTrace).
+   * Violin plots require special handling for up/down arrow navigation to ensure
+   * ViolinTrace methods are called instead of rotor navigation.
+   *
+   * @returns true if the current trace is a violin plot, false otherwise
+   */
+  private isViolinPlot(): boolean {
+    const active = this.context.active;
+    return active instanceof ViolinTrace || active instanceof ViolinBoxTrace;
+  }
+
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
         // For violin plots, always use MoveUpCommand to ensure ViolinTrace methods are called
+        // For other plot types, use rotor navigation if enabled
+        if (this.context.isRotorEnabled() && !this.isViolinPlot()) {
+          return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
+        }
         return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
         // For violin plots, always use MoveDownCommand to ensure ViolinTrace methods are called
+        // For other plot types, use rotor navigation if enabled
+        if (this.context.isRotorEnabled() && !this.isViolinPlot()) {
+          return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
+        }
         return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
         // Allow left arrow for violin plots to switch between violin layers

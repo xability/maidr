@@ -124,9 +124,10 @@ export class RotorNavigationService {
           // stepTrace will handle checking if we're in a multi-layer subplot
           try {
             this.context.stepTrace('UPWARD');
-          } catch {
+          } catch (error) {
             // If stepTrace fails, there may not be another layer to switch to
             // This is expected behavior when already on the last layer
+            console.warn('Layer switching failed:', error);
           }
         }
       }
@@ -154,9 +155,10 @@ export class RotorNavigationService {
           // stepTrace will handle checking if we're in a multi-layer subplot
           try {
             this.context.stepTrace('DOWNWARD');
-          } catch {
+          } catch (error) {
             // If stepTrace fails, the trace handled the movement internally
             // This is expected behavior for traces that don't need layer switching
+            console.warn('Layer switching failed:', error);
           }
         }
       }

@@ -60,6 +60,19 @@ export class SmoothTrace extends LineTrace {
     return baseText;
   }
 
+  /**
+   * Moves to the next data point that meets the comparison criteria in the specified direction.
+   * Used for rotor navigation in compare modes (lower/higher value modes) to find
+   * the next point with a lower or higher value relative to the current point.
+   * For smooth plots, up/down directions are mapped to horizontal movement along the line.
+   *
+   * @param direction - The direction to search: 'up' or 'right' moves forward (increasing index),
+   *                    'down' or 'left' moves backward (decreasing index)
+   * @param type - The comparison type: 'lower' finds points with lower values,
+   *               'higher' finds points with higher values
+   * @returns true if a matching point was found and the position was updated,
+   *          false if no matching point was found in the specified direction
+   */
   public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
@@ -89,6 +102,17 @@ export class SmoothTrace extends LineTrace {
     return false;
   }
 
+  /**
+   * Compares two numeric values based on the specified comparison type.
+   * Used for navigation in compare modes (lower/higher value modes) to find
+   * the next data point that meets the comparison criteria.
+   *
+   * @param a - The first value to compare
+   * @param b - The second value to compare against
+   * @param type - The comparison type: 'lower' checks if a < b, 'higher' checks if a > b
+   * @returns true if the comparison condition is met (a < b for 'lower', a > b for 'higher'),
+   *          false otherwise
+   */
   private compareValues(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
@@ -99,24 +123,52 @@ export class SmoothTrace extends LineTrace {
     return false;
   }
 
+  /**
+   * Handles rotor-based upward movement for smooth plots.
+   * For smooth plots, up arrow moves forward (right) along the line.
+   *
+   * @param _mode - Optional comparison mode ('lower' or 'higher'), not used for smooth plots
+   * @returns true to indicate the movement was handled
+   */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     // For smooth plots, up arrow should move forward (right) along the line
     this.moveOnce('FORWARD');
     return true;
   }
 
+  /**
+   * Handles rotor-based downward movement for smooth plots.
+   * For smooth plots, down arrow moves backward (left) along the line.
+   *
+   * @param _mode - Optional comparison mode ('lower' or 'higher'), not used for smooth plots
+   * @returns true to indicate the movement was handled
+   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     // For smooth plots, down arrow should move backward (left) along the line
     this.moveOnce('BACKWARD');
     return true;
   }
 
+  /**
+   * Handles rotor-based leftward movement for smooth plots.
+   * For smooth plots, left arrow moves backward along the line.
+   *
+   * @param _mode - Optional comparison mode ('lower' or 'higher'), not used for smooth plots
+   * @returns true to indicate the movement was handled
+   */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     // For smooth plots, left arrow should move backward along the line
     this.moveOnce('BACKWARD');
     return true;
   }
 
+  /**
+   * Handles rotor-based rightward movement for smooth plots.
+   * For smooth plots, right arrow moves forward along the line.
+   *
+   * @param _mode - Optional comparison mode ('lower' or 'higher'), not used for smooth plots
+   * @returns true to indicate the movement was handled
+   */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     // For smooth plots, right arrow should move forward along the line
     this.moveOnce('FORWARD');

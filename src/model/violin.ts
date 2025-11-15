@@ -426,6 +426,9 @@ export class ViolinTrace extends SmoothTrace {
       index: col,
       value: [prevDensity, currDensity, nextDensity],
       isContinuous: true,
+      // Normalize current density to 0-1 range for volume modulation
+      // Higher density = louder volume, lower density = quieter volume
+      volumeScale: safeDensityMax > 0 ? currDensity / safeDensityMax : 0,
       // Don't include groupIndex for violin plots - audio should be same format for all violins
       // This matches regular KDE plots which don't have groupIndex
     };

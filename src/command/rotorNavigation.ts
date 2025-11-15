@@ -11,6 +11,11 @@ export class RotorNavigationNextNavUnitCommand implements Command {
   }
 
   public execute(): void {
+    // Note: No explicit toggle call needed here. The rotor service's moveToNextRotorUnit()
+    // method internally calls setMode() which handles enabling/disabling rotor mode
+    // via context.setRotorEnabled() based on the current mode (DATA_MODE disables,
+    // LOWER/HIGHER_VALUE_MODE enables). The view model also updates the store with
+    // the new mode value.
     this.rotorNavigationViewModel.moveToNextNavUnit();
   }
 }
@@ -24,6 +29,11 @@ export class RotorNavigationPrevNavUnitCommand implements Command {
   }
 
   public execute(): void {
+    // Note: No explicit toggle call needed here. The rotor service's moveToPrevRotorUnit()
+    // method internally calls setMode() which handles enabling/disabling rotor mode
+    // via context.setRotorEnabled() based on the current mode (DATA_MODE disables,
+    // LOWER/HIGHER_VALUE_MODE enables). The view model also updates the store with
+    // the new mode value.
     this.rotorNavigationViewModel.moveToPrevNavUnit();
   }
 }

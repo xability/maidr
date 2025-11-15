@@ -7,6 +7,14 @@ function isSmoothPoint(pt: any): pt is { svg_x: number; svg_y: number } {
   return typeof pt?.svg_x === 'number' && typeof pt?.svg_y === 'number';
 }
 
+/**
+ * Type guard to check if a point is a violin plot point by detecting the presence of a density property.
+ * Violin plots use density values to represent the kernel density estimation (KDE) curve width.
+ *
+ * @param pt - The point to check, can be any type
+ * @returns true if pt is an object with a 'density' property, false otherwise.
+ *          When true, TypeScript narrows the type to { density?: number }
+ */
 function isViolinPoint(pt: any): pt is { density?: number } {
   return pt && typeof pt === 'object' && 'density' in pt;
 }
