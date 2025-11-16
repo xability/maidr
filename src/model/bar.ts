@@ -329,7 +329,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 }

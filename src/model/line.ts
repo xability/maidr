@@ -19,7 +19,6 @@ const SVG_PATH_LINE_POINT_REGEX
 
 export class LineTrace extends AbstractTrace<number> {
   protected readonly supportsExtrema = true;
-  protected readonly rotorSupport = true;
 
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
@@ -639,7 +638,7 @@ export class LineTrace extends AbstractTrace<number> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 

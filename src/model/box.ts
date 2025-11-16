@@ -226,23 +226,23 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
       const [q1, q3] = original.iq
         ? (isVertical
-            ? isIqrReversed
-              ? [
-                  Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
-                  Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
-                ]
-              : [
-                  Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
-                  Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
-                ]
+          ? isIqrReversed
+            ? [
+              Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
+              Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
+            ]
             : [
-                Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
-                Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
-              ])
+              Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
+              Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
+            ]
+          : [
+            Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
+            Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
+          ])
         : [
-            Svg.createEmptyElement('line'), // Empty line element for Q1
-            Svg.createEmptyElement('line'), // Empty line element for Q3
-          ];
+          Svg.createEmptyElement('line'), // Empty line element for Q1
+          Svg.createEmptyElement('line'), // Empty line element for Q3
+        ];
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
@@ -308,7 +308,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 

@@ -159,6 +159,7 @@ export class Heatmap extends AbstractTrace<number> {
       case 'down':
         return this.search_in_col(direction, type);
       default:
+        this.notifyRotorBounds();
         return false;
     }
   }
@@ -178,6 +179,7 @@ export class Heatmap extends AbstractTrace<number> {
       }
       i += step;
     }
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -196,6 +198,7 @@ export class Heatmap extends AbstractTrace<number> {
       }
       i += step;
     }
+    this.notifyRotorBounds();
     return false;
   }
 
