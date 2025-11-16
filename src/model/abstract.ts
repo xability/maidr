@@ -23,11 +23,12 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
+  implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
   protected isOutOfBounds: boolean;
+  protected isWarning: boolean;
 
   protected row: number;
   protected col: number;
@@ -37,6 +38,7 @@ implements Movable, Observable<State>, Disposable {
 
     this.isInitialEntry = true;
     this.isOutOfBounds = false;
+    this.isWarning = false;
 
     this.row = 0;
     this.col = 0;
@@ -202,6 +204,12 @@ implements Movable, Observable<State>, Disposable {
     this.isOutOfBounds = false;
   }
 
+  public notifyRotorBounds(): void {
+    this.isWarning = true;
+    this.notifyStateUpdate();
+    this.isWarning = false;
+  }
+
   protected abstract get values(): Element[][];
 
   public abstract get state(): State;
@@ -218,6 +226,7 @@ implements Movable, Observable<State>, Disposable {
    */
   public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     // no-op
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -228,7 +237,7 @@ implements Movable, Observable<State>, Disposable {
    * @param type
    * @returns boolean value
    */
-  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }
@@ -317,6 +326,18 @@ export abstract class AbstractTrace<T>
   }
 
   public get state(): TraceState {
+    if (this.isWarning) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          size: this.values[this.row]?.length || 0,
+          index: this.col,
+        },
+        warning: true
+      };
+    }
     if (this.isOutOfBounds) {
       const values = this.values;
       const currentRow = this.row;
@@ -621,9 +642,9 @@ export abstract class AbstractTrace<T>
     }
     const isInbounds
       = x >= bbox.x - r
-        && x <= bbox.x + bbox.width + r
-        && y >= bbox.y - r
-        && y <= bbox.y + bbox.height + r;
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r;
     return isInbounds;
   }
 }
