@@ -32,8 +32,15 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 
   protected constructor() {
     this.observers = new Array<Observer<State>>();
+
+    this.isInitialEntry = true;
+    this.isOutOfBounds = false;
+    protected isWarning: boolean;
+
+
+    this.row = 0;
+    this.col = 0;
   }
-  protected abstract get dimension(): Dimension;
 
   public dispose(): void {
     this.observers.length = 0;
@@ -147,6 +154,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     return isMoved;
   }
 
+  public notifyRotorBounds(): void {
+    this.isWarning = true;
+    this.notifyStateUpdate();
+    this.isWarning = false;
+  }
+
+  public notifyRotorBounds(): void {
+    this.isWarning = true;
+    this.notifyStateUpdate();
+    this.isWarning = false;
+  }
+
   public isMovable(target: [number, number] | MovableDirection): boolean {
     return this.movable.isMovable(target);
   }
@@ -169,6 +188,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     // no-op
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -179,7 +199,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * @param type
    * @returns boolean value
    */
-  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }
@@ -291,6 +311,34 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * @returns The current TraceState
    */
   public get state(): TraceState {
+    if (this.isWarning) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          size: this.values[this.row]?.length || 0,
+          index: this.col,
+        },
+        warning: true
+      };
+    }
+    if (this.isOutOfBounds) {
+      const values = this.values;
+      const currentRow = this.row;
+      const currentCol = this.col;
+
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          size: values[currentRow]?.length || 0,
+          index: currentCol,
+        },
+      };
+    }
+
     return {
       empty: false,
       type: 'trace',
@@ -596,9 +644,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     }
     const isInbounds
       = x >= bbox.x - r
-        && x <= bbox.x + bbox.width + r
-        && y >= bbox.y - r
-        && y <= bbox.y + bbox.height + r;
+      && x <= bbox.x + bbox.width + r
+      && y >= bbox.y - r
+      && y <= bbox.y + bbox.height + r;
     return isInbounds;
   }
 }

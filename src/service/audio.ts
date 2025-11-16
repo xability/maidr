@@ -40,6 +40,11 @@ const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
+//Warning
+const WARNING_FREQUENCY = 180;
+const WARNING_DURATION = 0.2;
+const WARNING_SPACE = 0.1;
+
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
@@ -102,6 +107,178 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
+    this.settings.removeObserver(this);
+  }
+
+  public update(state: Settings | SubplotState | TraceState | FigureState): void {
+    if ('general' in state) {
+      this.onSettingsChange(state);
+    } else {
+      this.onStateChange(state);
+    }
+  }
+
+  private onSettingsChange(settings: Settings): void {
+    this.currentVolume = settings.general.volume / 100;
+    this.currentMinFrequency = settings.general.minFrequency;
+    this.currentMaxFrequency = settings.general.maxFrequency;
+  }
+
+  private onStateChange(state: SubplotState | TraceState | FigureState): void {
+    // Do not play any sound if audio is off
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+    this.updateMode(state);
+    // TODO: Clean up previous audio state once syncing with Autoplay interval.
+
+    // Handle FigureState - no audio for normal subplot navigation
+    if (state.type === 'figure') {
+      if (state.empty) {
+        this.playEmptyTone(1, 0);
+        return;
+      }
+      return;
+    }
+
+    // Extract trace state from subplot state if needed
+    let traceState: TraceState;
+    if (state.type === 'subplot') {
+      if (state.empty) {
+        // Empty subplot state - no trace to play audio for
+        return;
+      }
+      traceState = state.trace;
+    } else {
+      traceState = state;
+    }
+
+    this.handleTraceState(traceState);
+  }
+
+  private handleTraceState(traceState: TraceState): void {
+    // Play audio only if turned on and it's a trace state
+    if (this.mode === AudioMode.OFF || traceState.type !== 'trace') {
+      return;
+    }
+
+    if (traceState.empty) {
+
+      // Stop any existing audio first to prevent overlap
+      this.stopAll();
+      if (traceState.warning) {
+        this.playWarningTone();
+      }
+      else {
+        this.playEmptyTone(traceState.audio.size, traceState.audio.index);
+      }
+      return;
+    }
+
+    // --- INTERSECTION LOGIC FOR LINE PLOTS ---
+    if (
+      traceState.traceType === 'line'
+      && !traceState.empty
+      && Array.isArray(traceState.intersections)
+      && traceState.intersections.length > 1
+    ) {
+      // Stop any existing audio to prevent interference
+      this.stopAll();
+      // Play all intersecting lines' tones simultaneously
+      this.playSimultaneousTones(traceState.intersections);
+      return;
+    }
+    // --- END INTERSECTION LOGIC ---
+
+    const audio = traceState.audio;
+    let groupIndex = audio.groupIndex;
+
+    // Handle candlestick trend-based audio selection
+    if (audio.trend && groupIndex === undefined) {
+      groupIndex = this.audioPalette.getCandlestickGroupIndex(audio.trend);
+    }
+
+    // Determine if we need to use multiclass audio based on whether groupIndex is defined
+    // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
+    // If groupIndex is undefined, we have a single group and should use default audio
+    //
+    // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
+    const shouldUseMulticlassAudio = groupIndex !== undefined;
+    const paletteEntry = shouldUseMulticlassAudio
+      ? this.audioPalette.getPaletteEntry(groupIndex!)
+      : undefined;
+
+    if (audio.isContinuous) {
+      // continuous
+      this.playSmooth(
+        audio.value as number[],
+        audio.min,
+        audio.max,
+        audio.size,
+        Array.isArray(audio.index) ? audio.index[0] : audio.index,
+        paletteEntry,
+      );
+    } else if (Array.isArray(audio.value)) {
+      // multiple discrete values
+      const values = audio.value as number[];
+      if (values.length === 0) {
+        // no tone to play
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
+        return;
+      }
+
+      let currentIndex = 0;
+      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
+      const activeIds = new Array<AudioId>();
+      const playNext = (): void => {
+        // queue up next tone
+        if (currentIndex < values.length) {
+          const index = Array.isArray(audio.index)
+            ? audio.index[currentIndex]
+            : audio.index;
+          this.playTone(
+            audio.min,
+            audio.max,
+            values[currentIndex++],
+            audio.size,
+            index,
+            paletteEntry,
+          );
+          activeIds.push(setTimeout(playNext, playRate));
+        } else {
+          this.stop(activeIds);
+        }
+      };
+
+      playNext();
+    } else {
+      // just one discrete value
+      const value = audio.value as number;
+      if (value === 0) {
+        this.playZeroTone(); // Always use original zero tone, regardless of groups
+      } else {
+        const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
+        this.playTone(
+          audio.min,
+          audio.max,
+          value,
+          audio.size,
+          index,
+          paletteEntry,
+        );
+      }
+    }
+  }
+
+  private getVolume(): number {
+    return Math.min(Math.max(this.currentVolume, 0), 1);
+  }
+
+  private getFrequencyRange(): { min: number; max: number } {
+    return {
+      min: this.currentMinFrequency,
+      max: this.currentMaxFrequency,
+    };
   }
 
   private initCompressor(): DynamicsCompressorNode {
@@ -485,6 +662,32 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
     this.activeAudioIds.set(audioId, oscillators);
     return audioId;
+  }
+
+  private playOneWarningBeep(freq: number, startTime: number) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    let vol = 1;
+    if (osc.type != 'sine') vol = .5;
+
+    gain.gain.setValueAtTime(vol, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + WARNING_DURATION);
+
+    osc.connect(gain);
+    gain.connect(this.audioContext.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + WARNING_DURATION);
+  }
+
+  public playWarningTone(): void {
+    const now = this.audioContext.currentTime;
+    this.playOneWarningBeep(WARNING_FREQUENCY, now);
+    this.playOneWarningBeep(WARNING_FREQUENCY / Math.pow(2, 1 / 12), now + WARNING_SPACE); // half step down
+    // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 
   private playZeroTone(panning: Panning): AudioId {
