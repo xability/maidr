@@ -1,3 +1,16 @@
+# [3.38.0](https://github.com/xability/maidr/compare/v3.37.0...v3.38.0) (2025-11-16)
+
+
+### Bug Fixes
+
+* fix lint ([7fd4e6a](https://github.com/xability/maidr/commit/7fd4e6a2b3b7cdd5ff144ce156f397099cf285b6))
+* rotor messages reflect text mode ([c62a66e](https://github.com/xability/maidr/commit/c62a66edb69410a5cb739bcb00a7228a156fa446))
+
+
+### Features
+
+* extend rotor for sonification modes ([59773bd](https://github.com/xability/maidr/commit/59773bdeef3881cb27908d67e682302422435dac))
+
 # [3.37.0](https://github.com/xability/maidr/compare/v3.36.3...v3.37.0) (2025-11-13)
 
 
