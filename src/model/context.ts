@@ -129,47 +129,6 @@ export class Context implements Disposable {
     this.active.moveToPoint(x, y);
   }
 
-  // public stepTrace(direction: MovableDirection): void {
-  //   if (this.plotContext.size() > 1) {
-  //     this.plotContext.pop(); // Remove current Trace.
-  //     const activeSubplot = this.active as Subplot;
-  //     const currentTrace = activeSubplot.activeTrace;
-  //     if (!currentTrace) {
-  //       return;
-  //     }
-  //     const currentXValue = currentTrace.getCurrentXValue();
-  //     activeSubplot.moveOnce(direction);
-  //     const newTrace = activeSubplot.activeTrace;
-  //     this.plotContext.push(newTrace);
-
-  //     if (newTrace.getId() === currentTrace.getId()) {
-  //       newTrace.notifyOutOfBounds();
-  //       activeSubplot.notifyOutOfBounds();
-  //       return;
-  //     }
-
-  //     newTrace.moveToXValue(currentXValue);
-  //     if (!newTrace.state.empty) {
-  //       const index = activeSubplot.getRow() + 1;
-  //       const size = activeSubplot.getSize();
-  //       const state: LayerSwitchTraceState = {
-  //         ...newTrace.state,
-  //         isLayerSwitch: true,
-  //         index,
-  //         size,
-  //       };
-  //       newTrace.notifyObserversWithState(state);
-  //     } else {
-  //       newTrace.notifyStateUpdate();
-  //     }
-  //   } else {
-  //     const onlySubplot = this.figure.subplots[0][0];
-  //     const activeTrace = this.active as Trace;
-  //     activeTrace.notifyOutOfBounds();
-  //     onlySubplot.notifyOutOfBounds(); // For UI feedback
-  //   }
-  // }
-
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
