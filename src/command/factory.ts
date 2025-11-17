@@ -89,6 +89,7 @@ export class CommandFactory {
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
   private readonly settingsService: SettingsService;
+  private readonly displayService: DisplayService;
 
   private readonly rotorService: RotorNavigationService;
   private readonly brailleViewModel: BrailleViewModel;

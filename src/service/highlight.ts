@@ -110,7 +110,7 @@ export class HighlightService
 
     const lightColor = "#ffffff";
     const darkColor = "#000000"; // todo, put these in class vars (or settings), and use in toGrayScaleStep
-    const svg = document.getElementById(context.id);
+    const svg = displayService.plot;
 
     if (!svg) return;
 
