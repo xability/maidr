@@ -47,33 +47,33 @@ interface TraceEmptyState {
 
 export type TraceState
   = | TraceEmptyState
-  | {
-    empty: false;
-    type: 'trace';
-    traceType: TraceType;
-    plotType: string;
-    title: string;
-    xAxis: string;
-    yAxis: string;
-    fill: string;
-    hasMultiPoints: boolean;
-    audio: AudioState;
-    braille: BrailleState;
-    text: TextState;
-    autoplay: AutoplayState;
-    highlight: HighlightState;
-    /**
-     * Array of audio states for all lines that intersect at the current point.
-     * Used for intersection-aware audio playback in multiline plots.
-     * null/undefined for normal points (single line or no intersection).
-     */
-    intersections?: AudioState[] | null;
-    /**
-     * Number of groups/series in the plot.
-     * Only present for multiline plots where plotType === 'multiline'.
-     */
-    groupCount?: number;
-  };
+    | {
+      empty: false;
+      type: 'trace';
+      traceType: TraceType;
+      plotType: string;
+      title: string;
+      xAxis: string;
+      yAxis: string;
+      fill: string;
+      hasMultiPoints: boolean;
+      audio: AudioState;
+      braille: BrailleState;
+      text: TextState;
+      autoplay: AutoplayState;
+      highlight: HighlightState;
+      /**
+       * Array of audio states for all lines that intersect at the current point.
+       * Used for intersection-aware audio playback in multiline plots.
+       * null/undefined for normal points (single line or no intersection).
+       */
+      intersections?: AudioState[] | null;
+      /**
+       * Number of groups/series in the plot.
+       * Only present for multiline plots where plotType === 'multiline'.
+       */
+      groupCount?: number;
+    };
 
 export type NonEmptyTraceState = Extract<TraceState, { empty: false }>;
 
@@ -126,10 +126,10 @@ export interface AudioState {
 
 export type BrailleState
   = | TraceEmptyState
-  | BarBrailleState
-  | BoxBrailleState
-  | HeatmapBrailleState
-  | LineBrailleState;
+    | BarBrailleState
+    | BoxBrailleState
+    | HeatmapBrailleState
+    | LineBrailleState;
 
 interface BaseBrailleState {
   id: string;

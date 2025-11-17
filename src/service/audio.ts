@@ -20,7 +20,7 @@ const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
-//Warning
+// Warning
 const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
@@ -35,7 +35,7 @@ enum AudioMode {
 }
 
 export class AudioService
-  implements Observer<ObservableStates>, Observer<Settings>, Disposable {
+implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
   private readonly settings: SettingsService;
@@ -137,13 +137,11 @@ export class AudioService
     }
 
     if (traceState.empty) {
-
       // Stop any existing audio first to prevent overlap
       this.stopAll();
       if (traceState.warning) {
         this.playWarningTone();
-      }
-      else {
+      } else {
         this.playEmptyTone(traceState.audio.size, traceState.audio.index);
       }
       return;
@@ -698,14 +696,15 @@ export class AudioService
     return audioId;
   }
 
-  private playOneWarningBeep(freq: number, startTime: number) {
+  private playOneWarningBeep(freq: number, startTime: number): void {
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
     osc.frequency.value = freq;
     let vol = 1;
-    if (osc.type != 'sine') vol = .5;
+    if (osc.type !== 'sine')
+      vol = 0.5;
 
     gain.gain.setValueAtTime(vol, startTime);
     gain.gain.exponentialRampToValueAtTime(0.001, startTime + WARNING_DURATION);
@@ -720,7 +719,7 @@ export class AudioService
   public playWarningTone(): void {
     const now = this.audioContext.currentTime;
     this.playOneWarningBeep(WARNING_FREQUENCY, now);
-    this.playOneWarningBeep(WARNING_FREQUENCY / Math.pow(2, 1 / 12), now + WARNING_SPACE); // half step down
+    this.playOneWarningBeep(WARNING_FREQUENCY / 2 ** (1 / 12), now + WARNING_SPACE); // half step down
     // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 

@@ -23,7 +23,7 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
 export abstract class AbstractObservableElement<Element, State>
-  implements Movable, Observable<State>, Disposable {
+implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
 
   protected isInitialEntry: boolean;
@@ -335,7 +335,7 @@ export abstract class AbstractTrace<T>
           size: this.values[this.row]?.length || 0,
           index: this.col,
         },
-        warning: true
+        warning: true,
       };
     }
     if (this.isOutOfBounds) {
@@ -642,9 +642,9 @@ export abstract class AbstractTrace<T>
     }
     const isInbounds
       = x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r;
+        && x <= bbox.x + bbox.width + r
+        && y >= bbox.y - r
+        && y <= bbox.y + bbox.height + r;
     return isInbounds;
   }
 }
