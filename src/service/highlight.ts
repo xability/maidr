@@ -156,6 +156,11 @@ export class HighlightService
           el.removeAttribute("data-attr-stroke");
         }
 
+        // Remove text shadow filter
+        if (el.getAttribute("filter") === "url(#glow-shadow)") {
+          el.removeAttribute("filter");
+        }
+
         // exceptions
         if ("type" in context.instructionContext) {
           if (context.instructionContext.type === "line") {
@@ -172,6 +177,9 @@ export class HighlightService
       document.body.style.backgroundColor = darkColor;
       document.body.style.color = lightColor;
 
+      // add text shadow filter, if it doesn't exist
+      this.addGlowShadowFilter(svg);
+
       displayService.plot.setAttribute("style", "fill:white");
       svgElements.forEach((el) => {
         // Handle style fill/stroke
@@ -184,23 +192,47 @@ export class HighlightService
         if (fillMatch) {
           const originalFill = fillMatch[1];
           el.setAttribute("data-original-fill", originalFill);
-          const newFill = this.toGrayscaleStep(
-            originalFill,
-            this.highContrastLevels,
-            context,
-          );
-          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
+
+          // skip text elements, do white text with text shadow black
+          if (this.hasParentWithTextId(el)) {
+            newStyle = newStyle.replace(
+              /fill:[^;]+/i,
+              `fill:${this.defaultForegroundColor}`,
+            );
+
+            // add an attribute 'filter' for black shadow to the element
+            el.setAttribute("filter", "url(#glow-shadow)");
+          } else {
+            const newFill = this.toGrayscaleStep(
+              originalFill,
+              this.highContrastLevels,
+              context,
+            );
+            newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
+          }
         }
 
         if (strokeMatch) {
           const originalStroke = strokeMatch[1];
           el.setAttribute("data-original-stroke", originalStroke);
-          const newStroke = this.toGrayscaleStep(
-            originalStroke,
-            this.highContrastLevels,
-            context,
-          );
-          newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
+
+          // skip text elements, do white text with text shadow black
+          if (this.hasParentWithTextId(el)) {
+            newStyle = newStyle.replace(
+              /stroke:[^;]+/i,
+              `stroke:${this.defaultForegroundColor}`,
+            );
+
+            // add an attribute 'filter' for black shadow to the element
+            el.setAttribute("filter", "url(#glow-shadow)");
+          } else {
+            const newStroke = this.toGrayscaleStep(
+              originalStroke,
+              this.highContrastLevels,
+              context,
+            );
+            newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
+          }
         }
 
         if (newStyle !== style) el.setAttribute("style", newStyle);
@@ -209,19 +241,41 @@ export class HighlightService
         const attrFill = el.getAttribute("fill");
         if (attrFill) {
           el.setAttribute("data-attr-fill", attrFill);
-          el.setAttribute(
-            "fill",
-            this.toGrayscaleStep(attrFill, this.highContrastLevels, context),
-          );
+
+          // skip text elements, do white text with text shadow black
+          if (this.hasParentWithTextId(el)) {
+            el.setAttribute("fill", this.defaultForegroundColor);
+
+            // add an attribute 'filter' for black shadow to the element
+            el.setAttribute("filter", "url(#glow-shadow)");
+          } else {
+            el.setAttribute(
+              "fill",
+              this.toGrayscaleStep(attrFill, this.highContrastLevels, context),
+            );
+          }
         }
 
         const attrStroke = el.getAttribute("stroke");
         if (attrStroke) {
           el.setAttribute("data-attr-stroke", attrStroke);
-          el.setAttribute(
-            "stroke",
-            this.toGrayscaleStep(attrStroke, this.highContrastLevels, context),
-          );
+
+          // skip text elements, do white text with text shadow black
+          if (this.hasParentWithTextId(el)) {
+            el.setAttribute("stroke", this.defaultForegroundColor);
+
+            // add an attribute 'filter' for black shadow to the element
+            el.setAttribute("filter", "url(#glow-shadow)");
+          } else {
+            el.setAttribute(
+              "stroke",
+              this.toGrayscaleStep(
+                attrStroke,
+                this.highContrastLevels,
+                context,
+              ),
+            );
+          }
         }
         if ("type" in context.instructionContext) {
           if (context.instructionContext.type === "line") {
@@ -230,6 +284,93 @@ export class HighlightService
         }
       });
     }
+  }
+
+  /**
+   * Checks if any parent element has an ID starting with 'text',
+   * traversing up the DOM tree until reaching an SVG or BODY element.
+   */
+  private hasParentWithTextId(el: Element): boolean {
+    let current = el.parentElement;
+
+    while (current) {
+      // Stop if we reach SVG or BODY
+      if (current.tagName === "svg" || current.tagName === "BODY") {
+        break;
+      }
+
+      // Check if current element's ID starts with 'text'
+      if (current.id && current.id.startsWith("text")) {
+        return true;
+      }
+
+      // Move up to next parent
+      current = current.parentElement;
+    }
+
+    return false;
+  }
+
+  // creates a text shadow type filter for high contrast mode
+  private addGlowShadowFilter(svgHtml: HTMLElement): void {
+    const svg = svgHtml as unknown as SVGSVGElement;
+
+    // Check if filter already exists
+    if (svg.querySelector("#glow-shadow")) {
+      return;
+    }
+
+    // Find or create <defs> element
+    let defs = svg.querySelector("defs");
+    if (!defs) {
+      defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      svg.insertBefore(defs, svg.firstChild);
+    }
+
+    // Create the filter element
+    const filter = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "filter",
+    );
+    filter.setAttribute("id", "glow-shadow");
+    filter.setAttribute("x", "-50%");
+    filter.setAttribute("y", "-50%");
+    filter.setAttribute("width", "200%");
+    filter.setAttribute("height", "200%");
+
+    // Create all the filter primitives
+    const filterHTML = `
+    <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur1"/>
+    <feOffset dx="0" dy="0" result="offsetblur1" in="blur1"/>
+    <feFlood flood-color="black" result="color1"/>
+    <feComposite in="color1" in2="offsetblur1" operator="in" result="shadow1"/>
+    
+    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur2"/>
+    <feOffset dx="0" dy="0" result="offsetblur2" in="blur2"/>
+    <feFlood flood-color="black" result="color2"/>
+    <feComposite in="color2" in2="offsetblur2" operator="in" result="shadow2"/>
+    
+    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur3"/>
+    <feOffset dx="0" dy="0" result="offsetblur3" in="blur3"/>
+    <feFlood flood-color="black" result="color3"/>
+    <feComposite in="color3" in2="offsetblur3" operator="in" result="shadow3"/>
+    
+    <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur4"/>
+    <feOffset dx="0" dy="0" result="offsetblur4" in="blur4"/>
+    <feFlood flood-color="black" result="color4"/>
+    <feComposite in="color4" in2="offsetblur4" operator="in" result="shadow4"/>
+    
+    <feMerge>
+      <feMergeNode in="shadow1"/>
+      <feMergeNode in="shadow2"/>
+      <feMergeNode in="shadow3"/>
+      <feMergeNode in="shadow4"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  `;
+
+    filter.innerHTML = filterHTML;
+    defs.appendChild(filter);
   }
 
   private toGrayscaleStep(
