@@ -633,29 +633,14 @@ export class BasePage {
     notificationSelector: string,
     mode: string,
     modeMessages: Record<string, string>,
-    timeout = 700,
   ): Promise<boolean> {
     try {
-      const expectedMessage = modeMessages[mode];
-
-      // Wait for the notification to contain the expected text
-      await this.waitForElementContent(
-        notificationSelector,
-        expectedMessage,
-        { timeout, pollInterval: 50 },
-      );
-
-      // Verify the text matches exactly
       const notificationText = await this.getElementText(notificationSelector);
-      return notificationText === expectedMessage;
+      return notificationText === modeMessages[mode];
     } catch (error) {
-      // If waiting times out, return false instead of throwing
-      // This allows the test to continue and report the actual vs expected
-      console.log(`Mode check timed out for ${mode}: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+      throw new Error(`Failed to check ${mode} status`);
     }
   }
-
   /**
    * Gets axis title text
    * @param infoSelector - The selector for the info element
