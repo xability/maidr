@@ -826,7 +826,7 @@ export class Candlestick extends AbstractTrace<number> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 

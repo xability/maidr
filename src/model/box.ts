@@ -308,7 +308,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 
