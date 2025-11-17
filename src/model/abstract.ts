@@ -320,7 +320,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           size: this.values[this.row]?.length || 0,
           index: this.col,
         },
-        warning: true
+        warning: true,
       };
     }
     if (this.isOutOfBounds) {
@@ -644,9 +644,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     }
     const isInbounds
       = x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r;
+        && x <= bbox.x + bbox.width + r
+        && y >= bbox.y - r
+        && y <= bbox.y + bbox.height + r;
     return isInbounds;
   }
 }

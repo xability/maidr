@@ -640,14 +640,14 @@ export class Candlestick extends AbstractTrace {
           case 'high':
             el
               = this.getElementAt(highs, pointIndex)
-              ?? this.getElementAt(bodies, pointIndex)
-              ?? Svg.createEmptyElement();
+                ?? this.getElementAt(bodies, pointIndex)
+                ?? Svg.createEmptyElement();
             break;
           case 'low':
             el
               = this.getElementAt(lows, pointIndex)
-              ?? this.getElementAt(bodies, pointIndex)
-              ?? Svg.createEmptyElement();
+                ?? this.getElementAt(bodies, pointIndex)
+                ?? Svg.createEmptyElement();
             break;
           default:
             el = Svg.createEmptyElement();
