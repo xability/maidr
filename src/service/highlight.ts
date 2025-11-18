@@ -12,6 +12,7 @@ import type {
 } from "@type/state";
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
+import { light } from "@mui/material/styles/createPalette";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
@@ -108,6 +109,10 @@ export class HighlightService
     // todo: add to settings, and save state
     // also, use 008A00 as default highlight color during high contrast mode
 
+    // todo: some lines in candle being tagged as background color
+    // see if we can adjust the nearly white detection to fix that
+    // and if not, make an exception, find the identifier, and force not black
+
     const lightColor = "#ffffff";
     const darkColor = "#000000"; // todo, put these in class vars (or settings), and use in toGrayScaleStep
     const svg = displayService.plot;
@@ -172,8 +177,9 @@ export class HighlightService
       });
     } else {
       this.highContrastMode = true;
-      this.defaultBackgroundColor = document.body.style.backgroundColor;
-      this.defaultForegroundColor = document.body.style.color;
+      const bodyStyle = window.getComputedStyle(document.body);
+      this.defaultBackgroundColor = bodyStyle.backgroundColor;
+      this.defaultForegroundColor = bodyStyle.color;
       document.body.style.backgroundColor = darkColor;
       document.body.style.color = lightColor;
 
@@ -189,16 +195,19 @@ export class HighlightService
 
         let newStyle = style;
 
+        // is the element path complex? if so, it'll have more than 4 points and
+        // will have a string length of more than 110 characters
+        // we'll use this for an exception later
+        const isComplexPath =
+          el.tagName === "path" && (el.getAttribute("d")?.length || 0) > 110;
+
         if (fillMatch) {
           const originalFill = fillMatch[1];
           el.setAttribute("data-original-fill", originalFill);
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            newStyle = newStyle.replace(
-              /fill:[^;]+/i,
-              `fill:${this.defaultForegroundColor}`,
-            );
+            newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${lightColor}`);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
@@ -207,6 +216,7 @@ export class HighlightService
               originalFill,
               this.highContrastLevels,
               context,
+              isComplexPath,
             );
             newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
           }
@@ -220,7 +230,7 @@ export class HighlightService
           if (this.hasParentWithTextId(el)) {
             newStyle = newStyle.replace(
               /stroke:[^;]+/i,
-              `stroke:${this.defaultForegroundColor}`,
+              `stroke:${lightColor}`,
             );
 
             // add an attribute 'filter' for black shadow to the element
@@ -230,6 +240,7 @@ export class HighlightService
               originalStroke,
               this.highContrastLevels,
               context,
+              isComplexPath,
             );
             newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
           }
@@ -244,14 +255,19 @@ export class HighlightService
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            el.setAttribute("fill", this.defaultForegroundColor);
+            el.setAttribute("fill", lightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
             el.setAttribute(
               "fill",
-              this.toGrayscaleStep(attrFill, this.highContrastLevels, context),
+              this.toGrayscaleStep(
+                attrFill,
+                this.highContrastLevels,
+                context,
+                isComplexPath,
+              ),
             );
           }
         }
@@ -262,7 +278,7 @@ export class HighlightService
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            el.setAttribute("stroke", this.defaultForegroundColor);
+            el.setAttribute("stroke", lightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
@@ -273,6 +289,7 @@ export class HighlightService
                 attrStroke,
                 this.highContrastLevels,
                 context,
+                isComplexPath,
               ),
             );
           }
@@ -377,6 +394,7 @@ export class HighlightService
     value: string,
     numLevels: number,
     context: Context,
+    isComplexPath: boolean,
   ): string {
     // we redo the color and convert it to grayscale using the number of levels supplied, returning a new color
     // So, numLevels = 2 means black and white, numLevels = 255 means full grayscale.
@@ -414,14 +432,16 @@ export class HighlightService
     const b = Number.parseInt(hex.slice(5, 7), 16);
     const luminance = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-    let useNearWhite = false;
+    let useNearWhite = false; // don't need for most chart types
     const nearWhiteScale = 0.1; // 10% of white, so 90% white is near white
     const nearWhite = 255 * nearWhiteScale;
     // If the color is close to white, return white
     if ("type" in context.instructionContext) {
       if (
         (context.instructionContext.type === "bar" ||
-          context.instructionContext.type === "stacked_bar") &&
+          context.instructionContext.type === "stacked_bar" ||
+          context.instructionContext.type === "dodged_bar" ||
+          context.instructionContext.type === "segmented_bar") &&
         luminance >= nearWhite
       ) {
         // debugger;
@@ -463,7 +483,12 @@ export class HighlightService
       }
     }
 
-    // flip white and black if needed
+    // exception: certain elements cannot be the same as background, or levels[levels.length - 1], override to one before that
+    if (isComplexPath && outputGray === levels[levels.length - 1]) {
+      outputGray = levels[levels.length - 2];
+    }
+
+    // flip white and black, as we want black background by default
     if (flipWhiteBlack) {
       if (outputGray === white) {
         outputGray = black;
@@ -474,27 +499,6 @@ export class HighlightService
 
     const outputHex = outputGray.toString(16).padStart(2, "0");
     return `#${outputHex}${outputHex}${outputHex}`;
-  }
-
-  private isWhiteish(value: string): boolean {
-    if (value === "none" || value === "transparent") {
-      return false;
-    }
-
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return false;
-
-    ctx.fillStyle = "#000";
-    ctx.fillStyle = value.trim();
-    const hex = ctx.fillStyle;
-
-    if (!/^#[0-9a-f]{6}$/i.test(hex)) return false;
-
-    const r = Number.parseInt(hex.slice(1, 3), 16);
-    const g = Number.parseInt(hex.slice(3, 5), 16);
-    const b = Number.parseInt(hex.slice(5, 7), 16);
-
-    return r >= 229 && g >= 229 && b >= 229;
   }
 
   private processHighlighting(highlight: HighlightState): void {
