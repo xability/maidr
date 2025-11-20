@@ -19,14 +19,15 @@ and encourages a multi-modal exploration on visualization.
 ## Table of Contents
 
 1. [Usage](#usage)
-2. [Controls](#controls)
-3. [Braille Generation](#braille-generation)
-4. [API](#api)
-5. [Binders](#binders)
-6. [Papers](#papers)
-7. [License](#license)
-8. [Contact](#contact)
-9. [Acknowledgments](#acknowledgments)
+2. [Examples] (#examples)
+3. [Controls](#controls)
+4. [Braille Generation](#braille-generation)
+5. [API](#api)
+6. [Binders](#binders)
+7. [Papers](#papers)
+8. [License](#license)
+9. [Contact](#contact)
+10. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
@@ -268,6 +269,9 @@ To use maidr, follow these steps:
 
 For more information and examples, refer to the example HTML files provided in the repository.
 
+## Examples
+Example plots can be found here [url](examples/index.html)
+
 ## Controls
 
 To interact with the plots using maidr, follow these steps:
@@ -278,6 +282,7 @@ To interact with the plots using maidr, follow these steps:
 4. Press **T** to toggle Text mode.
 5. Press **S** to toggle Sonification (tones) mode.
 6. Press **R** to toggle Review mode.
+7. Hover on the datapoint to
 
 Below is a detailed list of keyboard shortcuts for various functions:
 
@@ -296,6 +301,9 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Stop Auto-play                          | Control                     | Command                     |
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
+| Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
+| Open Settings                           | Control + ,                 | Command + ,                 |
+| Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
 
 <!-- ### Scatter Plot Controls
 
