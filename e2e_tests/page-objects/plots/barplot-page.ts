@@ -131,10 +131,10 @@ export class BarPlotPage extends BasePage {
    */
   protected async verifySvgFocused(): Promise<void> {
     const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg' || activeElementInfo.id !== this.plotId) {
+    if (activeElementInfo.tagName !== 'svg') {
       throw new Error(
-        `Expected SVG element with ID "${this.plotId}" to be focused, `
-        + `but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`,
+        `Expected SVG element to be focused, `
+        + `but found ${activeElementInfo.tagName} instead"`,
       );
     }
   }

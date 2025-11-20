@@ -1,14 +1,17 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export abstract class AbstractBarPlot<
-  T extends BarPoint,
-> extends AbstractTrace<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
+  protected readonly movable: Movable;
+
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
@@ -38,6 +41,7 @@ export abstract class AbstractBarPlot<
     this.max = this.barValues.map(row => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<T>(this.points);
   }
 
   public dispose(): void {
@@ -49,32 +53,30 @@ export abstract class AbstractBarPlot<
     super.dispose();
   }
 
-  protected get values(): number[][] {
-    return this.barValues;
-  }
-
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical
-      ? this.barValues[this.row].length
-      : this.barValues.length;
-    const index = isVertical ? this.col : this.row;
+
     const value = isVertical
       ? this.barValues[this.row][this.col]
       : this.barValues[this.col][this.row];
 
     return {
-      min: MathUtil.safeMin(this.min),
-      max: MathUtil.safeMax(this.max),
-      size,
-      index,
-      value,
-      // Only use groupIndex if there are multiple groups (rows > 1 for stacked/dodged bars)
-      ...this.getAudioGroupIndex(),
+      freq: {
+        min: MathUtil.safeMin(this.min),
+        max: MathUtil.safeMax(this.max),
+        raw: value,
+      },
+      panning: {
+        x: isVertical ? this.col : this.row,
+        y: isVertical ? this.row : this.col,
+        rows: isVertical ? this.barValues.length : this.barValues[this.col].length,
+        cols: isVertical ? this.barValues[this.row].length : this.barValues.length,
+      },
+      group: isVertical ? this.row : this.col,
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -86,7 +88,7 @@ export abstract class AbstractBarPlot<
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -100,6 +102,17 @@ export abstract class AbstractBarPlot<
       main: { label: mainLabel, value: mainValue },
       cross: { label: crossLabel, value: crossValue },
     };
+  }
+
+  protected get dimension(): Dimension {
+    return {
+      rows: this.barValues.length,
+      cols: this.barValues[this.row].length,
+    };
+  }
+
+  protected get values(): number[][] {
+    return this.barValues;
   }
 
   protected mapToSvgElements(selector?: string): SVGElement[][] | null {
@@ -305,7 +318,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param type
    * @returns boolean (true: a target was found, false: else)
    */
-  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;

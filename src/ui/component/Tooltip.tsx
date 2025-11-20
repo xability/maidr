@@ -31,6 +31,7 @@ const Tooltip: React.FC<TooltipProps> = ({ plot }) => {
     const handleMouseMove = (e: MouseEvent): void => {
       positionRef.current = { x: e.clientX, y: e.clientY };
       popperRef.current?.update?.();
+      setIsHovering(true);
     };
     const handleMouseEnter = (): void => setIsHovering(true);
     const handleMouseLeave = (): void => setIsHovering(false);

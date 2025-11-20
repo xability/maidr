@@ -3,15 +3,15 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
+import Braille from './component/Braille';
+import Chat from './component/Chat';
+import CommandPalette from './component/CommandPalette';
+import Help from './component/Help';
+import Review from './component/Review';
+import Settings from './component/Settings';
+import Text from './component/Text';
+import Tooltip from './component/Tooltip';
 import { GoToExtrema } from './components/GoToExtrema';
-import Braille from './pages/Braille';
-import Chat from './pages/Chat';
-import CommandPalette from './pages/CommandPalette';
-import Help from './pages/Help';
-import Review from './pages/Review';
-import Settings from './pages/Settings';
-import Text from './pages/Text';
-import Tooltip from './pages/Tooltip';
 
 interface AppProps {
   plot: HTMLElement;

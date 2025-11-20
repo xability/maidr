@@ -170,5 +170,12 @@ playwright-report/
 !.vscode/launch.json
 !.vscode/mcp.json
 
+#Zed
+.zed
+
 # Qodo AI
 .qodo
+
+# Playwright
+playwright-report/
+test-results/

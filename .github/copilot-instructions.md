@@ -83,11 +83,3 @@ _ **Data Flow for Actions:** UI captures action → ViewModel validates/processe
 6.  **Placing ViewModel Logic in Services:** Services should focus on business logic and data, not on preparing data _specifically_ for a particular view's display needs (that's the ViewModel's job).
 7.  **Introducing Circular Dependencies** between any components or layers.
 8.  **Excessive State in Services:** Services should primarily operate on inputs and the Core Model, minimizing their own persistent state.
-
-## Commit Message Conventions
-
-Always follow Conventional Commit specification.
-
-## Linting
-
-Always run `npm run lint -- --fix` before committing.

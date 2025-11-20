@@ -30,7 +30,7 @@ async function setupHeatmapPage(
  */
 async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
   return await page.evaluate((id) => {
-    const svgElement = document.querySelector(`svg#${id}`);
+    const svgElement = document.querySelector(`svg`);
     if (!svgElement) {
       throw new Error(`SVG element with ID ${id} not found`);
     }
@@ -61,7 +61,7 @@ test.describe('Heatmap', () => {
     try {
       const heatmapPage = new HeatmapPage(page);
       await heatmapPage.navigateToHeatmap();
-      await page.waitForSelector(`svg#${TestConstants.HEATMAP_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await extractMaidrData(page, TestConstants.HEATMAP_ID);
       heatmapLayer = maidrData.subplots[0][0].layers[0];

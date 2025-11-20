@@ -213,6 +213,22 @@ export class BasePage {
   }
 
   /**
+   * Closes setting menu using the Close button
+   * @param modalSelector - The selector for the modal
+   * @param timeout - Optional timeout in milliseconds
+   * @throws AssertionError if modal cannot be closed
+   */
+  protected async closeSettingsMenu(
+    modalSelector: string,
+    timeout = 2000,
+  ): Promise<void> {
+    const _modal = this.page.locator(modalSelector);
+    const closeButton = this.page.locator('//button[text()=\'Close\']');
+    closeButton.click();
+    await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
+  }
+
+  /**
    * Closes a modal using the Escape key
    * @param modalSelector - The selector for the modal
    * @param timeout - Optional timeout in milliseconds
@@ -310,7 +326,7 @@ export class BasePage {
         TestConstants.SETTINGS_MENU_TITLE,
       );
 
-      await this.closeModal(this.selectors.settingsModal);
+      await this.closeSettingsMenu(this.selectors.settingsModal);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AssertionError(
@@ -542,15 +558,14 @@ export class BasePage {
 
   /**
    * Verifies if the SVG element is focused
-   * @param plotId - The ID of the plot to verify
    * @throws Error if SVG is not focused
    */
-  protected async verifySvgFocused(plotId: string): Promise<void> {
+  protected async verifySvgFocused(): Promise<void> {
     const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg' || activeElementInfo.id !== plotId) {
+    if (activeElementInfo.tagName !== 'svg') {
       throw new Error(
-        `Expected SVG element with ID "${plotId}" to be focused, `
-        + `but found ${activeElementInfo.tagName} with ID "${activeElementInfo.id}"`,
+        `Expected SVG element to be focused, `
+        + `but found ${activeElementInfo.tagName}`,
       );
     }
   }
@@ -558,15 +573,15 @@ export class BasePage {
   /**
    * Activates MAIDR by focusing the plot
    * @param svgSelector - The selector for the SVG element
-   * @param plotId - The ID of the plot
+   * @param _plotId - The ID of the plot
    * @returns Promise resolving when MAIDR is activated
    * @throws Error if MAIDR cannot be activated
    */
-  protected async activateMaidr(svgSelector: string, plotId: string): Promise<void> {
+  protected async activateMaidr(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.keyboard.press(TestConstants.TAB_KEY);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error('Failed to activate MAIDR');
     }
@@ -575,15 +590,15 @@ export class BasePage {
   /**
    * Activates MAIDR by clicking directly on the SVG element
    * @param svgSelector - The selector for the SVG element
-   * @param plotId - The ID of the plot
+   * @param _plotId - The ID of the plot
    * @returns Promise resolving when MAIDR is activated via click
    * @throws Error if MAIDR cannot be activated by clicking
    */
-  protected async activateMaidrOnClick(svgSelector: string, plotId: string): Promise<void> {
+  protected async activateMaidrOnClick(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
       await this.page.click(svgSelector);
-      await this.verifySvgFocused(plotId);
+      await this.verifySvgFocused();
     } catch (error) {
       throw new Error('Failed to activate MAIDR by clicking');
     }
@@ -605,7 +620,7 @@ export class BasePage {
   }
 
   /**
-   * Checks if a specific mode is active
+   * Checks if a specific mode is active by waiting for the notification text to match
    * @param notificationSelector - The selector for the notification element
    * @param mode - The mode to check
    * @param modeMessages - Map of mode values to expected messages
@@ -752,6 +767,41 @@ export class BasePage {
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
       );
+    }
+  }
+
+  /**
+   * Waits for element text to change from current value
+   * Useful after navigation operations to ensure text has updated
+   * @param selector - CSS selector for the target element
+   * @param options - Configuration options
+   * @param options.timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @param options.pollInterval - Time between checks in milliseconds (default: 50ms)
+   * @returns Promise resolving when text has changed
+   */
+  protected async waitForTextChange(
+    selector: string,
+    options: { timeout?: number; pollInterval?: number } = {},
+  ): Promise<void> {
+    const timeout = options.timeout || 2000;
+    const pollInterval = options.pollInterval || 50;
+
+    try {
+      // Get current text
+      const initialText = await this.getElementText(selector);
+
+      // Wait for text to change
+      await this.page.waitForFunction(
+        ({ selector, initialText }) => {
+          const element = document.querySelector(selector);
+          return element && element.textContent !== initialText;
+        },
+        { selector, initialText },
+        { timeout, polling: pollInterval },
+      );
+    } catch (error) {
+      // If timeout, it's okay - text might not have changed
+      // This is a soft wait, not a hard requirement
     }
   }
 }

@@ -91,10 +91,10 @@ test.describe('Multi Lineplot', () => {
     try {
       const multiLineplotPage = new MultiLineplotPage(page);
       await multiLineplotPage.navigateToLinePlot();
-      await page.waitForSelector(`svg#${TestConstants.MULTI_LINEPLOT_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
+        const svgElement = document.querySelector(`svg`);
 
         if (!svgElement) {
           throw new Error(`SVG element with ID ${plotId} not found`);

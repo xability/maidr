@@ -7,6 +7,7 @@ export abstract class Constant {
   static readonly FIGURE = 'figure';
   static readonly IMAGE = 'img';
   static readonly INPUT = 'input';
+  static readonly STYLE = 'style';
   static readonly TEXT_AREA = 'textarea';
 
   // HTML IDs.
@@ -29,6 +30,7 @@ export abstract class Constant {
   static readonly CIRCLE_Y = 'cy';
   static readonly D = 'd';
   static readonly FILL = 'fill';
+  static readonly MARGIN = 'margin';
   static readonly POINTS = 'points';
   static readonly RADIUS = 'r';
   static readonly ROLE = 'role';
@@ -59,7 +61,6 @@ export abstract class Constant {
   static readonly IS = ' is ';
   static readonly LINE = 'line';
   static readonly MAIDR_DATA = 'maidr-data';
-  static readonly MAIDR_HIGHLIGHT_COLOR = '#BADA55';
   static readonly NEW_LINE = '\n';
   static readonly OPEN_BRACKET = '[';
   static readonly POLYLINE = 'polyline';

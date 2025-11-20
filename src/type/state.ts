@@ -90,29 +90,36 @@ export function isLayerSwitchTraceState(state: TraceState): state is LayerSwitch
 }
 
 export interface AudioEmptyState {
-  index: number;
-  size: number;
-  groupIndex?: number;
+  y: number;
+  x: number;
+  rows: number;
+  cols: number;
 }
 
 export interface AudioState {
-  min: number;
-  max: number;
-  size: number;
-  value: number | number[];
-  index: number | number[];
+  freq: {
+    min: number;
+    max: number;
+    raw: number | number[];
+  };
+  panning: {
+    y: number;
+    x: number;
+    rows: number;
+    cols: number;
+  };
+  /**
+   * Group index for multiclass plots.
+   * Used to determine which audio palette entry to use.
+   * If undefined, defaults to 0 (single group).
+   */
+  group?: number;
   /**
    * Indicates whether the audio is continuous.
    * If true, the audio plays without interruption.
    * If false or undefined, the audio may have discrete segments.
    */
   isContinuous?: boolean;
-  /**
-   * Group index for multiclass plots.
-   * Used to determine which audio palette entry to use.
-   * If undefined, defaults to 0 (single group).
-   */
-  groupIndex?: number;
   /**
    * Candlestick trend information for audio palette selection.
    * Used by AudioService to determine appropriate audio characteristics.

@@ -5,6 +5,7 @@ const config: ReturnType<typeof antfu> = antfu({
   ignores: [
     'README.md',
     'E2E_TESTING.md',
+    'E2E.md',
     '.github/',
     'docs/',
     'CLAUDE.md',
