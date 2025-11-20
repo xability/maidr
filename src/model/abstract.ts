@@ -497,10 +497,6 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   // this then finds a nearest point, and checks if it's in bounds
   // if all is good, it sends row col to context.moveToIndex
   public moveToPoint(x: number, y: number): void {
-    // temp: don't run for boxplot. remove when boxplot is fixed
-    if (this.type === TraceType.BOX) {
-      return;
-    }
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {
@@ -519,7 +515,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   public isPointInBounds(
     x: number,
     y: number,
-    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
+    {
+      element,
+      row: _row,
+      col: _col,
+    }: { element: SVGElement; row: number; col: number },
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();
@@ -533,11 +533,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     ) {
       r = 0;
     }
-    return (
-      x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r
-    );
+    const isInbounds
+      = x >= bbox.x - r
+        && x <= bbox.x + bbox.width + r
+        && y >= bbox.y - r
+        && y <= bbox.y + bbox.height + r;
+    return isInbounds;
   }
 }

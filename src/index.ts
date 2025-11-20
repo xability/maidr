@@ -13,8 +13,37 @@ if (document.readyState === 'loading') {
   main();
 }
 
+function parseAndInit(
+  plot: HTMLElement,
+  json: string,
+  source: 'maidr' | 'maidr-data',
+): void {
+  try {
+    const maidr = JSON.parse(json) as Maidr;
+    initMaidr(maidr, plot);
+  } catch (error) {
+    console.error(`Error parsing ${source} attribute:`, error);
+  }
+}
+
 function main(): void {
-  overrideFigureMargin();
+  const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
+    Constant.MAIDR_JSON_SELECTOR,
+  );
+
+  if (plotsWithMaidr.length > 0) {
+    plotsWithMaidr.forEach((plot) => {
+      const maidrAttr = plot.getAttribute(Constant.MAIDR);
+
+      if (!maidrAttr) {
+        return;
+      }
+
+      parseAndInit(plot, maidrAttr, 'maidr');
+    });
+
+    return;
+  }
 
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
   plots.forEach((plot) => {
@@ -23,19 +52,27 @@ function main(): void {
       return;
     }
 
-    try {
-      const maidr = JSON.parse(maidrData);
-      initMaidr(maidr, plot);
-    } catch (error) {
-      console.error('Error parsing maidr attribute:', error);
-    }
+    parseAndInit(plot, maidrData, 'maidr-data');
   });
-}
 
-function overrideFigureMargin(): void {
-  const style = document.createElement(Constant.STYLE);
-  style.textContent = `[id^='${Constant.MAIDR_FIGURE}'] { ${Constant.MARGIN}: 0; }`;
-  document.head.appendChild(style);
+  // Fall back to window.maidr if no attribute found.
+  // TODO: Need to be removed along with `window.d.ts`,
+  //  once attribute method is migrated.
+  if (plots.length !== 0) {
+    return;
+  }
+
+  const maidr = window.maidr;
+  if (!maidr) {
+    return;
+  }
+
+  const plot = document.getElementById(maidr.id);
+  if (!plot) {
+    console.error('Plot not found for maidr:', maidr.id);
+    return;
+  }
+  initMaidr(maidr, plot);
 }
 
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {

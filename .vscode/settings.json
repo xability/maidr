@@ -87,6 +87,10 @@
   "githubPullRequests.experimental.chat": true,
   "githubPullRequests.queries": [
     {
+      "label": "Local Pull Request Branches",
+      "query": "default"
+    },
+    {
       "label": "Waiting For My Review",
       "query": "repo:${owner}/${repository} is:open review-requested:${user}"
     },
@@ -101,6 +105,10 @@
     {
       "label": "Mentioned Me",
       "query": "repo:${owner}/${repository} is:open mentions:${user}"
+    },
+    {
+      "label": "All Open",
+      "query": "default"
     }
   ]
 }

@@ -98,7 +98,11 @@ export class Controller implements Disposable {
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
-    this.chatService = new ChatService(this.displayService, this.textService, maidr);
+    this.chatService = new ChatService(
+      this.displayService,
+      this.textService,
+      maidr,
+    );
 
     this.textViewModel = new TextViewModel(
       store,
@@ -154,22 +158,28 @@ export class Controller implements Disposable {
       rotorNavigationViewModel: this.rotorNavigationViewModel,
       rotorNavigationService: this.rotorNavigationService,
     });
-    this.mousebinding = new Mousebindingservice({
-      context: this.context,
-      audioService: this.audioService,
-      autoplayService: this.autoplayService,
-      highlightService: this.highlightService,
-      brailleViewModel: this.brailleViewModel,
-      chatViewModel: this.chatViewModel,
-      commandPaletteViewModel: this.commandPaletteViewModel,
-      goToExtremaViewModel: this.goToExtremaViewModel,
-      helpViewModel: this.helpViewModel,
-      reviewViewModel: this.reviewViewModel,
-      settingsViewModel: this.settingsViewModel,
-      textViewModel: this.textViewModel,
-      rotorNavigationViewModel: this.rotorNavigationViewModel,
-      rotorNavigationService: this.rotorNavigationService,
-    });
+    this.mousebinding = new Mousebindingservice(
+      {
+        context: this.context,
+
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
+
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
+        rotorNavigationService: this.rotorNavigationService,
+      },
+      this.settingsService,
+      this.displayService,
+    );
 
     this.commandExecutor = new CommandExecutor(
       {
@@ -220,7 +230,7 @@ export class Controller implements Disposable {
 
   public dispose(): void {
     this.keybinding.unregister();
-    this.mousebinding.unregister();
+    this.mousebinding.dispose();
 
     ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();

@@ -122,13 +122,26 @@ export class Heatmap extends AbstractTrace {
         svgElements.push(row);
       }
     } else if (domElements[0] instanceof SVGRectElement) {
-      for (let r = 0; r < numRows; r++) {
-        const row = new Array<SVGElement>();
-        for (let c = 0; c < numCols; c++) {
-          const flatIndex = c * numRows + r;
-          row.push(domElements[flatIndex]);
+      // If layer.domMapping?.order === 'row', use row-major mapping for rects.
+      // Otherwise, preserve current default: column-major mapping.
+      if (this.layer.domMapping?.order === 'row') {
+        for (let r = 0; r < numRows; r++) {
+          const row = new Array<SVGElement>();
+          for (let c = 0; c < numCols; c++) {
+            const flatIndex = r * numCols + c;
+            row.push(domElements[flatIndex]);
+          }
+          svgElements.push(row);
         }
-        svgElements.push(row);
+      } else {
+        for (let r = 0; r < numRows; r++) {
+          const row = new Array<SVGElement>();
+          for (let c = 0; c < numCols; c++) {
+            const flatIndex = c * numRows + r;
+            row.push(domElements[flatIndex]);
+          }
+          svgElements.push(row);
+        }
       }
     }
 

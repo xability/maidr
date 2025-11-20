@@ -6,7 +6,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { AbstractViewModel } from './viewModel';
 
-interface SettingsState extends Settings { }
+interface SettingsState extends Settings {}
 
 const initialState = DEFAULT_SETTINGS;
 

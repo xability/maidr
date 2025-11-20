@@ -232,8 +232,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         svgElements.push(new Array<SVGElement>());
       }
 
+      const isForward = this.layer.domMapping?.groupDirection === 'forward';
       for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-        if (this.layer.domOrder === 'forward') {
+        if (isForward) {
           for (let r = 0; r < this.barValues.length; r++) {
             if (domIndex >= domElements.length) {
               return new Array<Array<SVGElement>>();

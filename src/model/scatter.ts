@@ -5,6 +5,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
+import { MovableDirection } from '@type/movable';
 
 interface ScatterXPoint {
   x: number;
@@ -33,6 +34,9 @@ export class ScatterTrace extends AbstractTrace {
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   private readonly minX: number;
   private readonly maxX: number;
@@ -75,7 +79,10 @@ export class ScatterTrace extends AbstractTrace {
     this.minY = MathUtil.safeMin(this.yValues);
     this.maxY = MathUtil.safeMax(this.yValues);
 
-    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
+    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(
+      layer.selectors as string,
+    );
+    this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
   }
 
@@ -234,6 +241,202 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
+  protected handleInitialEntry(): void {
+    this.isInitialEntry = false;
+    // For scatter plots, start in COL mode with row=0, col=0
+    this.row = 0;
+    this.col = 0;
+    this.mode = NavMode.COL;
+  }
+
+  /**
+   * Toggles between COL and ROW navigation modes while maintaining logical position mapping
+   */
+  private toggleNavigation(): void {
+    if (this.mode === NavMode.COL) {
+      // Switch from COL to ROW mode
+      const currentXPoint = this.xPoints[this.col];
+      const middleYValue
+        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
+      const targetRow = this.yValues.indexOf(middleYValue);
+
+      // Safety check: ensure the calculated row is valid
+      if (targetRow === -1 || targetRow >= this.yPoints.length) {
+        this.row = 0; // Use 0 as fallback
+      } else {
+        this.row = targetRow; // Use the calculated row to maintain logical connection
+      }
+
+      this.mode = NavMode.ROW;
+    } else {
+      // Switch from ROW to COL mode
+      const currentYPoint = this.yPoints[this.row];
+      const middleXValue
+        = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
+      const targetCol = this.xValues.indexOf(middleXValue);
+
+      // Safety check: ensure the calculated col is valid
+      if (targetCol === -1 || targetCol >= this.xPoints.length) {
+        this.col = 0;
+      } else {
+        this.col = targetCol;
+      }
+
+      this.mode = NavMode.COL;
+      this.row = 0; // Set to 0 for COL mode since values[0] = xValues
+    }
+  }
+
+  public moveOnce(direction: MovableDirection): boolean {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return true;
+    }
+
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (direction) {
+        case 'FORWARD':
+          this.col++;
+          break;
+        case 'BACKWARD':
+          this.col--;
+          break;
+        case 'UPWARD':
+        case 'DOWNWARD': {
+          this.toggleNavigation();
+          break;
+        }
+      }
+    } else {
+      switch (direction) {
+        case 'UPWARD':
+          this.row++;
+          break;
+        case 'DOWNWARD':
+          this.row--;
+          break;
+        case 'FORWARD':
+        case 'BACKWARD': {
+          this.toggleNavigation();
+          break;
+        }
+      }
+    }
+
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveToExtreme(direction: MovableDirection): boolean {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (direction) {
+        case 'UPWARD':
+          this.toggleNavigation();
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
+          break;
+        case 'DOWNWARD':
+          this.toggleNavigation();
+          this.row = 0; // Go to first Y coordinate
+          break;
+        case 'FORWARD':
+          this.col = this.xPoints.length - 1;
+          break;
+        case 'BACKWARD':
+          this.col = 0;
+          break;
+      }
+    } else {
+      switch (direction) {
+        case 'UPWARD':
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
+          break;
+        case 'DOWNWARD':
+          this.row = 0; // Go to first Y coordinate
+          break;
+        case 'FORWARD':
+          this.toggleNavigation();
+          this.col = this.xPoints.length - 1;
+          break;
+        case 'BACKWARD':
+          this.toggleNavigation();
+          this.col = 0;
+          break;
+      }
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveToIndex(row: number, col: number): boolean {
+    if (this.mode === NavMode.COL) {
+      if (row >= 0 && row < this.xPoints.length) {
+        this.col = row;
+        this.row = 0;
+        this.notifyStateUpdate();
+        return true;
+      } else {
+        this.notifyOutOfBounds();
+        return false;
+      }
+    } else {
+      if (col >= 0 && col < this.yPoints.length) {
+        this.col = col;
+        this.row = 0;
+        this.notifyStateUpdate();
+        return true;
+      } else {
+        this.notifyOutOfBounds();
+        return false;
+      }
+    }
+  }
+
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    if (Array.isArray(target)) {
+      return false;
+    }
+
+    if (this.mode === NavMode.COL) {
+      switch (target) {
+        case 'FORWARD': {
+          const forwardResult = this.col < this.xPoints.length - 1;
+          return forwardResult;
+        }
+        case 'BACKWARD': {
+          const backwardResult = this.col > 0;
+          return backwardResult;
+        }
+        case 'UPWARD':
+        case 'DOWNWARD':
+          return true;
+      }
+    } else {
+      switch (target) {
+        case 'UPWARD': {
+          const upwardResult = this.row < this.yPoints.length - 1;
+          return upwardResult;
+        }
+        case 'DOWNWARD': {
+          const downwardResult = this.row > 0;
+          return downwardResult;
+        }
+        case 'FORWARD':
+        case 'BACKWARD':
+          return true;
+      }
+    }
+  }
+
   private mapToSvgElements(
     selector?: string,
   ): [SVGElement[][], SVGElement[][]] | [null, null] {
@@ -275,11 +478,87 @@ export class ScatterTrace extends AbstractTrace {
     return [sortedXElements, sortedYElements];
   }
 
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightXValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
   public findNearestPoint(
     _x: number,
     _y: number,
   ): { element: SVGElement; row: number; col: number } | null {
-    // to implement later
-    return null;
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      return null;
+    }
+
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - _x, center.y - _y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex === -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  public moveToPoint(x: number, y: number): void {
+    // set to vertical mode
+    this.mode = NavMode.COL;
+
+    const nearest = this.findNearestPoint(x, y);
+    if (nearest) {
+      if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
+        this.moveToIndex(nearest.row, nearest.col);
+      }
+    }
   }
 }

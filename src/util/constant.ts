@@ -45,6 +45,9 @@ export abstract class Constant {
 
   // MAIDR Terms
   static readonly MAIDR_SUBPLOT = 'subplot';
+  static readonly MAIDR = 'maidr';
+  // CSS selector for elements whose `maidr` attribute contains JSON (starts with '{')
+  static readonly MAIDR_JSON_SELECTOR = '[maidr^="{"]';
   // Attribute values.
   static readonly AFTER_END = 'afterend';
   static readonly APPLICATION = 'application';

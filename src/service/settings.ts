@@ -5,6 +5,7 @@ import type { Event } from '@type/event';
 import type { Settings } from '@type/settings';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
+import { Observer } from '@type/observable';
 
 const SETTINGS_KEY = 'maidr-settings';
 
@@ -48,6 +49,7 @@ export class SettingsService implements Disposable {
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
+  private observers: Observer<Settings>[];
 
   private readonly onChangeEmitter: Emitter<SettingsChangedEvent>;
   public readonly onChange: Event<SettingsChangedEvent>;
