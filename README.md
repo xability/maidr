@@ -19,7 +19,7 @@ and encourages a multi-modal exploration on visualization.
 ## Table of Contents
 
 1. [Usage](#usage)
-2. [Examples] (#examples)
+2. [Examples](#examples)
 3. [Controls](#controls)
 4. [Braille Generation](#braille-generation)
 5. [API](#api)
@@ -271,6 +271,7 @@ For more information and examples, refer to the example HTML files provided in t
 
 ## Examples
 Example plots can be found here [url](examples/index.html)
+<iframe src="index.html" width="600" height="400"></iframe>
 
 ## Controls
 
