@@ -100,4 +100,18 @@ export class SettingsService implements Disposable {
   public toggle(): void {
     this.display.toggleFocus(Scope.SETTINGS);
   }
+
+  public addObserver(observer: Observer<Settings>): void {
+    this.observers.push(observer);
+  }
+
+  public removeObserver(observer: Observer<Settings>): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  public notifyStateUpdate(): void {
+    for (const observer of this.observers) {
+      observer.update(this.currentSettings);
+    }
+  }
 }
