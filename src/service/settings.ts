@@ -2,10 +2,10 @@ import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
+import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
-import { Observer } from '@type/observable';
 
 const SETTINGS_KEY = 'maidr-settings';
 

@@ -184,7 +184,7 @@ export abstract class TestConstants {
    */
   static readonly MULTI_LAYER_SECOND_LAYER = 'Layer 2 of 2: single line plot';
   static readonly MULTI_LAYER_FIRST_LAYER = 'Layer 1 of 2: bar plot';
-  static readonly MULTI_LAYER_NO_ADDITIONAL_LAYERS = 'No additional layer'
+  static readonly MULTI_LAYER_NO_ADDITIONAL_LAYERS = 'No additional layer';
 
   /**
    * Time constants (in milliseconds)

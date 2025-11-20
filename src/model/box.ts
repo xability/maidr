@@ -33,7 +33,6 @@ export class BoxTrace extends AbstractTrace {
     this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-
     // For horizontal orientation, reverse points to match visual order (lower-left start)
     // This ensures points[row] will align with boxValues[row] in the subsequent processing
     if (this.orientation === Orientation.HORIZONTAL) {

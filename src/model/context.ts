@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { LayerSwitchTraceState, PlotState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';

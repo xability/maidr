@@ -1,11 +1,11 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
-import { MovableDirection } from '@type/movable';
 
 interface ScatterXPoint {
   x: number;

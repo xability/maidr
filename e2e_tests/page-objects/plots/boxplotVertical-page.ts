@@ -341,7 +341,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToTop(): Promise<void> {
     try {
-      await this.pressKeyCombination(TestConstants.META_KEY, TestConstants.UP_ARROW_KEY, "Move to top");
+      await this.pressKeyCombination(TestConstants.META_KEY, TestConstants.UP_ARROW_KEY, 'Move to top');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to last box');
     }

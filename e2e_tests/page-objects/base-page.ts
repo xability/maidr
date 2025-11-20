@@ -222,8 +222,8 @@ export class BasePage {
     modalSelector: string,
     timeout = 2000,
   ): Promise<void> {
-    const modal = this.page.locator(modalSelector);
-    const closeButton = this.page.locator("//button[text()='Close']")
+    const _modal = this.page.locator(modalSelector);
+    const closeButton = this.page.locator('//button[text()=\'Close\']');
     closeButton.click();
     await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
   }
@@ -558,7 +558,6 @@ export class BasePage {
 
   /**
    * Verifies if the SVG element is focused
-   * @param _plotId - The ID of the plot to verify
    * @throws Error if SVG is not focused
    */
   protected async verifySvgFocused(): Promise<void> {
@@ -574,7 +573,7 @@ export class BasePage {
   /**
    * Activates MAIDR by focusing the plot
    * @param svgSelector - The selector for the SVG element
-   * @param plotId - The ID of the plot
+   * @param _plotId - The ID of the plot
    * @returns Promise resolving when MAIDR is activated
    * @throws Error if MAIDR cannot be activated
    */
@@ -591,7 +590,7 @@ export class BasePage {
   /**
    * Activates MAIDR by clicking directly on the SVG element
    * @param svgSelector - The selector for the SVG element
-   * @param plotId - The ID of the plot
+   * @param _plotId - The ID of the plot
    * @returns Promise resolving when MAIDR is activated via click
    * @throws Error if MAIDR cannot be activated by clicking
    */
@@ -625,7 +624,6 @@ export class BasePage {
    * @param notificationSelector - The selector for the notification element
    * @param mode - The mode to check
    * @param modeMessages - Map of mode values to expected messages
-   * @param timeout - Maximum time to wait in milliseconds (default: 3000ms)
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
    */
@@ -641,6 +639,7 @@ export class BasePage {
       throw new Error(`Failed to check ${mode} status`);
     }
   }
+
   /**
    * Gets axis title text
    * @param infoSelector - The selector for the info element
