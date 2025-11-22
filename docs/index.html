@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MAIDR Example Gallery</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        a {
+            display: block;
+            margin: 8px 0;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #content {
+            margin-top: 40px;
+            padding: 20px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>MAIDR Examples</h1>
+    <h2>Click on one of the examples below to see a demonstration</h2>
+
+    <ul>
+        <li><a href="#" onclick="loadHTML('examples/barplot.html')">Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/candlestick_multilayer.html')">Candlestick multilayer</a></li>
+        <li><a href="#" onclick="loadHTML('examples/dodged_barplot.html')">Dodged Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/facet_barplot.html')">Faceted Bar plots</a></li>
+        <li><a href="#" onclick="loadHTML('examples/heatmap.html')">Heatmap</a></li>
+        <li><a href="#" onclick="loadHTML('examples/histogram.html')">Histogram</a></li>
+        <li><a href="#" onclick="loadHTML('examples/horizontal-boxplot.html')">Horizontal box plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/lineplot.html')">Single Line plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/multiline_plot.html')">Multi line plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/multilayer_plot.html')">Multi layered plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/multipanel.html')">Multi panel plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/scatter_plot.html')">Scatter plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/smooth_plot.html')">Smooth plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/stacked_bar.html')">Stacked Bar plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/vertical-boxplot.html')">Vertical box plot</a></li>
+        <li><a href="#" onclick="loadHTML('examples/vertical-candlestick.html')">Vertical candle stick plot</a></li>
+    </ul>
+
+    <div id="content" hidden="true">Select an example above.</div>
+
+</body>
+
+<script>
+    async function loadHTML(filename) {
+        try {
+            const response = await fetch(filename);
+            let html = await response.text();
+
+            // DIRECT literal string replacement
+            html = html.replace(
+                '<link rel="stylesheet" href="../src/ui/css/styles.css" />',
+                '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr_style.css" />'
+            );
+
+            html = html.replace(
+                '<script type="text/javascript" src="../dist/maidr.js"><\/script>',
+                '<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js"><\/script>'
+            );
+            html = '<!doctype html>' + html;
+            // Create a blob with the HTML
+            const blob = new Blob([html], { type: "text/html" });
+
+            // Create a temporary URL for the iframe
+            const url = URL.createObjectURL(blob);
+
+            // Inject iframe with the new URL
+            document.getElementById("content").innerHTML =
+                `<iframe src="${url}" style="width:100%; height:800px; border:none;"></iframe>`;
+            document.getElementById("content").hidden = false;
+
+        } catch (err) {
+            console.error(err);
+            document.getElementById("content").innerText = "Failed to load.";
+        }
+    }
+</script>
+
+
+</html>
