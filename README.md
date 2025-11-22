@@ -175,7 +175,7 @@ Or multiple plots:
 5. Define your data set using the `maidr.data` property. This comes in different formats depending on a plot type:
 The data property is defined as a list of objects where each object is a record with fields x and y.
 
-   ```javascript
+```javascript
 
    let maidr;
 
@@ -330,8 +330,9 @@ The data property is defined as a list of objects where each object is a record 
         ]
       ]
     }
-    
-   ```
+
+```
+
 6. If multiple plots are overlaid on the same SVG, provide the data corresponding to every plot in the layers array.
 
 ```javascript
