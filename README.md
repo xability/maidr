@@ -394,8 +394,7 @@ maidr = {
 
 
 ## Examples
-Example plots are demonstrated here:
-[url]()
+Example plots are demonstrated [here]: (https://xabilitylab.ischool.illinois.edu/maidr/)
 
 For more information, refer to the example HTML files provided in the repository.
 
