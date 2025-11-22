@@ -14,57 +14,78 @@
             display: block;
             margin: 8px 0;
             font-size: 18px;
+            cursor: pointer;
+        }
+
+        #content {
+            margin-top: 40px;
+            padding: 20px;
+            border: 1px solid #ccc;
         }
     </style>
 </head>
 
 <body>
     <h1>MAIDR Examples</h1>
+    <h2>Click on one of the examples below to see a demonstration</h2>
+
     <ul>
-        <li><a href="barplot.html">Barplot</a></li>
-        <li> <a href="candlestick_multilayer.html">Candlestick multilayer</a></li>
-        <li> <a href="dodged_barplot.html">Candlestick multilayer</a></li>
-        <li> <a href="facet_barplot.html">Faceted Bar plots</a></li>
-        <li> <a href="heatmap.html">Heatmap</a></li>
-        <li>
-            <a href="histogram.html">Histogram</a>
-
-        </li>
-        <li>
-            <a href="horizontal-boxplot.html">Horizontal bar plot</a>
-
-        </li>
-        <li>
-            <a href="lineplot.html">Single Line plot</a>
-        </li>
-        <li>
-            <a href="multiline_plot.html">Multi line plot</a>
-        </li>
-        <li>
-            <a href="multiulayer_plot.html">Multi layered plot </a>
-        </li>
-
-        <li>
-            <a href="scatter_plot.html">Scatter plot</a>
-        </li>
-        <li>
-            <a href="smooth_plot.html">Smooth plot</a>
-        </li>
-        <li>
-            <a href="stacked_bar.html">Stacked Bar plot</a>
-        </li>
-        <li>
-            <a href="vertical-boxplot.html">Vertical box plot</a>
-        </li>
-        <li>
-            <a href="vertical-candlestick.html">Vertical candle stick pot</a>
-        </li>
-
+        <li><a href="#" onclick="loadHTML('barplot.html')">Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('candlestick_multilayer.html')">Candlestick multilayer</a></li>
+        <li><a href="#" onclick="loadHTML('dodged_barplot.html')">Dodged Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('facet_barplot.html')">Faceted Bar plots</a></li>
+        <li><a href="#" onclick="loadHTML('heatmap.html')">Heatmap</a></li>
+        <li><a href="#" onclick="loadHTML('histogram.html')">Histogram</a></li>
+        <li><a href="#" onclick="loadHTML('horizontal-boxplot.html')">Horizontal box plot</a></li>
+        <li><a href="#" onclick="loadHTML('lineplot.html')">Single Line plot</a></li>
+        <li><a href="#" onclick="loadHTML('multiline_plot.html')">Multi line plot</a></li>
+        <li><a href="#" onclick="loadHTML('multilayer_plot.html')">Multi layered plot</a></li>
+        <li><a href="#" onclick="loadHTML('multipanel.html')">Multi panel plot</a></li>
+        <li><a href="#" onclick="loadHTML('scatter_plot.html')">Scatter plot</a></li>
+        <li><a href="#" onclick="loadHTML('smooth_plot.html')">Smooth plot</a></li>
+        <li><a href="#" onclick="loadHTML('stacked_bar.html')">Stacked Bar plot</a></li>
+        <li><a href="#" onclick="loadHTML('vertical-boxplot.html')">Vertical box plot</a></li>
+        <li><a href="#" onclick="loadHTML('vertical-candlestick.html')">Vertical candle stick plot</a></li>
     </ul>
 
-
-
+    <div id="content" hidden="true">Select an example above.</div>
 
 </body>
+
+<script>
+    async function loadHTML(filename) {
+        try {
+            const response = await fetch(filename);
+            let html = await response.text();
+
+            // DIRECT literal string replacement
+            html = html.replace(
+                '<link rel="stylesheet" href="../src/ui/css/styles.css" />',
+                '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr_style.css" />'
+            );
+
+            html = html.replace(
+                '<script type="text/javascript" src="../dist/maidr.js"><\/script>',
+                '<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js"><\/script>'
+            );
+            html = '<!doctype html>' + html;
+            // Create a blob with the HTML
+            const blob = new Blob([html], { type: "text/html" });
+
+            // Create a temporary URL for the iframe
+            const url = URL.createObjectURL(blob);
+
+            // Inject iframe with the new URL
+            document.getElementById("content").innerHTML =
+                `<iframe src="${url}" style="width:100%; height:800px; border:none;"></iframe>`;
+            document.getElementById("content").hidden = false;
+
+        } catch (err) {
+            console.error(err);
+            document.getElementById("content").innerText = "Failed to load.";
+        }
+    }
+</script>
+
 
 </html>
