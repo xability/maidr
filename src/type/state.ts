@@ -119,6 +119,20 @@ export interface AudioState {
    * Only applicable for candlestick traces.
    */
   trend?: CandlestickTrend;
+  /**
+   * Volume multiplier for dynamic volume control.
+   * Used to scale audio volume based on data characteristics (e.g., violin plot width).
+   * If undefined, defaults to 1.0 (no volume scaling).
+   * Range should typically be between 0.0 and 1.0, but can exceed 1.0 for emphasis.
+   */
+  volumeMultiplier?: number;
+  /**
+   * Volume scale for dynamic volume control (0-1 range).
+   * Used to scale audio volume based on density values (e.g., violin plot density).
+   * If undefined, defaults to 1.0 (no volume scaling).
+   * Range is 0.0 to 1.0, where 0.0 = quietest and 1.0 = loudest.
+   */
+  volumeScale?: number;
 }
 
 export type BrailleState

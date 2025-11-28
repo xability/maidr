@@ -180,6 +180,8 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
         audio.size,
         Array.isArray(audio.index) ? audio.index[0] : audio.index,
         paletteEntry,
+        audio.volumeMultiplier,
+        audio.volumeScale,
       );
     } else if (Array.isArray(audio.value)) {
       // multiple discrete values
@@ -532,12 +534,24 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     size: number,
     index: number,
     paletteEntry?: AudioPaletteEntry,
+    volumeMultiplier?: number,
+    volumeScale?: number,
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
     const freqRange = this.getFrequencyRange();
-    const currentVolume = this.getVolume();
+    const baseVolume = this.getVolume();
+    
+    // Use volumeScale if provided (0-1 range), otherwise use volumeMultiplier
+    // volumeScale takes precedence as it's the newer approach (following Independent_Study)
+    let currentVolume: number;
+    if (volumeScale !== undefined) {
+      currentVolume = baseVolume * Math.max(0, volumeScale);
+    } else {
+      // Fall back to volumeMultiplier for backward compatibility
+      currentVolume = baseVolume * (volumeMultiplier ?? 1.0);
+    }
 
     // Use default sine wave if no palette entry provided
     const waveType = paletteEntry?.waveType || 'sine';
@@ -570,6 +584,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
 
     // Gain envelope - use shared ADSR helper function
     const gainNode = ctx.createGain();
+    
     const envelope = this.createAdsrEnvelope(
       gainNode,
       paletteEntry,

@@ -1,10 +1,17 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { AudioState, TextState } from '@type/state';
 import type { MovableDirection } from '@type/movable';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+
+/**
+ * Small adjustment value used to create a safety range when min and max density values
+ * are equal. This prevents division by zero errors in interpolation calculations.
+ */
+const MIN_DENSITY_RANGE = 0.001;
 
 /**
  * Specialized trace for violin plot KDE layers.
@@ -209,5 +216,186 @@ export class ViolinKdeTrace extends SmoothTrace {
 
     return allFailed ? null : elementsByViolin;
   }
+
+  /**
+   * Override text() to format display for violin KDE layers:
+   * - X axis: Shows actual X coordinate value (categorical label if available, otherwise rounded numeric)
+   * - Y axis: Shows numeric value rounded to 4 decimal places
+   * - Volume: X-axis difference between points on the same Y value (width of violin at that Y level), rounded to 4 decimals, shown in fill field
+   */
+  protected override text(): TextState {
+    const currentPoint = this.points[this.row][this.col];
+    const currentXValue = currentPoint.x;
+    const currentYValue = Number(currentPoint.y);
+    const currentRow = this.points[this.row];
+    
+    // Get volume (width) from pre-calculated value in point data
+    // The backend calculates width in data coordinates using the original numeric X coordinates
+    const currentPointWithWidth = currentPoint as any;
+    let volume: number | undefined;
+    
+    // Check if width is pre-calculated and stored in the point data
+    if (typeof currentPointWithWidth.width === 'number' && !isNaN(currentPointWithWidth.width)) {
+      volume = currentPointWithWidth.width;
+    } else {
+      // Fallback: Calculate from SVG coordinates if width not available
+      // This should not happen if backend is working correctly
+      const yTolerance = 0.01;
+      const currentPointWithSvg = currentPoint as any;
+      const currentSvgY = typeof currentPointWithSvg.svg_y === 'number' ? currentPointWithSvg.svg_y : null;
+      
+      const svgXAtSameY: number[] = [];
+      for (const point of currentRow) {
+        const pointWithSvg = point as any;
+        let pointY = Number(point.y);
+        let pointSvgY = typeof pointWithSvg.svg_y === 'number' ? pointWithSvg.svg_y : null;
+        
+        let yMatches = false;
+        if (currentSvgY !== null && pointSvgY !== null) {
+          yMatches = Math.abs(pointSvgY - currentSvgY) <= 1.0;
+        } else {
+          yMatches = Math.abs(pointY - currentYValue) <= yTolerance;
+        }
+        
+        if (yMatches && typeof pointWithSvg.svg_x === 'number' && !isNaN(pointWithSvg.svg_x)) {
+          svgXAtSameY.push(pointWithSvg.svg_x);
+        }
+      }
+      
+      if (svgXAtSameY.length >= 2) {
+        const minSvgX = Math.min(...svgXAtSameY);
+        const maxSvgX = Math.max(...svgXAtSameY);
+        volume = Math.abs(maxSvgX - minSvgX);
+      }
+    }
+
+    // Round to 4 decimal places
+    const roundTo4 = (num: number): number => Math.round(num * 10000) / 10000;
+    const roundedYValue = roundTo4(currentYValue);
+    const roundedVolume = volume !== undefined && volume > 0 ? roundTo4(volume) : undefined;
+
+    // Format X value: Always show categorical label, never numeric coordinate
+    // For violin plots, the backend now extracts categorical labels and stores them as strings
+    // Each row represents a different category/violin, and all points in a row have the same X label
+    let xDisplayValue: number | string;
+    if (typeof currentXValue === 'string') {
+      // Already a categorical label string - use it directly
+      xDisplayValue = currentXValue;
+    } else {
+      // If still numeric (fallback), try to get from first point in row
+      // All points in a row should have the same X value
+      const firstPointInRow = currentRow[0];
+      if (firstPointInRow && typeof firstPointInRow.x === 'string') {
+        xDisplayValue = firstPointInRow.x;
+      } else {
+        // Last resort: use row index as fallback
+        xDisplayValue = `Category ${this.row}`;
+      }
+    }
+
+    const textState: TextState = {
+      // X axis: Show categorical label only (never show numeric coordinate)
+      main: { label: this.xAxis, value: xDisplayValue },
+      // Y axis: Show numeric value rounded to 4 decimals (no volume)
+      cross: { label: this.yAxis, value: roundedYValue },
+    };
+
+    // Add volume in fill field if available
+    if (roundedVolume !== undefined) {
+      textState.fill = { label: 'volume', value: String(roundedVolume) };
+    }
+
+    return textState;
+  }
+
+  /**
+   * Violin KDE layers use consistent density values from first violin for pitch (like smooth plots).
+   * Override audio() to:
+   * - Use density values from first violin (row 0) for pitch - consistent audio across all violins
+   * - Calculate volumeScale from current position's density (0-1 normalized range) - volume varies by position
+   */
+  protected override audio(): AudioState {
+    // Always use the first violin (row 0) for density values for consistent pitch across violins
+    // This ensures audio doesn't change when switching between violins (like smooth plots)
+    const referenceRowIndex = 0;
+    const referenceRowPoints = this.points[referenceRowIndex];
+    
+    // If first violin doesn't exist, fall back to parent implementation
+    if (!referenceRowPoints || referenceRowPoints.length === 0) {
+      return super.audio();
+    }
+
+    // Extract density values from reference violin (row 0) for consistent pitch
+    const referenceDensityValues = referenceRowPoints.map((point: any) => {
+      // Try density property first, then fall back to width
+      return point.density ?? point.width ?? 0;
+    });
+
+    // Calculate min/max density for reference violin
+    const referenceDensityMin = Math.min(...referenceDensityValues.filter(d => d > 0));
+    const referenceDensityMax = Math.max(...referenceDensityValues);
+
+    // Safety check: if min === max, add a small range to avoid division by zero
+    const safeDensityMin = referenceDensityMin === referenceDensityMax
+      ? Math.max(0, referenceDensityMin - MIN_DENSITY_RANGE)
+      : referenceDensityMin;
+    const safeDensityMax = referenceDensityMin === referenceDensityMax
+      ? referenceDensityMax + MIN_DENSITY_RANGE
+      : referenceDensityMax;
+
+    // Use current column position, but clamp to reference row bounds
+    const safeIndex = Math.min(this.col, referenceDensityValues.length - 1);
+
+    const getDensity = (i: number): number =>
+      referenceDensityValues[Math.max(0, Math.min(i, referenceDensityValues.length - 1))];
+
+    // Use reference violin's density values for pitch (consistent across violins)
+    const prevDensity = safeIndex > 0 ? getDensity(safeIndex - 1) : getDensity(safeIndex);
+    const currDensity = getDensity(safeIndex);
+    const nextDensity = safeIndex < referenceDensityValues.length - 1 ? getDensity(safeIndex + 1) : getDensity(safeIndex);
+
+    // Calculate volumeScale from CURRENT position's density (allows volume to vary)
+    // Get density from the actual current position where user is navigating
+    const currentRowPoints = this.points[this.row];
+    const currentCol = Math.min(this.col, currentRowPoints.length - 1);
+    const currentPoint = currentRowPoints[currentCol];
+    
+    let volumeScale = 1.0; // Default to full volume
+    if (currentPoint) {
+      const currentPointAny = currentPoint as any;
+      const currentDensity = currentPointAny.density ?? currentPointAny.width ?? 0;
+      
+      // Calculate min/max density for current violin to normalize volume
+      const currentDensityValues = currentRowPoints.map((point: any) => {
+        return point.density ?? point.width ?? 0;
+      });
+      const currentDensityMin = Math.min(...currentDensityValues.filter(d => d > 0));
+      const currentDensityMax = Math.max(...currentDensityValues);
+      
+      // Normalize current density to 0-1 range for volumeScale
+      if (currentDensityMax > 0 && typeof currentDensity === 'number' && currentDensity > 0) {
+        const safeCurrentMax = currentDensityMin === currentDensityMax
+          ? currentDensityMax + MIN_DENSITY_RANGE
+          : currentDensityMax;
+        volumeScale = currentDensity / safeCurrentMax;
+      }
+    }
+
+    // Return audio state using reference violin's density for pitch (consistent audio)
+    const audioState: AudioState = {
+      min: safeDensityMin,
+      max: safeDensityMax,
+      size: referenceDensityValues.length,
+      index: safeIndex,
+      value: [prevDensity, currDensity, nextDensity],
+      isContinuous: true,
+      // Use volumeScale from current position - volume can vary by position
+      volumeScale: volumeScale,
+      // Don't include groupIndex for violin plots - audio should be same format for all violins
+    };
+
+    return audioState;
+  }
 }
+
 
