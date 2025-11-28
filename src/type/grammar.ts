@@ -137,6 +137,10 @@ export interface MaidrLayer {
     y?: string;
     fill?: string;
   };
+  /**
+   * For violin plots, identifies which layer this is: 'box' for box plot layer, 'kde' for KDE layer.
+   */
+  violinLayer?: 'box' | 'kde';
   data:
     | BarPoint[]
     | BoxPoint[]
