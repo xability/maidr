@@ -1,5 +1,6 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -97,6 +98,71 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // Vertical: boxValues[section][box] → row=section, col=box
     // Horizontal: boxValues[box][section] → row=box, col=section
     super.moveToIndex(row, col);
+  }
+
+  /**
+   * Override moveOnce for violin box plots to reset to bottom point (MIN section)
+   * when switching between violins.
+   * For vertical: FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
+   * For horizontal: UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+   */
+  public moveOnce(direction: MovableDirection): void {
+    // Only apply special behavior for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    const isViolinBoxPlot = layer?.violinLayer === 'box';
+
+    if (!isViolinBoxPlot) {
+      // For regular box plots, use parent implementation
+      super.moveOnce(direction);
+      return;
+    }
+
+    // Handle initial entry
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return;
+    }
+
+    // Check if movement is valid
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return;
+    }
+
+    // For violin box plots, reset to MIN section when changing violins
+    if (this.orientation === Orientation.VERTICAL) {
+      // Vertical: col = violin index, row = section index
+      // FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
+      if (direction === 'FORWARD') {
+        this.col += 1;
+        this.row = 1; // Reset to MIN section (bottom point)
+      } else if (direction === 'BACKWARD') {
+        this.col -= 1;
+        this.row = 1; // Reset to MIN section (bottom point)
+      } else {
+        // UPWARD/DOWNWARD navigate between sections (keep current violin)
+        super.moveOnce(direction);
+        return;
+      }
+    } else {
+      // Horizontal: row = violin index, col = section index
+      // UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+      if (direction === 'UPWARD') {
+        this.row += 1;
+        this.col = 1; // Reset to MIN section (bottom point)
+      } else if (direction === 'DOWNWARD') {
+        this.row -= 1;
+        this.col = 1; // Reset to MIN section (bottom point)
+      } else {
+        // FORWARD/BACKWARD navigate between sections (keep current violin)
+        super.moveOnce(direction);
+        return;
+      }
+    }
+
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
   }
 
   protected get values(): (number[] | number)[][] {
@@ -466,6 +532,79 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       return this.col >= 0 ? this.col : null;
     } else {
       return this.row >= 0 ? this.row : null;
+    }
+  }
+
+  /**
+   * Override moveToXValue for violin box plots to reset to bottom point (MIN section)
+   * when moving to a different violin.
+   * For vertical: sets col (violin index) and resets row to 1 (MIN section)
+   * For horizontal: sets row (violin index) and resets col to 1 (MIN section)
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    // Only apply special behavior for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    if (layer?.violinLayer !== 'box') {
+      // For regular box plots, use parent implementation
+      return super.moveToXValue(xValue);
+    }
+
+    // Handle initial entry
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    // xValue must be a number (violin index)
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    const values = this.values;
+
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: col = violin index, row = section index
+      const numViolins = values.length > 0 ? values[0].length : 0;
+      if (violinIndex < 0 || violinIndex >= numViolins) {
+        return false;
+      }
+
+      // Store current violin to check if we're moving to a different one
+      const currentViolin = this.col;
+
+      // Move to the violin (col)
+      this.col = violinIndex;
+
+      // If we moved to a different violin, reset to MIN section (row = 1, bottom point)
+      // Otherwise, preserve the current section (row)
+      if (violinIndex !== currentViolin) {
+        this.row = 1; // Reset to MIN section (bottom point)
+      }
+
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    } else {
+      // For horizontal: row = violin index, col = section index
+      if (violinIndex < 0 || violinIndex >= values.length) {
+        return false;
+      }
+
+      // Store current violin to check if we're moving to a different one
+      const currentViolin = this.row;
+
+      // Move to the violin (row)
+      this.row = violinIndex;
+
+      // If we moved to a different violin, reset to MIN section (col = 1, bottom point)
+      // Otherwise, preserve the current section (col)
+      if (violinIndex !== currentViolin) {
+        this.col = 1; // Reset to MIN section (bottom point)
+      }
+
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
     }
   }
 

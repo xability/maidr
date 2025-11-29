@@ -63,10 +63,9 @@ export class ViolinKdeTrace extends SmoothTrace {
         // Move to next violin (next row)
         if (this.row < this.points.length - 1) {
           const nextRow = this.row + 1;
-          // Use the same column index if valid, otherwise use the last column
-          const maxCol = this.points[nextRow].length - 1;
           this.row = nextRow;
-          this.col = Math.min(this.col, maxCol);
+          // Reset to bottom point (col = 0) when switching to a new violin
+          this.col = 0;
           this.notifyStateUpdate();
         } else {
           this.notifyOutOfBounds();
@@ -77,10 +76,9 @@ export class ViolinKdeTrace extends SmoothTrace {
         // Move to previous violin (previous row)
         if (this.row > 0) {
           const prevRow = this.row - 1;
-          // Use the same column index if valid, otherwise use the last column
-          const maxCol = this.points[prevRow].length - 1;
           this.row = prevRow;
-          this.col = Math.min(this.col, maxCol);
+          // Reset to bottom point (col = 0) when switching to a new violin
+          this.col = 0;
           this.notifyStateUpdate();
         } else {
           this.notifyOutOfBounds();
@@ -408,6 +406,47 @@ export class ViolinKdeTrace extends SmoothTrace {
   public getCurrentXValue(): number | null {
     // For ViolinKdeTrace: row = which violin (numeric index)
     return this.row >= 0 && this.row < this.points.length ? this.row : null;
+  }
+
+  /**
+   * Override moveToXValue to reset to bottom point (col = 0) when moving to a different violin.
+   * This ensures that when navigating to a new violin, we start from the bottom of the curve.
+   */
+  public moveToXValue(xValue: number): boolean {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    const points = this.points;
+    if (!points || !points.length) {
+      return false;
+    }
+
+    // Check if xValue is a valid violin index (row)
+    const violinIndex = Math.floor(xValue);
+    if (violinIndex < 0 || violinIndex >= points.length) {
+      return false;
+    }
+
+    // Store current violin to check if we're moving to a different one
+    const currentViolin = this.row;
+    
+    // Move to the violin (row)
+    this.row = violinIndex;
+
+    // If we moved to a different violin, reset to bottom point (col = 0)
+    // Otherwise, preserve the current column position
+    if (violinIndex !== currentViolin) {
+      this.col = 0; // Reset to bottom point
+    } else {
+      // Same violin - ensure column is within bounds
+      const maxCol = points[violinIndex]?.length ? points[violinIndex].length - 1 : 0;
+      this.col = Math.min(this.col, maxCol);
+    }
+
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+    return true;
   }
 
   /**
