@@ -137,7 +137,12 @@ export class Context implements Disposable {
       if (!currentTrace) {
         return;
       }
+
+      // Extract X value from current trace BEFORE switching layers
+      // This ensures we use the actual current position, not any cached/previous state
       const currentXValue = currentTrace.getCurrentXValue();
+
+      // Now switch to the new trace
       activeSubplot.moveOnce(direction);
       const newTrace = activeSubplot.activeTrace;
       this.plotContext.push(newTrace);
@@ -148,7 +153,33 @@ export class Context implements Disposable {
         return;
       }
 
+      // Try to let the new trace handle the layer switch
+      // This allows trace classes to optionally implement special layer switching behavior
+      // (e.g., preserving Y values when switching between layers)
+      if (typeof newTrace.onSwitchFrom === 'function') {
+        const handled = newTrace.onSwitchFrom(currentTrace);
+        if (handled) {
+          // Trace handled the switch, proceed with state notification
+          if (!newTrace.state.empty) {
+            const index = activeSubplot.getRow() + 1;
+            const size = activeSubplot.getSize();
+            const state: LayerSwitchTraceState = {
+              ...newTrace.state,
+              isLayerSwitch: true,
+              index,
+              size,
+            };
+            newTrace.notifyObserversWithState(state);
+          } else {
+            newTrace.notifyStateUpdate();
+          }
+          return;
+        }
+      }
+
+      // Default behavior for layer switches: just preserve X value
       newTrace.moveToXValue(currentXValue);
+      
       if (!newTrace.state.empty) {
         const index = activeSubplot.getRow() + 1;
         const size = activeSubplot.getSize();

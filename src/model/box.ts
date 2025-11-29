@@ -1,10 +1,12 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { XValue } from '@type/navigation';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import type { Trace } from './plot';
 import { AbstractTrace } from './abstract';
 
 export class BoxTrace extends AbstractTrace<number[] | number> {
@@ -438,5 +440,244 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // this.moveToIndex(nearest.row, nearest.col);
     // }
     // }
+  }
+
+  /**
+   * Override to return the violin index (numeric) for layer switching.
+   * For violin box plots (vertical): col represents violin index.
+   * For violin box plots (horizontal): row represents violin index.
+   * Only applicable for violin box plots (violinLayer === 'box').
+   *
+   * @returns The violin index as a number for violin box plots. For vertical box plots, returns the column index.
+   *          For horizontal box plots, returns the row index. For regular box plots, returns the parent implementation
+   *          result (which may be a string or number). Returns null if the position is invalid.
+   */
+  public getCurrentXValue(): XValue | null {
+    // Only applicable for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    if (layer?.violinLayer !== 'box') {
+      // Not a violin box plot, use parent implementation
+      return super.getCurrentXValue();
+    }
+
+    // For vertical box plots: col = which violin
+    // For horizontal box plots: row = which violin
+    if (this.orientation === Orientation.VERTICAL) {
+      return this.col >= 0 ? this.col : null;
+    } else {
+      return this.row >= 0 ? this.row : null;
+    }
+  }
+
+  /**
+   * Get the current Y value from the box plot.
+   * This is used when switching to KDE layer to preserve the Y level.
+   * Only applicable for violin box plots (violinLayer === 'box').
+   *
+   * @returns The current Y value from the box plot section at the current position.
+   *          For outliers (arrays), returns the first value. Returns null if the position
+   *          is invalid, if the value cannot be determined, or if this is not a violin box plot.
+   */
+  public getCurrentYValue(): number | null {
+    // Only applicable for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    if (layer?.violinLayer !== 'box') {
+      return null;
+    }
+
+    const values = this.values;
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: row = section index, col = violin index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    } else {
+      // For horizontal: row = violin index, col = section index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Move to a specific violin (X value) and find the closest box plot section
+   * with the given Y value. This is used when switching from KDE layer to preserve Y level.
+   * Only applicable for violin box plots (violinLayer === 'box').
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values are not supported.
+   * @param yValue - The Y value to find the closest matching box plot section for
+   * @returns true if the move was successful (valid violin index and closest section found),
+   *          false if xValue is not a number, if the violin index is out of bounds,
+   *          or if this is not a violin box plot
+   */
+  public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    // Only applicable for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    if (layer?.violinLayer !== 'box') {
+      return false;
+    }
+
+    // First set the violin from X value
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    const values = this.values;
+
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: col = which violin, row = section index
+      const numViolins = values.length > 0 ? values[0].length : 0;
+      if (violinIndex < 0 || violinIndex >= numViolins) {
+        return false;
+      }
+
+      this.col = violinIndex;
+
+      // Find the section (row) with the closest Y value
+      let closestRow = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      for (let row = 0; row < values.length; row++) {
+        const rowValues = values[row];
+        if (Array.isArray(rowValues) && violinIndex < rowValues.length) {
+          const value = rowValues[violinIndex];
+
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestRow = row;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestRow = row;
+            }
+          }
+        }
+      }
+
+      this.row = closestRow;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    } else {
+      // For horizontal: row = which violin, col = section index
+      if (violinIndex < 0 || violinIndex >= values.length) {
+        return false;
+      }
+
+      this.row = violinIndex;
+
+      // Find the section (col) with the closest Y value
+      let closestCol = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      const rowValues = values[violinIndex];
+      if (Array.isArray(rowValues)) {
+        for (let col = 0; col < rowValues.length; col++) {
+          const value = rowValues[col];
+
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestCol = col;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestCol = col;
+            }
+          }
+        }
+      }
+
+      this.col = closestCol;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+  }
+
+  /**
+   * Handle switching from another trace.
+   * Implements special handling for switching from violin KDE layer
+   * to preserve both violin position (X) and Y value.
+   * Only applicable for violin box plots (violinLayer === 'box').
+   *
+   * @param previousTrace - The trace we're switching from
+   * @returns true if handled (switching from violin KDE to violin box), false otherwise
+   */
+  public onSwitchFrom(previousTrace: Trace): boolean {
+    // Only applicable for violin box plots
+    const layer = (this as any).layer as MaidrLayer | undefined;
+    if (layer?.violinLayer !== 'box') {
+      return false; // Not a violin box plot, use default behavior
+    }
+
+    // Check if switching from violin KDE layer
+    const prevTraceAny = previousTrace as any;
+    const prevLayer = prevTraceAny.layer;
+    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
+    
+    const isFromViolinKdeLayer = prevTraceType === 'smooth' && prevLayer?.violinLayer === 'kde';
+    
+    if (!isFromViolinKdeLayer) {
+      return false; // Don't handle - use default behavior
+    }
+
+    // Get X and Y values from KDE layer
+    const xValue = previousTrace.getCurrentXValue();
+    const getCurrentYValueFn = (prevTraceAny as any).getCurrentYValue;
+    
+    if (typeof getCurrentYValueFn === 'function') {
+      const yValue = getCurrentYValueFn.call(prevTraceAny);
+      
+      if (yValue !== null && xValue !== null) {
+        // Use moveToXAndYValue to preserve both violin position and Y level
+        return this.moveToXAndYValue(xValue, yValue);
+      }
+    }
+
+    // Fallback: if Y value extraction failed, just set X position
+    // BoxTrace extends AbstractTrace which has moveToXValue
+    if (xValue !== null) {
+      const success = this.moveToXValue(xValue);
+      return success; // Return true if move was successful
+    }
+
+    return false; // Let context handle default behavior
   }
 }

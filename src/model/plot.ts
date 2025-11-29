@@ -330,4 +330,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   resetToInitialEntry: () => void;
   notifyObserversWithState: (state: TraceState) => void;
+
+  /**
+   * Handle switching from another trace.
+   * Called by Context when switching layers. Traces can implement this
+   * to handle special layer switching behavior (e.g., preserving Y values).
+   * @param previousTrace - The trace we're switching from
+   * @returns true if this trace handled the switch, false to use default behavior
+   */
+  onSwitchFrom?: (previousTrace: Trace) => boolean;
 }

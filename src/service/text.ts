@@ -162,7 +162,14 @@ export class TextService implements Observer<PlotState>, Disposable {
       if (state.text.main && state.text.main.value !== undefined) {
         parts.push(`${state.text.main.label} is ${state.text.main.value}`);
       }
-      if (state.text.cross && state.text.cross.value !== undefined) {
+      // Exclude cross value for violin box plots during layer switch
+      // Violin plots have exactly 2 layers (box + kde), so we check if:
+      // 1. It's a box plot (traceType === 'box')
+      // 2. There are exactly 2 layers (size === 2), which indicates a violin plot
+      // This heuristic ensures we only exclude cross values for violin box plots,
+      // not for regular box plots that might be in multi-layer scenarios with more layers
+      const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
+      if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
         parts.push(`${state.text.cross.label} is ${state.text.cross.value}`);
       }
       if (state.text.fill && state.text.fill.value !== undefined) {

@@ -3,6 +3,7 @@ import type { AudioState, TextState } from '@type/state';
 import type { MovableDirection } from '@type/movable';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
+import type { Trace } from './plot';
 import { SmoothTrace } from './smooth';
 
 const SVG_PATH_LINE_POINT_REGEX = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
@@ -395,6 +396,132 @@ export class ViolinKdeTrace extends SmoothTrace {
     };
 
     return audioState;
+  }
+
+  /**
+   * Override to return the row index (which violin) for layer switching.
+   * For violin KDE layers, row represents the violin index (numeric).
+   *
+   * @returns The violin index (row index) as a number, representing which violin
+   *          is currently active. Returns null if the position is invalid.
+   */
+  public getCurrentXValue(): number | null {
+    // For ViolinKdeTrace: row = which violin (numeric index)
+    return this.row >= 0 && this.row < this.points.length ? this.row : null;
+  }
+
+  /**
+   * Get the current Y value from the KDE curve.
+   * This is used when switching to box plot layer to preserve the Y level.
+   *
+   * @returns The current Y value from the KDE curve at the current position (row, col).
+   *          Returns null if the position is invalid or if no valid Y value can be determined.
+   */
+  public getCurrentYValue(): number | null {
+    const rowYValues = this.lineValues[this.row];
+    
+    if (!rowYValues || rowYValues.length === 0) {
+      return null;
+    }
+
+    if (this.col >= 0 && this.col < rowYValues.length) {
+      const yValue = rowYValues[this.col];
+      return typeof yValue === 'number' ? yValue : null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Move to a specific violin (X value) and find the closest point on the KDE curve
+   * with the given Y value. This is used when switching from box plot layer to preserve Y level.
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values are not supported as violin plots use numeric indices.
+   * @param yValue - The Y value to find the closest matching point for on the KDE curve
+   * @returns true if the move was successful (valid violin index and Y value found),
+   *          false if xValue is not a number or if the violin index is out of bounds
+   */
+  public moveToXAndYValue(xValue: any, yValue: number): boolean {
+    // First set the violin (row) from X value
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    if (violinIndex < 0 || violinIndex >= this.lineValues.length) {
+      return false;
+    }
+
+    this.row = violinIndex;
+    const rowYValues = this.lineValues[this.row];
+
+    if (!rowYValues || rowYValues.length === 0) {
+      this.col = 0;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+
+    // Find the point with the closest Y value
+    let closestIndex = 0;
+    let minDistance = Math.abs(rowYValues[0] - yValue);
+
+    for (let i = 1; i < rowYValues.length; i++) {
+      const distance = Math.abs(rowYValues[i] - yValue);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    this.col = closestIndex;
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Handle switching from another trace.
+   * Implements special handling for switching from violin box plot layer
+   * to preserve both violin position (X) and Y value.
+   *
+   * @param previousTrace - The trace we're switching from
+   * @returns true if handled (switching from violin box plot), false otherwise
+   */
+  public onSwitchFrom(previousTrace: Trace): boolean {
+    // Check if switching from violin box plot
+    const prevTraceAny = previousTrace as any;
+    const prevLayer = prevTraceAny.layer;
+    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
+    
+    const isFromViolinBoxPlot = prevTraceType === 'box' && prevLayer?.violinLayer === 'box';
+    
+    if (!isFromViolinBoxPlot) {
+      return false; // Don't handle - use default behavior
+    }
+
+    // Get X and Y values from box plot
+    const xValue = previousTrace.getCurrentXValue();
+    const getCurrentYValueFn = (prevTraceAny as any).getCurrentYValue;
+    
+    if (typeof getCurrentYValueFn === 'function') {
+      const yValue = getCurrentYValueFn.call(prevTraceAny);
+      
+      if (yValue !== null && xValue !== null) {
+        // Use moveToXAndYValue to preserve both violin position and Y level
+        return this.moveToXAndYValue(xValue, yValue);
+      }
+    }
+
+    // Fallback: if Y value extraction failed, just set X position
+    // ViolinKdeTrace extends SmoothTrace which has moveToXValue
+    if (xValue !== null) {
+      const success = this.moveToXValue(xValue as number);
+      return success; // Return true if move was successful
+    }
+
+    return false; // Let context handle default behavior
   }
 }
 
