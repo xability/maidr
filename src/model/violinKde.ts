@@ -554,7 +554,7 @@ export class ViolinKdeTrace extends SmoothTrace {
 
     // Get X and Y values from box plot
     const xValue = previousTrace.getCurrentXValue();
-    
+
     if (previousTrace.getCurrentYValue) {
       const yValue = previousTrace.getCurrentYValue();
 

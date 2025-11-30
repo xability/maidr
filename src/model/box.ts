@@ -37,7 +37,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // - Regular box plots only contain BOX layers
     // - Regular smooth plots (regression lines) only contain SMOOTH layers
     // - Violin plots are the only plot type that combines both in the same subplot
-    // 
+    //
     // Edge case: If a subplot intentionally combines an independent box plot and regression line,
     // this detection would incorrectly identify it as a violin plot. This is rare in practice.
     this.isViolinBoxPlot = allLayers !== undefined
@@ -814,7 +814,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     // Get X and Y values from KDE layer
     const xValue = previousTrace.getCurrentXValue();
-    
+
     if (previousTrace.getCurrentYValue) {
       const yValue = previousTrace.getCurrentYValue();
 

@@ -352,14 +352,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Handle switching from another trace.
    * Called by Context when switching layers. Traces can implement this
    * to handle special layer switching behavior (e.g., preserving Y values).
-   * 
+   *
    * IMPORTANT CONTRACT:
    * - If this method returns true, it MUST have modified the trace position appropriately.
    * - If this method returns false, it MUST NOT modify the trace position at all.
    *   The Context will then apply default behavior (moveToXValue) after this returns.
-   * 
+   *
    * @param previousTrace - The trace we're switching from
-   * @returns true if this trace handled the switch (and modified position), 
+   * @returns true if this trace handled the switch (and modified position),
    *          false to use default behavior (position must remain unchanged)
    */
   onSwitchFrom?: (previousTrace: Trace) => boolean;

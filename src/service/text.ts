@@ -165,10 +165,10 @@ export class TextService implements Observer<PlotState>, Disposable {
       // Exclude cross value for violin box plots during layer switch
       // Violin plots are uniquely identified by having exactly 2 layers: BOX + SMOOTH (KDE)
       // Detection heuristic: box plot (traceType === 'box') with exactly 2 layers (size === 2)
-      // 
+      //
       // Note: This is a structural detection heuristic. While it works well in practice because:
       // - Regular box plots typically have only 1 layer
-      // - Regular smooth plots (regression lines) typically have only 1 layer  
+      // - Regular smooth plots (regression lines) typically have only 1 layer
       // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
       // Edge case: If a subplot intentionally combines an independent box plot and regression line,
       // this would incorrectly exclude the cross value. This is rare in practice.
