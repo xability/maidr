@@ -542,7 +542,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     const duration = DEFAULT_DURATION;
     const freqRange = this.getFrequencyRange();
     const baseVolume = this.getVolume();
-    
+
     // Use volumeScale if provided (0-1 range), otherwise use volumeMultiplier
     // volumeScale takes precedence as it's the newer approach (following Independent_Study)
     let currentVolume: number;
@@ -584,7 +584,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
 
     // Gain envelope - use shared ADSR helper function
     const gainNode = ctx.createGain();
-    
+
     const envelope = this.createAdsrEnvelope(
       gainNode,
       paletteEntry,

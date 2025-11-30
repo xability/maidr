@@ -179,7 +179,7 @@ export class Context implements Disposable {
 
       // Default behavior for layer switches: just preserve X value
       newTrace.moveToXValue(currentXValue);
-      
+
       if (!newTrace.state.empty) {
         const index = activeSubplot.getRow() + 1;
         const size = activeSubplot.getSize();

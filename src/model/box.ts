@@ -1,13 +1,13 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
+import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Trace } from './plot';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import type { Trace } from './plot';
 import { AbstractTrace } from './abstract';
 
 export class BoxTrace extends AbstractTrace<number[] | number> {
@@ -790,9 +790,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     const prevTraceAny = previousTrace as any;
     const prevLayer = prevTraceAny.layer;
     const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
-    
+
     const isFromViolinKdeLayer = prevTraceType === 'smooth' && prevLayer?.violinLayer === 'kde';
-    
+
     if (!isFromViolinKdeLayer) {
       return false; // Don't handle - use default behavior
     }
@@ -800,10 +800,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // Get X and Y values from KDE layer
     const xValue = previousTrace.getCurrentXValue();
     const getCurrentYValueFn = (prevTraceAny as any).getCurrentYValue;
-    
+
     if (typeof getCurrentYValueFn === 'function') {
       const yValue = getCurrentYValueFn.call(prevTraceAny);
-      
+
       if (yValue !== null && xValue !== null) {
         // Use moveToXAndYValue to preserve both violin position and Y level
         return this.moveToXAndYValue(xValue, yValue);
