@@ -321,6 +321,22 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   moveToXValue: (xValue: any) => boolean;
 
   /**
+   * Get the current Y value from the trace.
+   * Optional method implemented by traces that support Y value preservation during layer switching.
+   * @returns The current Y value or null if not available
+   */
+  getCurrentYValue?: () => number | null;
+
+  /**
+   * Move to a specific X value and find the closest position with the given Y value.
+   * Optional method implemented by traces that support preserving both X and Y values during layer switching.
+   * @param xValue The X value to move to
+   * @param yValue The Y value to find the closest matching position for
+   * @returns true if the move was successful, false otherwise
+   */
+  moveToXAndYValue?: (xValue: any, yValue: number) => boolean;
+
+  /**
    * Notify observers that the trace is out of bounds
    */
   notifyOutOfBounds: () => void;
@@ -336,8 +352,15 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Handle switching from another trace.
    * Called by Context when switching layers. Traces can implement this
    * to handle special layer switching behavior (e.g., preserving Y values).
+   * 
+   * IMPORTANT CONTRACT:
+   * - If this method returns true, it MUST have modified the trace position appropriately.
+   * - If this method returns false, it MUST NOT modify the trace position at all.
+   *   The Context will then apply default behavior (moveToXValue) after this returns.
+   * 
    * @param previousTrace - The trace we're switching from
-   * @returns true if this trace handled the switch, false to use default behavior
+   * @returns true if this trace handled the switch (and modified position), 
+   *          false to use default behavior (position must remain unchanged)
    */
   onSwitchFrom?: (previousTrace: Trace) => boolean;
 }

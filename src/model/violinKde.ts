@@ -12,6 +12,21 @@ import { SmoothTrace } from './smooth';
 const MIN_DENSITY_RANGE = 0.001;
 
 /**
+ * Extended point type for violin KDE plots.
+ * Extends LinePoint with optional properties for SVG coordinates and width calculation.
+ */
+interface ViolinKdePoint extends LinePoint {
+  /** SVG X coordinate for precise element positioning */
+  svg_x?: number;
+  /** SVG Y coordinate for precise element positioning */
+  svg_y?: number;
+  /** Pre-calculated width of the violin at this Y level (in data coordinates) */
+  width?: number;
+  /** Density value for volume scaling */
+  density?: number;
+}
+
+/**
  * Specialized trace for violin plot KDE layers.
  * Overrides navigation so that:
  * - Left/Right arrows switch between violins (row changes)
@@ -22,11 +37,22 @@ export class ViolinKdeTrace extends SmoothTrace {
     super(layer);
   }
 
-  public isMovable(direction: MovableDirection): boolean {
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    // Handle direct position targeting [row, col]
+    if (Array.isArray(target)) {
+      const [row, col] = target;
+      return (
+        row >= 0
+        && row < this.points.length
+        && col >= 0
+        && col < (this.points[row]?.length || 0)
+      );
+    }
+
     // Swapped navigation for violin plots:
     // - FORWARD/BACKWARD check row bounds (switch between violins)
     // - UPWARD/DOWNWARD check col bounds (traverse along curve)
-    switch (direction) {
+    switch (target) {
       case 'FORWARD':
         return this.row < this.points.length - 1;
       case 'BACKWARD':
@@ -35,8 +61,6 @@ export class ViolinKdeTrace extends SmoothTrace {
         return this.col < this.points[this.row].length - 1;
       case 'DOWNWARD':
         return this.col > 0;
-      default:
-        return false;
     }
   }
 
@@ -170,9 +194,10 @@ export class ViolinKdeTrace extends SmoothTrace {
           let x: number;
           let y: number;
 
-          if ('svg_x' in point && 'svg_y' in point) {
-            x = (point as any).svg_x;
-            y = (point as any).svg_y;
+          const pointWithSvg = point as ViolinKdePoint;
+          if (typeof pointWithSvg.svg_x === 'number' && typeof pointWithSvg.svg_y === 'number') {
+            x = pointWithSvg.svg_x;
+            y = pointWithSvg.svg_y;
           } else if (typeof point.x === 'number' && typeof point.y === 'number') {
             x = point.x;
             y = point.y;
@@ -212,7 +237,7 @@ export class ViolinKdeTrace extends SmoothTrace {
 
     // Get volume (width) from pre-calculated value in point data
     // The backend calculates width in data coordinates using the original numeric X coordinates
-    const currentPointWithWidth = currentPoint as any;
+    const currentPointWithWidth = currentPoint as ViolinKdePoint;
     let volume: number | undefined;
 
     // Check if width is pre-calculated and stored in the point data
@@ -222,12 +247,11 @@ export class ViolinKdeTrace extends SmoothTrace {
       // Fallback: Calculate from SVG coordinates if width not available
       // This should not happen if backend is working correctly
       const yTolerance = 0.01;
-      const currentPointWithSvg = currentPoint as any;
-      const currentSvgY = typeof currentPointWithSvg.svg_y === 'number' ? currentPointWithSvg.svg_y : null;
+      const currentSvgY = typeof currentPointWithWidth.svg_y === 'number' ? currentPointWithWidth.svg_y : null;
 
       const svgXAtSameY: number[] = [];
       for (const point of currentRow) {
-        const pointWithSvg = point as any;
+        const pointWithSvg = point as ViolinKdePoint;
         const pointY = Number(point.y);
         const pointSvgY = typeof pointWithSvg.svg_y === 'number' ? pointWithSvg.svg_y : null;
 
@@ -307,14 +331,19 @@ export class ViolinKdeTrace extends SmoothTrace {
     }
 
     // Extract density values from reference violin (row 0) for consistent pitch
-    const referenceDensityValues = referenceRowPoints.map((point: any) => {
+    const referenceDensityValues = referenceRowPoints.map((point: ViolinKdePoint) => {
       // Try density property first, then fall back to width
       return point.density ?? point.width ?? 0;
     });
 
     // Calculate min/max density for reference violin
-    const referenceDensityMin = Math.min(...referenceDensityValues.filter(d => d > 0));
-    const referenceDensityMax = Math.max(...referenceDensityValues);
+    const positiveDensityValues = referenceDensityValues.filter((d: number) => d > 0);
+    if (positiveDensityValues.length === 0) {
+      // No positive density values; fallback to parent implementation
+      return super.audio();
+    }
+    const referenceDensityMin = Math.min(...positiveDensityValues);
+    const referenceDensityMax = referenceDensityValues.length > 0 ? Math.max(...referenceDensityValues) : 0;
 
     // Safety check: if min === max, add a small range to avoid division by zero
     const safeDensityMin = referenceDensityMin === referenceDensityMax
@@ -343,15 +372,16 @@ export class ViolinKdeTrace extends SmoothTrace {
 
     let volumeScale = 1.0; // Default to full volume
     if (currentPoint) {
-      const currentPointAny = currentPoint as any;
-      const currentDensity = currentPointAny.density ?? currentPointAny.width ?? 0;
+      const currentPointWithDensity = currentPoint as ViolinKdePoint;
+      const currentDensity = currentPointWithDensity.density ?? currentPointWithDensity.width ?? 0;
 
       // Calculate min/max density for current violin to normalize volume
-      const currentDensityValues = currentRowPoints.map((point: any) => {
+      const currentDensityValues = currentRowPoints.map((point: ViolinKdePoint) => {
         return point.density ?? point.width ?? 0;
       });
-      const currentDensityMin = Math.min(...currentDensityValues.filter(d => d > 0));
-      const currentDensityMax = Math.max(...currentDensityValues);
+      const filteredDensityValues = currentDensityValues.filter((d: number) => d > 0);
+      const currentDensityMin = filteredDensityValues.length > 0 ? Math.min(...filteredDensityValues) : 0;
+      const currentDensityMax = currentDensityValues.length > 0 ? Math.max(...currentDensityValues) : 0;
 
       // Normalize current density to 0-1 range for volumeScale
       if (currentDensityMax > 0 && typeof currentDensity === 'number' && currentDensity > 0) {
@@ -524,12 +554,11 @@ export class ViolinKdeTrace extends SmoothTrace {
 
     // Get X and Y values from box plot
     const xValue = previousTrace.getCurrentXValue();
-    const getCurrentYValueFn = (prevTraceAny as any).getCurrentYValue;
+    
+    if (previousTrace.getCurrentYValue) {
+      const yValue = previousTrace.getCurrentYValue();
 
-    if (typeof getCurrentYValueFn === 'function') {
-      const yValue = getCurrentYValueFn.call(prevTraceAny);
-
-      if (yValue !== null && xValue !== null) {
+      if (yValue !== null && xValue !== null && this.moveToXAndYValue) {
         // Use moveToXAndYValue to preserve both violin position and Y level
         return this.moveToXAndYValue(xValue, yValue);
       }

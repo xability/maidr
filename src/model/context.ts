@@ -156,6 +156,9 @@ export class Context implements Disposable {
       // Try to let the new trace handle the layer switch
       // This allows trace classes to optionally implement special layer switching behavior
       // (e.g., preserving Y values when switching between layers)
+      // IMPORTANT: onSwitchFrom should only modify trace position if it returns true.
+      // If it returns false, it must leave the trace position unchanged so the default
+      // behavior (moveToXValue) can be applied safely.
       if (typeof newTrace.onSwitchFrom === 'function') {
         const handled = newTrace.onSwitchFrom(currentTrace);
         if (handled) {

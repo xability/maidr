@@ -32,6 +32,14 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super(layer);
 
     // Structural detection: BOX + SMOOTH in same subplot = violin plot
+    // This approach avoids plot-specific metadata in the general MaidrLayer interface.
+    // It works well in practice because:
+    // - Regular box plots only contain BOX layers
+    // - Regular smooth plots (regression lines) only contain SMOOTH layers
+    // - Violin plots are the only plot type that combines both in the same subplot
+    // 
+    // Edge case: If a subplot intentionally combines an independent box plot and regression line,
+    // this detection would incorrectly identify it as a violin plot. This is rare in practice.
     this.isViolinBoxPlot = allLayers !== undefined
       && allLayers.some(l => l.type === TraceType.SMOOTH)
       && layer.type === TraceType.BOX;
@@ -94,8 +102,8 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * Helper method to check if this is a violin box plot
-   * Reduces duplication and improves type safety
+   * Helper method to check if this is a violin box plot.
+   * Provides a cleaner API and reduces code duplication.
    */
   private isViolin(): boolean {
     return this.isViolinBoxPlot;
@@ -806,12 +814,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
     // Get X and Y values from KDE layer
     const xValue = previousTrace.getCurrentXValue();
-    const getCurrentYValueFn = (prevTraceAny as any).getCurrentYValue;
+    
+    if (previousTrace.getCurrentYValue) {
+      const yValue = previousTrace.getCurrentYValue();
 
-    if (typeof getCurrentYValueFn === 'function') {
-      const yValue = getCurrentYValueFn.call(prevTraceAny);
-
-      if (yValue !== null && xValue !== null) {
+      if (yValue !== null && xValue !== null && this.moveToXAndYValue) {
         // Use moveToXAndYValue to preserve both violin position and Y level
         return this.moveToXAndYValue(xValue, yValue);
       }

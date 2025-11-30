@@ -543,8 +543,8 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     const freqRange = this.getFrequencyRange();
     const baseVolume = this.getVolume();
 
-    // Use volumeScale if provided (0-1 range), otherwise use volumeMultiplier
-    // volumeScale takes precedence as it's the newer approach (following Independent_Study)
+    // Use volumeScale if provided (normalized 0-1 range), otherwise use volumeMultiplier.
+    // volumeScale takes precedence as the preferred approach; volumeMultiplier is kept for backward compatibility.
     let currentVolume: number;
     if (volumeScale !== undefined) {
       currentVolume = baseVolume * Math.max(0, volumeScale);

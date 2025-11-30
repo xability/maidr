@@ -163,11 +163,15 @@ export class TextService implements Observer<PlotState>, Disposable {
         parts.push(`${state.text.main.label} is ${state.text.main.value}`);
       }
       // Exclude cross value for violin box plots during layer switch
-      // Violin plots have exactly 2 layers (box + kde), so we check if:
-      // 1. It's a box plot (traceType === 'box')
-      // 2. There are exactly 2 layers (size === 2), which indicates a violin plot
-      // This heuristic ensures we only exclude cross values for violin box plots,
-      // not for regular box plots that might be in multi-layer scenarios with more layers
+      // Violin plots are uniquely identified by having exactly 2 layers: BOX + SMOOTH (KDE)
+      // Detection heuristic: box plot (traceType === 'box') with exactly 2 layers (size === 2)
+      // 
+      // Note: This is a structural detection heuristic. While it works well in practice because:
+      // - Regular box plots typically have only 1 layer
+      // - Regular smooth plots (regression lines) typically have only 1 layer  
+      // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
+      // Edge case: If a subplot intentionally combines an independent box plot and regression line,
+      // this would incorrectly exclude the cross value. This is rare in practice.
       const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
       if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
         parts.push(`${state.text.cross.label} is ${state.text.cross.value}`);
