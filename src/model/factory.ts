@@ -12,13 +12,13 @@ import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 
 export abstract class TraceFactory {
-  public static create(layer: MaidrLayer): Trace {
+  public static create(layer: MaidrLayer, allLayers?: MaidrLayer[]): Trace {
     switch (layer.type) {
       case TraceType.BAR:
         return new BarTrace(layer);
 
       case TraceType.BOX:
-        return new BoxTrace(layer);
+        return new BoxTrace(layer, allLayers);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);
@@ -36,7 +36,7 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return createSmoothTrace(layer);
+        return createSmoothTrace(layer, allLayers);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:
