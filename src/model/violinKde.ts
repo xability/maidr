@@ -163,12 +163,6 @@ export class ViolinKdeTrace extends SmoothTrace {
         }
       }
 
-      // If no element found, skip this violin (no hardcoded fallback)
-      if (!primaryElement) {
-        elementsByViolin.push([]);
-        continue;
-      }
-
       if (primaryElement && dataPoints) {
         // Use the data points (which have svg_x/svg_y) to create circle elements for highlighting
         for (const point of dataPoints) {
@@ -517,12 +511,12 @@ export class ViolinKdeTrace extends SmoothTrace {
    * @returns true if handled (switching from violin box plot), false otherwise
    */
   public onSwitchFrom(previousTrace: Trace): boolean {
-    // Check if switching from violin box plot
+    // Check if switching from violin box plot (BOX type)
+    // Since we're in ViolinKdeTrace, if switching from BOX type in same subplot, it's the violin box plot
     const prevTraceAny = previousTrace as any;
-    const prevLayer = prevTraceAny.layer;
     const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
 
-    const isFromViolinBoxPlot = prevTraceType === 'box' && prevLayer?.violinLayer === 'box';
+    const isFromViolinBoxPlot = prevTraceType === 'box';
 
     if (!isFromViolinBoxPlot) {
       return false; // Don't handle - use default behavior

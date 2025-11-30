@@ -4,7 +4,7 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Trace } from './plot';
 import { BoxplotSection } from '@type/boxplotSection';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -26,8 +26,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(layer: MaidrLayer) {
+  private readonly isViolinBoxPlot: boolean;
+
+  constructor(layer: MaidrLayer, allLayers?: MaidrLayer[]) {
     super(layer);
+
+    // Structural detection: BOX + SMOOTH in same subplot = violin plot
+    this.isViolinBoxPlot = allLayers !== undefined
+      && allLayers.some(l => l.type === TraceType.SMOOTH)
+      && layer.type === TraceType.BOX;
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
@@ -86,6 +93,14 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
+  /**
+   * Helper method to check if this is a violin box plot
+   * Reduces duplication and improves type safety
+   */
+  private isViolin(): boolean {
+    return this.isViolinBoxPlot;
+  }
+
   public dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
@@ -108,10 +123,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    */
   public moveOnce(direction: MovableDirection): void {
     // Only apply special behavior for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    const isViolinBoxPlot = layer?.violinLayer === 'box';
-
-    if (!isViolinBoxPlot) {
+    if (!this.isViolin()) {
       // For regular box plots, use parent implementation
       super.moveOnce(direction);
       return;
@@ -512,7 +524,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    * Override to return the violin index (numeric) for layer switching.
    * For violin box plots (vertical): col represents violin index.
    * For violin box plots (horizontal): row represents violin index.
-   * Only applicable for violin box plots (violinLayer === 'box').
+   * Only applicable for violin box plots.
    *
    * @returns The violin index as a number for violin box plots. For vertical box plots, returns the column index.
    *          For horizontal box plots, returns the row index. For regular box plots, returns the parent implementation
@@ -520,8 +532,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    */
   public getCurrentXValue(): XValue | null {
     // Only applicable for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    if (layer?.violinLayer !== 'box') {
+    if (!this.isViolin()) {
       // Not a violin box plot, use parent implementation
       return super.getCurrentXValue();
     }
@@ -543,8 +554,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    */
   public moveToXValue(xValue: XValue): boolean {
     // Only apply special behavior for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    if (layer?.violinLayer !== 'box') {
+    if (!this.isViolin()) {
       // For regular box plots, use parent implementation
       return super.moveToXValue(xValue);
     }
@@ -611,7 +621,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   /**
    * Get the current Y value from the box plot.
    * This is used when switching to KDE layer to preserve the Y level.
-   * Only applicable for violin box plots (violinLayer === 'box').
+   * Only applicable for violin box plots.
    *
    * @returns The current Y value from the box plot section at the current position.
    *          For outliers (arrays), returns the first value. Returns null if the position
@@ -619,8 +629,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    */
   public getCurrentYValue(): number | null {
     // Only applicable for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    if (layer?.violinLayer !== 'box') {
+    if (!this.isViolin()) {
       return null;
     }
 
@@ -658,7 +667,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   /**
    * Move to a specific violin (X value) and find the closest box plot section
    * with the given Y value. This is used when switching from KDE layer to preserve Y level.
-   * Only applicable for violin box plots (violinLayer === 'box').
+   * Only applicable for violin box plots.
    *
    * @param xValue - The violin index (X value) to move to. Must be a numeric index.
    *                 String values are not supported.
@@ -669,8 +678,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    */
   public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
     // Only applicable for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    if (layer?.violinLayer !== 'box') {
+    if (!this.isViolin()) {
       return false;
     }
 
@@ -774,24 +782,23 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
    * Handle switching from another trace.
    * Implements special handling for switching from violin KDE layer
    * to preserve both violin position (X) and Y value.
-   * Only applicable for violin box plots (violinLayer === 'box').
+   * Only applicable for violin box plots.
    *
    * @param previousTrace - The trace we're switching from
    * @returns true if handled (switching from violin KDE to violin box), false otherwise
    */
   public onSwitchFrom(previousTrace: Trace): boolean {
     // Only applicable for violin box plots
-    const layer = (this as any).layer as MaidrLayer | undefined;
-    if (layer?.violinLayer !== 'box') {
+    if (!this.isViolin()) {
       return false; // Not a violin box plot, use default behavior
     }
 
-    // Check if switching from violin KDE layer
+    // Check if switching from violin KDE layer (SMOOTH type)
+    // Since we're in violin box plot, if switching from SMOOTH type in same subplot, it's the violin KDE
     const prevTraceAny = previousTrace as any;
-    const prevLayer = prevTraceAny.layer;
     const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
 
-    const isFromViolinKdeLayer = prevTraceType === 'smooth' && prevLayer?.violinLayer === 'kde';
+    const isFromViolinKdeLayer = prevTraceType === 'smooth';
 
     if (!isFromViolinKdeLayer) {
       return false; // Don't handle - use default behavior

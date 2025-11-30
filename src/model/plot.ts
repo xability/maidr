@@ -204,7 +204,8 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     const layers = subplot.layers;
     this.size = layers.length;
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    // Pass all layers to factory so traces can detect violin plots by structure
+    this.traces = layers.map(layer => [TraceFactory.create(layer, layers)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
