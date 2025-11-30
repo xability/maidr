@@ -163,18 +163,10 @@ export class ViolinKdeTrace extends SmoothTrace {
         }
       }
 
-      // Fallback: if selector didn't match, try finding by group ID pattern
-      if (!primaryElement && isNewFormat) {
-        const groupIdMatch = selector.match(/g\[id=['"]([^'"]+)['"]\]/);
-        if (groupIdMatch) {
-          const groupId = groupIdMatch[1];
-          const groupElement = document.querySelector(`g[id='${groupId}']`);
-          if (groupElement) {
-            const useEl = groupElement.querySelector('use');
-            const pathEl = groupElement.querySelector('defs > path');
-            primaryElement = (useEl || pathEl) as SVGElement;
-          }
-        }
+      // If no element found, skip this violin (no hardcoded fallback)
+      if (!primaryElement) {
+        elementsByViolin.push([]);
+        continue;
       }
 
       if (primaryElement && dataPoints) {
