@@ -16,28 +16,33 @@ import { Svg } from "@util/svg";
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
 export class HighlightService
-  implements Observer<HighlightStateUnion>, Disposable
+  implements Observer<HighlightStateUnion>, Observer<Settings>, Disposable
 {
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
   private currentHighlightColor: string;
+  private readonly settingsSerivice: SettingsService;
 
   private highContrastMode: boolean = false;
   private defaultBackgroundColor: string = "";
   private defaultForegroundColor: string = "";
-  private readonly highContrastLightColor: string = "#ffffff"; // default to white
-  private readonly highContrastDarkColor: string = "#000000"; // default to black
-  private readonly highContrastLevels: number = 2; // default to 2 levels (black and white)
+  private highContrastLightColor: string = "#ffffff"; // default to white
+  private highContrastDarkColor: string = "#000000"; // default to black
+  private highContrastLevels: number = 2; // default to 2 levels (black and white)
 
   public constructor(settings: SettingsService) {
+    this.settingsSerivice = settings;
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
-    const initialSettings = settings.loadSettings();
+    const initialSettings = this.settingsSerivice.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
     this.highContrastLevels = initialSettings.general.highContrastLevels;
     this.highContrastLightColor =
       initialSettings.general.highContrastLightColor;
     this.highContrastDarkColor = initialSettings.general.highContrastDarkColor;
+
+    // Register as observer to listen for settings changes
+    this.settingsSerivice.addObserver(this);
   }
 
   public dispose(): void {
@@ -62,7 +67,13 @@ export class HighlightService
   }
 
   private handleSettingsUpdate(settings: Settings): void {
+    // update if settings stuff changed
+
     this.currentHighlightColor = settings.general.highlightColor;
+    this.highContrastLevels = settings.general.highContrastLevels;
+    this.highContrastLightColor = settings.general.highContrastLightColor;
+    this.highContrastDarkColor = settings.general.highContrastDarkColor;
+    this.highContrastMode = settings.general.highContrastMode;
   }
 
   private handleStateUpdate(
@@ -127,8 +138,9 @@ export class HighlightService
 
     const svgElements = svg.querySelectorAll("*");
 
-    if (this.highContrastMode) {
-      this.highContrastMode = false;
+    if (!this.highContrastMode) {
+      // turn off high contrast mode, restore original colors
+
       document.body.style.backgroundColor = this.defaultBackgroundColor;
       document.body.style.color = this.defaultForegroundColor;
 
@@ -182,7 +194,8 @@ export class HighlightService
         }
       });
     } else {
-      this.highContrastMode = true;
+      // turn on high contrast mode
+
       const bodyStyle = window.getComputedStyle(document.body);
       this.defaultBackgroundColor = bodyStyle.backgroundColor;
       this.defaultForegroundColor = bodyStyle.color;
@@ -192,7 +205,12 @@ export class HighlightService
       // add text shadow filter, if it doesn't exist
       this.addGlowShadowFilter(svg);
 
-      displayService.plot.setAttribute("style", "fill:white");
+      // text stuff, like axis labels, titles, etc
+      displayService.plot.setAttribute(
+        "style",
+        "fill:" + this.highContrastDarkColor,
+      );
+
       svgElements.forEach((el) => {
         // Handle style fill/stroke
         const style = el.getAttribute("style") || "";
@@ -221,7 +239,7 @@ export class HighlightService
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
-            const newFill = this.toGrayscaleStep(
+            const newFill = this.toColorStep(
               originalFill,
               this.highContrastLevels,
               context,
@@ -245,7 +263,7 @@ export class HighlightService
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
-            const newStroke = this.toGrayscaleStep(
+            const newStroke = this.toColorStep(
               originalStroke,
               this.highContrastLevels,
               context,
@@ -271,7 +289,7 @@ export class HighlightService
           } else {
             el.setAttribute(
               "fill",
-              this.toGrayscaleStep(
+              this.toColorStep(
                 attrFill,
                 this.highContrastLevels,
                 context,
@@ -294,7 +312,7 @@ export class HighlightService
           } else {
             el.setAttribute(
               "stroke",
-              this.toGrayscaleStep(
+              this.toColorStep(
                 attrStroke,
                 this.highContrastLevels,
                 context,
@@ -399,21 +417,21 @@ export class HighlightService
     defs.appendChild(filter);
   }
 
-  private toGrayscaleStep(
+  private toColorStep(
     value: string,
     numLevels: number,
     context: Context,
     isComplexPath: boolean,
   ): string {
-    // we redo the color and convert it to grayscale using the number of levels supplied, returning a new color
+    // we redo the color using the number of levels supplied, returning a new color
     // So, numLevels = 2 means black and white, numLevels = 255 means full grayscale.
-    // Inbetween we choose the closest color to the grayscale value.
+    // Inbetween we choose the closest color to the hue value.
     // We also do 'close to white' so we differentiate between white and near white
     // as sometimes (ie bar) the main bar color is super close to white but we don't want it the same
     // as the background color.
 
     // todo:
-    // need to still use the full grayscale range,
+    // need to still use the full range,
     // so, take in all colors and adjust to the max range.
     // we need the selector to be able to do this
 
