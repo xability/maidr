@@ -10,6 +10,7 @@ import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Alert,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -273,7 +274,7 @@ const Settings: React.FC = () => {
 
   const handleGeneralChange = (
     key: keyof GeneralSettings,
-    value: string | number | AriaMode,
+    value: string | number | AriaMode | boolean,
   ): void => {
     // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
@@ -438,6 +439,56 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'High Contrast Levels',
+                          min: 2,
+                          max: 20,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Light Color"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highContrastLightColor}
+                    onChange={e =>
+                      handleGeneralChange('highContrastLightColor', e.target.value)}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Light Color',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Dark Color"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highContrastDarkColor}
+                    onChange={e =>
+                      handleGeneralChange('highContrastDarkColor', e.target.value)}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Dark Color',
                         },
                       },
                     }}

@@ -1,10 +1,10 @@
-import type { DisplayService } from '@service/display';
-import type { StorageService } from '@service/storage';
-import type { Observable, Observer } from '@type/observable';
-import type { Settings } from '@type/settings';
-import { Scope } from '@type/event';
+import type { DisplayService } from "@service/display";
+import type { StorageService } from "@service/storage";
+import type { Observable, Observer } from "@type/observable";
+import type { Settings } from "@type/settings";
+import { Scope } from "@type/event";
 
-const SETTINGS_KEY = 'maidr-settings';
+const SETTINGS_KEY = "maidr-settings";
 
 export class SettingsService implements Observable<Settings> {
   private readonly storage: StorageService;
@@ -22,35 +22,38 @@ export class SettingsService implements Observable<Settings> {
     this.defaultSettings = {
       general: {
         volume: 50,
-        highlightColor: '#03c809',
+        highlightColor: "#03c809",
+        highContrastMode: false,
         highContrastLevels: 2,
+        highContrastLightColor: "#ffffff",
+        highContrastDarkColor: "#000000",
         brailleDisplaySize: 32,
         minFrequency: 200,
         maxFrequency: 1000,
         autoplayDuration: 4000,
-        ariaMode: 'assertive',
+        ariaMode: "assertive",
       },
       llm: {
-        expertiseLevel: 'basic',
-        customInstruction: '',
+        expertiseLevel: "basic",
+        customInstruction: "",
         models: {
           OPENAI: {
             enabled: false,
-            apiKey: '',
-            name: 'OpenAI',
-            version: 'gpt-4o',
+            apiKey: "",
+            name: "OpenAI",
+            version: "gpt-4o",
           },
           ANTHROPIC_CLAUDE: {
             enabled: false,
-            apiKey: '',
-            name: 'Anthropic Claude',
-            version: 'claude-3-7-sonnet-latest',
+            apiKey: "",
+            name: "Anthropic Claude",
+            version: "claude-3-7-sonnet-latest",
           },
           GOOGLE_GEMINI: {
             enabled: false,
-            apiKey: '',
-            name: 'Google Gemini',
-            version: 'gemini-2.0-flash',
+            apiKey: "",
+            name: "Google Gemini",
+            version: "gemini-2.0-flash",
           },
         },
       },
@@ -69,7 +72,7 @@ export class SettingsService implements Observable<Settings> {
   }
 
   public removeObserver(observer: Observer<Settings>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
+    this.observers = this.observers.filter((obs) => obs !== observer);
   }
 
   public notifyStateUpdate(): void {

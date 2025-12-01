@@ -12,7 +12,6 @@ import type {
 } from "@type/state";
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
-import { light } from "@mui/material/styles/createPalette";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
@@ -26,7 +25,9 @@ export class HighlightService
   private highContrastMode: boolean = false;
   private defaultBackgroundColor: string = "";
   private defaultForegroundColor: string = "";
-  private highContrastLevels: number = 2; // default to 2 levels (black and white)
+  private readonly highContrastLightColor: string = "#ffffff"; // default to white
+  private readonly highContrastDarkColor: string = "#000000"; // default to black
+  private readonly highContrastLevels: number = 2; // default to 2 levels (black and white)
 
   public constructor(settings: SettingsService) {
     this.highlightedElements = new Map();
@@ -34,6 +35,9 @@ export class HighlightService
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
     this.highContrastLevels = initialSettings.general.highContrastLevels;
+    this.highContrastLightColor =
+      initialSettings.general.highContrastLightColor;
+    this.highContrastDarkColor = initialSettings.general.highContrastDarkColor;
   }
 
   public dispose(): void {
@@ -104,17 +108,19 @@ export class HighlightService
     context: Context,
     displayService: DisplayService,
   ): void {
-    // toggle with 'c'
+    // toggle high contrast mode on/off
+    // triggered by hotkey 'c' through factory / toggle
 
-    // todo: add to settings, and save state
-    // also, use 008A00 as default highlight color during high contrast mode
+    this.highContrastMode = !this.highContrastMode;
+    this.updateContrastDisplay(context, displayService);
+  }
 
-    // todo: some lines in candle being tagged as background color
-    // see if we can adjust the nearly white detection to fix that
-    // and if not, make an exception, find the identifier, and force not black
+  private updateContrastDisplay(
+    context: Context,
+    displayService: DisplayService,
+  ): void {
+    // todo, use 008A00 as default highlight color during high contrast mode
 
-    const lightColor = "#ffffff";
-    const darkColor = "#000000"; // todo, put these in class vars (or settings), and use in toGrayScaleStep
     const svg = displayService.plot;
 
     if (!svg) return;
@@ -180,8 +186,8 @@ export class HighlightService
       const bodyStyle = window.getComputedStyle(document.body);
       this.defaultBackgroundColor = bodyStyle.backgroundColor;
       this.defaultForegroundColor = bodyStyle.color;
-      document.body.style.backgroundColor = darkColor;
-      document.body.style.color = lightColor;
+      document.body.style.backgroundColor = this.highContrastDarkColor;
+      document.body.style.color = this.highContrastLightColor;
 
       // add text shadow filter, if it doesn't exist
       this.addGlowShadowFilter(svg);
@@ -207,7 +213,10 @@ export class HighlightService
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${lightColor}`);
+            newStyle = newStyle.replace(
+              /fill:[^;]+/i,
+              `fill:${this.highContrastLightColor}`,
+            );
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
@@ -230,7 +239,7 @@ export class HighlightService
           if (this.hasParentWithTextId(el)) {
             newStyle = newStyle.replace(
               /stroke:[^;]+/i,
-              `stroke:${lightColor}`,
+              `stroke:${this.highContrastLightColor}`,
             );
 
             // add an attribute 'filter' for black shadow to the element
@@ -255,7 +264,7 @@ export class HighlightService
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            el.setAttribute("fill", lightColor);
+            el.setAttribute("fill", this.highContrastLightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
@@ -278,7 +287,7 @@ export class HighlightService
 
           // skip text elements, do white text with text shadow black
           if (this.hasParentWithTextId(el)) {
-            el.setAttribute("stroke", lightColor);
+            el.setAttribute("stroke", this.highContrastLightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
