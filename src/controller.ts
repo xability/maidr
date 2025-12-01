@@ -173,26 +173,30 @@ export class Controller implements Disposable {
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
     });
-    this.mousebinding = new Mousebindingservice({
-      context: this.context,
+    this.mousebinding = new Mousebindingservice(
+      {
+        context: this.context,
 
-      audioService: this.audioService,
-      autoplayService: this.autoplayService,
-      highlightService: this.highlightService,
-      settingsService: this.settingsService,
-      displayService: this.displayService,
-      rotorNavigationService: this.rotorNavigationService,
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        highlightService: this.highlightService,
+        settingsService: this.settingsService,
+        displayService: this.displayService,
 
-      brailleViewModel: this.brailleViewModel,
-      chatViewModel: this.chatViewModel,
-      commandPaletteViewModel: this.commandPaletteViewModel,
-      goToExtremaViewModel: this.goToExtremaViewModel,
-      helpViewModel: this.helpViewModel,
-      reviewViewModel: this.reviewViewModel,
-      settingsViewModel: this.settingsViewModel,
-      textViewModel: this.textViewModel,
-      rotorNavigationViewModel: this.rotorNavigationViewModel,
-    });
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
+        rotorNavigationService: this.rotorNavigationService,
+      },
+      this.settingsService,
+      this.displayService,
+    );
 
     this.commandExecutor = new CommandExecutor(
       {
@@ -247,7 +251,7 @@ export class Controller implements Disposable {
 
   public dispose(): void {
     this.keybinding.unregister();
-    this.mousebinding.unregister();
+    this.mousebinding.dispose();
 
     ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();

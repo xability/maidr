@@ -1,5 +1,10 @@
 import type { CommandContext } from "@command/command";
+import type { DisplayService } from "@service/display";
+import type { SettingsService } from "@service/settings";
+import type { Disposable } from "@type/disposable";
 import type { Keys } from "@type/event";
+import type { Observer } from "@type/observable";
+import type { Settings } from "@type/settings";
 import { CommandFactory } from "@command/factory";
 import { Scope } from "@type/event";
 import { Constant } from "@util/constant";
@@ -288,29 +293,77 @@ export class KeybindingService {
   }
 }
 
-export class Mousebindingservice {
+export class Mousebindingservice implements Observer<Settings>, Disposable {
   private mouseListener!: (event: MouseEvent) => void;
 
   private readonly commandContext: CommandContext;
+  private hoverMode: string = "none";
+  private readonly plot: HTMLElement;
+  private readonly settingsService: SettingsService;
 
-  public constructor(commandContext: CommandContext) {
+  public constructor(
+    commandContext: CommandContext,
+    settingsService: SettingsService,
+    displayService: DisplayService,
+  ) {
     this.commandContext = commandContext;
+    this.settingsService = settingsService;
+    const initialSettings = settingsService.loadSettings();
+    this.hoverMode = initialSettings.general.hoverMode;
+    this.plot = displayService.plot;
+
+    // Register as observer to listen for settings changes
+    this.settingsService.addObserver(this);
   }
 
   public registerEvents(): void {
-    this.mouseListener = (event: MouseEvent) => {
-      const x = event.clientX;
-      const y = event.clientY;
+    // Create the mouse listener if it doesn't exist
+    if (!this.mouseListener) {
+      this.mouseListener = (event: MouseEvent) => {
+        const x = event.clientX;
+        const y = event.clientY;
 
-      this.commandContext.context.moveToPoint(x, y);
-    };
+        this.commandContext.context.moveToPoint(x, y);
+      };
+    }
 
-    document.addEventListener("pointermove", this.mouseListener);
+    // Remove any existing listeners first to avoid duplicates
+    this.removeEventListeners();
+
+    // Add appropriate listeners based on hover mode
+    if (this.hoverMode === "pointermove") {
+      this.plot.addEventListener("pointermove", this.mouseListener);
+    } else if (this.hoverMode === "click") {
+      this.plot.addEventListener("click", this.mouseListener);
+    }
+  }
+
+  private removeEventListeners(): void {
+    if (this.mouseListener) {
+      this.plot.removeEventListener("pointermove", this.mouseListener);
+      this.plot.removeEventListener("click", this.mouseListener);
+    }
   }
 
   public unregister(): void {
-    if (this.mouseListener) {
-      document.removeEventListener("pointermove", this.mouseListener);
+    this.removeEventListeners();
+  }
+
+  // Observer pattern implementation
+  public update(settings: Settings): void {
+    const newHoverMode = settings.general.hoverMode;
+
+    // Only update if the hover mode has changed
+    if (this.hoverMode !== newHoverMode) {
+      this.hoverMode = newHoverMode;
+
+      // Re-register events with the new hover mode
+      this.registerEvents();
     }
+  }
+
+  public dispose(): void {
+    this.unregister();
+    this.settingsService.removeObserver(this);
   }
 }

@@ -39,6 +39,9 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   private readonly minX: number;
   private readonly maxX: number;
@@ -84,6 +87,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(
       layer.selectors as string,
     );
+    this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
   public dispose(): void {
@@ -394,6 +398,26 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.notifyStateUpdate();
   }
 
+  public moveToIndex(row: number, col: number): void {
+    if (this.mode === NavMode.COL) {
+      if (row >= 0 && row < this.xPoints.length) {
+        this.col = row;
+        this.row = 0;
+        this.notifyStateUpdate();
+      } else {
+        this.notifyOutOfBounds();
+      }
+    } else {
+      if (col >= 0 && col < this.yPoints.length) {
+        this.col = col;
+        this.row = 0;
+        this.notifyStateUpdate();
+      } else {
+        this.notifyOutOfBounds();
+      }
+    }
+  }
+
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       return false;
@@ -471,11 +495,87 @@ export class ScatterTrace extends AbstractTrace<number> {
     return [sortedXElements, sortedYElements];
   }
 
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightXValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
   public findNearestPoint(
     _x: number,
     _y: number,
   ): { element: SVGElement; row: number; col: number } | null {
-    // to implement later
-    return null;
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      return null;
+    }
+
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - _x, center.y - _y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex === -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  public moveToPoint(x: number, y: number): void {
+    // set to vertical mode
+    this.mode = NavMode.COL;
+
+    const nearest = this.findNearestPoint(x, y);
+    if (nearest) {
+      if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
+        this.moveToIndex(nearest.row, nearest.col);
+      }
+    }
   }
 }

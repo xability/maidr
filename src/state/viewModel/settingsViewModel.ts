@@ -17,6 +17,7 @@ const initialState: SettingsState = {
     maxFrequency: 1000,
     autoplayDuration: 4000,
     ariaMode: 'assertive',
+    hoverMode: 'pointermove',
   },
   llm: {
     expertiseLevel: 'basic',

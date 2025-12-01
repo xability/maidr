@@ -4,6 +4,8 @@ export type AriaMode = "assertive" | "polite";
 
 export type ExpertiseLevel = "basic" | "intermediate" | "advanced" | "custom";
 
+export type HoverMode = 'off' | 'pointermove' | 'click';
+
 export interface LlmModelSettings {
   name: string;
   apiKey: string;
@@ -30,6 +32,7 @@ export interface GeneralSettings {
   maxFrequency: number;
   autoplayDuration: number;
   ariaMode: AriaMode;
+  hoverMode: HoverMode;
 }
 
 export interface Settings {

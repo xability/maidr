@@ -591,6 +591,7 @@ export class BrailleService
       [TraceType.HISTOGRAM, new BarBrailleEncoder()],
       [TraceType.LINE, new LineBrailleEncoder()],
       [TraceType.NORMALIZED, new BarBrailleEncoder()],
+      [TraceType.SMOOTH, new LineBrailleEncoder()],
       [TraceType.STACKED, new BarBrailleEncoder()],
     ]);
 
