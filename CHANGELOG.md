@@ -12,6 +12,13 @@
 
 * braille architecture chnage ([#481](https://github.com/xability/maidr/issues/481)) ([60c2c18](https://github.com/xability/maidr/commit/60c2c1867c7e970eccd338fb268d2753a2723cf1))
 
+# [3.38.0](https://github.com/xability/maidr/compare/v3.37.0...v3.38.0) (2025-12-02)
+
+
+### Features
+
+* braille architecture chnage ([#481](https://github.com/xability/maidr/issues/481)) ([60c2c18](https://github.com/xability/maidr/commit/60c2c1867c7e970eccd338fb268d2753a2723cf1))
+
 # [3.37.0](https://github.com/xability/maidr/compare/v3.36.3...v3.37.0) (2025-11-13)
 
 
