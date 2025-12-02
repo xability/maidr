@@ -10,7 +10,7 @@ const Braille: React.FC = () => {
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
-
+  // Handle Selection Change
   const handleSelectionChange = (event: Event): void => {
     const textArea = event.target as HTMLTextAreaElement;
     const newIndex = textArea.selectionStart;
