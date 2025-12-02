@@ -1,57 +1,38 @@
-import { resolve } from 'node:path';
-import react from '@vitejs/plugin-react';
+import path from 'node:path';
 import { defineConfig } from 'vite';
 
-const config: ReturnType<typeof defineConfig> = defineConfig(({ mode, command }) => {
-  const isProd = mode === 'production';
-  // Use 'examples' as root in dev for HMR with example HTML files
-  return {
-    plugins: [
-      react(),
-      {
-        name: 'inject-hot-reload-script',
-        transformIndexHtml(html, ctx) {
-          if (!ctx || !ctx.path.endsWith('.html') || isProd)
-            return html;
-          return html.replace('<script src="../dist/maidr.js"></script>', '<script type="module" src="/main.ts"></script>');
-        },
-      },
-    ],
-    root: command === 'serve' ? 'examples' : '.',
-    resolve: {
-      alias: {
-        '@command': resolve(__dirname, 'src/command'),
-        '@model': resolve(__dirname, 'src/model'),
-        '@state': resolve(__dirname, 'src/state'),
-        '@service': resolve(__dirname, 'src/service'),
-        '@type': resolve(__dirname, 'src/type'),
-        '@ui': resolve(__dirname, 'src/ui'),
-        '@util': resolve(__dirname, 'src/util'),
+export default defineConfig({
+  build: {
+    lib: {
+      entry: path.resolve(__dirname, 'src/index.ts'),
+      name: 'maidr',
+      formats: ['es', 'umd'],
+      fileName: () => `maidr.js`,
+    },
+    sourcemap: true,
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') {
+          return;
+        }
+        warn(warning);
       },
     },
-    build: {
-      outDir: 'dist',
-      emptyOutDir: true,
-      sourcemap: !isProd, // Source maps in dev only
-      minify: isProd,
-      rollupOptions: {
-        input: [
-          resolve(__dirname, 'src/index.ts'),
-        ],
-        output: {
-          entryFileNames: 'maidr.js',
-          chunkFileNames: 'maidr.[name].js',
-          assetFileNames: 'maidr.[name][extname]',
-        },
-      },
+  },
+  define: {
+    'process.env': {},
+  },
+  resolve: {
+    alias: {
+      '@command': path.resolve(__dirname, 'src/command'),
+      '@model': path.resolve(__dirname, 'src/model'),
+      '@state': path.resolve(__dirname, 'src/state'),
+      '@service': path.resolve(__dirname, 'src/service'),
+      '@type': path.resolve(__dirname, 'src/type'),
+      '@ui': path.resolve(__dirname, 'src/ui'),
+      '@util': path.resolve(__dirname, 'src/util'),
     },
-    define: {
-      'process.env.NODE_ENV': JSON.stringify(mode),
-    },
-    server: {
-      open: '/index.html',
-    },
-  };
+  },
 });
-
-export default config;
