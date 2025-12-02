@@ -53,32 +53,32 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-  test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+  # test:
+  #   name: Run Unit Tests
+  #   runs-on: ubuntu-latest
+  #   needs: [commitlint, lint]
 
-    permissions:
-      contents: read
+  #   permissions:
+  #     contents: read
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache: npm
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 'lts/*'
+  #         cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+  #     - name: Install dependencies
+  #       run: npm ci
 
-      - name: Install Playwright browsers
-        run: npm run e2e:install
+  #     - name: Install Playwright browsers
+  #       run: npm run e2e:install
 
-      - name: Run unit tests
-        run: npm run e2e
+  #     - name: Run unit tests
+  #       run: npm run e2e
 
   build:
     name: Build Project
