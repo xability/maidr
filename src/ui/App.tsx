@@ -3,16 +3,22 @@ import { useViewModelState } from '@state/hook/useViewModel';
 import { store } from '@state/store';
 import React from 'react';
 import { Provider } from 'react-redux';
-import Braille from './pages/Braille';
-import Chat from './pages/Chat';
-import Help from './pages/Help';
-import Review from './pages/Review';
-import Settings from './pages/Settings';
-import Text from './pages/Text';
+import Braille from './component/Braille';
+import Chat from './component/Chat';
+import CommandPalette from './component/CommandPalette';
+import Help from './component/Help';
+import Review from './component/Review';
+import Settings from './component/Settings';
+import Text from './component/Text';
+import Tooltip from './component/Tooltip';
+import { GoToExtrema } from './components/GoToExtrema';
 
-const App: React.FC = () => {
-  const { enabled, message } = useViewModelState('text');
-  const { focus } = useViewModelState('display');
+interface AppProps {
+  plot: HTMLElement;
+}
+
+const App: React.FC<AppProps> = ({ plot }) => {
+  const { focus, tooltip } = useViewModelState('display');
 
   const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
     switch (focused) {
@@ -21,6 +27,12 @@ const App: React.FC = () => {
 
       case 'CHAT':
         return <Chat />;
+
+      case 'COMMAND_PALETTE':
+        return <CommandPalette />;
+
+      case 'GO_TO_EXTREMA':
+        return <GoToExtrema />;
 
       case 'HELP':
         return <Help />;
@@ -38,14 +50,17 @@ const App: React.FC = () => {
 
   return (
     <>
-      {(enabled || message) && <Text />}
+      {tooltip.visible && <Tooltip plot={plot} />}
+      <Text />
       {renderFocusedComponent(focus)}
     </>
   );
 };
 
-export const MaidrApp: React.JSX.Element = (
-  <Provider store={store}>
-    <App />
-  </Provider>
-);
+export function MaidrApp(plot: HTMLElement): React.JSX.Element {
+  return (
+    <Provider store={store}>
+      <App plot={plot} />
+    </Provider>
+  );
+}

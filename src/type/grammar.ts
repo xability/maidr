@@ -1,3 +1,9 @@
+/**
+ * Represents the trend direction for candlestick data points.
+ * Used across the application for audio palette selection and data representation.
+ */
+export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
+
 export interface Maidr {
   id: string;
   title?: string;
@@ -8,6 +14,7 @@ export interface Maidr {
 
 export interface MaidrSubplot {
   legend?: string[];
+  selector?: string;
   layers: MaidrLayer[];
 }
 
@@ -43,7 +50,8 @@ export interface CandlestickPoint {
   low: number;
   close: number;
   volume: number;
-  trend: 'Bull' | 'Bear' | 'Neutral';
+  trend: CandlestickTrend;
+  volatility: number;
 }
 
 export interface HeatmapData {
@@ -74,17 +82,57 @@ export interface SegmentedPoint extends BarPoint {
   fill: string;
 }
 
+export interface SmoothPoint {
+  x: number;
+  y: number;
+  svg_x: number;
+  svg_y: number;
+}
+
 export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
+}
+
+export interface CandlestickSelector {
+  body: string | string[];
+  wickHigh?: string | string[];
+  wickLow?: string | string[];
+  wick?: string | string[]; // single combined wick (high-to-low) line
+  open?: string | string[];
+  close?: string | string[];
 }
 
 export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[];
+  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
+  /**
+   * Optional DOM mapping hints. When provided, individual traces can opt-in
+   * to use these hints to map DOM elements to the internal row-major data grid
+   * without changing default behavior when omitted.
+   */
+  domMapping?: {
+    /**
+     * Specify DOM flattening order for grid-like traces.
+     * 'row' => row-major, 'column' => column-major.
+     */
+    order?: 'row' | 'column';
+    /**
+     * For segmented/dodged bars, control the per-column group/level iteration.
+     * 'forward' => iterate groups top-to-bottom (as previously domOrder='forward').
+     * 'reverse' => iterate bottom-to-top (default).
+     */
+    groupDirection?: 'forward' | 'reverse';
+    /**
+     * For boxplots, control the Q1/Q3 edge mapping for IQR box.
+     * 'forward' => Q1=bottom, Q3=top (default for vertical)
+     * 'reverse' => Q1=top, Q3=bottom (for Base R vertical boxplots)
+     */
+    iqrDirection?: 'forward' | 'reverse';
+  };
   axes?: {
     x?: string;
     y?: string;
@@ -111,5 +159,6 @@ export enum TraceType {
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
   SCATTER = 'point',
+  SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
 }

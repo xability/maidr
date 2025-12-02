@@ -139,23 +139,54 @@ export abstract class Svg {
     return line;
   }
 
+  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
+  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
+  private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
+
+  private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
+    const parsed = value ? Number.parseFloat(value) : Number.NaN;
+    if (!Number.isNaN(parsed) && parsed > minThreshold) {
+      return parsed.toString();
+    }
+    return '1';
+  }
+
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+
+    const computed = window.getComputedStyle(element);
     const originalColor = isLineElement
-      ? window.getComputedStyle(element).getPropertyValue(Constant.STROKE)
-      : window.getComputedStyle(element).getPropertyValue(Constant.FILL);
+      ? computed.getPropertyValue(Constant.STROKE)
+      : computed.getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
+
+    const fillOpacity = computed.getPropertyValue('fill-opacity');
+    const strokeOpacity = computed.getPropertyValue('stroke-opacity');
+    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
+    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
 
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
     clone.setAttribute(Constant.STROKE, color);
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
     clone.style.stroke = color;
+
     if (isLineElement) {
       const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
-      clone.setAttribute(Constant.STROKE_WIDTH, `${strokeWidth + 2}`);
+      const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
+      if (match) {
+        const value = Number.parseFloat(match[1]);
+        const unit = match[2] || '';
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
+      } else {
+        const parsed = Number.parseFloat(strokeWidth);
+        const value = Number.isNaN(parsed)
+          ? this.STROKE_WIDTH_HIGHLIGHT_INCREASE
+          : parsed + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+        clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
+      }
     }
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);
@@ -168,12 +199,82 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    const invertedRgb = Color.invert(originalRgb);
-    const contrastRatio = Color.getContrastRatio(originalRgb, invertedRgb);
-    if (contrastRatio >= 4.5) {
-      return Color.rgbToString(invertedRgb);
+    const contrastWithWhite = Color.getContrastRatio(originalRgb, Constant.HIGHLIGHT_BASE_COLOR);
+    const isLight = contrastWithWhite < Constant.HIGHLIGHT_CONTRAST_RATIO;
+
+    // For dark colors, just use the fallback color
+    if (!isLight) {
+      return fallbackColor;
     }
 
-    return fallbackColor;
+    const modifiedRgb = { ...originalRgb };
+
+    // Check if the color is grayscale (R=G=B)
+    if (originalRgb.r === originalRgb.g && originalRgb.g === originalRgb.b) {
+      // For grayscale, modify all channels uniformly
+      modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
+      modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+      modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+    } else {
+      // For non-grayscale colors, modify only the dominant channel
+      if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
+        modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
+      } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
+        modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+      } else {
+        modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+      }
+    }
+
+    return Color.rgbToString(modifiedRgb);
+  }
+
+  public static getContrastingColorForElement(element: SVGElement): string {
+    const fill = window.getComputedStyle(element).fill || 'rgb(255,255,255)';
+    const rgb = Color.parse(fill);
+    if (!rgb)
+      return '#000';
+    const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    return luminance > 0.5 ? '#000' : '#fff';
+  }
+
+  public static setSubplotHighlightCss(element: SVGElement, color: string): void {
+    element.style.outline = `4px solid ${color}`;
+    element.style.outlineOffset = '3px';
+    element.style.borderRadius = '3px';
+    element.style.overflow = 'visible';
+  }
+
+  public static removeSubplotHighlightCss(element: SVGElement): void {
+    element.style.removeProperty('outline');
+    element.style.removeProperty('outline-offset');
+    element.style.removeProperty('border-radius');
+    element.style.removeProperty('overflow');
+  }
+
+  public static setSubplotHighlightSvgWithAdaptiveColor(group: SVGElement, fallbackColor: string, figureBgElement?: SVGElement): void {
+    const bg = group.querySelector('rect, path') as SVGElement | null;
+    let originalColor = '';
+    if (bg) {
+      originalColor = window.getComputedStyle(bg).getPropertyValue('fill');
+      if (!originalColor || originalColor === 'none' || originalColor === 'transparent' || originalColor === 'rgba(0, 0, 0, 0)') {
+        if (figureBgElement) {
+          originalColor = window.getComputedStyle(figureBgElement).getPropertyValue('fill');
+        } else {
+          originalColor = fallbackColor;
+        }
+      }
+      const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+      bg.setAttribute('stroke', highlightColor);
+      bg.setAttribute('stroke-width', '4');
+    }
+  }
+
+  public static removeSubplotHighlightSvg(group: SVGElement): void {
+    const bg = group.querySelector('rect, path') as SVGElement | null;
+    if (bg) {
+      bg.removeAttribute('stroke');
+      bg.removeAttribute('stroke-width');
+    }
   }
 }

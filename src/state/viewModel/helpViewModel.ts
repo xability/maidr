@@ -42,6 +42,7 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
   }
 
   public dispose(): void {
+    super.dispose();
     this.store.dispatch(reset());
   }
 

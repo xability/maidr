@@ -8,7 +8,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     super(layer, [layer.data as HistogramPoint[]]);
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -16,8 +16,42 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const max = isVertical ? point.xMax : point.yMax;
 
     return {
-      ...super.text(),
+      ...super.text,
       range: { min, max },
     };
+  }
+
+  /**
+   * Histogram specific implementation of moving to the next higher/lower value
+   * @param direction indicates the direction of search- left (before the current value) and right (after)
+   * @param type indicates the value to look for
+   * @returns boolean (true: if target was found, false: else)
+   */
+  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return false;
+    }
+
+    const groupValues = this.barValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+
+    return false;
   }
 }

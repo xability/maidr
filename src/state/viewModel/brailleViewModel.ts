@@ -3,7 +3,7 @@ import type { BrailleService } from '@service/braille';
 import type { AppStore } from '@state/store';
 import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { AbstractViewModel } from './viewModel';
 
 interface BrailleState {
   value: string;
@@ -39,8 +39,8 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   }
 
   public dispose(): void {
-    this.store.dispatch(reset());
     super.dispose();
+    this.store.dispatch(reset());
   }
 
   private registerListener(): void {

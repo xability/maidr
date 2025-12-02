@@ -1,5 +1,10 @@
 import type { CommandContext } from '@command/command';
+import type { DisplayService } from '@service/display';
+import type { SettingsService } from '@service/settings';
+import type { Disposable } from '@type/disposable';
 import type { Keys } from '@type/event';
+import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
 import { CommandFactory } from '@command/factory';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -47,6 +52,11 @@ const BRAILLE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+
 } as const;
 
 const CHAT_KEYMAP = {
@@ -55,7 +65,7 @@ const CHAT_KEYMAP = {
 } as const;
 
 const FIGURE_LABEL_KEYMAP = {
-  DEACTIVATE_FIGURE_LABEL_SCOPE: `*`,
+  DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_TITLE: `t`,
@@ -98,7 +108,7 @@ const SUBPLOT_KEYMAP = {
 } as const;
 
 const TRACE_LABEL_KEYMAP = {
-  DEACTIVATE_TRACE_LABEL_SCOPE: `*`,
+  DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
   DESCRIBE_X: `x`,
@@ -118,8 +128,7 @@ const REVIEW_KEYMAP = {
   TOGGLE_REVIEW: `r`,
 
   // Allowed actions
-  ALLOW_DEFAULT:
-    `up, down, left, right,
+  ALLOW_DEFAULT: `up, down, left, right,
     ${Platform.ctrl}+up, ${Platform.ctrl}+down,
     ${Platform.ctrl}+left, ${Platform.ctrl}+right,
     pageup, pagedown, home, end,
@@ -169,16 +178,46 @@ const TRACE_KEYMAP = {
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
   TOGGLE_CHAT: `shift+/`,
+  TOGGLE_COMMAND_PALETTE: `${Platform.ctrl}+shift+p`,
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
   DESCRIBE_POINT: `space`,
+
+  // Go To functionality
+  GO_TO_EXTREMA_TOGGLE: `g`,
+
+  // Go to point
+  MOVE_TO_INDEX: `click`,
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
+  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
 } as const;
 
-const SCOPED_KEYMAP = {
+const GO_TO_EXTREMA_KEYMAP = {
+  // Navigation within the modal
+  GO_TO_EXTREMA_MOVE_UP: 'up',
+  GO_TO_EXTREMA_MOVE_DOWN: 'down',
+  GO_TO_EXTREMA_SELECT: 'enter',
+  GO_TO_EXTREMA_CLOSE: 'esc',
+  GO_TO_EXTREMA_TOGGLE: 'g',
+} as const;
+
+const COMMAND_PALETTE_KEYMAP = {
+  // Navigation within the modal
+  COMMAND_PALETTE_MOVE_UP: 'up',
+  COMMAND_PALETTE_MOVE_DOWN: 'down',
+  COMMAND_PALETTE_SELECT: 'enter',
+  COMMAND_PALETTE_CLOSE: 'esc',
+} as const;
+
+export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
+  [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
+  [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,
@@ -248,5 +287,80 @@ export class KeybindingService {
 
   public unregister(): void {
     hotkeys.unbind();
+  }
+}
+
+export class Mousebindingservice implements Observer<Settings>, Disposable {
+  private mouseListener!: (event: MouseEvent) => void;
+
+  private readonly commandContext: CommandContext;
+  private hoverMode: string = 'none';
+  private readonly plot: HTMLElement;
+  private readonly settingsService: SettingsService;
+
+  public constructor(
+    commandContext: CommandContext,
+    settingsService: SettingsService,
+    displayService: DisplayService,
+  ) {
+    this.commandContext = commandContext;
+    this.settingsService = settingsService;
+    const initialSettings = settingsService.loadSettings();
+    this.hoverMode = initialSettings.general.hoverMode;
+    this.plot = displayService.plot;
+
+    // Register as observer to listen for settings changes
+    this.settingsService.addObserver(this);
+  }
+
+  public registerEvents(): void {
+    // Create the mouse listener if it doesn't exist
+    if (!this.mouseListener) {
+      this.mouseListener = (event: MouseEvent) => {
+        const x = event.clientX;
+        const y = event.clientY;
+
+        this.commandContext.context.moveToPoint(x, y);
+      };
+    }
+
+    // Remove any existing listeners first to avoid duplicates
+    this.removeEventListeners();
+
+    // Add appropriate listeners based on hover mode
+    if (this.hoverMode === 'pointermove') {
+      this.plot.addEventListener('pointermove', this.mouseListener);
+    } else if (this.hoverMode === 'click') {
+      this.plot.addEventListener('click', this.mouseListener);
+    }
+  }
+
+  private removeEventListeners(): void {
+    if (this.mouseListener) {
+      this.plot.removeEventListener('pointermove', this.mouseListener);
+      this.plot.removeEventListener('click', this.mouseListener);
+    }
+  }
+
+  public unregister(): void {
+    this.removeEventListeners();
+  }
+
+  // Observer pattern implementation
+  public update(settings: Settings): void {
+    const newHoverMode = settings.general.hoverMode;
+
+    // Only update if the hover mode has changed
+    if (this.hoverMode !== newHoverMode) {
+      this.hoverMode = newHoverMode;
+
+      // Re-register events with the new hover mode
+      this.registerEvents();
+    }
+  }
+
+  public dispose(): void {
+    this.unregister();
+    this.settingsService.removeObserver(this);
   }
 }

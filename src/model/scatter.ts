@@ -1,13 +1,11 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, AutoplayState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-
-enum NavMode {
-  COL = 'column',
-  ROW = 'row',
-}
+import { MovablePlane } from './movable';
 
 interface ScatterXPoint {
   x: number;
@@ -15,12 +13,18 @@ interface ScatterXPoint {
 }
 
 interface ScatterYPoint {
-  y: number;
   x: number[];
+  y: number;
+}
+enum NavMode {
+  COL = 'column',
+  ROW = 'row',
 }
 
-export class ScatterTrace extends AbstractTrace<number> {
+export class ScatterTrace extends AbstractTrace {
   private mode: NavMode;
+  protected readonly movable: MovablePlane;
+  protected readonly supportsExtrema = false;
 
   private readonly xPoints: ScatterXPoint[];
   private readonly yPoints: ScatterYPoint[];
@@ -30,6 +34,9 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
+  protected highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null;
 
   private readonly minX: number;
   private readonly maxX: number;
@@ -38,8 +45,8 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   public constructor(layer: MaidrLayer) {
     super(layer);
-
     this.mode = NavMode.COL;
+
     const data = layer.data as ScatterPoint[];
 
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
@@ -67,20 +74,23 @@ export class ScatterTrace extends AbstractTrace<number> {
     this.xValues = this.xPoints.map(p => p.x);
     this.yValues = this.yPoints.map(p => p.y);
 
-    this.minX = Math.min(...this.xValues);
-    this.maxX = Math.max(...this.xValues);
-    this.minY = Math.min(...this.yValues);
-    this.maxY = Math.max(...this.yValues);
+    this.minX = MathUtil.safeMin(this.xValues);
+    this.maxX = MathUtil.safeMax(this.xValues);
+    this.minY = MathUtil.safeMin(this.yValues);
+    this.maxY = MathUtil.safeMax(this.yValues);
 
-    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(layer.selectors as string);
+    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(
+      layer.selectors as string,
+    );
+    this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovablePlane(this.xPoints, this.yPoints);
   }
 
   public dispose(): void {
+    this.movable.dispose();
+
     this.xPoints.length = 0;
     this.yPoints.length = 0;
-
-    this.xValues.length = 0;
-    this.yValues.length = 0;
 
     if (this.highlightXValues) {
       this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
@@ -94,46 +104,100 @@ export class ScatterTrace extends AbstractTrace<number> {
     super.dispose();
   }
 
-  protected get values(): number[][] {
-    return this.mode === NavMode.COL ? [this.xValues] : [this.yValues];
-  }
-
   protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL ? this.highlightXValues : this.highlightYValues;
+    return this.movable.mode === 'col'
+      ? this.highlightXValues
+      : this.highlightYValues;
   }
 
-  protected audio(): AudioState {
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Rationale for returning empty object instead of groupIndex:
+    //
+    // Scatterplots fundamentally differ from other plot types in their grouping semantics:
+    // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
+    // - Heatmaps: groupIndex can represent different data dimensions
+    // - Scatterplots: Each point represents an individual observation, not a group
+    //
+    // Using groupIndex for scatterplots would cause different audio tones for what should be
+    // conceptually similar data points, potentially confusing users who expect consistent
+    // audio feedback when exploring point-by-point data.
+    //
+    // Future enhancement: When scatterplots support explicit multi-series data (e.g., different
+    // colors/shapes for distinct categories), this method should be updated to return the
+    // appropriate groupIndex for true categorical distinctions.
+    return {};
+  }
+
+  protected get values(): number[][] {
+    // Always return a 2D array with both X and Y values
+    // This ensures this.values[this.row] always exists
+    // The navigation logic in moveOnce and isMovable handles the mode-specific behavior
+    const result = [this.xValues, this.yValues];
+
+    // Safety check: ensure row is within bounds for the current mode
     if (this.mode === NavMode.COL) {
+      // In COL mode, row should be 0 since we navigate through xValues
+      if (this.row !== 0) {
+        this.row = 0;
+      }
+    } else {
+      // In ROW mode, row should be within yPoints bounds
+      if (this.row < 0 || this.row >= this.yPoints.length) {
+        this.row = 0;
+      }
+    }
+
+    return result;
+  }
+
+  protected get braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.values,
+      min: 0,
+      max: 0,
+      row: this.row,
+      col: this.col,
+    };
+  }
+
+  protected get audio(): AudioState {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
-        min: this.minY,
-        max: this.maxY,
-        size: current.y.length,
-        index: this.col,
-        value: current.y,
+        freq: {
+          raw: current.y,
+          min: this.minY,
+          max: this.maxY,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: current.y.length,
+          cols: this.xPoints.length,
+        },
       };
     } else {
       const current = this.yPoints[this.row];
       return {
-        min: this.minX,
-        max: this.maxX,
-        size: current.x.length,
-        index: this.row,
-        value: current.x,
+        freq: {
+          raw: current.x,
+          min: this.minX,
+          max: this.maxX,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: this.yPoints.length,
+          cols: current.x.length,
+        },
       };
     }
   }
 
-  protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
-    };
-  }
-
-  protected text(): TextState {
-    if (this.mode === NavMode.COL) {
+  protected get text(): TextState {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -148,33 +212,23 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  protected autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.yValues.length,
-      DOWNWARD: this.yValues.length,
-      FORWARD: this.xValues.length,
-      BACKWARD: this.xValues.length,
+      rows: this.yPoints.length,
+      cols: this.xPoints.length,
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     if (this.highlightValues === null) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
-    const elements = this.mode === NavMode.COL
+    const elements = this.movable.mode === 'col'
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {
@@ -183,34 +237,66 @@ export class ScatterTrace extends AbstractTrace<number> {
     };
   }
 
-  protected hasMultiPoints(): boolean {
+  protected get hasMultiPoints(): boolean {
     return true;
   }
 
+  protected handleInitialEntry(): void {
+    this.isInitialEntry = false;
+    // For scatter plots, start in COL mode with row=0, col=0
+    this.row = 0;
+    this.col = 0;
+    this.mode = NavMode.COL;
+  }
+
+  /**
+   * Toggles between COL and ROW navigation modes while maintaining logical position mapping
+   */
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
-      const currentX = this.xPoints[this.col];
-      const midY = currentX.y[Math.floor(currentX.y.length / 2)];
-      this.row = this.yValues.indexOf(midY);
+      // Switch from COL to ROW mode
+      const currentXPoint = this.xPoints[this.col];
+      const middleYValue
+        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
+      const targetRow = this.yValues.indexOf(middleYValue);
+
+      // Safety check: ensure the calculated row is valid
+      if (targetRow === -1 || targetRow >= this.yPoints.length) {
+        this.row = 0; // Use 0 as fallback
+      } else {
+        this.row = targetRow; // Use the calculated row to maintain logical connection
+      }
+
       this.mode = NavMode.ROW;
     } else {
-      const currentY = this.yPoints[this.row];
-      const midX = currentY.x[Math.floor(currentY.x.length / 2)];
-      this.col = this.xValues.indexOf(midX);
+      // Switch from ROW to COL mode
+      const currentYPoint = this.yPoints[this.row];
+      const middleXValue
+        = currentYPoint.x[Math.floor(currentYPoint.x.length / 2)];
+      const targetCol = this.xValues.indexOf(middleXValue);
+
+      // Safety check: ensure the calculated col is valid
+      if (targetCol === -1 || targetCol >= this.xPoints.length) {
+        this.col = 0;
+      } else {
+        this.col = targetCol;
+      }
+
       this.mode = NavMode.COL;
+      this.row = 0; // Set to 0 for COL mode since values[0] = xValues
     }
   }
 
-  public moveOnce(direction: MovableDirection): void {
+  public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     if (this.mode === NavMode.COL) {
@@ -242,10 +328,12 @@ export class ScatterTrace extends AbstractTrace<number> {
         }
       }
     }
+
     this.notifyStateUpdate();
+    return true;
   }
 
-  public moveToExtreme(direction: MovableDirection): void {
+  public moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -254,11 +342,11 @@ export class ScatterTrace extends AbstractTrace<number> {
       switch (direction) {
         case 'UPWARD':
           this.toggleNavigation();
-          this.row = this.yPoints.length - 1;
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
         case 'DOWNWARD':
           this.toggleNavigation();
-          this.row = 0;
+          this.row = 0; // Go to first Y coordinate
           break;
         case 'FORWARD':
           this.col = this.xPoints.length - 1;
@@ -270,10 +358,10 @@ export class ScatterTrace extends AbstractTrace<number> {
     } else {
       switch (direction) {
         case 'UPWARD':
-          this.row = this.yPoints.length - 1;
+          this.row = this.yPoints.length - 1; // Go to last Y coordinate
           break;
         case 'DOWNWARD':
-          this.row = 0;
+          this.row = 0; // Go to first Y coordinate
           break;
         case 'FORWARD':
           this.toggleNavigation();
@@ -286,6 +374,31 @@ export class ScatterTrace extends AbstractTrace<number> {
       }
     }
     this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveToIndex(row: number, col: number): boolean {
+    if (this.mode === NavMode.COL) {
+      if (row >= 0 && row < this.xPoints.length) {
+        this.col = row;
+        this.row = 0;
+        this.notifyStateUpdate();
+        return true;
+      } else {
+        this.notifyOutOfBounds();
+        return false;
+      }
+    } else {
+      if (col >= 0 && col < this.yPoints.length) {
+        this.col = col;
+        this.row = 0;
+        this.notifyStateUpdate();
+        return true;
+      } else {
+        this.notifyOutOfBounds();
+        return false;
+      }
+    }
   }
 
   public isMovable(target: [number, number] | MovableDirection): boolean {
@@ -295,20 +408,28 @@ export class ScatterTrace extends AbstractTrace<number> {
 
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD':
-          return this.col < this.xPoints.length - 1;
-        case 'BACKWARD':
-          return this.col > 0;
+        case 'FORWARD': {
+          const forwardResult = this.col < this.xPoints.length - 1;
+          return forwardResult;
+        }
+        case 'BACKWARD': {
+          const backwardResult = this.col > 0;
+          return backwardResult;
+        }
         case 'UPWARD':
         case 'DOWNWARD':
           return true;
       }
     } else {
       switch (target) {
-        case 'UPWARD':
-          return this.row < this.yPoints.length - 1;
-        case 'DOWNWARD':
-          return this.row > 0;
+        case 'UPWARD': {
+          const upwardResult = this.row < this.yPoints.length - 1;
+          return upwardResult;
+        }
+        case 'DOWNWARD': {
+          const downwardResult = this.row > 0;
+          return downwardResult;
+        }
         case 'FORWARD':
         case 'BACKWARD':
           return true;
@@ -316,7 +437,9 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  private mapToSvgElements(selector?: string): [SVGElement[][], SVGElement[][]] | [null, null] {
+  private mapToSvgElements(
+    selector?: string,
+  ): [SVGElement[][], SVGElement[][]] | [null, null] {
     if (!selector) {
       return [null, null];
     }
@@ -353,5 +476,89 @@ export class ScatterTrace extends AbstractTrace<number> {
       .map(([_, elements]) => elements);
 
     return [sortedXElements, sortedYElements];
+  }
+
+  protected mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightXValues;
+
+    if (!svgElements) {
+      return null;
+    }
+
+    const centers: {
+      x: number;
+      y: number;
+      row: number;
+      col: number;
+      element: SVGElement;
+    }[] = [];
+    for (let row = 0; row < svgElements.length; row++) {
+      for (let col = 0; col < svgElements[row].length; col++) {
+        const element = svgElements[row][col];
+        const targetElement = Array.isArray(element) ? element[0] : element;
+        if (targetElement) {
+          const bbox = targetElement.getBoundingClientRect();
+          centers.push({
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2,
+            row,
+            col,
+            element: targetElement,
+          });
+        }
+      }
+    }
+
+    return centers;
+  }
+
+  public findNearestPoint(
+    _x: number,
+    _y: number,
+  ): { element: SVGElement; row: number; col: number } | null {
+    // loop through highlightCenters to find nearest point
+    if (!this.highlightCenters) {
+      return null;
+    }
+
+    let nearestDistance = Infinity;
+    let nearestIndex = -1;
+
+    for (let i = 0; i < this.highlightCenters.length; i++) {
+      const center = this.highlightCenters[i];
+      const distance = Math.hypot(center.x - _x, center.y - _y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex === -1) {
+      return null;
+    }
+
+    return {
+      element: this.highlightCenters[nearestIndex].element,
+      row: this.highlightCenters[nearestIndex].row,
+      col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  public moveToPoint(x: number, y: number): void {
+    // set to vertical mode
+    this.mode = NavMode.COL;
+
+    const nearest = this.findNearestPoint(x, y);
+    if (nearest) {
+      if (this.isPointInBounds(x, y, nearest)) {
+        // don't move if we're already there
+        if (this.row === nearest.row && this.col === nearest.col) {
+          return;
+        }
+        this.moveToIndex(nearest.row, nearest.col);
+      }
+    }
   }
 }

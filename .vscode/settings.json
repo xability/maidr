@@ -1,25 +1,95 @@
 {
-  "typescript.tsdk": "./node_modules/typescript/lib",
+  // ====================================================================================
+  // EDITOR & FILE HYGIENE SETTINGS
+  // ====================================================================================
+
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/playwright-report": true,
+    "**/test-results": true
+  },
+
+  // ====================================================================================
+  // FORMATTING & LINTING SETTINGS
+  // ====================================================================================
+
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
   "eslint.options": {
     "configFile": "${workspaceFolder}/eslint.config.ts"
   },
   "eslint.enable": true,
   "eslint.run": "onSave",
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "always"
+  "eslint.validate": [
+    "javascript",
+    "typescript",
+    "typescriptreact",
+    "html",
+    "markdown",
+    "css"
+  ],
+
+  // ====================================================================================
+  // LANGUAGE-SPECIFIC SETTINGS
+  // ====================================================================================
+
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "[typescript][typescriptreact][javascript][json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+
+  // ====================================================================================
+  // GITHUB, CHAT & COPILOT INTEGRATION SETTINGS
+  // ====================================================================================
+
   "github.copilot.chat.codeGeneration.useInstructionFiles": true,
   "github.copilot.chat.commitMessageGeneration.instructions": [
     {
       "text": "Use conventional commit message format."
     }
   ],
-  "githubPullRequests.pullRequestDescription": "Copilot",
   "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
-    { "file": ".github/PULL_REQUEST_TEMPLATE.md" }
+    {
+      "file": ".github/PULL_REQUEST_TEMPLATE.md"
+    }
   ],
+  "github.copilot.chat.agent.thinkingTool": true,
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "github.copilot.chat.codesearch.enabled": true,
+  "github.copilot.chat.completionContext.typescript.mode": "on",
+  "github.copilot.chat.languageContext.fix.typescript.enabled": true,
+  "github.copilot.chat.languageContext.inline.typescript.enabled": true,
+  "github.copilot.chat.generateTests.codeLens": true,
+  "github.copilot.chat.enableUserPreferences": true,
+  "github.copilot.chat.editor.temporalContext.enabled": true,
+  "github.copilot.chat.startDebugging.enabled": true,
+  "github.copilot.chat.scopeSelection": true,
+  "chat.agent.enabled": true,
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": false,
+    "windsurf": false,
+    "cursor-global": false,
+    "cursor-workspace": false
+  },
+  "chat.agent.maxRequests": 1000,
+
+  "githubPullRequests.experimental.chat": true,
   "githubPullRequests.queries": [
+    {
+      "label": "Local Pull Request Branches",
+      "query": "default"
+    },
     {
       "label": "Waiting For My Review",
       "query": "repo:${owner}/${repository} is:open review-requested:${user}"
@@ -35,6 +105,10 @@
     {
       "label": "Mentioned Me",
       "query": "repo:${owner}/${repository} is:open mentions:${user}"
+    },
+    {
+      "label": "All Open",
+      "query": "default"
     }
   ]
 }

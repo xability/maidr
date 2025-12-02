@@ -2,10 +2,14 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Keys } from '@type/event';
@@ -30,6 +34,13 @@ import {
   DescribeXCommand,
   DescribeYCommand,
 } from './describe';
+import { GoToExtremaToggleCommand } from './goTo';
+import {
+  GoToExtremaCloseCommand,
+  GoToExtremaMoveDownCommand,
+  GoToExtremaMoveUpCommand,
+  GoToExtremaSelectCommand,
+} from './goToExtremaNavigation';
 import {
   MoveDownCommand,
   MoveLeftCommand,
@@ -45,9 +56,22 @@ import {
   MoveUpCommand,
 } from './move';
 import {
+  RotorNavigationMoveDownCommand,
+  RotorNavigationMoveLeftCommand,
+  RotorNavigationMoveRightCommand,
+  RotorNavigationMoveUpCommand,
+  RotorNavigationNextNavUnitCommand,
+  RotorNavigationPrevNavUnitCommand,
+} from './rotorNavigation';
+import {
+  CommandPaletteCloseCommand,
+  CommandPaletteMoveDownCommand,
+  CommandPaletteMoveUpCommand,
+  CommandPaletteSelectCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
+  ToggleCommandPaletteCommand,
   ToggleHelpCommand,
   ToggleReviewCommand,
   ToggleScopeCommand,
@@ -61,13 +85,16 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
-
+  private readonly rotorService: RotorNavigationService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
+  private readonly commandPaletteViewModel: CommandPaletteViewModel;
+  private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
+  private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
@@ -75,24 +102,40 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
+    this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
+    this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
+    this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
+        }
         return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
+        }
         return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
+        }
         return new MoveLeftCommand(this.context);
       case 'MOVE_RIGHT':
+        if (this.context.isRotorEnabled()) {
+          return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
+        }
         return new MoveRightCommand(this.context);
       case 'MOVE_TO_TOP_EXTREME':
         return new MoveToTopExtremeCommand(this.context);
@@ -125,9 +168,29 @@ export class CommandFactory {
         return new ToggleHelpCommand(this.helpViewModel);
       case 'TOGGLE_CHAT':
         return new ToggleChatCommand(this.chatViewModel);
+      case 'TOGGLE_COMMAND_PALETTE':
+        return new ToggleCommandPaletteCommand(this.commandPaletteViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
 
+      case 'GO_TO_EXTREMA_MOVE_UP':
+        return new GoToExtremaMoveUpCommand(this.goToExtremaViewModel);
+      case 'GO_TO_EXTREMA_MOVE_DOWN':
+        return new GoToExtremaMoveDownCommand(this.goToExtremaViewModel);
+      case 'GO_TO_EXTREMA_SELECT':
+        return new GoToExtremaSelectCommand(this.goToExtremaViewModel);
+      case 'GO_TO_EXTREMA_CLOSE':
+        return new GoToExtremaCloseCommand(this.goToExtremaViewModel);
+      case 'GO_TO_EXTREMA_TOGGLE':
+        return new GoToExtremaToggleCommand(this.context, this.goToExtremaViewModel);
+      case 'COMMAND_PALETTE_MOVE_UP':
+        return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_MOVE_DOWN':
+        return new CommandPaletteMoveDownCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_SELECT':
+        return new CommandPaletteSelectCommand(this.commandPaletteViewModel);
+      case 'COMMAND_PALETTE_CLOSE':
+        return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'DESCRIBE_X':
         return new DescribeXCommand(this.context, this.textViewModel);
       case 'DESCRIBE_Y':
@@ -135,7 +198,13 @@ export class CommandFactory {
       case 'DESCRIBE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
       case 'DESCRIBE_POINT':
-        return new DescribePointCommand(this.context, this.audioService, this.highlightService, this.brailleViewModel, this.textViewModel);
+        return new DescribePointCommand(
+          this.context,
+          this.audioService,
+          this.highlightService,
+          this.brailleViewModel,
+          this.textViewModel,
+        );
       case 'DESCRIBE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_SUBTITLE':
@@ -147,9 +216,9 @@ export class CommandFactory {
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
-
+      case 'DEACTIVATE_TRACE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.TRACE);
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_DOWNWARD':
@@ -166,7 +235,10 @@ export class CommandFactory {
         return new SpeedDownAutoplayCommand(this.autoplayService);
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
-
+      case 'ROTOR_NEXT_NAV':
+        return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
+      case 'ROTOR_PREV_NAV':
+        return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

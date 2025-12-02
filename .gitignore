@@ -154,11 +154,28 @@ out
 # Jetbrains
 .idea
 
-# Cypress content
-cypress/screenshots/
+# Local Netlify folder
+.netlify
 
-# VS Code
-.vscode
+# Playwright
+test-results/
+playwright-report/
+
+# VSCode
+.vscode/*
+# Keep specific VSCode configurations that should be shared
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/mcp.json
+
+#Zed
+.zed
 
 # Qodo AI
 .qodo
+
+# Playwright
+playwright-report/
+test-results/
