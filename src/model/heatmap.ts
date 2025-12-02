@@ -4,6 +4,9 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
+/**
+ * Heatmap model for visualizing 2D data matrices with color-coded values
+ */
 export class Heatmap extends AbstractTrace<number> {
   protected readonly supportsExtrema = false;
 
@@ -19,6 +22,10 @@ export class Heatmap extends AbstractTrace<number> {
   private readonly min: number;
   private readonly max: number;
 
+  /**
+   * Creates a new Heatmap instance from a MAIDR layer
+   * @param layer - The MAIDR layer containing heatmap data
+   */
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -35,6 +42,9 @@ export class Heatmap extends AbstractTrace<number> {
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
+  /**
+   * Cleans up resources and disposes of the heatmap instance
+   */
   public dispose(): void {
     this.heatmapValues.length = 0;
 
@@ -44,10 +54,18 @@ export class Heatmap extends AbstractTrace<number> {
     super.dispose();
   }
 
+  /**
+   * Gets the 2D array of heatmap values
+   * @returns The heatmap data matrix
+   */
   protected get values(): number[][] {
     return this.heatmapValues;
   }
 
+  /**
+   * Generates audio state for the current heatmap cell
+   * @returns Audio state with current value information
+   */
   protected audio(): AudioState {
     return {
       min: this.min,
@@ -58,6 +76,10 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
+  /**
+   * Generates braille state for the current heatmap cell
+   * @returns Braille state with values and position information
+   */
   protected braille(): BrailleState {
     return {
       empty: false,
@@ -70,6 +92,10 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
+  /**
+   * Generates text state for the current heatmap cell
+   * @returns Text state with axis labels and cell value
+   */
   protected text(): TextState {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
@@ -81,6 +107,11 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
+  /**
+   * Maps CSS selector to 2D array of SVG elements for heatmap cells
+   * @param selector - CSS selector for heatmap cell elements
+   * @returns 2D array of SVG elements or null
+   */
   private mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;
@@ -132,8 +163,7 @@ export class Heatmap extends AbstractTrace<number> {
   }
 
   /**
-   * Update the visual position of the current point
-   * This method should be called when navigation changes
+   * Updates the visual position of the current point to safe bounds
    */
   protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
@@ -143,12 +173,10 @@ export class Heatmap extends AbstractTrace<number> {
   }
 
   /**
-   * Moves the current selection to the next value in the specified direction
-   * that is either lower or higher than the current value, depending on the type.
-   *
-   * @param direction - The direction to move ('left', 'right', 'up', or 'down').
-   * @param type - The comparison type ('lower' or 'higher').
-   * @returns True if a suitable value was found and the selection was moved; otherwise, false.
+   * Moves to the next cell matching the comparison criteria in the specified direction
+   * @param direction - Direction to search (left, right, up, or down)
+   * @param type - Comparison type (lower or higher than current value)
+   * @returns True if a matching cell was found and moved to
    */
   public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     switch (direction) {
@@ -163,6 +191,12 @@ export class Heatmap extends AbstractTrace<number> {
     }
   }
 
+  /**
+   * Searches for a matching value in the current row
+   * @param direction - Search direction (left or right)
+   * @param type - Comparison type (lower or higher)
+   * @returns True if a matching value was found
+   */
   public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const cols = this.y.length;
     const current_col = this.col;
@@ -181,6 +215,12 @@ export class Heatmap extends AbstractTrace<number> {
     return false;
   }
 
+  /**
+   * Searches for a matching value in the current column
+   * @param direction - Search direction (up or down)
+   * @param type - Comparison type (lower or higher)
+   * @returns True if a matching value was found
+   */
   public search_in_col(direction: 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const rows = this.x.length;
     const current_row = this.row;
@@ -199,14 +239,28 @@ export class Heatmap extends AbstractTrace<number> {
     return false;
   }
 
+  /**
+   * Moves upward in rotor mode to find lower or higher values
+   * @param mode - Comparison mode (lower or higher)
+   * @returns True if movement was successful
+   */
   public override moveUpRotor(mode: 'lower' | 'higher'): boolean {
     return this.moveToNextCompareValue('up', mode);
   }
 
+  /**
+   * Moves downward in rotor mode to find lower or higher values
+   * @param mode - Comparison mode (lower or higher)
+   * @returns True if movement was successful
+   */
   public override moveDownRotor(mode: 'lower' | 'higher'): boolean {
     return this.moveToNextCompareValue('down', mode);
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for click navigation
+   * @returns Array of center coordinates with row/col indices or null
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -243,6 +297,12 @@ export class Heatmap extends AbstractTrace<number> {
     return centers;
   }
 
+  /**
+   * Finds the nearest heatmap cell to the given coordinates
+   * @param x - X coordinate
+   * @param y - Y coordinate
+   * @returns Nearest cell information or null
+   */
   public findNearestPoint(
     x: number,
     y: number,

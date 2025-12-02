@@ -32,6 +32,9 @@ import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewMo
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 
+/**
+ * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
+ */
 export class Controller implements Disposable {
   private readonly figure: Figure;
   private readonly context: Context;
@@ -67,6 +70,11 @@ export class Controller implements Disposable {
   private readonly mousebinding: Mousebindingservice;
   private readonly commandExecutor: CommandExecutor;
 
+  /**
+   * Initializes the controller with all necessary services, view models, and bindings.
+   * @param maidr - The MAIDR configuration object containing plot data and settings
+   * @param plot - The HTML element containing the plot to be made accessible
+   */
   public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
@@ -218,6 +226,9 @@ export class Controller implements Disposable {
     this.mousebinding.registerEvents();
   }
 
+  /**
+   * Announces the initial instruction to screen readers using a live region.
+   */
   public announceInitialInstruction(): void {
     // Prime the live region with an invisible separator to force a DOM-change event
     // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
@@ -229,10 +240,17 @@ export class Controller implements Disposable {
     }, 50);
   }
 
+  /**
+   * Retrieves the initial instruction text for the plot.
+   * @returns The initial instruction text
+   */
   public getInitialInstruction(): string {
     return this.displayService.getInstruction(false);
   }
 
+  /**
+   * Displays the initial instruction in the text view without announcing it to screen readers.
+   */
   public showInitialInstructionInText(): void {
     const text = this.displayService.getInstruction(false);
     // Keep initial instruction visual-only; enable announce later on first nav update
@@ -240,6 +258,9 @@ export class Controller implements Disposable {
     this.textViewModel.update(text);
   }
 
+  /**
+   * Cleans up all services, view models, and event listeners.
+   */
   public dispose(): void {
     this.keybinding.unregister();
     this.mousebinding.dispose();
@@ -269,6 +290,9 @@ export class Controller implements Disposable {
     this.figure.dispose();
   }
 
+  /**
+   * Registers all view models with the central registry for global access.
+   */
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
     ViewModelRegistry.instance.register('braille', this.brailleViewModel);
@@ -291,6 +315,9 @@ export class Controller implements Disposable {
     );
   }
 
+  /**
+   * Registers observers to the figure, subplots, and traces for state updates.
+   */
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);

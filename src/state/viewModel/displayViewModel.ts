@@ -5,11 +5,17 @@ import type { Focus } from '@type/event';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
+/**
+ * Represents the state of a tooltip UI element.
+ */
 interface TooltipState {
   visible: boolean;
   value: string;
 }
 
+/**
+ * Represents the state of display UI elements including focus and tooltips.
+ */
 interface DisplayState {
   focus: Focus | null;
   tooltip: TooltipState;
@@ -43,9 +49,17 @@ const displaySlice = createSlice({
 });
 const { hideTooltip, showTooltip, updateFocus, clearFocus } = displaySlice.actions;
 
+/**
+ * View model for managing display UI state including focus and tooltips.
+ */
 export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   private readonly displayService: DisplayService;
 
+  /**
+   * Creates a new DisplayViewModel instance and initializes display listeners.
+   * @param {AppStore} store - The Redux store instance.
+   * @param {DisplayService} displayService - The display service for managing UI elements.
+   */
   public constructor(store: AppStore, displayService: DisplayService) {
     super(store);
 
@@ -55,6 +69,9 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
     this.store.dispatch(hideTooltip());
   }
 
+  /**
+   * Disposes the view model, clears focus, and restores instruction tooltip.
+   */
   public dispose(): void {
     // Clear only focus to avoid wiping other display UI state
     this.store.dispatch(clearFocus());
@@ -62,12 +79,19 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
     super.dispose();
   }
 
+  /**
+   * Registers listeners to handle display service focus change events.
+   */
   private registerListeners(): void {
     this.disposables.push(this.displayService.onChange((e) => {
       this.store.dispatch(updateFocus(e.value));
     }));
   }
 
+  /**
+   * Gets the current display state from the store.
+   * @returns {DisplayState} The current display state.
+   */
   public get state(): DisplayState {
     return this.store.getState().display;
   }

@@ -7,8 +7,14 @@ import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
 
+/**
+ * Union type representing different plot hierarchy levels
+ */
 type Plot = Figure | Subplot | Trace;
 
+/**
+ * Context manager for maintaining navigation state across plot hierarchy levels
+ */
 export class Context implements Disposable {
   public readonly id: string;
   private readonly instructionContext: Plot;
@@ -18,6 +24,10 @@ export class Context implements Disposable {
   private readonly figure: Figure;
   private isRotorActive: boolean;
 
+  /**
+   * Creates a new Context instance for managing plot navigation state
+   * @param figure - The root figure to initialize context from
+   */
   public constructor(figure: Figure) {
     this.figure = figure;
     this.id = figure.id;
@@ -51,23 +61,33 @@ export class Context implements Disposable {
     this.plotContext.push(figure.activeSubplot.activeTrace);
   }
 
+  /**
+   * Cleans up resources and disposes of the context
+   */
   public dispose(): void {
     this.plotContext.clear();
     this.scopeContext.clear();
   }
 
+  /**
+   * Gets the currently active plot element in the context
+   * @returns The active plot (Figure, Subplot, or Trace)
+   */
   public get active(): Plot {
     return this.plotContext.peek()!;
   }
 
+  /**
+   * Gets the state of the currently active plot
+   * @returns Current plot state
+   */
   public get state(): PlotState {
     return this.active.state;
   }
 
   /**
-   * Enable or disable rotor navigation for the current context.
-   *
-   * @param enable - true to enable rotor mode, false to disable
+   * Enables or disables rotor navigation for the current context
+   * @param enable - True to enable rotor mode, false to disable
    */
   public setRotorEnabled(enable: boolean): void {
     this.isRotorActive = enable;
@@ -75,14 +95,17 @@ export class Context implements Disposable {
   }
 
   /**
-   * Return whether rotor navigation is currently enabled.
-   *
-   * @returns boolean
+   * Checks whether rotor navigation is currently enabled
+   * @returns True if rotor is enabled, false otherwise
    */
   public isRotorEnabled(): boolean {
     return this.isRotorActive;
   }
 
+  /**
+   * Toggles the navigation scope to the specified level
+   * @param scope - The scope to switch to
+   */
   public toggleScope(scope: Scope): void {
     // Clear the scope context and set the new scope
     this.scopeContext.clear();
@@ -91,44 +114,62 @@ export class Context implements Disposable {
     hotkeys.setScope(scope);
   }
 
+  /**
+   * Gets the current navigation scope
+   * @returns The current scope level
+   */
   public get scope(): Scope {
     const currentScope = this.scopeContext.peek()!;
     return currentScope;
   }
 
+  /**
+   * Checks if movement in the specified direction is possible
+   * @param direction - Direction to check
+   * @returns True if movement is possible
+   */
   public isMovable(direction: MovableDirection): boolean {
     return this.active.isMovable(direction);
   }
 
+  /**
+   * Moves the active plot element one step in the specified direction
+   * @param direction - Direction to move
+   */
   public moveOnce(direction: MovableDirection): void {
     this.active.moveOnce(direction);
   }
 
+  /**
+   * Moves the active plot element to an extreme position in the specified direction
+   * @param direction - Direction to move to extreme
+   */
   public moveToExtreme(direction: MovableDirection): void {
     this.active.moveToExtreme(direction);
   }
 
+  /**
+   * Moves the active plot element to a specific row and column index
+   * @param row - Row index to move to
+   * @param col - Column index to move to
+   */
   public moveToIndex(row: number, col: number): void {
     this.active.moveToIndex(row, col);
   }
 
   /**
-   * Moves the active plot element to the specified (x, y) point.
-   *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
-   * @remarks
-   * This method assumes that `this.active` is a valid object with a `moveToPoint` method.
-   * If `this.active` is `null` or does not implement `moveToPoint`, this method will do nothing.
-   *
-   * Limitations:
-   * - If `this.active` is `null` or `undefined`, the method will not perform any action.
-   * - If `this.active` does not implement `moveToPoint`, the method will not perform any action.
+   * Moves the active plot element to the specified (x, y) point
+   * @param x - The x-coordinate to move to
+   * @param y - The y-coordinate to move to
    */
   public moveToPoint(x: number, y: number): void {
     this.active.moveToPoint(x, y);
   }
 
+  /**
+   * Steps through traces in multi-layer plots while preserving X position
+   * @param direction - Direction to step through traces
+   */
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       this.plotContext.pop(); // Remove current Trace.
@@ -170,6 +211,9 @@ export class Context implements Disposable {
     }
   }
 
+  /**
+   * Enters subplot navigation mode from figure level
+   */
   public enterSubplot(): void {
     const activeState = this.active.state;
     if (activeState.type === 'figure') {
@@ -182,6 +226,9 @@ export class Context implements Disposable {
     }
   }
 
+  /**
+   * Exits subplot navigation mode and returns to figure level
+   */
   public exitSubplot(): void {
     if (this.plotContext.size() > 2) {
       this.plotContext.pop(); // Remove current Trace.
@@ -191,6 +238,11 @@ export class Context implements Disposable {
     }
   }
 
+  /**
+   * Generates instruction text for the current context level
+   * @param includeClickPrompt - Whether to include click activation prompt
+   * @returns Instruction text for the user
+   */
   public getInstruction(includeClickPrompt: boolean): string {
     const state = this.instructionContext.state;
     if (state.empty) {

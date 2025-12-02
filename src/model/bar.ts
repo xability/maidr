@@ -6,6 +6,10 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
+/**
+ * Abstract base class for bar plot traces supporting various bar chart types.
+ * Handles bar-specific navigation, extrema detection, and visual element mapping.
+ */
 export abstract class AbstractBarPlot<
   T extends BarPoint,
 > extends AbstractTrace<number> {
@@ -40,6 +44,9 @@ export abstract class AbstractBarPlot<
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
+  /**
+   * Cleans up bar plot resources including points and min/max arrays.
+   */
   public dispose(): void {
     this.points.length = 0;
 
@@ -49,10 +56,18 @@ export abstract class AbstractBarPlot<
     super.dispose();
   }
 
+  /**
+   * Gets the bar values as a 2D array.
+   * @returns The bar values array
+   */
   protected get values(): number[][] {
     return this.barValues;
   }
 
+  /**
+   * Gets the audio state for the current bar position.
+   * @returns The current AudioState
+   */
   protected audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const size = isVertical
@@ -74,6 +89,10 @@ export abstract class AbstractBarPlot<
     };
   }
 
+  /**
+   * Gets the braille state for the current bar position.
+   * @returns The current BrailleState
+   */
   protected braille(): BrailleState {
     return {
       empty: false,
@@ -86,6 +105,10 @@ export abstract class AbstractBarPlot<
     };
   }
 
+  /**
+   * Gets the text state for the current bar position.
+   * @returns The current TextState
+   */
   protected text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
@@ -102,6 +125,11 @@ export abstract class AbstractBarPlot<
     };
   }
 
+  /**
+   * Maps CSS selector to SVG elements representing bars in the plot.
+   * @param selector - Optional CSS selector string
+   * @returns 2D array of SVG elements or null if mapping fails
+   */
   protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;
@@ -120,6 +148,10 @@ export abstract class AbstractBarPlot<
     return svgElements;
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for proximity detection.
+   * @returns Array of center points with element references or null if no elements exist
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -156,6 +188,12 @@ export abstract class AbstractBarPlot<
     return centers;
   }
 
+  /**
+   * Finds the nearest bar element at the specified coordinates.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns Object containing the element and its position, or null if not found
+   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -188,7 +226,18 @@ export abstract class AbstractBarPlot<
   }
 }
 
+/**
+ * Concrete implementation of a bar trace for standard bar charts.
+ * Supports extrema navigation and hover interactions.
+ */
 export class BarTrace extends AbstractBarPlot<BarPoint> {
+  /**
+   * Checks if coordinates are within the bounding box of the bar element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @returns True if coordinates are within bounds, false otherwise
+   */
   public isPointInBounds(
     x: number,
     y: number,
@@ -204,6 +253,10 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     );
   }
 
+  /**
+   * Constructs a new BarTrace instance.
+   * @param layer - The MAIDR layer configuration
+   */
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }
@@ -270,8 +323,8 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Get a clean label for a specific point
-   * @param pointIndex The index of the point
+   * Gets a clean label for a specific bar point.
+   * @param pointIndex - The index of the point
    * @returns A clean label for the point
    */
   private getPointLabel(pointIndex: number): string {
@@ -289,8 +342,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Update the visual position of the current point
-   * This method should be called when navigation changes
+   * Updates the visual position of the current point ensuring it's within bounds.
    */
   protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
@@ -300,10 +352,10 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Bar specific implementation of the rotor move to lower or higher feature
-   * @param direction
-   * @param type
-   * @returns boolean (true: a target was found, false: else)
+   * Moves to the next bar that matches the comparison criteria in rotor mode.
+   * @param direction - The direction to move (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a target was found, false otherwise
    */
   protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;

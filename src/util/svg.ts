@@ -1,13 +1,27 @@
 import { Color } from './color';
 import { Constant } from './constant';
 
+/**
+ * Edge positions for SVG bounding box calculations.
+ */
 type Edge = 'top' | 'bottom' | 'left' | 'right';
 
+/**
+ * Abstract utility class for SVG element manipulation, conversion, and highlighting operations.
+ */
 export abstract class Svg {
   private constructor() { /* Prevent instantiation */ }
 
+  /**
+   * SVG namespace URI for creating SVG elements.
+   */
   private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
+  /**
+   * Converts an SVG element to a Base64-encoded JPEG data URL.
+   * @param svg - The SVG element to convert
+   * @returns A promise resolving to the Base64 data URL, or empty string on error
+   */
   public static async toBase64(svg: HTMLElement): Promise<string> {
     try {
       // Serialize and optimize SVG
@@ -51,6 +65,13 @@ export abstract class Svg {
     }
   }
 
+  /**
+   * Selects all SVG elements matching a query and optionally clones them.
+   * @template T - The type of SVG element to select
+   * @param query - CSS selector string to query elements
+   * @param shouldClone - Whether to clone elements and insert them as hidden copies (default: true)
+   * @returns Array of selected (or cloned) SVG elements
+   */
   public static selectAllElements<T extends SVGElement>(query: string, shouldClone: boolean = true): T[] {
     return Array
       .from(document.querySelectorAll<T>(query))
@@ -66,6 +87,13 @@ export abstract class Svg {
       });
   }
 
+  /**
+   * Selects a single SVG element matching a query and optionally clones it.
+   * @template T - The type of SVG element to select
+   * @param query - CSS selector string to query the element
+   * @param shouldClone - Whether to clone the element and insert it as a hidden copy (default: true)
+   * @returns The selected (or cloned) SVG element
+   */
   public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
     const element = document.querySelector<T>(query);
     if (!shouldClone) {
@@ -79,6 +107,11 @@ export abstract class Svg {
     return clone;
   }
 
+  /**
+   * Creates an empty, hidden, transparent SVG element of the specified type.
+   * @param type - The SVG element type to create (default: 'rect')
+   * @returns The newly created SVG element
+   */
   public static createEmptyElement(type: string = 'rect'): SVGElement {
     const element = document.createElementNS(this.SVG_NAMESPACE, type) as SVGElement;
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
@@ -87,6 +120,13 @@ export abstract class Svg {
     return element;
   }
 
+  /**
+   * Creates a circle element styled to match the parent element's stroke or fill.
+   * @param cx - The x-coordinate of the circle center
+   * @param cy - The y-coordinate of the circle center
+   * @param parent - The parent SVG element to inherit styling from
+   * @returns The newly created circle element
+   */
   public static createCircleElement(cx: string | number, cy: string | number, parent: SVGElement): SVGElement {
     const style = window.getComputedStyle(parent);
     const color = style.stroke || style.fill;
@@ -106,6 +146,12 @@ export abstract class Svg {
     return element;
   }
 
+  /**
+   * Creates a line element along a specified edge of an SVG element's bounding box.
+   * @param box - The SVG element to create a line along
+   * @param edge - The edge position ('top', 'bottom', 'left', or 'right')
+   * @returns The newly created line element
+   */
   public static createLineElement(box: SVGElement, edge: Edge): SVGElement {
     const svg = box as SVGGraphicsElement;
     const bBox = svg.getBBox();
@@ -139,10 +185,25 @@ export abstract class Svg {
     return line;
   }
 
+  /**
+   * Minimum opacity value for fill to be considered visible.
+   */
   private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
+  /**
+   * Minimum opacity value for stroke to be considered visible.
+   */
   private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
+  /**
+   * Amount to increase stroke width for highlighting line elements.
+   */
   private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
 
+  /**
+   * Adjusts opacity values to ensure visibility, returning '1' if below threshold.
+   * @param value - The opacity value string to adjust
+   * @param minThreshold - The minimum threshold for visibility
+   * @returns Adjusted opacity value as a string
+   */
   private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
     const parsed = value ? Number.parseFloat(value) : Number.NaN;
     if (!Number.isNaN(parsed) && parsed > minThreshold) {
@@ -151,6 +212,12 @@ export abstract class Svg {
     return '1';
   }
 
+  /**
+   * Creates a highlighted clone of an SVG element with enhanced visibility.
+   * @param element - The SVG element to highlight
+   * @param fallbackColor - Color to use if original color cannot be determined
+   * @returns The highlighted clone element
+   */
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
     const clone = element.cloneNode(true) as SVGElement;
     const tag = element.tagName.toLowerCase();
@@ -193,6 +260,12 @@ export abstract class Svg {
     return clone;
   }
 
+  /**
+   * Determines an appropriate highlight color based on the original color's luminance.
+   * @param originalColor - The original color to base the highlight on
+   * @param fallbackColor - Color to use if original cannot be parsed or is dark
+   * @returns The computed highlight color string
+   */
   private static getHighlightColor(originalColor: string, fallbackColor: string): string {
     const originalRgb = Color.parse(originalColor);
     if (!originalRgb) {
@@ -229,6 +302,11 @@ export abstract class Svg {
     return Color.rgbToString(modifiedRgb);
   }
 
+  /**
+   * Calculates a contrasting color (black or white) based on the element's fill color.
+   * @param element - The SVG element to analyze
+   * @returns '#000' for light backgrounds, '#fff' for dark backgrounds
+   */
   public static getContrastingColorForElement(element: SVGElement): string {
     const fill = window.getComputedStyle(element).fill || 'rgb(255,255,255)';
     const rgb = Color.parse(fill);
@@ -238,6 +316,11 @@ export abstract class Svg {
     return luminance > 0.5 ? '#000' : '#fff';
   }
 
+  /**
+   * Applies CSS outline styling to highlight a subplot element.
+   * @param element - The SVG element to highlight
+   * @param color - The color for the outline
+   */
   public static setSubplotHighlightCss(element: SVGElement, color: string): void {
     element.style.outline = `4px solid ${color}`;
     element.style.outlineOffset = '3px';
@@ -245,6 +328,10 @@ export abstract class Svg {
     element.style.overflow = 'visible';
   }
 
+  /**
+   * Removes CSS outline highlighting from a subplot element.
+   * @param element - The SVG element to remove highlighting from
+   */
   public static removeSubplotHighlightCss(element: SVGElement): void {
     element.style.removeProperty('outline');
     element.style.removeProperty('outline-offset');
@@ -252,6 +339,12 @@ export abstract class Svg {
     element.style.removeProperty('overflow');
   }
 
+  /**
+   * Applies SVG stroke highlighting to a subplot with adaptive color based on background.
+   * @param group - The SVG group element to highlight
+   * @param fallbackColor - Color to use if background color cannot be determined
+   * @param figureBgElement - Optional background element to inherit color from
+   */
   public static setSubplotHighlightSvgWithAdaptiveColor(group: SVGElement, fallbackColor: string, figureBgElement?: SVGElement): void {
     const bg = group.querySelector('rect, path') as SVGElement | null;
     let originalColor = '';
@@ -270,6 +363,10 @@ export abstract class Svg {
     }
   }
 
+  /**
+   * Removes SVG stroke highlighting from a subplot element.
+   * @param group - The SVG group element to remove highlighting from
+   */
   public static removeSubplotHighlightSvg(group: SVGElement): void {
     const bg = group.querySelector('rect, path') as SVGElement | null;
     if (bg) {

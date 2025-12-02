@@ -16,6 +16,9 @@ const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 
+/**
+ * Represents a figure containing one or more subplots
+ */
 export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly id: string;
 
@@ -26,6 +29,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly subplots: Subplot[][];
   private readonly size: number;
 
+  /**
+   * Creates a new Figure instance from MAIDR data
+   * @param maidr - The MAIDR data containing figure information and subplots
+   */
   public constructor(maidr: Maidr) {
     super();
 
@@ -42,20 +49,35 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
+  /**
+   * Cleans up all subplots and releases resources
+   */
   public dispose(): void {
     this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
     this.subplots.length = 0;
     super.dispose();
   }
 
+  /**
+   * Gets the 2D array of subplots
+   * @returns The subplots array
+   */
   protected get values(): Subplot[][] {
     return this.subplots;
   }
 
+  /**
+   * Gets the currently active subplot based on row and column position
+   * @returns The active subplot
+   */
   public get activeSubplot(): Subplot {
     return this.subplots[this.row][this.col];
   }
 
+  /**
+   * Gets the current state of the figure including active subplot
+   * @returns The complete figure state
+   */
   public get state(): FigureState {
     if (this.isOutOfBounds) {
       return {
@@ -85,6 +107,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     };
   }
 
+  /**
+   * Generates highlight state for the current subplot element
+   * @returns The highlight state with SVG element information
+   */
   protected highlight(): HighlightState {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
 
@@ -142,6 +168,11 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     };
   }
 
+  /**
+   * Checks if movement in the specified direction is possible
+   * @param direction - The direction to check for movement
+   * @returns True if movement is possible, false otherwise
+   */
   public isMovable(direction: MovableDirection): boolean {
     switch (direction) {
       case 'UPWARD':
@@ -157,6 +188,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     }
   }
 
+  /**
+   * Moves the current position one step in the specified direction
+   * @param direction - The direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
+   */
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -186,17 +221,29 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.notifyStateUpdate();
   }
 
+  /**
+   * Moves to a specific point in the figure (implementation in subclasses)
+   * @param _x - The x coordinate
+   * @param _y - The y coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
   }
 }
 
+/**
+ * Represents a subplot containing one or more traces
+ */
 export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
   private readonly size: number;
 
+  /**
+   * Creates a new Subplot instance from MAIDR subplot data
+   * @param subplot - The MAIDR subplot data containing layers
+   */
   public constructor(subplot: MaidrSubplot) {
     super();
 
@@ -211,28 +258,51 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     });
   }
 
+  /**
+   * Gets the current row index
+   * @returns The row index
+   */
   public getRow(): number {
     return this.row;
   }
 
+  /**
+   * Gets the number of traces in the subplot
+   * @returns The size (number of traces)
+   */
   public getSize(): number {
     return this.size;
   }
 
+  /**
+   * Cleans up all traces and releases resources
+   */
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
     super.dispose();
   }
 
+  /**
+   * Gets the 2D array of traces
+   * @returns The traces array
+   */
   protected get values(): Trace[][] {
     return this.traces;
   }
 
+  /**
+   * Gets the currently active trace based on row and column position
+   * @returns The active trace
+   */
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
   }
 
+  /**
+   * Generates highlight state for the current trace
+   * @returns The highlight state with audio information
+   */
   protected highlight(): HighlightState {
     return {
       empty: true,
@@ -244,6 +314,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
+  /**
+   * Moves the current position one step in the specified direction
+   * @param direction - The direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
+   */
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -273,6 +347,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     this.notifyStateUpdate();
   }
 
+  /**
+   * Gets the current state of the subplot including active trace
+   * @returns The complete subplot state
+   */
   public get state(): SubplotState {
     if (this.isOutOfBounds) {
       return {
@@ -291,11 +369,22 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     };
   }
 
+  /**
+   * Moves to a specific point in the subplot (implementation in subclasses)
+   * @param _x - The x coordinate
+   * @param _y - The y coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
   }
 
+  /**
+   * Gets the subplot state with figure position context
+   * @param _figureRow - The row position in the figure
+   * @param _figureCol - The column position in the figure
+   * @returns The subplot state
+   */
   public getStateWithFigurePosition(
     _figureRow: number,
     _figureCol: number,
@@ -304,30 +393,42 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 }
 
+/**
+ * Interface representing a trace with navigation and observation capabilities
+ */
 export interface Trace extends Movable, Observable<TraceState>, Disposable {
-  getId: () => string;
   /**
-   * Get the current X value from the trace
+   * Gets the unique identifier for the trace
+   * @returns The trace ID
+   */
+  getId: () => string;
+
+  /**
+   * Gets the current X value from the trace
    * @returns The current X value or null if not available
    */
   getCurrentXValue: () => any;
 
   /**
-   * Move the trace to the position that matches the given X value
-   * @param xValue The X value to move to
-   * @returns true if the position was found and set, false otherwise
+   * Moves the trace to the position that matches the given X value
+   * @param xValue - The X value to move to
+   * @returns True if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
 
   /**
-   * Notify observers that the trace is out of bounds
+   * Notifies observers that the trace is out of bounds
    */
   notifyOutOfBounds: () => void;
 
   /**
-   * Reset the trace to initial entry state
-   * This sets isInitialEntry to true and position to (0, 0)
+   * Resets the trace to initial entry state
    */
   resetToInitialEntry: () => void;
+
+  /**
+   * Notifies all observers with a specific state
+   * @param state - The trace state to send to observers
+   */
   notifyObserversWithState: (state: TraceState) => void;
 }

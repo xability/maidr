@@ -22,6 +22,10 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
+/**
+ * Abstract base class for observable elements that can be moved and tracked.
+ * Implements movable navigation, observer pattern, and state management for plot elements.
+ */
 export abstract class AbstractObservableElement<Element, State>
 implements Movable, Observable<State>, Disposable {
   protected observers: Observer<State>[];
@@ -42,6 +46,9 @@ implements Movable, Observable<State>, Disposable {
     this.col = 0;
   }
 
+  /**
+   * Cleans up resources by removing all observers.
+   */
   public dispose(): void {
     for (const observer of this.observers) {
       this.removeObserver(observer);
@@ -49,6 +56,10 @@ implements Movable, Observable<State>, Disposable {
     this.observers.length = 0;
   }
 
+  /**
+   * Moves the element one step in the specified direction.
+   * @param direction - The direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
+   */
   public moveOnce(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -90,6 +101,10 @@ implements Movable, Observable<State>, Disposable {
     return { row: safeRow, col: safeCol };
   }
 
+  /**
+   * Moves the element to the extreme position in the specified direction.
+   * @param direction - The direction to move to the extreme (UPWARD, DOWNWARD, FORWARD, BACKWARD)
+   */
   public moveToExtreme(direction: MovableDirection): void {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -117,6 +132,11 @@ implements Movable, Observable<State>, Disposable {
     this.notifyStateUpdate();
   }
 
+  /**
+   * Moves the element to a specific row and column index.
+   * @param row - The target row index
+   * @param col - The target column index
+   */
   public moveToIndex(row: number, col: number): void {
     if (this.isMovable([row, col])) {
       this.row = row;
@@ -126,6 +146,11 @@ implements Movable, Observable<State>, Disposable {
     }
   }
 
+  /**
+   * Checks if the element can move to the specified target position or direction.
+   * @param target - Either a [row, col] tuple or a MovableDirection
+   * @returns True if the move is valid, false otherwise
+   */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       const [row, col] = target;
@@ -153,6 +178,9 @@ implements Movable, Observable<State>, Disposable {
     }
   }
 
+  /**
+   * Handles the initial entry state by normalizing row and column indices to valid ranges.
+   */
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
@@ -175,20 +203,34 @@ implements Movable, Observable<State>, Disposable {
     }
   }
 
+  /**
+   * Resets the element to its initial entry state with row and column at zero.
+   */
   public resetToInitialEntry(): void {
     this.isInitialEntry = true;
     this.row = 0;
     this.col = 0;
   }
 
+  /**
+   * Registers an observer to receive state updates.
+   * @param observer - The observer to add
+   */
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
 
+  /**
+   * Removes an observer from receiving state updates.
+   * @param observer - The observer to remove
+   */
   public removeObserver(observer: Observer<State>): void {
     this.observers = this.observers.filter(obs => obs !== observer);
   }
 
+  /**
+   * Notifies all registered observers with the current state.
+   */
   public notifyStateUpdate(): void {
     const currentState = this.state;
     for (const observer of this.observers) {
@@ -196,6 +238,9 @@ implements Movable, Observable<State>, Disposable {
     }
   }
 
+  /**
+   * Notifies observers that an out-of-bounds condition occurred.
+   */
   public notifyOutOfBounds(): void {
     this.isOutOfBounds = true;
     this.notifyStateUpdate();
@@ -206,6 +251,10 @@ implements Movable, Observable<State>, Disposable {
 
   public abstract get state(): State;
 
+  /**
+   * Notifies all observers with a specific state object.
+   * @param state - The state to send to observers
+   */
   public notifyObserversWithState(state: State): void {
     for (const observer of this.observers) {
       observer.update(state);
@@ -241,18 +290,38 @@ implements Movable, Observable<State>, Disposable {
   /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
+  /**
+   * Moves up in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
 
+  /**
+   * Moves down in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move down function is not defined for this trace');
   }
 
+  /**
+   * Moves left in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move left function is not defined for this trace');
   }
 
+  /**
+   * Moves right in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
   }
@@ -272,6 +341,10 @@ implements Movable, Observable<State>, Disposable {
   }
 }
 
+/**
+ * Abstract base class for trace elements representing different plot types.
+ * Extends AbstractObservableElement with trace-specific functionality for audio, braille, and text output.
+ */
 export abstract class AbstractTrace<T>
   extends AbstractObservableElement<T, TraceState>
   implements Trace {
@@ -300,6 +373,9 @@ export abstract class AbstractTrace<T>
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
+  /**
+   * Cleans up trace resources including values and highlighted SVG elements.
+   */
   public dispose(): void {
     this.values.length = 0;
 
@@ -316,6 +392,10 @@ export abstract class AbstractTrace<T>
     super.dispose();
   }
 
+  /**
+   * Gets the current state of the trace including audio, braille, text, and highlight information.
+   * @returns The current TraceState
+   */
   public get state(): TraceState {
     if (this.isOutOfBounds) {
       const values = this.values;
@@ -351,6 +431,10 @@ export abstract class AbstractTrace<T>
     };
   }
 
+  /**
+   * Gets the current highlight state for the trace element.
+   * @returns The current HighlightState
+   */
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
       const values = this.values;
@@ -374,6 +458,10 @@ export abstract class AbstractTrace<T>
     };
   }
 
+  /**
+   * Gets the audio group index if the trace has multiple groups.
+   * @returns Object containing groupIndex if multiple groups exist
+   */
   protected getAudioGroupIndex(): { groupIndex?: number } {
     // Default implementation checks if there are multiple groups/lines
     // Uses this.values.length > 1 as the condition and this.row as the groupIndex
@@ -384,6 +472,10 @@ export abstract class AbstractTrace<T>
     return {};
   }
 
+  /**
+   * Gets the autoplay state indicating available movement counts in each direction.
+   * @returns The current AutoplayState
+   */
   public get autoplay(): AutoplayState {
     // Safety check: ensure we don't access undefined values
     const { row: safeRow } = this.getSafeIndices();
@@ -397,6 +489,10 @@ export abstract class AbstractTrace<T>
     };
   }
 
+  /**
+   * Checks if the trace has multiple points at the current position.
+   * @returns True if multiple points exist, false otherwise
+   */
   protected hasMultiPoints(): boolean {
     return false;
   }
@@ -458,7 +554,7 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Check if this plot supports extrema navigation
+   * Checks if this plot supports extrema navigation.
    * @returns True if extrema navigation is supported
    */
   public supportsExtremaNavigation(): boolean {
@@ -503,8 +599,9 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Base implementation for moving to X value
-   * Subclasses can override if they have different data structures
+   * Moves to a specific X value in the trace.
+   * @param xValue - The X value to navigate to
+   * @returns True if the move was successful, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
     // Handle traces with points array (BarTrace, LineTrace)
@@ -535,40 +632,51 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Type guard to check if trace has points array
+   * Type guard to check if trace has points array.
+   * @returns True if points array exists
    */
   private hasPointsArray(): boolean {
     return 'points' in this && this.points !== undefined;
   }
 
   /**
-   * Type guard to check if trace has values array
+   * Type guard to check if trace has values array.
+   * @returns True if values array exists
    */
   private hasValuesArray(): boolean {
     return 'values' in this && this.values !== undefined;
   }
 
   /**
-   * Safely get points array with proper typing
+   * Safely gets the points array with proper typing.
+   * @returns The points array
    */
   private getPointsArray(): any[] {
     return (this as any).points;
   }
 
   /**
-   * Validate points array structure
+   * Validates points array structure.
+   * @param points - The points array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidPointsArray(points: any[]): boolean {
     return Array.isArray(points) && points.length > 0;
   }
 
   /**
-   * Validate values array structure
+   * Validates values array structure.
+   * @param values - The values array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
   }
 
+  /**
+   * Gets the unique identifier for this trace.
+   * @returns The trace ID
+   */
   public getId(): string {
     return this.id;
   }
@@ -578,10 +686,11 @@ export abstract class AbstractTrace<T>
     y: number,
   ): { element: SVGElement; row: number; col: number } | null;
 
-  // hover functions
-  // parent calls moveToPoint with x y from mouse event
-  // this then finds a nearest point, and checks if it's in bounds
-  // if all is good, it sends row col to context.moveToIndex
+  /**
+   * Moves to the nearest point at the specified coordinates (used for hover functionality).
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   */
   public moveToPoint(x: number, y: number): void {
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
@@ -595,9 +704,13 @@ export abstract class AbstractTrace<T>
     }
   }
 
-  // used in hover feature
-  // this checks if the x y is within the bounding box of the element
-  // or close enough, if the point is tiny
+  /**
+   * Checks if the specified coordinates are within bounds of the element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @returns True if the point is in bounds, false otherwise
+   */
   public isPointInBounds(
     x: number,
     y: number,

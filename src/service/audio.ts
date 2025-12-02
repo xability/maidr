@@ -7,6 +7,9 @@ import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 
+/**
+ * Represents a numeric range with minimum and maximum values.
+ */
 interface Range {
   min: number;
   max: number;
@@ -23,12 +26,18 @@ const COMPLETE_FREQUENCY = 880;
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
+/**
+ * Audio playback modes for the service.
+ */
 enum AudioMode {
   OFF = 'off',
   SEPARATE = 'on',
   COMBINED = 'combined',
 }
 
+/**
+ * Service responsible for managing audio feedback for data visualization, including tone generation and spatial audio.
+ */
 export class AudioService
 implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   private readonly notification: NotificationService;
@@ -47,6 +56,12 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   private currentMinFrequency: number;
   private currentMaxFrequency: number;
 
+  /**
+   * Creates an instance of AudioService.
+   * @param notification - Service for user notifications
+   * @param state - Initial plot state
+   * @param settings - Service for managing settings
+   */
   public constructor(notification: NotificationService, state: PlotState, settings: SettingsService) {
     this.notification = notification;
     this.audioPalette = new AudioPaletteService();
@@ -69,6 +84,9 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.settings.addObserver(this);
   }
 
+  /**
+   * Cleans up all audio resources and disconnects from the audio context.
+   */
   public dispose(): void {
     this.stopAll();
     this.audioPalette.dispose();
@@ -79,6 +97,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.settings.removeObserver(this);
   }
 
+  /**
+   * Updates the audio service based on state or settings changes.
+   * @param state - Updated settings or plot state
+   */
   public update(state: Settings | SubplotState | TraceState | FigureState): void {
     if ('general' in state) {
       this.onSettingsChange(state);
@@ -87,12 +109,20 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
+  /**
+   * Handles settings changes by updating volume and frequency ranges.
+   * @param settings - Updated settings object
+   */
   private onSettingsChange(settings: Settings): void {
     this.currentVolume = settings.general.volume / 100;
     this.currentMinFrequency = settings.general.minFrequency;
     this.currentMaxFrequency = settings.general.maxFrequency;
   }
 
+  /**
+   * Handles plot state changes and plays appropriate audio feedback.
+   * @param state - Updated plot state
+   */
   private onStateChange(state: SubplotState | TraceState | FigureState): void {
     // Do not play any sound if audio is off
     if (this.mode === AudioMode.OFF) {
@@ -125,6 +155,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.handleTraceState(traceState);
   }
 
+  /**
+   * Processes trace state and generates corresponding audio based on data values.
+   * @param traceState - The trace state to sonify
+   */
   private handleTraceState(traceState: TraceState): void {
     // Play audio only if turned on and it's a trace state
     if (this.mode === AudioMode.OFF || traceState.type !== 'trace') {
@@ -233,10 +267,18 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
+  /**
+   * Gets the current volume level clamped between 0 and 1.
+   * @returns Normalized volume value
+   */
   private getVolume(): number {
     return Math.min(Math.max(this.currentVolume, 0), 1);
   }
 
+  /**
+   * Gets the current frequency range for audio output.
+   * @returns Object containing min and max frequency values
+   */
   private getFrequencyRange(): { min: number; max: number } {
     return {
       min: this.currentMinFrequency,
@@ -244,6 +286,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     };
   }
 
+  /**
+   * Initializes and configures the audio compressor node for smooth output.
+   * @returns Configured dynamics compressor node
+   */
   private initCompressor(): DynamicsCompressorNode {
     const compressor = this.audioContext.createDynamicsCompressor();
     compressor.threshold.value = -50;
@@ -261,6 +307,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return compressor;
   }
 
+  /**
+   * Updates the audio mode based on plot state characteristics.
+   * @param state - Plot state to determine audio mode
+   */
   private updateMode(state: PlotState): void {
     if (state.empty || state.type === 'figure') {
       return;
@@ -286,6 +336,16 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
+  /**
+   * Plays a single tone with specified frequency and spatial positioning.
+   * @param minFrequency - Minimum frequency in the data range
+   * @param maxFrequency - Maximum frequency in the data range
+   * @param rawFrequency - Raw frequency value to map
+   * @param panningSize - Total size for panning calculation
+   * @param rawPanning - Raw panning position
+   * @param paletteEntry - Optional audio palette entry for custom wave types
+   * @returns Audio ID for tracking the playing tone
+   */
   private playTone(
     minFrequency: number,
     maxFrequency: number,
@@ -394,6 +454,13 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return gainNodes;
   }
 
+  /**
+   * Creates and plays an oscillator with spatial panning and optional custom audio palette.
+   * @param frequency - Frequency in Hz for the oscillator
+   * @param panning - Stereo panning value between -1 (left) and 1 (right)
+   * @param paletteEntry - Optional audio palette entry for custom wave types
+   * @returns Audio ID for tracking the playing oscillator
+   */
   private playOscillator(
     frequency: number,
     panning: number = 0,
@@ -468,6 +535,15 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return audioId;
   }
 
+  /**
+   * Creates an ADSR envelope for gain modulation or returns a default curve.
+   * @param gainNode - Gain node to apply envelope to
+   * @param paletteEntry - Audio palette entry with timbre modulation settings
+   * @param volume - Base volume level
+   * @param startTime - Start time in audio context time
+   * @param duration - Total duration in seconds
+   * @returns Envelope curve array or null if precise scheduling was used
+   */
   private createAdsrEnvelope(
     gainNode: GainNode,
     paletteEntry: AudioPaletteEntry | undefined,
@@ -525,6 +601,15 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
+  /**
+   * Plays a smooth continuous tone by sweeping through multiple frequency values.
+   * @param values - Array of values to map to frequencies
+   * @param min - Minimum value in the data range
+   * @param max - Maximum value in the data range
+   * @param size - Total size for panning calculation
+   * @param index - Current position for panning
+   * @param paletteEntry - Optional audio palette entry for custom wave types
+   */
   private playSmooth(
     values: number[],
     min: number,
@@ -609,12 +694,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   }
 
   /**
-   * Plays a spatialized tone indicating an "empty" or out-of-bounds state.
-   *
-   * Panning Calculation:
-   * The `index` is interpolated within the range `[0, size]` to a stereo pan range `[-1, 1]`.
-   * This allows the tone to be played with directional spatial cues, helping users infer
-   * where the empty state occurs within the overall layout.
+   * Plays a spatialized tone indicating an empty or out-of-bounds state.
+   * @param size - Total size for panning calculation
+   * @param index - Current position for spatial positioning
+   * @returns Audio ID for tracking the playing tone
    */
   private playEmptyTone(size: number, index: number): AudioId {
     const ctx = this.audioContext;
@@ -687,11 +770,19 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return audioId;
   }
 
+  /**
+   * Plays a distinctive tone indicating a zero value.
+   * @returns Audio ID for tracking the playing tone
+   */
   private playZeroTone(): AudioId {
     // Always use original triangle wave for zero values, regardless of groups
     return this.playOscillator(NULL_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
 
+  /**
+   * Plays a periodic waiting tone at regular intervals.
+   * @returns Audio ID for tracking the interval
+   */
   public playWaitingTone(): AudioId {
     return setInterval(
       () => this.playOscillator(WAITING_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
@@ -699,10 +790,21 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     );
   }
 
+  /**
+   * Plays a completion tone to signal the end of a process.
+   * @returns Audio ID for tracking the playing tone
+   */
   public playCompleteTone(): AudioId {
     return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
   }
 
+  /**
+   * Linearly interpolates a value from one range to another.
+   * @param value - Value to interpolate
+   * @param from - Source range
+   * @param to - Target range
+   * @returns Interpolated value in the target range
+   */
   private interpolate(value: number, from: Range, to: Range): number {
     if (from.min === 0 && from.max === 0) {
       return 0;
@@ -713,10 +815,20 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     );
   }
 
+  /**
+   * Clamps a value between minimum and maximum bounds.
+   * @param value - Value to clamp
+   * @param from - Minimum bound
+   * @param to - Maximum bound
+   * @returns Clamped value
+   */
   private clamp(value: number, from: number, to: number): number {
     return Math.max(from, Math.min(value, to));
   }
 
+  /**
+   * Toggles audio mode between OFF, SEPARATE, and COMBINED modes.
+   */
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
@@ -742,6 +854,10 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.notification.notify(message);
   }
 
+  /**
+   * Stops one or more active audio streams by their IDs.
+   * @param audioId - Single audio ID or array of audio IDs to stop
+   */
   public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
@@ -761,6 +877,9 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     });
   }
 
+  /**
+   * Stops all currently playing audio streams.
+   */
   private stopAll(): void {
     this.activeAudioIds.entries().forEach(([audioId, nodes]) => {
       clearTimeout(audioId);
@@ -773,10 +892,8 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   }
 
   /**
-   * Play multiple tones simultaneously, all at the same frequency (shared value),
-   * using each line's assigned wave type without any special audio techniques.
-   * Simple mix of existing wave types at the same musical frequency.
-   * @param tones Array of AudioState
+   * Plays multiple tones simultaneously at the same frequency using different wave types.
+   * @param tones - Array of audio states representing intersecting lines
    */
   public playSimultaneousTones(
     tones: AudioState[],

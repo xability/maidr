@@ -4,6 +4,9 @@ import type { HelpMenuItem } from '@type/help';
 import { Scope } from '@type/event';
 import { Platform } from '@util/platform';
 
+/**
+ * Help menu items for trace scope navigation and interactions.
+ */
 const TRACE_HELP_MENU = [
   { description: 'Navigate Data Points', key: 'arrow keys' },
   { description: 'Move to Next Layer', key: 'page up' },
@@ -35,6 +38,9 @@ const TRACE_HELP_MENU = [
 
 ];
 
+/**
+ * Help menu items for subplot scope navigation and interactions.
+ */
 const SUBPLOT_HELP_MENU = [
   { description: 'Move around Subplot', key: 'arrow keys' },
   { description: 'Activate Current Subplot', key: `${Platform.enter}` },
@@ -46,12 +52,20 @@ const SUBPLOT_HELP_MENU = [
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
 ];
 
+/**
+ * Service for managing context-sensitive help menus across different application scopes.
+ */
 export class HelpService {
   private readonly context: Context;
   private readonly display: DisplayService;
 
   private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
 
+  /**
+   * Creates a new HelpService instance with scoped menu configurations.
+   * @param context - The application context for determining current scope
+   * @param display - The display service for toggling help UI
+   */
   public constructor(context: Context, display: DisplayService) {
     this.context = context;
     this.display = display;
@@ -65,10 +79,17 @@ export class HelpService {
     };
   }
 
+  /**
+   * Retrieves help menu items for the current application scope.
+   * @returns Array of help menu items or empty array if no items for current scope
+   */
   public getMenuItems(): HelpMenuItem[] {
     return this.scopedMenuItems[this.context.scope] ?? [];
   }
 
+  /**
+   * Toggles the visibility of the help menu interface.
+   */
   public toggle(): void {
     this.display.toggleFocus(Scope.HELP);
   }

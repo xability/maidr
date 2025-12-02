@@ -1,6 +1,9 @@
 import type { Keymap } from '@service/keybinding';
 import type { Disposable } from './disposable';
 
+/**
+ * Standard DOM event types used throughout the application.
+ */
 export enum DomEventType {
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
@@ -13,11 +16,17 @@ export enum DomEventType {
   VISIBILITY_CHANGE = 'visibilitychange',
 }
 
+/**
+ * Status of asynchronous operations like API requests.
+ */
 export type Status
   = | 'PENDING'
     | 'SUCCESS'
     | 'FAILED';
 
+/**
+ * Application scopes that define different keyboard navigation contexts and UI modes.
+ */
 export enum Scope {
   BRAILLE = 'BRAILLE',
   CHAT = 'CHAT',
@@ -35,12 +44,24 @@ export enum Scope {
   ROTOR = 'ROTOR',
 }
 
+/**
+ * Focusable scopes excluding label-only scopes that cannot receive keyboard focus.
+ */
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
 
+/**
+ * Type representing valid keyboard shortcut keys for a given scope.
+ */
 export type Keys = keyof Keymap[Scope];
 
+/**
+ * Event subscription function that returns a disposable for cleanup.
+ */
 export type Event<T> = (listener: (e: T) => any) => Disposable;
 
+/**
+ * Generic event emitter that manages listeners and fires events to subscribers.
+ */
 export class Emitter<T> {
   private readonly listeners: Set<(event: T) => void>;
 

@@ -6,12 +6,18 @@ import { Emitter } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 
-// Type for traces that support ensureInitialized method
+/**
+ * Type for traces that support ensureInitialized method.
+ */
 interface TraceWithEnsureInitialized {
   ensureInitialized: () => void;
 }
 
-// Type guard to check if trace supports ensureInitialized
+/**
+ * Type guard to check if trace supports ensureInitialized.
+ * @param {unknown} trace - The trace object to check
+ * @returns {boolean} True if trace has ensureInitialized method
+ */
 function hasEnsureInitialized(trace: unknown): trace is TraceWithEnsureInitialized {
   return trace !== null
     && typeof trace === 'object'
@@ -19,10 +25,16 @@ function hasEnsureInitialized(trace: unknown): trace is TraceWithEnsureInitializ
     && typeof (trace as any).ensureInitialized === 'function';
 }
 
+/**
+ * Event emitted when focus changes.
+ */
 interface FocusChangedEvent {
   value: Focus;
 }
 
+/**
+ * Service for managing display focus, ARIA labels, and UI state transitions.
+ */
 export class DisplayService implements Disposable {
   private readonly context: Context;
   private readonly focusStack: Stack<Focus>;
@@ -38,6 +50,12 @@ export class DisplayService implements Disposable {
   private textChangeDisposer: Disposable | null = null;
   private hasClearedOnFirstNav: boolean = false;
 
+  /**
+   * Creates a new DisplayService instance.
+   * @param {Context} context - The application context
+   * @param {HTMLElement} plot - The plot element to manage
+   * @param {TextService} textService - The text service for generating ARIA labels
+   */
   public constructor(context: Context, plot: HTMLElement, textService: TextService) {
     this.context = context;
     this.focusStack = new Stack<Focus>();
@@ -60,6 +78,9 @@ export class DisplayService implements Disposable {
     });
   }
 
+  /**
+   * Cleans up resources and restores initial ARIA labels.
+   */
   public dispose(): void {
     this.addInstruction();
 
@@ -69,10 +90,18 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter.dispose();
   }
 
+  /**
+   * Gets the instruction text for the plot.
+   * @param {boolean} [includeClickPrompt] - Whether to include the click prompt
+   * @returns {string} The instruction text
+   */
   public getInstruction(includeClickPrompt: boolean = true): string {
     return this.context.getInstruction(includeClickPrompt);
   }
 
+  /**
+   * Adds instruction ARIA labels to the plot element.
+   */
   private addInstruction(): void {
     this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
     this.plot.setAttribute(Constant.TITLE, this.getInstruction());
@@ -80,6 +109,9 @@ export class DisplayService implements Disposable {
     this.plot.tabIndex = 0;
   }
 
+  /**
+   * Removes or updates instruction ARIA labels when entering interactive mode.
+   */
   private removeInstruction(): void {
     const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
     if (instruction) {
@@ -95,6 +127,10 @@ export class DisplayService implements Disposable {
     }
   }
 
+  /**
+   * Gets the ARIA label text for the current trace position.
+   * @returns {string} The formatted trace position text or instruction
+   */
   private getTraceAriaLabel(): string {
     const formatted = this.textService.format(this.context.state);
     if (formatted && formatted.trim().length > 0) {
@@ -103,6 +139,10 @@ export class DisplayService implements Disposable {
     return this.getInstruction(false);
   }
 
+  /**
+   * Toggles focus between different scopes and manages the focus stack.
+   * @param {Focus} focus - The focus scope to toggle to
+   */
   public toggleFocus(focus: Focus): void {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
     this.isReturningFromModeToggle
@@ -129,6 +169,10 @@ export class DisplayService implements Disposable {
     this.updateFocus(newScope);
   }
 
+  /**
+   * Updates the focus state and initializes the active trace if needed.
+   * @param {Focus} newScope - The new focus scope
+   */
   private updateFocus(newScope: Focus): void {
     if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
       this.plot.tabIndex = 0;

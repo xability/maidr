@@ -3,11 +3,22 @@ import type { TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { AbstractBarPlot } from './bar';
 
+/**
+ * Represents a histogram plot with binned data points
+ */
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
+  /**
+   * Creates a new Histogram instance from a MAIDR layer
+   * @param layer - The MAIDR layer containing histogram data
+   */
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as HistogramPoint[]]);
   }
 
+  /**
+   * Generates text state for the current histogram bin including range information
+   * @returns The text state with bin range data
+   */
   protected text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];

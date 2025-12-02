@@ -11,7 +11,16 @@ import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 
+/**
+ * Abstract factory class for creating appropriate trace instances based on layer type.
+ */
 export abstract class TraceFactory {
+  /**
+   * Creates and returns the appropriate trace instance based on the layer's trace type.
+   * @param layer - The MAIDR layer containing trace data and type information
+   * @returns A trace instance specific to the layer's type
+   * @throws Error if the trace type is invalid or unsupported
+   */
   public static create(layer: MaidrLayer): Trace {
     switch (layer.type) {
       case TraceType.BAR:

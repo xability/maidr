@@ -15,12 +15,18 @@ const MAX_SPEED = 500;
 
 const DEFAULT_INTERVAL = 20;
 
+/**
+ * Event emitted when autoplay state changes.
+ */
 interface AutoplayChangeEvent {
   type: 'start' | 'stop';
 }
 
 type AutoplayId = ReturnType<typeof setInterval>;
 
+/**
+ * Service responsible for managing automatic navigation through data points at configurable speeds.
+ */
 export class AutoplayService implements Disposable, Observer<Settings> {
   private readonly context: Context;
   private readonly notification: NotificationService;
@@ -41,6 +47,12 @@ export class AutoplayService implements Disposable, Observer<Settings> {
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
 
+  /**
+   * Creates an instance of AutoplayService.
+   * @param context - Navigation context for moving through data
+   * @param notification - Service for user notifications
+   * @param settings - Service for managing settings
+   */
   public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
     this.notification = notification;
     this.context = context;
@@ -64,16 +76,27 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     this.settings.addObserver(this);
   }
 
+  /**
+   * Cleans up autoplay resources and stops any active autoplay.
+   */
   public dispose(): void {
     this.stop();
     this.onChangeEmitter.dispose();
     this.settings.removeObserver(this);
   }
 
+  /**
+   * Updates the autoplay service based on settings changes.
+   * @param settings - Updated settings object
+   */
   public update(settings: Settings): void {
     this.updateSettings(settings);
   }
 
+  /**
+   * Handles settings changes and restarts autoplay if active.
+   * @param settings - Updated settings object
+   */
   private updateSettings(settings: Settings): void {
     this.currentDuration = settings.general.autoplayDuration;
     if (this.currentDirection) {
@@ -81,6 +104,11 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     }
   }
 
+  /**
+   * Starts autoplay in the specified direction at the calculated rate.
+   * @param direction - Direction to move during autoplay
+   * @param state - Optional trace state for calculating autoplay rate
+   */
   public start(direction: MovableDirection, state?: TraceState): void {
     this.stop();
     this.onChangeEmitter.fire({ type: 'start' });
@@ -97,6 +125,9 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     }, this.autoplayRate);
   }
 
+  /**
+   * Stops any active autoplay and clears the interval.
+   */
   public stop(): void {
     if (this.autoplayId) {
       clearInterval(this.autoplayId);
@@ -107,6 +138,9 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     this.onChangeEmitter.fire({ type: 'stop' });
   }
 
+  /**
+   * Restarts autoplay in the current direction with updated settings.
+   */
   private restart(): void {
     if (this.autoplayId) {
       clearInterval(this.autoplayId);
@@ -117,6 +151,9 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     }
   }
 
+  /**
+   * Increases autoplay speed by decreasing the interval between movements.
+   */
   public speedUp(): void {
     const newSpeed = this.userSpeed ?? this.autoplayRate;
     if (newSpeed - this.interval > this.minSpeed) {
@@ -129,6 +166,9 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     }
   }
 
+  /**
+   * Decreases autoplay speed by increasing the interval between movements.
+   */
   public speedDown(): void {
     const newSpeed = this.userSpeed ?? this.autoplayRate;
     if (newSpeed + this.interval <= this.maxSpeed) {
@@ -141,6 +181,9 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     }
   }
 
+  /**
+   * Resets autoplay speed to the default calculated rate.
+   */
   public resetSpeed(): void {
     this.userSpeed = null;
     this.autoplayRate = this.defaultSpeed;
@@ -148,6 +191,12 @@ export class AutoplayService implements Disposable, Observer<Settings> {
     this.notification.notify('Reset speed');
   }
 
+  /**
+   * Calculates the autoplay rate based on user settings or trace state.
+   * @param direction - Direction of autoplay movement
+   * @param state - Optional trace state for rate calculation
+   * @returns Autoplay rate in milliseconds
+   */
   private getAutoplayRate(direction: MovableDirection, state?: TraceState): number {
     if (this.userSpeed !== null) {
       return this.userSpeed;

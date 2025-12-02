@@ -10,12 +10,22 @@ const SUM = 'Sum';
 const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
+/**
+ * Trace implementation for segmented (stacked or dodged) bar plots with summary level support.
+ */
 export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
+  /**
+   * Creates a new segmented bar trace and generates a summary level.
+   * @param layer - The MAIDR layer containing segmented bar plot data
+   */
   public constructor(layer: MaidrLayer) {
     super(layer, layer.data as SegmentedPoint[][]);
     this.createSummaryLevel();
   }
 
+  /**
+   * Creates an additional summary level with total values across all segments.
+   */
   private createSummaryLevel(): void {
     const summaryValues = new Array<number>();
     const summaryPoints = new Array<SegmentedPoint>();
@@ -46,8 +56,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get extrema targets for the current segmented bar plot trace
-   * Returns min and max values within the current group the user is navigating
+   * Gets extrema targets for the current segmented bar plot trace.
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -104,8 +113,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Navigate to a specific extrema target
-   * @param target The extrema target to navigate to
+   * Navigates to a specific extrema target within the current group.
+   * @param target - The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
     // For group-based navigation, stay in same group but move to different category
@@ -122,8 +131,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get a human-readable label for the current group
-   * @param groupIndex The index of the group
+   * Gets a human-readable label for the specified group.
+   * @param groupIndex - The index of the group
    * @returns A label for the group
    */
   private getGroupLabel(groupIndex: number): string {
@@ -145,8 +154,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get a human-readable label for a specific category
-   * @param categoryIndex The index of the category
+   * Gets a human-readable label for a specific category.
+   * @param categoryIndex - The index of the category
    * @returns A label for the category
    */
   private getCategoryLabel(categoryIndex: number): string {
@@ -162,7 +171,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get the label for the fill axis (e.g., "Drive", "Survival Status")
+   * Gets the label for the fill axis.
    * @returns The fill axis label
    */
   private getFillAxisLabel(): string {
@@ -171,8 +180,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Update the visual position of the current point
-   * This method should be called when navigation changes
+   * Updates the visual position of the current point with boundary checks.
    */
   protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
@@ -181,6 +189,10 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.col = safeCol;
   }
 
+  /**
+   * Generates text state with fill level information for segmented bars.
+   * @returns Text state with main, cross, and fill axis data
+   */
   protected text(): TextState {
     return {
       ...super.text(),
@@ -191,6 +203,10 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
+  /**
+   * Returns highlight state, excluding the summary level from visual highlighting.
+   * @returns Highlight state with elements or empty state for summary level
+   */
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
       return {
@@ -211,11 +227,20 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
+  /**
+   * Indicates that segmented bars should not use combined/separate audio modes.
+   * @returns Always returns false for segmented bar plots
+   */
   protected hasMultiPoints(): boolean {
     // Stacked bar plots should not use combined/separate audio modes
     return false;
   }
 
+  /**
+   * Maps segmented bar data to SVG elements considering element type and mapping direction.
+   * @param selector - CSS selector for SVG elements
+   * @returns 2D array of SVG elements matching the data structure
+   */
   protected mapToSvgElements(selector?: string): SVGElement[][] {
     if (!selector) {
       return new Array<Array<SVGElement>>();

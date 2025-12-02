@@ -7,6 +7,10 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 
+/**
+ * Concrete implementation of a box plot trace supporting vertical and horizontal orientations.
+ * Handles boxplot sections (min, Q1, Q2, Q3, max, outliers) and rotor-based navigation.
+ */
 export class BoxTrace extends AbstractTrace<number[] | number> {
   protected readonly supportsExtrema = false;
 
@@ -23,6 +27,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
+  /**
+   * Constructs a new BoxTrace instance with boxplot data and visual elements.
+   * @param layer - The MAIDR layer configuration
+   */
   constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -83,6 +91,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.highlightCenters = this.mapSvgElementsToCenters();
   }
 
+  /**
+   * Cleans up boxplot resources including points and sections arrays.
+   */
   public dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
@@ -90,6 +101,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
+  /**
+   * Moves to a specific row and column index in the boxplot.
+   * @param row - The target row index
+   * @param col - The target column index
+   */
   public moveToIndex(row: number, col: number): void {
     // No coordinate swap needed - navigation already passes (row, col) matching boxValues structure
     // Vertical: boxValues[section][box] → row=section, col=box
@@ -97,10 +113,18 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.moveToIndex(row, col);
   }
 
+  /**
+   * Gets the boxplot values as a 2D array.
+   * @returns The boxplot values array
+   */
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
   }
 
+  /**
+   * Gets the audio state for the current boxplot position.
+   * @returns The current AudioState
+   */
   protected audio(): AudioState {
     // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = this.boxValues[this.row][this.col];
@@ -117,6 +141,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
+  /**
+   * Gets the braille state for the current boxplot position.
+   * @returns The current BrailleState
+   */
   protected braille(): BrailleState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const row = isHorizontal ? this.row : this.col;
@@ -133,6 +161,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
+  /**
+   * Gets the text state for the current boxplot position.
+   * @returns The current TextState
+   */
   protected text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
@@ -152,6 +184,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
+  /**
+   * Maps boxplot selectors to SVG elements for highlighting.
+   * @param selectors - Array of box selectors for each boxplot
+   * @returns 2D array of SVG elements or null if mapping fails
+   */
   private mapToSvgElements(
     selectors: BoxSelector[] | undefined,
   ): (SVGElement[] | SVGElement)[][] | null {
@@ -258,8 +295,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * Clones an SVG element with hidden visibility and inserts it after the original,
-   * or returns an empty element if the original is null.
+   * Clones an SVG element with hidden visibility or returns an empty element.
+   * @param original - The original SVG element to clone or null
+   * @returns The cloned element or an empty element
    */
   private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
     if (!original) {
@@ -271,6 +309,12 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return clone;
   }
 
+  /**
+   * Moves to the next boxplot section that matches the comparison criteria.
+   * @param direction - The direction to move (left, right, up, or down)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a target was found, false otherwise
+   */
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
@@ -312,6 +356,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return false;
   }
 
+  /**
+   * Sets the current point based on direction and index.
+   * @param direction - The direction of movement (left, right, up, or down)
+   * @param pointIndex - The index to set
+   */
   public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
     if (direction === 'left' || direction === 'right') {
       this.col = pointIndex;
@@ -321,8 +370,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
-   * @returns {boolean} True if the move was successful, false otherwise.
+   * Moves upward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
    */
   public moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
@@ -332,6 +382,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('up', mode);
   }
 
+  /**
+   * Moves downward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveDownRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('DOWNWARD');
@@ -340,6 +395,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('down', mode);
   }
 
+  /**
+   * Moves left in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('BACKWARD');
@@ -348,6 +408,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('left', mode);
   }
 
+  /**
+   * Moves right in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('FORWARD');
@@ -356,6 +421,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('right', mode);
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for proximity detection.
+   * @returns Array of center points with element references or null if no elements exist
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -392,6 +461,12 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return centers;
   }
 
+  /**
+   * Finds the nearest boxplot element at the specified coordinates.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns Object containing the element and its position, or null if not found
+   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -424,6 +499,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
+  /**
+   * Moves to the nearest point at the specified coordinates (disabled for boxplots).
+   * @param _x - The x-coordinate
+   * @param _y - The y-coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // Exceptions:
     // temp: don't run for boxplot. remove when boxplot is fixed

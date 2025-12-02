@@ -48,11 +48,19 @@ export class RotorNavigationService {
   private readonly context: Context;
   private rotorIndex: number;
 
+  /**
+   * Creates a new RotorNavigationService instance.
+   * @param context - The context providing access to the active trace
+   */
   public constructor(context: Context) {
     this.context = context;
     this.rotorIndex = 0;
   }
 
+  /**
+   * Advances to the next rotor navigation mode.
+   * @returns The name of the new rotor mode
+   */
   public moveToNextRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
 
@@ -60,6 +68,10 @@ export class RotorNavigationService {
     return this.getMode();
   }
 
+  /**
+   * Moves to the previous rotor navigation mode.
+   * @returns The name of the new rotor mode
+   */
   public moveToPrevRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
 
@@ -67,10 +79,19 @@ export class RotorNavigationService {
     return this.getMode();
   }
 
+  /**
+   * Gets the current rotor mode index.
+   * @returns The current rotor index (0-2)
+   */
   public getCurrentUnit(): number {
     return this.rotorIndex;
   }
 
+  /**
+   * Moves to the next data point in the specified direction based on current compare mode.
+   * @param direction - The direction to move ('left' or 'right')
+   * @returns Error message if move failed, null otherwise
+   */
   public callMoveToNextCompareMethod(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
 
@@ -98,6 +119,10 @@ export class RotorNavigationService {
     return null;
   }
 
+  /**
+   * Moves up to a data point with lower/higher value based on rotor mode.
+   * @returns Error message if move failed, null otherwise
+   */
   public moveUp(): string | null {
     const activeTrace = this.context.active;
     try {
@@ -116,6 +141,10 @@ export class RotorNavigationService {
     return null;
   }
 
+  /**
+   * Moves down to a data point with lower/higher value based on rotor mode.
+   * @returns Error message if move failed, null otherwise
+   */
   public moveDown(): string | null {
     const activeTrace = this.context.active;
     try {
@@ -134,6 +163,10 @@ export class RotorNavigationService {
     return null;
   }
 
+  /**
+   * Moves left to a data point with lower/higher value based on rotor mode.
+   * @returns Error message if move failed, null otherwise
+   */
   public moveLeft(): string | null {
     const activeTrace = this.context.active;
     try {
@@ -152,6 +185,10 @@ export class RotorNavigationService {
     return null;
   }
 
+  /**
+   * Moves right to a data point with lower/higher value based on rotor mode.
+   * @returns Error message if move failed, null otherwise
+   */
   public moveRight(): string | null {
     const activeTrace = this.context.active;
     try {
@@ -170,6 +207,9 @@ export class RotorNavigationService {
     return null;
   }
 
+  /**
+   * Sets the rotor mode based on the current index and updates context state.
+   */
   public setMode(): void {
     const curr_mode = ROTOR_MODES[this.rotorIndex];
     if (curr_mode === Constant.DATA_MODE) {
@@ -179,11 +219,19 @@ export class RotorNavigationService {
     this.context.setRotorEnabled(true);
   }
 
+  /**
+   * Gets the current rotor mode name.
+   * @returns The name of the current rotor mode (e.g., 'DATA_MODE', 'LOWER_VALUE_MODE')
+   */
   public getMode(): string {
     const curr_mode = ROTOR_MODES[this.rotorIndex];
     return curr_mode;
   }
 
+  /**
+   * Gets the comparison type for the current rotor mode.
+   * @returns 'lower' or 'higher' based on the current mode
+   */
   public getCompareType(): 'lower' | 'higher' {
     const curr_mode = this.getMode();
     if (curr_mode === Constant.HIGHER_VALUE_MODE) {

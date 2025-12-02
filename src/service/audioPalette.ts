@@ -28,6 +28,9 @@ export const AudioPaletteIndex = {
   SAWTOOTH_SOFT: 10,
 } as const;
 
+/**
+ * Defines a single audio palette entry with wave type and optional modulation.
+ */
 export interface AudioPaletteEntry {
   index: number;
   waveType: WaveType;
@@ -56,6 +59,9 @@ export class AudioPaletteService implements Disposable {
   private readonly basePalette: AudioPaletteEntry[];
   private readonly extendedPalette: Map<number, AudioPaletteEntry>;
 
+  /**
+   * Creates an instance of AudioPaletteService and initializes palette entries.
+   */
   public constructor() {
     // IMPORTANT: Base palette index consistency requirement
     // When modifying this basePalette array:
@@ -240,6 +246,9 @@ export class AudioPaletteService implements Disposable {
     this.generateExtendedPalette();
   }
 
+  /**
+   * Cleans up resources by clearing the extended palette cache.
+   */
   public dispose(): void {
     this.extendedPalette.clear();
   }
@@ -266,7 +275,8 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Gets the total number of predefined palette entries
+   * Gets the total number of predefined palette entries.
+   * @returns Number of base palette entries
    */
   public get basePaletteSize(): number {
     return this.basePalette.length;
@@ -295,8 +305,7 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Generates extended palette entries by creating unique combinations
-   * of harmonic mixes and timbre modulations
+   * Generates extended palette entries beyond the base palette for additional groups.
    */
   private generateExtendedPalette(): void {
     // Pre-generate some common extended entries for better performance
@@ -383,8 +392,9 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Generates a unique audio palette entry for a given group index
-   * Uses mathematical combinations to create distinct but pleasant sounds
+   * Generates a unique audio palette entry for a given group index beyond the base palette.
+   * @param groupIndex - Index of the group to generate an entry for
+   * @returns Generated audio palette entry
    */
   private generateExtendedEntry(groupIndex: number): AudioPaletteEntry {
     const baseIndex = groupIndex % this.basePalette.length;
@@ -416,7 +426,9 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Generates harmonic series for extended palette entries
+   * Generates harmonic series for extended palette entries based on variation.
+   * @param variation - Variation index to determine harmonic characteristics
+   * @returns Array of harmonic frequency and amplitude pairs
    */
   private generateHarmonics(
     variation: number,
@@ -439,7 +451,10 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Generates unique timbre modulation for extended palette entries
+   * Generates unique ADSR timbre modulation for extended palette entries.
+   * @param variation - Variation index to determine modulation characteristics
+   * @param base - Base timbre modulation values to modify
+   * @returns Generated timbre modulation settings
    */
   private generateTimbreModulation(
     variation: number,
@@ -459,10 +474,7 @@ export class AudioPaletteService implements Disposable {
   }
 
   /**
-   * Validates that all base palette entries have correct indices to prevent silent mismatches
-   * when reordering. Ensures that each entry's index property matches its array position.
-   * This method should be called in the constructor and whenever the basePalette is modified.
-   *
+   * Validates that all base palette entries have correct indices matching their array positions.
    * @throws Error if any entry's index doesn't match its array position
    */
   private validateBasePalette(): void {

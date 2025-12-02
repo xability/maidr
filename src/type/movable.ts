@@ -1,3 +1,6 @@
+/**
+ * Interface for plot traces that support keyboard navigation and movement.
+ */
 export interface Movable {
   moveOnce: (direction: MovableDirection) => void;
   moveToExtreme: (direction: MovableDirection) => void;
@@ -7,4 +10,7 @@ export interface Movable {
   isMovable: (target: [number, number] | MovableDirection) => boolean;
 }
 
+/**
+ * Cardinal directions for navigating through plot data points.
+ */
 export type MovableDirection = 'UPWARD' | 'DOWNWARD' | 'FORWARD' | 'BACKWARD';
