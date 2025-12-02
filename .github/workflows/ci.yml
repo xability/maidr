@@ -72,10 +72,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm run e2e:install
 
       - name: Run unit tests
-        run: npm run test:coverage
+        run: npm run e2e
 
   build:
     name: Build Project

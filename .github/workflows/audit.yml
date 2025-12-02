@@ -1,12 +1,13 @@
 name: Audit UI and Example Changes
 
 on:
-  workflow_dispatch:
-  pull_request:
-    types: [opened, synchronize]
-    paths:
-      - 'examples/**'
-      - 'src/ui/**'
+  workflow_dispatch: #enabled only for manual trigger
+
+  # pull_request:
+  #   types: [opened, synchronize]
+  #   paths:
+  #     - 'examples/**'
+  #     - 'src/ui/**'
 
 permissions:
   contents: read
