@@ -75,7 +75,7 @@ jobs:
         run: npm ci
 
       - name: Run unit tests
-        run: npm run test:coverage
+        run: npm run e2e
 
   build:
     name: Build Project
