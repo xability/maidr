@@ -12,10 +12,6 @@ export class RotorNavigationNextNavUnitCommand implements Command {
 
   public execute(): void {
     this.rotorNavigationViewModel.moveToNextNavUnit();
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.rotorNavigationViewModel.toggle(state);
-    }
   }
 }
 
@@ -29,10 +25,6 @@ export class RotorNavigationPrevNavUnitCommand implements Command {
 
   public execute(): void {
     this.rotorNavigationViewModel.moveToPrevNavUnit();
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.rotorNavigationViewModel.toggle(state);
-    }
   }
 }
 

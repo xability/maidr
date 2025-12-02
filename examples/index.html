@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR Examples</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2em;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        margin: 0.5em 0;
+      }
+      a {
+        text-decoration: none;
+        color: #1976d2;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR Example Plots</h1>
+    <ul id="example-list"></ul>
+    <script type="module">
+      const modules = import.meta.glob('./*.html', { query: '?url', import: 'default', eager: true });
+      const files = Object.values(modules)
+        .map((url) => url.split('/').pop())
+        .filter((file) => file !== 'index.html');
+      const list = document.getElementById('example-list');
+      files.forEach((file) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `/${file}`;
+        a.textContent = file;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    </script>
+  </body>
+</html>

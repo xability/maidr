@@ -632,7 +632,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     const braille = trace.braille;
-    if (this.cacheId !== braille.id || this.cache === null) {
+    if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
       this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
       this.cacheId = braille.id;

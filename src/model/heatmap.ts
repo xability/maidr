@@ -1,12 +1,19 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export class Heatmap extends AbstractTrace<number> {
+export class Heatmap extends AbstractTrace {
+  protected get values(): number[][] {
+    return this.heatmapValues;
+  }
+
   protected readonly supportsExtrema = false;
-
+  protected readonly movable: Movable;
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
   protected highlightCenters:
@@ -33,6 +40,7 @@ export class Heatmap extends AbstractTrace<number> {
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<number>(this.heatmapValues);
   }
 
   public dispose(): void {
@@ -44,21 +52,23 @@ export class Heatmap extends AbstractTrace<number> {
     super.dispose();
   }
 
-  protected get values(): number[][] {
-    return this.heatmapValues;
-  }
-
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     return {
-      min: this.min,
-      max: this.max,
-      size: this.heatmapValues.length,
-      index: this.col,
-      value: this.heatmapValues[this.row][this.col],
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.heatmapValues[this.row][this.col],
+      },
+      panning: {
+        x: this.col,
+        y: this.row,
+        rows: this.heatmapValues.length,
+        cols: this.heatmapValues[this.row].length,
+      },
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -70,7 +80,7 @@ export class Heatmap extends AbstractTrace<number> {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
@@ -78,6 +88,13 @@ export class Heatmap extends AbstractTrace<number> {
         label: this.fill,
         value: String(this.heatmapValues[this.row][this.col]),
       },
+    };
+  }
+
+  protected get dimension(): Dimension {
+    return {
+      rows: this.heatmapValues.length,
+      cols: this.heatmapValues[this.row].length,
     };
   }
 

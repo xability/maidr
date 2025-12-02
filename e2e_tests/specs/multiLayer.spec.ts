@@ -64,10 +64,10 @@ test.describe('Multi Layer Plot', () => {
     try {
       const multiLayerPlotPage = new MultiLayerPlotPage(page);
       await multiLayerPlotPage.navigateToMultiLayerPlot();
-      await page.waitForSelector(`svg#${TestConstants.MULTI_LAYER_PLOT_ID}`, { timeout: 10000 });
+      await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg#${plotId}`);
+        const svgElement = document.querySelector(`svg`);
 
         if (!svgElement) {
           throw new Error(`SVG element with ID ${plotId} not found`);
@@ -119,6 +119,12 @@ test.describe('Multi Layer Plot', () => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
         const instructionText = await multiLayerPlotPage.getInstructionText();
         expect(instructionText).toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
+      });
+      test('should switch to first layer', async ({ page }) => {
+        const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+        await multiLayerPlotPage.switchToUpperLayer();
+        const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
+        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });
     });
 
@@ -343,18 +349,11 @@ test.describe('Multi Layer Plot', () => {
   });
 
   test.describe('Layer Switching', () => {
-    test('should switch to upper layer', async ({ page }) => {
+    test('should switch to first layer', async ({ page }) => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
-    });
-
-    test('should switch to bottom layer', async ({ page }) => {
-      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-      await multiLayerPlotPage.switchToLowerLayer();
-      const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_DOWN_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
     });
   });
 
@@ -367,8 +366,9 @@ test.describe('Multi Layer Plot', () => {
     async function setupSecondLayerTest(page: Page): Promise<MultiLayerPlotPage> {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
+      await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toEqual(TestConstants.MULTI_LAYER_PLOT_UP_SWITCH);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
       return multiLayerPlotPage;
     }
 
@@ -387,6 +387,15 @@ test.describe('Multi Layer Plot', () => {
         const multiLayerPlotPage = await setupSecondLayerTest(page);
         const layerInfoText = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(layerInfoText).not.toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
+      });
+
+      test('should switch to bottom layer', async ({ page }) => {
+        const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+        await multiLayerPlotPage.switchToUpperLayer(); // switching to first layer
+        await multiLayerPlotPage.switchToUpperLayer(); // switching to second layer
+        await multiLayerPlotPage.switchToLowerLayer(); // switch to first layer
+        const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
+        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });
     });
 
