@@ -16,10 +16,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "e2e": "playwright test --config=e2e_tests/config/test-config.ts",
-    "e2e:ui": "playwright test --ui",
-    "e2e:debug": "playwright test --debug",
-    "e2e:install": "playwright install --with-deps"
+    "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
+    "e2e:ui": "npx playwright test --ui",
+    "e2e:debug": "npx playwright test --debug",
+    "e2e:install": "npx playwright install --with-deps"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
