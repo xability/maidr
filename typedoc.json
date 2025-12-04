@@ -1,0 +1,32 @@
+{
+  "entryPoints": [
+    "src"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**"
+  ],
+  "name": "MAIDR Documentation",
+  "includeVersion": true,
+  "categorizeByGroup": false,
+  "navigation": {
+    "includeCategories": false,
+    "includeGroups": false,
+    "includeFolders": true
+  },
+  "hideGenerator": true,
+  "tsconfig": "./tsconfig.json",
+  "readme": "./README.md",
+  "sort": [
+    "source-order"
+  ],
+  "plugin": [
+    "typedoc-theme-hierarchy"
+  ],
+  "theme": "hierarchy",
+  "customLogo": "media/logo.svg",
+  "media": "media"
+}

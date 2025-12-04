@@ -19,7 +19,9 @@
     "e2e": "playwright test --config=e2e_tests/config/test-config.ts",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "e2e:install": "playwright install --with-deps"
+    "e2e:install": "playwright install --with-deps",
+    "docs": "typedoc && cp -r media docs/ 2>/dev/null || true",
+    "docs:watch": "typedoc --watch"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -62,6 +64,8 @@
     "start-server-and-test": "^2.0.11",
     "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
+    "typedoc": "^0.28.15",
+    "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
