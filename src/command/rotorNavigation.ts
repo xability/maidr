@@ -7,15 +7,13 @@ import type { Command } from './command';
  */
 export class RotorNavigationNextNavUnitCommand implements Command {
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
-  private readonly context: Context;
   /**
    * Creates an instance of RotorNavigationNextNavUnitCommand.
-   * @param {Context} context - The application context.
+   * @param {Context} _context - The application context.
    * @param {RotorNavigationViewModel} rotorNavigationViewModel - The rotor navigation view model.
    */
-  public constructor(context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
+  public constructor(_context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
     this.rotorNavigationViewModel = rotorNavigationViewModel;
-    this.context = context;
   }
 
   /**
@@ -23,10 +21,6 @@ export class RotorNavigationNextNavUnitCommand implements Command {
    */
   public execute(): void {
     this.rotorNavigationViewModel.moveToNextNavUnit();
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.rotorNavigationViewModel.toggle(state);
-    }
   }
 }
 
@@ -35,15 +29,13 @@ export class RotorNavigationNextNavUnitCommand implements Command {
  */
 export class RotorNavigationPrevNavUnitCommand implements Command {
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
-  private readonly context: Context;
   /**
    * Creates an instance of RotorNavigationPrevNavUnitCommand.
-   * @param {Context} context - The application context.
+   * @param {Context} _context - The application context.
    * @param {RotorNavigationViewModel} rotorNavigationViewModel - The rotor navigation view model.
    */
-  public constructor(context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
+  public constructor(_context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
     this.rotorNavigationViewModel = rotorNavigationViewModel;
-    this.context = context;
   }
 
   /**
@@ -51,10 +43,6 @@ export class RotorNavigationPrevNavUnitCommand implements Command {
    */
   public execute(): void {
     this.rotorNavigationViewModel.moveToPrevNavUnit();
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.rotorNavigationViewModel.toggle(state);
-    }
   }
 }
 
