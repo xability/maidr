@@ -703,7 +703,6 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-
   /**
    * Moves up to the next line in rotor mode
    * @param _mode - Optional mode parameter (currently unused)

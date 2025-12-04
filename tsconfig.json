@@ -5,6 +5,7 @@
 
     "baseUrl": "./src",
     "module": "CommonJS",
+    "moduleResolution": "node",
     "paths": {
       "@command/*": ["command/*"],
       "@model/*": ["model/*"],
