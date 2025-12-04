@@ -703,22 +703,6 @@ export class LineTrace extends AbstractTrace<number> {
     return false;
   }
 
-  /**
-   * Compares two numbers based on the specified comparison type
-   * @param a - First number to compare
-   * @param b - Second number to compare
-   * @param type - Comparison type ('lower' or 'higher')
-   * @returns True if comparison matches the type
-   */
-  private compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
-    if (type === 'lower') {
-      return a < b;
-    }
-    if (type === 'higher') {
-      return a > b;
-    }
-    return false;
-  }
 
   /**
    * Moves up to the next line in rotor mode

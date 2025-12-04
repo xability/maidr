@@ -357,7 +357,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param type - The comparison type (lower or higher)
    * @returns True if a target was found, false otherwise
    */
-  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;

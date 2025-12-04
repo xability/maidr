@@ -150,7 +150,6 @@ export class DisplayService implements Disposable {
         || focus === 'REVIEW'
         || focus === 'GO_TO_EXTREMA'
         || focus === 'COMMAND_PALETTE'
-        || focus === 'ROTOR'
         || focus === 'SETTINGS'
         || focus === 'CHAT'
         || focus === 'HELP';

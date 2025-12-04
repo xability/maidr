@@ -38,7 +38,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
    * @param type indicates the value to look for
    * @returns boolean (true: if target was found, false: else)
    */
-  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;

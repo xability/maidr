@@ -307,7 +307,7 @@ export class KeybindingService {
       Scope,
       Keymap[Scope],
     ][]) {
-      for (const [commandName, key] of Object.entries(keymap) as [
+      for (const [commandName, key] of Object.entries(keymap as Record<string, string>) as [
         Keys,
         string,
       ][]) {

@@ -485,4 +485,28 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     return this.mode !== TextMode.OFF;
   }
+
+  /**
+   * Checks if the text service is in verbose mode.
+   * @returns True if text mode is set to verbose, false otherwise
+   */
+  public isVerbose(): boolean {
+    return this.mode === TextMode.VERBOSE;
+  }
+
+  /**
+   * Checks if the text service is in terse mode.
+   * @returns True if text mode is set to terse, false otherwise
+   */
+  public isTerse(): boolean {
+    return this.mode === TextMode.TERSE;
+  }
+
+  /**
+   * Checks if the text service is turned off.
+   * @returns True if text mode is set to off, false otherwise
+   */
+  public isOff(): boolean {
+    return this.mode === TextMode.OFF;
+  }
 }
