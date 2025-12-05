@@ -1,7 +1,8 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { LayerSwitchTraceState, PlotState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
+import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -15,6 +16,7 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private readonly navigationService: NavigationService;
   private readonly figure: Figure;
   private isRotorActive: boolean;
 
@@ -24,6 +26,7 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
+    this.navigationService = new NavigationService();
 
     this.isRotorActive = false;
 
@@ -131,70 +134,17 @@ export class Context implements Disposable {
 
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
+      const previousTrace = this.active as Trace;
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
-      const currentTrace = activeSubplot.activeTrace;
-      if (!currentTrace) {
-        return;
-      }
 
-      // Extract X value from current trace BEFORE switching layers
-      // This ensures we use the actual current position, not any cached/previous state
-      const currentXValue = currentTrace.getCurrentXValue();
+      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
 
-      // Now switch to the new trace
-      activeSubplot.moveOnce(direction);
-      const newTrace = activeSubplot.activeTrace;
-      this.plotContext.push(newTrace);
-
-      if (newTrace.getId() === currentTrace.getId()) {
-        newTrace.notifyOutOfBounds();
-        activeSubplot.notifyOutOfBounds();
-        return;
-      }
-
-      // Try to let the new trace handle the layer switch
-      // This allows trace classes to optionally implement special layer switching behavior
-      // (e.g., preserving Y values when switching between layers)
-      // IMPORTANT: onSwitchFrom should only modify trace position if it returns true.
-      // If it returns false, it must leave the trace position unchanged so the default
-      // behavior (moveToXValue) can be applied safely.
-      if (typeof newTrace.onSwitchFrom === 'function') {
-        const handled = newTrace.onSwitchFrom(currentTrace);
-        if (handled) {
-          // Trace handled the switch, proceed with state notification
-          if (!newTrace.state.empty) {
-            const index = activeSubplot.getRow() + 1;
-            const size = activeSubplot.getSize();
-            const state: LayerSwitchTraceState = {
-              ...newTrace.state,
-              isLayerSwitch: true,
-              index,
-              size,
-            };
-            newTrace.notifyObserversWithState(state);
-          } else {
-            newTrace.notifyStateUpdate();
-          }
-          return;
-        }
-      }
-
-      // Default behavior for layer switches: just preserve X value
-      newTrace.moveToXValue(currentXValue);
-
-      if (!newTrace.state.empty) {
-        const index = activeSubplot.getRow() + 1;
-        const size = activeSubplot.getSize();
-        const state: LayerSwitchTraceState = {
-          ...newTrace.state,
-          isLayerSwitch: true,
-          index,
-          size,
-        };
-        newTrace.notifyObserversWithState(state);
-      } else {
-        newTrace.notifyStateUpdate();
+      if (newTrace) {
+        this.plotContext.push(newTrace);
+      } else if (previousTrace) {
+        // Restore previous trace on failure to avoid corrupting the stack
+        this.plotContext.push(previousTrace);
       }
     } else {
       const onlySubplot = this.figure.subplots[0][0];
