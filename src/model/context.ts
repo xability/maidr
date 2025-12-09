@@ -186,14 +186,19 @@ export class Context implements Disposable {
       : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
+        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
+        Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a maidr plot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        return `This is a maidr plot containing ${state.size} layers, and
+        this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
+        Use Arrows to navigate data points. Toggle B for Braille, T for Text,
+        S for Sonification, and R for Review mode.`;
 
       case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
         let effectivePlotType = state.plotType;
+
         if (state.plotType === 'multiline' && state.groupCount === 1) {
           effectivePlotType = 'single line';
         }
@@ -202,6 +207,7 @@ export class Context implements Disposable {
           = effectivePlotType === 'multiline' && state.groupCount
             ? ` with ${state.groupCount} groups`
             : '';
+
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }

@@ -1,24 +1,30 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable, MovableDirection } from '@type/movable';
+import type { Movable } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type {
-  FigureState,
-  HighlightState,
-  SubplotState,
-  TraceState,
-} from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
+import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
-import { AbstractObservableElement } from './abstract';
+import { Svg } from '@util/svg';
+import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
+import { MovableGrid } from './movable';
 
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 
-export class Figure extends AbstractObservableElement<Subplot, FigureState> {
+export class Figure extends AbstractPlot<FigureState> implements Movable, Observable<FigureState>, Disposable {
+  protected get dimension(): Dimension {
+    return {
+      rows: this.subplots.length,
+      cols: this.subplots[this.row].length,
+    };
+  }
+
   public readonly id: string;
+  protected readonly movable: Movable;
 
   private readonly title: string;
   private readonly subtitle: string;
@@ -41,6 +47,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       row.map(subplot => new Subplot(subplot)),
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
+
+    this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
   }
 
   public dispose(): void {
@@ -82,11 +90,11 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       index: currentIndex,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
       traceTypes: activeSubplot.traceTypes,
-      highlight: this.highlight(),
+      highlight: this.highlight,
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
 
     if (totalSubplots <= 1) {
@@ -94,8 +102,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         empty: true,
         type: 'trace',
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
         },
       };
     }
@@ -127,8 +137,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         empty: true,
         type: 'trace',
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
         },
       };
     }
@@ -137,71 +149,45 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       empty: true,
       type: 'trace',
       audio: {
-        size: this.values[this.row].length,
-        index: this.col,
+        y: this.row,
+        x: this.col,
+        rows: this.subplots.length,
+        cols: this.subplots[this.row].length,
       },
     };
-  }
-
-  public isMovable(direction: MovableDirection): boolean {
-    switch (direction) {
-      case 'UPWARD':
-        return this.row < this.subplots.length - 1;
-      case 'DOWNWARD':
-        return this.row > 0;
-      case 'FORWARD':
-        return this.col < this.subplots[this.row].length - 1;
-      case 'BACKWARD':
-        return this.col > 0;
-      default:
-        return false;
-    }
-  }
-
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
-    this.notifyStateUpdate();
   }
 
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
   }
+
+  protected get outOfBoundsState(): FigureState {
+    return {
+      empty: true,
+      type: 'figure',
+    };
+  }
 }
 
-export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
+export class Subplot extends AbstractPlot<SubplotState> implements Movable, Observable<SubplotState>, Disposable {
+  protected get dimension(): Dimension {
+    return {
+      rows: this.values.length,
+      cols: this.values[this.row].length,
+    };
+  }
+
+  protected readonly movable: Movable;
+
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
+
   private readonly size: number;
+  private readonly highlightValue: SVGElement | null;
 
   public constructor(subplot: MaidrSubplot) {
     super();
-
-    this.isInitialEntry = false;
 
     const layers = subplot.layers;
     this.size = layers.length;
@@ -221,6 +207,15 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
     });
+
+    this.highlightValue = this.mapToSvgElement(subplot.selector);
+    this.movable = new MovableGrid<Trace>(this.traces);
+  }
+
+  public dispose(): void {
+    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
+    this.traces.length = 0;
+    super.dispose();
   }
 
   public getRow(): number {
@@ -231,12 +226,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     return this.size;
   }
 
-  public dispose(): void {
-    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
-    this.traces.length = 0;
-    super.dispose();
-  }
-
   protected get values(): Trace[][] {
     return this.traces;
   }
@@ -245,61 +234,41 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     return this.traces[this.row][this.col];
   }
 
-  protected highlight(): HighlightState {
-    return {
-      empty: true,
-      type: 'trace',
-      audio: {
-        size: this.values[this.row].length,
-        index: this.col,
-      },
-    };
-  }
-
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
-    this.notifyStateUpdate();
-  }
-
   public get state(): SubplotState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'subplot',
-      };
-    }
-
     return {
       empty: false,
       type: 'subplot',
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
-      highlight: this.highlight(),
+      highlight: this.highlight,
+    };
+  }
+
+  protected get outOfBoundsState(): SubplotState {
+    return {
+      empty: true,
+      type: 'subplot',
+    };
+  }
+
+  private get highlight(): HighlightState {
+    if (this.highlightValue === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          y: this.row,
+          x: this.col,
+          rows: this.values.length,
+          cols: this.values[this.row].length,
+        },
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValue,
     };
   }
 
@@ -313,6 +282,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     _figureCol: number,
   ): SubplotState {
     return this.state;
+  }
+
+  private mapToSvgElement(selector?: string): SVGElement | null {
+    return selector ? Svg.selectElement(selector) ?? null : null;
   }
 }
 

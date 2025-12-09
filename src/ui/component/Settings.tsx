@@ -52,16 +52,12 @@ function getValidVersion(
 interface SettingRowProps {
   label: string;
   input: React.ReactNode;
+  alignLabel?: 'center' | 'flex-start';
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ label, input }) => (
-  <Grid
-    container
-    spacing={1}
-    alignItems="center"
-    className="settings-grid-container"
-  >
-    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center' }) => (
+  <Grid container spacing={1} alignItems={alignLabel} className="settings-grid-container" sx={{ py: 1 }}>
+    <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={alignLabel === 'flex-start' ? { py: 1 } : undefined}>
       <Typography variant="body2" fontWeight="normal">
         {label}
       </Typography>

@@ -1,9 +1,3 @@
-/**
- * Playwright configuration for E2E testing
- *
- * Configures test execution, browser settings, and reporting options
- * Uses file protocol to access local files without a separate server
- */
 import type { PlaywrightTestConfig } from '@playwright/test';
 import path from 'node:path';
 
@@ -14,9 +8,8 @@ import path from 'node:path';
 function getProjectRoot(): string {
   // This path should point to the root of maidr-ts project
   // where the examples directory is located
-  const rootPath = path.resolve(__dirname, '../..');
-
-  return rootPath;
+  // __dirname will be the root folder now
+  return __dirname;
 }
 
 /**
@@ -25,7 +18,7 @@ function getProjectRoot(): string {
  */
 const config: PlaywrightTestConfig = {
   // Set the test directory to match your project structure
-  testDir: path.join(__dirname, '..', 'specs'),
+  testDir: path.join(__dirname, 'test/e2e/specs'),
 
   // Test file pattern - include both spec.ts patterns
   testMatch: '**/*.spec.ts',
@@ -51,7 +44,7 @@ const config: PlaywrightTestConfig = {
     viewport: null,
 
     // Capture traces and screenshots on failure
-    trace: 'on-first-retry',
+    trace: 'on',
     screenshot: 'only-on-failure',
   },
 
@@ -59,10 +52,7 @@ const config: PlaywrightTestConfig = {
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium', launchOptions: {
-      // adding a 50 ms slowMo to combat chromium latency unable to keep up with playwright's speed of execution
-        slowMo: 50,
-      } },
+      use: { browserName: 'chromium' },
     },
     {
       name: 'firefox',

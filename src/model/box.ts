@@ -1,7 +1,9 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
+import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import type { Trace } from './plot';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation, TraceType } from '@type/grammar';
@@ -9,9 +11,11 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export class BoxTrace extends AbstractTrace<number[] | number> {
+export class BoxTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
+  protected readonly movable: Movable;
 
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
@@ -31,6 +35,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
 
+
     /**
      * Violin detection hint.
      *
@@ -41,6 +46,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
      */
     this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
 
+    this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // For horizontal orientation, reverse points to match visual order (lower-left start)
@@ -85,18 +91,18 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    // this.row = this.boxValues.length - 1;
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as BoxSelector[],
+    );
 
-    // For horizontal orientation, reverse selectors to match reversed points order
-    let selectors = layer.selectors as BoxSelector[] | undefined;
-    if (this.orientation === Orientation.HORIZONTAL && selectors) {
-      selectors = [...selectors].reverse();
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.highlightValues?.reverse();
     }
 
-    this.highlightValues = this.mapToSvgElements(selectors);
-
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
   }
+
 
   /**
    * Helper method to check if this is a violin box plot.
@@ -113,11 +119,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
-  public moveToIndex(row: number, col: number): void {
+  public override moveToIndex(row: number, col: number): boolean {
     // No coordinate swap needed - navigation already passes (row, col) matching boxValues structure
     // Vertical: boxValues[section][box] → row=section, col=box
     // Horizontal: boxValues[box][section] → row=box, col=section
-    super.moveToIndex(row, col);
+    return super.moveToIndex(row, col);
   }
 
   /**
@@ -186,23 +192,30 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.boxValues;
   }
 
-  protected audio(): AudioState {
-    // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+  protected get audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = this.boxValues[this.row][this.col];
-    const index = Array.isArray(value)
-      ? value.map(v => v - this.min)
-      : value - this.min;
+    const index = isHorizontal ? this.col : this.row;
 
+    const panning = Array.isArray(value)
+      ? value.length === 0 ? index : value[value.length - 1] - this.min
+      : Number.isNaN(value) ? index : value - this.min;
     return {
-      min: this.min, // min freq
-      max: this.max, // max freq
-      value, // value, used for freq
-      size: this.max - this.min, // panning size
-      index, // position in panning
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.boxValues[this.row][this.col],
+      },
+      panning: {
+        x: isHorizontal ? panning : this.row,
+        y: isHorizontal ? this.row : panning,
+        rows: isHorizontal ? this.boxValues.length : this.max - this.min,
+        cols: isHorizontal ? this.max - this.min : this.boxValues.length,
+      },
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const row = isHorizontal ? this.row : this.col;
     const col = isHorizontal ? this.col : this.row;
@@ -218,7 +231,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
@@ -234,6 +247,14 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
+    };
+  }
+
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    return {
+      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
+      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
     };
   }
 
