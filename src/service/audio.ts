@@ -170,7 +170,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const audio = state.audio;
     if (audio.isContinuous) {
-      this.playSmooth(audio.freq, audio.panning);
+      this.playSmooth(
+        audio.freq,
+        audio.panning,
+        'sine',
+        audio.volumeMultiplier,
+        audio.volumeScale,
+      );
     } else if (Array.isArray(audio.freq.raw)) {
       const values = audio.freq.raw as number[];
       if (values.length === 0) {
@@ -326,11 +332,32 @@ export class AudioService implements Observer<PlotState>, Disposable {
     freq: Frequency,
     panning: Panning,
     wave: OscillatorType = 'sine',
+    volumeMultiplier?: number,
+    volumeScale?: number,
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
-    const freqs = (freq.raw as number[]).map(v => this.interpolate(v, { min: freq.min, max: freq.max }, { min: this.minFrequency, max: this.maxFrequency }));
+    const freqs = (freq.raw as number[]).map(v =>
+      this.interpolate(
+        v,
+        { min: freq.min, max: freq.max },
+        { min: this.minFrequency, max: this.maxFrequency },
+      ),
+    );
+
+    // Base volume from user settings (0–1, quadratic scaling)
+    const baseVolume = this.volume;
+
+    // Use volumeScale if provided (normalized 0-1 range), otherwise use volumeMultiplier.
+    // volumeScale takes precedence as the preferred approach; volumeMultiplier is kept for backward compatibility.
+    let currentVolume: number;
+    if (volumeScale !== undefined) {
+      currentVolume = baseVolume * Math.max(0, volumeScale);
+    } else {
+      // Fall back to volumeMultiplier for backward compatibility
+      currentVolume = baseVolume * (volumeMultiplier ?? 1.0);
+    }
 
     if (freqs.length < 2) {
       freqs.push(freqs[0]);
@@ -344,7 +371,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
 
     const gainNode = ctx.createGain();
-    const gainCurve = [1e-4 * this.volume, 0.5 * this.volume, 1e-4 * this.volume];
+    const gainCurve = [
+      1e-4 * currentVolume,
+      0.5 * currentVolume,
+      1e-4 * currentVolume,
+    ];
     gainNode.gain.setValueCurveAtTime(gainCurve, startTime, duration);
 
     const panner = new PannerNode(this.audioContext, {

@@ -2,6 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
+import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -15,6 +16,7 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private readonly navigationService: NavigationService;
   private readonly figure: Figure;
   private isRotorActive: boolean;
 
@@ -24,6 +26,7 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
+    this.navigationService = new NavigationService();
 
     this.isRotorActive = false;
 
@@ -131,10 +134,23 @@ export class Context implements Disposable {
 
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
+      const previousTrace = this.active as Trace;
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
-      activeSubplot.moveOnce(direction);
-      this.plotContext.push(activeSubplot.activeTrace);
+
+      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
+
+      if (newTrace) {
+        this.plotContext.push(newTrace);
+      } else if (previousTrace) {
+        // Restore previous trace on failure to avoid corrupting the stack
+        this.plotContext.push(previousTrace);
+      }
+    } else {
+      const onlySubplot = this.figure.subplots[0][0];
+      const activeTrace = this.active as Trace;
+      activeTrace.notifyOutOfBounds();
+      onlySubplot.notifyOutOfBounds(); // For UI feedback
     }
   }
 

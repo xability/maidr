@@ -1,9 +1,10 @@
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractPlot } from './abstract';
@@ -184,6 +185,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
   private readonly size: number;
   private readonly highlightValue: SVGElement | null;
+  private readonly isViolinPlot: boolean;
 
   public constructor(subplot: MaidrSubplot) {
     super();
@@ -191,7 +193,18 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     const layers = subplot.layers;
     this.size = layers.length;
 
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+    // Structural detection for violin plots is done once at subplot level:
+    // BOX + SMOOTH in the same subplot => violin plot.
+    const layerTypes = layers.map(layer => layer.type);
+    const hasBox = layerTypes.includes(TraceType.BOX);
+    const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
+    const isViolinPlot = hasBox && hasSmooth;
+    this.isViolinPlot = isViolinPlot;
+
+    // Pass only a minimal hint into the factory; do not leak full layers array.
+    this.traces = layers.map(layer => [
+      TraceFactory.create(layer, { isViolinPlot }),
+    ]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
@@ -221,6 +234,31 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
+  }
+
+  /**
+   * Override moveOnce to avoid "initial entry" no-op behavior for layer navigation.
+   *
+   * For violin subplots, the MovableGrid is only used to step between layers
+   * (traces), not between data points. We don't want the first MOVE_UP/DOWN
+   * to be eaten by handleInitialEntry; instead, the first PageUp/PageDown
+   * should actually switch layers.
+   *
+   * For non-violin plots, we delegate directly to the base implementation to
+   * preserve existing behavior.
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    // Only customize behavior for violin subplots
+    if (!this.isViolinPlot) {
+      return super.moveOnce(direction);
+    }
+
+    // For violin subplots, clear initial-entry state on first move so the
+    // first PageUp/PageDown actually switches layers.
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+    return super.moveOnce(direction);
   }
 
   public get state(): SubplotState {
@@ -293,7 +331,21 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   moveToXValue: (xValue: any) => boolean;
 
-  moveToPoint: (x: number, y: number) => void;
+  /**
+   * Get the current Y value from the trace.
+   * Optional method implemented by traces that support Y value preservation during layer switching.
+   * @returns The current Y value or null if not available
+   */
+  getCurrentYValue?: () => number | null;
+
+  /**
+   * Move to a specific X value and find the closest position with the given Y value.
+   * Optional method implemented by traces that support preserving both X and Y values during layer switching.
+   * @param xValue The X value to move to
+   * @param yValue The Y value to find the closest matching position for
+   * @returns true if the move was successful, false otherwise
+   */
+  moveToXAndYValue?: (xValue: any, yValue: number) => boolean;
 
   /**
    * Notify observers that the trace is out of bounds
@@ -306,4 +358,20 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   resetToInitialEntry: () => void;
   notifyObserversWithState: (state: TraceState) => void;
+
+  /**
+   * Handle switching from another trace.
+   * Called by Context when switching layers. Traces can implement this
+   * to handle special layer switching behavior (e.g., preserving Y values).
+   *
+   * IMPORTANT CONTRACT:
+   * - If this method returns true, it MUST have modified the trace position appropriately.
+   * - If this method returns false, it MUST NOT modify the trace position at all.
+   *   The Context will then apply default behavior (moveToXValue) after this returns.
+   *
+   * @param previousTrace - The trace we're switching from
+   * @returns true if this trace handled the switch (and modified position),
+   *          false to use default behavior (position must remain unchanged)
+   */
+  onSwitchFrom?: (previousTrace: Trace) => boolean;
 }
