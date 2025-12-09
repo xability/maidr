@@ -176,3 +176,10 @@ playwright-report/
 
 # Qodo AI
 .qodo
+
+# Quarto
+/_site/
+/.quarto/
+_freeze/
+
+**/*.quarto_ipynb

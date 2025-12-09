@@ -3,7 +3,7 @@
     "src"
   ],
   "entryPointStrategy": "expand",
-  "out": "docs",
+  "out": "_site/docs",
   "exclude": [
     "**/*.test.ts",
     "**/*.spec.ts",
@@ -26,7 +26,5 @@
   "plugin": [
     "typedoc-theme-hierarchy"
   ],
-  "theme": "hierarchy",
-  "customLogo": "media/logo.svg",
-  "media": "media"
+  "theme": "hierarchy"
 }

@@ -1,0 +1,14 @@
+---
+title: "API Reference"
+format: html
+---
+
+## TypeDoc API Documentation
+
+The complete API documentation for MAIDR is available in an interactive format with search, navigation hierarchy, and detailed type information.
+
+<div style="margin: 2rem 0;">
+  <a href="docs/index.html" class="btn btn-primary btn-lg" style="text-decoration: none; padding: 1rem 2rem; display: inline-block;">
+    📚 View Full API Documentation
+  </a>
+</div>

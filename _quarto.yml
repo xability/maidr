@@ -1,0 +1,36 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - examples/**
+website:
+  title: "MAIDR"
+  description: "Multimodal Access and Interactive Data Representation"
+  favicon: media/logo.jpg
+
+  navbar:
+    background: primary
+    logo: media/logo.jpg
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Examples"
+        href: examples.qmd
+      - text: "API Reference"
+        href: api-reference.qmd
+    right:
+      - icon: github
+        href: https://github.com/xability/maidr
+
+  sidebar: false
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    toc-location: right
+
+execute:
+  freeze: auto
