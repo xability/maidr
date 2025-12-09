@@ -132,25 +132,38 @@ export class BoxTrace extends AbstractTrace {
    * For vertical: FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
    * For horizontal: UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
    */
-  public moveOnce(direction: MovableDirection): void {
+  protected handleInitialEntry(): void {
+    // On initial entry, start at the "bottom" of the box:
+    // - Vertical: MIN section (row = 1), first violin (col = 0)
+    // - Horizontal: MIN section (col = 1), first violin (row = 0)
+    this.isInitialEntry = false;
+    if (this.orientation === Orientation.VERTICAL) {
+      this.row = Math.min(1, this.boxValues.length - 1);
+      this.col = 0;
+    } else {
+      this.row = 0;
+      this.col = Math.min(1, this.boxValues[0]?.length ?? 1);
+    }
+  }
+
+  public override moveOnce(direction: MovableDirection): boolean {
     // Only apply special behavior for violin box plots
     if (!this.isViolin()) {
       // For regular box plots, use parent implementation
-      super.moveOnce(direction);
-      return;
+      return super.moveOnce(direction);
     }
 
     // Handle initial entry
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     // Check if movement is valid
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     // For violin box plots, reset to MIN section when changing violins
@@ -165,8 +178,7 @@ export class BoxTrace extends AbstractTrace {
         this.row = 1; // Reset to MIN section (bottom point)
       } else {
         // UPWARD/DOWNWARD navigate between sections (keep current violin)
-        super.moveOnce(direction);
-        return;
+        return super.moveOnce(direction);
       }
     } else {
       // Horizontal: row = violin index, col = section index
@@ -179,13 +191,13 @@ export class BoxTrace extends AbstractTrace {
         this.col = 1; // Reset to MIN section (bottom point)
       } else {
         // FORWARD/BACKWARD navigate between sections (keep current violin)
-        super.moveOnce(direction);
-        return;
+        return super.moveOnce(direction);
       }
     }
 
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
+    return true;
   }
 
   protected get values(): (number[] | number)[][] {

@@ -37,7 +37,7 @@ export class ViolinKdeTrace extends SmoothTrace {
     super(layer);
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     // Handle direct position targeting [row, col]
     if (Array.isArray(target)) {
       const [row, col] = target;
@@ -64,16 +64,23 @@ export class ViolinKdeTrace extends SmoothTrace {
     }
   }
 
-  public moveOnce(direction: MovableDirection): void {
+  protected handleInitialEntry(): void {
+    // Start at the first violin (row 0) and bottom of the curve (col 0)
+    this.isInitialEntry = false;
+    this.row = 0;
+    this.col = 0;
+  }
+
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     // Swapped navigation for violin plots:
@@ -88,10 +95,10 @@ export class ViolinKdeTrace extends SmoothTrace {
           // Reset to bottom point (col = 0) when switching to a new violin
           this.col = 0;
           this.notifyStateUpdate();
-        } else {
-          this.notifyOutOfBounds();
+          return true;
         }
-        break;
+        this.notifyOutOfBounds();
+        return false;
 
       case 'BACKWARD':
         // Move to previous violin (previous row)
@@ -101,10 +108,10 @@ export class ViolinKdeTrace extends SmoothTrace {
           // Reset to bottom point (col = 0) when switching to a new violin
           this.col = 0;
           this.notifyStateUpdate();
-        } else {
-          this.notifyOutOfBounds();
+          return true;
         }
-        break;
+        this.notifyOutOfBounds();
+        return false;
 
       case 'UPWARD':
       case 'DOWNWARD':
@@ -113,19 +120,19 @@ export class ViolinKdeTrace extends SmoothTrace {
           if (this.col < this.points[this.row].length - 1) {
             this.col += 1;
             this.notifyStateUpdate();
-          } else {
-            this.notifyOutOfBounds();
+            return true;
           }
-        } else {
-          // DOWNWARD
-          if (this.col > 0) {
-            this.col -= 1;
-            this.notifyStateUpdate();
-          } else {
-            this.notifyOutOfBounds();
-          }
+          this.notifyOutOfBounds();
+          return false;
         }
-        break;
+        // DOWNWARD
+        if (this.col > 0) {
+          this.col -= 1;
+          this.notifyStateUpdate();
+          return true;
+        }
+        this.notifyOutOfBounds();
+        return false;
     }
   }
 
@@ -229,7 +236,7 @@ export class ViolinKdeTrace extends SmoothTrace {
    * - Y axis: Shows numeric value rounded to 4 decimal places
    * - Volume: X-axis difference between points on the same Y value (width of violin at that Y level), rounded to 4 decimals, shown in fill field
    */
-  protected override text(): TextState {
+  protected override get text(): TextState {
     const currentPoint = this.points[this.row][this.col];
     const currentXValue = currentPoint.x;
     const currentYValue = Number(currentPoint.y);
@@ -314,20 +321,23 @@ export class ViolinKdeTrace extends SmoothTrace {
   }
 
   /**
-   * Violin KDE layers use consistent density values from first violin for pitch (like smooth plots).
-   * Override audio() to:
-   * - Use density values from first violin (row 0) for pitch - consistent audio across all violins
-   * - Calculate volumeScale from current position's density (0-1 normalized range) - volume varies by position
+   * Violin KDE layers use a custom, density-based audio mapping:
+   * - Pitch: derived from density values in the first violin (row 0), so pitch
+   *   scale is consistent across violins (switching violins doesn't retune).
+   * - Volume: derived from the current violin's density at the current position,
+   *   normalized to 0–1 and exposed via `volumeScale`.
+   *
+   * This mirrors the original violin audio behavior while conforming to the
+   * current AudioState shape used by AudioService.
    */
-  protected override audio(): AudioState {
-    // Always use the first violin (row 0) for density values for consistent pitch across violins
-    // This ensures audio doesn't change when switching between violins (like smooth plots)
+  protected override get audio(): AudioState {
+    // Always use the first violin (row 0) for density values for pitch.
     const referenceRowIndex = 0;
-    const referenceRowPoints = this.points[referenceRowIndex];
+    const referenceRowPoints = this.points[referenceRowIndex] as ViolinKdePoint[] | undefined;
 
     // If first violin doesn't exist, fall back to parent implementation
     if (!referenceRowPoints || referenceRowPoints.length === 0) {
-      return super.audio();
+      return super.audio;
     }
 
     // Extract density values from reference violin (row 0) for consistent pitch
@@ -340,10 +350,12 @@ export class ViolinKdeTrace extends SmoothTrace {
     const positiveDensityValues = referenceDensityValues.filter((d: number) => d > 0);
     if (positiveDensityValues.length === 0) {
       // No positive density values; fallback to parent implementation
-      return super.audio();
+      return super.audio;
     }
     const referenceDensityMin = Math.min(...positiveDensityValues);
-    const referenceDensityMax = referenceDensityValues.length > 0 ? Math.max(...referenceDensityValues) : 0;
+    const referenceDensityMax = referenceDensityValues.length > 0
+      ? Math.max(...referenceDensityValues)
+      : 0;
 
     // Safety check: if min === max, add a small range to avoid division by zero
     const safeDensityMin = referenceDensityMin === referenceDensityMax
@@ -362,26 +374,33 @@ export class ViolinKdeTrace extends SmoothTrace {
     // Use reference violin's density values for pitch (consistent across violins)
     const prevDensity = safeIndex > 0 ? getDensity(safeIndex - 1) : getDensity(safeIndex);
     const currDensity = getDensity(safeIndex);
-    const nextDensity = safeIndex < referenceDensityValues.length - 1 ? getDensity(safeIndex + 1) : getDensity(safeIndex);
+    const nextDensity = safeIndex < referenceDensityValues.length - 1
+      ? getDensity(safeIndex + 1)
+      : getDensity(safeIndex);
 
     // Calculate volumeScale from CURRENT position's density (allows volume to vary)
     // Get density from the actual current position where user is navigating
-    const currentRowPoints = this.points[this.row];
-    const currentCol = Math.min(this.col, currentRowPoints.length - 1);
-    const currentPoint = currentRowPoints[currentCol];
+    const currentRowPoints = this.points[this.row] as ViolinKdePoint[] | undefined;
+    const currentCol = currentRowPoints
+      ? Math.min(this.col, currentRowPoints.length - 1)
+      : 0;
+    const currentPoint = currentRowPoints?.[currentCol];
 
     let volumeScale = 1.0; // Default to full volume
     if (currentPoint) {
-      const currentPointWithDensity = currentPoint as ViolinKdePoint;
-      const currentDensity = currentPointWithDensity.density ?? currentPointWithDensity.width ?? 0;
+      const currentDensity = currentPoint.density ?? currentPoint.width ?? 0;
 
       // Calculate min/max density for current violin to normalize volume
       const currentDensityValues = currentRowPoints.map((point: ViolinKdePoint) => {
         return point.density ?? point.width ?? 0;
       });
       const filteredDensityValues = currentDensityValues.filter((d: number) => d > 0);
-      const currentDensityMin = filteredDensityValues.length > 0 ? Math.min(...filteredDensityValues) : 0;
-      const currentDensityMax = currentDensityValues.length > 0 ? Math.max(...currentDensityValues) : 0;
+      const currentDensityMin = filteredDensityValues.length > 0
+        ? Math.min(...filteredDensityValues)
+        : 0;
+      const currentDensityMax = currentDensityValues.length > 0
+        ? Math.max(...currentDensityValues)
+        : 0;
 
       // Normalize current density to 0-1 range for volumeScale
       if (currentDensityMax > 0 && typeof currentDensity === 'number' && currentDensity > 0) {
@@ -392,20 +411,23 @@ export class ViolinKdeTrace extends SmoothTrace {
       }
     }
 
-    // Return audio state using reference violin's density for pitch (consistent audio)
-    const audioState: AudioState = {
-      min: safeDensityMin,
-      max: safeDensityMax,
-      size: referenceDensityValues.length,
-      index: safeIndex,
-      value: [prevDensity, currDensity, nextDensity],
+    // Return audio state using reference violin's density for pitch and
+    // current violin's density for volume.
+    return {
+      freq: {
+        min: safeDensityMin,
+        max: safeDensityMax,
+        raw: [prevDensity, currDensity, nextDensity],
+      },
+      panning: {
+        y: this.row,
+        x: this.col,
+        rows: this.lineValues.length,
+        cols: this.lineValues[this.row].length,
+      },
       isContinuous: true,
-      // Use volumeScale from current position - volume can vary by position
       volumeScale,
-      // Don't include groupIndex for violin plots - audio should be same format for all violins
     };
-
-    return audioState;
   }
 
   /**
