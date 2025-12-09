@@ -1,7 +1,6 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
-import type { MovableDirection } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import type { Trace } from './plot';
@@ -34,7 +33,6 @@ export class BoxTrace extends AbstractTrace {
 
   constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
-
 
     /**
      * Violin detection hint.
@@ -102,7 +100,6 @@ export class BoxTrace extends AbstractTrace {
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
   }
-
 
   /**
    * Helper method to check if this is a violin box plot.
@@ -850,7 +847,12 @@ export class BoxTrace extends AbstractTrace {
 
       if (yValue !== null && xValue !== null && this.moveToXAndYValue) {
         // Use moveToXAndYValue to preserve both violin position and Y level
-        return this.moveToXAndYValue(xValue, yValue);
+        const handled = this.moveToXAndYValue(xValue, yValue);
+        if (handled) {
+          // We've explicitly positioned the trace; skip initial-entry behavior
+          this.isInitialEntry = false;
+        }
+        return handled;
       }
     }
 
@@ -858,6 +860,9 @@ export class BoxTrace extends AbstractTrace {
     // BoxTrace extends AbstractTrace which has moveToXValue
     if (xValue !== null) {
       const success = this.moveToXValue(xValue);
+      if (success) {
+        this.isInitialEntry = false;
+      }
       return success; // Return true if move was successful
     }
 

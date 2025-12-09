@@ -582,7 +582,12 @@ export class ViolinKdeTrace extends SmoothTrace {
 
       if (yValue !== null && xValue !== null && this.moveToXAndYValue) {
         // Use moveToXAndYValue to preserve both violin position and Y level
-        return this.moveToXAndYValue(xValue, yValue);
+        const handled = this.moveToXAndYValue(xValue, yValue);
+        if (handled) {
+          // We've explicitly positioned the trace; skip initial-entry behavior
+          this.isInitialEntry = false;
+        }
+        return handled;
       }
     }
 
@@ -590,6 +595,9 @@ export class ViolinKdeTrace extends SmoothTrace {
     // ViolinKdeTrace extends SmoothTrace which has moveToXValue
     if (xValue !== null) {
       const success = this.moveToXValue(xValue as number);
+      if (success) {
+        this.isInitialEntry = false;
+      }
       return success; // Return true if move was successful
     }
 

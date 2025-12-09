@@ -359,9 +359,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
       currentVolume = baseVolume * (volumeMultiplier ?? 1.0);
     }
 
-
-
-
     if (freqs.length < 2) {
       freqs.push(freqs[0]);
     }
