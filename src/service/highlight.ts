@@ -12,6 +12,7 @@ import type {
 } from "@type/state";
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
+import { use } from "react";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
@@ -29,6 +30,7 @@ export class HighlightService
   private highContrastLightColor: string = "#ffffff"; // default to white
   private highContrastDarkColor: string = "#000000"; // default to black
   private highContrastLevels: number = 2; // default to 2 levels (black and white)
+  private colorEquivalents: string[] = [];
 
   public constructor(settings: SettingsService) {
     this.settingsSerivice = settings;
@@ -40,6 +42,11 @@ export class HighlightService
     this.highContrastLightColor =
       initialSettings.general.highContrastLightColor;
     this.highContrastDarkColor = initialSettings.general.highContrastDarkColor;
+    this.colorEquivalents = this.interpolateColors(
+      this.highContrastLightColor,
+      this.highContrastDarkColor,
+      this.highContrastLevels,
+    );
 
     // Register as observer to listen for settings changes
     this.settingsSerivice.addObserver(this);
@@ -126,13 +133,58 @@ export class HighlightService
     this.updateContrastDisplay(context, displayService);
   }
 
+  private fakeGetSelectors(): string[] {
+    // fake selectors for now, until we have real ones
+    // we're just going to steal them directly from the svg in DOM
+    const maidrDataString =
+      document.querySelector("svg:first-child")?.getAttribute("data-maidr") ||
+      "{}";
+    const data = JSON.parse(maidrDataString);
+    const selectors: string[] = [];
+
+    function traverse(obj: unknown): void {
+      if (obj === null || typeof obj !== "object") return;
+
+      if (Array.isArray(obj)) {
+        for (const item of obj) {
+          traverse(item);
+        }
+      } else {
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === "selectors" && Array.isArray(value)) {
+            selectors.push(
+              ...value.filter((s): s is string => typeof s === "string"),
+            );
+          } else {
+            traverse(value);
+          }
+        }
+      }
+    }
+
+    traverse(data);
+    return selectors;
+  }
+
+  private isThisElementInSelectors(
+    element: Element,
+    selectors: string[],
+  ): boolean {
+    // Implement logic to check if the element matches any of the selectors
+    return selectors.some((selector) => element.matches(selector));
+  }
+
   private updateContrastDisplay(
     context: Context,
     displayService: DisplayService,
   ): void {
     // todo, use 008A00 as default highlight color during high contrast mode
+    // future todo: for 2 tone, use opposite color for highlight
+    // if more than 2, use the furthest away
 
     const svg = displayService.plot;
+
+    const selectors = this.fakeGetSelectors();
 
     if (!svg) return;
 
@@ -185,6 +237,7 @@ export class HighlightService
         }
 
         // exceptions
+        // line
         if ("type" in context.instructionContext) {
           if (context.instructionContext.type === "line") {
             document
@@ -196,6 +249,10 @@ export class HighlightService
     } else {
       // turn on high contrast mode
 
+      // anything that's a selector: find the closest color in our set but reverse it.
+      // That includes background and color, which get reverse by default
+      // anything else: find the closest color but don't reverse it
+
       const bodyStyle = window.getComputedStyle(document.body);
       this.defaultBackgroundColor = bodyStyle.backgroundColor;
       this.defaultForegroundColor = bodyStyle.color;
@@ -205,32 +262,28 @@ export class HighlightService
       // add text shadow filter, if it doesn't exist
       this.addGlowShadowFilter(svg);
 
-      // text stuff, like axis labels, titles, etc
-      displayService.plot.setAttribute(
-        "style",
-        "fill:" + this.highContrastDarkColor,
-      );
+      // The broad plan is to replace all colors with their closest high contrast equivalent
+      // there are exceptions, like text above, and near white for some charts
 
+      // apply high contrast colors
       svgElements.forEach((el) => {
+        // is this element in our selectors?
+        const isInSelectors = this.isThisElementInSelectors(el, selectors);
+
         // Handle style fill/stroke
         const style = el.getAttribute("style") || "";
         const fillMatch = style.match(/fill:\s*([^;]+)/i);
         const strokeMatch = style.match(/stroke:\s*([^;]+)/i);
 
         let newStyle = style;
-
-        // is the element path complex? if so, it'll have more than 4 points and
-        // will have a string length of more than 110 characters
-        // we'll use this for an exception later
-        const isComplexPath =
-          el.tagName === "path" && (el.getAttribute("d")?.length || 0) > 110;
+        // apply high contrast colors to each type, saving original in data- attributes
 
         if (fillMatch) {
           const originalFill = fillMatch[1];
           el.setAttribute("data-original-fill", originalFill);
 
-          // skip text elements, do white text with text shadow black
-          if (this.hasParentWithTextId(el)) {
+          // skip text elements, exception, just do light text
+          if (this.hasParentWithStringInID(el, "text")) {
             newStyle = newStyle.replace(
               /fill:[^;]+/i,
               `fill:${this.highContrastLightColor}`,
@@ -238,13 +291,14 @@ export class HighlightService
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
-          } else {
-            const newFill = this.toColorStep(
-              originalFill,
-              this.highContrastLevels,
-              context,
-              isComplexPath,
+          } else if (this.hasParentWithStringInID(el, "figure_", "axes_")) {
+            // this is the main rect background, set to dark color
+            newStyle = newStyle.replace(
+              /fill:[^;]+/i,
+              `fill:${this.highContrastDarkColor}`,
             );
+          } else {
+            const newFill = this.toColorStep(originalFill, context);
             newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
           }
         }
@@ -253,8 +307,8 @@ export class HighlightService
           const originalStroke = strokeMatch[1];
           el.setAttribute("data-original-stroke", originalStroke);
 
-          // skip text elements, do white text with text shadow black
-          if (this.hasParentWithTextId(el)) {
+          // skip text elements, exception, just do light text
+          if (this.hasParentWithStringInID(el, "text")) {
             newStyle = newStyle.replace(
               /stroke:[^;]+/i,
               `stroke:${this.highContrastLightColor}`,
@@ -263,12 +317,7 @@ export class HighlightService
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
-            const newStroke = this.toColorStep(
-              originalStroke,
-              this.highContrastLevels,
-              context,
-              isComplexPath,
-            );
+            const newStroke = this.toColorStep(originalStroke, context);
             newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
           }
         }
@@ -280,22 +329,14 @@ export class HighlightService
         if (attrFill) {
           el.setAttribute("data-attr-fill", attrFill);
 
-          // skip text elements, do white text with text shadow black
-          if (this.hasParentWithTextId(el)) {
+          if (this.hasParentWithStringInID(el, "text")) {
+            // skip text elements, exception, just do light text
             el.setAttribute("fill", this.highContrastLightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
-            el.setAttribute(
-              "fill",
-              this.toColorStep(
-                attrFill,
-                this.highContrastLevels,
-                context,
-                isComplexPath,
-              ),
-            );
+            el.setAttribute("fill", this.toColorStep(attrFill, context));
           }
         }
 
@@ -303,22 +344,14 @@ export class HighlightService
         if (attrStroke) {
           el.setAttribute("data-attr-stroke", attrStroke);
 
-          // skip text elements, do white text with text shadow black
-          if (this.hasParentWithTextId(el)) {
+          // skip text elements, exception, just do light text
+          if (this.hasParentWithStringInID(el, "text")) {
             el.setAttribute("stroke", this.highContrastLightColor);
 
             // add an attribute 'filter' for black shadow to the element
             el.setAttribute("filter", "url(#glow-shadow)");
           } else {
-            el.setAttribute(
-              "stroke",
-              this.toColorStep(
-                attrStroke,
-                this.highContrastLevels,
-                context,
-                isComplexPath,
-              ),
-            );
+            el.setAttribute("stroke", this.toColorStep(attrStroke, context));
           }
         }
         if ("type" in context.instructionContext) {
@@ -327,6 +360,22 @@ export class HighlightService
           }
         }
       });
+
+      // exceptions
+
+      // text stuff, like axis labels, titles, etc
+      displayService.plot.setAttribute(
+        "style",
+        "fill:" + this.highContrastLightColor,
+      );
+
+      // bookmark:
+      // still fighting the details
+      // barchart is looking awesome
+      // a lot of other charts might be ok but the figure background is being set as light (same as text color)
+      // and candle still has that one line that's invis, (might be the 10% near white?)
+
+      // and just fixed the parent figure_ on candle, but now everything is dark, fix that first
     }
   }
 
@@ -334,7 +383,11 @@ export class HighlightService
    * Checks if any parent element has an ID starting with 'text',
    * traversing up the DOM tree until reaching an SVG or BODY element.
    */
-  private hasParentWithTextId(el: Element): boolean {
+  private hasParentWithStringInID(
+    el: Element,
+    searchString: string = "",
+    notString: string = "",
+  ): boolean {
     let current = el.parentElement;
 
     while (current) {
@@ -343,8 +396,13 @@ export class HighlightService
         break;
       }
 
-      // Check if current element's ID starts with 'text'
-      if (current.id && current.id.startsWith("text")) {
+      // stop if we reach notString
+      if (current.id.startsWith(notString)) {
+        return false;
+      }
+
+      // Check if current element's ID starts with the search string
+      if (current.id.startsWith(searchString)) {
         return true;
       }
 
@@ -417,117 +475,240 @@ export class HighlightService
     defs.appendChild(filter);
   }
 
-  private toColorStep(
-    value: string,
-    numLevels: number,
-    context: Context,
-    isComplexPath: boolean,
-  ): string {
-    // we redo the color using the number of levels supplied, returning a new color
-    // So, numLevels = 2 means black and white, numLevels = 255 means full grayscale.
-    // Inbetween we choose the closest color to the hue value.
-    // We also do 'close to white' so we differentiate between white and near white
-    // as sometimes (ie bar) the main bar color is super close to white but we don't want it the same
-    // as the background color.
+  private toColorStep(value: string, context: Context): string {
+    // we redo the color using the number of levels supplied,
+    // and user chosen light and dark colors,
+    // and return a new color
 
-    // todo:
-    // need to still use the full range,
-    // so, take in all colors and adjust to the max range.
-    // we need the selector to be able to do this
-
-    // reverse raw white and black? typically yes but we'll see
-    const flipWhiteBlack = true;
+    // we pick the closest color match
+    // exception: if the incoming color is close to white,
+    // (for bar, stacked bar, dodged bar, segmented bar charts)
+    // we return the lightest color and spread the rest accordingly
 
     // back out if the value is not a valid color
     if (value === "none" || value === "transparent") {
       return value;
-    } else if (numLevels < 2 || numLevels > 255) {
-      return value;
     }
 
+    // converting chart hex color to rgb
     const ctx = document.createElement("canvas").getContext("2d");
     if (!ctx) return value;
-
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = "#000"; // placeholder to init
     ctx.fillStyle = value.trim();
     const hex = ctx.fillStyle;
     if (!/^#[0-9a-f]{6}$/i.test(hex)) return value;
 
-    // convert to grayscale
+    // convert to grayscale for when that's needed
     const r = Number.parseInt(hex.slice(1, 3), 16);
     const g = Number.parseInt(hex.slice(3, 5), 16);
     const b = Number.parseInt(hex.slice(5, 7), 16);
-    const luminance = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-    let useNearWhite = false; // don't need for most chart types
-    const nearWhiteScale = 0.1; // 10% of white, so 90% white is near white
-    const nearWhite = 255 * nearWhiteScale;
+    // do we use near white strat? check luminance and chart type
+    let useNearWhite = false; // don't need for most chart types, default to false
+    const nearWhiteScale = 0.1; // 10% of white, = 90% white
     // If the color is close to white, return white
     if ("type" in context.instructionContext) {
       if (
-        (context.instructionContext.type === "bar" ||
-          context.instructionContext.type === "stacked_bar" ||
-          context.instructionContext.type === "dodged_bar" ||
-          context.instructionContext.type === "segmented_bar") &&
-        luminance >= nearWhite
+        context.instructionContext.type === "bar" ||
+        context.instructionContext.type === "stacked_bar" ||
+        context.instructionContext.type === "dodged_bar" ||
+        context.instructionContext.type === "segmented_bar" ||
+        context.instructionContext.type === "candlestick"
       ) {
-        // debugger;
         useNearWhite = true;
       }
     }
 
-    const white = 255;
-    const black = 0;
+    // get color equivalents, interpolated from user chosen light/dark colors and number of levels
+    // if we're using near white strat, we adjust the light color to be near white
 
-    const levels = [];
-    // always start with black
-    levels[0] = black;
-    if (useNearWhite) {
-      // when the near white strat is used, we reserve the top level for white and adjust the rest evenly
-      const effectiveLevels = numLevels - 2;
-      const step = (white - nearWhite - black) / effectiveLevels;
-      // fill intermediate levels based on adjusted step
-      for (let i = 1; i < effectiveLevels; i++) {
-        levels.push(Math.round(i * step));
-      }
-      levels.push(white - nearWhite);
-    } else {
-      // if not using near white, we fill the levels evenly from black to white
-      const effectiveLevels = numLevels - 1;
-      const step = (white - black) / effectiveLevels;
-      for (let i = 1; i < effectiveLevels; i++) {
-        levels.push(Math.round(i * step));
-      }
-    }
-    // always end with white (numLevels has to be at least 2)
-    levels.push(white);
+    // get closest color from equivalents
+    const outputColorHex = this.findClosestColor(
+      value,
+      this.colorEquivalents,
+      useNearWhite,
+      nearWhiteScale,
+    );
 
-    // find closest
-    let outputGray = levels[0];
-    for (const level of levels) {
-      if (Math.abs(luminance - level) < Math.abs(luminance - outputGray)) {
-        outputGray = level;
-      }
-    }
-
-    // exception: certain elements cannot be the same as background, or levels[levels.length - 1], override to one before that
-    if (isComplexPath && outputGray === levels[levels.length - 1]) {
-      outputGray = levels[levels.length - 2];
-    }
-
-    // flip white and black, as we want black background by default
-    if (flipWhiteBlack) {
-      if (outputGray === white) {
-        outputGray = black;
-      } else if (outputGray === black) {
-        outputGray = white;
-      }
-    }
-
-    const outputHex = outputGray.toString(16).padStart(2, "0");
-    return `#${outputHex}${outputHex}${outputHex}`;
+    return outputColorHex;
   }
 
+  /**
+   * Finds the closest color in an array to the input color.
+   * Uses Euclidean distance in RGB space.
+   *
+   * When useNearWhite is true, colorArray[0] is reserved for "near-white" input colors.
+   * Near-white is determined by luminance: if input luminance >= 255 * (1 - nearWhiteScale),
+   * return colorArray[0]. All other colors match against colorArray[1..end] using RGB distance.
+   */
+  private findClosestColor(
+    inputColor: string,
+    colorArray: string[],
+    useNearWhite: boolean,
+    nearWhiteScale: number,
+  ): string {
+    if (colorArray.length === 0) {
+      throw new Error("Color array cannot be empty");
+    }
+
+    const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+      const normalized = hex.replace("#", "");
+      return {
+        r: parseInt(normalized.slice(0, 2), 16),
+        g: parseInt(normalized.slice(2, 4), 16),
+        b: parseInt(normalized.slice(4, 6), 16),
+      };
+    };
+
+    const getLuminance = (rgb: { r: number; g: number; b: number }): number => {
+      return 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+    };
+
+    const colorDistance = (
+      c1: { r: number; g: number; b: number },
+      c2: { r: number; g: number; b: number },
+    ): number => {
+      return Math.sqrt(
+        Math.pow(c1.r - c2.r, 2) +
+          Math.pow(c1.g - c2.g, 2) +
+          Math.pow(c1.b - c2.b, 2),
+      );
+    };
+
+    const inputRgb = hexToRgb(inputColor);
+
+    // If useNearWhite is enabled, check if input color is in the near-white zone
+    if (useNearWhite) {
+      const inputLuminance = getLuminance(inputRgb);
+      const nearWhiteThreshold = 255 * (1 - nearWhiteScale);
+
+      // If input is near-white, return the reserved first color
+      if (inputLuminance >= nearWhiteThreshold) {
+        return colorArray[0];
+      }
+
+      // Otherwise, find closest match in colorArray[1..end]
+      if (colorArray.length === 1) {
+        // Only one color available, return it
+        return colorArray[0];
+      }
+
+      let closestColor = colorArray[1];
+      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[1]));
+
+      for (let i = 2; i < colorArray.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestColor = colorArray[i];
+        }
+      }
+
+      return closestColor;
+    } else {
+      // Standard behavior: find closest across entire array
+      let closestColor = colorArray[0];
+      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[0]));
+
+      for (let i = 1; i < colorArray.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestColor = colorArray[i];
+        }
+      }
+
+      return closestColor;
+    }
+  }
+
+  /**
+   * Generates an array of colors evenly interpolated between two colors.
+   * @param startColor - The starting color (hex, rgb, or named color)
+   * @param endColor - The ending color (hex, rgb, or named color)
+   * @param count - Number of colors to generate (minimum 2)
+   * @returns Array of hex color strings
+   */
+  public interpolateColors(
+    startColor: string,
+    endColor: string,
+    count: number,
+  ): string[] {
+    // Minimum of 2 colors
+    const numColors = Math.max(2, Math.floor(count));
+
+    // Parse colors to RGB
+    const startRgb = this.parseColorToRgb(startColor);
+    const endRgb = this.parseColorToRgb(endColor);
+
+    if (!startRgb || !endRgb) {
+      // If parsing fails, return the original colors
+      return [startColor, endColor];
+    }
+
+    // If only 2 colors requested, return start and end
+    if (numColors === 2) {
+      return [startColor, endColor];
+    }
+
+    const colors: string[] = [];
+
+    // Helper to interpolate at a given t value (0 to 1)
+    const interpolateAt = (t: number): string => {
+      const r = Math.round(startRgb.r + t * (endRgb.r - startRgb.r));
+      const g = Math.round(startRgb.g + t * (endRgb.g - startRgb.g));
+      const b = Math.round(startRgb.b + t * (endRgb.b - startRgb.b));
+      return this.rgbToHex({ r, g, b });
+    };
+
+    // Standard linear interpolation across full range
+    for (let i = 0; i < numColors; i++) {
+      const t = i / (numColors - 1);
+      colors.push(interpolateAt(t));
+    }
+
+    return colors;
+  }
+
+  /**
+   * Parses a color string to RGB values.
+   * Supports hex (#RGB, #RRGGBB), rgb(), and named colors.
+   */
+  private parseColorToRgb(
+    color: string,
+  ): { r: number; g: number; b: number } | null {
+    const trimmed = color.trim();
+
+    // Use canvas to parse any valid CSS color
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return null;
+
+    ctx.fillStyle = "#000";
+    ctx.fillStyle = trimmed;
+    const hex = ctx.fillStyle;
+
+    // Canvas normalizes to #RRGGBB format
+    if (/^#[0-9a-f]{6}$/i.test(hex)) {
+      return {
+        r: Number.parseInt(hex.slice(1, 3), 16),
+        g: Number.parseInt(hex.slice(3, 5), 16),
+        b: Number.parseInt(hex.slice(5, 7), 16),
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Converts RGB values to a hex color string.
+   */
+  private rgbToHex(rgb: { r: number; g: number; b: number }): string {
+    const toHex = (n: number): string => {
+      const clamped = Math.max(0, Math.min(255, n));
+      return clamped.toString(16).padStart(2, "0");
+    };
+    return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+  }
   private processHighlighting(highlight: HighlightState): void {
     if (highlight.empty) {
       return;
