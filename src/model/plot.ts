@@ -8,6 +8,7 @@ import type {
   SubplotState,
   TraceState,
 } from '@type/state';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { AbstractObservableElement } from './abstract';
 import { TraceFactory } from './factory';
@@ -204,8 +205,18 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     const layers = subplot.layers;
     this.size = layers.length;
-    // Pass all layers to factory so traces can detect violin plots by structure
-    this.traces = layers.map(layer => [TraceFactory.create(layer, layers)]);
+
+    // Structural detection for violin plots is done once at subplot level:
+    // BOX + SMOOTH in the same subplot => violin plot.
+    const layerTypes = layers.map(layer => layer.type);
+    const hasBox = layerTypes.includes(TraceType.BOX);
+    const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
+    const isViolinPlot = hasBox && hasSmooth;
+
+    // Pass only a minimal hint into the factory; do not leak full layers array.
+    this.traces = layers.map(layer => [
+      TraceFactory.create(layer, { isViolinPlot }),
+    ]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;

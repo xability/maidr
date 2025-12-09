@@ -28,21 +28,18 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
 
   private readonly isViolinBoxPlot: boolean;
 
-  constructor(layer: MaidrLayer, allLayers?: MaidrLayer[]) {
+  constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
 
-    // Structural detection: BOX + SMOOTH in same subplot = violin plot
-    // This approach avoids plot-specific metadata in the general MaidrLayer interface.
-    // It works well in practice because:
-    // - Regular box plots only contain BOX layers
-    // - Regular smooth plots (regression lines) only contain SMOOTH layers
-    // - Violin plots are the only plot type that combines both in the same subplot
-    //
-    // Edge case: If a subplot intentionally combines an independent box plot and regression line,
-    // this detection would incorrectly identify it as a violin plot. This is rare in practice.
-    this.isViolinBoxPlot = allLayers !== undefined
-      && allLayers.some(l => l.type === TraceType.SMOOTH)
-      && layer.type === TraceType.BOX;
+    /**
+     * Violin detection hint.
+     *
+     * The subplot-level structural detection (BOX + SMOOTH in same subplot)
+     * is performed upstream (in `Subplot`) and passed in as `isViolinPlot`.
+     * This keeps the trace constructor free from needing access to the full
+     * layers array while still enabling violin-specific behavior.
+     */
+    this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
