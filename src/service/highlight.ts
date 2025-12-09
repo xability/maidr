@@ -278,48 +278,38 @@ export class HighlightService
         let newStyle = style;
         // apply high contrast colors to each type, saving original in data- attributes
 
+        // exceptions: we don't want these to be the same as background color
+        const complexPath = el.getAttribute("d");
+        let isComplexPath = false;
+        if (complexPath) {
+          isComplexPath = complexPath.length > 120;
+        }
+        const cantBeBackground = isComplexPath; // more exceptions can be added here
+
         if (fillMatch) {
           const originalFill = fillMatch[1];
           el.setAttribute("data-original-fill", originalFill);
 
-          // skip text elements, exception, just do light text
-          if (this.hasParentWithStringInID(el, "text")) {
-            newStyle = newStyle.replace(
-              /fill:[^;]+/i,
-              `fill:${this.highContrastLightColor}`,
-            );
-
-            // add an attribute 'filter' for black shadow to the element
-            el.setAttribute("filter", "url(#glow-shadow)");
-          } else if (this.hasParentWithStringInID(el, "figure_", "axes_")) {
-            // this is the main rect background, set to dark color
-            newStyle = newStyle.replace(
-              /fill:[^;]+/i,
-              `fill:${this.highContrastDarkColor}`,
-            );
-          } else {
-            const newFill = this.toColorStep(originalFill, context);
-            newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
-          }
+          const newFill = this.toColorStep(
+            originalFill,
+            context,
+            isInSelectors,
+            cantBeBackground,
+          );
+          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
         }
 
         if (strokeMatch) {
           const originalStroke = strokeMatch[1];
           el.setAttribute("data-original-stroke", originalStroke);
 
-          // skip text elements, exception, just do light text
-          if (this.hasParentWithStringInID(el, "text")) {
-            newStyle = newStyle.replace(
-              /stroke:[^;]+/i,
-              `stroke:${this.highContrastLightColor}`,
-            );
-
-            // add an attribute 'filter' for black shadow to the element
-            el.setAttribute("filter", "url(#glow-shadow)");
-          } else {
-            const newStroke = this.toColorStep(originalStroke, context);
-            newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
-          }
+          const newStroke = this.toColorStep(
+            originalStroke,
+            context,
+            isInSelectors,
+            cantBeBackground,
+          );
+          newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
         }
 
         if (newStyle !== style) el.setAttribute("style", newStyle);
@@ -328,31 +318,30 @@ export class HighlightService
         const attrFill = el.getAttribute("fill");
         if (attrFill) {
           el.setAttribute("data-attr-fill", attrFill);
-
-          if (this.hasParentWithStringInID(el, "text")) {
-            // skip text elements, exception, just do light text
-            el.setAttribute("fill", this.highContrastLightColor);
-
-            // add an attribute 'filter' for black shadow to the element
-            el.setAttribute("filter", "url(#glow-shadow)");
-          } else {
-            el.setAttribute("fill", this.toColorStep(attrFill, context));
-          }
+          const newStroke = this.toColorStep(
+            attrFill,
+            context,
+            isInSelectors,
+            cantBeBackground,
+          );
+          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newStroke}`);
         }
 
         const attrStroke = el.getAttribute("stroke");
         if (attrStroke) {
           el.setAttribute("data-attr-stroke", attrStroke);
+          const newStroke = this.toColorStep(
+            attrStroke,
+            context,
+            isInSelectors,
+            cantBeBackground,
+          );
+          newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
+        }
 
-          // skip text elements, exception, just do light text
-          if (this.hasParentWithStringInID(el, "text")) {
-            el.setAttribute("stroke", this.highContrastLightColor);
-
-            // add an attribute 'filter' for black shadow to the element
-            el.setAttribute("filter", "url(#glow-shadow)");
-          } else {
-            el.setAttribute("stroke", this.toColorStep(attrStroke, context));
-          }
+        // text elements need a shadow
+        if (this.hasParentWithStringInID(el, "text")) {
+          el.setAttribute("filter", "url(#glow-shadow)");
         }
         if ("type" in context.instructionContext) {
           if (context.instructionContext.type === "line") {
@@ -475,20 +464,31 @@ export class HighlightService
     defs.appendChild(filter);
   }
 
-  private toColorStep(value: string, context: Context): string {
+  private toColorStep(
+    value: string,
+    context: Context,
+    isInSelectors: boolean = false,
+    cantBeBackground: boolean = false,
+  ): string {
     // we redo the color using the number of levels supplied,
     // and user chosen light and dark colors,
     // and return a new color
-
     // we pick the closest color match
+
     // exception: if the incoming color is close to white,
     // (for bar, stacked bar, dodged bar, segmented bar charts)
     // we return the lightest color and spread the rest accordingly
+
+    // exception: sometimes we don't want the color to be the same as background,
+    // so we reduce the array of possible colors by 1
 
     // back out if the value is not a valid color
     if (value === "none" || value === "transparent") {
       return value;
     }
+
+    // if this is in selectors, we reverse the color mapping
+    let colorEquivalents = this.colorEquivalents;
 
     // converting chart hex color to rgb
     const ctx = document.createElement("canvas").getContext("2d");
@@ -512,10 +512,11 @@ export class HighlightService
         context.instructionContext.type === "bar" ||
         context.instructionContext.type === "stacked_bar" ||
         context.instructionContext.type === "dodged_bar" ||
-        context.instructionContext.type === "segmented_bar" ||
-        context.instructionContext.type === "candlestick"
+        context.instructionContext.type === "segmented_bar"
       ) {
-        useNearWhite = true;
+        if (isInSelectors) {
+          useNearWhite = true;
+        }
       }
     }
 
@@ -525,9 +526,11 @@ export class HighlightService
     // get closest color from equivalents
     const outputColorHex = this.findClosestColor(
       value,
-      this.colorEquivalents,
+      colorEquivalents,
       useNearWhite,
       nearWhiteScale,
+      isInSelectors,
+      cantBeBackground,
     );
 
     return outputColorHex;
@@ -540,12 +543,16 @@ export class HighlightService
    * When useNearWhite is true, colorArray[0] is reserved for "near-white" input colors.
    * Near-white is determined by luminance: if input luminance >= 255 * (1 - nearWhiteScale),
    * return colorArray[0]. All other colors match against colorArray[1..end] using RGB distance.
+   *
+   * If isInSelectors is true, the matching is reversed: grab the equivalent from the opposite end of the array.
    */
   private findClosestColor(
     inputColor: string,
     colorArray: string[],
     useNearWhite: boolean,
     nearWhiteScale: number,
+    isInSelectors: boolean,
+    cantBeBackground: boolean,
   ): string {
     if (colorArray.length === 0) {
       throw new Error("Color array cannot be empty");
@@ -577,6 +584,14 @@ export class HighlightService
 
     const inputRgb = hexToRgb(inputColor);
 
+    // If this color can't be the same as background, remove the closest match to background from options
+    if (cantBeBackground) {
+      const backgroundIndex = colorArray.indexOf(this.highContrastDarkColor);
+      if (backgroundIndex !== -1) {
+        colorArray.splice(backgroundIndex, 1);
+      }
+    }
+
     // If useNearWhite is enabled, check if input color is in the near-white zone
     if (useNearWhite) {
       const inputLuminance = getLuminance(inputRgb);
@@ -593,14 +608,16 @@ export class HighlightService
         return colorArray[0];
       }
 
-      let closestColor = colorArray[1];
-      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[1]));
+      let closestColor = colorArray[0];
+      if (colorArray.length > 1) {
+        let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[1]));
 
-      for (let i = 2; i < colorArray.length; i++) {
-        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestColor = colorArray[i];
+        for (let i = 1; i < colorArray.length; i++) {
+          const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestColor = colorArray[i];
+          }
         }
       }
 
@@ -616,6 +633,13 @@ export class HighlightService
           minDistance = distance;
           closestColor = colorArray[i];
         }
+      }
+
+      if (!isInSelectors) {
+        // reverse the selection
+        const index = colorArray.indexOf(closestColor);
+        const reversedIndex = colorArray.length - 1 - index;
+        return colorArray[reversedIndex];
       }
 
       return closestColor;
