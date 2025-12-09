@@ -1,3 +1,10 @@
+# [3.39.0](https://github.com/xability/maidr/compare/v3.38.1...v3.39.0) (2025-12-09)
+
+
+### Features
+
+* support violin plot ([#477](https://github.com/xability/maidr/issues/477)) ([d68343f](https://github.com/xability/maidr/commit/d68343f0ca370adc05e74d420cc43897a8ca9a0b))
+
 ## [3.38.1](https://github.com/xability/maidr/compare/v3.38.0...v3.38.1) (2025-12-02)
 
 
