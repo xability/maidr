@@ -86,7 +86,6 @@ export class RotorNavigationService {
         const moved = activeTrace.moveToNextCompareValue(direction, compareType);
         if (!moved) {
           const msg = `No ${compareType} value found to the ${direction} of the current value.`;
-          console.warn(msg);
           return msg;
         }
       } else {
@@ -105,7 +104,6 @@ export class RotorNavigationService {
         const moved = activeTrace.moveUpRotor(this.getCompareType());
         if (!moved) {
           const msg = `No ${this.getCompareType()} value found above the current value.`;
-          console.warn(msg);
           return msg;
         }
       }
@@ -123,7 +121,6 @@ export class RotorNavigationService {
         const moved = activeTrace.moveDownRotor(this.getCompareType());
         if (!moved) {
           const msg = `No ${this.getCompareType()} value found below the current value.`;
-          console.warn(msg);
           return msg;
         }
       }
@@ -141,7 +138,6 @@ export class RotorNavigationService {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
           const msg = `No ${this.getCompareType()} value found to the left of the current value.`;
-          console.warn(msg);
           return msg;
         }
       }
@@ -159,7 +155,6 @@ export class RotorNavigationService {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
           const msg = `No ${this.getCompareType()} value found to the right of the current value.`;
-          console.warn(msg);
           return msg;
         }
       }

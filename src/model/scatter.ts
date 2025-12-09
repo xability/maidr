@@ -1,20 +1,11 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type {
-  AudioState,
-  AutoplayState,
-  BrailleState,
-  HighlightState,
-  TextState,
-} from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-
-enum NavMode {
-  COL = 'column',
-  ROW = 'row',
-}
+import { MovablePlane } from './movable';
 
 interface ScatterXPoint {
   x: number;
@@ -22,14 +13,18 @@ interface ScatterXPoint {
 }
 
 interface ScatterYPoint {
-  y: number;
   x: number[];
+  y: number;
+}
+enum NavMode {
+  COL = 'column',
+  ROW = 'row',
 }
 
-export class ScatterTrace extends AbstractTrace<number> {
-  protected readonly supportsExtrema = false;
-
+export class ScatterTrace extends AbstractTrace {
   private mode: NavMode;
+  protected readonly movable: MovablePlane;
+  protected readonly supportsExtrema = false;
 
   private readonly xPoints: ScatterXPoint[];
   private readonly yPoints: ScatterYPoint[];
@@ -50,8 +45,8 @@ export class ScatterTrace extends AbstractTrace<number> {
 
   public constructor(layer: MaidrLayer) {
     super(layer);
-
     this.mode = NavMode.COL;
+
     const data = layer.data as ScatterPoint[];
 
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
@@ -88,14 +83,14 @@ export class ScatterTrace extends AbstractTrace<number> {
       layer.selectors as string,
     );
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovablePlane(this.xPoints, this.yPoints);
   }
 
   public dispose(): void {
+    this.movable.dispose();
+
     this.xPoints.length = 0;
     this.yPoints.length = 0;
-
-    this.xValues.length = 0;
-    this.yValues.length = 0;
 
     if (this.highlightXValues) {
       this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
@@ -107,6 +102,30 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
 
     super.dispose();
+  }
+
+  protected get highlightValues(): SVGElement[][] | null {
+    return this.movable.mode === 'col'
+      ? this.highlightXValues
+      : this.highlightYValues;
+  }
+
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Rationale for returning empty object instead of groupIndex:
+    //
+    // Scatterplots fundamentally differ from other plot types in their grouping semantics:
+    // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
+    // - Heatmaps: groupIndex can represent different data dimensions
+    // - Scatterplots: Each point represents an individual observation, not a group
+    //
+    // Using groupIndex for scatterplots would cause different audio tones for what should be
+    // conceptually similar data points, potentially confusing users who expect consistent
+    // audio feedback when exploring point-by-point data.
+    //
+    // Future enhancement: When scatterplots support explicit multi-series data (e.g., different
+    // colors/shapes for distinct categories), this method should be updated to return the
+    // appropriate groupIndex for true categorical distinctions.
+    return {};
   }
 
   protected get values(): number[][] {
@@ -131,71 +150,54 @@ export class ScatterTrace extends AbstractTrace<number> {
     return result;
   }
 
-  protected get highlightValues(): SVGElement[][] | null {
-    return this.mode === NavMode.COL
-      ? this.highlightXValues
-      : this.highlightYValues;
+  protected get braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.values,
+      min: 0,
+      max: 0,
+      row: this.row,
+      col: this.col,
+    };
   }
 
-  protected getAudioGroupIndex(): { groupIndex?: number } {
-    // Rationale for returning empty object instead of groupIndex:
-    //
-    // Scatterplots fundamentally differ from other plot types in their grouping semantics:
-    // - Bar/Line plots: groupIndex represents different series/categories with distinct audio tones
-    // - Heatmaps: groupIndex can represent different data dimensions
-    // - Scatterplots: Each point represents an individual observation, not a group
-    //
-    // Using groupIndex for scatterplots would cause different audio tones for what should be
-    // conceptually similar data points, potentially confusing users who expect consistent
-    // audio feedback when exploring point-by-point data.
-    //
-    // Future enhancement: When scatterplots support explicit multi-series data (e.g., different
-    // colors/shapes for distinct categories), this method should be updated to return the
-    // appropriate groupIndex for true categorical distinctions.
-    return {};
-  }
-
-  protected audio(): AudioState {
-    if (this.mode === NavMode.COL) {
+  protected get audio(): AudioState {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
-        min: this.minY,
-        max: this.maxY,
-        size: current.y.length,
-        index: this.col,
-        value: current.y,
-        // Only use groupIndex if there are multiple x-points (actual groups)
-        ...this.getAudioGroupIndex(),
+        freq: {
+          raw: current.y,
+          min: this.minY,
+          max: this.maxY,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: current.y.length,
+          cols: this.xPoints.length,
+        },
       };
     } else {
       const current = this.yPoints[this.row];
       return {
-        min: this.minX,
-        max: this.maxX,
-        size: current.x.length,
-        index: this.row,
-        value: current.x,
-        // Only use groupIndex if there are multiple y-points (actual groups)
-        ...this.getAudioGroupIndex(),
+        freq: {
+          raw: current.x,
+          min: this.minX,
+          max: this.maxX,
+        },
+        panning: {
+          y: this.row,
+          x: this.col,
+          rows: this.yPoints.length,
+          cols: current.x.length,
+        },
       };
     }
   }
 
-  protected braille(): BrailleState {
-    return {
-      empty: true,
-      type: 'trace',
-      traceType: this.type,
-      audio: {
-        index: 0,
-        size: 0,
-        groupIndex: 0,
-      },
-    };
-  }
-
-  protected text(): TextState {
-    if (this.mode === NavMode.COL) {
+  protected get text(): TextState {
+    if (this.movable.mode === 'col') {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -210,48 +212,23 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  public get autoplay(): AutoplayState {
+  protected get dimension(): Dimension {
     return {
-      UPWARD: this.yValues.length,
-      DOWNWARD: this.yValues.length,
-      FORWARD: this.xValues.length,
-      BACKWARD: this.xValues.length,
+      rows: this.yPoints.length,
+      cols: this.xPoints.length,
     };
   }
 
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     if (this.highlightValues === null) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-        audio: {
-          index: 0,
-          size: 0,
-          groupIndex: 0,
-        },
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
-    const elements
-      = this.mode === NavMode.COL
-        ? this.col < this.highlightValues.length
-          ? this.highlightValues![this.col]
-          : null
-        : this.row < this.highlightValues.length
-          ? this.highlightValues![this.row]
-          : null;
+    const elements = this.movable.mode === 'col'
+      ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
+      : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-        audio: {
-          index: 0,
-          size: 0,
-          groupIndex: 0,
-        },
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {
@@ -260,7 +237,7 @@ export class ScatterTrace extends AbstractTrace<number> {
     };
   }
 
-  protected hasMultiPoints(): boolean {
+  protected get hasMultiPoints(): boolean {
     return true;
   }
 
@@ -310,16 +287,16 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
   }
 
-  public moveOnce(direction: MovableDirection): void {
+  public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     if (this.mode === NavMode.COL) {
@@ -353,9 +330,10 @@ export class ScatterTrace extends AbstractTrace<number> {
     }
 
     this.notifyStateUpdate();
+    return true;
   }
 
-  public moveToExtreme(direction: MovableDirection): void {
+  public moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -396,24 +374,29 @@ export class ScatterTrace extends AbstractTrace<number> {
       }
     }
     this.notifyStateUpdate();
+    return true;
   }
 
-  public moveToIndex(row: number, col: number): void {
+  public moveToIndex(row: number, col: number): boolean {
     if (this.mode === NavMode.COL) {
       if (row >= 0 && row < this.xPoints.length) {
         this.col = row;
         this.row = 0;
         this.notifyStateUpdate();
+        return true;
       } else {
         this.notifyOutOfBounds();
+        return false;
       }
     } else {
       if (col >= 0 && col < this.yPoints.length) {
         this.col = col;
         this.row = 0;
         this.notifyStateUpdate();
+        return true;
       } else {
         this.notifyOutOfBounds();
+        return false;
       }
     }
   }

@@ -4,7 +4,7 @@
   <br />
 </div>
 
-# maidr: Multimodal Access and Interactive Data Representation
+# MAIDR: Multimodal Access and Interactive Data Representation
 
 - **Note:** `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
 
@@ -13,8 +13,6 @@ It aims to provide an inclusive experience for users with visual impairments by 
 braille, text, and sonification (BTS).
 This comprehensive approach enhances the accessibility of data visualization
 and encourages a multi-modal exploration on visualization.
-
-<!-- Check out the current build: [maidr Demo](https://xability.github.io/maidr/galleries/index.html). -->
 
 ## Table of Contents
 
@@ -430,16 +428,6 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
-
-<!-- ### Scatter Plot Controls
-
-In the scatter plot, there are two layers: point mode (layer 1) and line mode (layer 2).
-To switch between these layers, use the Page Up and Page Down keys:
-
-- Press Page Up to move from point mode to line mode
-- Press Page Down to move from line mode to point mode
-
-Note that this control scheme can be used by any plot with multiple types. -->
 
 ### Segmented Bar Controls
 
