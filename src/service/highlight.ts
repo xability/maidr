@@ -12,22 +12,59 @@ import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 
 /**
- * Union type representing all possible state types that can trigger highlight updates.
+ * Union type representing all possible state types that the HighlightService can observe.
+ * Includes subplot, trace, figure states, and settings changes.
  */
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
 /**
- * Service for managing visual highlighting of SVG elements in plots and subplots.
+ * Service responsible for managing visual highlighting of SVG elements in MAIDR visualizations.
+ *
+ * The HighlightService provides visual feedback by creating highlight overlays on chart elements
+ * when users navigate through data points. It supports both trace-level highlighting (individual
+ * data points) and subplot-level highlighting (for multi-plot scenarios).
+ *
+ * @implements {Observer<HighlightStateUnion>} - Observes state changes to update highlights
+ * @implements {Disposable} - Supports cleanup when the service is no longer needed
+ *
+ * @example
+ * ```typescript
+ * const highlightService = new HighlightService(settingsService);
+ *
+ * // Subscribe to state changes
+ * traceState.subscribe(highlightService);
+ *
+ * // Manual highlighting
+ * highlightService.highlight(svgElement);
+ *
+ * // Cleanup
+ * highlightService.dispose();
+ * ```
  */
 export class HighlightService
 implements Observer<HighlightStateUnion>, Disposable {
+  /**
+   * Map storing the relationship between original SVG elements and their highlight clones.
+   * Keys are the original elements, values are the highlight overlay elements.
+   */
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
+
+  /**
+   * Set of subplot elements that currently have highlight styling applied.
+   * Used to track and clean up subplot-level highlights.
+   */
   private readonly highlightedSubplots: Set<SVGElement>;
+
+  /**
+   * The current color used for highlighting elements.
+   * Updated when settings change.
+   */
   private currentHighlightColor: string;
 
   /**
-   * Creates a new HighlightService instance and initializes highlight color from settings.
-   * @param settings - The settings service for retrieving highlight configuration
+   * Creates a new HighlightService instance.
+   *
+   * @param settings - The settings service used to retrieve highlight color preferences
    */
   public constructor(settings: SettingsService) {
     this.highlightedElements = new Map();
@@ -37,26 +74,29 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Cleans up all highlights when the service is disposed.
+   * Disposes of the service by removing all active highlights.
+   * Should be called when the service is no longer needed to prevent memory leaks.
    */
   public dispose(): void {
     this.unhighlightAll();
   }
 
   /**
-   * Type guard to check if the state is a Settings object.
-   * @param state - The state union to check
-   * @returns True if the state is Settings
+   * Type guard to determine if a state object is a Settings type.
+   *
+   * @param state - The state object to check
+   * @returns True if the state is a Settings object, false otherwise
    */
   private isSettings(state: HighlightStateUnion): state is Settings {
     return 'general' in state;
   }
 
   /**
-   * Creates a highlight clone element for a given SVG element.
+   * Creates a highlight overlay element for the given SVG element.
+   *
    * @param element - The SVG element to create a highlight for
-   * @returns The created highlight SVG element
-   * @throws TypeError if the element is not a valid SVGElement
+   * @returns A new SVG element configured as a highlight overlay
+   * @throws {TypeError} If the provided element is not an SVGElement
    */
   private createHighlightElement(element: SVGElement): SVGElement {
     if (!(element instanceof SVGElement)) {
@@ -72,16 +112,19 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Updates the current highlight color when settings change.
-   * @param settings - The updated settings object
+   * Handles updates to application settings by updating the highlight color.
+   *
+   * @param settings - The updated settings object containing the new highlight color
    */
   private handleSettingsUpdate(settings: Settings): void {
     this.currentHighlightColor = settings.general.highlightColor;
   }
 
   /**
-   * Handles state updates for subplot, trace, or figure states.
-   * @param state - The state object containing highlighting information
+   * Handles state updates for figure, subplot, or trace states.
+   * Determines the appropriate highlighting strategy based on state type.
+   *
+   * @param state - The state object containing highlight information
    */
   private handleStateUpdate(
     state: SubplotState | TraceState | FigureState,
@@ -102,7 +145,8 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Processes highlighting for figure-level state changes.
+   * Handles highlighting for figure-level state changes.
+   *
    * @param state - The figure state containing highlight information
    */
   private handleFigureState(state: FigureState): void {
@@ -112,7 +156,8 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Processes highlighting for subplot-level state changes.
+   * Handles highlighting for subplot-level state changes.
+   *
    * @param state - The subplot state containing highlight information
    */
   private handleSubplotState(state: SubplotState): void {
@@ -122,7 +167,9 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Processes highlighting for trace-level state changes.
+   * Handles highlighting for trace-level state changes.
+   * Extracts elements from the highlight state and applies trace highlighting.
+   *
    * @param state - The trace state containing highlight information
    */
   private handleTraceState(state: TraceState): void {
@@ -135,7 +182,9 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Processes highlighting based on the highlight state and multi-plot scenario.
+   * Processes highlighting based on whether the visualization is a multi-plot scenario.
+   * For multi-plot scenarios, applies subplot highlighting; otherwise clears subplot highlights.
+   *
    * @param highlight - The highlight state containing elements to highlight
    */
   private processHighlighting(highlight: HighlightState): void {
@@ -154,9 +203,11 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Extracts SVG elements from a highlight state.
-   * @param highlight - The highlight state containing elements
-   * @returns Array of SVG elements to highlight
+   * Extracts SVG elements from a highlight state object.
+   * Normalizes the elements to always return an array.
+   *
+   * @param highlight - The highlight state containing element(s)
+   * @returns An array of SVG elements to highlight
    */
   private getElementsFromHighlight(highlight: HighlightState): SVGElement[] {
     if (highlight.empty) {
@@ -168,8 +219,10 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Determines if the current visualization has multiple subplots.
-   * @returns True if there are multiple subplots
+   * Determines if the current visualization contains multiple subplots.
+   * Checks the DOM for multiple axes groups to identify multi-plot scenarios.
+   *
+   * @returns True if more than one subplot exists, false otherwise
    */
   private isMultiPlotScenario(): boolean {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
@@ -177,7 +230,9 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Highlights trace elements by creating and attaching highlight overlays.
+   * Applies highlight overlays to trace-level SVG elements.
+   * Creates cloned highlight elements and tracks them in the highlightedElements map.
+   *
    * @param elements - Array of SVG elements to highlight
    */
   private highlightTraceElements(elements: SVGElement[]): void {
@@ -192,7 +247,9 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Highlights subplot elements with adaptive color based on figure background.
+   * Applies highlight styling to subplot-level SVG elements.
+   * Uses adaptive color calculation based on the figure background.
+   *
    * @param elements - Array of subplot SVG elements to highlight
    */
   private highlightSubplotElements(elements: SVGElement[]): void {
@@ -213,8 +270,10 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Updates highlights based on state or settings changes.
-   * @param state - The state union containing highlight or settings information
+   * Observer update method called when observed state changes.
+   * Routes to appropriate handler based on state type.
+   *
+   * @param state - The updated state object (Settings, SubplotState, TraceState, or FigureState)
    */
   public update(state: HighlightStateUnion): void {
     try {
@@ -229,7 +288,9 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Highlights a single SVG element by creating a highlight overlay.
+   * Manually highlights a single SVG element.
+   * Removes any existing highlight on the element before applying a new one.
+   *
    * @param element - The SVG element to highlight
    */
   public highlight(element: SVGElement): void {
@@ -248,8 +309,10 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Removes the highlight overlay from a single SVG element.
-   * @param element - The SVG element to unhighlight
+   * Removes the highlight from a single SVG element.
+   * Safely handles cases where the element has no active highlight.
+   *
+   * @param element - The SVG element to remove highlight from
    */
   public unhighlight(element: SVGElement): void {
     if (!(element instanceof SVGElement)) {
@@ -268,7 +331,8 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Clears all trace and subplot highlights.
+   * Clears all active highlights from both trace elements and subplots.
+   * Use this method to reset the visual state of the visualization.
    */
   public clear(): void {
     try {
@@ -283,7 +347,7 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Removes all trace element highlights.
+   * Removes all trace-level highlights from the DOM and clears the tracking map.
    */
   private unhighlightTraceElements(): void {
     this.highlightedElements.forEach((highlightElement) => {
@@ -293,7 +357,7 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Removes all subplot highlights.
+   * Removes all subplot-level highlight styling and clears the tracking set.
    */
   private unhighlightSubplotElements(): void {
     this.highlightedSubplots.forEach((element) => {
@@ -303,7 +367,8 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Removes all highlights from both traces and subplots.
+   * Removes all highlights from both trace elements and subplots.
+   * Called internally during disposal and cleanup operations.
    */
   private unhighlightAll(): void {
     this.unhighlightTraceElements();
