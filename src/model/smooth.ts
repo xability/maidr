@@ -1,10 +1,21 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { AudioState } from '@type/state';
+import type { AudioState, TraceState } from '@type/state';
 import { LineTrace } from './line';
 
 export class SmoothTrace extends LineTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
+  }
+
+  public get state(): TraceState {
+    const baseState = super.state;
+    if (baseState.empty)
+      return baseState;
+
+    return {
+      ...baseState,
+      plotType: 'smooth',
+    };
   }
 
   protected get audio(): AudioState {
