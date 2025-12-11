@@ -1,3 +1,4 @@
+import type { Dimension } from '@model/abstract';
 import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
@@ -5,7 +6,7 @@ import type {
   CandlestickTrend,
   MaidrLayer,
 } from '@type/grammar';
-import type { MovableDirection } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
@@ -13,6 +14,7 @@ import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { MovableGrid } from './movable';
 
 /**
  * Type alias for highlight elements - can be single elements or arrays of elements
@@ -26,30 +28,18 @@ const VOLATILITY_PRECISION_MULTIPLIER = 100;
  * Segment types for candlestick data (open, high, low, close)
  */
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
+const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
 
-/**
- * Navigation segment types including volatility and OHLC segments
- */
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
-/**
- * Candlestick chart model supporting navigation through OHLC data points
- */
-export class Candlestick extends AbstractTrace<number> {
+export class Candlestick extends AbstractTrace {
   protected readonly supportsExtrema = true;
+  protected readonly movable: Movable;
 
   private readonly candles: CandlestickPoint[];
   private readonly candleValues: number[][];
 
   private readonly orientation: Orientation;
-  private readonly sections = [
-    'volatility',
-    'open',
-    'high',
-    'low',
-    'close',
-  ] as const;
-
   // Track navigation state separately from visual highlighting state
   private currentSegmentType: CandlestickNavSegmentType | null = 'open';
   private currentPointIndex: number = 0;
@@ -60,6 +50,8 @@ export class Candlestick extends AbstractTrace<number> {
     CandlestickNavSegmentType,
     number
   >[];
+
+  private readonly sections: typeof SECTIONS;
 
   private readonly min: number;
   private readonly max: number;
@@ -98,10 +90,15 @@ export class Candlestick extends AbstractTrace<number> {
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+    this.sections = SECTIONS;
 
     this.candleValues = this.sections.map(key =>
       this.candles.map(c => c[key]),
     );
+    const options = this.orientation === Orientation.HORIZONTAL
+      ? { col: this.sections.length - 1 }
+      : { row: this.sections.length - 1 };
+    this.movable = new MovableGrid<number>(this.candleValues, options);
 
     this.min = MathUtil.minFrom2D(this.candleValues);
     this.max = MathUtil.maxFrom2D(this.candleValues);
@@ -237,16 +234,16 @@ export class Candlestick extends AbstractTrace<number> {
    * Moves navigation position one step in the specified direction
    * @param direction - Direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
    */
-  public moveOnce(direction: MovableDirection): void {
+  public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
-      return;
+      return true;
     }
 
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
-      return;
+      return false;
     }
 
     switch (direction) {
@@ -259,7 +256,7 @@ export class Candlestick extends AbstractTrace<number> {
         );
         if (currentSegmentPosition === -1) {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         const newSegmentPosition
           = direction === 'UPWARD'
@@ -270,7 +267,7 @@ export class Candlestick extends AbstractTrace<number> {
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         break;
       }
@@ -289,20 +286,17 @@ export class Candlestick extends AbstractTrace<number> {
           this.updateVisualSegmentPosition();
         } else {
           this.notifyOutOfBounds();
-          return;
+          return false;
         }
         break;
       }
     }
 
     this.notifyStateUpdate();
+    return true;
   }
 
-  /**
-   * Moves to extreme values in the specified direction (highest/lowest segment or first/last point)
-   * @param direction - Direction to move to extreme
-   */
-  public override moveToExtreme(direction: MovableDirection): void {
+  public override moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -341,14 +335,10 @@ export class Candlestick extends AbstractTrace<number> {
     }
 
     this.notifyStateUpdate();
+    return true;
   }
 
-  /**
-   * Moves to a specific row and column index in the candlestick chart
-   * @param row - Row index to move to
-   * @param col - Column index to move to
-   */
-  public moveToIndex(row: number, col: number): void {
+  public moveToIndex(row: number, col: number): boolean {
     // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -372,6 +362,7 @@ export class Candlestick extends AbstractTrace<number> {
     this.updateVisualSegmentPosition();
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
+    return true;
   }
 
   /**
@@ -433,12 +424,9 @@ export class Candlestick extends AbstractTrace<number> {
     return this.candleValues;
   }
 
-  /**
-   * Generates audio state for the current candlestick position
-   * @returns Audio state with current value and trend information
-   */
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     let value: number;
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     if (this.currentSegmentType === 'volatility') {
       value = this.candles[this.currentPointIndex].volatility;
     } else if (this.currentSegmentType) {
@@ -448,20 +436,22 @@ export class Candlestick extends AbstractTrace<number> {
     }
 
     return {
-      min: this.min,
-      max: this.max,
-      size: this.candles.length,
-      index: this.currentPointIndex,
-      value,
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: value,
+      },
+      panning: {
+        x: isHorizontal ? this.row : this.col,
+        y: isHorizontal ? this.col : this.row,
+        rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+        cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+      },
       trend: this.candles[this.currentPointIndex].trend,
     };
   }
 
-  /**
-   * Generates braille state for the current candlestick position
-   * @returns Braille state with values and position information
-   */
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     // Return the braille state with the current candle values and segment type
 
     // get an array for bear or bull
@@ -669,11 +659,7 @@ export class Candlestick extends AbstractTrace<number> {
     return segmentElements;
   }
 
-  /**
-   * Generates text state for the current candlestick position
-   * @returns Text state with axis labels and values
-   */
-  protected text(): TextState {
+  protected get text(): TextState {
     const point = this.candles[this.currentPointIndex];
     let crossValue: number;
     if (this.currentSegmentType === 'volatility') {
@@ -999,6 +985,14 @@ export class Candlestick extends AbstractTrace<number> {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+    };
+  }
+
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    return {
+      rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
+      cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
     };
   }
 }

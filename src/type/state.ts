@@ -117,20 +117,33 @@ export function isLayerSwitchTraceState(state: TraceState): state is LayerSwitch
  * Minimal audio state for empty traces containing only navigation indices.
  */
 export interface AudioEmptyState {
-  index: number;
-  size: number;
-  groupIndex?: number;
+  y: number;
+  x: number;
+  rows: number;
+  cols: number;
 }
 
 /**
  * Audio state containing frequency mapping and current value for sonification.
  */
 export interface AudioState {
-  min: number;
-  max: number;
-  size: number;
-  value: number | number[];
-  index: number | number[];
+  freq: {
+    min: number;
+    max: number;
+    raw: number | number[];
+  };
+  panning: {
+    y: number;
+    x: number;
+    rows: number;
+    cols: number;
+  };
+  /**
+   * Group index for multiclass plots.
+   * Used to determine which audio palette entry to use.
+   * If undefined, defaults to 0 (single group).
+   */
+  group?: number;
   /**
    * Indicates whether the audio is continuous.
    * If true, the audio plays without interruption.
@@ -138,17 +151,25 @@ export interface AudioState {
    */
   isContinuous?: boolean;
   /**
-   * Group index for multiclass plots.
-   * Used to determine which audio palette entry to use.
-   * If undefined, defaults to 0 (single group).
-   */
-  groupIndex?: number;
-  /**
    * Candlestick trend information for audio palette selection.
    * Used by AudioService to determine appropriate audio characteristics.
    * Only applicable for candlestick traces.
    */
   trend?: CandlestickTrend;
+  /**
+   * Volume multiplier for dynamic volume control.
+   * Used to scale audio volume based on data characteristics (e.g., violin plot width).
+   * If undefined, defaults to 1.0 (no volume scaling).
+   * Range should typically be between 0.0 and 1.0, but can exceed 1.0 for emphasis.
+   */
+  volumeMultiplier?: number;
+  /**
+   * Volume scale for dynamic volume control (0-1 range).
+   * Used to scale audio volume based on density values (e.g., violin plot density).
+   * If undefined, defaults to 1.0 (no volume scaling).
+   * Range is 0.0 to 1.0, where 0.0 = quietest and 1.0 = loudest.
+   */
+  volumeScale?: number;
 }
 
 /**

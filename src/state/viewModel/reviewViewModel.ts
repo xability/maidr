@@ -3,7 +3,7 @@ import type { ReviewService } from '@service/review';
 import type { AppStore } from '@state/store';
 import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { AbstractViewModel } from './viewModel';
 
 /**
  * State interface for the review feature containing the current review value.

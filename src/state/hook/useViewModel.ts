@@ -1,6 +1,9 @@
+import type { TypedUseSelectorHook } from 'react-redux';
+import type { RootState } from '../store';
 import type { ViewModelMap } from '../viewModel/registry';
-import { useAppSelector } from '../hook/useAppSelector';
+import { useSelector } from 'react-redux';
 import { ViewModelRegistry } from '../viewModel/registry';
+
 
 /**
  * Custom hook to retrieve a view model instance from the registry.

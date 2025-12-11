@@ -1,9 +1,9 @@
-import type { Maidr } from '@type/grammar';
-import { DomEventType } from '@type/event';
-import { MaidrApp } from '@ui/App';
-import { Constant } from '@util/constant';
+import type { Maidr } from './type/grammar';
 import { createRoot } from 'react-dom/client';
 import { Controller } from './controller';
+import { DomEventType } from './type/event';
+import { MaidrApp } from './ui/App';
+import { Constant } from './util/constant';
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
@@ -130,7 +130,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
       }
-
       if (!hasAnnounced) {
         hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
 
@@ -173,9 +172,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   maidrContainer = figureElement;
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
-
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
-  plot.addEventListener(DomEventType.CLICK, onFocusIn);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));

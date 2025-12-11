@@ -33,18 +33,17 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       const sum = this.barValues.reduce((sum, row) => sum + row[i], 0);
       summaryValues.push(sum);
 
-      const point
-        = this.orientation === Orientation.VERTICAL
-          ? {
-              x: this.points[0][i].x,
-              y: sum,
-              fill: SUM,
-            }
-          : {
-              x: sum,
-              y: this.points[0][i].y,
-              fill: SUM,
-            };
+      const point = this.orientation === Orientation.VERTICAL
+        ? {
+            x: this.points[0][i].x,
+            y: sum,
+            fill: SUM,
+          }
+        : {
+            x: sum,
+            y: this.points[0][i].y,
+            fill: SUM,
+          };
       summaryPoints.push(point);
     }
     this.points.push(summaryPoints);
@@ -195,7 +194,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    */
   protected text(): TextState {
     return {
-      ...super.text(),
+      ...super.text,
       fill: {
         label: LEVEL,
         value: this.points[this.row][this.col].fill ?? UNDEFINED,
@@ -209,31 +208,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    */
   protected highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-        audio: {
-          index: 0,
-          size: 0,
-          groupIndex: 0,
-        },
-      };
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {
       empty: false,
       elements: this.highlightValues[this.row][this.col],
     };
-  }
-
-  /**
-   * Indicates that segmented bars should not use combined/separate audio modes.
-   * @returns Always returns false for segmented bar plots
-   */
-  protected hasMultiPoints(): boolean {
-    // Stacked bar plots should not use combined/separate audio modes
-    return false;
   }
 
   /**

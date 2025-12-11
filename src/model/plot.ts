@@ -2,15 +2,14 @@ import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type {
-  FigureState,
-  HighlightState,
-  SubplotState,
-  TraceState,
-} from '@type/state';
+import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
+import type { Dimension } from './abstract';
+import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
-import { AbstractObservableElement } from './abstract';
+import { Svg } from '@util/svg';
+import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
+import { MovableGrid } from './movable';
 
 const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
@@ -19,8 +18,16 @@ const DEFAULT_CAPTION = 'unavailable';
 /**
  * Represents a figure containing one or more subplots
  */
-export class Figure extends AbstractObservableElement<Subplot, FigureState> {
+export class Figure extends AbstractPlot<FigureState> implements Movable, Observable<FigureState>, Disposable {
+  protected get dimension(): Dimension {
+    return {
+      rows: this.subplots.length,
+      cols: this.subplots[this.row].length,
+    };
+  }
+
   public readonly id: string;
+  protected readonly movable: Movable;
 
   private readonly title: string;
   private readonly subtitle: string;
@@ -47,6 +54,8 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       row.map(subplot => new Subplot(subplot)),
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
+
+    this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
   }
 
   /**
@@ -103,15 +112,11 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       index: currentIndex,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
       traceTypes: activeSubplot.traceTypes,
-      highlight: this.highlight(),
+      highlight: this.highlight,
     };
   }
 
-  /**
-   * Generates highlight state for the current subplot element
-   * @returns The highlight state with SVG element information
-   */
-  protected highlight(): HighlightState {
+  protected get highlight(): HighlightState {
     const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
 
     if (totalSubplots <= 1) {
@@ -119,8 +124,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         empty: true,
         type: 'trace',
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
         },
       };
     }
@@ -152,8 +159,10 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
         empty: true,
         type: 'trace',
         audio: {
-          size: this.values[this.row].length,
-          index: this.col,
+          y: this.row,
+          x: this.col,
+          rows: this.subplots.length,
+          cols: this.subplots[this.row].length,
         },
       };
     }
@@ -162,63 +171,12 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
       empty: true,
       type: 'trace',
       audio: {
-        size: this.values[this.row].length,
-        index: this.col,
+        y: this.row,
+        x: this.col,
+        rows: this.subplots.length,
+        cols: this.subplots[this.row].length,
       },
     };
-  }
-
-  /**
-   * Checks if movement in the specified direction is possible
-   * @param direction - The direction to check for movement
-   * @returns True if movement is possible, false otherwise
-   */
-  public isMovable(direction: MovableDirection): boolean {
-    switch (direction) {
-      case 'UPWARD':
-        return this.row < this.subplots.length - 1;
-      case 'DOWNWARD':
-        return this.row > 0;
-      case 'FORWARD':
-        return this.col < this.subplots[this.row].length - 1;
-      case 'BACKWARD':
-        return this.col > 0;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Moves the current position one step in the specified direction
-   * @param direction - The direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
-   */
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
-    this.notifyStateUpdate();
   }
 
   /**
@@ -230,15 +188,31 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     // implement in plot classes
     this.notifyStateUpdate();
   }
+
+  protected get outOfBoundsState(): FigureState {
+    return {
+      empty: true,
+      type: 'figure',
+    };
+  }
 }
 
-/**
- * Represents a subplot containing one or more traces
- */
-export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
+export class Subplot extends AbstractPlot<SubplotState> implements Movable, Observable<SubplotState>, Disposable {
+  protected get dimension(): Dimension {
+    return {
+      rows: this.values.length,
+      cols: this.values[this.row].length,
+    };
+  }
+
+  protected readonly movable: Movable;
+
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
+
   private readonly size: number;
+  private readonly highlightValue: SVGElement | null;
+  private readonly isViolinPlot: boolean;
 
   /**
    * Creates a new Subplot instance from MAIDR subplot data
@@ -247,21 +221,36 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   public constructor(subplot: MaidrSubplot) {
     super();
 
-    this.isInitialEntry = false;
-
     const layers = subplot.layers;
     this.size = layers.length;
-    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
+
+    // Structural detection for violin plots is done once at subplot level:
+    // BOX + SMOOTH in the same subplot => violin plot.
+    const layerTypes = layers.map(layer => layer.type);
+    const hasBox = layerTypes.includes(TraceType.BOX);
+    const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
+    const isViolinPlot = hasBox && hasSmooth;
+    this.isViolinPlot = isViolinPlot;
+
+    // Pass only a minimal hint into the factory; do not leak full layers array.
+    this.traces = layers.map(layer => [
+      TraceFactory.create(layer, { isViolinPlot }),
+    ]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
     });
+
+    this.highlightValue = this.mapToSvgElement(subplot.selector);
+    this.movable = new MovableGrid<Trace>(this.traces);
   }
 
-  /**
-   * Gets the current row index
-   * @returns The row index
-   */
+  public dispose(): void {
+    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
+    this.traces.length = 0;
+    super.dispose();
+  }
+
   public getRow(): number {
     return this.row;
   }
@@ -272,15 +261,6 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
    */
   public getSize(): number {
     return this.size;
-  }
-
-  /**
-   * Cleans up all traces and releases resources
-   */
-  public dispose(): void {
-    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
-    this.traces.length = 0;
-    super.dispose();
   }
 
   /**
@@ -300,80 +280,68 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   /**
-   * Generates highlight state for the current trace
-   * @returns The highlight state with audio information
+   * Override moveOnce to avoid "initial entry" no-op behavior for layer navigation.
+   *
+   * For violin subplots, the MovableGrid is only used to step between layers
+   * (traces), not between data points. We don't want the first MOVE_UP/DOWN
+   * to be eaten by handleInitialEntry; instead, the first PageUp/PageDown
+   * should actually switch layers.
+   *
+   * For non-violin plots, we delegate directly to the base implementation to
+   * preserve existing behavior.
    */
-  protected highlight(): HighlightState {
-    return {
-      empty: true,
-      type: 'trace',
-      audio: {
-        size: this.values[this.row].length,
-        index: this.col,
-      },
-    };
-  }
+  public override moveOnce(direction: MovableDirection): boolean {
+    // Only customize behavior for violin subplots
+    if (!this.isViolinPlot) {
+      return super.moveOnce(direction);
+    }
 
-  /**
-   * Moves the current position one step in the specified direction
-   * @param direction - The direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
-   */
-  public moveOnce(direction: MovableDirection): void {
+    // For violin subplots, clear initial-entry state on first move so the
+    // first PageUp/PageDown actually switches layers.
     if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
+      this.isInitialEntry = false;
     }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
-    this.notifyStateUpdate();
+    return super.moveOnce(direction);
   }
 
-  /**
-   * Gets the current state of the subplot including active trace
-   * @returns The complete subplot state
-   */
   public get state(): SubplotState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'subplot',
-      };
-    }
-
     return {
       empty: false,
       type: 'subplot',
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,
-      highlight: this.highlight(),
+      highlight: this.highlight,
     };
   }
 
-  /**
-   * Moves to a specific point in the subplot (implementation in subclasses)
-   * @param _x - The x coordinate
-   * @param _y - The y coordinate
-   */
+  protected get outOfBoundsState(): SubplotState {
+    return {
+      empty: true,
+      type: 'subplot',
+    };
+  }
+
+  private get highlight(): HighlightState {
+    if (this.highlightValue === null) {
+      return {
+        empty: true,
+        type: 'trace',
+        audio: {
+          y: this.row,
+          x: this.col,
+          rows: this.values.length,
+          cols: this.values[this.row].length,
+        },
+      };
+    }
+
+    return {
+      empty: false,
+      elements: this.highlightValue,
+    };
+  }
+
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
@@ -390,6 +358,10 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     _figureCol: number,
   ): SubplotState {
     return this.state;
+  }
+
+  private mapToSvgElement(selector?: string): SVGElement | null {
+    return selector ? Svg.selectElement(selector) ?? null : null;
   }
 }
 
@@ -417,7 +389,23 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   moveToXValue: (xValue: any) => boolean;
 
   /**
-   * Notifies observers that the trace is out of bounds
+   * Get the current Y value from the trace.
+   * Optional method implemented by traces that support Y value preservation during layer switching.
+   * @returns The current Y value or null if not available
+   */
+  getCurrentYValue?: () => number | null;
+
+  /**
+   * Move to a specific X value and find the closest position with the given Y value.
+   * Optional method implemented by traces that support preserving both X and Y values during layer switching.
+   * @param xValue The X value to move to
+   * @param yValue The Y value to find the closest matching position for
+   * @returns true if the move was successful, false otherwise
+   */
+  moveToXAndYValue?: (xValue: any, yValue: number) => boolean;
+
+  /**
+   * Notify observers that the trace is out of bounds
    */
   notifyOutOfBounds: () => void;
 
@@ -431,4 +419,20 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @param state - The trace state to send to observers
    */
   notifyObserversWithState: (state: TraceState) => void;
+
+  /**
+   * Handle switching from another trace.
+   * Called by Context when switching layers. Traces can implement this
+   * to handle special layer switching behavior (e.g., preserving Y values).
+   *
+   * IMPORTANT CONTRACT:
+   * - If this method returns true, it MUST have modified the trace position appropriately.
+   * - If this method returns false, it MUST NOT modify the trace position at all.
+   *   The Context will then apply default behavior (moveToXValue) after this returns.
+   *
+   * @param previousTrace - The trace we're switching from
+   * @returns true if this trace handled the switch (and modified position),
+   *          false to use default behavior (position must remain unchanged)
+   */
+  onSwitchFrom?: (previousTrace: Trace) => boolean;
 }

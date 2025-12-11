@@ -174,12 +174,12 @@ playwright-report/
 !.vscode/launch.json
 !.vscode/mcp.json
 
+#Zed
+.zed
+
 # Qodo AI
 .qodo
 
-# Quarto
-/_site/
-/.quarto/
-_freeze/
-
-**/*.quarto_ipynb
+# Playwright
+playwright-report/
+test-results/

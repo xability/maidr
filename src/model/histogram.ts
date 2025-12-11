@@ -27,7 +27,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const max = isVertical ? point.xMax : point.yMax;
 
     return {
-      ...super.text(),
+      ...super.text,
       range: { min, max },
     };
   }

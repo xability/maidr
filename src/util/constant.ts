@@ -15,6 +15,7 @@ export abstract class Constant {
   static readonly IMAGE = 'img';
   /** HTML input element tag name */
   static readonly INPUT = 'input';
+  static readonly STYLE = 'style';
   /** HTML textarea element tag name */
   static readonly TEXT_AREA = 'textarea';
 
@@ -53,6 +54,7 @@ export abstract class Constant {
   static readonly D = 'd';
   /** SVG fill attribute */
   static readonly FILL = 'fill';
+  static readonly MARGIN = 'margin';
   /** SVG points attribute for polygons */
   static readonly POINTS = 'points';
   /** SVG circle radius attribute */

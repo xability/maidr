@@ -20,6 +20,7 @@ export interface Maidr {
  */
 export interface MaidrSubplot {
   legend?: string[];
+  selector?: string;
   layers: MaidrLayer[];
 }
 

@@ -81,21 +81,13 @@ export class Controller implements Disposable {
 
     this.notificationService = new NotificationService();
     this.textService = new TextService(this.notificationService);
-    this.displayService = new DisplayService(
-      this.context,
-      plot,
-      this.textService,
-    );
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(
       new LocalStorageService(),
       this.displayService,
     );
+    this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
 
-    this.audioService = new AudioService(
-      this.notificationService,
-      this.context.state,
-      this.settingsService,
-    );
     this.brailleService = new BrailleService(
       this.context,
       this.notificationService,
@@ -111,11 +103,7 @@ export class Controller implements Disposable {
       this.textService,
     );
 
-    this.autoplayService = new AutoplayService(
-      this.context,
-      this.notificationService,
-      this.settingsService,
-    );
+    this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
@@ -287,6 +275,7 @@ export class Controller implements Disposable {
     this.brailleService.dispose();
     this.audioService.dispose();
 
+    this.settingsService.dispose();
     this.notificationService.dispose();
     this.displayService.dispose();
     this.context.dispose();
@@ -325,21 +314,18 @@ export class Controller implements Disposable {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach(subplotRow =>
-      subplotRow.forEach((subplot) => {
-        subplot.addObserver(this.textService);
-        subplot.addObserver(this.brailleService);
-        subplot.addObserver(this.highlightService);
-        subplot.traces.forEach(traceRow =>
-          traceRow.forEach((trace) => {
-            trace.addObserver(this.audioService);
-            trace.addObserver(this.brailleService);
-            trace.addObserver(this.textService);
-            trace.addObserver(this.reviewService);
-            trace.addObserver(this.highlightService);
-          }),
-        );
-      }),
-    );
+    this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
+      subplot.addObserver(this.textService);
+      subplot.addObserver(this.audioService);
+      subplot.addObserver(this.brailleService);
+      subplot.addObserver(this.highlightService);
+      subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
+        trace.addObserver(this.audioService);
+        trace.addObserver(this.brailleService);
+        trace.addObserver(this.textService);
+        trace.addObserver(this.reviewService);
+        trace.addObserver(this.highlightService);
+      }));
+    }));
   }
 }

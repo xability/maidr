@@ -1,36 +1,23 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "configurations": [
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Debug maidr in Chrome",
+      "name": "chrome: debug",
       "file": "${file}",
       "webRoot": "${workspaceFolder}",
       "sourceMaps": true,
-      "sourceMapPathOverrides": {
-        "webpack:///*": "${webRoot}/*",
-        "webpack:///./*": "${webRoot}/*",
-        "webpack:///src/*": "${webRoot}/src/*",
-        "webpack://maidr-ts/*": "${webRoot}/*"
-      },
       "preLaunchTask": "npm: build",
       "trace": true
     },
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Debug webpack dev server",
-      "url": "http://localhost:8080",
+      "name": "vite: debug",
+      "url": "http://localhost:5173",
       "webRoot": "${workspaceFolder}",
       "sourceMaps": true,
-      "sourceMapPathOverrides": {
-        "webpack:///*": "${webRoot}/*",
-        "webpack:///./*": "${webRoot}/*",
-        "webpack:///src/*": "${webRoot}/src/*",
-        "webpack://maidr-ts/*": "${webRoot}/*"
-      },
-      "preLaunchTask": "npm: dev",
       "trace": true
     }
   ]

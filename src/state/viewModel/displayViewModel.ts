@@ -66,6 +66,7 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
     this.displayService = displayService;
 
     this.registerListeners();
+
     this.store.dispatch(hideTooltip());
   }
 

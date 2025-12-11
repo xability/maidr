@@ -1,18 +1,17 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-/**
- * Abstract base class for bar plot traces supporting various bar chart types.
- * Handles bar-specific navigation, extrema detection, and visual element mapping.
- */
-export abstract class AbstractBarPlot<
-  T extends BarPoint,
-> extends AbstractTrace<number> {
+export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
+  protected readonly movable: Movable;
+
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
@@ -42,6 +41,7 @@ export abstract class AbstractBarPlot<
     this.max = this.barValues.map(row => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<T>(this.points);
   }
 
   /**
@@ -56,44 +56,30 @@ export abstract class AbstractBarPlot<
     super.dispose();
   }
 
-  /**
-   * Gets the bar values as a 2D array.
-   * @returns The bar values array
-   */
-  protected get values(): number[][] {
-    return this.barValues;
-  }
-
-  /**
-   * Gets the audio state for the current bar position.
-   * @returns The current AudioState
-   */
-  protected audio(): AudioState {
+  protected get audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    const size = isVertical
-      ? this.barValues[this.row].length
-      : this.barValues.length;
-    const index = isVertical ? this.col : this.row;
+
     const value = isVertical
       ? this.barValues[this.row][this.col]
       : this.barValues[this.col][this.row];
 
     return {
-      min: MathUtil.safeMin(this.min),
-      max: MathUtil.safeMax(this.max),
-      size,
-      index,
-      value,
-      // Only use groupIndex if there are multiple groups (rows > 1 for stacked/dodged bars)
-      ...this.getAudioGroupIndex(),
+      freq: {
+        min: MathUtil.safeMin(this.min),
+        max: MathUtil.safeMax(this.max),
+        raw: value,
+      },
+      panning: {
+        x: isVertical ? this.col : this.row,
+        y: isVertical ? this.row : this.col,
+        rows: isVertical ? this.barValues.length : this.barValues[this.col].length,
+        cols: isVertical ? this.barValues[this.row].length : this.barValues.length,
+      },
+      group: isVertical ? this.row : this.col,
     };
   }
 
-  /**
-   * Gets the braille state for the current bar position.
-   * @returns The current BrailleState
-   */
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     return {
       empty: false,
       id: this.id,
@@ -105,11 +91,7 @@ export abstract class AbstractBarPlot<
     };
   }
 
-  /**
-   * Gets the text state for the current bar position.
-   * @returns The current TextState
-   */
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -125,11 +107,17 @@ export abstract class AbstractBarPlot<
     };
   }
 
-  /**
-   * Maps CSS selector to SVG elements representing bars in the plot.
-   * @param selector - Optional CSS selector string
-   * @returns 2D array of SVG elements or null if mapping fails
-   */
+  protected get dimension(): Dimension {
+    return {
+      rows: this.barValues.length,
+      cols: this.barValues[this.row].length,
+    };
+  }
+
+  protected get values(): number[][] {
+    return this.barValues;
+  }
+
   protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;

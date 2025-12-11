@@ -1,5 +1,8 @@
+import type { Subplot, Trace } from '@model/plot';
 import type { Disposable } from '@type/disposable';
+import type { MovableDirection } from '@type/movable';
 import type { PointWithX, ValuesArray, XValue } from '@type/navigation';
+import type { LayerSwitchTraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { hasXProperty, isPointWithX, isXValue } from '@type/navigation';
 
@@ -12,6 +15,49 @@ import { hasXProperty, isPointWithX, isXValue } from '@type/navigation';
  * based on data orientation, as well as X-value navigation across trace types.
  */
 export class NavigationService implements Disposable {
+  /**
+   * Handle layer switching within a subplot. Encapsulates business logic for
+   * preserving positions, invoking trace-specific switch handling, and
+   * notifying observers about layer switches.
+   *
+   * @returns The newly active trace (may be the same as the previous one) or null if unavailable.
+   */
+  public stepTraceInSubplot(subplot: Subplot, direction: MovableDirection): Trace | null {
+    const currentTrace = subplot.activeTrace;
+    if (!currentTrace) {
+      return null;
+    }
+
+    // Switch to next/previous trace
+    const currentXValue = currentTrace.getCurrentXValue();
+    subplot.moveOnce(direction);
+    const newTrace = subplot.activeTrace;
+
+    if (!newTrace) {
+      return null;
+    }
+
+    if (newTrace.getId() === currentTrace.getId()) {
+      newTrace.notifyOutOfBounds();
+      subplot.notifyOutOfBounds();
+      return newTrace;
+    }
+
+    // Allow trace-specific switch handling (e.g., preserve Y)
+    if (typeof newTrace.onSwitchFrom === 'function') {
+      const handled = newTrace.onSwitchFrom(currentTrace);
+      if (handled) {
+        this.notifyLayerSwitch(subplot, newTrace);
+        return newTrace;
+      }
+    }
+
+    // Default: preserve X value when changing layers
+    newTrace.moveToXValue(currentXValue);
+    this.notifyLayerSwitch(subplot, newTrace);
+    return newTrace;
+  }
+
   /**
    * Compute normalized point index and segment type based on orientation
    * @param row The row coordinate from UI/ViewModel
@@ -400,6 +446,22 @@ export class NavigationService implements Disposable {
   public dispose(): void {
     // Currently no resources to clean up
     // This method is implemented for future extensibility
+  }
+
+  private notifyLayerSwitch(subplot: Subplot, trace: Trace): void {
+    if (!trace.state.empty) {
+      const index = subplot.getRow() + 1;
+      const size = subplot.getSize();
+      const state: LayerSwitchTraceState = {
+        ...trace.state,
+        isLayerSwitch: true,
+        index,
+        size,
+      };
+      trace.notifyObserversWithState(state);
+    } else {
+      trace.notifyStateUpdate();
+    }
   }
 }
 
