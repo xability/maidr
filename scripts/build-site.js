@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { marked } = require('marked');
 
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
@@ -23,115 +24,21 @@ if (!fs.existsSync(SITE_DIR)) {
 // Read template
 const template = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 
+// Configure marked for safe HTML output
+marked.setOptions({
+  gfm: true,
+  breaks: false,
+});
+
 /**
- * Simple Markdown to HTML converter for basic formatting
+ * Convert markdown to HTML using marked library
  */
 function markdownToHtml(md) {
-  let html = md;
+  // Remove the centered logo div at the top of README
+  let content = md.replace(/<div align="center">[\s\S]*?<\/div>\s*/, '');
 
-  // Remove the logo div at the top (it's centered div with img)
-  html = html.replace(/<div align="center">[\s\S]*?<\/div>\s*/, '');
-
-  // Code blocks (``` ... ```)
-  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-    const escaped = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    return `<pre><code class="language-${lang || ''}">${escaped}</code></pre>`;
-  });
-
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-  // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-  // Italic
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-  // Images
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
-
-  // Tables
-  html = html.replace(/^\|(.+)\|$/gm, (match, content) => {
-    const cells = content.split('|').map(c => c.trim());
-    return '<tr>' + cells.map(c => {
-      if (c.match(/^[-:]+$/)) return null; // separator row
-      return `<td>${c}</td>`;
-    }).filter(Boolean).join('') + '</tr>';
-  });
-
-  // Wrap consecutive table rows
-  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => {
-    // Convert first row to th
-    const withHeader = match.replace(/<tr>([\s\S]*?)<\/tr>/, (m, content) => {
-      return '<thead><tr>' + content.replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>') + '</tr></thead><tbody>';
-    });
-    return '<table>' + withHeader + '</tbody></table>';
-  });
-
-  // Remove separator rows that got through
-  html = html.replace(/<tr><\/tr>/g, '');
-
-  // Unordered lists
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul>$&</ul>');
-
-  // Ordered lists
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
-
-  // Checkbox items
-  html = html.replace(/- \[x\] (.+)/g, '<li><input type="checkbox" checked disabled> $1</li>');
-  html = html.replace(/- \[ \] (.+)/g, '<li><input type="checkbox" disabled> $1</li>');
-
-  // Paragraphs - wrap loose text
-  const lines = html.split('\n');
-  const result = [];
-  let inParagraph = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const isBlockElement = /^<(h[1-6]|ul|ol|li|pre|table|thead|tbody|tr|td|th|div|blockquote|hr)/.test(trimmed);
-    const isClosingBlock = /^<\/(ul|ol|pre|table|thead|tbody|div|blockquote)>/.test(trimmed);
-    const isEmpty = trimmed === '';
-
-    if (isEmpty) {
-      if (inParagraph) {
-        result.push('</p>');
-        inParagraph = false;
-      }
-      result.push('');
-    } else if (isBlockElement || isClosingBlock) {
-      if (inParagraph) {
-        result.push('</p>');
-        inParagraph = false;
-      }
-      result.push(line);
-    } else if (!inParagraph && trimmed && !trimmed.startsWith('<')) {
-      result.push('<p>' + line);
-      inParagraph = true;
-    } else {
-      result.push(line);
-    }
-  }
-
-  if (inParagraph) {
-    result.push('</p>');
-  }
-
-  // HTML comments (remove)
-  html = result.join('\n').replace(/<!--[\s\S]*?-->/g, '');
-
-  return html;
+  // Convert markdown to HTML
+  return marked.parse(content);
 }
 
 /**
