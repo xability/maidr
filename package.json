@@ -20,9 +20,9 @@
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
     "e2e:install": "playwright install --with-deps",
-    "docs": "typedoc && cp -r media _site/docs/ 2>/dev/null || true && node scripts/add-navigation-to-typedoc.js",
+    "docs": "node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",
-    "site:build": "quarto render && npm run docs"
+    "docs:serve": "npm run docs && npx http-server _site -o"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

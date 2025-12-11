@@ -1,5 +1,0 @@
----
-title: "MAIDR: Multimodal Access and Interactive Data Representation"
----
-
-{{< include README.md >}}

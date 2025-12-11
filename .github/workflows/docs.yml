@@ -1,17 +1,20 @@
-name: Publish Quarto Documentation
+name: Deploy Documentation
 
 on:
   push:
     branches:
       - main
-      - docs/jsdoc  # Remove this after testing
+      - docs/jsdoc #testing
     paths:
-      - '**.qmd'
-      - '_quarto.yml'
+      - 'src/**'
       - 'README.md'
-      - 'examples/**'
+      - 'typedoc.json'
+      - 'package.json'
       - 'docs/**'
-      - '.github/workflows/quarto-publish.yml'
+      - 'examples/**'
+      - 'media/**'
+      - 'scripts/build-site.js'
+      - '.github/workflows/docs.yml'
 
   workflow_dispatch:
 
@@ -20,7 +23,6 @@ permissions:
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -36,21 +38,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build TypeDoc documentation
+      - name: Build documentation site
         run: npm run docs
-
-      - name: Setup Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: '1.5.57'
-
-      - name: Render Quarto Project
-        run: |
-          quarto render
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

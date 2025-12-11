@@ -3,7 +3,7 @@
     "src"
   ],
   "entryPointStrategy": "expand",
-  "out": "_site/docs",
+  "out": "_site/api",
   "exclude": [
     "**/*.test.ts",
     "**/*.spec.ts",
@@ -19,7 +19,7 @@
   },
   "hideGenerator": true,
   "tsconfig": "./tsconfig.json",
-  "readme": "./README.md",
+  "readme": "none",
   "sort": [
     "source-order"
   ],
