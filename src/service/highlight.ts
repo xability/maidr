@@ -304,12 +304,18 @@ export class HighlightService
           const originalFill = fillMatch[1];
           el.setAttribute("data-original-fill", originalFill);
 
-          const newFill = this.toColorStep(
-            originalFill,
-            context,
-            isInSelectors,
-            cantBeBackground,
-          );
+          // set text fill to light color always
+          let newFill;
+          if (this.hasParentWithStringInID(el, "text")) {
+            newFill = this.highContrastLightColor;
+          } else {
+            newFill = this.toColorStep(
+              originalFill,
+              context,
+              isInSelectors,
+              cantBeBackground,
+            );
+          }
           newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
         }
 
@@ -317,12 +323,17 @@ export class HighlightService
           const originalStroke = strokeMatch[1];
           el.setAttribute("data-original-stroke", originalStroke);
 
-          const newStroke = this.toColorStep(
-            originalStroke,
-            context,
-            isInSelectors,
-            cantBeBackground,
-          );
+          let newStroke;
+          if (this.hasParentWithStringInID(el, "text")) {
+            newStroke = this.highContrastLightColor;
+          } else {
+            newStroke = this.toColorStep(
+              originalStroke,
+              context,
+              isInSelectors,
+              cantBeBackground,
+            );
+          }
           newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
         }
 
@@ -332,24 +343,38 @@ export class HighlightService
         const attrFill = el.getAttribute("fill");
         if (attrFill) {
           el.setAttribute("data-attr-fill", attrFill);
-          const newStroke = this.toColorStep(
-            attrFill,
-            context,
-            isInSelectors,
-            cantBeBackground,
-          );
-          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newStroke}`);
+
+          // set text fill to light color always
+          let newFill;
+          if (this.hasParentWithStringInID(el, "text")) {
+            newFill = this.highContrastLightColor;
+          } else {
+            newFill = this.toColorStep(
+              attrFill,
+              context,
+              isInSelectors,
+              cantBeBackground,
+            );
+          }
+          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
         }
 
         const attrStroke = el.getAttribute("stroke");
         if (attrStroke) {
           el.setAttribute("data-attr-stroke", attrStroke);
-          const newStroke = this.toColorStep(
-            attrStroke,
-            context,
-            isInSelectors,
-            cantBeBackground,
-          );
+
+          // set text stroke to light color always
+          let newStroke;
+          if (this.hasParentWithStringInID(el, "text")) {
+            newStroke = this.highContrastLightColor;
+          } else {
+            const newStroke = this.toColorStep(
+              attrStroke,
+              context,
+              isInSelectors,
+              cantBeBackground,
+            );
+          }
           newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
         }
 
@@ -401,13 +426,17 @@ export class HighlightService
       }
 
       // stop if we reach notString
-      if (current.id.startsWith(notString)) {
-        return false;
+      if (notString.length > 0) {
+        if (current.id.startsWith(notString)) {
+          return false;
+        }
       }
 
       // Check if current element's ID starts with the search string
-      if (current.id.startsWith(searchString)) {
-        return true;
+      if (searchString.length > 0) {
+        if (current.id.startsWith(searchString)) {
+          return true;
+        }
       }
 
       // Move up to next parent
@@ -446,15 +475,6 @@ export class HighlightService
 
     // Create all the filter primitives
     const filterHTML = `
-    <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur1"/>
-    <feOffset dx="0" dy="0" result="offsetblur1" in="blur1"/>
-    <feFlood flood-color="black" result="color1"/>
-    <feComposite in="color1" in2="offsetblur1" operator="in" result="shadow1"/>
-    
-    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur2"/>
-    <feOffset dx="0" dy="0" result="offsetblur2" in="blur2"/>
-    <feFlood flood-color="black" result="color2"/>
-    <feComposite in="color2" in2="offsetblur2" operator="in" result="shadow2"/>
     
     <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur3"/>
     <feOffset dx="0" dy="0" result="offsetblur3" in="blur3"/>
@@ -467,8 +487,6 @@ export class HighlightService
     <feComposite in="color4" in2="offsetblur4" operator="in" result="shadow4"/>
     
     <feMerge>
-      <feMergeNode in="shadow1"/>
-      <feMergeNode in="shadow2"/>
       <feMergeNode in="shadow3"/>
       <feMergeNode in="shadow4"/>
       <feMergeNode in="SourceGraphic"/>
