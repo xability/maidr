@@ -105,10 +105,17 @@ export class SettingsService implements Disposable {
     this.observers.push(observer);
   }
 
+  /**
+   * Unregisters an observer from settings change notifications.
+   * @param observer - The observer to remove from the notification list
+   */
   public removeObserver(observer: Observer<Settings>): void {
     this.observers = this.observers.filter(obs => obs !== observer);
   }
 
+  /**
+   * Notifies all registered observers of the current settings state.
+   */
   public notifyStateUpdate(): void {
     for (const observer of this.observers) {
       observer.update(this.currentSettings);

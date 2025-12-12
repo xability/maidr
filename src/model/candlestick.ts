@@ -16,12 +16,17 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
 
-// Type alias for highlight elements - can be single elements or arrays of elements
+/**
+ * Type alias for highlight elements - can be single elements or arrays of elements
+ */
 type HighlightValue = SVGElement | SVGElement[];
 
 const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
+/**
+ * Segment types for candlestick data (open, high, low, close)
+ */
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
 
@@ -59,6 +64,10 @@ export class Candlestick extends AbstractTrace {
   // Service dependency for navigation logic
   protected readonly navigationService: NavigationService;
 
+  /**
+   * Creates a new Candlestick instance from a MAIDR layer
+   * @param layer - The MAIDR layer containing candlestick data
+   */
   constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -116,7 +125,8 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Pre-compute sorted segments for all candlestick points for O(1) lookup
+   * Pre-computes sorted segments for all candlestick points for O(1) lookup
+   * @returns Array of sorted segment types for each candlestick point
    */
   private precomputeSortedSegments(): CandlestickNavSegmentType[][] {
     return this.candles.map((candle) => {
@@ -136,7 +146,8 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Pre-compute position maps for O(1) lookup of segment positions
+   * Pre-computes position maps for O(1) lookup of segment positions
+   * @returns Array of position maps for each candlestick point
    */
   private precomputePositionMaps(): Map<CandlestickNavSegmentType, number>[] {
     return this.sortedSegmentsByPoint.map((sortedSegments) => {
@@ -149,7 +160,10 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Get the position index of a segment type in the sorted segments for a point (O(1) lookup)
+   * Gets the position index of a segment type in the sorted segments for a point (O(1) lookup)
+   * @param pointIndex - Index of the candlestick point
+   * @param segmentType - Type of segment to find
+   * @returns Position index of the segment in sorted order
    */
   private getSegmentPositionInSortedOrder(
     pointIndex: number,
@@ -159,7 +173,10 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Get the segment type at a specific position in the sorted order for a point (O(1) lookup)
+   * Gets the segment type at a specific position in the sorted order for a point (O(1) lookup)
+   * @param pointIndex - Index of the candlestick point
+   * @param position - Position in the sorted order
+   * @returns Segment type at the specified position
    */
   private getSegmentTypeAtSortedPosition(
     pointIndex: number,
@@ -170,8 +187,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Update visual position for segment highlighting
-   * Use the dynamic position based on value-sorted order, not fixed section index
+   * Updates visual position for segment highlighting using dynamic value-sorted order
    */
   private updateVisualSegmentPosition(): void {
     // Use the sorted navigation order (with volatility first)
@@ -187,7 +203,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Update visual position for point highlighting
+   * Updates visual position for point highlighting and segment position
    */
   protected updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
@@ -200,6 +216,9 @@ export class Candlestick extends AbstractTrace {
     this.updateVisualSegmentPosition();
   }
 
+  /**
+   * Handles initial entry into the candlestick chart, setting default position
+   */
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     this.currentPointIndex = Math.max(
@@ -212,7 +231,8 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Override moveOnce to handle segment type preservation and value-based sorting
+   * Moves navigation position one step in the specified direction
+   * @param direction - Direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
    */
   public moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
@@ -346,7 +366,9 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Override isMovable to handle custom navigation boundaries for value-based sorting
+   * Checks if movement to the target position or direction is possible
+   * @param target - Target position array or movement direction
+   * @returns True if movement is possible, false otherwise
    */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
@@ -385,12 +407,19 @@ export class Candlestick extends AbstractTrace {
     }
   }
 
+  /**
+   * Cleans up resources and disposes of the candlestick instance
+   */
   public dispose(): void {
     this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
   }
 
+  /**
+   * Gets the 2D array of candlestick values
+   * @returns Array of candlestick values for all segments
+   */
   protected get values(): number[][] {
     return this.candleValues;
   }
@@ -451,6 +480,11 @@ export class Candlestick extends AbstractTrace {
     };
   }
 
+  /**
+   * Collects SVG elements matching the provided selectors
+   * @param selector - CSS selector(s) to match elements
+   * @returns Array of matched SVG elements
+   */
   private collectElements(selector?: string | string[]): SVGElement[] {
     if (!selector)
       return [];
@@ -462,10 +496,21 @@ export class Candlestick extends AbstractTrace {
     return elements;
   }
 
+  /**
+   * Gets an element at the specified index from an array, or null if out of bounds
+   * @param array - Array of SVG elements
+   * @param index - Index to retrieve
+   * @returns SVG element at index or null
+   */
   private getElementAt(array: SVGElement[], index: number): SVGElement | null {
     return index < array.length ? array[index] : null;
   }
 
+  /**
+   * Maps candlestick selectors to 2D array of SVG elements for highlighting
+   * @param selectors - CSS selectors or structured candlestick selectors
+   * @returns 2D array of SVG elements or null if no selectors provided
+   */
   protected mapToSvgElements(
     selectors: string | string[] | CandlestickSelector | undefined,
   ): HighlightValue[][] | null {
@@ -642,9 +687,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Gets the current candlestick trend for audio palette selection.
-   * This provides raw data that services can use for business logic.
-   *
+   * Gets the current candlestick trend for audio palette selection
    * @returns The trend of the current candlestick point
    */
   public getCurrentTrend(): CandlestickTrend {
@@ -652,7 +695,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Get the current X value from the candlestick trace
+   * Gets the current X value from the candlestick trace
    * @returns The current X value or null if not available
    */
   public getCurrentXValue(): XValue | null {
@@ -666,9 +709,9 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Move the candlestick to the position that matches the given X value
-   * @param xValue The X value to move to
-   * @returns true if the position was found and set, false otherwise
+   * Moves the candlestick to the position that matches the given X value
+   * @param xValue - The X value to move to
+   * @returns True if the position was found and set, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
     const targetIndex = this.candles.findIndex(
@@ -686,7 +729,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Get available X values for navigation
+   * Gets available X values for navigation
    * @returns Array of X values
    */
   public getAvailableXValues(): XValue[] {
@@ -694,8 +737,7 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Get extrema targets for the current candlestick trace
-   * Returns multiple extrema targets with better labels and descriptions
+   * Gets extrema targets for the current candlestick trace with labels and descriptions
    * @returns Array of extrema targets for navigation
    */
   public getExtremaTargets(): ExtremaTarget[] {
@@ -800,8 +842,8 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * Navigate to a specific extrema target
-   * @param target The extrema target to navigate to
+   * Navigates to a specific extrema target
+   * @param target - The extrema target to navigate to
    */
   public navigateToExtrema(target: ExtremaTarget): void {
     // Update the current point index
@@ -814,6 +856,12 @@ export class Candlestick extends AbstractTrace {
     this.finalizeExtremaNavigation();
   }
 
+  /**
+   * Moves to the next value in the specified direction that matches the comparison type
+   * @param direction - Direction to search (left or right)
+   * @param type - Comparison type (lower or higher)
+   * @returns True if a matching value was found and moved to
+   */
   public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.candles.length) {
@@ -845,19 +893,27 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * The behavior of upward and downward arrows is to move between the segments within a candle (within the scope of ROTOR trace)
-   * @returns {boolean} True if the move was successful.
+   * Moves upward between segments within a candle in rotor mode
+   * @returns True if the move was successful
    */
   public moveUpRotor(): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
 
+  /**
+   * Moves downward between segments within a candle in rotor mode
+   * @returns True if the move was successful
+   */
   public moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
     return true;
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for click navigation
+   * @returns Array of center coordinates with row/col indices or null
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -894,6 +950,12 @@ export class Candlestick extends AbstractTrace {
     return centers;
   }
 
+  /**
+   * Finds the nearest candlestick point to the given coordinates
+   * @param x - X coordinate
+   * @param y - Y coordinate
+   * @returns Nearest point information or null
+   */
   public findNearestPoint(
     x: number,
     y: number,

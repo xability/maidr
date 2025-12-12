@@ -7,12 +7,18 @@ import { SCOPED_KEYMAP } from '@service/keybinding';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 import { Scope } from '@type/event';
 
+/**
+ * Represents a single command item in the command palette.
+ */
 interface CommandItem {
   key: string;
   description: string;
   commandKey: Keys;
 }
 
+/**
+ * Represents the state of the command palette interface.
+ */
 interface CommandPaletteState {
   visible: boolean;
   commands: CommandItem[];
@@ -55,23 +61,41 @@ const commandPaletteSlice = createSlice({
 
 const { show, hide, updateSelectedIndex, updateSearch } = commandPaletteSlice.actions;
 
+/**
+ * View model for managing command palette state and navigation.
+ */
 export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteState> {
   private readonly commandPaletteService: CommandPaletteService;
 
+  /**
+   * Creates a new CommandPaletteViewModel instance.
+   * @param {AppStore} store - The Redux store instance.
+   * @param {CommandPaletteService} commandPaletteService - The command palette service for scope management.
+   */
   public constructor(store: AppStore, commandPaletteService: CommandPaletteService) {
     super(store);
     this.commandPaletteService = commandPaletteService;
   }
 
+  /**
+   * Disposes the view model and hides the command palette.
+   */
   public dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }
 
+  /**
+   * Gets the current command palette state from the store.
+   * @returns {CommandPaletteState} The current command palette state.
+   */
   public get state(): CommandPaletteState {
     return this.store.getState().commandPalette;
   }
 
+  /**
+   * Toggles the visibility of the command palette.
+   */
   public toggle(): void {
     const currentState = this.state;
 
@@ -82,6 +106,9 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     }
   }
 
+  /**
+   * Shows the command palette with available commands for the current scope.
+   */
   public show(): void {
     // Get available commands for current scope
     const scopeKeymap = SCOPED_KEYMAP.TRACE; // Default to TRACE scope
@@ -100,11 +127,17 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     this.commandPaletteService.toggle();
   }
 
+  /**
+   * Hides the command palette and returns to trace scope.
+   */
   public hide(): void {
     this.store.dispatch(hide());
     this.commandPaletteService.returnToTraceScope();
   }
 
+  /**
+   * Moves the selection up in the command list.
+   */
   public moveUp(): void {
     const currentState = this.state;
 
@@ -121,6 +154,9 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     }
   }
 
+  /**
+   * Moves the selection down in the command list.
+   */
   public moveDown(): void {
     const currentState = this.state;
 
@@ -132,12 +168,18 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     }
   }
 
+  /**
+   * Deselects all options and returns focus to the search bar.
+   */
   public moveToSearch(): void {
     // Deselect all options to return focus to search bar
     this.store.dispatch(updateSelectedIndex(-1));
     // Note: The component will handle focusing the search input via useEffect
   }
 
+  /**
+   * Selects the currently highlighted command without executing it.
+   */
   public selectCurrent(): void {
     const currentState = this.state;
 
@@ -148,22 +190,39 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     }
   }
 
+  /**
+   * Updates the search filter text for the command palette.
+   * @param {string} search - The search text to filter commands.
+   */
   public updateSearch(search: string): void {
     this.store.dispatch(updateSearch(search));
   }
 
+  /**
+   * Executes the specified command and hides the command palette.
+   * @param {Keys} _commandKey - The command key to execute.
+   */
   public executeCommand(_commandKey: Keys): void {
     // Execute the command via CommandExecutor
     // This will be called by the CommandPalette component
     this.hide();
   }
 
+  /**
+   * Handles command selection and hides the palette.
+   * @param {CommandItem} _command - The selected command item.
+   */
   private handleCommandSelect(_command: CommandItem): void {
     // Execute the selected command
     // This will be handled by the CommandPalette component
     this.hide();
   }
 
+  /**
+   * Converts a string to title case format.
+   * @param {string} str - The string to convert.
+   * @returns {string} The title-cased string.
+   */
   private toTitleCase(str: string): string {
     return str.replace(/\w\S*/g, txt =>
       txt.charAt(0).toUpperCase() + txt.slice(1));

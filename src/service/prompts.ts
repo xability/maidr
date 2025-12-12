@@ -35,6 +35,9 @@ Question: {message}
 
 Please answer my specific question directly. If you need to reference the visualization data, do so briefly and focus on answering what I asked.`;
 
+/**
+ * Context data required for generating prompts for LLM interactions.
+ */
 export interface PromptContext {
   customInstruction: string;
   maidrJson: string;
@@ -49,6 +52,11 @@ const SYSTEM_PROMPTS: Record<Exclude<PromptContext['expertiseLevel'], 'custom'>,
   advanced: ADVANCED_SYSTEM_PROMPT,
 };
 
+/**
+ * Selects the appropriate system prompt based on the user's expertise level.
+ * @param expertiseLevel - The expertise level of the user
+ * @returns The corresponding system prompt string, or empty string for custom level
+ */
 function selectPromptByLevel(expertiseLevel: PromptContext['expertiseLevel']): string {
   if (expertiseLevel === 'custom') {
     return '';
@@ -56,6 +64,12 @@ function selectPromptByLevel(expertiseLevel: PromptContext['expertiseLevel']): s
   return SYSTEM_PROMPTS[expertiseLevel];
 }
 
+/**
+ * Formats the system prompt by combining base prompt with custom instructions.
+ * @param customInstruction - Additional custom instructions to append
+ * @param expertiseLevel - The expertise level to determine base prompt
+ * @returns The formatted system prompt string
+ */
 export function formatSystemPrompt(customInstruction: string, expertiseLevel: PromptContext['expertiseLevel']): string {
   if (expertiseLevel === 'custom') {
     return customInstruction;
@@ -64,6 +78,11 @@ export function formatSystemPrompt(customInstruction: string, expertiseLevel: Pr
   return `${basePrompt}\n\n${customInstruction}`;
 }
 
+/**
+ * Formats the user prompt by replacing template placeholders with context values.
+ * @param context - The prompt context containing data and message
+ * @returns The formatted user prompt string
+ */
 export function formatUserPrompt(context: PromptContext): string {
   return USER_PROMPT_TEMPLATE
     .replace('{maidrJson}', context.maidrJson)

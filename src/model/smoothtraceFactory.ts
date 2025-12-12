@@ -4,6 +4,11 @@ import { SmoothTrace } from './smooth';
 import { SmoothTraceSvgXY } from './smoothSvgXY';
 import { ViolinKdeTrace } from './violinKde';
 
+/**
+ * Type guard to check if a point contains svg_x and svg_y numeric coordinates.
+ * @param pt - The point object to check
+ * @returns True if the point has valid svg_x and svg_y properties
+ */
 function isSmoothPoint(pt: any): pt is { svg_x: number; svg_y: number } {
   return typeof pt?.svg_x === 'number' && typeof pt?.svg_y === 'number';
 }

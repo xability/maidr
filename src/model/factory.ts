@@ -11,6 +11,9 @@ import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 
+/**
+ * Abstract factory class for creating appropriate trace instances based on layer type.
+ */
 export abstract class TraceFactory {
   /**
    * Factory method for creating trace instances.

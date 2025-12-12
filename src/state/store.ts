@@ -10,6 +10,9 @@ import rotorReducer from './viewModel/rotorNavigationViewModel';
 import settingsReducer from './viewModel/settingsViewModel';
 import textReducer from './viewModel/textViewModel';
 
+/**
+ * Configures and creates the Redux store with all application view model reducers.
+ */
 export const store = configureStore({
   reducer: {
     braille: brailleReducer,
@@ -25,5 +28,12 @@ export const store = configureStore({
   },
 });
 
+/**
+ * Root state type derived from the store's getState method.
+ */
 export type RootState = ReturnType<typeof store.getState>;
+
+/**
+ * Type representing the application store instance.
+ */
 export type AppStore = typeof store;

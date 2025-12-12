@@ -7,11 +7,17 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
 
+/**
+ * Represents scatter points grouped by X coordinate.
+ */
 interface ScatterXPoint {
   x: number;
   y: number[];
 }
 
+/**
+ * Represents scatter points grouped by Y coordinate.
+ */
 interface ScatterYPoint {
   x: number[];
   y: number;
@@ -43,6 +49,10 @@ export class ScatterTrace extends AbstractTrace {
   private readonly minY: number;
   private readonly maxY: number;
 
+  /**
+   * Creates a new scatter trace instance and organizes data by X and Y coordinates.
+   * @param layer - The MAIDR layer containing scatter plot data
+   */
   public constructor(layer: MaidrLayer) {
     super(layer);
     this.mode = NavMode.COL;
@@ -86,6 +96,9 @@ export class ScatterTrace extends AbstractTrace {
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
   }
 
+  /**
+   * Cleans up resources and removes all highlight elements from the DOM.
+   */
   public dispose(): void {
     this.movable.dispose();
 
@@ -104,12 +117,20 @@ export class ScatterTrace extends AbstractTrace {
     super.dispose();
   }
 
+  /**
+   * Returns the appropriate highlight elements based on current navigation mode.
+   * @returns SVG elements for X-based or Y-based highlighting depending on mode
+   */
   protected get highlightValues(): SVGElement[][] | null {
     return this.movable.mode === 'col'
       ? this.highlightXValues
       : this.highlightYValues;
   }
 
+  /**
+   * Returns an empty object to avoid grouping scatter points by audio tone.
+   * @returns Empty object without groupIndex to maintain consistent audio feedback
+   */
   protected getAudioGroupIndex(): { groupIndex?: number } {
     // Rationale for returning empty object instead of groupIndex:
     //
@@ -241,6 +262,9 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
+  /**
+   * Initializes scatter plot navigation at the origin in column mode.
+   */
   protected handleInitialEntry(): void {
     this.isInitialEntry = false;
     // For scatter plots, start in COL mode with row=0, col=0
@@ -250,7 +274,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   /**
-   * Toggles between COL and ROW navigation modes while maintaining logical position mapping
+   * Toggles between COL and ROW navigation modes while maintaining logical position mapping.
    */
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
@@ -401,6 +425,11 @@ export class ScatterTrace extends AbstractTrace {
     }
   }
 
+  /**
+   * Checks if movement in the specified direction is possible from current position.
+   * @param target - Direction or coordinate to check
+   * @returns True if movement is possible, false otherwise
+   */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       return false;
@@ -437,6 +466,11 @@ export class ScatterTrace extends AbstractTrace {
     }
   }
 
+  /**
+   * Maps scatter points to SVG elements grouped by X and Y coordinates.
+   * @param selector - CSS selector for SVG elements
+   * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if unavailable
+   */
   private mapToSvgElements(
     selector?: string,
   ): [SVGElement[][], SVGElement[][]] | [null, null] {
@@ -478,6 +512,10 @@ export class ScatterTrace extends AbstractTrace {
     return [sortedXElements, sortedYElements];
   }
 
+  /**
+   * Converts SVG elements to center coordinates for proximity-based navigation.
+   * @returns Array of center points with coordinates and indices, or null if unavailable
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -514,6 +552,12 @@ export class ScatterTrace extends AbstractTrace {
     return centers;
   }
 
+  /**
+   * Finds the nearest scatter point to the given screen coordinates.
+   * @param _x - The x-coordinate in screen space
+   * @param _y - The y-coordinate in screen space
+   * @returns The nearest point with its element and indices, or null if unavailable
+   */
   public findNearestPoint(
     _x: number,
     _y: number,
@@ -546,6 +590,11 @@ export class ScatterTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * Moves to the nearest scatter point at the specified screen coordinates.
+   * @param x - The x-coordinate in screen space
+   * @param y - The y-coordinate in screen space
+   */
   public moveToPoint(x: number, y: number): void {
     // set to vertical mode
     this.mode = NavMode.COL;

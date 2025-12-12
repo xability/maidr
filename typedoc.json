@@ -1,0 +1,30 @@
+{
+  "entryPoints": [
+    "src"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "_site/api",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**"
+  ],
+  "name": "MAIDR Documentation",
+  "includeVersion": true,
+  "categorizeByGroup": false,
+  "navigation": {
+    "includeCategories": false,
+    "includeGroups": false,
+    "includeFolders": true
+  },
+  "hideGenerator": true,
+  "tsconfig": "./tsconfig.json",
+  "readme": "none",
+  "sort": [
+    "source-order"
+  ],
+  "plugin": [
+    "typedoc-theme-hierarchy"
+  ],
+  "theme": "hierarchy"
+}

@@ -1,15 +1,29 @@
 import type { Llm } from '@type/llm';
 
+/**
+ * Represents the result of an API key validation attempt.
+ */
 interface ValidationResponse {
+  /** Indicates whether the API key is valid */
   isValid: boolean;
+  /** Optional error message if validation failed */
   error?: string;
 }
 
+/**
+ * Service for validating API keys across different LLM providers.
+ */
 export class LlmValidationService {
   private static readonly OPENAI_API_URL = 'https://api.openai.com/v1/models';
   private static readonly ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
   private static readonly GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+  /**
+   * Validates an API key for the specified LLM provider.
+   * @param modelKey - The LLM provider identifier
+   * @param apiKey - The API key to validate
+   * @returns Promise resolving to validation result with status and optional error message
+   */
   public static async validateApiKey(modelKey: Llm, apiKey: string): Promise<ValidationResponse> {
     try {
       switch (modelKey) {
@@ -30,6 +44,11 @@ export class LlmValidationService {
     }
   }
 
+  /**
+   * Validates an OpenAI API key by making a request to the models endpoint.
+   * @param apiKey - The OpenAI API key to validate
+   * @returns Promise resolving to validation result
+   */
   private static async validateOpenAiKey(apiKey: string): Promise<ValidationResponse> {
     try {
       const response = await fetch(this.OPENAI_API_URL, {
@@ -50,6 +69,11 @@ export class LlmValidationService {
     }
   }
 
+  /**
+   * Validates an Anthropic Claude API key by making a minimal request to the messages endpoint.
+   * @param apiKey - The Anthropic API key to validate
+   * @returns Promise resolving to validation result
+   */
   private static async validateAnthropicKey(apiKey: string): Promise<ValidationResponse> {
     try {
       const response = await fetch(this.ANTHROPIC_API_URL, {
@@ -76,6 +100,11 @@ export class LlmValidationService {
     }
   }
 
+  /**
+   * Validates a Google Gemini API key by making a request to the models endpoint.
+   * @param apiKey - The Google Gemini API key to validate
+   * @returns Promise resolving to validation result
+   */
   private static async validateGeminiKey(apiKey: string): Promise<ValidationResponse> {
     try {
       const response = await fetch(`${this.GEMINI_API_URL}?key=${apiKey}`, {

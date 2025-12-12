@@ -5,6 +5,12 @@ import { DomEventType } from './type/event';
 import { MaidrApp } from './ui/App';
 import { Constant } from './util/constant';
 
+declare global {
+  interface Window {
+    maidr?: Maidr;
+  }
+}
+
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
   document.addEventListener(DomEventType.DOM_LOADED, main);
