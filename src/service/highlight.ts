@@ -136,9 +136,16 @@ export class HighlightService
   private fakeGetSelectors(): string[] {
     // fake selectors for now, until we have real ones
     // we're just going to steal them directly from the svg in DOM
-    const maidrDataString =
-      document.querySelector("svg:first-child")?.getAttribute("data-maidr") ||
-      "{}";
+
+    // it'll either be called data-maidr or maidr-data
+    const svg = document.querySelector("svg:first-child");
+    let maidrDataString = "{}";
+    if (!svg) return [];
+    if (svg.hasAttribute("data-maidr")) {
+      maidrDataString = svg.getAttribute("data-maidr") || "{}";
+    } else if (svg.hasAttribute("maidr-data")) {
+      maidrDataString = svg.getAttribute("maidr-data") || "{}";
+    }
     const data = JSON.parse(maidrDataString);
     const selectors: string[] = [];
 
@@ -151,10 +158,16 @@ export class HighlightService
         }
       } else {
         for (const [key, value] of Object.entries(obj)) {
-          if (key === "selectors" && Array.isArray(value)) {
-            selectors.push(
-              ...value.filter((s): s is string => typeof s === "string"),
-            );
+          if (key === "selectors") {
+            if (typeof value === "string") {
+              selectors.push(value);
+            } else if (Array.isArray(value)) {
+              selectors.push(
+                ...value.filter((s): s is string => typeof s === "string"),
+              );
+            } else {
+              selectors.push(...(Object.values(value) as string[]));
+            }
           } else {
             traverse(value);
           }
@@ -163,6 +176,7 @@ export class HighlightService
     }
 
     traverse(data);
+
     return selectors;
   }
 
@@ -359,12 +373,13 @@ export class HighlightService
       );
 
       // bookmark:
-      // still fighting the details
-      // barchart is looking awesome
-      // a lot of other charts might be ok but the figure background is being set as light (same as text color)
-      // and candle still has that one line that's invis, (might be the 10% near white?)
-
-      // and just fixed the parent figure_ on candle, but now everything is dark, fix that first
+      // ok, just totally redid everything to use selectors (and a fake one for now)
+      // tomorrow, ask how to get selectors and update that.
+      // tell them I also tried C, but no dice, so shift C for now
+      // announcement is still todo
+      // actual bookmark:
+      // candle tots done, work on others. should be easy?
+      // would guess done mid week
     }
   }
 
@@ -487,8 +502,8 @@ export class HighlightService
       return value;
     }
 
-    // if this is in selectors, we reverse the color mapping
-    let colorEquivalents = this.colorEquivalents;
+    // make a copy so we can manipulate it
+    let colorEquivalents = [...this.colorEquivalents];
 
     // converting chart hex color to rgb
     const ctx = document.createElement("canvas").getContext("2d");
@@ -497,11 +512,6 @@ export class HighlightService
     ctx.fillStyle = value.trim();
     const hex = ctx.fillStyle;
     if (!/^#[0-9a-f]{6}$/i.test(hex)) return value;
-
-    // convert to grayscale for when that's needed
-    const r = Number.parseInt(hex.slice(1, 3), 16);
-    const g = Number.parseInt(hex.slice(3, 5), 16);
-    const b = Number.parseInt(hex.slice(5, 7), 16);
 
     // do we use near white strat? check luminance and chart type
     let useNearWhite = false; // don't need for most chart types, default to false
@@ -544,7 +554,14 @@ export class HighlightService
    * Near-white is determined by luminance: if input luminance >= 255 * (1 - nearWhiteScale),
    * return colorArray[0]. All other colors match against colorArray[1..end] using RGB distance.
    *
-   * If isInSelectors is true, the matching is reversed: grab the equivalent from the opposite end of the array.
+   * The matching color is reversed in the output array to favor dark mode by default.
+   * @param inputColor - The input color (hex, rgb, or named color)
+   * @param colorArray - Array of colors to match against
+   * @param useNearWhite - Whether to use the near-white strategy
+   * @param nearWhiteScale - Scale factor for near-white threshold (0 to 1)
+   * @param isInSelectors - Whether the element is in user-defined selectors
+   * @param cantBeBackground - Whether the color cannot match the background color
+   * @returns The closest matching color from colorArray
    */
   private findClosestColor(
     inputColor: string,
@@ -635,14 +652,10 @@ export class HighlightService
         }
       }
 
-      if (!isInSelectors) {
-        // reverse the selection
-        const index = colorArray.indexOf(closestColor);
-        const reversedIndex = colorArray.length - 1 - index;
-        return colorArray[reversedIndex];
-      }
-
-      return closestColor;
+      // reverse the selection, as we want dark mode by default
+      const index = colorArray.indexOf(closestColor);
+      const reversedIndex = colorArray.length - 1 - index;
+      return colorArray[reversedIndex];
     }
   }
 
