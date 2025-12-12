@@ -93,12 +93,13 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
-// Copy docs folder static assets (if any besides template)
+// Copy docs folder static assets (excluding template.html and examples/)
+// Note: examples/ is already copied from root, so we skip docs/examples/ to avoid overwriting
 const docsSource = path.join(ROOT, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file !== 'template.html') {
+    if (file !== 'template.html' && file !== 'examples') {
       const src = path.join(docsSource, file);
       const dest = path.join(SITE_DIR, file);
       if (fs.statSync(src).isDirectory()) {
