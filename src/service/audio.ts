@@ -34,24 +34,6 @@ interface Panning {
   cols: number;
 }
 
-interface SpatialPosition {
-  x: number;
-  y: number;
-}
-
-interface Frequency {
-  raw: number | number[];
-  min: number;
-  max: number;
-}
-
-interface Panning {
-  x: number;
-  y: number;
-  rows: number;
-  cols: number;
-}
-
 type AudioId = ReturnType<typeof setTimeout>;
 
 const NULL_FREQUENCY = 100;
@@ -61,9 +43,6 @@ const COMPLETE_FREQUENCY = 880;
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
-/**
- * Audio playback modes for the service.
- */
 enum AudioMode {
   OFF = 'off',
   SEPARATE = 'on',
@@ -125,10 +104,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
   }
 
-  /**
-   * Initializes and configures the audio compressor node for smooth output.
-   * @returns Configured dynamics compressor node
-   */
   private initCompressor(): DynamicsCompressorNode {
     const compressor = this.audioContext.createDynamicsCompressor();
     compressor.threshold.value = -50;
@@ -146,10 +121,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return compressor;
   }
 
-  /**
-   * Updates the audio mode based on plot state characteristics.
-   * @param state - Plot state to determine audio mode
-   */
   private updateMode(state: PlotState): void {
     if (state.empty || state.type === 'figure') {
       return;
@@ -357,15 +328,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return audioId;
   }
 
-  /**
-   * Plays a smooth continuous tone by sweeping through multiple frequency values.
-   * @param values - Array of values to map to frequencies
-   * @param min - Minimum value in the data range
-   * @param max - Maximum value in the data range
-   * @param size - Total size for panning calculation
-   * @param index - Current position for panning
-   * @param paletteEntry - Optional audio palette entry for custom wave types
-   */
   private playSmooth(
     freq: Frequency,
     panning: Panning,
@@ -531,32 +493,17 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: yPos });
   }
 
-  /**
-   * Plays a periodic waiting tone at regular intervals.
-   * @returns Audio ID for tracking the interval
-   */
   public playWaitingTone(): AudioId {
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, DEFAULT_PALETTE_INDEX),
       1000,
     );
   }
 
-  /**
-   * Plays a completion tone to signal the end of a process.
-   * @returns Audio ID for tracking the playing tone
-   */
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
+    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, DEFAULT_PALETTE_INDEX);
   }
 
-  /**
-   * Linearly interpolates a value from one range to another.
-   * @param value - Value to interpolate
-   * @param from - Source range
-   * @param to - Target range
-   * @returns Interpolated value in the target range
-   */
   private interpolate(value: number, from: Range, to: Range): number {
     if (from.min === from.max) {
       return to.min;
@@ -567,20 +514,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     );
   }
 
-  /**
-   * Clamps a value between minimum and maximum bounds.
-   * @param value - Value to clamp
-   * @param from - Minimum bound
-   * @param to - Maximum bound
-   * @returns Clamped value
-   */
   private clamp(value: number, from: number, to: number): number {
     return Math.max(from, Math.min(value, to));
   }
 
-  /**
-   * Toggles audio mode between OFF, SEPARATE, and COMBINED modes.
-   */
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
@@ -606,10 +543,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
   }
 
-  /**
-   * Stops one or more active audio streams by their IDs.
-   * @param audioId - Single audio ID or array of audio IDs to stop
-   */
   public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
@@ -629,9 +562,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     });
   }
 
-  /**
-   * Stops all currently playing audio streams.
-   */
   private stopAll(): void {
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);

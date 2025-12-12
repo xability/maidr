@@ -5,6 +5,12 @@ import { DomEventType } from './type/event';
 import { MaidrApp } from './ui/App';
 import { Constant } from './util/constant';
 
+declare global {
+  interface Window {
+    maidr?: Maidr;
+  }
+}
+
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
   document.addEventListener(DomEventType.DOM_LOADED, main);
@@ -13,12 +19,6 @@ if (document.readyState === 'loading') {
   main();
 }
 
-/**
- * Parses JSON data from a plot element attribute and initializes MAIDR.
- * @param plot - The HTML element containing the plot
- * @param json - The JSON string to parse
- * @param source - The attribute name where the JSON was found
- */
 function parseAndInit(
   plot: HTMLElement,
   json: string,
@@ -32,9 +32,6 @@ function parseAndInit(
   }
 }
 
-/**
- * Main entry point that discovers and initializes all MAIDR-enabled plots on the page.
- */
 function main(): void {
   const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
     Constant.MAIDR_JSON_SELECTOR,
@@ -84,19 +81,11 @@ function main(): void {
   initMaidr(maidr, plot);
 }
 
-/**
- * Initializes MAIDR for a specific plot with event handlers and React UI.
- * @param maidr - The MAIDR configuration object
- * @param plot - The HTML element containing the plot
- */
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
   let hasAnnounced = false;
 
-  /**
-   * Handles focus out events to dispose of the controller when focus leaves the MAIDR container.
-   */
   const onFocusOut = (): void => {
     // Allow React to process all the events before focusing out.
     setTimeout(() => {
@@ -115,9 +104,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
-  /**
-   * Handles focus in events to create the controller and announce initial instructions.
-   */
   const onFocusIn = (): void => {
     // Allow React to process all the events before focusing in.
     setTimeout(() => {
@@ -138,10 +124,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
-
-  /**
-   * Handles page visibility changes to reinitialize the controller when the page becomes visible.
-   */
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
       if (controller) {

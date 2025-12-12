@@ -38,7 +38,7 @@ export class StackedBarplotPage extends BasePage {
    */
   public async navigateToStackedBarplot(): Promise<void> {
     try {
-      await super.navigateTo('examples/stacked-barplot.html');
+      await super.navigateTo('docs/examples/stacked-barplot.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
       throw new StackedBarplotError('Failed to navigate to Stacked Barplot');

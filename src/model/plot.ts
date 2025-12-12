@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
@@ -435,4 +436,25 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    *          false to use default behavior (position must remain unchanged)
    */
   onSwitchFrom?: (previousTrace: Trace) => boolean;
+
+  /**
+   * Moves the trace to a specific point based on x and y coordinates.
+   * @param x - The x coordinate
+   * @param y - The y coordinate
+   */
+  moveToPoint: (x: number, y: number) => void;
+
+  /**
+   * Gets extrema targets for navigation.
+   * Optional method implemented by traces that support extrema navigation.
+   * @returns Array of extrema targets
+   */
+  getExtremaTargets?: () => ExtremaTarget[];
+
+  /**
+   * Navigate to a specific extrema target.
+   * Optional method implemented by traces that support extrema navigation.
+   * @param target - The extrema target to navigate to
+   */
+  navigateToExtrema?: (target: ExtremaTarget) => void;
 }

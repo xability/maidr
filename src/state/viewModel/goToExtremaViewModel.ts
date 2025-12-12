@@ -8,16 +8,11 @@ import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
-/**
- * Interface for plots that support retrieving available X values for navigation.
- */
+// Type for plots that support getAvailableXValues
 interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
 }
 
-/**
- * State interface for the go-to-extrema modal dialog.
- */
 interface GoToExtremaState {
   visible: boolean;
   targets: any[];
@@ -64,45 +59,25 @@ const goToExtremaSlice = createSlice({
 
 const { show, hide, updateSelectedIndex } = goToExtremaSlice.actions;
 
-/**
- * ViewModel for managing the go-to-extrema feature that allows navigation to statistical extremes.
- */
 export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly context: Context;
 
-  /**
-   * Creates a new GoToExtremaViewModel instance.
-   * @param store - The Redux store for state management
-   * @param goToExtremaService - Service for handling extrema navigation logic
-   * @param context - The current context containing active trace information
-   */
   public constructor(store: AppStore, goToExtremaService: GoToExtremaService, context: Context) {
     super(store);
     this.goToExtremaService = goToExtremaService;
     this.context = context;
   }
 
-  /**
-   * Disposes the view model and hides the extrema modal.
-   */
   public dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }
 
-  /**
-   * Gets the current state of the go-to-extrema modal.
-   * @returns The current GoToExtremaState
-   */
   public get state(): GoToExtremaState {
     return this.store.getState().goToExtrema;
   }
 
-  /**
-   * Toggles the visibility of the extrema navigation modal.
-   * @param state - The current trace state
-   */
   public toggle(state: TraceState): void {
     if (state.empty) {
       return;
@@ -127,9 +102,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
-  /**
-   * Hides the extrema modal and returns to trace navigation scope.
-   */
   public hide(): void {
     this.store.dispatch(hide());
 
@@ -137,17 +109,10 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     this.goToExtremaService.returnToTraceScope();
   }
 
-  /**
-   * Gets the active context for navigation.
-   * @returns The current active context
-   */
   public get activeContext(): Context {
     return this.context;
   }
 
-  /**
-   * Moves the selection up in the extrema target list.
-   */
   public moveUp(): void {
     const currentState = this.state;
 
@@ -158,9 +123,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
-  /**
-   * Moves the selection down in the extrema target list.
-   */
   public moveDown(): void {
     const currentState = this.state;
 
@@ -173,9 +135,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
-  /**
-   * Selects and navigates to the currently highlighted extrema target.
-   */
   public selectCurrent(): void {
     const currentState = this.state;
 
@@ -187,10 +146,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
-  /**
-   * Handles navigation to a selected extrema target.
-   * @param target - The extrema target to navigate to
-   */
   private handleTargetSelect(target: ExtremaTarget): void {
     // Get the active trace and navigate to the selected target
     const activeTrace = this.context.active;

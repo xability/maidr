@@ -25,3 +25,26 @@ export interface Movable {
  * Cardinal directions for navigating through plot data points.
  */
 export type MovableDirection = 'UPWARD' | 'DOWNWARD' | 'FORWARD' | 'BACKWARD';
+
+/**
+ * Represents a coordinate position with row and column indices.
+ */
+export interface Coordinate {
+  row: number;
+  col: number;
+}
+
+/**
+ * Represents a node in a graph structure with directional links.
+ * Used for navigation in multi-line and complex plot types.
+ */
+export interface Node {
+  up: Coordinate | null;
+  down: Coordinate | null;
+  left: Coordinate | null;
+  right: Coordinate | null;
+  top: Coordinate | null;
+  bottom: Coordinate | null;
+  start: Coordinate | null;
+  end: Coordinate | null;
+}

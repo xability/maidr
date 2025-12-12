@@ -14,9 +14,6 @@ const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX
   = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
-  /**
- * Represents a line trace plot with support for single and multi-line navigation
- */
 export class LineTrace extends AbstractTrace {
   protected get values(): number[][] {
     return this.lineValues;
@@ -39,10 +36,6 @@ export class LineTrace extends AbstractTrace {
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
 
-  /**
-   * Creates a new LineTrace instance from a MAIDR layer
-   * @param layer - The MAIDR layer containing line plot data
-   */
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -59,9 +52,6 @@ export class LineTrace extends AbstractTrace {
     this.movable = new MovableGraph(this.buildGraph());
   }
 
-  /**
-   * Cleans up resources and clears internal data structures
-   */
   public dispose(): void {
     this.points.length = 0;
 
@@ -327,11 +317,6 @@ export class LineTrace extends AbstractTrace {
     return intersections;
   }
 
-  /**
-   * Checks if movement to a target position or direction is valid
-   * @param target - Either a coordinate pair [row, col] or a movement direction
-   * @returns True if the movement is valid, false otherwise
-   */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       const [row, col] = target;
@@ -428,11 +413,6 @@ export class LineTrace extends AbstractTrace {
     return this.points[row].findIndex(point => point.x === xValue);
   }
 
-  /**
-   * Maps CSS selectors to SVG elements for visual highlighting
-   * @param selectors - Array of CSS selectors for line elements
-   * @returns 2D array of SVG elements or null if mapping fails
-   */
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length !== this.lineValues.length) {
       return null;
@@ -509,10 +489,6 @@ export class LineTrace extends AbstractTrace {
     return svgElements;
   }
 
-  /**
-   * Gets the current state including plot type and intersection information
-   * @returns The complete trace state with multiline and intersection data
-   */
   public get state(): TraceState {
     const baseState = super.state;
     if (baseState.empty)
@@ -534,10 +510,6 @@ export class LineTrace extends AbstractTrace {
     return stateWithPlotType;
   }
 
-  /**
-   * Maps SVG elements to their center coordinates for point detection
-   * @returns Array of center points with positions or null if no elements
-   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -574,12 +546,6 @@ export class LineTrace extends AbstractTrace {
     return centers;
   }
 
-  /**
-   * Finds the nearest data point to given screen coordinates
-   * @param x - The x screen coordinate
-   * @param y - The y screen coordinate
-   * @returns The nearest point data or null if not found
-   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -728,12 +694,6 @@ export class LineTrace extends AbstractTrace {
     return super.moveToXValue(xValue);
   }
 
-  /**
-   * Moves to the next point with a higher or lower value in the specified direction
-   * @param direction - Search direction ('left' or 'right')
-   * @param type - Value comparison type ('lower' or 'higher')
-   * @returns True if a matching point was found and navigated to
-   */
   public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
@@ -777,11 +737,6 @@ export class LineTrace extends AbstractTrace {
     return true;
   }
 
-  /**
-   * Moves down to the previous line in rotor mode
-   * @param _mode - Optional mode parameter (currently unused)
-   * @returns Always returns true
-   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
     return true;

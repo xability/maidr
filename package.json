@@ -23,7 +23,6 @@
     "e2e:ui": "npx playwright test --ui",
     "e2e:debug": "npx playwright test --debug",
     "e2e:install": "npx playwright install --with-deps"
-
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

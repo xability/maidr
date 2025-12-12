@@ -7,29 +7,39 @@ import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
 
+/** Default autoplay speed in milliseconds between movements. */
 const DEFAULT_SPEED = 250;
+/** Minimum speed (fastest playback) in milliseconds between movements. */
 const MIN_SPEED = 50;
+/** Maximum speed (slowest playback) in milliseconds between movements. */
 const MAX_SPEED = 500;
 
+/** Default interval step for speed adjustments in milliseconds. */
 const DEFAULT_INTERVAL = 20;
 
 /**
  * Event emitted when autoplay state changes.
  */
 interface AutoplayChangeEvent {
+  /** The type of autoplay state change. */
   type: 'start' | 'stop';
 }
 
+/**
+ * Settings keys used by the autoplay service.
+ */
 enum AutoplaySettings {
+  /** Setting key for autoplay duration configuration. */
   DURATION = 'general.autoplayDuration',
 }
 
+/** Type alias for the interval ID returned by setInterval. */
 type AutoplayId = ReturnType<typeof setInterval>;
 
 /**
  * Service responsible for managing automatic navigation through data points at configurable speeds.
  */
-export class AutoplayService implements Disposable, Observer<Settings> {
+export class AutoplayService implements Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly settings: SettingsService;
@@ -46,8 +56,8 @@ export class AutoplayService implements Disposable, Observer<Settings> {
   private readonly interval: number;
   private totalDuration: number;
 
-  private readonly onChangeEmitter: Emitter<AutoplayChangedEvent>;
-  public readonly onChange: Event<AutoplayChangedEvent>;
+  private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
+  public readonly onChange: Event<AutoplayChangeEvent>;
 
   /**
    * Creates an instance of AutoplayService.
@@ -79,7 +89,7 @@ export class AutoplayService implements Disposable, Observer<Settings> {
       }
     });
 
-    this.onChangeEmitter = new Emitter<AutoplayChangedEvent>();
+    this.onChangeEmitter = new Emitter<AutoplayChangeEvent>();
     this.onChange = this.onChangeEmitter.event;
   }
 
@@ -89,26 +99,6 @@ export class AutoplayService implements Disposable, Observer<Settings> {
   public dispose(): void {
     this.stop();
     this.onChangeEmitter.dispose();
-    this.settings.removeObserver(this);
-  }
-
-  /**
-   * Updates the autoplay service based on settings changes.
-   * @param settings - Updated settings object
-   */
-  public update(settings: Settings): void {
-    this.updateSettings(settings);
-  }
-
-  /**
-   * Handles settings changes and restarts autoplay if active.
-   * @param settings - Updated settings object
-   */
-  private updateSettings(settings: Settings): void {
-    this.currentDuration = settings.general.autoplayDuration;
-    if (this.currentDirection) {
-      this.restart();
-    }
   }
 
   /**
