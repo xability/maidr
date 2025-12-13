@@ -398,13 +398,13 @@ export class HighlightService
       );
 
       // bookmark:
-      // ok, just totally redid everything to use selectors (and a fake one for now)
-      // tomorrow, ask how to get selectors and update that.
-      // tell them I also tried C, but no dice, so shift C for now
-      // announcement is still todo
-      // actual bookmark:
-      // candle tots done, work on others. should be easy?
-      // would guess done mid week
+      // all color work done, everything looking good EXCEPT:
+      // stacked or otherwise multi color bar charts all lock to either same color or background
+      // group question: can we force a border in ggplot?
+      // more immedietly:
+      // proper selectors
+      // announcement
+      // hexa
     }
   }
 
@@ -536,12 +536,7 @@ export class HighlightService
     const nearWhiteScale = 0.1; // 10% of white, = 90% white
     // If the color is close to white, return white
     if ("type" in context.instructionContext) {
-      if (
-        context.instructionContext.type === "bar" ||
-        context.instructionContext.type === "stacked_bar" ||
-        context.instructionContext.type === "dodged_bar" ||
-        context.instructionContext.type === "segmented_bar"
-      ) {
+      if (context.instructionContext.type === "bar") {
         if (isInSelectors) {
           useNearWhite = true;
         }
