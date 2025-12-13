@@ -13,16 +13,19 @@ import type {
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
 import { use } from "react";
+import { NotificationService } from "@service/notification";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 
 export class HighlightService
   implements Observer<HighlightStateUnion>, Observer<Settings>, Disposable
 {
+  private readonly settingsSerivice: SettingsService;
+  private readonly notificationService: NotificationService;
+
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
   private currentHighlightColor: string;
-  private readonly settingsSerivice: SettingsService;
 
   private highContrastMode: boolean = false;
   private defaultBackgroundColor: string = "";
@@ -32,16 +35,23 @@ export class HighlightService
   private highContrastLevels: number = 2; // default to 2 levels (black and white)
   private colorEquivalents: string[] = [];
 
-  public constructor(settings: SettingsService) {
+  public constructor(
+    settings: SettingsService,
+    notification: NotificationService,
+  ) {
     this.settingsSerivice = settings;
+    this.notificationService = notification;
+
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
+
     const initialSettings = this.settingsSerivice.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
     this.highContrastLevels = initialSettings.general.highContrastLevels;
     this.highContrastLightColor =
       initialSettings.general.highContrastLightColor;
     this.highContrastDarkColor = initialSettings.general.highContrastDarkColor;
+
     this.colorEquivalents = this.interpolateColors(
       this.highContrastLightColor,
       this.highContrastDarkColor,
@@ -131,6 +141,9 @@ export class HighlightService
 
     this.highContrastMode = !this.highContrastMode;
     this.updateContrastDisplay(context, displayService);
+
+    const message = `High Contrast Mode ${this.highContrastMode ? "on" : "off"}`;
+    this.notificationService.notify(message);
   }
 
   private fakeGetSelectors(): string[] {
@@ -403,7 +416,6 @@ export class HighlightService
       // group question: can we force a border in ggplot?
       // more immedietly:
       // proper selectors
-      // announcement
       // hexa
     }
   }
