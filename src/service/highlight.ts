@@ -535,13 +535,31 @@ export class HighlightService
     // make a copy so we can manipulate it
     let colorEquivalents = [...this.colorEquivalents];
 
-    // converting chart hex color to rgb
+    // converting chart hex color to rgb (supports hexa with alpha, blends against white)
     const ctx = document.createElement("canvas").getContext("2d");
     if (!ctx) return value;
     ctx.fillStyle = "#000"; // placeholder to init
     ctx.fillStyle = value.trim();
-    const hex = ctx.fillStyle;
-    if (!/^#[0-9a-f]{6}$/i.test(hex)) return value;
+    let hex = ctx.fillStyle;
+
+    // Check for 8-digit hexa format (with alpha channel)
+    if (/^#[0-9a-f]{8}$/i.test(hex)) {
+      // Extract RGB and alpha from hexa
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const a = parseInt(hex.slice(7, 9), 16) / 255;
+
+      // Blend against white background (255, 255, 255)
+      const blendedR = Math.round(r * a + 255 * (1 - a));
+      const blendedG = Math.round(g * a + 255 * (1 - a));
+      const blendedB = Math.round(b * a + 255 * (1 - a));
+
+      // Convert back to 6-digit hex
+      hex = `#${blendedR.toString(16).padStart(2, "0")}${blendedG.toString(16).padStart(2, "0")}${blendedB.toString(16).padStart(2, "0")}`;
+    } else if (!/^#[0-9a-f]{6}$/i.test(hex)) {
+      return value;
+    }
 
     // do we use near white strat? check luminance and chart type
     let useNearWhite = false; // don't need for most chart types, default to false
