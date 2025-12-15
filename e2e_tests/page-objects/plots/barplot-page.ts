@@ -27,6 +27,7 @@ export class BarPlotPage extends BasePage {
     helpModalClose: string;
     settingsModal: string;
     chatModal: string;
+    rotor: string
   };
 
   /**
@@ -47,6 +48,7 @@ export class BarPlotPage extends BasePage {
       helpModalClose: TestConstants.HELP_MENU_CLOSE_BUTTON,
       settingsModal: TestConstants.MAIDR_SETTINGS_MODAL,
       chatModal: TestConstants.MAIDR_CHAT_MODAL,
+      rotor: `#${TestConstants.MAIDR_ROTOR_AREA}`,
     };
   }
 
@@ -413,5 +415,314 @@ export class BarPlotPage extends BasePage {
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
     await this.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+  }
+
+  // =====================
+  // Rotor Navigation Methods
+  // =====================
+
+  /**
+   * Moves to the next rotor navigation mode using Alt+Shift+Up
+   * Cycles through: DATA POINT NAVIGATION -> LOWER VALUE NAVIGATION -> HIGHER VALUE NAVIGATION
+   * @returns Promise resolving when the mode has changed
+   * @throws BarPlotError if rotor navigation fails
+   */
+  public async moveToNextRotorMode(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.ALT_KEY);
+      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
+      await this.pressKey(TestConstants.UP_ARROW_KEY, 'move to next rotor mode');
+      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.up(TestConstants.ALT_KEY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to move to next rotor mode: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Moves to the previous rotor navigation mode using Alt+Shift+Down
+   * Cycles through: HIGHER VALUE NAVIGATION -> LOWER VALUE NAVIGATION -> DATA POINT NAVIGATION
+   * @returns Promise resolving when the mode has changed
+   * @throws BarPlotError if rotor navigation fails
+   */
+  public async moveToPrevRotorMode(): Promise<void> {
+    try {
+      await this.page.keyboard.down(TestConstants.ALT_KEY);
+      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
+      await this.pressKey(TestConstants.DOWN_ARROW_KEY, 'move to previous rotor mode');
+      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
+      await this.page.keyboard.up(TestConstants.ALT_KEY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to move to previous rotor mode: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Gets the current rotor mode from the notification text
+   * @returns Promise resolving to the current rotor mode message
+   * @throws BarPlotError if mode cannot be retrieved
+   */
+  public async getCurrentRotorMode(): Promise<string> {
+    return this.getInstructionText();
+  }
+
+  /**
+   * Checks if the current rotor mode matches the expected mode
+   * @param expectedMode - The expected rotor mode (DATA POINT NAVIGATION, LOWER VALUE NAVIGATION, or HIGHER VALUE NAVIGATION)
+   * @returns Promise resolving to true if the current mode matches, false otherwise
+   */
+  public async isRotorModeActive(expectedMode: string): Promise<boolean> {
+    const text = await this.getElementText(this.selectors.rotor);
+    console.log(text);
+    return text === expectedMode;
+  }
+
+  /**
+   * Navigates to a specific rotor mode by cycling through modes
+   * @param targetMode - The target rotor mode to navigate to
+   * @throws BarPlotError if navigation fails
+   */
+  public async navigateToRotorMode(targetMode: string): Promise<void> {
+    const maxAttempts = 4; // Maximum cycles to find the target mode
+    for (let i = 0; i < maxAttempts; i++) {
+      const currentMode = await this.getCurrentRotorMode();
+      if (currentMode === targetMode) {
+        return;
+      }
+      await this.moveToNextRotorMode();
+    }
+    throw new BarPlotError(`Failed to navigate to rotor mode: ${targetMode}`);
+  }
+
+  /**
+   * In rotor mode, moves to the next data point in the current navigation direction
+   * For LOWER VALUE mode: finds next lower value to the right
+   * For HIGHER VALUE mode: finds next higher value to the right
+   * @returns Promise resolving when navigation completes
+   * @throws BarPlotError if navigation fails
+   */
+  public async rotorMoveRight(): Promise<void> {
+    await this.pressKey(TestConstants.RIGHT_ARROW_KEY, 'rotor move right');
+  }
+
+  /**
+   * In rotor mode, moves to the previous data point in the current navigation direction
+   * For LOWER VALUE mode: finds next lower value to the left
+   * For HIGHER VALUE mode: finds next higher value to the left
+   * @returns Promise resolving when navigation completes
+   * @throws BarPlotError if navigation fails
+   */
+  public async rotorMoveLeft(): Promise<void> {
+    await this.pressKey(TestConstants.LEFT_ARROW_KEY, 'rotor move left');
+  }
+
+  // =====================
+  // Go To Extrema Methods
+  // =====================
+
+  /**
+   * Opens the Go To Extrema modal by pressing 'g' key
+   * @returns Promise resolving when the modal is opened
+   * @throws BarPlotError if modal fails to open
+   */
+  public async openGoToExtremaModal(): Promise<void> {
+    try {
+      await this.pressKey(TestConstants.GO_TO_EXTREMA_KEY, 'open go to extrema modal');
+      // Wait for the modal to appear
+      await this.page.waitForSelector(TestConstants.GO_TO_EXTREMA_MODAL, { timeout: 5000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to open Go To Extrema modal: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Closes the Go To Extrema modal by pressing 'Escape' or 'g' key
+   * @returns Promise resolving when the modal is closed
+   * @throws BarPlotError if modal fails to close
+   */
+  public async closeGoToExtremaModal(): Promise<void> {
+    try {
+      await this.pressKey(TestConstants.ESCAPE_KEY, 'close go to extrema modal');
+      // Wait for the modal to disappear
+      await this.page.waitForSelector(TestConstants.GO_TO_EXTREMA_MODAL, { state: 'hidden', timeout: 5000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to close Go To Extrema modal: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Checks if the Go To Extrema modal is visible
+   * @returns Promise resolving to true if the modal is visible, false otherwise
+   */
+  public async isGoToExtremaModalVisible(): Promise<boolean> {
+    try {
+      const modal = await this.page.$(TestConstants.GO_TO_EXTREMA_MODAL);
+      return modal !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Moves selection up in the Go To Extrema modal
+   * @returns Promise resolving when navigation completes
+   */
+  public async goToExtremaMoveUp(): Promise<void> {
+    await this.pressKey(TestConstants.UP_ARROW_KEY, 'go to extrema move up');
+  }
+
+  /**
+   * Moves selection down in the Go To Extrema modal
+   * @returns Promise resolving when navigation completes
+   */
+  public async goToExtremaMoveDown(): Promise<void> {
+    await this.pressKey(TestConstants.DOWN_ARROW_KEY, 'go to extrema move down');
+  }
+
+  /**
+   * Selects the currently highlighted extrema target by pressing Enter
+   * @returns Promise resolving when selection is made
+   * @throws BarPlotError if selection fails
+   */
+  public async selectExtremaTarget(): Promise<void> {
+    try {
+      await this.pressKey(TestConstants.ENTER_KEY, 'select extrema target');
+      // Wait for modal to close after selection
+      await this.page.waitForSelector(TestConstants.GO_TO_EXTREMA_MODAL, { state: 'hidden', timeout: 5000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to select extrema target: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Gets all available extrema targets from the modal
+   * @returns Promise resolving to an array of extrema target labels
+   * @throws BarPlotError if unable to get targets
+   */
+  public async getExtremaTargets(): Promise<string[]> {
+    try {
+      const targets: string[] = [];
+      let index = 0;
+
+      // Iterate through extrema-target-0, extrema-target-1, etc.
+      while (true) {
+        const targetElement = await this.page.$(`#extrema-target-${index}`);
+        if (!targetElement) {
+          break;
+        }
+        const text = await targetElement.textContent();
+        targets.push(text || '');
+        index++;
+      }
+
+      return targets;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to get extrema targets: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Gets the currently selected extrema target in the modal
+   * @returns Promise resolving to the selected target label
+   * @throws BarPlotError if unable to get selected target
+   */
+  public async getSelectedExtremaTarget(): Promise<string> {
+    try {
+      // Find the selected extrema target div by checking for data-selected or aria-selected
+      let index = 0;
+      while (true) {
+        const targetElement = await this.page.$(`#extrema-target-${index}`);
+        if (!targetElement) {
+          break;
+        }
+        const isSelected = await targetElement.getAttribute('data-selected');
+        const ariaSelected = await targetElement.getAttribute('aria-selected');
+        if (isSelected === 'true' || ariaSelected === 'true') {
+          return (await targetElement.textContent()) || '';
+        }
+        index++;
+      }
+      return '';
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to get selected extrema target: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Navigates to the maximum value using Go To Extrema
+   * Opens the modal, selects Maximum, and confirms
+   * @returns Promise resolving when navigation to maximum is complete
+   * @throws BarPlotError if navigation fails
+   */
+  public async goToMaximum(): Promise<void> {
+    try {
+      await this.openGoToExtremaModal();
+      // Maximum is typically the first option, so just select it
+      await this.selectExtremaTarget();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to navigate to maximum: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Navigates to the minimum value using Go To Extrema
+   * Opens the modal, navigates to Minimum, and confirms
+   * @returns Promise resolving when navigation to minimum is complete
+   * @throws BarPlotError if navigation fails
+   */
+  public async goToMinimum(): Promise<void> {
+    try {
+      await this.openGoToExtremaModal();
+      // Move down to select Minimum (assuming Maximum is first)
+      await this.goToExtremaMoveDown();
+      await this.selectExtremaTarget();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to navigate to minimum: ${errorMessage}`);
+    }
+  }
+
+  // =====================
+  // Hover Mode Methods
+  // =====================
+
+  /**
+   * Hovers over a data point in the bar plot at a relative position
+   * @param relativeX - X position relative to SVG (0-1)
+   * @param relativeY - Y position relative to SVG (0-1)
+   * @returns Promise resolving when hover is complete
+   * @throws BarPlotError if hover fails
+   */
+  public async hoverOnDataPoint(relativeX: number, relativeY: number): Promise<void> {
+    try {
+      await this.hoverOnSvgPoint(this.selectors.svg, relativeX, relativeY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to hover on data point: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Clicks on a data point in the bar plot at a relative position
+   * @param relativeX - X position relative to SVG (0-1)
+   * @param relativeY - Y position relative to SVG (0-1)
+   * @returns Promise resolving when click is complete
+   * @throws BarPlotError if click fails
+   */
+  public async clickOnDataPoint(relativeX: number, relativeY: number): Promise<void> {
+    try {
+      await this.clickOnSvgPoint(this.selectors.svg, relativeX, relativeY);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new BarPlotError(`Failed to click on data point: ${errorMessage}`);
+    }
   }
 }

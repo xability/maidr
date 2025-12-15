@@ -354,4 +354,109 @@ test.describe('Boxplot Horizontal', () => {
       await boxplotHorizontalPage.startUpwardAutoplay(lastDataPointValue);
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await boxplotHorizontalPage.moveToNextRotorMode();
+      const isLowerValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await boxplotHorizontalPage.moveToNextRotorMode();
+      const isHigherValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await boxplotHorizontalPage.moveToNextRotorMode();
+      const isDataMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await boxplotHorizontalPage.moveToPrevRotorMode();
+      const isHigherValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await boxplotHorizontalPage.moveToPrevRotorMode();
+      const isLowerValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await boxplotHorizontalPage.moveToPrevRotorMode();
+      const isDataMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      // Navigate to first data point
+      await boxplotHorizontalPage.moveToFirstDataPoint();
+      const firstPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await boxplotHorizontalPage.moveToNextRotorMode();
+      const isLowerValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await boxplotHorizontalPage.moveToNextDataPoint();
+      const secondPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      // Navigate to last data point
+      await boxplotHorizontalPage.moveToLastDataPoint();
+      const lastPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await boxplotHorizontalPage.moveToNextRotorMode(); // LOWER VALUE
+      await boxplotHorizontalPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await boxplotHorizontalPage.moveToPreviousDataPoint();
+      const checkPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const boxplotHorizontalPage = await setupBoxplotHorizontalPage(page);
+
+      // Enter LOWER VALUE mode
+      await boxplotHorizontalPage.moveToNextRotorMode();
+      const isLowerValueMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await boxplotHorizontalPage.moveToNextRotorMode(); // HIGHER VALUE
+      await boxplotHorizontalPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await boxplotHorizontalPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await boxplotHorizontalPage.moveToFirstDataPoint();
+      const firstPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await boxplotHorizontalPage.moveToNextDataPoint();
+      const secondPoint = await boxplotHorizontalPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
 });

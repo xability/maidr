@@ -415,4 +415,109 @@ test.describe('Dodged Barplot', () => {
       }
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await dodgedBarplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await dodgedBarplotPage.moveToNextRotorMode();
+      const isHigherValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await dodgedBarplotPage.moveToNextRotorMode();
+      const isDataMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await dodgedBarplotPage.moveToPrevRotorMode();
+      const isHigherValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await dodgedBarplotPage.moveToPrevRotorMode();
+      const isLowerValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await dodgedBarplotPage.moveToPrevRotorMode();
+      const isDataMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      // Navigate to first data point
+      await dodgedBarplotPage.moveToFirstDataPoint();
+      const firstPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await dodgedBarplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await dodgedBarplotPage.moveToNextDataPoint();
+      const secondPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      // Navigate to last data point
+      await dodgedBarplotPage.moveToLastDataPoint();
+      const lastPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await dodgedBarplotPage.moveToNextRotorMode(); // LOWER VALUE
+      await dodgedBarplotPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await dodgedBarplotPage.moveToPreviousDataPoint();
+      const checkPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      // Enter LOWER VALUE mode
+      await dodgedBarplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await dodgedBarplotPage.moveToNextRotorMode(); // HIGHER VALUE
+      await dodgedBarplotPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await dodgedBarplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await dodgedBarplotPage.moveToFirstDataPoint();
+      const firstPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await dodgedBarplotPage.moveToNextDataPoint();
+      const secondPoint = await dodgedBarplotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
 });

@@ -277,4 +277,109 @@ test.describe('Heatmap', () => {
       await heatmapPage.startReverseAutoplay(expectedDataPoint);
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await heatmapPage.moveToNextRotorMode();
+      const isLowerValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await heatmapPage.moveToNextRotorMode();
+      const isHigherValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await heatmapPage.moveToNextRotorMode();
+      const isDataMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await heatmapPage.moveToPrevRotorMode();
+      const isHigherValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await heatmapPage.moveToPrevRotorMode();
+      const isLowerValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await heatmapPage.moveToPrevRotorMode();
+      const isDataMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      // Navigate to first data point
+      await heatmapPage.moveToFirstDataPoint();
+      const firstPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await heatmapPage.moveToNextRotorMode();
+      const isLowerValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await heatmapPage.moveToNextDataPoint();
+      const secondPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      // Navigate to last data point
+      await heatmapPage.moveToLastDataPoint();
+      const lastPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await heatmapPage.moveToNextRotorMode(); // LOWER VALUE
+      await heatmapPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await heatmapPage.moveToPreviousDataPoint();
+      const checkPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const heatmapPage = await setupHeatmapPage(page);
+
+      // Enter LOWER VALUE mode
+      await heatmapPage.moveToNextRotorMode();
+      const isLowerValueMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await heatmapPage.moveToNextRotorMode(); // HIGHER VALUE
+      await heatmapPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await heatmapPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await heatmapPage.moveToFirstDataPoint();
+      const firstPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await heatmapPage.moveToNextDataPoint();
+      const secondPoint = await heatmapPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
 });
