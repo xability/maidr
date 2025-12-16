@@ -8,8 +8,8 @@
  * - TypeDoc generates API docs separately
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { marked } = require('marked');
 
 const ROOT = path.join(__dirname, '..');
@@ -35,7 +35,7 @@ marked.setOptions({
  */
 function markdownToHtml(md) {
   // Remove the centered logo div at the top of README
-  let content = md.replace(/<div align="center">[\s\S]*?<\/div>\s*/, '');
+  const content = md.replace(/<div align="center">[\s\S]*?<\/div>\s*/, '');
 
   // Convert markdown to HTML
   return marked.parse(content);
@@ -45,7 +45,7 @@ function markdownToHtml(md) {
  * Generate a page from template
  */
 function generatePage(title, content, activePage) {
-  let page = template
+  const page = template
     .replace('{{TITLE}}', title)
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')

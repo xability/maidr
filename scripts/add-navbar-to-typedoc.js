@@ -4,8 +4,8 @@
  * Adds the site navbar to TypeDoc generated pages
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SITE_DIR = path.join(__dirname, '..', '_site');
 const API_DIR = path.join(SITE_DIR, 'api');
@@ -67,7 +67,8 @@ const navbarHTML = `
  * Recursively find all HTML files in a directory
  */
 function findHTMLFiles(dir, files = []) {
-  if (!fs.existsSync(dir)) return files;
+  if (!fs.existsSync(dir))
+    return files;
 
   const items = fs.readdirSync(dir);
   for (const item of items) {
@@ -107,14 +108,14 @@ function processHTMLFile(filePath) {
   const prefix = getRelativePrefix(filePath);
 
   // Adjust navbar links for this file's depth
-  let adjustedNavbar = navbarHTML
+  const adjustedNavbar = navbarHTML
     .replace(/\.\.\/index\.html/g, `${prefix}index.html`)
     .replace(/\.\.\/examples\.html/g, `${prefix}examples.html`)
     .replace(/\.\.\/api\/index\.html/g, `${prefix}api/index.html`)
     .replace(/\.\.\/media\//g, `${prefix}media/`);
 
   // Insert navbar after <body> tag
-  content = content.replace(/<body[^>]*>/, (match) => `${match}\n${adjustedNavbar}`);
+  content = content.replace(/<body[^>]*>/, match => `${match}\n${adjustedNavbar}`);
 
   fs.writeFileSync(filePath, content, 'utf-8');
   console.log(`Added navbar to ${path.relative(SITE_DIR, filePath)}`);

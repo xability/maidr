@@ -195,7 +195,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Moves up in rotor mode, optionally filtering by lower or higher values.
    * @param _mode - Optional mode for filtering (lower or higher)
-   * @returns True if the move was successful, false otherwise
+   * @throws Error always - subclasses must override this method
    */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
@@ -204,7 +204,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Moves down in rotor mode, optionally filtering by lower or higher values.
    * @param _mode - Optional mode for filtering (lower or higher)
-   * @returns True if the move was successful, false otherwise
+   * @throws Error always - subclasses must override this method
    */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move down function is not defined for this trace');
@@ -213,7 +213,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Moves left in rotor mode, optionally filtering by lower or higher values.
    * @param _mode - Optional mode for filtering (lower or higher)
-   * @returns True if the move was successful, false otherwise
+   * @throws Error always - subclasses must override this method
    */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move left function is not defined for this trace');
@@ -222,7 +222,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Moves right in rotor mode, optionally filtering by lower or higher values.
    * @param _mode - Optional mode for filtering (lower or higher)
-   * @returns True if the move was successful, false otherwise
+   * @throws Error always - subclasses must override this method
    */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
@@ -568,6 +568,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * @param x - The x-coordinate
    * @param y - The y-coordinate
    * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
    * @returns True if the point is in bounds, false otherwise
    */
   public isPointInBounds(

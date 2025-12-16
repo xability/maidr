@@ -224,6 +224,9 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param x - The x-coordinate
    * @param y - The y-coordinate
    * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
    * @returns True if coordinates are within bounds, false otherwise
    */
   public isPointInBounds(

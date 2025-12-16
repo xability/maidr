@@ -454,6 +454,10 @@ export class AudioPaletteService implements Disposable {
    * Generates unique ADSR timbre modulation for extended palette entries.
    * @param variation - Variation index to determine modulation characteristics
    * @param base - Base timbre modulation values to modify
+   * @param base.attack - Base attack time in seconds
+   * @param base.decay - Base decay time in seconds
+   * @param base.sustain - Base sustain level (0-1)
+   * @param base.release - Base release time in seconds
    * @returns Generated timbre modulation settings
    */
   private generateTimbreModulation(
