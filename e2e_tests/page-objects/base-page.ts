@@ -804,4 +804,143 @@ export class BasePage {
       // This is a soft wait, not a hard requirement
     }
   }
+
+  // =====================
+  // Settings Modal Methods
+  // =====================
+
+  /**
+   * Opens the settings modal
+   * @returns Promise resolving when settings modal is opened
+   * @throws Error if settings modal cannot be opened
+   */
+  public async openSettingsModal(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
+        TestConstants.COMMA_KEY,
+        'open settings modal',
+        100,
+      );
+      const modal = this.page.locator(this.selectors.settingsModal);
+      await expect(modal).toBeVisible({ timeout: 5000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to open settings modal: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Closes the settings modal by clicking the Close button (without saving)
+   * @returns Promise resolving when settings modal is closed
+   * @throws Error if settings modal cannot be closed
+   */
+  public async closeSettingsModalWithButton(): Promise<void> {
+    try {
+      // Find Close button (not Save & Close) by exact text
+      const closeButton = this.page.locator('button').filter({ hasText: /^Close$/ });
+      await closeButton.click();
+      await expect(this.page.locator(this.selectors.settingsModal)).not.toBeVisible({ timeout: 2000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to close settings modal: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Saves and closes the settings modal by clicking the Save & Close button
+   * @returns Promise resolving when settings are saved and modal is closed
+   * @throws Error if settings cannot be saved or modal cannot be closed
+   */
+  public async saveAndCloseSettingsModal(): Promise<void> {
+    try {
+      // Find button by text content
+      const saveButton = this.page.locator('button:has-text("Save & Close")');
+      await saveButton.click();
+      await expect(this.page.locator(this.selectors.settingsModal)).not.toBeVisible({ timeout: 2000 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to save and close settings modal: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Checks if hover mode radio group is visible in settings
+   * @returns Promise resolving to true if hover mode options are visible
+   */
+  public async isHoverModeVisible(): Promise<boolean> {
+    try {
+      const hoverMode = this.page.getByText(TestConstants.SETTINGS_HOVER_MODE);
+      const isVisible = await hoverMode.isVisible();
+      return isVisible === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Selects a hover mode option in settings
+   * @param mode - The hover mode to select ('Off', 'Hover', or 'Click')
+   * @returns Promise resolving when mode is selected
+   * @throws Error if mode cannot be selected
+   */
+  public async selectHoverMode(mode: string): Promise<void> {
+    try {
+      const radioButton = this.page.getByLabel(mode, { exact: true });
+      await radioButton.click();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to select hover mode "${mode}": ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Gets the bounding box of the SVG element
+   * @param svgSelector - The selector for the SVG element
+   * @returns Promise resolving to the bounding box
+   */
+  protected async getSvgBoundingBox(svgSelector: string): Promise<{ x: number; y: number; width: number; height: number }> {
+    const svg = this.page.locator(svgSelector);
+    const boundingBox = await svg.boundingBox();
+    if (!boundingBox) {
+      throw new Error('Failed to get SVG bounding box');
+    }
+    return boundingBox;
+  }
+
+  /**
+   * Hovers over a point in the SVG at relative position
+   * @param svgSelector - The selector for the SVG element
+   * @param relativeX - X position relative to SVG (0-1)
+   * @param relativeY - Y position relative to SVG (0-1)
+   * @returns Promise resolving when hover is complete
+   */
+  protected async hoverOnSvgPoint(
+    svgSelector: string,
+    relativeX: number,
+    relativeY: number,
+  ): Promise<void> {
+    const boundingBox = await this.getSvgBoundingBox(svgSelector);
+    const x = boundingBox.x + boundingBox.width * relativeX;
+    const y = boundingBox.y + boundingBox.height * relativeY;
+    await this.page.mouse.move(x, y);
+  }
+
+  /**
+   * Clicks on a point in the SVG at relative position
+   * @param svgSelector - The selector for the SVG element
+   * @param relativeX - X position relative to SVG (0-1)
+   * @param relativeY - Y position relative to SVG (0-1)
+   * @returns Promise resolving when click is complete
+   */
+  protected async clickOnSvgPoint(
+    svgSelector: string,
+    relativeX: number,
+    relativeY: number,
+  ): Promise<void> {
+    const boundingBox = await this.getSvgBoundingBox(svgSelector);
+    const x = boundingBox.x + boundingBox.width * relativeX;
+    const y = boundingBox.y + boundingBox.height * relativeY;
+    await this.page.mouse.click(x, y);
+  }
 }

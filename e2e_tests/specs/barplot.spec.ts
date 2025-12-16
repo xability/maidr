@@ -351,4 +351,296 @@ test.describe('Bar Plot', () => {
       }
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await barPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await barPlotPage.moveToNextRotorMode();
+      const isHigherValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await barPlotPage.moveToNextRotorMode();
+      const isDataMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await barPlotPage.moveToPrevRotorMode();
+      const isHigherValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await barPlotPage.moveToPrevRotorMode();
+      const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await barPlotPage.moveToPrevRotorMode();
+      const isDataMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Navigate to first data point (Sat: 87 - highest value)
+      await barPlotPage.moveToFirstDataPoint();
+      const firstPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toContain('Sat');
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await barPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value (Sun: 76)
+      await barPlotPage.moveToNextDataPoint();
+      const secondPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toContain('Sun');
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Navigate to last data point (Fri: 19 - lowest value)
+      await barPlotPage.moveToLastDataPoint();
+      const lastPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(lastPoint).toContain('Fri');
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await barPlotPage.moveToNextRotorMode(); // LOWER VALUE
+      await barPlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value (Thur: 62)
+      await barPlotPage.moveToLastDataPoint(); // Fri- 19
+      await barPlotPage.moveToPreviousDataPoint(); // Thur-62
+
+      const checkPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(checkPoint).toContain('Thur');
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Enter LOWER VALUE mode
+      await barPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await barPlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      await barPlotPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await barPlotPage.moveToFirstDataPoint();
+      const firstPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toContain('Sat');
+
+      await barPlotPage.moveToNextDataPoint();
+      const secondPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toContain('Sun');
+    });
+  });
+
+  test.describe('Go To Extrema', () => {
+    test('should open Go To Extrema modal when pressing G key', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Open the Go To Extrema modal
+      await barPlotPage.openGoToExtremaModal();
+
+      // Verify the modal is visible
+      const isModalVisible = await barPlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisible).toBe(true);
+    });
+
+    test('should close Go To Extrema modal when pressing Escape', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Open the modal first
+      await barPlotPage.openGoToExtremaModal();
+      const isModalOpenInitially = await barPlotPage.isGoToExtremaModalVisible();
+      expect(isModalOpenInitially).toBe(true);
+
+      // Close the modal
+      await barPlotPage.closeGoToExtremaModal();
+
+      // Verify the modal is closed
+      const isModalVisibleAfterClose = await barPlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisibleAfterClose).toBe(false);
+    });
+
+    test('should display extrema targets in the modal', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Open the Go To Extrema modal
+      await barPlotPage.openGoToExtremaModal();
+
+      // Get the available targets
+      const targets = await barPlotPage.getExtremaTargets();
+
+      // Verify that extrema targets are displayed
+      expect(targets.length).toBeGreaterThan(0);
+
+      // Check that Maximum and Minimum options are available
+      const hasMaximum = targets.some(t => t.toLowerCase().includes('max'));
+      const hasMinimum = targets.some(t => t.toLowerCase().includes('min'));
+      expect(hasMaximum || hasMinimum).toBe(true);
+
+      // Close the modal
+      await barPlotPage.closeGoToExtremaModal();
+    });
+
+    test('should navigate selection up and down in the modal', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Open the Go To Extrema modal
+      await barPlotPage.openGoToExtremaModal();
+
+      // Get initial targets to verify we have options
+      const targets = await barPlotPage.getExtremaTargets();
+      expect(targets.length).toBeGreaterThan(1);
+
+      // Navigate down
+      await barPlotPage.goToExtremaMoveDown();
+
+      // Navigate back up
+      await barPlotPage.goToExtremaMoveUp();
+
+      // Modal should still be open
+      const isModalVisible = await barPlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisible).toBe(true);
+
+      // Close the modal
+      await barPlotPage.closeGoToExtremaModal();
+    });
+
+    test('should navigate to maximum value when selecting Maximum', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Navigate to maximum using Go To Extrema
+      await barPlotPage.goToMaximum();
+
+      // Verify we're at the maximum value (Sat: 87 is the highest in tips data)
+      const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toContain('Sat');
+    });
+
+    test('should navigate to minimum value when selecting Minimum', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Navigate to minimum using Go To Extrema
+      await barPlotPage.goToMinimum();
+
+      // Verify we're at the minimum value (Fri: 19 is the lowest in tips data)
+      const currentDataPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toContain('Fri');
+    });
+
+    test('should return to normal navigation after selecting extrema', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Navigate to maximum
+      await barPlotPage.goToMaximum();
+
+      // Verify we're at the maximum
+      const maxPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(maxPoint).toContain('Sat');
+
+      // Verify normal navigation works after Go To Extrema
+      await barPlotPage.moveToNextDataPoint();
+      const nextPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(nextPoint).toContain('Sun');
+
+      // Navigate back
+      await barPlotPage.moveToPreviousDataPoint();
+      const previousPoint = await barPlotPage.getCurrentDataPointInfo();
+      expect(previousPoint).toContain('Sat');
+    });
+
+    test('should close modal when pressing G key again', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      // Open the modal
+      await barPlotPage.openGoToExtremaModal();
+      const isModalOpen = await barPlotPage.isGoToExtremaModalVisible();
+      expect(isModalOpen).toBe(true);
+
+      // Press G again to close (toggle behavior)
+      await barPlotPage.pressKey(TestConstants.GO_TO_EXTREMA_KEY, 'toggle go to extrema modal');
+
+      // Wait a moment for the modal to close
+      await page.waitForTimeout(500);
+
+      // Verify modal is closed
+      const isModalClosed = !(await barPlotPage.isGoToExtremaModalVisible());
+      expect(isModalClosed).toBe(true);
+    });
+  });
+
+  test.describe('Hover Mode Settings', () => {
+    test('should show hover mode with three radio button options in settings', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      await barPlotPage.openSettingsModal();
+
+      // Verify "Hover Mode" label is visible
+      await expect(page.getByText(TestConstants.SETTINGS_HOVER_MODE).first()).toBeVisible();
+
+      // Verify all three radio button options are visible (using getByLabel to find by FormControlLabel)
+      // Using exact: true to avoid matching "Hover Mode" radio group when looking for "Hover" option
+      await expect(page.getByLabel(TestConstants.HOVER_MODE_OFF, { exact: true })).toBeVisible();
+      await expect(page.getByLabel(TestConstants.HOVER_MODE_HOVER, { exact: true })).toBeVisible();
+      await expect(page.getByLabel(TestConstants.HOVER_MODE_CLICK, { exact: true })).toBeVisible();
+
+      await barPlotPage.closeSettingsModalWithButton();
+    });
+
+    test('should navigate to data point when hover mode is set to Hover', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      await barPlotPage.openSettingsModal();
+      await barPlotPage.selectHoverMode(TestConstants.HOVER_MODE_HOVER);
+      await barPlotPage.saveAndCloseSettingsModal();
+
+      // Hover on data point
+      await barPlotPage.hoverOnDataPoint(0.3, 0.5);
+
+      // Wait until data point info appears
+      await expect.poll(async () => {
+        return await barPlotPage.getCurrentDataPointInfo();
+      }).toBeTruthy();
+    });
+
+    test('should navigate to data point when hover mode is set to Click', async ({ page }) => {
+      const barPlotPage = await setupBarPlotPage(page);
+
+      await barPlotPage.openSettingsModal();
+      await barPlotPage.selectHoverMode(TestConstants.HOVER_MODE_CLICK);
+      await barPlotPage.saveAndCloseSettingsModal();
+
+      await barPlotPage.clickOnDataPoint(0.3, 0.5);
+
+      await expect.poll(async () => {
+        return await barPlotPage.getCurrentDataPointInfo();
+      }).toBeTruthy();
+    });
+  });
 });

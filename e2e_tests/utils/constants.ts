@@ -51,6 +51,7 @@ export abstract class TestConstants {
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
   static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';
   static readonly MAIDR_CHAT_MODAL = '.MuiDialog-container div[role="dialog"]';
+  static readonly MAIDR_ROTOR_AREA = 'maidr-rotor-area';
 
   /**
    * Keyboard key constants
@@ -68,7 +69,7 @@ export abstract class TestConstants {
   static readonly PERIOD_KEY = '.';
   static readonly COMMA_KEY = ',';
   static readonly SLASH_KEY = '/';
-  static readonly META_KEY = 'Meta';
+  static readonly META_KEY = 'ControlOrMeta';
   static readonly SHIFT_KEY = 'Shift';
   static readonly HOME_KEY = 'Home';
   static readonly END_KEY = 'End';
@@ -79,7 +80,7 @@ export abstract class TestConstants {
   static readonly LABEL_KEY = 'l';
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
-  static readonly COMMAND_KEY = 'Meta';
+  static readonly COMMAND_KEY = 'ControlOrMeta';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';
@@ -192,4 +193,50 @@ export abstract class TestConstants {
   static readonly ONE_SECOND = 1000;
   static readonly HALF_SECOND = 500;
   static readonly ONE_MILLISECOND = 100;
+
+  /**
+   * Rotor Navigation Keys
+   */
+  static readonly ALT_KEY = 'Alt';
+
+  /**
+   * Rotor Navigation Modes
+   */
+  static readonly ROTOR_DATA_MODE = 'DATA POINT NAVIGATION';
+  static readonly ROTOR_LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
+  static readonly ROTOR_HIGHER_VALUE_MODE = 'HIGHER VALUE NAVIGATION';
+
+  /**
+   * Go To Extrema Keys
+   */
+  static readonly GO_TO_EXTREMA_KEY = 'g';
+  static readonly ENTER_KEY = 'Enter';
+
+  /**
+   * Go To Extrema Modal Selectors
+   */
+  static readonly GO_TO_EXTREMA_MODAL = '#go-to-extrema-title';
+  static readonly EXTREMA_TARGET_0 = '#extrema-target-0';
+  static readonly EXTREMA_TARGET_1 = '#extrema-target-1';
+  /**
+   * Go To Extrema Expected Labels for Bar Plot
+   * Based on tips data: Sat=87, Sun=76, Thur=62, Fri=19
+   */
+  static readonly EXTREMA_MAX_LABEL = 'Maximum';
+  static readonly EXTREMA_MIN_LABEL = 'Minimum';
+
+  /**
+   * Hover Mode Settings
+   */
+  static readonly HOVER_MODE_LABEL = 'Hover Mode';
+  static readonly HOVER_MODE_OFF = 'Off';
+  static readonly HOVER_MODE_HOVER = 'Hover';
+  static readonly HOVER_MODE_CLICK = 'Click';
+
+  /**
+   * Settings Modal Selectors
+   */
+  static readonly SETTINGS_HOVER_MODE = 'Hover Mode';
+  static readonly SETTINGS_CLOSE_BUTTON = 'Close Settings with no changes';
+  static readonly SETTINGS_SAVE_CLOSE_BUTTON = 'Save & Close Settings';
 }

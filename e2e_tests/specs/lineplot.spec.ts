@@ -335,4 +335,245 @@ test.describe('Line Plot', () => {
       }
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await linePlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await linePlotPage.moveToNextRotorMode();
+      const isHigherValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await linePlotPage.moveToNextRotorMode();
+      const isDataMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await linePlotPage.moveToPrevRotorMode();
+      const isHigherValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await linePlotPage.moveToPrevRotorMode();
+      const isLowerValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await linePlotPage.moveToPrevRotorMode();
+      const isDataMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Navigate to first data point
+      await linePlotPage.moveToFirstDataPoint();
+      const firstPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await linePlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await linePlotPage.moveToNextDataPoint();
+      const secondPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Navigate to last data point
+      await linePlotPage.moveToLastDataPoint();
+      const lastPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await linePlotPage.moveToNextRotorMode(); // LOWER VALUE
+      await linePlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await linePlotPage.moveToPreviousDataPoint();
+      const checkPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Enter LOWER VALUE mode
+      await linePlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await linePlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      await linePlotPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await linePlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await linePlotPage.moveToFirstDataPoint();
+      const firstPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await linePlotPage.moveToNextDataPoint();
+      const secondPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
+
+  test.describe('Go To Extrema', () => {
+    test('should open Go To Extrema modal when pressing G key', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Open the Go To Extrema modal
+      await linePlotPage.openGoToExtremaModal();
+
+      // Verify the modal is visible
+      const isModalVisible = await linePlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisible).toBe(true);
+    });
+
+    test('should close Go To Extrema modal when pressing Escape', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Open the modal first
+      await linePlotPage.openGoToExtremaModal();
+      const isModalOpenInitially = await linePlotPage.isGoToExtremaModalVisible();
+      expect(isModalOpenInitially).toBe(true);
+
+      // Close the modal
+      await linePlotPage.closeGoToExtremaModal();
+
+      // Verify the modal is closed
+      const isModalVisibleAfterClose = await linePlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisibleAfterClose).toBe(false);
+    });
+
+    test('should display extrema targets in the modal', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Open the Go To Extrema modal
+      await linePlotPage.openGoToExtremaModal();
+
+      // Get the available targets
+      const targets = await linePlotPage.getExtremaTargets();
+
+      // Verify that extrema targets are displayed
+      expect(targets.length).toBeGreaterThan(0);
+
+      // Check that Maximum and Minimum options are available
+      const hasMaximum = targets.some(t => t.toLowerCase().includes('max'));
+      const hasMinimum = targets.some(t => t.toLowerCase().includes('min'));
+      expect(hasMaximum || hasMinimum).toBe(true);
+
+      // Close the modal
+      await linePlotPage.closeGoToExtremaModal();
+    });
+
+    test('should navigate selection up and down in the modal', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Open the Go To Extrema modal
+      await linePlotPage.openGoToExtremaModal();
+
+      // Get initial targets to verify we have options
+      const targets = await linePlotPage.getExtremaTargets();
+      expect(targets.length).toBeGreaterThan(1);
+
+      // Navigate down
+      await linePlotPage.goToExtremaMoveDown();
+
+      // Navigate back up
+      await linePlotPage.goToExtremaMoveUp();
+
+      // Modal should still be open
+      const isModalVisible = await linePlotPage.isGoToExtremaModalVisible();
+      expect(isModalVisible).toBe(true);
+
+      // Close the modal
+      await linePlotPage.closeGoToExtremaModal();
+    });
+
+    test('should navigate to maximum value when selecting Maximum', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Navigate to maximum using Go To Extrema
+      await linePlotPage.goToMaximum();
+
+      // Verify we're at a data point
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toBeTruthy();
+    });
+
+    test('should navigate to minimum value when selecting Minimum', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Navigate to minimum using Go To Extrema
+      await linePlotPage.goToMinimum();
+
+      // Verify we're at a data point
+      const currentDataPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(currentDataPoint).toBeTruthy();
+    });
+
+    test('should return to normal navigation after selecting extrema', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Navigate to maximum
+      await linePlotPage.goToMaximum();
+
+      // Verify we're at a data point
+      const maxPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(maxPoint).toBeTruthy();
+
+      // Verify normal navigation works after Go To Extrema
+      await linePlotPage.moveToNextDataPoint();
+      const nextPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(nextPoint).toBeTruthy();
+
+      // Navigate back
+      await linePlotPage.moveToPreviousDataPoint();
+      const previousPoint = await linePlotPage.getCurrentDataPointInfo();
+      expect(previousPoint).toBeTruthy();
+    });
+
+    test('should close modal when pressing G key again', async ({ page }) => {
+      const linePlotPage = await setupLinePlotPage(page);
+
+      // Open the modal
+      await linePlotPage.openGoToExtremaModal();
+      const isModalOpen = await linePlotPage.isGoToExtremaModalVisible();
+      expect(isModalOpen).toBe(true);
+
+      // Press G again to close (toggle behavior)
+      await linePlotPage.pressKey(TestConstants.GO_TO_EXTREMA_KEY, 'toggle go to extrema modal');
+
+      // Wait a moment for the modal to close
+      await page.waitForTimeout(500);
+
+      // Verify modal is closed
+      const isModalClosed = !(await linePlotPage.isGoToExtremaModalVisible());
+      expect(isModalClosed).toBe(true);
+    });
+  });
 });

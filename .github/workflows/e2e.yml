@@ -30,6 +30,9 @@ jobs:
       - name: Install Playwright browsers
         run: npm run e2e:install
 
+      - name: Build and generate maidr.js
+        run: npm run build
+
       - name: Run Playwright tests
         run: npm run e2e
         env:

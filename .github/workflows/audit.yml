@@ -3,11 +3,11 @@ name: Audit UI and Example Changes
 on:
   workflow_dispatch: #enabled only for manual trigger
 
-  # pull_request:
-  #   types: [opened, synchronize]
-  #   paths:
-  #     - 'examples/**'
-  #     - 'src/ui/**'
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'examples/**'
+      - 'src/ui/**'
 
 permissions:
   contents: read
@@ -31,6 +31,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build MAIDR
+        run: npm run build
 
       - name: Install Playwright browsers
         run: npm run e2e:install

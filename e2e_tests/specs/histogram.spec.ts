@@ -335,4 +335,109 @@ test.describe('Histogram', () => {
       }
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await histogramPage.moveToNextRotorMode();
+      const isLowerValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await histogramPage.moveToNextRotorMode();
+      const isHigherValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await histogramPage.moveToNextRotorMode();
+      const isDataMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await histogramPage.moveToPrevRotorMode();
+      const isHigherValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await histogramPage.moveToPrevRotorMode();
+      const isLowerValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await histogramPage.moveToPrevRotorMode();
+      const isDataMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      // Navigate to first data point
+      await histogramPage.moveToFirstDataPoint();
+      const firstPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await histogramPage.moveToNextRotorMode();
+      const isLowerValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await histogramPage.moveToNextDataPoint();
+      const secondPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      // Navigate to last data point
+      await histogramPage.moveToLastDataPoint();
+      const lastPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await histogramPage.moveToNextRotorMode(); // LOWER VALUE
+      await histogramPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await histogramPage.moveToPreviousDataPoint();
+      const checkPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const histogramPage = await setupHistogramPage(page);
+
+      // Enter LOWER VALUE mode
+      await histogramPage.moveToNextRotorMode();
+      const isLowerValueMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await histogramPage.moveToNextRotorMode(); // HIGHER VALUE
+      await histogramPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await histogramPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await histogramPage.moveToFirstDataPoint();
+      const firstPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await histogramPage.moveToNextDataPoint();
+      const secondPoint = await histogramPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
 });

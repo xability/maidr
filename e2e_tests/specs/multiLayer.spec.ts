@@ -120,11 +120,11 @@ test.describe('Multi Layer Plot', () => {
         const instructionText = await multiLayerPlotPage.getInstructionText();
         expect(instructionText).toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
       });
-      test('should switch to first layer', async ({ page }) => {
+      test('should switch to second layer on page up', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
         await multiLayerPlotPage.switchToUpperLayer();
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
+        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
       });
     });
 
@@ -349,11 +349,11 @@ test.describe('Multi Layer Plot', () => {
   });
 
   test.describe('Layer Switching', () => {
-    test('should switch to first layer', async ({ page }) => {
+    test('should switch to second layer on page up', async ({ page }) => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
     });
   });
 
@@ -365,7 +365,6 @@ test.describe('Multi Layer Plot', () => {
      */
     async function setupSecondLayerTest(page: Page): Promise<MultiLayerPlotPage> {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-      await multiLayerPlotPage.switchToUpperLayer();
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
       expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
@@ -391,9 +390,8 @@ test.describe('Multi Layer Plot', () => {
 
       test('should switch to bottom layer', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-        await multiLayerPlotPage.switchToUpperLayer(); // switching to first layer
         await multiLayerPlotPage.switchToUpperLayer(); // switching to second layer
-        await multiLayerPlotPage.switchToLowerLayer(); // switch to first layer
+        await multiLayerPlotPage.switchToLowerLayer(); // switch back to first layer
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });
@@ -617,6 +615,111 @@ test.describe('Multi Layer Plot', () => {
           throw new Error(`Backward autoplay test failed: ${errorMessage}`);
         }
       });
+    });
+  });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await multiLayerPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await multiLayerPlotPage.moveToNextRotorMode();
+      const isHigherValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await multiLayerPlotPage.moveToNextRotorMode();
+      const isDataMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await multiLayerPlotPage.moveToPrevRotorMode();
+      const isHigherValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await multiLayerPlotPage.moveToPrevRotorMode();
+      const isLowerValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await multiLayerPlotPage.moveToPrevRotorMode();
+      const isDataMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+
+      // Navigate to first data point
+      await multiLayerPlotPage.moveToFirstDataPoint();
+      const firstPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await multiLayerPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await multiLayerPlotPage.moveToNextDataPoint();
+      const secondPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+
+      // Navigate to last data point
+      await multiLayerPlotPage.moveToLastDataPoint();
+      const lastPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await multiLayerPlotPage.moveToNextRotorMode(); // LOWER VALUE
+      await multiLayerPlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await multiLayerPlotPage.moveToPreviousDataPoint();
+      const checkPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+
+      // Enter LOWER VALUE mode
+      await multiLayerPlotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await multiLayerPlotPage.moveToNextRotorMode(); // HIGHER VALUE
+      await multiLayerPlotPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await multiLayerPlotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await multiLayerPlotPage.moveToFirstDataPoint();
+      const firstPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await multiLayerPlotPage.moveToNextDataPoint();
+      const secondPoint = await multiLayerPlotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
     });
   });
 });

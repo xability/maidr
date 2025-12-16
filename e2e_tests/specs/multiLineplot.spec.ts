@@ -378,4 +378,109 @@ test.describe('Multi Lineplot', () => {
       }
     });
   });
+
+  test.describe('Rotor Navigation', () => {
+    test('should cycle through rotor modes using Alt+Shift+Up', async ({ page }) => {
+      const multiLineplotPage = await setupMultiLineplotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to LOWER VALUE NAVIGATION mode
+      await multiLineplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move to HIGHER VALUE NAVIGATION mode
+      await multiLineplotPage.moveToNextRotorMode();
+      const isHigherValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode (cycles around)
+      await multiLineplotPage.moveToNextRotorMode();
+      const isDataMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should cycle through rotor modes in reverse using Alt+Shift+Down', async ({ page }) => {
+      const multiLineplotPage = await setupMultiLineplotPage(page);
+
+      // Start in DATA POINT NAVIGATION mode (default)
+      // Move to HIGHER VALUE NAVIGATION mode (reverse direction)
+      await multiLineplotPage.moveToPrevRotorMode();
+      const isHigherValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move to LOWER VALUE NAVIGATION mode
+      await multiLineplotPage.moveToPrevRotorMode();
+      const isLowerValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move back to DATA POINT NAVIGATION mode
+      await multiLineplotPage.moveToPrevRotorMode();
+      const isDataMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+    });
+
+    test('should navigate to lower values in LOWER VALUE mode', async ({ page }) => {
+      const multiLineplotPage = await setupMultiLineplotPage(page);
+
+      // Navigate to first data point
+      await multiLineplotPage.moveToFirstDataPoint();
+      const firstPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      // Enter LOWER VALUE NAVIGATION mode
+      await multiLineplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Move right should find the next lower value
+      await multiLineplotPage.moveToNextDataPoint();
+      const secondPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+
+    test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
+      const multiLineplotPage = await setupMultiLineplotPage(page);
+
+      // Navigate to last data point
+      await multiLineplotPage.moveToLastDataPoint();
+      const lastPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(lastPoint).toBeTruthy();
+
+      // Enter HIGHER VALUE NAVIGATION mode (press twice to skip LOWER VALUE)
+      await multiLineplotPage.moveToNextRotorMode(); // LOWER VALUE
+      await multiLineplotPage.moveToNextRotorMode(); // HIGHER VALUE
+      const isHigherValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_HIGHER_VALUE_MODE);
+      expect(isHigherValueMode).toBe(true);
+
+      // Move left should find the next higher value
+      await multiLineplotPage.moveToPreviousDataPoint();
+      const checkPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(checkPoint).toBeTruthy();
+    });
+
+    test('should return to DATA mode and resume normal navigation', async ({ page }) => {
+      const multiLineplotPage = await setupMultiLineplotPage(page);
+
+      // Enter LOWER VALUE mode
+      await multiLineplotPage.moveToNextRotorMode();
+      const isLowerValueMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      expect(isLowerValueMode).toBe(true);
+
+      // Cycle back to DATA POINT NAVIGATION mode
+      await multiLineplotPage.moveToNextRotorMode(); // HIGHER VALUE
+      await multiLineplotPage.moveToNextRotorMode(); // DATA POINT
+      const isDataMode = await multiLineplotPage.isRotorModeActive(TestConstants.ROTOR_DATA_MODE);
+      expect(isDataMode).toBe(true);
+
+      // Verify normal navigation works (sequential movement)
+      await multiLineplotPage.moveToFirstDataPoint();
+      const firstPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(firstPoint).toBeTruthy();
+
+      await multiLineplotPage.moveToNextDataPoint();
+      const secondPoint = await multiLineplotPage.getCurrentDataPointInfo();
+      expect(secondPoint).toBeTruthy();
+    });
+  });
 });
