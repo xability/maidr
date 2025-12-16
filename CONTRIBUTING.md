@@ -175,44 +175,48 @@ If your commit addresses a specific issue, mention the issue number at the end o
 #### Commit Message Linting
 
 When you commit your changes, Husky and Commitlint will automatically check your commit messages. If your message does not meet the conventional commit format, the commit will be rejected, and you'll need to modify the message.
+
 ### Maintaining the website
+
 Here's how to update the MAIDR documentation:
 
-  1. Update Source Code Documentation (if needed)
+1. Update Source Code Documentation (if needed)
 
-  - Edit JSDoc comments in TypeScript files (src/**/*.ts)
-  - These comments will be extracted by TypeDoc for the API Reference
+- Edit JSDoc comments in TypeScript files (src/\*_/_.ts)
+- These comments will be extracted by TypeDoc for the API Reference
 
-  2. Update Content Pages (if needed)
+2. Update Content Pages (if needed)
 
-  Edit these Quarto/Markdown files for different sections:
-  - index.qmd - Main landing page
-  - examples.qmd - Examples documentation
-  - api-reference.qmd - API reference intro page
-  - README.md - Project readme (also rendered)
-  - CONTRIBUTING.md - Contributing guidelines
-  - CHANGELOG.md - Change log
-  - E2E_TESTING.md - Testing documentation
+Edit these Quarto/Markdown files for different sections:
 
-  3. Rebuild Documentation
+- index.qmd - Main landing page
+- examples.qmd - Examples documentation
+- api-reference.qmd - API reference intro page
+- README.md - Project readme (also rendered)
+- CONTRIBUTING.md - Contributing guidelines
+- CHANGELOG.md - Change log
+- E2E_TESTING.md - Testing documentation
 
-  Generate TypeDoc API docs
-  npm run docs
+3. Rebuild Documentation
 
-  Build complete site with Quarto
-  quarto render
+Generate TypeDoc API docs
+npm run docs
 
-  4. Preview Locally
+Build complete site with Quarto
+quarto render
 
-  Start local preview server
-  quarto preview
-  Or open _site/index.html directly in your browser.
+4. Preview Locally
 
-  5. Deploy to GitHub Pages
+Start local preview server
+quarto preview
+Or open \_site/index.html directly in your browser.
 
-  The documentation will automatically deploy when you push to:
-  - main branch
-  - docs/jsdoc branch (for testing)
+5. Deploy to GitHub Pages
+
+The documentation will automatically deploy when you push to:
+
+- main branch
+- docs/jsdoc branch (for testing)
 
 ## Code of Conduct
 
