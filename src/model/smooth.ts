@@ -2,7 +2,14 @@ import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, TraceState } from '@type/state';
 import { LineTrace } from './line';
 
+/**
+ * Trace implementation for smooth plots with continuous audio feedback.
+ */
 export class SmoothTrace extends LineTrace {
+  /**
+   * Creates a new smooth trace instance.
+   * @param layer - The MAIDR layer containing smooth plot data
+   */
   public constructor(layer: MaidrLayer) {
     super(layer);
   }

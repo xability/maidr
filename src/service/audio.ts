@@ -495,13 +495,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   public playWaitingTone(): AudioId {
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, DEFAULT_PALETTE_INDEX),
       1000,
     );
   }
 
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
+    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, DEFAULT_PALETTE_INDEX);
   }
 
   private interpolate(value: number, from: Range, to: Range): number {

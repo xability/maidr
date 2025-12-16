@@ -79,6 +79,9 @@ import {
   ToggleTextCommand,
 } from './toggle';
 
+/**
+ * Factory for creating command instances based on key input.
+ */
 export class CommandFactory {
   private readonly context: Context;
 
@@ -96,6 +99,10 @@ export class CommandFactory {
   private readonly textViewModel: TextViewModel;
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
+  /**
+   * Creates an instance of CommandFactory.
+   * @param {CommandContext} commandContext - The command context containing services and view models.
+   */
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
 
@@ -115,6 +122,11 @@ export class CommandFactory {
     this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
+  /**
+   * Creates a command instance based on the provided key input.
+   * @param {Keys} command - The key command to create a Command instance for.
+   * @returns {Command} The corresponding command instance for the given key.
+   */
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':

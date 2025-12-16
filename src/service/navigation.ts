@@ -117,7 +117,11 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Extract X value from points array based on current position
+   * Extract X value from points array based on current position.
+   * @param points - Array of points (single or multi-row)
+   * @param row - The row index
+   * @param col - The column index
+   * @returns The extracted X value or null if not found
    */
   public extractXValueFromPoints(points: PointWithX[][] | PointWithX[], row: number, col: number): XValue | null {
     // Single-row traces (like BarTrace)
@@ -136,7 +140,11 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Extract X value from values array based on current position
+   * Extract X value from values array based on current position.
+   * @param values - 2D array of values
+   * @param row - The row index
+   * @param col - The column index
+   * @returns The extracted X value or null if not found
    */
   public extractXValueFromValues(values: ValuesArray, row: number, col: number): XValue | null {
     if (this.isValidPosition(values, row, col)) {
@@ -147,7 +155,11 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Move to X value in points array
+   * Navigate to a specific X value within the points array and invoke callback with new position.
+   * @param points - Array of points (single or multi-row)
+   * @param xValue - The target X value to navigate to
+   * @param moveToIndex - Callback function to execute when position is found
+   * @returns True if navigation was successful, false otherwise
    */
   public moveToXValueInPoints(
     points: PointWithX[][] | PointWithX[],
@@ -236,7 +248,11 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Move to X value in values array
+   * Navigate to a specific X value within the values array and invoke callback with new position.
+   * @param values - 2D array of values
+   * @param xValue - The target X value to navigate to
+   * @param moveToIndex - Callback function to execute when position is found
+   * @returns True if navigation was successful, false otherwise
    */
   public moveToXValueInValues(
     values: ValuesArray,
@@ -294,7 +310,9 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Extract X value from a point object
+   * Extract X value from a point object using type guards.
+   * @param point - The point object to extract from
+   * @returns The X value or null if not found
    */
   private extractXFromPoint(point: unknown): XValue | null {
     if (isPointWithX(point)) {
@@ -304,7 +322,9 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Extract X value from a generic value
+   * Extract X value from a generic value using type guards.
+   * @param value - The value to extract from
+   * @returns The X value or null if not found
    */
   private extractXFromValue(value: unknown): XValue | null {
     if (hasXProperty(value)) {
@@ -317,21 +337,33 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Find point index by X value
+   * Find the index of a point with the specified X value.
+   * @param points - Array of points to search
+   * @param xValue - The X value to find
+   * @returns The index of the matching point or -1 if not found
    */
   private findPointIndexByX(points: PointWithX[], xValue: XValue): number {
     return points.findIndex(point => point.x === xValue);
   }
 
   /**
-   * Validate position in values array
+   * Validate that the specified position exists within the values array bounds.
+   * @param values - 2D array of values
+   * @param row - The row index to validate
+   * @param col - The column index to validate
+   * @returns True if position is valid, false otherwise
    */
   private isValidPosition(values: ValuesArray, row: number, col: number): boolean {
     return row >= 0 && row < values.length
       && col >= 0 && col < values[row].length;
   }
 
-  // Helper: find nearest X index in a flat array, robust to data type
+  /**
+   * Find the nearest point index by X value, handling both numeric and categorical data types.
+   * @param points - Array of points to search
+   * @param xValue - The target X value
+   * @returns The index of the nearest point or -1 if not found
+   */
   private findNearestPointIndexByX(points: PointWithX[], xValue: XValue): number {
     if (typeof xValue === 'number') {
       let bestIdx = -1;
@@ -408,6 +440,9 @@ export class NavigationService implements Disposable {
     return -1;
   }
 
+  /**
+   * Cleanup method to dispose of service resources.
+   */
   public dispose(): void {
     // Currently no resources to clean up
     // This method is implemented for future extensibility
@@ -431,28 +466,55 @@ export class NavigationService implements Disposable {
 }
 
 /**
- * Type guards for known point types
+ * Type guard to check if a point is a bar chart point with x and y coordinates.
+ * @param point - The point to check
+ * @returns True if the point is a valid bar point
  */
 function isBarPoint(point: any): point is { x: string | number; y: string | number } {
   return point && typeof point === 'object' && 'x' in point && 'y' in point;
 }
 
+/**
+ * Type guard to check if a point is a line chart point with numeric x and y coordinates.
+ * @param point - The point to check
+ * @returns True if the point is a valid line point
+ */
 function isLinePoint(point: any): point is { x: number; y: number; fill?: string } {
   return point && typeof point === 'object' && typeof point.x === 'number' && typeof point.y === 'number';
 }
 
+/**
+ * Type guard to check if a point is a histogram point with x range (xMin, xMax).
+ * @param point - The point to check
+ * @returns True if the point is a valid histogram point
+ */
 function isHistogramPoint(point: any): point is { x: number; y: number; xMin: number; xMax: number } {
   return point && typeof point === 'object' && 'xMin' in point && 'xMax' in point;
 }
 
+/**
+ * Type guard to check if a point is a segmented chart point with x, y, and optional fill.
+ * @param point - The point to check
+ * @returns True if the point is a valid segmented point
+ */
 function isSegmentedPoint(point: any): point is { x: string | number; y: number; fill?: string } {
   return point && typeof point === 'object' && 'x' in point && 'y' in point;
 }
 
+/**
+ * Type guard to check if a point is a smooth plot point with numeric x and y coordinates.
+ * @param point - The point to check
+ * @returns True if the point is a valid smooth point
+ */
 function isSmoothPoint(point: any): point is { x: number; y: number } {
   return point && typeof point === 'object' && typeof point.x === 'number' && typeof point.y === 'number';
 }
 
+/**
+ * Type guard to check if a point is a candlestick point with a value property.
+ * @param point - The point to check
+ * @returns True if the point is a valid candlestick point
+ */
 function isCandlestickPoint(point: any): point is { value: number | string } {
   return point && typeof point === 'object' && 'value' in point;
 }
