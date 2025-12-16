@@ -73,14 +73,18 @@ export class BoxTrace extends AbstractTrace {
     // For Matplotlib violins, only expose min/median/max and outliers in
     // the accessible text, matching Matplotlib's visual defaults.
     if (this.isMplViolinBoxPlot) {
+      // Matplotlib violins: expose min, median, mean, max (no Q1/Q3 in text),
+      // matching Matplotlib's visual defaults while adding mean as a separate section.
       this.sections = [
         BoxplotSection.LOWER_OUTLIER,
         BoxplotSection.MIN,
         BoxplotSection.Q2,
+        BoxplotSection.MEAN,
         BoxplotSection.MAX,
         BoxplotSection.UPPER_OUTLIER,
       ];
     } else {
+      // Regular box plots and seaborn violins: full Tukey structure with quartiles.
       this.sections = [
         BoxplotSection.LOWER_OUTLIER,
         BoxplotSection.MIN,
@@ -97,6 +101,7 @@ export class BoxTrace extends AbstractTrace {
           (p: BoxPoint) => p.lowerOutliers,
           (p: BoxPoint) => p.min,
           (p: BoxPoint) => p.q2,
+          (p: BoxPoint) => p.mean ?? Number.NaN,
           (p: BoxPoint) => p.max,
           (p: BoxPoint) => p.upperOutliers,
         ]
@@ -327,6 +332,7 @@ export class BoxTrace extends AbstractTrace {
       max: SVGElement | null;
       iq: SVGElement | null;
       q2: SVGElement | null;
+      mean: SVGElement | null;
     }> = [];
 
     selectors.forEach((selector) => {
@@ -341,6 +347,7 @@ export class BoxTrace extends AbstractTrace {
       const maxOriginal = Svg.selectElement(selector.max, false);
       const iqOriginal = Svg.selectElement(selector.iq, false);
       const q2Original = Svg.selectElement(selector.q2, false);
+      const meanOriginal = Svg.selectElement((selector as any).mean, false);
 
       originals.push({
         lowerOutliers: lowerOutliersOriginals,
@@ -349,6 +356,7 @@ export class BoxTrace extends AbstractTrace {
         max: maxOriginal,
         iq: iqOriginal,
         q2: q2Original,
+        mean: meanOriginal,
       });
     });
 
@@ -370,6 +378,7 @@ export class BoxTrace extends AbstractTrace {
       const min = this.cloneElementOrEmpty(original.min);
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
+      const mean = this.cloneElementOrEmpty(original.mean);
 
       // Only create line elements if iq selector exists and element was found
       // If iq is empty/missing, create empty line elements instead
@@ -396,7 +405,7 @@ export class BoxTrace extends AbstractTrace {
           ];
 
       const sections = this.isMplViolinBoxPlot
-        ? [lowerOutliers, min, q2, max, upperOutliers]
+        ? [lowerOutliers, min, q2, mean, max, upperOutliers]
         : [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {

@@ -32,6 +32,7 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  mean?: number;
 }
 
 export interface BoxSelector {
@@ -41,6 +42,7 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  mean?: string;
 }
 
 export interface CandlestickPoint {
