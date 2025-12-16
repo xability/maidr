@@ -164,7 +164,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
+   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR, default is no-op
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
   public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
