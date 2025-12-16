@@ -120,11 +120,11 @@ test.describe('Multi Layer Plot', () => {
         const instructionText = await multiLayerPlotPage.getInstructionText();
         expect(instructionText).toBe(TestConstants.MULTI_LAYER_PLOT_INSTRUCTION_TEXT);
       });
-      test('should switch to first layer', async ({ page }) => {
+      test('should switch to second layer on page up', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
         await multiLayerPlotPage.switchToUpperLayer();
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
+        expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
       });
     });
 
@@ -349,11 +349,11 @@ test.describe('Multi Layer Plot', () => {
   });
 
   test.describe('Layer Switching', () => {
-    test('should switch to first layer', async ({ page }) => {
+    test('should switch to second layer on page up', async ({ page }) => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
-      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
+      expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
     });
   });
 
@@ -365,7 +365,6 @@ test.describe('Multi Layer Plot', () => {
      */
     async function setupSecondLayerTest(page: Page): Promise<MultiLayerPlotPage> {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-      await multiLayerPlotPage.switchToUpperLayer();
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
       expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
@@ -391,9 +390,8 @@ test.describe('Multi Layer Plot', () => {
 
       test('should switch to bottom layer', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-        await multiLayerPlotPage.switchToUpperLayer(); // switching to first layer
         await multiLayerPlotPage.switchToUpperLayer(); // switching to second layer
-        await multiLayerPlotPage.switchToLowerLayer(); // switch to first layer
+        await multiLayerPlotPage.switchToLowerLayer(); // switch back to first layer
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });

@@ -185,7 +185,6 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
   private readonly size: number;
   private readonly highlightValue: SVGElement | null;
-  private readonly isViolinPlot: boolean;
 
   public constructor(subplot: MaidrSubplot) {
     super();
@@ -199,7 +198,6 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     const hasBox = layerTypes.includes(TraceType.BOX);
     const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
     const isViolinPlot = hasBox && hasSmooth;
-    this.isViolinPlot = isViolinPlot;
 
     // Pass only a minimal hint into the factory; do not leak full layers array.
     this.traces = layers.map(layer => [
@@ -239,22 +237,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   /**
    * Override moveOnce to avoid "initial entry" no-op behavior for layer navigation.
    *
-   * For violin subplots, the MovableGrid is only used to step between layers
+   * For multi-layer subplots, the MovableGrid is only used to step between layers
    * (traces), not between data points. We don't want the first MOVE_UP/DOWN
    * to be eaten by handleInitialEntry; instead, the first PageUp/PageDown
    * should actually switch layers.
-   *
-   * For non-violin plots, we delegate directly to the base implementation to
-   * preserve existing behavior.
    */
   public override moveOnce(direction: MovableDirection): boolean {
-    // Only customize behavior for violin subplots
-    if (!this.isViolinPlot) {
-      return super.moveOnce(direction);
-    }
-
-    // For violin subplots, clear initial-entry state on first move so the
-    // first PageUp/PageDown actually switches layers.
+    // Clear initial-entry state on first move so the first PageUp/PageDown
+    // actually switches layers.
     if (this.isInitialEntry) {
       this.isInitialEntry = false;
     }
