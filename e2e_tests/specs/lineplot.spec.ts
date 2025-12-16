@@ -482,8 +482,8 @@ test.describe('Line Plot', () => {
       expect(targets.length).toBeGreaterThan(0);
 
       // Check that Maximum and Minimum options are available
-      const hasMaximum = targets.some((t) => t.toLowerCase().includes('max'));
-      const hasMinimum = targets.some((t) => t.toLowerCase().includes('min'));
+      const hasMaximum = targets.some(t => t.toLowerCase().includes('max'));
+      const hasMinimum = targets.some(t => t.toLowerCase().includes('min'));
       expect(hasMaximum || hasMinimum).toBe(true);
 
       // Close the modal

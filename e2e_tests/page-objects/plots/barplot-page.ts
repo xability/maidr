@@ -27,7 +27,7 @@ export class BarPlotPage extends BasePage {
     helpModalClose: string;
     settingsModal: string;
     chatModal: string;
-    rotor: string
+    rotor: string;
   };
 
   /**
@@ -475,7 +475,6 @@ export class BarPlotPage extends BasePage {
    */
   public async isRotorModeActive(expectedMode: string): Promise<boolean> {
     const text = await this.getElementText(this.selectors.rotor);
-    console.log(text);
     return text === expectedMode;
   }
 

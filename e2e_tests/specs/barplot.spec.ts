@@ -399,22 +399,17 @@ test.describe('Bar Plot', () => {
       // Navigate to first data point (Sat: 87 - highest value)
       await barPlotPage.moveToFirstDataPoint();
       const firstPoint = await barPlotPage.getCurrentDataPointInfo();
-      console.log('first',firstPoint)
       expect(firstPoint).toContain('Sat');
 
       // Enter LOWER VALUE NAVIGATION mode
       await barPlotPage.moveToNextRotorMode();
       const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
-      console.log('lower?',isLowerValueMode)
       expect(isLowerValueMode).toBe(true);
 
       // Move right should find the next lower value (Sun: 76)
       await barPlotPage.moveToNextDataPoint();
       const secondPoint = await barPlotPage.getCurrentDataPointInfo();
-      console.log('second',secondPoint)
       expect(secondPoint).toContain('Sun');
-
-
     });
 
     test('should navigate to higher values in HIGHER VALUE mode', async ({ page }) => {
@@ -432,12 +427,11 @@ test.describe('Bar Plot', () => {
       expect(isHigherValueMode).toBe(true);
 
       // Move left should find the next higher value (Thur: 62)
-      await barPlotPage.moveToLastDataPoint(); //Fri- 19
-      await barPlotPage.moveToPreviousDataPoint(); //Thur-62
+      await barPlotPage.moveToLastDataPoint(); // Fri- 19
+      await barPlotPage.moveToPreviousDataPoint(); // Thur-62
 
       const checkPoint = await barPlotPage.getCurrentDataPointInfo();
       expect(checkPoint).toContain('Thur');
-
     });
 
     test('should return to DATA mode and resume normal navigation', async ({ page }) => {
@@ -445,7 +439,7 @@ test.describe('Bar Plot', () => {
 
       // Enter LOWER VALUE mode
       await barPlotPage.moveToNextRotorMode();
-      let isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
+      const isLowerValueMode = await barPlotPage.isRotorModeActive(TestConstants.ROTOR_LOWER_VALUE_MODE);
       expect(isLowerValueMode).toBe(true);
 
       // Cycle back to DATA POINT NAVIGATION mode
@@ -506,8 +500,8 @@ test.describe('Bar Plot', () => {
       expect(targets.length).toBeGreaterThan(0);
 
       // Check that Maximum and Minimum options are available
-      const hasMaximum = targets.some((t) => t.toLowerCase().includes('max'));
-      const hasMinimum = targets.some((t) => t.toLowerCase().includes('min'));
+      const hasMaximum = targets.some(t => t.toLowerCase().includes('max'));
+      const hasMinimum = targets.some(t => t.toLowerCase().includes('min'));
       expect(hasMaximum || hasMinimum).toBe(true);
 
       // Close the modal
@@ -618,7 +612,6 @@ test.describe('Bar Plot', () => {
 
       await barPlotPage.closeSettingsModalWithButton();
     });
-
 
     test('should navigate to data point when hover mode is set to Hover', async ({ page }) => {
       const barPlotPage = await setupBarPlotPage(page);

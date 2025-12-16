@@ -217,7 +217,7 @@ export abstract class TestConstants {
    */
   static readonly GO_TO_EXTREMA_MODAL = '#go-to-extrema-title';
   static readonly EXTREMA_TARGET_0 = '#extrema-target-0';
-  static readonly EXTREMA_TARGET_1 = '#extrema-target-1'
+  static readonly EXTREMA_TARGET_1 = '#extrema-target-1';
   /**
    * Go To Extrema Expected Labels for Bar Plot
    * Based on tips data: Sat=87, Sun=76, Thur=62, Fri=19
