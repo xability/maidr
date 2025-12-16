@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build MAIDR
+        run: npm run build
+
       - name: Install Playwright browsers
         run: npm run e2e:install
 
