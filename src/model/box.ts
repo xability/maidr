@@ -30,6 +30,7 @@ export class BoxTrace extends AbstractTrace {
   private readonly max: number;
 
   private readonly isViolinBoxPlot: boolean;
+  private readonly isMplViolinBoxPlot: boolean;
 
   constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
@@ -44,6 +45,18 @@ export class BoxTrace extends AbstractTrace {
      */
     this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
 
+    /**
+     * Distinguish Matplotlib vs Seaborn violin box layers.
+     *
+     * Python passes a `violinLayer` hint in the schema. For Matplotlib
+     * `Axes.violinplot`, this is set to "mpl_violin". We use this hint
+     * so that Matplotlib violins expose only min/median/max in text,
+     * matching Matplotlib's visual defaults (no quartiles), while Seaborn
+     * violins (with inner='box') still expose quartiles.
+     */
+    const violinLayer = (layer as any).violinLayer as string | undefined;
+    this.isMplViolinBoxPlot = this.isViolinBoxPlot && violinLayer === 'mpl_violin';
+
     this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
@@ -55,24 +68,47 @@ export class BoxTrace extends AbstractTrace {
       this.points = layer.data as BoxPoint[];
     }
 
-    this.sections = [
-      BoxplotSection.LOWER_OUTLIER,
-      BoxplotSection.MIN,
-      BoxplotSection.Q1,
-      BoxplotSection.Q2,
-      BoxplotSection.Q3,
-      BoxplotSection.MAX,
-      BoxplotSection.UPPER_OUTLIER,
-    ];
-    const sectionAccessors = [
-      (p: BoxPoint) => p.lowerOutliers,
-      (p: BoxPoint) => p.min,
-      (p: BoxPoint) => p.q1,
-      (p: BoxPoint) => p.q2,
-      (p: BoxPoint) => p.q3,
-      (p: BoxPoint) => p.max,
-      (p: BoxPoint) => p.upperOutliers,
-    ];
+    // For regular box plots and Seaborn violins (with visible inner box),
+    // expose full Tukey structure including quartiles.
+    // For Matplotlib violins, only expose min/median/max and outliers in
+    // the accessible text, matching Matplotlib's visual defaults.
+    if (this.isMplViolinBoxPlot) {
+      this.sections = [
+        BoxplotSection.LOWER_OUTLIER,
+        BoxplotSection.MIN,
+        BoxplotSection.Q2,
+        BoxplotSection.MAX,
+        BoxplotSection.UPPER_OUTLIER,
+      ];
+    } else {
+      this.sections = [
+        BoxplotSection.LOWER_OUTLIER,
+        BoxplotSection.MIN,
+        BoxplotSection.Q1,
+        BoxplotSection.Q2,
+        BoxplotSection.Q3,
+        BoxplotSection.MAX,
+        BoxplotSection.UPPER_OUTLIER,
+      ];
+    }
+
+    const sectionAccessors = this.isMplViolinBoxPlot
+      ? [
+          (p: BoxPoint) => p.lowerOutliers,
+          (p: BoxPoint) => p.min,
+          (p: BoxPoint) => p.q2,
+          (p: BoxPoint) => p.max,
+          (p: BoxPoint) => p.upperOutliers,
+        ]
+      : [
+          (p: BoxPoint) => p.lowerOutliers,
+          (p: BoxPoint) => p.min,
+          (p: BoxPoint) => p.q1,
+          (p: BoxPoint) => p.q2,
+          (p: BoxPoint) => p.q3,
+          (p: BoxPoint) => p.max,
+          (p: BoxPoint) => p.upperOutliers,
+        ];
     if (this.orientation === Orientation.HORIZONTAL) {
       this.boxValues = this.points.map(point =>
         sectionAccessors.map(accessor => accessor(point)),
@@ -358,7 +394,10 @@ export class BoxTrace extends AbstractTrace {
             Svg.createEmptyElement('line'), // Empty line element for Q1
             Svg.createEmptyElement('line'), // Empty line element for Q3
           ];
-      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+
+      const sections = this.isMplViolinBoxPlot
+        ? [lowerOutliers, min, q2, max, upperOutliers]
+        : [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
         sections.forEach((section, sectionIdx) => {
