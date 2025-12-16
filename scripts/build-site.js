@@ -72,7 +72,7 @@ fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 // Build examples.html
 console.log('Building examples.html...');
 const examplesContent = `
-<iframe src="examples/index.html" class="examples-frame" title="MAIDR Examples"></iframe>
+<iframe src="examples/example-gallery.html" class="examples-frame" title="MAIDR Examples"></iframe>
 `;
 const examplesPage = generatePage('Examples', examplesContent, 'examples');
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
