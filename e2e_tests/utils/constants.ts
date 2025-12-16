@@ -69,7 +69,7 @@ export abstract class TestConstants {
   static readonly PERIOD_KEY = '.';
   static readonly COMMA_KEY = ',';
   static readonly SLASH_KEY = '/';
-  static readonly META_KEY = 'Meta';
+  static readonly META_KEY = 'ControlOrMeta';
   static readonly SHIFT_KEY = 'Shift';
   static readonly HOME_KEY = 'Home';
   static readonly END_KEY = 'End';
@@ -80,7 +80,7 @@ export abstract class TestConstants {
   static readonly LABEL_KEY = 'l';
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
-  static readonly COMMAND_KEY = 'Meta';
+  static readonly COMMAND_KEY = 'ControlOrMeta';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';
