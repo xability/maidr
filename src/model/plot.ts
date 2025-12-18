@@ -363,6 +363,15 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Move the active point within this trace to the given (x, y) viewport
    * coordinates. Implemented by all concrete traces via AbstractPlot /
    * AbstractTrace, and used by Context for hover / click navigation.
+   *
+   * @param x - The x-coordinate in viewport pixels to move to.
+   * @param y - The y-coordinate in viewport pixels to move to.
+   *
+   * Behavior:
+   * - Finds the nearest data point to the given coordinates
+   * - If no valid nearest point exists or coordinates are out of bounds, no action is taken
+   * - If coordinates are within bounds and position is different, triggers state update via moveToIndex
+   * - If already at the target position, returns without triggering state update
    */
   moveToPoint: (x: number, y: number) => void;
 

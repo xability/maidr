@@ -4,6 +4,9 @@
  */
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
+/** Supported violin plot library types for layer identification. */
+export type ViolinLayerType = 'mpl_violin' | 'seaborn_violin';
+
 export interface Maidr {
   id: string;
   title?: string;
@@ -32,6 +35,7 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  /** Mean value for matplotlib violin plots when showmeans=True. */
   mean?: number;
 }
 
@@ -42,6 +46,7 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  /** CSS selector for mean marker element in matplotlib violin plots. */
   mean?: string;
 }
 
@@ -139,6 +144,16 @@ export interface MaidrLayer {
     x?: string;
     y?: string;
     fill?: string;
+  };
+  /**
+   * Optional violin plot hints for BOX and SMOOTH layers.
+   * Used to distinguish between matplotlib and seaborn violin implementations.
+   */
+  violinLayer?: ViolinLayerType;
+  violinOptions?: {
+    showMeans?: boolean;
+    showMedians?: boolean;
+    showExtrema?: boolean;
   };
   data:
     | BarPoint[]
