@@ -360,6 +360,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   notifyObserversWithState: (state: TraceState) => void;
 
   /**
+   * Move the active point within this trace to the given (x, y) viewport
+   * coordinates. Implemented by all concrete traces via AbstractPlot /
+   * AbstractTrace, and used by Context for hover / click navigation.
+   */
+  moveToPoint: (x: number, y: number) => void;
+
+  /**
    * Handle switching from another trace.
    * Called by Context when switching layers. Traces can implement this
    * to handle special layer switching behavior (e.g., preserving Y values).
