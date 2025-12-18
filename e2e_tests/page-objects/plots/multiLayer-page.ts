@@ -38,7 +38,7 @@ export class MultiLayerPlotPage extends BasePage {
    */
   public async navigateToMultiLayerPlot(): Promise<void> {
     try {
-      await super.navigateTo('examples/multi-layer.html');
+      await super.navigateTo('examples/multiLayer_plot.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
       throw new MultiLayerPlotError('Failed to navigate to Multi Layer Plot');

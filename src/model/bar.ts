@@ -44,6 +44,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.movable = new MovableGrid<T>(this.points);
   }
 
+  /**
+   * Cleans up bar plot resources including points and min/max arrays.
+   */
   public dispose(): void {
     this.points.length = 0;
 
@@ -133,6 +136,10 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return svgElements;
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for proximity detection.
+   * @returns Array of center points with element references or null if no elements exist
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -169,6 +176,12 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return centers;
   }
 
+  /**
+   * Finds the nearest bar element at the specified coordinates.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns Object containing the element and its position, or null if not found
+   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -201,7 +214,21 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 }
 
+/**
+ * Concrete implementation of a bar trace for standard bar charts.
+ * Supports extrema navigation and hover interactions.
+ */
 export class BarTrace extends AbstractBarPlot<BarPoint> {
+  /**
+   * Checks if coordinates are within the bounding box of the bar element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
+   * @returns True if coordinates are within bounds, false otherwise
+   */
   public isPointInBounds(
     x: number,
     y: number,
@@ -217,6 +244,10 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     );
   }
 
+  /**
+   * Constructs a new BarTrace instance.
+   * @param layer - The MAIDR layer configuration
+   */
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
   }
@@ -283,8 +314,8 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Get a clean label for a specific point
-   * @param pointIndex The index of the point
+   * Gets a clean label for a specific bar point.
+   * @param pointIndex - The index of the point
    * @returns A clean label for the point
    */
   private getPointLabel(pointIndex: number): string {
@@ -302,8 +333,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Update the visual position of the current point
-   * This method should be called when navigation changes
+   * Updates the visual position of the current point ensuring it's within bounds.
    */
   protected updateVisualPointPosition(): void {
     // Ensure we're within bounds
@@ -313,10 +343,10 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   }
 
   /**
-   * Bar specific implementation of the rotor move to lower or higher feature
-   * @param direction
-   * @param type
-   * @returns boolean (true: a target was found, false: else)
+   * Moves to the next bar that matches the comparison criteria in rotor mode.
+   * @param direction - The direction to move (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a target was found, false otherwise
    */
   public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;

@@ -15,6 +15,10 @@ import { MovableGrid } from './movable';
 /** Constant for matplotlib violin layer type. */
 const MPL_VIOLIN_LAYER: ViolinLayerType = 'mpl_violin';
 
+/**
+ * Concrete implementation of a box plot trace supporting vertical and horizontal orientations.
+ * Handles boxplot sections (min, Q1, Q2, Q3, max, outliers) and rotor-based navigation.
+ */
 export class BoxTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
@@ -503,8 +507,9 @@ export class BoxTrace extends AbstractTrace {
   }
 
   /**
-   * Clones an SVG element with hidden visibility and inserts it after the original,
-   * or returns an empty element if the original is null.
+   * Clones an SVG element with hidden visibility or returns an empty element.
+   * @param original - The original SVG element to clone or null
+   * @returns The cloned element or an empty element
    */
   private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
     if (!original) {
@@ -516,6 +521,12 @@ export class BoxTrace extends AbstractTrace {
     return clone;
   }
 
+  /**
+   * Moves to the next boxplot section that matches the comparison criteria.
+   * @param direction - The direction to move (left, right, up, or down)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a target was found, false otherwise
+   */
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
@@ -557,6 +568,11 @@ export class BoxTrace extends AbstractTrace {
     return false;
   }
 
+  /**
+   * Sets the current point based on direction and index.
+   * @param direction - The direction of movement (left, right, up, or down)
+   * @param pointIndex - The index to set
+   */
   public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
     if (direction === 'left' || direction === 'right') {
       this.col = pointIndex;
@@ -566,8 +582,9 @@ export class BoxTrace extends AbstractTrace {
   }
 
   /**
-   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
-   * @returns {boolean} True if the move was successful, false otherwise.
+   * Moves upward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
    */
   public moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
@@ -577,6 +594,11 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('up', mode);
   }
 
+  /**
+   * Moves downward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveDownRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('DOWNWARD');
@@ -585,6 +607,11 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('down', mode);
   }
 
+  /**
+   * Moves left in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('BACKWARD');
@@ -593,6 +620,11 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('left', mode);
   }
 
+  /**
+   * Moves right in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('FORWARD');
@@ -601,6 +633,10 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('right', mode);
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for proximity detection.
+   * @returns Array of center points with element references or null if no elements exist
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -637,6 +673,12 @@ export class BoxTrace extends AbstractTrace {
     return centers;
   }
 
+  /**
+   * Finds the nearest boxplot element at the specified coordinates.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns Object containing the element and its position, or null if not found
+   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -669,6 +711,11 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * Moves to the nearest point at the specified coordinates (disabled for boxplots).
+   * @param _x - The x-coordinate
+   * @param _y - The y-coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // Exceptions:
     // temp: don't run for boxplot. remove when boxplot is fixed

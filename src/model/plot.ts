@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
@@ -15,6 +16,9 @@ const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 const DEFAULT_SUBTITLE = 'unavailable';
 const DEFAULT_CAPTION = 'unavailable';
 
+/**
+ * Represents a figure containing one or more subplots
+ */
 export class Figure extends AbstractPlot<FigureState> implements Movable, Observable<FigureState>, Disposable {
   protected get dimension(): Dimension {
     return {
@@ -33,6 +37,10 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   public readonly subplots: Subplot[][];
   private readonly size: number;
 
+  /**
+   * Creates a new Figure instance from MAIDR data
+   * @param maidr - The MAIDR data containing figure information and subplots
+   */
   public constructor(maidr: Maidr) {
     super();
 
@@ -51,20 +59,35 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
   }
 
+  /**
+   * Cleans up all subplots and releases resources
+   */
   public dispose(): void {
     this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
     this.subplots.length = 0;
     super.dispose();
   }
 
+  /**
+   * Gets the 2D array of subplots
+   * @returns The subplots array
+   */
   protected get values(): Subplot[][] {
     return this.subplots;
   }
 
+  /**
+   * Gets the currently active subplot based on row and column position
+   * @returns The active subplot
+   */
   public get activeSubplot(): Subplot {
     return this.subplots[this.row][this.col];
   }
 
+  /**
+   * Gets the current state of the figure including active subplot
+   * @returns The complete figure state
+   */
   public get state(): FigureState {
     if (this.isOutOfBounds) {
       return {
@@ -157,6 +180,11 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
+  /**
+   * Moves to a specific point in the figure (implementation in subclasses)
+   * @param _x - The x coordinate
+   * @param _y - The y coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // implement in plot classes
     this.notifyStateUpdate();
@@ -187,6 +215,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   private readonly highlightValue: SVGElement | null;
   private readonly isViolinPlot: boolean;
 
+  /**
+   * Creates a new Subplot instance from MAIDR subplot data
+   * @param subplot - The MAIDR subplot data containing layers
+   */
   public constructor(subplot: MaidrSubplot) {
     super();
 
@@ -224,14 +256,26 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     return this.row;
   }
 
+  /**
+   * Gets the number of traces in the subplot
+   * @returns The size (number of traces)
+   */
   public getSize(): number {
     return this.size;
   }
 
+  /**
+   * Gets the 2D array of traces
+   * @returns The traces array
+   */
   protected get values(): Trace[][] {
     return this.traces;
   }
 
+  /**
+   * Gets the currently active trace based on row and column position
+   * @returns The active trace
+   */
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
   }
@@ -304,6 +348,12 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     this.notifyStateUpdate();
   }
 
+  /**
+   * Gets the subplot state with figure position context
+   * @param _figureRow - The row position in the figure
+   * @param _figureCol - The column position in the figure
+   * @returns The subplot state
+   */
   public getStateWithFigurePosition(
     _figureRow: number,
     _figureCol: number,
@@ -316,18 +366,26 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 }
 
+/**
+ * Interface representing a trace with navigation and observation capabilities
+ */
 export interface Trace extends Movable, Observable<TraceState>, Disposable {
-  getId: () => string;
   /**
-   * Get the current X value from the trace
+   * Gets the unique identifier for the trace
+   * @returns The trace ID
+   */
+  getId: () => string;
+
+  /**
+   * Gets the current X value from the trace
    * @returns The current X value or null if not available
    */
   getCurrentXValue: () => any;
 
   /**
-   * Move the trace to the position that matches the given X value
-   * @param xValue The X value to move to
-   * @returns true if the position was found and set, false otherwise
+   * Moves the trace to the position that matches the given X value
+   * @param xValue - The X value to move to
+   * @returns True if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
 
@@ -353,10 +411,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   notifyOutOfBounds: () => void;
 
   /**
-   * Reset the trace to initial entry state
-   * This sets isInitialEntry to true and position to (0, 0)
+   * Resets the trace to initial entry state
    */
   resetToInitialEntry: () => void;
+
+  /**
+   * Notifies all observers with a specific state
+   * @param state - The trace state to send to observers
+   */
   notifyObserversWithState: (state: TraceState) => void;
 
   /**
@@ -390,4 +452,20 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    *          false to use default behavior (position must remain unchanged)
    */
   onSwitchFrom?: (previousTrace: Trace) => boolean;
+
+ 
+
+  /**
+   * Gets extrema targets for navigation.
+   * Optional method implemented by traces that support extrema navigation.
+   * @returns Array of extrema targets
+   */
+  getExtremaTargets?: () => ExtremaTarget[];
+
+  /**
+   * Navigate to a specific extrema target.
+   * Optional method implemented by traces that support extrema navigation.
+   * @param target - The extrema target to navigate to
+   */
+  navigateToExtrema?: (target: ExtremaTarget) => void;
 }

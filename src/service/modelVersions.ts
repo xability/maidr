@@ -1,21 +1,48 @@
 import type { LlmVersion } from '@type/llm';
 
+/**
+ * Available OpenAI GPT model versions.
+ */
 export type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
+
+/**
+ * Available Anthropic Claude model versions.
+ */
 export type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
+
+/**
+ * Available Google Gemini model versions.
+ */
 export type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
 
+/**
+ * Configuration structure for LLM model versions including default, options, and display labels.
+ * @template T - The specific model version type extending LlmVersion
+ */
 export interface ModelConfig<T extends LlmVersion> {
+  /** The default model version to use */
   default: T;
+  /** All available model versions */
   options: readonly T[];
+  /** Human-readable labels for each model version */
   labels: Record<T, string>;
 }
 
+/**
+ * Complete configuration for all supported LLM providers and their model versions.
+ */
 export interface ModelVersions {
+  /** OpenAI GPT model configuration */
   OPENAI: ModelConfig<GptVersion>;
+  /** Anthropic Claude model configuration */
   ANTHROPIC_CLAUDE: ModelConfig<ClaudeVersion>;
+  /** Google Gemini model configuration */
   GOOGLE_GEMINI: ModelConfig<GeminiVersion>;
 }
 
+/**
+ * Configuration object containing default versions, available options, and display labels for all LLM providers.
+ */
 export const MODEL_VERSIONS: ModelVersions = {
   OPENAI: {
     default: 'gpt-4o',

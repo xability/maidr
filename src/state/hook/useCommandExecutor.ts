@@ -3,6 +3,10 @@ import type { Keys, Scope } from '@type/event';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { useCallback, useState } from 'react';
 
+/**
+ * Custom hook that provides command execution functionality and current scope.
+ * @returns Object containing executeCommand function and currentScope state
+ */
 export function useCommandExecutor(): {
   executeCommand: (commandKey: Keys) => void;
   currentScope: Scope;
