@@ -453,8 +453,6 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   onSwitchFrom?: (previousTrace: Trace) => boolean;
 
- 
-
   /**
    * Gets extrema targets for navigation.
    * Optional method implemented by traces that support extrema navigation.
