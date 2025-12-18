@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/logo/logo.svg" width="350px" alt="A stylized MAIDR logo, with curved characters for M A, a hand pointing for an I, the D character, and R represented in braille."/>
+  <img src="docs/logo.svg" width="350px" alt="A stylized MAIDR logo, with curved characters for M A, a hand pointing for an I, the D character, and R represented in braille."/>
   <hr style="color:transparent" />
   <br />
 </div>
@@ -17,14 +17,15 @@ and encourages a multi-modal exploration on visualization.
 ## Table of Contents
 
 1. [Usage](#usage)
-2. [Controls](#controls)
-3. [Braille Generation](#braille-generation)
-4. [API](#api)
-5. [Binders](#binders)
-6. [Papers](#papers)
-7. [License](#license)
-8. [Contact](#contact)
-9. [Acknowledgments](#acknowledgments)
+2. [Examples](#examples)
+3. [Controls](#controls)
+4. [Braille Generation](#braille-generation)
+5. [API](#api)
+6. [Binders](#binders)
+7. [Papers](#papers)
+8. [License](#license)
+9. [Contact](#contact)
+10. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
@@ -40,8 +41,8 @@ To use maidr, follow these steps:
      <head>
        <meta charset="UTF-8" />
        <title>maidr Example</title>
-       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr/dist/maidr_style.min.css" />
-       <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.min.js"></script>
+       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr_style.css" />
+       <script src="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js"></script>
      </head>
      <body>
        <div>
@@ -53,218 +54,347 @@ To use maidr, follow these steps:
 
 3. Add your data: Include your data as a JSON schema directly in the HTML file. There should be a single `maidr` object with the following properties, or an array of objects if multiple plots exist on the page. Your JSON schema may look like so: (values for demonstration purposes)
 
-   ```javascript
+  ```javascript
    // a single plot
-   let maidr = {
-     type: 'box',
-     id: 'myboxplot',
-     title: 'Highway Mileage by Car Class.',
-     axes: {
-       y: {
-         label: 'Car Class',
-         level: [
-           '2seater',
-           'compact',
-           'midsize',
-           'minivan',
-           'pickup',
-           'subcompact',
-           'suv',
-         ],
-       },
-       x: { label: 'Highway Milage' },
-     },
-     selector: '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]',
-     data: []
-   };
+  <script>
+  var maidr = {
+    id: "barplot_1",
+    subplots: [
+    [
+      {
+        id: "barplot_1", //add the same id to the svg component
+        layers: [
+          {
+            id: "bar_layer1",
+            type: "bar",
+            title: "Sample Bar plot",
+            axes: {
+              x: "Category",
+              y: "Value"
+            },
+            data: [
+              {
+                "x": "A",
+                "y": 10
+              },
+              {
+                "x": "B",
+                "y": 24
+              },
+              {
+                "x": "C",
+                "y": 15
+              },
+              {
+                "x": "D",
+                "y": 7
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  ]
+}
+</script>
+```
 
-   // or, multiple plots
-   maidr = [
-     {
-       type: 'box',
-       id: 'myboxplot',
-       title: 'Highway Mileage by Car Class.',
-       axes: {
-         y: {
-           label: 'Car Class',
-           level: [
-             '2seater',
-             'compact',
-             'midsize',
-             'minivan',
-             'pickup',
-             'subcompact',
-             'suv',
-           ],
-         },
-         x: { label: 'Highway Milage' },
-       },
-       selector: '#boxplot1 g[id^="panel"] > g[id^="geom_boxplot.gTree"]',
-       data: []
-     },
-     {
-       type: 'bar',
-       id: 'mybarplot',
-       // etc
-     }
-   ];
-   ```
-
+Or multiple plots:
+```javascript
+<script>
+    var maidr = {
+      "id": "multipanel_plot",
+      "subplots": [
+        [
+          {
+            "id": "line1",
+            "layers": [
+              {
+                "id": "line_layer",
+                "type": "line",
+                "title": "Line Plot: Random Data",
+                "axes": {
+                  "x": "X-axis",
+                  "y": "Values"
+                },
+                "data": [
+                  []
+                ],
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "id": "bar1",
+            "layers": [
+              {
+                "id": "bar1_layer",
+                "type": "bar",
+                "title": "Bar Plot: Random Values",
+                "axes": {
+                  "x": "Categories",
+                  "y": "Values"
+                },
+                "data": []
+                }
+            ]
+          }
+        ],
+        [
+          {
+            "id": "bar2",
+            "layers": [
+              {
+                "id": "bar2_layer",
+                "type": "bar",
+                "title": "Bar Plot 2: Random Values",
+                "axes": {
+                  "x": "Categories",
+                  "y": "Values"
+                },
+                "data": []
+              }
+            ]
+          }
+        ]
+      ]
+    }
+  </script>
+```
 4. Use the following to define the object properties:
 
-   - `type`: the type of plot. Currently supported are 'bar,' 'heat,' 'box,' 'scatter,' and 'line.'
+   - `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar',
    - `id`: the id that you added as an attribute of your main SVG.
    - `title`: the title of the plot. (optional)
    - `axes`: axes info for your plot. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
    - `data`: the main data for your plot. See below.
 
 5. Define your data set using the `maidr.data` property. This comes in different formats depending on a plot type:
+The data property is defined as a list of objects where each object is a record with fields x and y.
 
-   ```javascript
+```javascript
+
    let maidr;
 
    // barplot maidr.data structure: a simple array of values
    maidr = {
-     data: [929539693, 898871185, 3811953828, 586098530, 24549948],
+     "data": [
+                  {
+                    "x": "A",
+                    "y": 5.982192824845484
+                  },
+                  {
+                    "x": "B",
+                    "y": 9.309858198175455
+                  },
+                  {
+                    "x": "C",
+                    "y": 7.3531284491571505
+                  },
+                ]
    };
+
+  // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
+  maidr = {
+  "data": [
+              {
+                "lowerOutliers": [
+                  40.0,
+                  50.0
+                ],
+                "min": 71.35451232573614,
+                "q1": 92.62315416457983,
+                "q2": 99.64912548800726,
+                "q3": 107.6684972253361,
+                "max": 118.19391634772752,
+                "upperOutliers": [
+                  150.0,
+                  160.0
+                ],
+                "fill": "Group 1"
+              },
+
+            ],
+            
+            "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
+  }
+
+  //candlestick
+  maidr = {
+    "data":[
+              {
+                'value': '2023-02-16',
+                'open': 151.61,
+                'high': 151.82,
+                'low': 151.59,
+                'close': 151.8,
+                'volume': 0
+              },
+    ] 
+  }
+
+  //dodged_bar
+  maidr = {
+    "data":[
+      [
+        {
+          "x":"Adelie",
+          "fill":"Below",
+          "y":70
+        }
+      ],
+      [ {
+          "x":"Adelie",
+          "fill":"Above",
+          "y":90
+        }]
+    ]
+  }
 
    // heatmap maidr.data structure: a 2D array of values
-   maidr = {
-     data: [
-       [124, 0, 0],
-       [0, 68, 0],
-       [44, 56, 52],
-     ],
-   };
+  maidr = {
+        "data": {
+              "points": [
+                [ 60.5, 86.7, 89.3 ],
+                [ 18.6, 67.6, 83.9 ],
+                [ 18.5, 65.4, 78.7 ],
+              ],
+              "x": [
+                "CoLA",
+                "MNLI",
+                "MRPC",
+              ],
+              "y": [
+                "BERT",
+                "BiLSTM",
+                "BiLSTM+Attn",
+              ]
+            }
+   }
 
-   // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
-   maidr = {
-     data: [
-       {
-         lower_outlier: null,
-         min: 23,
-         q1: 24,
-         q2: 25,
-         q3: 26,
-         max: 26,
-         upper_outlier: null,
-       },
-       {
-         // etc
-       },
-     ],
-   };
+    //histogram
+    maidr = {
+      "data":[
+              {
+                  "y": 4.0,
+                  "x": 1.1475,
+                  "xMin": 1.0,
+                  "xMax": 1.295,
+                  "yMin": 0,
+                  "yMax": 4.0
+              }
+          ]
+    }
 
-   // scatterplot maidr.data: an object containing x and y properties, each with an array of float values
-   // note that data is an array here as scatterplots are often combine with line plots
+    //line
+    maidr = {
+      "data":[
+        [
+          {
+                      "x": 1.0,
+                      "y": 2.0
+          },
+          {
+                      "x": 2.0,
+                      "y": 4.0
+          },
+        ]
+        //add multiple arrays for multiline plots
+      ]
+    }
+
+   // scatterplot 
    maidr = {
      data: [
        {
-         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
-         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-       },
-       // line data could go here
+                      "x": 1.0,
+                      "y": 2.0
+        },
      ],
    };
 
    // smooth line maidr.data: an object containing x and y properties, each with an array of float values
    // note that data is an array here as scatterplots are often combine with line plots
    maidr = {
-     data: [
-       // scatterplot data could go here
-       {
-         x: [1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 1.8, 1.8, 2, 2, 2.8, 2.8, 3.1, 3.1],
-         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-       },
-     ],
-   };
-   ```
+      "data":[
+        [
+          {
+                      "x": 4.7,
+                      "y": 3.12,
+                      "svg_x": 404.51,
+                      "svg_y": 390.012
+          },
+        ]
+      ]
+    }
 
-6. If multiple plots are overlaid on the same SVG, the `type` and `data` properties can be an array instead of a single value. Be sure the order is matched between them. The final JSON schema could look like so:
+```
 
-   ```javascript
-   const maidr = {
-     type: ['point', 'smooth'],
-     id: 'scatter1',
-     title: 'Highway Mileage by Engine Displacement.',
-     name: 'Tutorial 4: Scatterplot',
-     selector: [
-       'g[id^="geom_point"] > use',
-       'g[id^="geom_smooth.gTree"] > g[id^="GRID.polyline"] > polyline[id^="GRID.polyline"]',
-     ],
-     axes: {
-       x: {
-         label: 'Engine Displacement',
-       },
-       y: {
-         label: 'Highway Mileage',
-       },
-     },
-     data: [
-       {
-         x: [
-           1.8,
-           1.8,
-           2,
-           2,
-           2.8,
-           2.8,
-           3.1,
-           1.8,
-           1.8,
-           2,
-           2,
-           2.8,
-           2.8,
-           3.1,
-           3.1,
-           2.8,
-         ],
-         y: [29, 29, 31, 30, 26, 26, 27, 26, 25, 28, 27, 25, 25, 25, 25, 24],
-       },
-       {
-         x: [
-           1.6,
-           1.6684,
-           1.7367,
-           1.8051,
-           1.8734,
-           1.9418,
-           2.0101,
-           2.0785,
-           2.1468,
-           2.2152,
-           2.2835,
-           2.3519,
-           2.4203,
-           2.4886,
-           2.557,
-           2.6253,
-         ],
-         y: [
-           33.0929,
-           32.5108,
-           31.9422,
-           31.3885,
-           30.8509,
-           30.33,
-           29.8239,
-           29.3334,
-           28.8584,
-           28.3981,
-           27.9519,
-           27.5189,
-           27.0988,
-           26.6958,
-           26.3091,
-           25.9356,
-         ],
-       },
-     ],
-   };
-   ```
+6. If multiple plots are overlaid on the same SVG, provide the data corresponding to every plot in the layers array.
 
-For more information and examples, refer to the example HTML files provided in the repository.
+```javascript
+maidr = {
+  "id": "multilayer_plot",
+  "subplots": [
+    [
+      {
+        "id": "445f4f08-b8a5-4204-8c55-0851eda7daec",
+        "layers": [
+          {
+            "id": "f548e01f-ed13-469c-9e0a-cea420ec8b3f",
+            "type": "bar",
+            "title": "",
+            "axes": {
+              "x": "X values",
+              "y": "Bar values"
+            },
+            "data": [
+              {
+                "x": "0",
+                "y": 3.0
+              },
+              {
+                "x": "1",
+                "y": 5.0
+              },
+            ],
+          },
+          {
+            "id": "f022d8e9-4aff-4ab0-9959-904fd07c9bd2",
+            "type": "line",
+            "title": "Multilayer Plot Example",
+            "axes": {
+              "x": "X values",
+              "y": "Line values"
+            },
+            "data": [
+              [
+                {
+                  "x": 0.0,
+                  "y": 10.0,
+                  "fill": "Line Data"
+                },
+                {
+                  "x": 1.0,
+                  "y": 8.0,
+                  "fill": "Line Data"
+                },
+              ]
+            ],
+          }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+
+## Examples
+Example plots are demonstrated [here](https://xabilitylab.ischool.illinois.edu/maidr/).
+
+For more information, refer to the example HTML files provided in the directory docs/examples
 
 ## Controls
 
@@ -276,6 +406,7 @@ To interact with the plots using maidr, follow these steps:
 4. Press **T** to toggle Text mode.
 5. Press **S** to toggle Sonification (tones) mode.
 6. Press **R** to toggle Review mode.
+7. Hover on the datapoint to
 
 Below is a detailed list of keyboard shortcuts for various functions:
 
@@ -294,6 +425,9 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Stop Auto-play                          | Control                     | Command                     |
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
+| Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
+| Open Settings                           | Control + ,                 | Command + ,                 |
+| Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
 
 ### Segmented Bar Controls
 

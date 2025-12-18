@@ -8,20 +8,32 @@ import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
 
+/**
+ * Enumeration of available text output modes.
+ */
 enum TextMode {
   OFF = 'off',
   TERSE = 'terse',
   VERBOSE = 'verbose',
 }
 
+/**
+ * Event emitted when text content changes.
+ */
 interface TextChangedEvent {
   value: string;
 }
 
+/**
+ * Event emitted during text navigation actions.
+ */
 interface TextNavigationEvent {
   type: 'first_navigation';
 }
 
+/**
+ * Service for managing text output and formatting of plot state information.
+ */
 export class TextService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
 
@@ -36,6 +48,10 @@ export class TextService implements Observer<PlotState>, Disposable {
   private readonly onNavigationEmitter: Emitter<TextNavigationEvent>;
   public readonly onNavigation: Event<TextNavigationEvent>;
 
+  /**
+   * Constructs a TextService instance with notification support.
+   * @param notification - The notification service for user alerts
+   */
   public constructor(notification: NotificationService) {
     this.notification = notification;
 
@@ -48,6 +64,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.onNavigation = this.onNavigationEmitter.event;
   }
 
+  /**
+   * Disposes of event emitters and releases resources.
+   */
   public dispose(): void {
     this.onChangeEmitter.dispose();
     this.onNavigationEmitter.dispose();
@@ -121,6 +140,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
+  /**
+   * Formats coordinate information from trace state into readable text.
+   * @param traceState - The trace state containing coordinate data
+   * @returns Formatted coordinate text or null if unavailable
+   */
   private formatCoordinateText(traceState: TraceState): string | null {
     if (traceState.empty || !traceState.text) {
       return null;
@@ -153,6 +177,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     return parts.length > 0 ? parts.join(', ') : null;
   }
 
+  /**
+   * Formats a layer switch announcement from trace state.
+   * @param state - The trace state representing the new layer
+   * @returns Formatted announcement text for the layer switch
+   */
   private formatLayerSwitchAnnouncement(state: TraceState): string {
     if (!isLayerSwitchTraceState(state))
       return '';
@@ -162,10 +191,18 @@ export class TextService implements Observer<PlotState>, Disposable {
       if (state.text.main && state.text.main.value !== undefined) {
         parts.push(`${state.text.main.label} is ${state.text.main.value}`);
       }
-      // Always include cross value (e.g., numeric value for boxplot sections) in
-      // the layer-switch announcement when available so users hear the actual
-      // data value immediately after switching layers.
-      if (state.text.cross && state.text.cross.value !== undefined) {
+      // Exclude cross value for violin box plots during layer switch
+      // Violin plots are uniquely identified by having exactly 2 layers: BOX + SMOOTH (KDE)
+      // Detection heuristic: box plot (traceType === 'box') with exactly 2 layers (size === 2)
+      //
+      // Note: This is a structural detection heuristic. While it works well in practice because:
+      // - Regular box plots typically have only 1 layer
+      // - Regular smooth plots (regression lines) typically have only 1 layer
+      // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
+      // Edge case: If a subplot intentionally combines an independent box plot and regression line,
+      // this would incorrectly exclude the cross value. This is rare in practice.
+      const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
+      if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
         parts.push(`${state.text.cross.label} is ${state.text.cross.value}`);
       }
       if (state.text.fill && state.text.fill.value !== undefined) {
@@ -178,6 +215,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     return announcement;
   }
 
+  /**
+   * Formats plot state into human-readable text based on current mode.
+   * @param state - The state to format (string or PlotState object)
+   * @returns Formatted text representation of the state
+   */
   public format(state: string | PlotState): string {
     if (typeof state === 'string') {
       return state;
@@ -197,6 +239,13 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
   }
 
+  /**
+   * Formats figure-level text with subplot information.
+   * @param index - Current subplot index
+   * @param size - Total number of subplots
+   * @param traceTypes - Array of trace type names in the figure
+   * @returns Formatted figure description text
+   */
   private formatFigureText(index: number, size: number, traceTypes: string[]): string {
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
@@ -204,6 +253,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
+  /**
+   * Formats subplot-level text with layer information.
+   * @param index - Current layer index
+   * @param size - Total number of layers
+   * @param traceType - The type of trace being displayed
+   * @param traceState - Optional trace state for additional context
+   * @returns Formatted subplot description text
+   */
   private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
     // Use plotType if available, otherwise fall back to traceType
     const type = traceState && !traceState.empty ? traceState.plotType : traceType;
@@ -211,13 +268,19 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Helper method to determine if the current state represents a box plot
-   * Box plots have sections but no fill information
+   * Determines if the current state represents a box plot.
+   * @param state - The text state to check
+   * @returns True if state has sections but no fill (indicating a box plot)
    */
   private isBoxPlotWithSection(state: TextState): boolean {
     return state.section !== undefined && state.fill === undefined;
   }
 
+  /**
+   * Formats trace text in verbose mode with full descriptions.
+   * @param state - The text state to format
+   * @returns Verbose formatted text with complete coordinate information
+   */
   private formatVerboseTraceText(state: TextState): string {
     const verbose = new Array<string>();
 
@@ -294,6 +357,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     return verbose.join(Constant.EMPTY);
   }
 
+  /**
+   * Formats trace text in terse mode with minimal output.
+   * @param state - The text state to format
+   * @returns Terse formatted text with compact coordinate representation
+   */
   private formatTerseTraceText(state: TextState): string {
     const terse = new Array<string>();
 
@@ -365,6 +433,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     return terse.join(Constant.EMPTY);
   }
 
+  /**
+   * Updates the service with new plot state and emits appropriate events.
+   * @param state - The new plot state to process
+   */
   public update(state: PlotState): void {
     if (this.mode === TextMode.OFF) {
       return;
@@ -400,6 +472,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
   }
 
+  /**
+   * Toggles between text modes (OFF, TERSE, VERBOSE) in sequence.
+   * @returns True if text mode is now active (not OFF), false otherwise
+   */
   public toggle(): boolean {
     switch (this.mode) {
       case TextMode.OFF:
@@ -419,5 +495,29 @@ export class TextService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
 
     return this.mode !== TextMode.OFF;
+  }
+
+  /**
+   * Checks if the text service is in verbose mode.
+   * @returns True if text mode is set to verbose, false otherwise
+   */
+  public isVerbose(): boolean {
+    return this.mode === TextMode.VERBOSE;
+  }
+
+  /**
+   * Checks if the text service is in terse mode.
+   * @returns True if text mode is set to terse, false otherwise
+   */
+  public isTerse(): boolean {
+    return this.mode === TextMode.TERSE;
+  }
+
+  /**
+   * Checks if the text service is turned off.
+   * @returns True if text mode is set to off, false otherwise
+   */
+  public isOff(): boolean {
+    return this.mode === TextMode.OFF;
   }
 }

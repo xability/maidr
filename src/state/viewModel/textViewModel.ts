@@ -7,6 +7,9 @@ import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
+/**
+ * State interface for text display and announcement functionality.
+ */
 interface TextState {
   enabled: boolean;
   announce: boolean;
@@ -47,9 +50,19 @@ const textSlice = createSlice({
 });
 const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.actions;
 
+/**
+ * ViewModel for managing text display, announcements, and notifications.
+ */
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
 
+  /**
+   * Creates a new TextViewModel instance and registers event listeners.
+   * @param store - The Redux store for state management
+   * @param text - Service for managing text formatting and updates
+   * @param notification - Service for handling notification messages
+   * @param autoplay - Service for managing autoplay functionality
+   */
   public constructor(
     store: AppStore,
     text: TextService,
@@ -61,11 +74,19 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.registerListeners(notification, autoplay);
   }
 
+  /**
+   * Disposes the view model and resets text state.
+   */
   public dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
 
+  /**
+   * Registers event listeners for text, notification, and autoplay services.
+   * @param notification - The notification service to listen to
+   * @param autoplay - The autoplay service to listen to
+   */
   private registerListeners(notification: NotificationService, autoplay: AutoplayService): void {
     this.disposables.push(this.textService.onChange((e) => {
       this.update(e.value);
@@ -93,25 +114,44 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
   }
 
+  /**
+   * Gets the current text state.
+   * @returns The current TextState
+   */
   public get state(): TextState {
     return this.store.getState().text;
   }
 
+  /**
+   * Toggles the text display feature on or off.
+   */
   public toggle(): void {
     const enabled = this.textService.toggle();
     this.store.dispatch(toggle(enabled));
   }
 
+  /**
+   * Updates the displayed text with formatted content.
+   * @param text - The text or plot state to display
+   */
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
     this.store.dispatch(update(formattedText));
     this.store.dispatch(clearMessage());
   }
 
+  /**
+   * Displays a notification message to the user.
+   * @param message - The message to display
+   */
   public notify(message: string): void {
     this.store.dispatch(notify(message));
   }
 
+  /**
+   * Sets whether text should be announced by screen readers.
+   * @param enabled - Whether to enable text announcements
+   */
   public setAnnounce(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
   }

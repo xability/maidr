@@ -1,3 +1,6 @@
+/**
+ * Constant object defining all boxplot sections with their human-readable labels.
+ */
 export const BoxplotSection = {
   LOWER_OUTLIER: 'Lower outlier(s)',
   MIN: 'Minimum',
@@ -9,4 +12,7 @@ export const BoxplotSection = {
   MEAN: 'Mean',
 } as const;
 
+/**
+ * Type representing any valid boxplot section label.
+ */
 export type BoxplotSectionType = typeof BoxplotSection[keyof typeof BoxplotSection];

@@ -4,6 +4,9 @@
  */
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
+/**
+ * Root MAIDR data structure containing figure metadata and subplot grid.
+ */
 export interface Maidr {
   id: string;
   title?: string;
@@ -12,17 +15,26 @@ export interface Maidr {
   subplots: MaidrSubplot[][];
 }
 
+/**
+ * Subplot data structure containing optional legend and trace layers.
+ */
 export interface MaidrSubplot {
   legend?: string[];
   selector?: string;
   layers: MaidrLayer[];
 }
 
+/**
+ * Data point for bar charts with x and y coordinates.
+ */
 export interface BarPoint {
   x: string | number;
   y: number | string;
 }
 
+/**
+ * Data point for boxplots containing quartiles, min/max, and outliers.
+ */
 export interface BoxPoint {
   fill: string;
   lowerOutliers: number[];
@@ -35,6 +47,9 @@ export interface BoxPoint {
   mean?: number;
 }
 
+/**
+ * DOM selectors for boxplot visual elements.
+ */
 export interface BoxSelector {
   lowerOutliers: string[];
   min: string;
@@ -45,6 +60,9 @@ export interface BoxSelector {
   mean?: string;
 }
 
+/**
+ * Data point for candlestick charts with OHLC values, volume, and trend information.
+ */
 export interface CandlestickPoint {
   value: string;
   open: number;
@@ -56,12 +74,18 @@ export interface CandlestickPoint {
   volatility: number;
 }
 
+/**
+ * Data structure for heatmap charts with x/y labels and 2D point values.
+ */
 export interface HeatmapData {
   x: string[];
   y: string[];
   points: number[][];
 }
 
+/**
+ * Data point for histograms extending bar points with bin ranges.
+ */
 export interface HistogramPoint extends BarPoint {
   xMin: number;
   xMax: number;
@@ -69,21 +93,33 @@ export interface HistogramPoint extends BarPoint {
   yMax: number;
 }
 
+/**
+ * Data point for line charts with optional fill color for multi-series plots.
+ */
 export interface LinePoint {
   x: number | string;
   y: number;
   fill?: string;
 }
 
+/**
+ * Data point for scatter plots with x and y coordinates.
+ */
 export interface ScatterPoint {
   x: number;
   y: number;
 }
 
+/**
+ * Data point for segmented/grouped bar charts with fill color identifier.
+ */
 export interface SegmentedPoint extends BarPoint {
   fill: string;
 }
 
+/**
+ * Data point for smooth/regression plots with data and SVG coordinate pairs.
+ */
 export interface SmoothPoint {
   x: number;
   y: number;
@@ -91,11 +127,17 @@ export interface SmoothPoint {
   svg_y: number;
 }
 
+/**
+ * Chart orientation for bar and box plots.
+ */
 export enum Orientation {
   VERTICAL = 'vert',
   HORIZONTAL = 'horz',
 }
 
+/**
+ * DOM selectors for candlestick chart visual elements.
+ */
 export interface CandlestickSelector {
   body: string | string[];
   wickHigh?: string | string[];
@@ -105,6 +147,9 @@ export interface CandlestickSelector {
   close?: string | string[];
 }
 
+/**
+ * Layer/trace definition containing plot type, data, and rendering configuration.
+ */
 export interface MaidrLayer {
   id: string;
   type: TraceType;
@@ -151,6 +196,9 @@ export interface MaidrLayer {
     | SegmentedPoint[][];
 }
 
+/**
+ * Enumeration of supported plot trace types.
+ */
 export enum TraceType {
   BAR = 'bar',
   BOX = 'box',

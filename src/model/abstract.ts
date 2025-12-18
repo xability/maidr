@@ -82,10 +82,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     return { row: safeRow, col: safeCol };
   }
 
+  /**
+   * Registers an observer to receive state updates.
+   * @param observer - The observer to add
+   */
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
 
+  /**
+   * Removes an observer from receiving state updates.
+   * @param observer - The observer to remove
+   */
   public removeObserver(observer: Observer<State>): void {
     const index = this.observers.indexOf(observer);
     if (index !== -1) {
@@ -93,11 +101,17 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     }
   }
 
+  /**
+   * Notifies all registered observers with the current state.
+   */
   public notifyStateUpdate(): void {
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
 
+  /**
+   * Notifies observers that an out-of-bounds condition occurred.
+   */
   public notifyOutOfBounds(): void {
     const outOfBoundsState = this.outOfBoundsState;
     this.observers.forEach(observer => observer.update(outOfBoundsState));
@@ -150,7 +164,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
+   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR, default is no-op
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
   public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
@@ -178,18 +192,38 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
+  /**
+   * Moves up in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
 
+  /**
+   * Moves down in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move down function is not defined for this trace');
   }
 
+  /**
+   * Moves left in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move left function is not defined for this trace');
   }
 
+  /**
+   * Moves right in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
   }
@@ -235,6 +269,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
+  /**
+   * Cleans up trace resources including values and highlighted SVG elements.
+   */
   public dispose(): void {
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
@@ -249,6 +286,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     super.dispose();
   }
 
+  /**
+   * Gets the current state of the trace including audio, braille, text, and highlight information.
+   * @returns The current TraceState
+   */
   public get state(): TraceState {
     return {
       empty: false,
@@ -371,7 +412,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
-   * Check if this plot supports extrema navigation
+   * Checks if this plot supports extrema navigation.
    * @returns True if extrema navigation is supported
    */
   public supportsExtremaNavigation(): boolean {
@@ -417,8 +458,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
-   * Base implementation for moving to X value
-   * Subclasses can override if they have different data structures
+   * Moves to a specific X value in the trace.
+   * @param xValue - The X value to navigate to
+   * @returns True if the move was successful, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
     // Handle traces with points array (BarTrace, LineTrace)
@@ -449,40 +491,51 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
-   * Type guard to check if trace has points array
+   * Type guard to check if trace has points array.
+   * @returns True if points array exists
    */
   private hasPointsArray(): boolean {
     return 'points' in this && this.points !== undefined;
   }
 
   /**
-   * Type guard to check if trace has values array
+   * Type guard to check if trace has values array.
+   * @returns True if values array exists
    */
   private hasValuesArray(): boolean {
     return 'values' in this && this.values !== undefined;
   }
 
   /**
-   * Safely get points array with proper typing
+   * Safely gets the points array with proper typing.
+   * @returns The points array
    */
   private getPointsArray(): any[] {
     return (this as any).points;
   }
 
   /**
-   * Validate points array structure
+   * Validates points array structure.
+   * @param points - The points array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidPointsArray(points: any[]): boolean {
     return Array.isArray(points) && points.length > 0;
   }
 
   /**
-   * Validate values array structure
+   * Validates values array structure.
+   * @param values - The values array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
   }
 
+  /**
+   * Gets the unique identifier for this trace.
+   * @returns The trace ID
+   */
   public getId(): string {
     return this.id;
   }
@@ -492,10 +545,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     y: number,
   ): { element: SVGElement; row: number; col: number } | null;
 
-  // hover functions
-  // parent calls moveToPoint with x y from mouse event
-  // this then finds a nearest point, and checks if it's in bounds
-  // if all is good, it sends row col to context.moveToIndex
+  /**
+   * Moves to the nearest point at the specified coordinates (used for hover functionality).
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   */
   public moveToPoint(x: number, y: number): void {
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
@@ -509,9 +563,16 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     }
   }
 
-  // used in hover feature
-  // this checks if the x y is within the bounding box of the element
-  // or close enough, if the point is tiny
+  /**
+   * Checks if the specified coordinates are within bounds of the element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
+   * @returns True if the point is in bounds, false otherwise
+   */
   public isPointInBounds(
     x: number,
     y: number,
