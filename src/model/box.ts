@@ -453,7 +453,8 @@ export class BoxTrace extends AbstractTrace {
       if (sections.length !== this.sections.length) {
         throw new Error(
           `Sections array length mismatch: expected ${this.sections.length}, got ${sections.length}. `
-          + `This indicates a bug in section construction logic.`,
+          + `Debug info: isMplViolinBoxPlot=${this.isMplViolinBoxPlot}, violinShowMeans=${this.violinShowMeans}, `
+          + `violinShowMedians=${this.violinShowMedians}. This indicates a bug in section construction logic.`,
         );
       }
 

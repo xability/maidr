@@ -2,6 +2,7 @@ import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, TextState } from '@type/state';
 import type { Trace } from './plot';
+import { TraceType } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
@@ -10,6 +11,12 @@ import { SmoothTrace } from './smooth';
  * are equal. This prevents division by zero errors in interpolation calculations.
  */
 const MIN_DENSITY_RANGE = 0.001;
+
+/** Tolerance for comparing data Y coordinates when calculating violin width */
+const DATA_Y_TOLERANCE = 0.01;
+
+/** Tolerance for comparing SVG Y coordinates when calculating violin width */
+const SVG_Y_TOLERANCE = 1.0;
 
 /**
  * Extended point type for violin KDE plots.
@@ -253,7 +260,6 @@ export class ViolinKdeTrace extends SmoothTrace {
     } else {
       // Fallback: Calculate from SVG coordinates if width not available
       // This should not happen if backend is working correctly
-      const yTolerance = 0.01;
       const currentSvgY = typeof currentPointWithWidth.svg_y === 'number' ? currentPointWithWidth.svg_y : null;
 
       const svgXAtSameY: number[] = [];
@@ -264,9 +270,9 @@ export class ViolinKdeTrace extends SmoothTrace {
 
         let yMatches = false;
         if (currentSvgY !== null && pointSvgY !== null) {
-          yMatches = Math.abs(pointSvgY - currentSvgY) <= 1.0;
+          yMatches = Math.abs(pointSvgY - currentSvgY) <= SVG_Y_TOLERANCE;
         } else {
-          yMatches = Math.abs(pointY - currentYValue) <= yTolerance;
+          yMatches = Math.abs(pointY - currentYValue) <= DATA_Y_TOLERANCE;
         }
 
         if (yMatches && typeof pointWithSvg.svg_x === 'number' && !Number.isNaN(pointWithSvg.svg_x)) {
@@ -301,6 +307,12 @@ export class ViolinKdeTrace extends SmoothTrace {
         xDisplayValue = firstPointInRow.x;
       } else {
         // Last resort: use row index as fallback
+        // This indicates a potential data schema issue - violin plots should have categorical X labels
+        console.warn(
+          `ViolinKdeTrace: Using fallback X label "Category ${this.row}" for violin at row ${this.row}. `
+          + `Expected string categorical labels, but received: ${typeof currentXValue}. `
+          + `This may indicate a backend data schema issue.`,
+        );
         xDisplayValue = `Category ${this.row}`;
       }
     }
@@ -364,6 +376,15 @@ export class ViolinKdeTrace extends SmoothTrace {
     const safeDensityMax = referenceDensityMin === referenceDensityMax
       ? referenceDensityMax + MIN_DENSITY_RANGE
       : referenceDensityMax;
+
+    // Log when fallback range is applied to help debug potential backend data issues
+    if (referenceDensityMin === referenceDensityMax) {
+      console.warn(
+        `ViolinKdeTrace: Applied density range fallback for violin ${this.row}. `
+        + `All density values are ${referenceDensityMin}, using range [${safeDensityMin}, ${safeDensityMax}]. `
+        + `This may indicate a backend data issue if densities should vary.`,
+      );
+    }
 
     // Use current column position, but clamp to reference row bounds
     const safeIndex = Math.min(this.col, referenceDensityValues.length - 1);
@@ -515,7 +536,7 @@ export class ViolinKdeTrace extends SmoothTrace {
    * @returns true if the move was successful (valid violin index and Y value found),
    *          false if xValue is not a number or if the violin index is out of bounds
    */
-  public moveToXAndYValue(xValue: any, yValue: number): boolean {
+  public moveToXAndYValue(xValue: number, yValue: number): boolean {
     // First set the violin (row) from X value
     if (typeof xValue !== 'number') {
       return false;
@@ -565,10 +586,10 @@ export class ViolinKdeTrace extends SmoothTrace {
   public onSwitchFrom(previousTrace: Trace): boolean {
     // Check if switching from violin box plot (BOX type)
     // Since we're in ViolinKdeTrace, if switching from BOX type in same subplot, it's the violin box plot
-    const prevTraceAny = previousTrace as any;
-    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
+    const prevTraceState = previousTrace.state;
+    const prevTraceType = prevTraceState.empty ? null : prevTraceState.traceType;
 
-    const isFromViolinBoxPlot = prevTraceType === 'box';
+    const isFromViolinBoxPlot = prevTraceType === TraceType.BOX;
 
     if (!isFromViolinBoxPlot) {
       return false; // Don't handle - use default behavior

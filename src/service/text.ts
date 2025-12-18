@@ -201,8 +201,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
       // Edge case: If a subplot intentionally combines an independent box plot and regression line,
       // this would incorrectly exclude the cross value. This is rare in practice.
-      const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
-      if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
+      if (state.text.cross && state.text.cross.value !== undefined) {
         parts.push(`${state.text.cross.label} is ${state.text.cross.value}`);
       }
       if (state.text.fill && state.text.fill.value !== undefined) {
