@@ -5,6 +5,30 @@ import { DomEventType } from './type/event';
 import { MaidrApp } from './ui/App';
 import { Constant } from './util/constant';
 
+export { Controller } from './controller';
+export type {
+  BarPoint,
+  BoxPoint,
+  BoxSelector,
+  CandlestickPoint,
+  CandlestickSelector,
+  CandlestickTrend,
+  HeatmapData,
+  HistogramPoint,
+  LinePoint,
+  Maidr,
+  MaidrLayer,
+  MaidrSubplot,
+  ScatterPoint,
+  SegmentedPoint,
+  SmoothPoint,
+} from './type/grammar';
+export { Orientation, TraceType } from './type/grammar';
+export { MaidrApp } from './ui/App';
+// Export React component and types for programmatic use
+export { MaidrChart } from './ui/MaidrChart';
+export type { MaidrChartProps } from './ui/MaidrChart';
+
 declare global {
   interface Window {
     maidr?: Maidr;

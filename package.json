@@ -22,7 +22,8 @@
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
     "e2e:ui": "npx playwright test --ui",
     "e2e:debug": "npx playwright test --debug",
-    "e2e:install": "npx playwright install --with-deps"
+    "e2e:install": "npx playwright install --with-deps",
+    "example:react": "vite --config examples/react/vite.config.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
