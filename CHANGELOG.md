@@ -1,3 +1,10 @@
+## [3.42.2](https://github.com/xability/maidr/compare/v3.42.1...v3.42.2) (2025-12-19)
+
+
+### Bug Fixes
+
+* add env config, artifact for logs ([#500](https://github.com/xability/maidr/issues/500)) ([b6e5106](https://github.com/xability/maidr/commit/b6e5106ee532d278a8a0868eeaf34a04dd681367))
+
 ## [3.42.1](https://github.com/xability/maidr/compare/v3.42.0...v3.42.1) (2025-12-19)
 
 
