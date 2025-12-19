@@ -1,3 +1,10 @@
+# [3.41.0](https://github.com/xability/maidr/compare/v3.40.0...v3.41.0) (2025-12-19)
+
+
+### Features
+
+* test release on PR merge ([#496](https://github.com/xability/maidr/issues/496)) ([823f072](https://github.com/xability/maidr/commit/823f072b6616cbc3e7ba3e1387de95dfe7d6d48b))
+
 # [3.40.0](https://github.com/xability/maidr/compare/v3.39.0...v3.40.0) (2025-12-19)
 
 
