@@ -27,7 +27,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
-          cache: false
           registry-url: 'https://registry.npmjs.org'
 
       - name: Clean dependencies and npm config
