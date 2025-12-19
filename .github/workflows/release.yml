@@ -27,16 +27,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
-          cache: npm
+          cache: false
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Ensure npm >= 11.5.1 for trusted publishing
-        run: npm install -g npm@latest && npm --version
-
-      - name: Clean dependencies
+      - name: Clean dependencies and npm config
         run: |
           rm -rf node_modules
           rm -f package-lock.json
+          rm -f ~/.npmrc
+          npm config delete always-auth || true
+          npm config delete //registry.npmjs.org/:_authToken || true
 
       - name: Install dependencies
         run: npm install
