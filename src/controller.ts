@@ -112,6 +112,7 @@ export class Controller implements Disposable {
       this.settingsService,
       this.notificationService,
       this.displayService,
+      this.figure,
     );
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(

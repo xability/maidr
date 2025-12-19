@@ -1,4 +1,5 @@
 import type { Context } from "@model/context";
+import type { Figure } from "@model/plot";
 import type { SettingsService } from "@service/settings";
 import type { Disposable } from "@type/disposable";
 import type { Observer } from "@type/observable";
@@ -12,7 +13,6 @@ import type {
 } from "@type/state";
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
-import { use } from "react";
 import { NotificationService } from "@service/notification";
 import { original } from "@reduxjs/toolkit";
 
@@ -32,6 +32,7 @@ export class HighlightService
   private readonly settingsSerivice: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
+  private readonly figure: Figure;
 
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
@@ -46,14 +47,21 @@ export class HighlightService
   private colorEquivalents: string[] = [];
   private originalColorInfo: ElementColorInfo[] | null = [];
 
+  // Cache of all trace elements for high contrast mode
+  private traceElementsCache: Set<SVGElement> | null = null;
+
   public constructor(
     settings: SettingsService,
     notification: NotificationService,
     displayService: DisplayService,
+    figure: Figure,
   ) {
     this.settingsSerivice = settings;
     this.notificationService = notification;
     this.displayService = displayService;
+    this.settingsSerivice = settings;
+    this.notificationService = notification;
+    this.figure = figure;
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
@@ -147,76 +155,89 @@ export class HighlightService
     this.highlightTraceElements(elements);
   }
 
-  public toggleHighContrast(context: Context): void {
+  public toggleHighContrast(
+    context: Context,
+    displayService: DisplayService,
+  ): void {
     // toggle high contrast mode on/off
     // triggered by hotkey 'c' through factory / toggle
 
     this.highContrastMode = !this.highContrastMode;
-    this.updateContrastDisplay(context);
+    this.updateContrastDisplay(context, displayService);
 
     const message = `High Contrast Mode ${this.highContrastMode ? "on" : "off"}`;
     this.notificationService.notify(message);
   }
 
-  private fakeGetSelectors(): string[] {
-    // fake selectors for now, until we have real ones
-    // we're just going to steal them directly from the svg in DOM
-
-    // it'll either be called data-maidr or maidr-data
-    const svg = document.querySelector("svg:first-child");
-    let maidrDataString = "{}";
-    if (!svg) return [];
-    if (svg.hasAttribute("data-maidr")) {
-      maidrDataString = svg.getAttribute("data-maidr") || "{}";
-    } else if (svg.hasAttribute("maidr-data")) {
-      maidrDataString = svg.getAttribute("maidr-data") || "{}";
+  /**
+   * Get all SVG elements from all traces in the Figure hierarchy.
+   * Uses the MVCC-compliant approach of traversing Figure → Subplot → Trace.
+   * Results are cached for performance.
+   * @returns Set of all trace SVG elements
+   */
+  private getAllTraceElements(): Set<SVGElement> {
+    // Return cached result if available
+    if (this.traceElementsCache !== null) {
+      return this.traceElementsCache;
     }
-    const data = JSON.parse(maidrDataString);
-    const selectors: string[] = [];
 
-    function traverse(obj: unknown): void {
-      if (obj === null || typeof obj !== "object") return;
+    const elements = new Set<SVGElement>();
 
-      if (Array.isArray(obj)) {
-        for (const item of obj) {
-          traverse(item);
-        }
-      } else {
-        for (const [key, value] of Object.entries(obj)) {
-          if (key === "selectors") {
-            if (typeof value === "string") {
-              selectors.push(value);
-            } else if (Array.isArray(value)) {
-              selectors.push(
-                ...value.filter((s): s is string => typeof s === "string"),
-              );
-            } else {
-              selectors.push(...(Object.values(value) as string[]));
+    // Traverse Figure → Subplot → Trace hierarchy
+    for (const subplotRow of this.figure.subplots) {
+      for (const subplot of subplotRow) {
+        for (const traceRow of subplot.traces) {
+          for (const trace of traceRow) {
+            // Use the new public method to get all highlight elements
+            const traceElements = trace.getAllHighlightElements();
+            for (const el of traceElements) {
+              elements.add(el);
             }
-          } else {
-            traverse(value);
           }
         }
       }
     }
 
-    traverse(data);
-
-    return selectors;
+    // Cache the result
+    this.traceElementsCache = elements;
+    return elements;
   }
 
-  private isThisElementInSelectors(
+  /**
+   * Clear the trace elements cache.
+   * Should be called when traces are updated.
+   */
+  private clearTraceElementsCache(): void {
+    this.traceElementsCache = null;
+  }
+
+  /**
+   * Check if an element is part of the chart data (trace elements).
+   * Uses direct element lookup instead of CSS selector matching.
+   * @param element The element to check
+   * @param traceElements Set of known trace elements
+   * @returns true if the element is a trace element
+   */
+  private isTraceElement(
     element: Element,
-    selectors: string[],
+    traceElements: Set<SVGElement>,
   ): boolean {
-    // Implement logic to check if the element matches any of the selectors
-    return selectors.some((selector) => element.matches(selector));
+    return traceElements.has(element as SVGElement);
   }
 
-  private updateContrastDisplay(context: Context): void {
+  private updateContrastDisplay(
+    context: Context,
+    displayService: DisplayService,
+  ): void {
     // todo, use 008A00 as default highlight color during high contrast mode
     // future todo: for 2 tone, use opposite color for highlight
     // if more than 2, use the furthest away
+
+    const svg = displayService.plot;
+
+    if (!svg) return;
+
+    const svgElements = svg.querySelectorAll("*");
 
     if (!this.highContrastMode) {
       // turn off high contrast mode, restore original colors
@@ -320,10 +341,12 @@ export class HighlightService
   }
 
   private getOriginalColorInfo(): ElementColorInfo[] | null {
-    const selectors = this.fakeGetSelectors();
     const svg = this.displayService.plot;
     if (!svg) return null;
     const svgElements = svg.querySelectorAll("*");
+
+    // Get all trace elements using MVCC-compliant approach
+    const traceElements = this.getAllTraceElements();
 
     const originalColorInfo: ElementColorInfo[] = [];
 
@@ -334,7 +357,7 @@ export class HighlightService
       const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
       const styleStrokeMatch = style.match(/stroke:\s*([^;]+)/i);
 
-      const isInSelectors = this.isThisElementInSelectors(el, selectors);
+      const isInSelectors = this.isTraceElement(el, traceElements);
 
       // exceptions: we don't want these to be the same as background color
       const complexPath = el.getAttribute("d");

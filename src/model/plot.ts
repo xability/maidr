@@ -330,4 +330,11 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    */
   resetToInitialEntry: () => void;
   notifyObserversWithState: (state: TraceState) => void;
+
+  /**
+   * Get all highlight SVG elements for this trace
+   * Used by HighlightService for high contrast mode
+   * @returns Array of all SVG elements, or empty array if none
+   */
+  getAllHighlightElements: () => SVGElement[];
 }

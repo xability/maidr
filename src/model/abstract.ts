@@ -374,6 +374,29 @@ export abstract class AbstractTrace<T>
     };
   }
 
+  /**
+   * Get all highlight SVG elements for this trace
+   * Used by HighlightService for high contrast mode
+   * @returns Array of all SVG elements, or empty array if none
+   */
+  public getAllHighlightElements(): SVGElement[] {
+    if (this.highlightValues === null) {
+      return [];
+    }
+
+    const elements: SVGElement[] = [];
+    for (const row of this.highlightValues) {
+      for (const cell of row) {
+        if (Array.isArray(cell)) {
+          elements.push(...cell);
+        } else if (cell) {
+          elements.push(cell);
+        }
+      }
+    }
+    return elements;
+  }
+
   protected getAudioGroupIndex(): { groupIndex?: number } {
     // Default implementation checks if there are multiple groups/lines
     // Uses this.values.length > 1 as the condition and this.row as the groupIndex
