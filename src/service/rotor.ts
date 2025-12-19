@@ -3,6 +3,9 @@ import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
 
+/**
+ * Current rotor modes: data point navigation, lower value and higher value navigation
+ */
 const ROTOR_MODES: Record<number, string> = {
   0: Constant.DATA_MODE,
   1: Constant.LOWER_VALUE_MODE,
