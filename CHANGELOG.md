@@ -1,3 +1,11 @@
+## [3.42.1](https://github.com/xability/maidr/compare/v3.42.0...v3.42.1) (2025-12-19)
+
+
+### Bug Fixes
+
+* remove cache ([#499](https://github.com/xability/maidr/issues/499)) ([a92f7d6](https://github.com/xability/maidr/commit/a92f7d6da3d8cdeffb5002b56087bc5c76bdca25))
+* remove npm config from interfering ([#498](https://github.com/xability/maidr/issues/498)) ([8966902](https://github.com/xability/maidr/commit/8966902dbfaae833fb02f221fca6b6115a8ef20f))
+
 # [3.42.0](https://github.com/xability/maidr/compare/v3.41.0...v3.42.0) (2025-12-19)
 
 
