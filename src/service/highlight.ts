@@ -14,14 +14,24 @@ import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
 import { use } from "react";
 import { NotificationService } from "@service/notification";
+import { original } from "@reduxjs/toolkit";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
+type ElementColorInfo = {
+  element: SVGElement;
+  color: string;
+  isInSelectors: boolean;
+  cantBeBackground: boolean;
+  attr: string;
+  attrType?: "style" | "attribute";
+};
 
 export class HighlightService
   implements Observer<HighlightStateUnion>, Observer<Settings>, Disposable
 {
   private readonly settingsSerivice: SettingsService;
   private readonly notificationService: NotificationService;
+  private readonly displayService: DisplayService;
 
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
@@ -34,13 +44,16 @@ export class HighlightService
   private highContrastDarkColor: string = "#000000"; // default to black
   private highContrastLevels: number = 2; // default to 2 levels (black and white)
   private colorEquivalents: string[] = [];
+  private originalColorInfo: ElementColorInfo[] | null = [];
 
   public constructor(
     settings: SettingsService,
     notification: NotificationService,
+    displayService: DisplayService,
   ) {
     this.settingsSerivice = settings;
     this.notificationService = notification;
+    this.displayService = displayService;
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
@@ -57,6 +70,8 @@ export class HighlightService
       this.highContrastDarkColor,
       this.highContrastLevels,
     );
+
+    this.originalColorInfo = this.getOriginalColorInfo();
 
     // Register as observer to listen for settings changes
     this.settingsSerivice.addObserver(this);
@@ -132,15 +147,12 @@ export class HighlightService
     this.highlightTraceElements(elements);
   }
 
-  public toggleHighContrast(
-    context: Context,
-    displayService: DisplayService,
-  ): void {
+  public toggleHighContrast(context: Context): void {
     // toggle high contrast mode on/off
     // triggered by hotkey 'c' through factory / toggle
 
     this.highContrastMode = !this.highContrastMode;
-    this.updateContrastDisplay(context, displayService);
+    this.updateContrastDisplay(context);
 
     const message = `High Contrast Mode ${this.highContrastMode ? "on" : "off"}`;
     this.notificationService.notify(message);
@@ -201,21 +213,10 @@ export class HighlightService
     return selectors.some((selector) => element.matches(selector));
   }
 
-  private updateContrastDisplay(
-    context: Context,
-    displayService: DisplayService,
-  ): void {
+  private updateContrastDisplay(context: Context): void {
     // todo, use 008A00 as default highlight color during high contrast mode
     // future todo: for 2 tone, use opposite color for highlight
     // if more than 2, use the furthest away
-
-    const svg = displayService.plot;
-
-    const selectors = this.fakeGetSelectors();
-
-    if (!svg) return;
-
-    const svgElements = svg.querySelectorAll("*");
 
     if (!this.highContrastMode) {
       // turn off high contrast mode, restore original colors
@@ -223,62 +224,45 @@ export class HighlightService
       document.body.style.backgroundColor = this.defaultBackgroundColor;
       document.body.style.color = this.defaultForegroundColor;
 
-      svg.removeAttribute("style");
-      svgElements.forEach((el) => {
-        // Restore fill/stroke from style attribute
-        const originalFill = el.getAttribute("data-original-fill");
-        const originalStroke = el.getAttribute("data-original-stroke");
-        const style = el.getAttribute("style") || "";
-
-        let newStyle = style;
-        if (originalFill) {
-          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${originalFill}`);
-          el.removeAttribute("data-original-fill");
-        }
-        if (originalStroke) {
-          newStyle = newStyle.replace(
-            /stroke:[^;]+/i,
-            `stroke:${originalStroke}`,
+      this.originalColorInfo?.forEach((item) => {
+        if (item.element && item.attrType === "style") {
+          const style = item.element.getAttribute("style") || "";
+          const newStyle = style.replace(
+            new RegExp(`${item.attr}:\\s*[^;]+`, "i"),
+            `${item.attr}:${item.color}`,
           );
-          el.removeAttribute("data-original-stroke");
-        }
-        if (newStyle !== style) el.setAttribute("style", newStyle);
-
-        // Restore fill/stroke attributes
-        const attrFill = el.getAttribute("data-attr-fill");
-        const attrStroke = el.getAttribute("data-attr-stroke");
-
-        if (attrFill) {
-          el.setAttribute("fill", attrFill);
-          el.removeAttribute("data-attr-fill");
-        }
-
-        if (attrStroke) {
-          el.setAttribute("stroke", attrStroke);
-          el.removeAttribute("data-attr-stroke");
+          item.element.setAttribute("style", newStyle);
+        } else if (item.element && item.attrType === "attribute") {
+          item.element.setAttribute(item.attr, item.color);
         }
 
         // Remove text shadow filter
-        if (el.getAttribute("filter") === "url(#glow-shadow)") {
-          el.removeAttribute("filter");
-        }
-
-        // exceptions
-        // line
-        if ("type" in context.instructionContext) {
-          if (context.instructionContext.type === "line") {
-            document
-              .getElementById(context.id)
-              ?.classList.remove("high-contrast");
-          }
+        if (item.element.getAttribute("filter") === "url(#glow-shadow)") {
+          item.element.removeAttribute("filter");
         }
       });
+
+      // exceptions
+      // line
+      if ("type" in context.instructionContext) {
+        if (context.instructionContext.type === "line") {
+          document
+            .getElementById(context.id)
+            ?.classList.remove("high-contrast");
+        }
+      }
+
+      // text stuff, like axis labels, titles, etc
+      this.displayService.plot.setAttribute(
+        "style",
+        "fill:" + this.defaultForegroundColor,
+      );
     } else {
       // turn on high contrast mode
 
       // anything that's a selector: find the closest color in our set but reverse it.
-      // That includes background and color, which get reverse by default
       // anything else: find the closest color but don't reverse it
+      // exception: background and text color, reverse
 
       const bodyStyle = window.getComputedStyle(document.body);
       this.defaultBackgroundColor = bodyStyle.backgroundColor;
@@ -286,138 +270,145 @@ export class HighlightService
       document.body.style.backgroundColor = this.highContrastDarkColor;
       document.body.style.color = this.highContrastLightColor;
 
-      // add text shadow filter, if it doesn't exist
-      this.addGlowShadowFilter(svg);
-
-      // The broad plan is to replace all colors with their closest high contrast equivalent
-      // there are exceptions, like text above, and near white for some charts
+      // get high contrast colors
+      const highContrastColors = this.getHighContrastColors(context);
 
       // apply high contrast colors
-      svgElements.forEach((el) => {
-        // is this element in our selectors?
-        const isInSelectors = this.isThisElementInSelectors(el, selectors);
-
-        // Handle style fill/stroke
-        const style = el.getAttribute("style") || "";
-        const fillMatch = style.match(/fill:\s*([^;]+)/i);
-        const strokeMatch = style.match(/stroke:\s*([^;]+)/i);
-
-        let newStyle = style;
-        // apply high contrast colors to each type, saving original in data- attributes
-
-        // exceptions: we don't want these to be the same as background color
-        const complexPath = el.getAttribute("d");
-        let isComplexPath = false;
-        if (complexPath) {
-          isComplexPath = complexPath.length > 120;
+      for (let i = 0; i < highContrastColors.length; i++) {
+        const item = highContrastColors[i];
+        if (item.element && item.attrType === "style") {
+          const style = item.element.getAttribute("style") || "";
+          const newStyle = style.replace(
+            new RegExp(`${item.attr}:\\s*[^;]+`, "i"),
+            `${item.attr}:${item.color}`,
+          );
+          item.element.setAttribute("style", newStyle);
+        } else if (item.element && item.attrType === "attribute") {
+          item.element.setAttribute(item.attr, item.color);
         }
-        const cantBeBackground = isComplexPath; // more exceptions can be added here
+      }
 
-        if (fillMatch) {
-          const originalFill = fillMatch[1];
-          el.setAttribute("data-original-fill", originalFill);
+      // exceptions:
 
-          // set text fill to light color always
-          let newFill;
-          if (this.hasParentWithStringInID(el, "text")) {
-            newFill = this.highContrastLightColor;
-          } else {
-            newFill = this.toColorStep(
-              originalFill,
-              context,
-              isInSelectors,
-              cantBeBackground,
-            );
-          }
-          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
-        }
+      // add text shadow filter, if it doesn't exist
+      this.addGlowShadowFilter(this.displayService.plot);
 
-        if (strokeMatch) {
-          const originalStroke = strokeMatch[1];
-          el.setAttribute("data-original-stroke", originalStroke);
-
-          let newStroke;
-          if (this.hasParentWithStringInID(el, "text")) {
-            newStroke = this.highContrastLightColor;
-          } else {
-            newStroke = this.toColorStep(
-              originalStroke,
-              context,
-              isInSelectors,
-              cantBeBackground,
-            );
-          }
-          newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
-        }
-
-        if (newStyle !== style) el.setAttribute("style", newStyle);
-
-        // Handle fill/stroke attributes
-        const attrFill = el.getAttribute("fill");
-        if (attrFill) {
-          el.setAttribute("data-attr-fill", attrFill);
-
-          // set text fill to light color always
-          let newFill;
-          if (this.hasParentWithStringInID(el, "text")) {
-            newFill = this.highContrastLightColor;
-          } else {
-            newFill = this.toColorStep(
-              attrFill,
-              context,
-              isInSelectors,
-              cantBeBackground,
-            );
-          }
-          newStyle = newStyle.replace(/fill:[^;]+/i, `fill:${newFill}`);
-        }
-
-        const attrStroke = el.getAttribute("stroke");
-        if (attrStroke) {
-          el.setAttribute("data-attr-stroke", attrStroke);
-
-          // set text stroke to light color always
-          let newStroke;
-          if (this.hasParentWithStringInID(el, "text")) {
-            newStroke = this.highContrastLightColor;
-          } else {
-            const newStroke = this.toColorStep(
-              attrStroke,
-              context,
-              isInSelectors,
-              cantBeBackground,
-            );
-          }
-          newStyle = newStyle.replace(/stroke:[^;]+/i, `stroke:${newStroke}`);
-        }
-
-        // text elements need a shadow
-        if (this.hasParentWithStringInID(el, "text")) {
-          el.setAttribute("filter", "url(#glow-shadow)");
-        }
-        if ("type" in context.instructionContext) {
-          if (context.instructionContext.type === "line") {
-            document.getElementById(context.id)?.classList.add("high-contrast");
-          }
+      this.originalColorInfo?.forEach((item) => {
+        // text elements need a shadow and be light text
+        if (this.hasParentWithStringInID(item.element, "text")) {
+          item.element.setAttribute("filter", "url(#glow-shadow)");
         }
       });
 
-      // exceptions
+      if ("type" in context.instructionContext) {
+        if (context.instructionContext.type === "line") {
+          document.getElementById(context.id)?.classList.add("high-contrast");
+        }
+      }
 
       // text stuff, like axis labels, titles, etc
-      displayService.plot.setAttribute(
+      this.displayService.plot.setAttribute(
         "style",
         "fill:" + this.highContrastLightColor,
       );
 
       // bookmark:
-      // all color work done, everything looking good EXCEPT:
-      // stacked or otherwise multi color bar charts all lock to either same color or background
-      // group question: can we force a border in ggplot?
-      // more immedietly:
-      // proper selectors
-      // hexa
+      // finish color work, not tested yet
+      // proper selectors, N working but me too
+      // meeting answer: force levels grayscale to fit all needed colors for stuff like stacked
     }
+  }
+
+  private getOriginalColorInfo(): ElementColorInfo[] | null {
+    const selectors = this.fakeGetSelectors();
+    const svg = this.displayService.plot;
+    if (!svg) return null;
+    const svgElements = svg.querySelectorAll("*");
+
+    const originalColorInfo: ElementColorInfo[] = [];
+
+    for (let i = 0; i < svgElements.length; i++) {
+      const el = svgElements[i];
+      // Check style attribute for fill and stroke
+      const style = el.getAttribute("style") || "";
+      const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
+      const styleStrokeMatch = style.match(/stroke:\s*([^;]+)/i);
+
+      const isInSelectors = this.isThisElementInSelectors(el, selectors);
+
+      // exceptions: we don't want these to be the same as background color
+      const complexPath = el.getAttribute("d");
+      let isComplexPath = false;
+      if (complexPath) {
+        isComplexPath = complexPath.length > 120;
+      }
+      const cantBeBackground = isComplexPath; // more exceptions can be added here
+
+      if (styleFillMatch) {
+        originalColorInfo.push({
+          element: el as SVGElement,
+          color: styleFillMatch[1].trim(),
+          isInSelectors: isInSelectors,
+          cantBeBackground: cantBeBackground,
+          attr: "fill",
+          attrType: "style",
+        });
+      }
+      if (styleStrokeMatch) {
+        originalColorInfo.push({
+          element: el as SVGElement,
+          color: styleStrokeMatch[1].trim(),
+          isInSelectors: isInSelectors,
+          cantBeBackground: cantBeBackground,
+          attr: "stroke",
+          attrType: "style",
+        });
+      }
+
+      // Check fill and stroke attributes
+      const attrFill = el.getAttribute("fill");
+      if (attrFill) {
+        originalColorInfo.push({
+          element: el as SVGElement,
+          color: attrFill.trim(),
+          isInSelectors: isInSelectors,
+          cantBeBackground: cantBeBackground,
+          attr: "fill",
+          attrType: "attribute",
+        });
+      }
+      const attrStroke = el.getAttribute("stroke");
+      if (attrStroke) {
+        originalColorInfo.push({
+          element: el as SVGElement,
+          color: attrStroke.trim(),
+          isInSelectors: isInSelectors,
+          cantBeBackground: cantBeBackground,
+          attr: "stroke",
+          attrType: "attribute",
+        });
+      }
+    }
+
+    return originalColorInfo;
+  }
+
+  private getHighContrastColors(context: Context): ElementColorInfo[] {
+    const originalColors = this.originalColorInfo;
+    if (!originalColors) return [];
+
+    // Spread out the colors to fill the full color range
+    // by modifying luminance (keep hue) accordingly.
+    const spreadColors =
+      this.spreadColorsAcrossLuminanceSpectrum(originalColors);
+
+    // return the final colors, running toColorStep on each
+    const highContrastColors = spreadColors.map((item) => ({
+      ...item,
+      color: this.toColorStep(item, context),
+    }));
+
+    return highContrastColors;
   }
 
   /**
@@ -488,6 +479,16 @@ export class HighlightService
     // Create all the filter primitives
     const filterHTML = `
     
+    <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur1"/>
+    <feOffset dx="0" dy="0" result="offsetblur1" in="blur1"/>
+    <feFlood flood-color="black" result="color1"/>
+    <feComposite in="color1" in2="offsetblur1" operator="in" result="shadow1"/>
+    
+    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur2"/>
+    <feOffset dx="0" dy="0" result="offsetblur2" in="blur2"/>
+    <feFlood flood-color="black" result="color2"/>
+    <feComposite in="color2" in2="offsetblur2" operator="in" result="shadow2"/>
+    
     <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur3"/>
     <feOffset dx="0" dy="0" result="offsetblur3" in="blur3"/>
     <feFlood flood-color="black" result="color3"/>
@@ -499,6 +500,8 @@ export class HighlightService
     <feComposite in="color4" in2="offsetblur4" operator="in" result="shadow4"/>
     
     <feMerge>
+      <feMergeNode in="shadow1"/>
+      <feMergeNode in="shadow2"/>
       <feMergeNode in="shadow3"/>
       <feMergeNode in="shadow4"/>
       <feMergeNode in="SourceGraphic"/>
@@ -509,12 +512,7 @@ export class HighlightService
     defs.appendChild(filter);
   }
 
-  private toColorStep(
-    value: string,
-    context: Context,
-    isInSelectors: boolean = false,
-    cantBeBackground: boolean = false,
-  ): string {
+  /*
     // we redo the color using the number of levels supplied,
     // and user chosen light and dark colors,
     // and return a new color
@@ -525,14 +523,21 @@ export class HighlightService
     // we return the lightest color and spread the rest accordingly
 
     // exception: sometimes we don't want the color to be the same as background,
-    // so we reduce the array of possible colors by 1
-
+    // so we reduce the array of possible colors by 1 (0 being background color)
+    */
+  private toColorStep(colorInfo: ElementColorInfo, context: Context): string {
+    // exceptions first
     // back out if the value is not a valid color
+    const value = colorInfo.color;
     if (value === "none" || value === "transparent") {
       return value;
     }
+    // text elements are always light color with shadow, do light here
+    if (this.hasParentWithStringInID(colorInfo.element, "text")) {
+      return this.highContrastLightColor;
+    }
 
-    // make a copy so we can manipulate it
+    // make a deep copy otherwise we'll mess up the original
     let colorEquivalents = [...this.colorEquivalents];
 
     // converting chart hex color to rgb (supports hexa with alpha, blends against white)
@@ -566,14 +571,19 @@ export class HighlightService
     const nearWhiteScale = 0.1; // 10% of white, = 90% white
     // If the color is close to white, return white
     if ("type" in context.instructionContext) {
-      if (context.instructionContext.type === "bar") {
-        if (isInSelectors) {
+      if (
+        context.instructionContext.type === "bar" ||
+        context.instructionContext.type === "histogram"
+      ) {
+        if (colorInfo.isInSelectors) {
           useNearWhite = true;
         }
       }
     }
 
-    // get color equivalents, interpolated from user chosen light/dark colors and number of levels
+    // now we have the right set of colors to compare our current color to
+
+    // next, get color equivalents, interpolated from user chosen light/dark colors and number of levels
     // if we're using near white strat, we adjust the light color to be near white
 
     // get closest color from equivalents
@@ -582,8 +592,8 @@ export class HighlightService
       colorEquivalents,
       useNearWhite,
       nearWhiteScale,
-      isInSelectors,
-      cantBeBackground,
+      colorInfo.isInSelectors,
+      colorInfo.cantBeBackground,
     );
 
     return outputColorHex;
@@ -788,6 +798,153 @@ export class HighlightService
       return clamped.toString(16).padStart(2, "0");
     };
     return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+  }
+
+  /**
+   * Spreads colors proportionally across the full luminance spectrum.
+   * For items where isInSelectors is true, their luminances are remapped
+   * to fill the entire 0-100% range while preserving relative ordering.
+   *
+   * @param colorInfos - Array of ElementColorInfo to process
+   * @returns New array with colors updated for isInSelectors items
+   */
+  private spreadColorsAcrossLuminanceSpectrum(
+    colorInfos: ElementColorInfo[],
+  ): ElementColorInfo[] {
+    // Helper to convert RGB to HSL
+    const rgbToHsl = (rgb: {
+      r: number;
+      g: number;
+      b: number;
+    }): { h: number; s: number; l: number } => {
+      const r = rgb.r / 255;
+      const g = rgb.g / 255;
+      const b = rgb.b / 255;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+
+      if (max === min) {
+        return { h: 0, s: 0, l };
+      }
+
+      const d = max - min;
+      const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+      let h = 0;
+      if (max === r) {
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      } else if (max === g) {
+        h = ((b - r) / d + 2) / 6;
+      } else {
+        h = ((r - g) / d + 4) / 6;
+      }
+
+      return { h, s, l };
+    };
+
+    // Helper to convert HSL to RGB
+    const hslToRgb = (hsl: {
+      h: number;
+      s: number;
+      l: number;
+    }): { r: number; g: number; b: number } => {
+      const { h, s, l } = hsl;
+
+      if (s === 0) {
+        const gray = Math.round(l * 255);
+        return { r: gray, g: gray, b: gray };
+      }
+
+      const hue2rgb = (p: number, q: number, t: number): number => {
+        let tNorm = t;
+        if (tNorm < 0) tNorm += 1;
+        if (tNorm > 1) tNorm -= 1;
+        if (tNorm < 1 / 6) return p + (q - p) * 6 * tNorm;
+        if (tNorm < 1 / 2) return q;
+        if (tNorm < 2 / 3) return p + (q - p) * (2 / 3 - tNorm) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+
+      return {
+        r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+        g: Math.round(hue2rgb(p, q, h) * 255),
+        b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+      };
+    };
+
+    // Collect items that are in selectors with their luminances
+    const selectorItems: {
+      index: number;
+      luminance: number;
+      hsl: { h: number; s: number; l: number };
+    }[] = [];
+
+    for (let i = 0; i < colorInfos.length; i++) {
+      const item = colorInfos[i];
+      // Skip non-color values
+      if (item.color === "none" || item.color === "transparent") {
+        continue;
+      }
+      if (item.isInSelectors) {
+        const rgb = this.parseColorToRgb(item.color);
+        if (rgb) {
+          const hsl = rgbToHsl(rgb);
+          selectorItems.push({
+            index: i,
+            luminance: hsl.l,
+            hsl,
+          });
+        }
+      }
+    }
+
+    // If no selector items or only one, return copy as-is
+    if (selectorItems.length <= 1) {
+      return colorInfos.map((item) => ({ ...item }));
+    }
+
+    // Find min and max luminance among selector items
+    const luminances = selectorItems.map((item) => item.luminance);
+    const minLum = Math.min(...luminances);
+    const maxLum = Math.max(...luminances);
+    const lumRange = maxLum - minLum;
+
+    // Create result array as copy
+    const result: ElementColorInfo[] = colorInfos.map((item) => ({ ...item }));
+
+    // Spread luminances proportionally to fill 0-1 range
+    for (const selectorItem of selectorItems) {
+      let newLuminance: number;
+
+      if (lumRange === 0) {
+        // All same luminance, spread evenly
+        newLuminance = 0.5;
+      } else {
+        // Map original luminance proportionally to full 0-1 range
+        // Original: minLum -> maxLum
+        // New: 0 -> 1
+        const normalizedPosition = (selectorItem.luminance - minLum) / lumRange;
+        newLuminance = normalizedPosition;
+      }
+
+      // Create new color with adjusted luminance, preserving hue and saturation
+      const newHsl = {
+        h: selectorItem.hsl.h,
+        s: selectorItem.hsl.s,
+        l: newLuminance,
+      };
+      const newRgb = hslToRgb(newHsl);
+      const newColor = this.rgbToHex(newRgb);
+
+      result[selectorItem.index].color = newColor;
+    }
+
+    return result;
   }
   private processHighlighting(highlight: HighlightState): void {
     if (highlight.empty) {
