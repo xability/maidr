@@ -57,3 +57,4 @@ jobs:
       - name: Publish to npm with provenance
         if: steps.semantic-release.outputs.new_release == 'true'
         run: npm publish --provenance --access public
+
