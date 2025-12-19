@@ -1,3 +1,10 @@
+# [3.42.0](https://github.com/xability/maidr/compare/v3.41.0...v3.42.0) (2025-12-19)
+
+
+### Features
+
+* add provenance flag to npm publish command ([#497](https://github.com/xability/maidr/issues/497)) ([d68ff62](https://github.com/xability/maidr/commit/d68ff62a4fb7580095fc1df06e4718a0fdffcb9f))
+
 # [3.41.0](https://github.com/xability/maidr/compare/v3.40.0...v3.41.0) (2025-12-19)
 
 
