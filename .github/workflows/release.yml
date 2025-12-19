@@ -45,6 +45,16 @@ jobs:
         run: npm audit signatures
 
       - name: Release
+        id: semantic-release
         env:
-            GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
-        run: npx semantic-release
+          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+        run: |
+          npx semantic-release
+          if git describe --tags --exact-match HEAD 2>/dev/null; then
+            echo "new_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm with provenance
+        if: steps.semantic-release.outputs.new_release == 'true'
+        run: npm publish --provenance --access public
+
