@@ -1,3 +1,18 @@
+# [3.40.0](https://github.com/xability/maidr/compare/v3.39.0...v3.40.0) (2025-12-19)
+
+
+### Bug Fixes
+
+* test release workflow ([#493](https://github.com/xability/maidr/issues/493)) ([ad9a64d](https://github.com/xability/maidr/commit/ad9a64d56b457da60d8ed4073436175b018c626e))
+
+
+### Features
+
+* change release yml for trusted publishing ([#494](https://github.com/xability/maidr/issues/494)) ([c1d6955](https://github.com/xability/maidr/commit/c1d6955e3411f6ecf5bac93ae0b251bc90d4983a))
+* fix smooth plot naming conventions ([#488](https://github.com/xability/maidr/issues/488)) ([cd48595](https://github.com/xability/maidr/commit/cd48595efeb84b37bedf025d9337ab4196481ad5))
+* integrate claude code ([#484](https://github.com/xability/maidr/issues/484)) ([#485](https://github.com/xability/maidr/issues/485)) ([490b87c](https://github.com/xability/maidr/commit/490b87c49ce7e195a9a38a7721c88f01fd1cd3bb))
+* push release ([#490](https://github.com/xability/maidr/issues/490)) ([a027250](https://github.com/xability/maidr/commit/a0272505306e1858b579aa7ed147fe0675eda319))
+
 # [3.39.0](https://github.com/xability/maidr/compare/v3.38.1...v3.39.0) (2025-12-09)
 
 
