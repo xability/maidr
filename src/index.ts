@@ -155,6 +155,7 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
+  plot.addEventListener(DomEventType.CLICK, onFocusIn);
 
   const reactRoot = createRoot(reactContainer, { identifierPrefix: maidr.id });
   reactRoot.render(MaidrApp(plot));
