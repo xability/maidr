@@ -14,7 +14,7 @@ import type {
 import { Constant } from "@util/constant";
 import { Svg } from "@util/svg";
 import { NotificationService } from "@service/notification";
-import { original } from "@reduxjs/toolkit";
+import { PatternService } from "@service/pattern";
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
 type ElementColorInfo = {
@@ -49,6 +49,9 @@ export class HighlightService
 
   // Cache of all trace elements for high contrast mode
   private traceElementsCache: Set<SVGElement> | null = null;
+
+  // Pattern service for high contrast mode patterns
+  private patternService: PatternService | null = null;
 
   public constructor(
     settings: SettingsService,
@@ -155,15 +158,12 @@ export class HighlightService
     this.highlightTraceElements(elements);
   }
 
-  public toggleHighContrast(
-    context: Context,
-    displayService: DisplayService,
-  ): void {
+  public toggleHighContrast(context: Context): void {
     // toggle high contrast mode on/off
     // triggered by hotkey 'c' through factory / toggle
 
     this.highContrastMode = !this.highContrastMode;
-    this.updateContrastDisplay(context, displayService);
+    this.updateContrastDisplay(context);
 
     const message = `High Contrast Mode ${this.highContrastMode ? "on" : "off"}`;
     this.notificationService.notify(message);
@@ -189,7 +189,7 @@ export class HighlightService
         for (const traceRow of subplot.traces) {
           for (const trace of traceRow) {
             // Use the new public method to get all highlight elements
-            const traceElements = trace.getAllHighlightElements();
+            const traceElements = trace.getAllOriginalElements();
             for (const el of traceElements) {
               elements.add(el);
             }
@@ -225,19 +225,10 @@ export class HighlightService
     return traceElements.has(element as SVGElement);
   }
 
-  private updateContrastDisplay(
-    context: Context,
-    displayService: DisplayService,
-  ): void {
+  private updateContrastDisplay(context: Context): void {
     // todo, use 008A00 as default highlight color during high contrast mode
     // future todo: for 2 tone, use opposite color for highlight
     // if more than 2, use the furthest away
-
-    const svg = displayService.plot;
-
-    if (!svg) return;
-
-    const svgElements = svg.querySelectorAll("*");
 
     if (!this.highContrastMode) {
       // turn off high contrast mode, restore original colors
@@ -278,6 +269,12 @@ export class HighlightService
         "style",
         "fill:" + this.defaultForegroundColor,
       );
+
+      // Clean up pattern service when turning off high contrast
+      if (this.patternService) {
+        this.patternService.dispose();
+        this.patternService = null;
+      }
     } else {
       // turn on high contrast mode
 
@@ -292,11 +289,11 @@ export class HighlightService
       document.body.style.color = this.highContrastLightColor;
 
       // get high contrast colors
-      const highContrastColors = this.getHighContrastColors(context);
+      const highContrastElInfo = this.getHighContrastColors(context);
 
       // apply high contrast colors
-      for (let i = 0; i < highContrastColors.length; i++) {
-        const item = highContrastColors[i];
+      for (let i = 0; i < highContrastElInfo.length; i++) {
+        const item = highContrastElInfo[i];
         if (item.element && item.attrType === "style") {
           const style = item.element.getAttribute("style") || "";
           const newStyle = style.replace(
@@ -333,11 +330,122 @@ export class HighlightService
         "fill:" + this.highContrastLightColor,
       );
 
-      // bookmark:
-      // finish color work, not tested yet
-      // proper selectors, N working but me too
-      // meeting answer: force levels grayscale to fit all needed colors for stuff like stacked
+      // stacked dodged bar exception: bars need to use patterns
+      if ("type" in context.instructionContext) {
+        if (
+          context.instructionContext.type === "stacked_bar" ||
+          context.instructionContext.type === "dodged_bar"
+        ) {
+          this.applyPatternsToElements(highContrastElInfo);
+        }
+      }
     }
+  }
+
+  /**
+   * Apply patterns to elements grouped by their original color.
+   * Each unique color group gets a different pattern type.
+   * @param highContrastElInfo - The high contrast color info with current colors applied
+   */
+  private applyPatternsToElements(
+    highContrastElInfo: ElementColorInfo[],
+  ): void {
+    if (!this.originalColorInfo) return;
+
+    // Initialize pattern service if needed
+    if (!this.patternService) {
+      this.patternService = new PatternService();
+      const svg = this.displayService.plot as unknown as SVGSVGElement;
+      this.patternService.initialize(svg);
+    }
+
+    // Create a map from element to its high contrast color
+    const elementToHighContrastColor = new Map<SVGElement, string>();
+    for (const item of highContrastElInfo) {
+      if (item.isInSelectors && item.attr === "fill") {
+        elementToHighContrastColor.set(item.element, item.color);
+      }
+    }
+
+    // Group elements by their original color (only those in selectors with fill attribute)
+    const colorGroups = new Map<string, ElementColorInfo[]>();
+
+    for (const item of this.originalColorInfo) {
+      if (item.isInSelectors && item.attr === "fill") {
+        const normalizedColor = this.normalizeColor(item.color);
+        if (!colorGroups.has(normalizedColor)) {
+          colorGroups.set(normalizedColor, []);
+        }
+        colorGroups.get(normalizedColor)!.push(item);
+      }
+    }
+
+    // Assign a different pattern to each color group
+    let patternIndex = 0;
+    for (const [_color, elements] of colorGroups) {
+      const patternType =
+        this.patternService.getPatternTypeByIndex(patternIndex);
+
+      for (const item of elements) {
+        // Get the high contrast color for this element (background color for pattern)
+        const baseColor =
+          elementToHighContrastColor.get(item.element) ||
+          this.highContrastLightColor;
+
+        // Pattern color is whichever of dark/light provides most contrast with base
+        const patternColor = this.getMostContrastingColor(baseColor);
+
+        this.patternService.applyPattern(item.element, {
+          type: patternType,
+          baseColor,
+          patternColor,
+        });
+      }
+
+      patternIndex++;
+    }
+  }
+
+  /**
+   * Get whichever of highContrastDarkColor or highContrastLightColor
+   * provides the most contrast against the given color.
+   */
+  private getMostContrastingColor(color: string): string {
+    const colorLuminance = this.getRelativeLuminance(color);
+    const darkLuminance = this.getRelativeLuminance(this.highContrastDarkColor);
+    const lightLuminance = this.getRelativeLuminance(
+      this.highContrastLightColor,
+    );
+
+    const darkContrast = Math.abs(colorLuminance - darkLuminance);
+    const lightContrast = Math.abs(colorLuminance - lightLuminance);
+
+    return darkContrast > lightContrast
+      ? this.highContrastDarkColor
+      : this.highContrastLightColor;
+  }
+
+  /**
+   * Calculate relative luminance of a color (0-1 scale).
+   */
+  private getRelativeLuminance(color: string): number {
+    const rgb = this.parseColorToRgb(color);
+    if (!rgb) return 0.5;
+
+    // Standard relative luminance formula
+    return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  }
+
+  /**
+   * Normalize a color to a consistent format for comparison.
+   */
+  private normalizeColor(color: string): string {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return color.toLowerCase().replace(/\s/g, "");
+
+    ctx.fillStyle = "#000";
+    ctx.fillStyle = color;
+    return ctx.fillStyle.toLowerCase();
   }
 
   private getOriginalColorInfo(): ElementColorInfo[] | null {
@@ -352,6 +460,12 @@ export class HighlightService
 
     for (let i = 0; i < svgElements.length; i++) {
       const el = svgElements[i];
+
+      // Skip hidden clones (created during model initialization)
+      if (el.getAttribute("visibility") === "hidden") {
+        continue;
+      }
+
       // Check style attribute for fill and stroke
       const style = el.getAttribute("style") || "";
       const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
@@ -417,21 +531,21 @@ export class HighlightService
   }
 
   private getHighContrastColors(context: Context): ElementColorInfo[] {
-    const originalColors = this.originalColorInfo;
-    if (!originalColors) return [];
+    const originalColorInfo = this.originalColorInfo;
+    if (!originalColorInfo) return [];
 
     // Spread out the colors to fill the full color range
     // by modifying luminance (keep hue) accordingly.
     const spreadColors =
-      this.spreadColorsAcrossLuminanceSpectrum(originalColors);
+      this.spreadColorsAcrossLuminanceSpectrum(originalColorInfo);
 
     // return the final colors, running toColorStep on each
-    const highContrastColors = spreadColors.map((item) => ({
+    const highContrastElInfo = spreadColors.map((item) => ({
       ...item,
       color: this.toColorStep(item, context),
     }));
 
-    return highContrastColors;
+    return highContrastElInfo;
   }
 
   /**
