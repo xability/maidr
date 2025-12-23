@@ -1,3 +1,10 @@
+## [3.42.4](https://github.com/xability/maidr/compare/v3.42.3...v3.42.4) (2025-12-23)
+
+
+### Bug Fixes
+
+* release wf ([#504](https://github.com/xability/maidr/issues/504)) ([487b932](https://github.com/xability/maidr/commit/487b932d153ede20202bd5a82b2f6b9ddb213cc2))
+
 ## [3.42.3](https://github.com/xability/maidr/compare/v3.42.2...v3.42.3) (2025-12-23)
 
 
