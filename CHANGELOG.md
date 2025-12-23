@@ -1,3 +1,54 @@
+## [3.42.3](https://github.com/xability/maidr/compare/v3.42.2...v3.42.3) (2025-12-23)
+
+
+### Bug Fixes
+
+* add plot listener ([#502](https://github.com/xability/maidr/issues/502)) ([861b826](https://github.com/xability/maidr/commit/861b8260dc5fcdd915a9c03aeedca6aba249aadd))
+
+## [3.42.2](https://github.com/xability/maidr/compare/v3.42.1...v3.42.2) (2025-12-19)
+
+
+### Bug Fixes
+
+* add env config, artifact for logs ([#500](https://github.com/xability/maidr/issues/500)) ([b6e5106](https://github.com/xability/maidr/commit/b6e5106ee532d278a8a0868eeaf34a04dd681367))
+
+## [3.42.1](https://github.com/xability/maidr/compare/v3.42.0...v3.42.1) (2025-12-19)
+
+
+### Bug Fixes
+
+* remove cache ([#499](https://github.com/xability/maidr/issues/499)) ([a92f7d6](https://github.com/xability/maidr/commit/a92f7d6da3d8cdeffb5002b56087bc5c76bdca25))
+* remove npm config from interfering ([#498](https://github.com/xability/maidr/issues/498)) ([8966902](https://github.com/xability/maidr/commit/8966902dbfaae833fb02f221fca6b6115a8ef20f))
+
+# [3.42.0](https://github.com/xability/maidr/compare/v3.41.0...v3.42.0) (2025-12-19)
+
+
+### Features
+
+* add provenance flag to npm publish command ([#497](https://github.com/xability/maidr/issues/497)) ([d68ff62](https://github.com/xability/maidr/commit/d68ff62a4fb7580095fc1df06e4718a0fdffcb9f))
+
+# [3.41.0](https://github.com/xability/maidr/compare/v3.40.0...v3.41.0) (2025-12-19)
+
+
+### Features
+
+* test release on PR merge ([#496](https://github.com/xability/maidr/issues/496)) ([823f072](https://github.com/xability/maidr/commit/823f072b6616cbc3e7ba3e1387de95dfe7d6d48b))
+
+# [3.40.0](https://github.com/xability/maidr/compare/v3.39.0...v3.40.0) (2025-12-19)
+
+
+### Bug Fixes
+
+* test release workflow ([#493](https://github.com/xability/maidr/issues/493)) ([ad9a64d](https://github.com/xability/maidr/commit/ad9a64d56b457da60d8ed4073436175b018c626e))
+
+
+### Features
+
+* change release yml for trusted publishing ([#494](https://github.com/xability/maidr/issues/494)) ([c1d6955](https://github.com/xability/maidr/commit/c1d6955e3411f6ecf5bac93ae0b251bc90d4983a))
+* fix smooth plot naming conventions ([#488](https://github.com/xability/maidr/issues/488)) ([cd48595](https://github.com/xability/maidr/commit/cd48595efeb84b37bedf025d9337ab4196481ad5))
+* integrate claude code ([#484](https://github.com/xability/maidr/issues/484)) ([#485](https://github.com/xability/maidr/issues/485)) ([490b87c](https://github.com/xability/maidr/commit/490b87c49ce7e195a9a38a7721c88f01fd1cd3bb))
+* push release ([#490](https://github.com/xability/maidr/issues/490)) ([a027250](https://github.com/xability/maidr/commit/a0272505306e1858b579aa7ed147fe0675eda319))
+
 # [3.39.0](https://github.com/xability/maidr/compare/v3.38.1...v3.39.0) (2025-12-09)
 
 
