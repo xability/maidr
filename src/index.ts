@@ -5,6 +5,13 @@ import { DomEventType } from './type/event';
 import { MaidrApp } from './ui/App';
 import { Constant } from './util/constant';
 
+// Export public API for React integration
+export { Controller } from './controller';
+export { MaidrApp } from './ui/App';
+export { store } from './state/store';
+export type { Maidr, MaidrLayer, MaidrSubplot, BarPoint, TraceType } from './type/grammar';
+export { TraceType as TraceTypeEnum } from './type/grammar';
+
 declare global {
   interface Window {
     maidr?: Maidr;
@@ -81,7 +88,15 @@ function main(): void {
   initMaidr(maidr, plot);
 }
 
-function initMaidr(maidr: Maidr, plot: HTMLElement): void {
+/**
+ * Initializes MAIDR accessibility features on a plot element.
+ * This function wraps the plot in figure/article elements, sets up event handlers,
+ * and renders the MAIDR React UI components.
+ *
+ * @param maidr - The MAIDR configuration object containing plot data
+ * @param plot - The HTML element containing the plot (e.g., SVG)
+ */
+export function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   let maidrContainer: HTMLElement | null = null;
   let controller: Controller | null = null;
   let hasAnnounced = false;
