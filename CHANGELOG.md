@@ -1,3 +1,10 @@
+## [3.42.3](https://github.com/xability/maidr/compare/v3.42.2...v3.42.3) (2025-12-23)
+
+
+### Bug Fixes
+
+* add plot listener ([#502](https://github.com/xability/maidr/issues/502)) ([861b826](https://github.com/xability/maidr/commit/861b8260dc5fcdd915a9c03aeedca6aba249aadd))
+
 ## [3.42.2](https://github.com/xability/maidr/compare/v3.42.1...v3.42.2) (2025-12-19)
 
 
