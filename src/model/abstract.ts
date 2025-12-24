@@ -306,8 +306,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: this.values[this.row]?.length || 0,
-          index: this.col,
+          y: this.row,
+          x: this.col,
+          rows: this.dimension.rows,
+          cols: this.dimension.cols,
         },
         warning: true,
       };
