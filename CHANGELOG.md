@@ -1,3 +1,10 @@
+## [3.43.1](https://github.com/xability/maidr/compare/v3.43.0...v3.43.1) (2025-12-24)
+
+
+### Bug Fixes
+
+* fix build error ([#507](https://github.com/xability/maidr/issues/507)) ([e8113c2](https://github.com/xability/maidr/commit/e8113c234e7db46c58bf4e3e27f1b22934609faf))
+
 # [3.43.0](https://github.com/xability/maidr/compare/v3.42.4...v3.43.0) (2025-12-24)
 
 
