@@ -1,3 +1,10 @@
+# [3.43.0](https://github.com/xability/maidr/compare/v3.42.4...v3.43.0) (2025-12-24)
+
+
+### Features
+
+* extend rotor text mode, sonification ([#506](https://github.com/xability/maidr/issues/506)) ([24d5bac](https://github.com/xability/maidr/commit/24d5bac79770f611f2138090cc7c2f1a63587933))
+
 ## [3.42.4](https://github.com/xability/maidr/compare/v3.42.3...v3.42.4) (2025-12-23)
 
 
