@@ -718,7 +718,7 @@ export class LineTrace extends AbstractTrace {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 
