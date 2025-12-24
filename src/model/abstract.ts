@@ -29,14 +29,22 @@ export interface Dimension {
 
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
   protected readonly observers: Observer<State>[];
+  protected isWarning: boolean;
 
   protected constructor() {
     this.observers = new Array<Observer<State>>();
+    this.isWarning = false;
   }
   protected abstract get dimension(): Dimension;
 
   public dispose(): void {
     this.observers.length = 0;
+  }
+
+  public notifyRotorBounds(): void {
+    this.isWarning = true;
+    this.notifyStateUpdate();
+    this.isWarning = false;
   }
 
   public get isInitialEntry(): boolean {
@@ -169,6 +177,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
     // no-op
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -179,7 +188,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * @param type
    * @returns boolean value
    */
-  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }
@@ -291,6 +300,18 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * @returns The current TraceState
    */
   public get state(): TraceState {
+    if (this.isWarning) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          size: this.values[this.row]?.length || 0,
+          index: this.col,
+        },
+        warning: true,
+      };
+    }
     return {
       empty: false,
       type: 'trace',

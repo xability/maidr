@@ -13,6 +13,7 @@ export type FigureState
   = | {
     empty: true;
     type: 'figure';
+    warning?: boolean;
   }
   | {
     empty: false;
@@ -34,6 +35,7 @@ export type SubplotState
   = | {
     empty: true;
     type: 'subplot';
+    warning?: boolean;
   }
   | {
     empty: false;
@@ -52,6 +54,7 @@ interface TraceEmptyState {
   type: 'trace';
   traceType: TraceType;
   audio: AudioEmptyState;
+  warning?: boolean;
 }
 
 /**

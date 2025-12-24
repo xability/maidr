@@ -40,6 +40,11 @@ const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
 
+// Warning
+const WARNING_FREQUENCY = 180;
+const WARNING_DURATION = 0.2;
+const WARNING_SPACE = 0.1;
+
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
@@ -156,12 +161,16 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     if (state.empty) {
-      this.playEmptyTone({
-        x: 0,
-        y: 0,
-        rows: 0,
-        cols: 0,
-      });
+      if (state.warning) {
+        this.playWarningTone();
+      } else {
+        this.playEmptyTone({
+          x: 0,
+          y: 0,
+          rows: 0,
+          cols: 0,
+        });
+      }
       return;
     }
     if (state.type !== 'trace') {
@@ -485,6 +494,33 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
     this.activeAudioIds.set(audioId, oscillators);
     return audioId;
+  }
+
+  private playOneWarningBeep(freq: number, startTime: number): void {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    let vol = 1;
+    if (osc.type !== 'sine')
+      vol = 0.5;
+
+    gain.gain.setValueAtTime(vol, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + WARNING_DURATION);
+
+    osc.connect(gain);
+    gain.connect(this.audioContext.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + WARNING_DURATION);
+  }
+
+  public playWarningTone(): void {
+    const now = this.audioContext.currentTime;
+    this.playOneWarningBeep(WARNING_FREQUENCY, now);
+    this.playOneWarningBeep(WARNING_FREQUENCY / 2 ** (1 / 12), now + WARNING_SPACE); // half step down
+    // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 
   private playZeroTone(panning: Panning): AudioId {

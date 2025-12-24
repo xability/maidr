@@ -51,7 +51,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 }
