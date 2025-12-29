@@ -29,22 +29,17 @@ type ElementColorInfo = {
 export class HighlightService
   implements Observer<HighlightStateUnion>, Observer<Settings>, Disposable
 {
-  private readonly settingsSerivice: SettingsService;
+  private readonly settingsService: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
   private readonly figure: Figure;
 
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly highlightedSubplots: Set<SVGElement>;
-  private currentHighlightColor: string;
 
-  private highContrastMode: boolean = false;
+  // Cached values that need to be preserved across high contrast toggle
   private defaultBackgroundColor: string = "";
   private defaultForegroundColor: string = "";
-  private highContrastLightColor: string = "#ffffff"; // default to white
-  private highContrastDarkColor: string = "#000000"; // default to black
-  private highContrastLevels: number = 2; // default to 2 levels (black and white)
-  private colorEquivalents: string[] = [];
   private originalColorInfo: ElementColorInfo[] | null = [];
 
   // Cache of all trace elements for high contrast mode
@@ -53,39 +48,53 @@ export class HighlightService
   // Pattern service for high contrast mode patterns
   private patternService: PatternService | null = null;
 
+  // Computed getters that read from settings service (single source of truth)
+  private get highContrastMode(): boolean {
+    return this.settingsService.state.general.highContrastMode;
+  }
+
+  private get highContrastLightColor(): string {
+    return this.settingsService.state.general.highContrastLightColor;
+  }
+
+  private get highContrastDarkColor(): string {
+    return this.settingsService.state.general.highContrastDarkColor;
+  }
+
+  private get highContrastLevels(): number {
+    return this.settingsService.state.general.highContrastLevels;
+  }
+
+  /**
+   * Computed color equivalents based on current settings.
+   * Interpolates between light and dark colors based on contrast levels.
+   */
+  private get colorEquivalents(): string[] {
+    return this.interpolateColors(
+      this.highContrastLightColor,
+      this.highContrastDarkColor,
+      this.highContrastLevels,
+    );
+  }
+
   public constructor(
     settings: SettingsService,
     notification: NotificationService,
     displayService: DisplayService,
     figure: Figure,
   ) {
-    this.settingsSerivice = settings;
+    this.settingsService = settings;
     this.notificationService = notification;
     this.displayService = displayService;
-    this.settingsSerivice = settings;
-    this.notificationService = notification;
     this.figure = figure;
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
 
-    const initialSettings = this.settingsSerivice.loadSettings();
-    this.currentHighlightColor = initialSettings.general.highlightColor;
-    this.highContrastLevels = initialSettings.general.highContrastLevels;
-    this.highContrastLightColor =
-      initialSettings.general.highContrastLightColor;
-    this.highContrastDarkColor = initialSettings.general.highContrastDarkColor;
-
-    this.colorEquivalents = this.interpolateColors(
-      this.highContrastLightColor,
-      this.highContrastDarkColor,
-      this.highContrastLevels,
-    );
-
     this.originalColorInfo = this.getOriginalColorInfo();
 
     // Register as observer to listen for settings changes
-    this.settingsSerivice.addObserver(this);
+    this.settingsService.addObserver(this);
   }
 
   public dispose(): void {
@@ -103,20 +112,16 @@ export class HighlightService
 
     const clone = Svg.createHighlightElement(
       element,
-      this.currentHighlightColor,
+      this.settingsService.state.general.highlightColor,
     );
     clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
     return clone;
   }
 
-  private handleSettingsUpdate(settings: Settings): void {
-    // update if settings stuff changed
-
-    this.currentHighlightColor = settings.general.highlightColor;
-    this.highContrastLevels = settings.general.highContrastLevels;
-    this.highContrastLightColor = settings.general.highContrastLightColor;
-    this.highContrastDarkColor = settings.general.highContrastDarkColor;
-    this.highContrastMode = settings.general.highContrastMode;
+  // Settings are read directly from settingsService.state - no local caching needed
+  private handleSettingsUpdate(_settings: Settings): void {
+    // Settings updates are handled reactively - values are read from
+    // settingsService.state.general.* when needed
   }
 
   private handleStateUpdate(
@@ -162,10 +167,22 @@ export class HighlightService
     // toggle high contrast mode on/off
     // triggered by hotkey 'c' through factory / toggle
 
-    this.highContrastMode = !this.highContrastMode;
+    const currentSettings = this.settingsService.state;
+    const newHighContrastMode = !currentSettings.general.highContrastMode;
+
+    // Update settings through the settings service (persists and notifies observers)
+    this.settingsService.saveSettings({
+      ...currentSettings,
+      general: {
+        ...currentSettings.general,
+        highContrastMode: newHighContrastMode,
+      },
+    });
+
+    // Apply the visual changes
     this.updateContrastDisplay(context);
 
-    const message = `High Contrast Mode ${this.highContrastMode ? "on" : "off"}`;
+    const message = `High Contrast Mode ${newHighContrastMode ? "on" : "off"}`;
     this.notificationService.notify(message);
   }
 
@@ -1133,7 +1150,7 @@ export class HighlightService
     for (const element of elements) {
       Svg.setSubplotHighlightSvgWithAdaptiveColor(
         element,
-        this.currentHighlightColor,
+        this.settingsService.state.general.highlightColor,
         figureBgElement,
       );
       this.highlightedSubplots.add(element);
