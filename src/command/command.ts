@@ -1,10 +1,11 @@
 import type { Context } from "@model/context";
 import type { AudioService } from "@service/audio";
 import type { AutoplayService } from "@service/autoplay";
-import type { HighlightService } from "@service/highlight";
-import type { SettingsService } from "@service/settings";
 import type { DisplayService } from "@service/display";
+import type { HighContrastService } from "@service/highContrast";
+import type { HighlightService } from "@service/highlight";
 import type { RotorNavigationService } from "@service/rotor";
+import type { SettingsService } from "@service/settings";
 import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
 import type { ChatViewModel } from "@state/viewModel/chatViewModel";
 import type { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
@@ -24,10 +25,11 @@ export interface CommandContext {
 
   audioService: AudioService;
   autoplayService: AutoplayService;
-  highlightService: HighlightService;
-  settingsService: SettingsService;
   displayService: DisplayService;
+  highContrastService: HighContrastService;
+  highlightService: HighlightService;
   rotorNavigationService: RotorNavigationService;
+  settingsService: SettingsService;
 
   brailleViewModel: BrailleViewModel;
   chatViewModel: ChatViewModel;

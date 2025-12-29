@@ -91,6 +91,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       const isInside = maidrContainer.contains(activeElement);
       if (!isInside) {
         if (controller) {
+          // Restore original colors before disposing
+          controller.suspendHighContrast();
           controller.dispose();
         }
         controller = null;
@@ -109,6 +111,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
+        // Apply high contrast now that the Controller will persist
+        controller.initializeHighContrast();
       }
 
       if (!hasAnnounced) {
@@ -128,6 +132,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
       const maidrClone = JSON.parse(JSON.stringify(maidr));
       controller = new Controller(maidrClone, plot);
+      // Apply high contrast now that the Controller will persist
+      controller.initializeHighContrast();
       // Do not announce here; focus-in will handle one-shot announcement
       hasAnnounced = false;
     }

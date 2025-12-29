@@ -1,6 +1,6 @@
 import type { Context } from "@model/context";
 import type { AudioService } from "@service/audio";
-import type { HighlightService } from "@service/highlight";
+import type { HighContrastService } from "@service/highContrast";
 import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
 import type { ChatViewModel } from "@state/viewModel/chatViewModel";
 import type { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
@@ -10,7 +10,6 @@ import type { SettingsViewModel } from "@state/viewModel/settingsViewModel";
 import type { TextViewModel } from "@state/viewModel/textViewModel";
 import type { Scope } from "@type/event";
 import type { Command } from "./command";
-import { DisplayService } from "@service/display";
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
@@ -180,19 +179,13 @@ export class ToggleScopeCommand implements Command {
   }
 }
 export class ToggleHighContrast implements Command {
-  private readonly context: Context;
-  private readonly highlightService: HighlightService;
+  private readonly highContrastService: HighContrastService;
 
-  public constructor(
-    context: Context,
-    highlightService: HighlightService,
-    displayService: DisplayService,
-  ) {
-    this.context = context;
-    this.highlightService = highlightService;
+  public constructor(highContrastService: HighContrastService) {
+    this.highContrastService = highContrastService;
   }
 
   public execute(): void {
-    this.highlightService.toggleHighContrast(this.context);
+    this.highContrastService.toggleHighContrast();
   }
 }

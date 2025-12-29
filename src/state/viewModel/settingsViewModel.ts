@@ -1,52 +1,55 @@
-import type { PayloadAction } from '@reduxjs/toolkit';
-import type { SettingsService } from '@service/settings';
-import type { Settings } from '@type/settings';
-import type { AppStore } from '../store';
-import { createSlice } from '@reduxjs/toolkit';
-import { AbstractViewModel } from './viewModel';
+import type { PayloadAction } from "@reduxjs/toolkit";
+import type { SettingsService } from "@service/settings";
+import type { Settings } from "@type/settings";
+import type { AppStore } from "../store";
+import { createSlice } from "@reduxjs/toolkit";
+import { AbstractViewModel } from "./viewModel";
 
 interface SettingsState extends Settings {}
 
 const initialState: SettingsState = {
   general: {
     volume: 50,
-    highlightColor: '#03c809',
+    highlightColor: "#03c809",
+    highContrastMode: false,
     highContrastLevels: 2,
+    highContrastLightColor: "#ffffff",
+    highContrastDarkColor: "#000000",
     brailleDisplaySize: 32,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,
-    ariaMode: 'assertive',
-    hoverMode: 'pointermove',
+    ariaMode: "assertive",
+    hoverMode: "pointermove",
   },
   llm: {
-    expertiseLevel: 'basic',
-    customInstruction: '',
+    expertiseLevel: "basic",
+    customInstruction: "",
     models: {
       OPENAI: {
         enabled: false,
-        apiKey: '',
-        name: 'OPENAI',
-        version: 'gpt-4o',
+        apiKey: "",
+        name: "OPENAI",
+        version: "gpt-4o",
       },
       ANTHROPIC_CLAUDE: {
         enabled: false,
-        apiKey: '',
-        name: 'ANTHROPIC_CLAUDE',
-        version: 'claude-3-7-sonnet-latest',
+        apiKey: "",
+        name: "ANTHROPIC_CLAUDE",
+        version: "claude-3-7-sonnet-latest",
       },
       GOOGLE_GEMINI: {
         enabled: false,
-        apiKey: '',
-        name: 'Gemini',
-        version: 'gemini-2.0-flash',
+        apiKey: "",
+        name: "Gemini",
+        version: "gemini-2.0-flash",
       },
     },
   },
 };
 
 const settingsSlice = createSlice({
-  name: 'settings',
+  name: "settings",
   initialState,
   reducers: {
     update: (state, action: PayloadAction<Settings>): SettingsState => {

@@ -11,6 +11,7 @@ import { CommandPaletteService } from "@service/commandPalette";
 import { DisplayService } from "@service/display";
 import { GoToExtremaService } from "@service/goToExtrema";
 import { HelpService } from "@service/help";
+import { HighContrastService } from "@service/highContrast";
 import { HighlightService } from "@service/highlight";
 import { KeybindingService, Mousebindingservice } from "@service/keybinding";
 import { NotificationService } from "@service/notification";
@@ -48,6 +49,7 @@ export class Controller implements Disposable {
   private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
+  private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
@@ -108,12 +110,14 @@ export class Controller implements Disposable {
       this.notificationService,
       this.settingsService,
     );
-    this.highlightService = new HighlightService(
+    this.highContrastService = new HighContrastService(
       this.settingsService,
       this.notificationService,
       this.displayService,
       this.figure,
+      this.context,
     );
+    this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
       this.displayService,
@@ -163,10 +167,11 @@ export class Controller implements Disposable {
 
       audioService: this.audioService,
       autoplayService: this.autoplayService,
-      highlightService: this.highlightService,
-      settingsService: this.settingsService,
       displayService: this.displayService,
+      highContrastService: this.highContrastService,
+      highlightService: this.highlightService,
       rotorNavigationService: this.rotorNavigationService,
+      settingsService: this.settingsService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
@@ -184,9 +189,11 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
-        highlightService: this.highlightService,
-        settingsService: this.settingsService,
         displayService: this.displayService,
+        highContrastService: this.highContrastService,
+        highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -197,7 +204,6 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
-        rotorNavigationService: this.rotorNavigationService,
       },
       this.settingsService,
       this.displayService,
@@ -209,10 +215,11 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
-        highlightService: this.highlightService,
-        settingsService: this.settingsService,
         displayService: this.displayService,
+        highContrastService: this.highContrastService,
+        highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -254,6 +261,22 @@ export class Controller implements Disposable {
     this.textViewModel.update(text);
   }
 
+  /**
+   * Initialize high contrast mode if enabled in settings.
+   * Call this after the Controller is fully set up and will persist (not the throwaway init).
+   */
+  public initializeHighContrast(): void {
+    this.highContrastService.initializeHighContrast();
+  }
+
+  /**
+   * Suspend high contrast mode visually (restore original colors).
+   * Call this on blur to return the chart to its original appearance.
+   */
+  public suspendHighContrast(): void {
+    this.highContrastService.suspendHighContrast();
+  }
+
   public dispose(): void {
     this.keybinding.unregister();
     this.mousebinding.dispose();
@@ -269,6 +292,7 @@ export class Controller implements Disposable {
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
 
+    this.highContrastService.dispose();
     this.highlightService.dispose();
     this.autoplayService.dispose();
 

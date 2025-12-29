@@ -1,9 +1,8 @@
 import type { Context } from "@model/context";
 import type { AudioService } from "@service/audio";
 import type { AutoplayService } from "@service/autoplay";
+import type { HighContrastService } from "@service/highContrast";
 import type { HighlightService } from "@service/highlight";
-import type { SettingsService } from "@service/settings";
-import { DisplayService } from "@service/display";
 import type { RotorNavigationService } from "@service/rotor";
 import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
 import type { ChatViewModel } from "@state/viewModel/chatViewModel";
@@ -87,11 +86,10 @@ export class CommandFactory {
 
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
+  private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
-  private readonly settingsService: SettingsService;
-  private readonly displayService: DisplayService;
-
   private readonly rotorService: RotorNavigationService;
+
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
@@ -107,9 +105,8 @@ export class CommandFactory {
 
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
+    this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
-    this.settingsService = commandContext.settingsService;
-    this.displayService = commandContext.displayService;
     this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
@@ -180,11 +177,7 @@ export class CommandFactory {
       case "TOGGLE_REVIEW":
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
       case "TOGGLE_HIGH_CONTRAST":
-        return new ToggleHighContrast(
-          this.context,
-          this.highlightService,
-          this.displayService,
-        );
+        return new ToggleHighContrast(this.highContrastService);
 
       case "TOGGLE_HELP":
         return new ToggleHelpCommand(this.helpViewModel);

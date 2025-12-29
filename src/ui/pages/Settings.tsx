@@ -423,6 +423,32 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
+              label="High Contrast Mode"
+              input={(
+                <FormControl>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={generalSettings.highContrastMode}
+                        onChange={e =>
+                          handleGeneralChange('highContrastMode', e.target.checked)}
+                        size="small"
+                      />
+                    )}
+                    label={generalSettings.highContrastMode ? 'On' : 'Off'}
+                    slotProps={{
+                      typography: {
+                        variant: 'body2',
+                      },
+                    }}
+                    aria-label="High Contrast Mode"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
               label="High Contrast Levels"
               input={(
                 <FormControl fullWidth>
