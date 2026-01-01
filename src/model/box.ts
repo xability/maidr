@@ -1,4 +1,4 @@
-import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { BoxPoint, BoxSelector, MaidrLayer, ViolinLayerType } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
@@ -11,6 +11,9 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
+
+/** Constant for matplotlib violin layer type. */
+const MPL_VIOLIN_LAYER: ViolinLayerType = 'mpl_violin';
 
 /**
  * Concrete implementation of a box plot trace supporting vertical and horizontal orientations.
@@ -34,6 +37,33 @@ export class BoxTrace extends AbstractTrace {
   private readonly max: number;
 
   private readonly isViolinBoxPlot: boolean;
+  /** True when this box trace is part of a violin plot (BOX + SMOOTH layers in same subplot). */
+  private readonly isMplViolinBoxPlot: boolean;
+  /** True when matplotlib violin plot should display mean values (from violinOptions.showMeans). */
+  private readonly violinShowMeans: boolean;
+  /** True when matplotlib violin plot should display median values (from violinOptions.showMedians). */
+  private readonly violinShowMedians: boolean;
+
+  /**
+   * Compute box values array based on section accessors and orientation.
+   * Handles the transformation from section-based to position-based layout.
+   *
+   * @param sectionAccessors - Array of functions that extract section values from BoxPoint
+   * @returns 2D array where layout depends on orientation:
+   *         - Vertical: [sections][positions]
+   *         - Horizontal: [positions][sections]
+   */
+  private computeBoxValues(sectionAccessors: ((p: BoxPoint) => number | number[])[]): (number[] | number)[][] {
+    if (this.orientation === Orientation.HORIZONTAL) {
+      return this.points.map(point =>
+        sectionAccessors.map(accessor => accessor(point)),
+      );
+    } else {
+      return sectionAccessors.map(accessor =>
+        this.points.map(point => accessor(point)),
+      );
+    }
+  }
 
   constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
@@ -48,6 +78,22 @@ export class BoxTrace extends AbstractTrace {
      */
     this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
 
+    /**
+     * Distinguish Matplotlib vs Seaborn violin box layers.
+     *
+     * Python passes a `violinLayer` hint in the schema. For Matplotlib
+     * `Axes.violinplot`, this is set to "mpl_violin". We use this hint
+     * so that Matplotlib violins expose only min/median/max in text,
+     * matching Matplotlib's visual defaults (no quartiles), while Seaborn
+     * violins (with inner='box') still expose quartiles.
+     */
+    const violinLayer = layer.violinLayer;
+    this.isMplViolinBoxPlot = this.isViolinBoxPlot && violinLayer === MPL_VIOLIN_LAYER;
+
+    const violinOptions = layer.violinOptions;
+    this.violinShowMeans = !!(this.isMplViolinBoxPlot && violinOptions?.showMeans);
+    this.violinShowMedians = !!(this.isMplViolinBoxPlot && violinOptions?.showMedians);
+
     this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
@@ -59,39 +105,71 @@ export class BoxTrace extends AbstractTrace {
       this.points = layer.data as BoxPoint[];
     }
 
-    this.sections = [
-      BoxplotSection.LOWER_OUTLIER,
-      BoxplotSection.MIN,
-      BoxplotSection.Q1,
-      BoxplotSection.Q2,
-      BoxplotSection.Q3,
-      BoxplotSection.MAX,
-      BoxplotSection.UPPER_OUTLIER,
-    ];
-    const sectionAccessors = [
-      (p: BoxPoint) => p.lowerOutliers,
-      (p: BoxPoint) => p.min,
-      (p: BoxPoint) => p.q1,
-      (p: BoxPoint) => p.q2,
-      (p: BoxPoint) => p.q3,
-      (p: BoxPoint) => p.max,
-      (p: BoxPoint) => p.upperOutliers,
-    ];
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.boxValues = this.points.map(point =>
-        sectionAccessors.map(accessor => accessor(point)),
+    // For regular box plots and Seaborn violins (with visible inner box),
+    // expose full Tukey structure including quartiles.
+    // For Matplotlib violins, respect showmedians/showmeans flags.
+    if (this.isMplViolinBoxPlot) {
+      this.sections = [
+        BoxplotSection.LOWER_OUTLIER,
+        BoxplotSection.MIN,
+      ];
+      const sectionAccessors: ((p: BoxPoint) => number | number[])[] = [
+        (p: BoxPoint) => p.lowerOutliers,
+        (p: BoxPoint) => p.min,
+      ];
+
+      if (this.violinShowMedians) {
+        this.sections.push(BoxplotSection.Q2);
+        sectionAccessors.push((p: BoxPoint) => p.q2);
+      }
+
+      if (this.violinShowMeans) {
+        this.sections.push(BoxplotSection.MEAN);
+        // Use NaN as fallback for missing mean values. These will be filtered out
+        // during min/max calculations to prevent NaN propagation in audio scaling.
+        sectionAccessors.push((p: BoxPoint) => p.mean ?? Number.NaN);
+      }
+
+      this.sections.push(BoxplotSection.MAX);
+      this.sections.push(BoxplotSection.UPPER_OUTLIER);
+      sectionAccessors.push(
+        (p: BoxPoint) => p.max,
+        (p: BoxPoint) => p.upperOutliers,
       );
+
+      this.boxValues = this.computeBoxValues(sectionAccessors);
     } else {
-      this.boxValues = sectionAccessors.map(accessor =>
-        this.points.map(point => accessor(point)),
-      );
+      this.sections = [
+        BoxplotSection.LOWER_OUTLIER,
+        BoxplotSection.MIN,
+        BoxplotSection.Q1,
+        BoxplotSection.Q2,
+        BoxplotSection.Q3,
+        BoxplotSection.MAX,
+        BoxplotSection.UPPER_OUTLIER,
+      ];
+
+      const sectionAccessors = [
+        (p: BoxPoint) => p.lowerOutliers,
+        (p: BoxPoint) => p.min,
+        (p: BoxPoint) => p.q1,
+        (p: BoxPoint) => p.q2,
+        (p: BoxPoint) => p.q3,
+        (p: BoxPoint) => p.max,
+        (p: BoxPoint) => p.upperOutliers,
+      ];
+      this.boxValues = this.computeBoxValues(sectionAccessors);
     }
 
     const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
     );
-    this.min = MathUtil.minFrom2D(flatBoxValues);
-    this.max = MathUtil.maxFrom2D(flatBoxValues);
+    // Filter out NaN values to prevent issues in min/max calculations
+    const filteredValues = flatBoxValues.map(row =>
+      row.filter(value => !Number.isNaN(value)),
+    );
+    this.min = MathUtil.minFrom2D(filteredValues);
+    this.max = MathUtil.maxFrom2D(filteredValues);
 
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as BoxSelector[],
@@ -295,6 +373,7 @@ export class BoxTrace extends AbstractTrace {
       max: SVGElement | null;
       iq: SVGElement | null;
       q2: SVGElement | null;
+      mean: SVGElement | null;
     }> = [];
 
     selectors.forEach((selector) => {
@@ -309,6 +388,7 @@ export class BoxTrace extends AbstractTrace {
       const maxOriginal = Svg.selectElement(selector.max, false);
       const iqOriginal = Svg.selectElement(selector.iq, false);
       const q2Original = Svg.selectElement(selector.q2, false);
+      const meanOriginal = selector.mean ? Svg.selectElement(selector.mean, false) : null;
 
       originals.push({
         lowerOutliers: lowerOutliersOriginals,
@@ -317,6 +397,7 @@ export class BoxTrace extends AbstractTrace {
         max: maxOriginal,
         iq: iqOriginal,
         q2: q2Original,
+        mean: meanOriginal,
       });
     });
 
@@ -338,6 +419,7 @@ export class BoxTrace extends AbstractTrace {
       const min = this.cloneElementOrEmpty(original.min);
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
+      const mean = this.cloneElementOrEmpty(original.mean);
 
       // Only create line elements if iq selector exists and element was found
       // If iq is empty/missing, create empty line elements instead
@@ -362,7 +444,19 @@ export class BoxTrace extends AbstractTrace {
             Svg.createEmptyElement('line'), // Empty line element for Q1
             Svg.createEmptyElement('line'), // Empty line element for Q3
           ];
-      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+
+      const sections = this.isMplViolinBoxPlot
+        ? this.buildMplViolinSections(lowerOutliers, min, q2, mean, max, upperOutliers)
+        : [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+
+      // Validate that sections array length matches this.sections length to prevent index mismatches
+      if (sections.length !== this.sections.length) {
+        throw new Error(
+          `Sections array length mismatch: expected ${this.sections.length}, got ${sections.length}. `
+          + `Debug info: isMplViolinBoxPlot=${this.isMplViolinBoxPlot}, violinShowMeans=${this.violinShowMeans}, `
+          + `violinShowMedians=${this.violinShowMedians}. This indicates a bug in section construction logic.`,
+        );
+      }
 
       if (isVertical) {
         sections.forEach((section, sectionIdx) => {
@@ -374,6 +468,43 @@ export class BoxTrace extends AbstractTrace {
     });
 
     return svgElements;
+  }
+
+  /**
+   * Build the sections array for matplotlib violin box plots.
+   * Conditionally includes median and mean elements based on violin options.
+   *
+   * @param lowerOutliers - SVG elements for lower outliers
+   * @param min - SVG element for minimum value
+   * @param q2 - SVG element for median (Q2)
+   * @param mean - SVG element for mean value
+   * @param max - SVG element for maximum value
+   * @param upperOutliers - SVG elements for upper outliers
+   * @returns Array of SVG elements representing violin box sections
+   */
+  private buildMplViolinSections(
+    lowerOutliers: SVGElement[],
+    min: SVGElement,
+    q2: SVGElement,
+    mean: SVGElement,
+    max: SVGElement,
+    upperOutliers: SVGElement[],
+  ): (SVGElement[] | SVGElement)[] {
+    const sections: (SVGElement[] | SVGElement)[] = [
+      lowerOutliers,
+      min,
+    ];
+
+    if (this.violinShowMedians) {
+      sections.push(q2);
+    }
+
+    if (this.violinShowMeans) {
+      sections.push(mean);
+    }
+
+    sections.push(max, upperOutliers);
+    return sections;
   }
 
   /**
