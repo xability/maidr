@@ -13,6 +13,7 @@ import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { MarkService } from '@service/mark';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
@@ -54,6 +55,7 @@ export class Controller implements Disposable {
   private readonly highlightService: HighlightService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
+  private readonly markService: MarkService;
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
@@ -152,6 +154,18 @@ export class Controller implements Disposable {
       commandPaletteService,
     );
 
+    // Initialize MarkService now that all dependencies are available
+    this.markService = new MarkService(
+      this.context,
+      this.figure,
+      new LocalStorageService(),
+      this.notificationService,
+      this.audioService,
+      this.highlightService,
+      this.brailleViewModel,
+      this.textViewModel,
+    );
+
     this.keybinding = new KeybindingService({
       context: this.context,
       audioService: this.audioService,
@@ -168,6 +182,7 @@ export class Controller implements Disposable {
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
       rotorNavigationService: this.rotorNavigationService,
+      markService: this.markService,
     });
     this.mousebinding = new Mousebindingservice(
       {
@@ -187,6 +202,7 @@ export class Controller implements Disposable {
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
         rotorNavigationService: this.rotorNavigationService,
+        markService: this.markService,
       },
       this.settingsService,
       this.displayService,
@@ -208,6 +224,7 @@ export class Controller implements Disposable {
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
         rotorNavigationService: this.rotorNavigationService,
+        markService: this.markService,
       },
       this.context.scope,
     );
@@ -269,6 +286,7 @@ export class Controller implements Disposable {
 
     this.highlightService.dispose();
     this.autoplayService.dispose();
+    this.markService.dispose();
 
     this.textService.dispose();
     this.reviewService.dispose();

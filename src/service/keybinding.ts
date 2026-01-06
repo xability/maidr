@@ -17,6 +17,11 @@ import hotkeys from 'hotkeys-js';
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
+  // Mark and recall
+  ACTIVATE_MARK_SET_SCOPE: `shift+m`,
+  ACTIVATE_MARK_PLAY_SCOPE: `m`,
+  ACTIVATE_MARK_JUMP_SCOPE: `j`,
+
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
   AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
@@ -170,6 +175,11 @@ const SETTINGS_KEYMAP = {
 const TRACE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
 
+  // Mark and recall
+  ACTIVATE_MARK_SET_SCOPE: `shift+m`,
+  ACTIVATE_MARK_PLAY_SCOPE: `m`,
+  ACTIVATE_MARK_JUMP_SCOPE: `j`,
+
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
   AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
@@ -246,6 +256,60 @@ const COMMAND_PALETTE_KEYMAP = {
 } as const;
 
 /**
+ * Keymap configuration for mark set scope interactions (setting marks).
+ */
+const MARK_SET_KEYMAP = {
+  DEACTIVATE_MARK_SCOPE: 'escape',
+  SET_MARK_0: '0',
+  SET_MARK_1: '1',
+  SET_MARK_2: '2',
+  SET_MARK_3: '3',
+  SET_MARK_4: '4',
+  SET_MARK_5: '5',
+  SET_MARK_6: '6',
+  SET_MARK_7: '7',
+  SET_MARK_8: '8',
+  SET_MARK_9: '9',
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
+} as const;
+
+/**
+ * Keymap configuration for mark play scope interactions (describing marks).
+ */
+const MARK_PLAY_KEYMAP = {
+  DEACTIVATE_MARK_SCOPE: 'escape',
+  PLAY_MARK_0: '0',
+  PLAY_MARK_1: '1',
+  PLAY_MARK_2: '2',
+  PLAY_MARK_3: '3',
+  PLAY_MARK_4: '4',
+  PLAY_MARK_5: '5',
+  PLAY_MARK_6: '6',
+  PLAY_MARK_7: '7',
+  PLAY_MARK_8: '8',
+  PLAY_MARK_9: '9',
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
+} as const;
+
+/**
+ * Keymap configuration for mark jump scope interactions (jumping to marks).
+ */
+const MARK_JUMP_KEYMAP = {
+  DEACTIVATE_MARK_SCOPE: 'escape',
+  JUMP_TO_MARK_0: '0',
+  JUMP_TO_MARK_1: '1',
+  JUMP_TO_MARK_2: '2',
+  JUMP_TO_MARK_3: '3',
+  JUMP_TO_MARK_4: '4',
+  JUMP_TO_MARK_5: '5',
+  JUMP_TO_MARK_6: '6',
+  JUMP_TO_MARK_7: '7',
+  JUMP_TO_MARK_8: '8',
+  JUMP_TO_MARK_9: '9',
+  TOGGLE_HELP: `${Platform.ctrl}+/`,
+} as const;
+
+/**
  * Maps each application scope to its corresponding keymap configuration.
  */
 export const SCOPED_KEYMAP = {
@@ -255,6 +319,9 @@ export const SCOPED_KEYMAP = {
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
+  [Scope.MARK_JUMP]: MARK_JUMP_KEYMAP,
+  [Scope.MARK_PLAY]: MARK_PLAY_KEYMAP,
+  [Scope.MARK_SET]: MARK_SET_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,

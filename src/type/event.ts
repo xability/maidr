@@ -34,6 +34,9 @@ export enum Scope {
   GO_TO_EXTREMA = 'GO_TO_EXTREMA',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
+  MARK_JUMP = 'MARK_JUMP',
+  MARK_PLAY = 'MARK_PLAY',
+  MARK_SET = 'MARK_SET',
   SUBPLOT = 'SUBPLOT',
   TRACE = 'TRACE',
   TRACE_LABEL = 'TRACE_LABEL',
@@ -44,7 +47,7 @@ export enum Scope {
 /**
  * Focusable scopes excluding label-only scopes that cannot receive keyboard focus.
  */
-export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
+export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.MARK_JUMP | Scope.MARK_PLAY | Scope.MARK_SET | Scope.TRACE_LABEL>;
 
 /**
  * Type representing valid keyboard shortcut keys for a given scope.
