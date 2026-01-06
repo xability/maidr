@@ -272,6 +272,16 @@ export class CommandFactory {
       case 'ACTIVATE_MARK_JUMP_SCOPE':
         return new ActivateMarkJumpScopeCommand(this.markService);
       case 'DEACTIVATE_MARK_SCOPE':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_0':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_1':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_2':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_3':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_4':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_5':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_6':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_7':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_8':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_9':
         return new DeactivateMarkScopeCommand(this.markService);
 
       case 'SET_MARK_0':
