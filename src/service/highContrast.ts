@@ -4,9 +4,17 @@ import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
-import type { Observer } from '@type/observable';
-import type { Settings } from '@type/settings';
 import { PatternService } from '@service/pattern';
+
+/**
+ * Settings paths for high contrast configuration.
+ */
+enum HighContrastSettings {
+  MODE = 'general.highContrastMode',
+  LEVELS = 'general.highContrastLevels',
+  LIGHT_COLOR = 'general.highContrastLightColor',
+  DARK_COLOR = 'general.highContrastDarkColor',
+}
 
 interface ElementColorInfo {
   element: SVGElement;
@@ -26,12 +34,15 @@ interface ElementColorInfo {
  * - Restores original colors on blur via suspendHighContrast()
  * - Responds to settings changes (toggle via keyboard/UI)
  */
-export class HighContrastService implements Observer<Settings>, Disposable {
+export class HighContrastService implements Disposable {
   private readonly settingsService: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
   private readonly figure: Figure;
   private readonly context: Context;
+
+  // Disposable for settings change subscription
+  private settingsDisposable: Disposable | null = null;
 
   // Cached original colors - captured once on first application
   private defaultBackgroundColor: string = '';
@@ -49,19 +60,19 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   // Computed getters that read from settings service (single source of truth)
   private get highContrastMode(): boolean {
-    return this.settingsService.state.general.highContrastMode;
+    return this.settingsService.loadSettings().general.highContrastMode;
   }
 
   private get highContrastLightColor(): string {
-    return this.settingsService.state.general.highContrastLightColor;
+    return this.settingsService.loadSettings().general.highContrastLightColor;
   }
 
   private get highContrastDarkColor(): string {
-    return this.settingsService.state.general.highContrastDarkColor;
+    return this.settingsService.loadSettings().general.highContrastDarkColor;
   }
 
   private get highContrastLevels(): number {
-    return this.settingsService.state.general.highContrastLevels;
+    return this.settingsService.loadSettings().general.highContrastLevels;
   }
 
   /**
@@ -92,8 +103,12 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     // Initialize previous state from settings to track changes
     this.previousHighContrastMode = this.highContrastMode;
 
-    // Register as observer to listen for settings changes
-    this.settingsService.addObserver(this);
+    // Subscribe to settings changes using the modern event pattern
+    this.settingsDisposable = this.settingsService.onChange((event) => {
+      if (event.affectsSetting(HighContrastSettings.MODE)) {
+        this.handleHighContrastModeChange(event.get<boolean>(HighContrastSettings.MODE));
+      }
+    });
 
     // IMPORTANT: Always capture original colors first, before any high contrast is applied.
     // The DOM has the true original colors at this point (page just loaded).
@@ -145,8 +160,11 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   }
 
   public dispose(): void {
-    // Unregister from settings observer
-    this.settingsService.removeObserver(this);
+    // Unsubscribe from settings changes
+    if (this.settingsDisposable) {
+      this.settingsDisposable.dispose();
+      this.settingsDisposable = null;
+    }
 
     // Clean up pattern service if exists
     if (this.patternService) {
@@ -159,12 +177,10 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   }
 
   /**
-   * Handle settings updates from the observer pattern.
+   * Handle high contrast mode setting change.
    * Called when user toggles high contrast via keyboard or settings UI.
    */
-  public update(settings: Settings): void {
-    const newHighContrastMode = settings.general.highContrastMode;
-
+  private handleHighContrastModeChange(newHighContrastMode: boolean): void {
     // Only act if high contrast mode actually changed
     if (newHighContrastMode !== this.previousHighContrastMode) {
       this.previousHighContrastMode = newHighContrastMode;
@@ -182,7 +198,7 @@ export class HighContrastService implements Observer<Settings>, Disposable {
    * Called from keyboard shortcut (C key).
    */
   public toggleHighContrast(): void {
-    const currentSettings = this.settingsService.state;
+    const currentSettings = this.settingsService.loadSettings();
     const newHighContrastMode = !currentSettings.general.highContrastMode;
 
     // Update settings through the settings service (persists and notifies observers)

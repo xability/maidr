@@ -1,11 +1,21 @@
 ---
-mode: "agent"
-tools: ["github", "create_issue", "assign_copilot_to_issue", "codebase"]
+mode: "ask"
 description: "Generate a new feature request"
 ---
 
-Before anything else, make sure you have received ${input:fr} from user.
+# Create a Feature Request
 
-#create_issue Create a GitHub issue for ${input:fr} at xability/maidr using [this template](../ISSUE_TEMPLATE/feature_request.md).
+To create a new feature request for `xability/maidr`, please follow these steps:
 
-#assign_copilot_to_issue for the created issue.
+1.  **Navigate to the new issue page:**
+    [Click here to open the new issue form with the feature request template.](https://github.com/xability/maidr/issues/new?template=feature_request.md&labels=enhancement&title=feat%3A+)
+
+2.  **Provide the feature details:**
+    Please provide the content for the feature request in the web form. You can use the following as a template for the description:
+
+    \`\`\`markdown
+    ${input:fr}
+    \`\`\`
+
+3.  **Submit the issue:**
+    Review the title and description, then click "Submit new issue".

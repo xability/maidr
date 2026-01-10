@@ -87,6 +87,10 @@ web_modules/
 # Output of 'npm run build'
 dist
 
+# TypeDoc generated documentation
+# Uncomment the next line if you want to ignore docs folder
+# docs/
+
 # Yarn Integrity file
 .yarn-integrity
 
@@ -170,5 +174,12 @@ playwright-report/
 !.vscode/launch.json
 !.vscode/mcp.json
 
+#Zed
+.zed
+
 # Qodo AI
 .qodo
+
+# Playwright
+playwright-report/
+test-results/

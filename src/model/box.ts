@@ -1,14 +1,24 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { Movable, MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { Dimension } from './abstract';
+import type { Trace } from './plot';
 import { BoxplotSection } from '@type/boxplotSection';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
 
-export class BoxTrace extends AbstractTrace<number[] | number> {
+/**
+ * Concrete implementation of a box plot trace supporting vertical and horizontal orientations.
+ * Handles boxplot sections (min, Q1, Q2, Q3, max, outliers) and rotor-based navigation.
+ */
+export class BoxTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
+  protected readonly movable: Movable;
 
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
@@ -23,9 +33,22 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   private readonly min: number;
   private readonly max: number;
 
-  constructor(layer: MaidrLayer) {
+  private readonly isViolinBoxPlot: boolean;
+
+  constructor(layer: MaidrLayer, isViolinPlot: boolean = false) {
     super(layer);
 
+    /**
+     * Violin detection hint.
+     *
+     * The subplot-level structural detection (BOX + SMOOTH in same subplot)
+     * is performed upstream (in `Subplot`) and passed in as `isViolinPlot`.
+     * This keeps the trace constructor free from needing access to the full
+     * layers array while still enabling violin-specific behavior.
+     */
+    this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
+
+    this.points = layer.data as BoxPoint[];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // For horizontal orientation, reverse points to match visual order (lower-left start)
@@ -70,17 +93,24 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     this.min = MathUtil.minFrom2D(flatBoxValues);
     this.max = MathUtil.maxFrom2D(flatBoxValues);
 
-    // this.row = this.boxValues.length - 1;
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as BoxSelector[],
+    );
 
-    // For horizontal orientation, reverse selectors to match reversed points order
-    let selectors = layer.selectors as BoxSelector[] | undefined;
-    if (this.orientation === Orientation.HORIZONTAL && selectors) {
-      selectors = [...selectors].reverse();
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.highlightValues?.reverse();
     }
 
-    this.highlightValues = this.mapToSvgElements(selectors);
-
     this.highlightCenters = this.mapSvgElementsToCenters();
+    this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
+  }
+
+  /**
+   * Helper method to check if this is a violin box plot.
+   * Provides a cleaner API and reduces code duplication.
+   */
+  private isViolin(): boolean {
+    return this.isViolinBoxPlot;
   }
 
   public dispose(): void {
@@ -90,34 +120,115 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     super.dispose();
   }
 
-  public moveToIndex(row: number, col: number): void {
+  public override moveToIndex(row: number, col: number): boolean {
     // No coordinate swap needed - navigation already passes (row, col) matching boxValues structure
     // Vertical: boxValues[section][box] → row=section, col=box
     // Horizontal: boxValues[box][section] → row=box, col=section
-    super.moveToIndex(row, col);
+    return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Override moveOnce for violin box plots to reset to bottom point (MIN section)
+   * when switching between violins.
+   * For vertical: FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
+   * For horizontal: UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+   */
+  protected handleInitialEntry(): void {
+    // On initial entry, start at the "bottom" of the box:
+    // - Vertical: MIN section (row = 1), first violin (col = 0)
+    // - Horizontal: MIN section (col = 1), first violin (row = 0)
+    this.isInitialEntry = false;
+    if (this.orientation === Orientation.VERTICAL) {
+      this.row = Math.min(1, this.boxValues.length - 1);
+      this.col = 0;
+    } else {
+      this.row = 0;
+      this.col = Math.min(1, this.boxValues[0]?.length ?? 1);
+    }
+  }
+
+  public override moveOnce(direction: MovableDirection): boolean {
+    // Only apply special behavior for violin box plots
+    if (!this.isViolin()) {
+      // For regular box plots, use parent implementation
+      return super.moveOnce(direction);
+    }
+
+    // Handle initial entry
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return true;
+    }
+
+    // Check if movement is valid
+    if (!this.isMovable(direction)) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+
+    // For violin box plots, reset to MIN section when changing violins
+    if (this.orientation === Orientation.VERTICAL) {
+      // Vertical: col = violin index, row = section index
+      // FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
+      if (direction === 'FORWARD') {
+        this.col += 1;
+        this.row = 1; // Reset to MIN section (bottom point)
+      } else if (direction === 'BACKWARD') {
+        this.col -= 1;
+        this.row = 1; // Reset to MIN section (bottom point)
+      } else {
+        // UPWARD/DOWNWARD navigate between sections (keep current violin)
+        return super.moveOnce(direction);
+      }
+    } else {
+      // Horizontal: row = violin index, col = section index
+      // UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+      if (direction === 'UPWARD') {
+        this.row += 1;
+        this.col = 1; // Reset to MIN section (bottom point)
+      } else if (direction === 'DOWNWARD') {
+        this.row -= 1;
+        this.col = 1; // Reset to MIN section (bottom point)
+      } else {
+        // FORWARD/BACKWARD navigate between sections (keep current violin)
+        return super.moveOnce(direction);
+      }
+    }
+
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+    return true;
   }
 
   protected get values(): (number[] | number)[][] {
     return this.boxValues;
   }
 
-  protected audio(): AudioState {
-    // const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+  protected get audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const value = this.boxValues[this.row][this.col];
-    const index = Array.isArray(value)
-      ? value.map(v => v - this.min)
-      : value - this.min;
+    const index = isHorizontal ? this.col : this.row;
 
+    const panning = Array.isArray(value)
+      ? value.length === 0 ? index : value[value.length - 1] - this.min
+      : Number.isNaN(value) ? index : value - this.min;
     return {
-      min: this.min, // min freq
-      max: this.max, // max freq
-      value, // value, used for freq
-      size: this.max - this.min, // panning size
-      index, // position in panning
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.boxValues[this.row][this.col],
+      },
+      panning: {
+        x: isHorizontal ? panning : this.row,
+        y: isHorizontal ? this.row : panning,
+        rows: isHorizontal ? this.boxValues.length : this.max - this.min,
+        cols: isHorizontal ? this.max - this.min : this.boxValues.length,
+      },
     };
   }
 
-  protected braille(): BrailleState {
+  protected get braille(): BrailleState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const row = isHorizontal ? this.row : this.col;
     const col = isHorizontal ? this.col : this.row;
@@ -133,7 +244,7 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
@@ -149,6 +260,14 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
+    };
+  }
+
+  protected get dimension(): Dimension {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    return {
+      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
+      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
     };
   }
 
@@ -258,8 +377,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * Clones an SVG element with hidden visibility and inserts it after the original,
-   * or returns an empty element if the original is null.
+   * Clones an SVG element with hidden visibility or returns an empty element.
+   * @param original - The original SVG element to clone or null
+   * @returns The cloned element or an empty element
    */
   private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
     if (!original) {
@@ -271,6 +391,12 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return clone;
   }
 
+  /**
+   * Moves to the next boxplot section that matches the comparison criteria.
+   * @param direction - The direction to move (left, right, up, or down)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a target was found, false otherwise
+   */
   public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
@@ -308,10 +434,15 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 
+  /**
+   * Sets the current point based on direction and index.
+   * @param direction - The direction of movement (left, right, up, or down)
+   * @param pointIndex - The index to set
+   */
   public set_point(direction: 'left' | 'right' | 'up' | 'down', pointIndex: number): void {
     if (direction === 'left' || direction === 'right') {
       this.col = pointIndex;
@@ -321,8 +452,9 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
   }
 
   /**
-   * Handles the behavior of the upward arrow key to move between segments within a box plot (within the scope of ROTOR trace).
-   * @returns {boolean} True if the move was successful, false otherwise.
+   * Moves upward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
    */
   public moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
@@ -332,6 +464,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('up', mode);
   }
 
+  /**
+   * Moves downward in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveDownRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('DOWNWARD');
@@ -340,6 +477,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('down', mode);
   }
 
+  /**
+   * Moves left in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('BACKWARD');
@@ -348,6 +490,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('left', mode);
   }
 
+  /**
+   * Moves right in rotor mode within boxplot segments.
+   * @param mode - The comparison mode (lower or higher)
+   * @returns True if the move was successful, false otherwise
+   */
   public moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('FORWARD');
@@ -356,6 +503,10 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return this.moveToNextCompareValue('right', mode);
   }
 
+  /**
+   * Maps SVG elements to their center coordinates for proximity detection.
+   * @returns Array of center points with element references or null if no elements exist
+   */
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
@@ -392,6 +543,12 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     return centers;
   }
 
+  /**
+   * Finds the nearest boxplot element at the specified coordinates.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns Object containing the element and its position, or null if not found
+   */
   public findNearestPoint(
     x: number,
     y: number,
@@ -424,6 +581,11 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     };
   }
 
+  /**
+   * Moves to the nearest point at the specified coordinates (disabled for boxplots).
+   * @param _x - The x-coordinate
+   * @param _y - The y-coordinate
+   */
   public moveToPoint(_x: number, _y: number): void {
     // Exceptions:
     // temp: don't run for boxplot. remove when boxplot is fixed
@@ -438,5 +600,319 @@ export class BoxTrace extends AbstractTrace<number[] | number> {
     // this.moveToIndex(nearest.row, nearest.col);
     // }
     // }
+  }
+
+  /**
+   * Override to return the violin index (numeric) for layer switching.
+   * For violin box plots (vertical): col represents violin index.
+   * For violin box plots (horizontal): row represents violin index.
+   * Only applicable for violin box plots.
+   *
+   * @returns The violin index as a number for violin box plots. For vertical box plots, returns the column index.
+   *          For horizontal box plots, returns the row index. For regular box plots, returns the parent implementation
+   *          result (which may be a string or number). Returns null if the position is invalid.
+   */
+  public getCurrentXValue(): XValue | null {
+    // Only applicable for violin box plots
+    if (!this.isViolin()) {
+      // Not a violin box plot, use parent implementation
+      return super.getCurrentXValue();
+    }
+
+    // For vertical box plots: col = which violin
+    // For horizontal box plots: row = which violin
+    if (this.orientation === Orientation.VERTICAL) {
+      return this.col >= 0 ? this.col : null;
+    } else {
+      return this.row >= 0 ? this.row : null;
+    }
+  }
+
+  /**
+   * Override moveToXValue for violin box plots to reset to bottom point (MIN section)
+   * when moving to a different violin.
+   * For vertical: sets col (violin index) and resets row to 1 (MIN section)
+   * For horizontal: sets row (violin index) and resets col to 1 (MIN section)
+   */
+  public moveToXValue(xValue: XValue): boolean {
+    // Only apply special behavior for violin box plots
+    if (!this.isViolin()) {
+      // For regular box plots, use parent implementation
+      return super.moveToXValue(xValue);
+    }
+
+    // Handle initial entry
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    // xValue must be a number (violin index)
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    const values = this.values;
+
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: col = violin index, row = section index
+      const numViolins = values.length > 0 ? values[0].length : 0;
+      if (violinIndex < 0 || violinIndex >= numViolins) {
+        return false;
+      }
+
+      // Store current violin to check if we're moving to a different one
+      const currentViolin = this.col;
+
+      // Move to the violin (col)
+      this.col = violinIndex;
+
+      // If we moved to a different violin, reset to MIN section (row = 1, bottom point)
+      // Otherwise, preserve the current section (row)
+      if (violinIndex !== currentViolin) {
+        this.row = 1; // Reset to MIN section (bottom point)
+      }
+
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    } else {
+      // For horizontal: row = violin index, col = section index
+      if (violinIndex < 0 || violinIndex >= values.length) {
+        return false;
+      }
+
+      // Store current violin to check if we're moving to a different one
+      const currentViolin = this.row;
+
+      // Move to the violin (row)
+      this.row = violinIndex;
+
+      // If we moved to a different violin, reset to MIN section (col = 1, bottom point)
+      // Otherwise, preserve the current section (col)
+      if (violinIndex !== currentViolin) {
+        this.col = 1; // Reset to MIN section (bottom point)
+      }
+
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+  }
+
+  /**
+   * Get the current Y value from the box plot.
+   * This is used when switching to KDE layer to preserve the Y level.
+   * Only applicable for violin box plots.
+   *
+   * @returns The current Y value from the box plot section at the current position.
+   *          For outliers (arrays), returns the first value. Returns null if the position
+   *          is invalid, if the value cannot be determined, or if this is not a violin box plot.
+   */
+  public getCurrentYValue(): number | null {
+    // Only applicable for violin box plots
+    if (!this.isViolin()) {
+      return null;
+    }
+
+    const values = this.values;
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: row = section index, col = violin index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    } else {
+      // For horizontal: row = violin index, col = section index
+      if (this.row >= 0 && this.row < values.length && this.col >= 0) {
+        const rowValues = values[this.row];
+        if (Array.isArray(rowValues) && this.col < rowValues.length) {
+          const value = rowValues[this.col];
+          // Handle arrays (outliers) - use first value
+          if (Array.isArray(value)) {
+            return value.length > 0 ? value[0] : null;
+          }
+          return typeof value === 'number' ? value : null;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Move to a specific violin (X value) and find the closest box plot section
+   * with the given Y value. This is used when switching from KDE layer to preserve Y level.
+   * Only applicable for violin box plots.
+   *
+   * @param xValue - The violin index (X value) to move to. Must be a numeric index.
+   *                 String values are not supported.
+   * @param yValue - The Y value to find the closest matching box plot section for
+   * @returns true if the move was successful (valid violin index and closest section found),
+   *          false if xValue is not a number, if the violin index is out of bounds,
+   *          or if this is not a violin box plot
+   */
+  public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    // Only applicable for violin box plots
+    if (!this.isViolin()) {
+      return false;
+    }
+
+    // First set the violin from X value
+    if (typeof xValue !== 'number') {
+      return false;
+    }
+
+    const violinIndex = Math.floor(xValue);
+    const values = this.values;
+
+    if (this.orientation === Orientation.VERTICAL) {
+      // For vertical: col = which violin, row = section index
+      const numViolins = values.length > 0 ? values[0].length : 0;
+      if (violinIndex < 0 || violinIndex >= numViolins) {
+        return false;
+      }
+
+      this.col = violinIndex;
+
+      // Find the section (row) with the closest Y value
+      let closestRow = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      for (let row = 0; row < values.length; row++) {
+        const rowValues = values[row];
+        if (Array.isArray(rowValues) && violinIndex < rowValues.length) {
+          const value = rowValues[violinIndex];
+
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestRow = row;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestRow = row;
+            }
+          }
+        }
+      }
+
+      this.row = closestRow;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    } else {
+      // For horizontal: row = which violin, col = section index
+      if (violinIndex < 0 || violinIndex >= values.length) {
+        return false;
+      }
+
+      this.row = violinIndex;
+
+      // Find the section (col) with the closest Y value
+      let closestCol = 1; // Default to MIN section
+      let minDistance = Infinity;
+
+      const rowValues = values[violinIndex];
+      if (Array.isArray(rowValues)) {
+        for (let col = 0; col < rowValues.length; col++) {
+          const value = rowValues[col];
+
+          // Handle arrays (outliers) - check all values in the array
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              if (typeof v === 'number') {
+                const distance = Math.abs(v - yValue);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestCol = col;
+                }
+              }
+            }
+          } else if (typeof value === 'number') {
+            const distance = Math.abs(value - yValue);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestCol = col;
+            }
+          }
+        }
+      }
+
+      this.col = closestCol;
+      this.updateVisualPointPosition();
+      this.notifyStateUpdate();
+      return true;
+    }
+  }
+
+  /**
+   * Handle switching from another trace.
+   * Implements special handling for switching from violin KDE layer
+   * to preserve both violin position (X) and Y value.
+   * Only applicable for violin box plots.
+   *
+   * @param previousTrace - The trace we're switching from
+   * @returns true if handled (switching from violin KDE to violin box), false otherwise
+   */
+  public onSwitchFrom(previousTrace: Trace): boolean {
+    // Only applicable for violin box plots
+    if (!this.isViolin()) {
+      return false; // Not a violin box plot, use default behavior
+    }
+
+    // Check if switching from violin KDE layer (SMOOTH type)
+    // Since we're in violin box plot, if switching from SMOOTH type in same subplot, it's the violin KDE
+    const prevTraceAny = previousTrace as any;
+    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
+
+    const isFromViolinKdeLayer = prevTraceType === 'smooth';
+
+    if (!isFromViolinKdeLayer) {
+      return false; // Don't handle - use default behavior
+    }
+
+    // Get X and Y values from KDE layer
+    const xValue = previousTrace.getCurrentXValue();
+
+    if (previousTrace.getCurrentYValue) {
+      const yValue = previousTrace.getCurrentYValue();
+
+      if (yValue !== null && xValue !== null && this.moveToXAndYValue) {
+        // Use moveToXAndYValue to preserve both violin position and Y level
+        const handled = this.moveToXAndYValue(xValue, yValue);
+        if (handled) {
+          // We've explicitly positioned the trace; skip initial-entry behavior
+          this.isInitialEntry = false;
+        }
+        return handled;
+      }
+    }
+
+    // Fallback: if Y value extraction failed, just set X position
+    // BoxTrace extends AbstractTrace which has moveToXValue
+    if (xValue !== null) {
+      const success = this.moveToXValue(xValue);
+      if (success) {
+        this.isInitialEntry = false;
+      }
+      return success; // Return true if move was successful
+    }
+
+    return false; // Let context handle default behavior
   }
 }

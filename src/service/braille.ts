@@ -19,31 +19,54 @@ import { Constant } from '@util/constant';
 
 const DEFAULT_BRAILLE_SIZE = 32;
 
+/**
+ * Represents a cell position in a 2D grid.
+ */
 interface Cell {
   row: number;
   col: number;
 }
 
+/**
+ * Event emitted when braille display changes.
+ */
 interface BrailleChangedEvent {
   value: string;
   index: number;
 }
 
+/**
+ * Represents encoded braille with bidirectional cell-to-index mapping.
+ */
 interface EncodedBraille {
   value: string;
   cellToIndex: number[][];
   indexToCell: Cell[];
 }
 
+/**
+ * Represents time series data with multiple rows of values.
+ */
 interface TimeSeries {
   values: number[][];
 }
 
+/**
+ * Interface for encoding plot states into braille representations.
+ */
 interface BrailleEncoder<BrailleState> {
   encode: (state: BrailleState, size?: number) => EncodedBraille;
 }
 
+/**
+ * Encoder for converting bar chart data into braille patterns.
+ */
 class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
+  /**
+   * Encodes bar chart state into braille representation.
+   * @param state - Bar chart braille state
+   * @returns Encoded braille with cell mappings
+   */
   public encode(state: BarBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -83,6 +106,9 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
   }
 }
 
+/**
+ * Encoder for converting box plot data into braille patterns.
+ */
 class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
   private readonly GLOBAL_MIN = 'globalMin';
   private readonly GLOBAL_MAX = 'globalMax';
@@ -98,6 +124,12 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
   private readonly Q2 = 'q2';
   private readonly Q3 = 'q3';
 
+  /**
+   * Encodes box plot state into braille representation with quartiles and outliers.
+   * @param state - Box plot braille state
+   * @param size - Target size for braille output
+   * @returns Encoded braille with cell mappings
+   */
   public encode(
     state: BoxBrailleState,
     size: number = DEFAULT_BRAILLE_SIZE,
@@ -304,7 +336,15 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
   }
 }
 
+/**
+ * Encoder for converting heatmap data into braille patterns.
+ */
 class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
+  /**
+   * Encodes heatmap state into braille representation.
+   * @param state - Heatmap braille state
+   * @returns Encoded braille with cell mappings
+   */
   public encode(state: HeatmapBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -341,8 +381,16 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
   }
 }
 
+/**
+ * Abstract base encoder for time series data with trend-based braille patterns.
+ */
 abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
 implements BrailleEncoder<T> {
+  /**
+   * Encodes time series state into braille representation with trend indicators.
+   * @param state - Time series braille state
+   * @returns Encoded braille with cell mappings
+   */
   public encode(state: T): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -378,6 +426,12 @@ implements BrailleEncoder<T> {
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
   }
 
+  /**
+   * Gets threshold values for categorizing data into braille levels.
+   * @param row - Row index
+   * @param state - Time series state
+   * @returns Threshold values for low, medium, mediumHigh, and high levels
+   */
   protected abstract getThresholds(
     row: number,
     state: T,
@@ -388,6 +442,16 @@ implements BrailleEncoder<T> {
     high: number;
   };
 
+  /**
+   * Gets the appropriate 8-dot braille character based on value and trend.
+   * @param current - Current value
+   * @param prev - Previous value for trend calculation
+   * @param low - Low threshold
+   * @param medium - Medium threshold
+   * @param high - High threshold
+   * @param mediumHigh - Optional medium-high threshold
+   * @returns Braille character representing the value and trend
+   */
   public getBrailleChar(
     current: number,
     prev: number | null,
@@ -435,6 +499,15 @@ implements BrailleEncoder<T> {
     return '';
   }
 
+  /**
+   * Gets the appropriate 6-dot braille character based on value and trend.
+   * @param current - Current value
+   * @param prev - Previous value for trend calculation
+   * @param low - Low threshold
+   * @param medium - Medium threshold
+   * @param high - High threshold
+   * @returns Braille character representing the value and trend
+   */
   public getBraille6Char(
     current: number,
     prev: number | null,
@@ -474,6 +547,11 @@ implements BrailleEncoder<T> {
     return brailleMap[key] || '';
   }
 
+  /**
+   * Adds dot 8 to a braille character for additional information encoding.
+   * @param char - Base braille character
+   * @returns Braille character with dot 8 added
+   */
   public addDot8(char: string): string {
     if (!char || char.length === 0) {
       // If no base character, return just dot 8 (⣀)
@@ -486,7 +564,16 @@ implements BrailleEncoder<T> {
   }
 }
 
+/**
+ * Encoder for converting candlestick chart data into braille patterns.
+ */
 class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBrailleState> {
+  /**
+   * Gets threshold values for candlestick data categorization.
+   * @param row - Row index
+   * @param state - Candlestick braille state
+   * @returns Threshold values for low, medium, and high levels
+   */
   protected getThresholds(
     row: number,
     state: CandlestickBrailleState,
@@ -505,6 +592,11 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
     return { low, medium, high };
   }
 
+  /**
+   * Encodes candlestick state into braille with bear/bull indicators.
+   * @param state - Candlestick braille state
+   * @returns Encoded braille with cell mappings
+   */
   public encode(state: CandlestickBrailleState): EncodedBraille {
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
@@ -547,7 +639,16 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
   }
 }
 
+/**
+ * Encoder for converting line chart data into braille patterns.
+ */
 class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
+  /**
+   * Gets threshold values for line chart data categorization.
+   * @param row - Row index
+   * @param state - Line chart braille state
+   * @returns Threshold values for low, medium, mediumHigh, and high levels
+   */
   protected getThresholds(
     row: number,
     state: LineBrailleState,
@@ -566,6 +667,9 @@ class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
   }
 }
 
+/**
+ * Service responsible for managing braille display generation and navigation.
+ */
 export class BrailleService
 implements Observer<SubplotState | TraceState>, Disposable {
   private readonly context: Context;
@@ -580,6 +684,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
 
+  /**
+   * Creates an instance of BrailleService.
+   * @param context - Navigation context
+   * @param notification - Service for user notifications
+   * @param display - Service for managing display focus
+   */
   public constructor(
     context: Context,
     notification: NotificationService,
@@ -610,6 +720,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onChange = this.onChangeEmitter.event;
   }
 
+  /**
+   * Cleans up braille service resources and clears caches.
+   */
   public dispose(): void {
     this.onChangeEmitter.dispose();
 
@@ -617,6 +730,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.encoders.clear();
   }
 
+  /**
+   * Updates the braille display based on plot state changes.
+   * @param state - Updated subplot or trace state
+   */
   public update(state: SubplotState | TraceState): void {
     if (!this.enabled || state.empty) {
       return;
@@ -632,7 +749,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     const braille = trace.braille;
-    if (this.cacheId !== braille.id || this.cache === null) {
+    if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
       this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
       this.cacheId = braille.id;
@@ -644,6 +761,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
     });
   }
 
+  /**
+   * Moves the navigation cursor to a specific braille index position.
+   * @param index - Target index in the braille display
+   */
   public moveToIndex(index: number): void {
     if (
       !this.enabled
@@ -658,6 +779,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.context.moveToIndex(row, col);
   }
 
+  /**
+   * Toggles braille mode on or off for the current trace.
+   * @param state - Current trace state
+   */
   public toggle(state: TraceState): void {
     if (state.empty) {
       const noInfo = 'No info for braille';

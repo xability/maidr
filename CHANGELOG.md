@@ -1,3 +1,110 @@
+## [3.43.1](https://github.com/xability/maidr/compare/v3.43.0...v3.43.1) (2025-12-24)
+
+
+### Bug Fixes
+
+* fix build error ([#507](https://github.com/xability/maidr/issues/507)) ([e8113c2](https://github.com/xability/maidr/commit/e8113c234e7db46c58bf4e3e27f1b22934609faf))
+
+# [3.43.0](https://github.com/xability/maidr/compare/v3.42.4...v3.43.0) (2025-12-24)
+
+
+### Features
+
+* extend rotor text mode, sonification ([#506](https://github.com/xability/maidr/issues/506)) ([24d5bac](https://github.com/xability/maidr/commit/24d5bac79770f611f2138090cc7c2f1a63587933))
+
+## [3.42.4](https://github.com/xability/maidr/compare/v3.42.3...v3.42.4) (2025-12-23)
+
+
+### Bug Fixes
+
+* release wf ([#504](https://github.com/xability/maidr/issues/504)) ([487b932](https://github.com/xability/maidr/commit/487b932d153ede20202bd5a82b2f6b9ddb213cc2))
+
+## [3.42.3](https://github.com/xability/maidr/compare/v3.42.2...v3.42.3) (2025-12-23)
+
+
+### Bug Fixes
+
+* add plot listener ([#502](https://github.com/xability/maidr/issues/502)) ([861b826](https://github.com/xability/maidr/commit/861b8260dc5fcdd915a9c03aeedca6aba249aadd))
+
+## [3.42.2](https://github.com/xability/maidr/compare/v3.42.1...v3.42.2) (2025-12-19)
+
+
+### Bug Fixes
+
+* add env config, artifact for logs ([#500](https://github.com/xability/maidr/issues/500)) ([b6e5106](https://github.com/xability/maidr/commit/b6e5106ee532d278a8a0868eeaf34a04dd681367))
+
+## [3.42.1](https://github.com/xability/maidr/compare/v3.42.0...v3.42.1) (2025-12-19)
+
+
+### Bug Fixes
+
+* remove cache ([#499](https://github.com/xability/maidr/issues/499)) ([a92f7d6](https://github.com/xability/maidr/commit/a92f7d6da3d8cdeffb5002b56087bc5c76bdca25))
+* remove npm config from interfering ([#498](https://github.com/xability/maidr/issues/498)) ([8966902](https://github.com/xability/maidr/commit/8966902dbfaae833fb02f221fca6b6115a8ef20f))
+
+# [3.42.0](https://github.com/xability/maidr/compare/v3.41.0...v3.42.0) (2025-12-19)
+
+
+### Features
+
+* add provenance flag to npm publish command ([#497](https://github.com/xability/maidr/issues/497)) ([d68ff62](https://github.com/xability/maidr/commit/d68ff62a4fb7580095fc1df06e4718a0fdffcb9f))
+
+# [3.41.0](https://github.com/xability/maidr/compare/v3.40.0...v3.41.0) (2025-12-19)
+
+
+### Features
+
+* test release on PR merge ([#496](https://github.com/xability/maidr/issues/496)) ([823f072](https://github.com/xability/maidr/commit/823f072b6616cbc3e7ba3e1387de95dfe7d6d48b))
+
+# [3.40.0](https://github.com/xability/maidr/compare/v3.39.0...v3.40.0) (2025-12-19)
+
+
+### Bug Fixes
+
+* test release workflow ([#493](https://github.com/xability/maidr/issues/493)) ([ad9a64d](https://github.com/xability/maidr/commit/ad9a64d56b457da60d8ed4073436175b018c626e))
+
+
+### Features
+
+* change release yml for trusted publishing ([#494](https://github.com/xability/maidr/issues/494)) ([c1d6955](https://github.com/xability/maidr/commit/c1d6955e3411f6ecf5bac93ae0b251bc90d4983a))
+* fix smooth plot naming conventions ([#488](https://github.com/xability/maidr/issues/488)) ([cd48595](https://github.com/xability/maidr/commit/cd48595efeb84b37bedf025d9337ab4196481ad5))
+* integrate claude code ([#484](https://github.com/xability/maidr/issues/484)) ([#485](https://github.com/xability/maidr/issues/485)) ([490b87c](https://github.com/xability/maidr/commit/490b87c49ce7e195a9a38a7721c88f01fd1cd3bb))
+* push release ([#490](https://github.com/xability/maidr/issues/490)) ([a027250](https://github.com/xability/maidr/commit/a0272505306e1858b579aa7ed147fe0675eda319))
+
+# [3.39.0](https://github.com/xability/maidr/compare/v3.38.1...v3.39.0) (2025-12-09)
+
+
+### Features
+
+* support violin plot ([#477](https://github.com/xability/maidr/issues/477)) ([d68343f](https://github.com/xability/maidr/commit/d68343f0ca370adc05e74d420cc43897a8ca9a0b))
+
+## [3.38.1](https://github.com/xability/maidr/compare/v3.38.0...v3.38.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* removing version, semantic release to release new version tag ([#482](https://github.com/xability/maidr/issues/482)) ([dc2bf34](https://github.com/xability/maidr/commit/dc2bf3443bd4e5fa3069f5013669cb96bcdf36d4))
+
+# [3.38.0](https://github.com/xability/maidr/compare/v3.37.0...v3.38.0) (2025-12-02)
+
+
+### Features
+
+* braille architecture chnage ([#481](https://github.com/xability/maidr/issues/481)) ([60c2c18](https://github.com/xability/maidr/commit/60c2c1867c7e970eccd338fb268d2753a2723cf1))
+
+# [3.38.0](https://github.com/xability/maidr/compare/v3.37.0...v3.38.0) (2025-12-02)
+
+
+### Features
+
+* braille architecture chnage ([#481](https://github.com/xability/maidr/issues/481)) ([60c2c18](https://github.com/xability/maidr/commit/60c2c1867c7e970eccd338fb268d2753a2723cf1))
+
+# [3.38.0](https://github.com/xability/maidr/compare/v3.37.0...v3.38.0) (2025-12-02)
+
+
+### Features
+
+* braille architecture chnage ([#481](https://github.com/xability/maidr/issues/481)) ([60c2c18](https://github.com/xability/maidr/commit/60c2c1867c7e970eccd338fb268d2753a2723cf1))
+
 # [3.37.0](https://github.com/xability/maidr/compare/v3.36.3...v3.37.0) (2025-11-13)
 
 

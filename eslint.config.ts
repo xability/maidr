@@ -5,9 +5,18 @@ const config: ReturnType<typeof antfu> = antfu({
   ignores: [
     'README.md',
     'E2E_TESTING.md',
+    'E2E.md',
     '.github/',
     'docs/',
     'CLAUDE.md',
+    '_site/',
+    'dist/',
+    'coverage/',
+    'node_modules/',
+    'playwright-report/',
+    'test-results/',
+    'examples/',
+    'e2e_tests/specs/debug-review.spec.ts',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],

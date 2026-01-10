@@ -15,7 +15,7 @@ export class MultiLayerPlotPage extends BasePage {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.MULTI_LAYER_PLOT_ID}`,
-    svg: `svg#${TestConstants.MULTI_LAYER_PLOT_ID}`,
+    svg: `svg`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
     helpModalTitle: TestConstants.MAIDR_HELP_MODAL_TITLE,
     helpModalClose: TestConstants.HELP_MENU_CLOSE_BUTTON,
@@ -38,7 +38,7 @@ export class MultiLayerPlotPage extends BasePage {
    */
   public async navigateToMultiLayerPlot(): Promise<void> {
     try {
-      await super.navigateTo('examples/multi-layer.html');
+      await super.navigateTo('examples/multiLayer_plot.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
       throw new MultiLayerPlotError('Failed to navigate to Multi Layer Plot');
