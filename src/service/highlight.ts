@@ -2,6 +2,7 @@ import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
+
 import type {
   FigureState,
   HighlightState,
@@ -48,6 +49,7 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Keys are the original elements, values are the highlight overlay elements.
    */
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
+  private readonly settingsService: SettingsService;
 
   /**
    * Set of subplot elements that currently have highlight styling applied.
@@ -67,6 +69,8 @@ implements Observer<HighlightStateUnion>, Disposable {
    * @param settings - The settings service used to retrieve highlight color preferences
    */
   public constructor(settings: SettingsService) {
+    this.settingsService = settings;
+
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
     const initialSettings = settings.loadSettings();
