@@ -1,15 +1,15 @@
-import type { Context } from "@model/context";
-import type { AudioService } from "@service/audio";
-import type { HighContrastService } from "@service/highContrast";
-import type { BrailleViewModel } from "@state/viewModel/brailleViewModel";
-import type { ChatViewModel } from "@state/viewModel/chatViewModel";
-import type { CommandPaletteViewModel } from "@state/viewModel/commandPaletteViewModel";
-import type { HelpViewModel } from "@state/viewModel/helpViewModel";
-import type { ReviewViewModel } from "@state/viewModel/reviewViewModel";
-import type { SettingsViewModel } from "@state/viewModel/settingsViewModel";
-import type { TextViewModel } from "@state/viewModel/textViewModel";
-import type { Scope } from "@type/event";
-import type { Command } from "./command";
+import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
+import type { HighContrastService } from '@service/highContrast';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { ChatViewModel } from '@state/viewModel/chatViewModel';
+import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
+import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
+import type { Scope } from '@type/event';
+import type { Command } from './command';
 
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
@@ -22,7 +22,7 @@ export class ToggleBrailleCommand implements Command {
 
   public execute(): void {
     const state = this.context.state;
-    if (state.type === "trace") {
+    if (state.type === 'trace') {
       this.brailleViewModel.toggle(state);
     }
   }
@@ -63,7 +63,7 @@ export class ToggleReviewCommand implements Command {
 
   public execute(): void {
     const state = this.context.state;
-    if (state.type === "trace") {
+    if (state.type === 'trace') {
       this.reviewViewModel.toggle(state);
     }
   }

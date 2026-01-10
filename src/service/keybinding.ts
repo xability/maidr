@@ -1,15 +1,15 @@
-import type { CommandContext } from "@command/command";
-import type { DisplayService } from "@service/display";
-import type { SettingsService } from "@service/settings";
-import type { Disposable } from "@type/disposable";
-import type { Keys } from "@type/event";
-import type { Observer } from "@type/observable";
-import type { Settings } from "@type/settings";
-import { CommandFactory } from "@command/factory";
-import { Scope } from "@type/event";
-import { Constant } from "@util/constant";
-import { Platform } from "@util/platform";
-import hotkeys from "hotkeys-js";
+import type { CommandContext } from '@command/command';
+import type { DisplayService } from '@service/display';
+import type { SettingsService } from '@service/settings';
+import type { Disposable } from '@type/disposable';
+import type { Keys } from '@type/event';
+import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
+import { CommandFactory } from '@command/factory';
+import { Scope } from '@type/event';
+import { Constant } from '@util/constant';
+import { Platform } from '@util/platform';
+import hotkeys from 'hotkeys-js';
 
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
@@ -190,9 +190,6 @@ const TRACE_KEYMAP = {
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: `g`,
 
-  // Go to point
-  MOVE_TO_INDEX: `click`,
-
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
@@ -200,19 +197,19 @@ const TRACE_KEYMAP = {
 
 const GO_TO_EXTREMA_KEYMAP = {
   // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: "up",
-  GO_TO_EXTREMA_MOVE_DOWN: "down",
-  GO_TO_EXTREMA_SELECT: "enter",
-  GO_TO_EXTREMA_CLOSE: "esc",
-  GO_TO_EXTREMA_TOGGLE: "g",
+  GO_TO_EXTREMA_MOVE_UP: 'up',
+  GO_TO_EXTREMA_MOVE_DOWN: 'down',
+  GO_TO_EXTREMA_SELECT: 'enter',
+  GO_TO_EXTREMA_CLOSE: 'esc',
+  GO_TO_EXTREMA_TOGGLE: 'g',
 } as const;
 
 const COMMAND_PALETTE_KEYMAP = {
   // Navigation within the modal
-  COMMAND_PALETTE_MOVE_UP: "up",
-  COMMAND_PALETTE_MOVE_DOWN: "down",
-  COMMAND_PALETTE_SELECT: "enter",
-  COMMAND_PALETTE_CLOSE: "esc",
+  COMMAND_PALETTE_MOVE_UP: 'up',
+  COMMAND_PALETTE_MOVE_DOWN: 'down',
+  COMMAND_PALETTE_SELECT: 'enter',
+  COMMAND_PALETTE_CLOSE: 'esc',
 } as const;
 
 export const SCOPED_KEYMAP = {
@@ -266,8 +263,8 @@ export class KeybindingService {
       ][]) {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
-        if (commandName === "STOP_AUTOPLAY") {
-          hotkeys("*", Scope.TRACE, (event: KeyboardEvent): void => {
+        if (commandName === 'STOP_AUTOPLAY') {
+          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);
@@ -276,7 +273,7 @@ export class KeybindingService {
         }
 
         hotkeys(key, { scope }, (event: KeyboardEvent): void => {
-          if (commandName !== "ALLOW_DEFAULT") {
+          if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);
             command.execute(event);
@@ -297,7 +294,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
   private mouseListener!: (event: MouseEvent) => void;
 
   private readonly commandContext: CommandContext;
-  private hoverMode: string = "none";
+  private hoverMode: string = 'none';
   private readonly plot: HTMLElement;
   private readonly settingsService: SettingsService;
 
@@ -331,17 +328,17 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     this.removeEventListeners();
 
     // Add appropriate listeners based on hover mode
-    if (this.hoverMode === "pointermove") {
-      this.plot.addEventListener("pointermove", this.mouseListener);
-    } else if (this.hoverMode === "click") {
-      this.plot.addEventListener("click", this.mouseListener);
+    if (this.hoverMode === 'pointermove') {
+      this.plot.addEventListener('pointermove', this.mouseListener);
+    } else if (this.hoverMode === 'click') {
+      this.plot.addEventListener('click', this.mouseListener);
     }
   }
 
   private removeEventListeners(): void {
     if (this.mouseListener) {
-      this.plot.removeEventListener("pointermove", this.mouseListener);
-      this.plot.removeEventListener("click", this.mouseListener);
+      this.plot.removeEventListener('pointermove', this.mouseListener);
+      this.plot.removeEventListener('click', this.mouseListener);
     }
   }
 

@@ -1,11 +1,11 @@
-import type { Disposable } from "@type/disposable";
-import type { MovableDirection } from "@type/movable";
-import type { LayerSwitchTraceState, PlotState } from "@type/state";
-import type { Figure, Subplot, Trace } from "./plot";
-import { Scope } from "@type/event";
-import { Constant } from "@util/constant";
-import { Stack } from "@util/stack";
-import hotkeys from "hotkeys-js";
+import type { Disposable } from '@type/disposable';
+import type { MovableDirection } from '@type/movable';
+import type { LayerSwitchTraceState, PlotState } from '@type/state';
+import type { Figure, Subplot, Trace } from './plot';
+import { Scope } from '@type/event';
+import { Constant } from '@util/constant';
+import { Stack } from '@util/stack';
+import hotkeys from 'hotkeys-js';
 
 type Plot = Figure | Subplot | Trace;
 
@@ -173,7 +173,7 @@ export class Context implements Disposable {
 
   public enterSubplot(): void {
     const activeState = this.active.state;
-    if (activeState.type === "figure") {
+    if (activeState.type === 'figure') {
       const activeFigure = this.active as Figure;
       this.plotContext.push(activeFigure.activeSubplot);
       const trace = activeFigure.activeSubplot.activeTrace;
@@ -199,26 +199,26 @@ export class Context implements Disposable {
     }
 
     const clickPrompt = includeClickPrompt
-      ? "Click to activate."
+      ? 'Click to activate.'
       : Constant.EMPTY;
     switch (state.type) {
-      case "figure":
+      case 'figure':
         return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
 
-      case "subplot":
+      case 'subplot':
         return `This is a maidr plot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
 
-      case "trace": {
+      case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
         let effectivePlotType = state.plotType;
-        if (state.plotType === "multiline" && state.groupCount === 1) {
-          effectivePlotType = "single line";
+        if (state.plotType === 'multiline' && state.groupCount === 1) {
+          effectivePlotType = 'single line';
         }
 
-        const groupCountText =
-          effectivePlotType === "multiline" && state.groupCount
+        const groupCountText
+          = effectivePlotType === 'multiline' && state.groupCount
             ? ` with ${state.groupCount} groups`
-            : "";
+            : '';
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }

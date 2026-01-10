@@ -1,8 +1,8 @@
-import type { Llm, LlmVersion } from "./llm";
+import type { Llm, LlmVersion } from './llm';
 
-export type AriaMode = "assertive" | "polite";
+export type AriaMode = 'assertive' | 'polite';
 
-export type ExpertiseLevel = "basic" | "intermediate" | "advanced" | "custom";
+export type ExpertiseLevel = 'basic' | 'intermediate' | 'advanced' | 'custom';
 
 export type HoverMode = 'off' | 'pointermove' | 'click';
 

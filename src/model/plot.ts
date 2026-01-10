@@ -1,20 +1,20 @@
-import type { Disposable } from "@type/disposable";
-import type { Maidr, MaidrSubplot } from "@type/grammar";
-import type { Movable, MovableDirection } from "@type/movable";
-import type { Observable } from "@type/observable";
+import type { Disposable } from '@type/disposable';
+import type { Maidr, MaidrSubplot } from '@type/grammar';
+import type { Movable, MovableDirection } from '@type/movable';
+import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
   SubplotState,
   TraceState,
-} from "@type/state";
-import { Constant } from "@util/constant";
-import { AbstractObservableElement } from "./abstract";
-import { TraceFactory } from "./factory";
+} from '@type/state';
+import { Constant } from '@util/constant';
+import { AbstractObservableElement } from './abstract';
+import { TraceFactory } from './factory';
 
-const DEFAULT_FIGURE_TITLE = "MAIDR Plot";
-const DEFAULT_SUBTITLE = "unavailable";
-const DEFAULT_CAPTION = "unavailable";
+const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
+const DEFAULT_SUBTITLE = 'unavailable';
+const DEFAULT_CAPTION = 'unavailable';
 
 export class Figure extends AbstractObservableElement<Subplot, FigureState> {
   public readonly id: string;
@@ -36,14 +36,14 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map((row) =>
-      row.map((subplot) => new Subplot(subplot)),
+    this.subplots = subplots.map(row =>
+      row.map(subplot => new Subplot(subplot)),
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
   }
 
   public dispose(): void {
-    this.subplots.forEach((row) => row.forEach((subplot) => subplot.dispose()));
+    this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
     this.subplots.length = 0;
     super.dispose();
   }
@@ -60,20 +60,20 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     if (this.isOutOfBounds) {
       return {
         empty: true,
-        type: "figure",
+        type: 'figure',
       };
     }
 
-    const currentIndex =
-      this.col +
-      1 +
-      this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
+    const currentIndex
+      = this.col
+        + 1
+        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
 
     const activeSubplot = this.activeSubplot;
 
     return {
       empty: false,
-      type: "figure",
+      type: 'figure',
       title: this.title,
       subtitle: this.subtitle,
       caption: this.caption,
@@ -91,7 +91,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     if (totalSubplots <= 1) {
       return {
         empty: true,
-        type: "trace",
+        type: 'trace',
         audio: {
           size: this.values[this.row].length,
           index: this.col,
@@ -124,7 +124,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     } catch (error) {
       return {
         empty: true,
-        type: "trace",
+        type: 'trace',
         audio: {
           size: this.values[this.row].length,
           index: this.col,
@@ -134,7 +134,7 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
 
     return {
       empty: true,
-      type: "trace",
+      type: 'trace',
       audio: {
         size: this.values[this.row].length,
         index: this.col,
@@ -144,13 +144,13 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
 
   public isMovable(direction: MovableDirection): boolean {
     switch (direction) {
-      case "UPWARD":
+      case 'UPWARD':
         return this.row < this.subplots.length - 1;
-      case "DOWNWARD":
+      case 'DOWNWARD':
         return this.row > 0;
-      case "FORWARD":
+      case 'FORWARD':
         return this.col < this.subplots[this.row].length - 1;
-      case "BACKWARD":
+      case 'BACKWARD':
         return this.col > 0;
       default:
         return false;
@@ -170,16 +170,16 @@ export class Figure extends AbstractObservableElement<Subplot, FigureState> {
     }
 
     switch (direction) {
-      case "UPWARD":
+      case 'UPWARD':
         this.row += 1;
         break;
-      case "DOWNWARD":
+      case 'DOWNWARD':
         this.row -= 1;
         break;
-      case "FORWARD":
+      case 'FORWARD':
         this.col += 1;
         break;
-      case "BACKWARD":
+      case 'BACKWARD':
         this.col -= 1;
         break;
     }
@@ -204,7 +204,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
 
     const layers = subplot.layers;
     this.size = layers.length;
-    this.traces = layers.map((layer) => [TraceFactory.create(layer)]);
+    this.traces = layers.map(layer => [TraceFactory.create(layer)]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
       return state.empty ? Constant.EMPTY : state.traceType;
@@ -220,7 +220,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   }
 
   public dispose(): void {
-    this.traces.forEach((row) => row.forEach((trace) => trace.dispose()));
+    this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
     super.dispose();
   }
@@ -236,7 +236,7 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
   protected highlight(): HighlightState {
     return {
       empty: true,
-      type: "trace",
+      type: 'trace',
       audio: {
         size: this.values[this.row].length,
         index: this.col,
@@ -257,16 +257,16 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     }
 
     switch (direction) {
-      case "UPWARD":
+      case 'UPWARD':
         this.row += 1;
         break;
-      case "DOWNWARD":
+      case 'DOWNWARD':
         this.row -= 1;
         break;
-      case "FORWARD":
+      case 'FORWARD':
         this.col += 1;
         break;
-      case "BACKWARD":
+      case 'BACKWARD':
         this.col -= 1;
         break;
     }
@@ -277,13 +277,13 @@ export class Subplot extends AbstractObservableElement<Trace, SubplotState> {
     if (this.isOutOfBounds) {
       return {
         empty: true,
-        type: "subplot",
+        type: 'subplot',
       };
     }
 
     return {
       empty: false,
-      type: "subplot",
+      type: 'subplot',
       size: this.size,
       index: this.row + 1,
       trace: this.activeTrace.state,

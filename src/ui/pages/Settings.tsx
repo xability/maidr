@@ -466,8 +466,8 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'High Contrast Levels',
-                          min: 2,
-                          max: 20,
+                          'min': 2,
+                          'max': 20,
                         },
                       },
                     }}

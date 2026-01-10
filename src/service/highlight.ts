@@ -1,14 +1,14 @@
-import type { SettingsService } from "@service/settings";
-import type { Disposable } from "@type/disposable";
-import type { Observer } from "@type/observable";
+import type { SettingsService } from '@service/settings';
+import type { Disposable } from '@type/disposable';
+import type { Observer } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
   SubplotState,
   TraceState,
-} from "@type/state";
-import { Constant } from "@util/constant";
-import { Svg } from "@util/svg";
+} from '@type/state';
+import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 
 type HighlightStateUnion = SubplotState | TraceState | FigureState;
 
@@ -20,8 +20,7 @@ type HighlightStateUnion = SubplotState | TraceState | FigureState;
  * accessibility color transformations.
  */
 export class HighlightService
-  implements Observer<HighlightStateUnion>, Disposable
-{
+implements Observer<HighlightStateUnion>, Disposable {
   private readonly settingsService: SettingsService;
 
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
@@ -40,7 +39,7 @@ export class HighlightService
 
   private createHighlightElement(element: SVGElement): SVGElement {
     if (!(element instanceof SVGElement)) {
-      throw new TypeError("Invalid element provided for highlight creation");
+      throw new TypeError('Invalid element provided for highlight creation');
     }
 
     const clone = Svg.createHighlightElement(
@@ -60,9 +59,9 @@ export class HighlightService
 
     this.unhighlightTraceElements();
 
-    if (state.type === "figure") {
+    if (state.type === 'figure') {
       this.handleFigureState(state);
-    } else if (state.type === "subplot") {
+    } else if (state.type === 'subplot') {
       this.handleSubplotState(state);
     } else {
       this.handleTraceState(state);
@@ -125,7 +124,7 @@ export class HighlightService
         const highlightElement = this.createHighlightElement(element);
         this.highlightedElements.set(element, highlightElement);
       } catch (error) {
-        console.error("Failed to highlight element:", error);
+        console.error('Failed to highlight element:', error);
       }
     }
   }
@@ -135,8 +134,8 @@ export class HighlightService
     const figure = document.querySelector(
       'g[id^="maidr-"] > path[style*="fill"]',
     )?.parentElement as SVGElement | null;
-    const figureBgElement =
-      (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    const figureBgElement
+      = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {
       Svg.setSubplotHighlightSvgWithAdaptiveColor(
         element,
@@ -151,13 +150,13 @@ export class HighlightService
     try {
       this.handleStateUpdate(state);
     } catch (error) {
-      console.error("Failed to update highlight service:", error);
+      console.error('Failed to update highlight service:', error);
     }
   }
 
   public highlight(element: SVGElement): void {
     if (!(element instanceof SVGElement)) {
-      console.warn("Invalid element provided to highlight method");
+      console.warn('Invalid element provided to highlight method');
       return;
     }
 
@@ -166,7 +165,7 @@ export class HighlightService
       const highlightElement = this.createHighlightElement(element);
       this.highlightedElements.set(element, highlightElement);
     } catch (error) {
-      console.error("Failed to highlight element:", error);
+      console.error('Failed to highlight element:', error);
     }
   }
 
@@ -181,7 +180,7 @@ export class HighlightService
         highlightElement.remove();
         this.highlightedElements.delete(element);
       } catch (error) {
-        console.error("Failed to unhighlight element:", error);
+        console.error('Failed to unhighlight element:', error);
       }
     }
   }
@@ -194,7 +193,7 @@ export class HighlightService
       this.highlightedElements.clear();
       this.unhighlightSubplotElements();
     } catch (error) {
-      console.error("Failed to clear highlights:", error);
+      console.error('Failed to clear highlights:', error);
     }
   }
 

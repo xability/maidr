@@ -6,18 +6,18 @@
  * <defs> sections and referenced via fill="url(#pattern-id)".
  */
 
-const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /**
  * Available pattern types for accessibility differentiation.
  * Each pattern is visually distinct to maximize differentiability.
  */
-export type PatternType =
-  | "diagonal-stripes"
-  | "square-grid"
-  | "dots"
-  | "horizontal-lines"
-  | "diamonds";
+export type PatternType
+  = | 'diagonal-stripes'
+    | 'square-grid'
+    | 'dots'
+    | 'horizontal-lines'
+    | 'diamonds';
 
 /**
  * Configuration for creating a pattern instance
@@ -51,7 +51,7 @@ type PatternGenerator = (
 ) => SVGPatternElement;
 
 export class PatternService {
-  private static readonly PATTERN_PREFIX = "maidr-pattern";
+  private static readonly PATTERN_PREFIX = 'maidr-pattern';
 
   /** Cache of created patterns to avoid duplicates: patternKey -> patternId */
   private readonly patternCache: Map<string, string> = new Map();
@@ -64,11 +64,11 @@ export class PatternService {
 
   /** Pattern generators for each pattern type */
   private readonly patternGenerators: Record<PatternType, PatternGenerator> = {
-    "diagonal-stripes": this.createDiagonalStripes.bind(this),
-    "square-grid": this.createSquareGrid.bind(this),
-    dots: this.createDots.bind(this),
-    "horizontal-lines": this.createHorizontalLines.bind(this),
-    diamonds: this.createDiamonds.bind(this),
+    'diagonal-stripes': this.createDiagonalStripes.bind(this),
+    'square-grid': this.createSquareGrid.bind(this),
+    'dots': this.createDots.bind(this),
+    'horizontal-lines': this.createHorizontalLines.bind(this),
+    'diamonds': this.createDiamonds.bind(this),
   };
 
   /**
@@ -125,14 +125,14 @@ export class PatternService {
     const patternUrl = `url(#${patternId})`;
 
     // Check if fill is set via style attribute (higher specificity)
-    const style = element.getAttribute("style") || "";
-    if (style.match(/fill:\s*[^;]+/i)) {
+    const style = element.getAttribute('style') || '';
+    if (style.match(/fill:[^;]+/i)) {
       // Replace fill value in style attribute
-      const newStyle = style.replace(/fill:\s*[^;]+/i, `fill:${patternUrl}`);
-      element.setAttribute("style", newStyle);
+      const newStyle = style.replace(/fill:[^;]+/i, `fill:${patternUrl}`);
+      element.setAttribute('style', newStyle);
     } else {
       // Set fill attribute directly
-      element.setAttribute("fill", patternUrl);
+      element.setAttribute('fill', patternUrl);
     }
   }
 
@@ -142,7 +142,7 @@ export class PatternService {
    * @param originalFill The original fill value to restore
    */
   public removePattern(element: SVGElement, originalFill: string): void {
-    element.setAttribute("fill", originalFill);
+    element.setAttribute('fill', originalFill);
   }
 
   /**
@@ -152,11 +152,11 @@ export class PatternService {
    */
   public getPatternTypes(): PatternType[] {
     return [
-      "diagonal-stripes",
-      "dots",
-      "square-grid",
-      "horizontal-lines",
-      "diamonds",
+      'diagonal-stripes',
+      'dots',
+      'square-grid',
+      'horizontal-lines',
+      'diamonds',
     ];
   }
 
@@ -189,12 +189,12 @@ export class PatternService {
    */
   private ensureDefsElement(): void {
     if (!this.targetSvg) {
-      throw new Error("PatternService not initialized with target SVG");
+      throw new Error('PatternService not initialized with target SVG');
     }
 
-    let defs = this.targetSvg.querySelector("defs") as SVGDefsElement | null;
+    let defs = this.targetSvg.querySelector('defs') as SVGDefsElement | null;
     if (!defs) {
-      defs = document.createElementNS(SVG_NS, "defs") as SVGDefsElement;
+      defs = document.createElementNS(SVG_NS, 'defs') as SVGDefsElement;
       this.targetSvg.insertBefore(defs, this.targetSvg.firstChild);
     }
     this.defsElement = defs;
@@ -236,10 +236,11 @@ export class PatternService {
    */
   private normalizeColor(color: string): string {
     // Use canvas to normalize any CSS color to hex
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return color.toLowerCase().replace(/\s/g, "");
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx)
+      return color.toLowerCase().replace(/\s/g, '');
 
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = '#000';
     ctx.fillStyle = color;
     return ctx.fillStyle.toLowerCase();
   }
@@ -257,7 +258,7 @@ export class PatternService {
 
     const element = generator(baseColor, patternColor, scale);
     const id = this.generatePatternId(type);
-    element.setAttribute("id", id);
+    element.setAttribute('id', id);
 
     return { id, element };
   }
@@ -290,28 +291,28 @@ export class PatternService {
 
     const pattern = document.createElementNS(
       SVG_NS,
-      "pattern",
+      'pattern',
     ) as SVGPatternElement;
-    pattern.setAttribute("patternUnits", "userSpaceOnUse");
-    pattern.setAttribute("width", String(size));
-    pattern.setAttribute("height", String(size));
-    pattern.setAttribute("patternTransform", "rotate(45)");
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', String(size));
+    pattern.setAttribute('height', String(size));
+    pattern.setAttribute('patternTransform', 'rotate(45)');
 
     // Background rect
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("width", String(size));
-    rect.setAttribute("height", String(size));
-    rect.setAttribute("fill", baseColor);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', baseColor);
     pattern.appendChild(rect);
 
     // Diagonal line (vertical line that appears diagonal due to rotation)
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", "0");
-    line.setAttribute("y1", "0");
-    line.setAttribute("x2", "0");
-    line.setAttribute("y2", String(size));
-    line.setAttribute("stroke", patternColor);
-    line.setAttribute("stroke-width", String(strokeWidth));
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('y1', '0');
+    line.setAttribute('x2', '0');
+    line.setAttribute('y2', String(size));
+    line.setAttribute('stroke', patternColor);
+    line.setAttribute('stroke-width', String(strokeWidth));
     pattern.appendChild(line);
 
     return pattern;
@@ -331,25 +332,25 @@ export class PatternService {
 
     const pattern = document.createElementNS(
       SVG_NS,
-      "pattern",
+      'pattern',
     ) as SVGPatternElement;
-    pattern.setAttribute("patternUnits", "userSpaceOnUse");
-    pattern.setAttribute("width", String(size));
-    pattern.setAttribute("height", String(size));
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', String(size));
+    pattern.setAttribute('height', String(size));
 
     // Background rect
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("width", String(size));
-    rect.setAttribute("height", String(size));
-    rect.setAttribute("fill", baseColor);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', baseColor);
     pattern.appendChild(rect);
 
     // Grid lines (L-shape that tiles to form grid)
-    const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("d", `M ${size} 0 L 0 0 0 ${size}`);
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", patternColor);
-    path.setAttribute("stroke-width", String(strokeWidth));
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', `M ${size} 0 L 0 0 0 ${size}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', patternColor);
+    path.setAttribute('stroke-width', String(strokeWidth));
     pattern.appendChild(path);
 
     return pattern;
@@ -369,25 +370,25 @@ export class PatternService {
 
     const pattern = document.createElementNS(
       SVG_NS,
-      "pattern",
+      'pattern',
     ) as SVGPatternElement;
-    pattern.setAttribute("patternUnits", "userSpaceOnUse");
-    pattern.setAttribute("width", String(size));
-    pattern.setAttribute("height", String(size));
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', String(size));
+    pattern.setAttribute('height', String(size));
 
     // Background rect
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("width", String(size));
-    rect.setAttribute("height", String(size));
-    rect.setAttribute("fill", baseColor);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', baseColor);
     pattern.appendChild(rect);
 
     // Center dot
-    const circle = document.createElementNS(SVG_NS, "circle");
-    circle.setAttribute("cx", String(size / 2));
-    circle.setAttribute("cy", String(size / 2));
-    circle.setAttribute("r", String(radius));
-    circle.setAttribute("fill", patternColor);
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', String(size / 2));
+    circle.setAttribute('cy', String(size / 2));
+    circle.setAttribute('r', String(radius));
+    circle.setAttribute('fill', patternColor);
     pattern.appendChild(circle);
 
     return pattern;
@@ -407,27 +408,27 @@ export class PatternService {
 
     const pattern = document.createElementNS(
       SVG_NS,
-      "pattern",
+      'pattern',
     ) as SVGPatternElement;
-    pattern.setAttribute("patternUnits", "userSpaceOnUse");
-    pattern.setAttribute("width", String(size));
-    pattern.setAttribute("height", String(size));
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', String(size));
+    pattern.setAttribute('height', String(size));
 
     // Background rect
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("width", String(size));
-    rect.setAttribute("height", String(size));
-    rect.setAttribute("fill", baseColor);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', baseColor);
     pattern.appendChild(rect);
 
     // Horizontal line
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", "0");
-    line.setAttribute("y1", String(size / 2));
-    line.setAttribute("x2", String(size));
-    line.setAttribute("y2", String(size / 2));
-    line.setAttribute("stroke", patternColor);
-    line.setAttribute("stroke-width", String(strokeWidth));
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('y1', String(size / 2));
+    line.setAttribute('x2', String(size));
+    line.setAttribute('y2', String(size / 2));
+    line.setAttribute('stroke', patternColor);
+    line.setAttribute('stroke-width', String(strokeWidth));
     pattern.appendChild(line);
 
     return pattern;
@@ -447,33 +448,33 @@ export class PatternService {
 
     const pattern = document.createElementNS(
       SVG_NS,
-      "pattern",
+      'pattern',
     ) as SVGPatternElement;
-    pattern.setAttribute("patternUnits", "userSpaceOnUse");
-    pattern.setAttribute("width", String(size));
-    pattern.setAttribute("height", String(size));
-    pattern.setAttribute("patternTransform", "rotate(45)");
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', String(size));
+    pattern.setAttribute('height', String(size));
+    pattern.setAttribute('patternTransform', 'rotate(45)');
 
     // Background rect
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("width", String(size));
-    rect.setAttribute("height", String(size));
-    rect.setAttribute("fill", baseColor);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', baseColor);
     pattern.appendChild(rect);
 
     // Two checkerboard squares
-    const square1 = document.createElementNS(SVG_NS, "rect");
-    square1.setAttribute("width", String(halfSize));
-    square1.setAttribute("height", String(halfSize));
-    square1.setAttribute("fill", patternColor);
+    const square1 = document.createElementNS(SVG_NS, 'rect');
+    square1.setAttribute('width', String(halfSize));
+    square1.setAttribute('height', String(halfSize));
+    square1.setAttribute('fill', patternColor);
     pattern.appendChild(square1);
 
-    const square2 = document.createElementNS(SVG_NS, "rect");
-    square2.setAttribute("x", String(halfSize));
-    square2.setAttribute("y", String(halfSize));
-    square2.setAttribute("width", String(halfSize));
-    square2.setAttribute("height", String(halfSize));
-    square2.setAttribute("fill", patternColor);
+    const square2 = document.createElementNS(SVG_NS, 'rect');
+    square2.setAttribute('x', String(halfSize));
+    square2.setAttribute('y', String(halfSize));
+    square2.setAttribute('width', String(halfSize));
+    square2.setAttribute('height', String(halfSize));
+    square2.setAttribute('fill', patternColor);
     pattern.appendChild(square2);
 
     return pattern;

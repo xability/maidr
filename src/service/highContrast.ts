@@ -1,21 +1,21 @@
-import type { Context } from "@model/context";
-import type { Figure } from "@model/plot";
-import type { SettingsService } from "@service/settings";
-import type { Disposable } from "@type/disposable";
-import type { Observer } from "@type/observable";
-import type { Settings } from "@type/settings";
-import { DisplayService } from "@service/display";
-import { NotificationService } from "@service/notification";
-import { PatternService } from "@service/pattern";
+import type { Context } from '@model/context';
+import type { Figure } from '@model/plot';
+import type { DisplayService } from '@service/display';
+import type { NotificationService } from '@service/notification';
+import type { SettingsService } from '@service/settings';
+import type { Disposable } from '@type/disposable';
+import type { Observer } from '@type/observable';
+import type { Settings } from '@type/settings';
+import { PatternService } from '@service/pattern';
 
-type ElementColorInfo = {
+interface ElementColorInfo {
   element: SVGElement;
   color: string;
   isInSelectors: boolean;
   cantBeBackground: boolean;
   attr: string;
-  attrType?: "style" | "attribute";
-};
+  attrType?: 'style' | 'attribute';
+}
 
 /**
  * HighContrastService manages the high contrast accessibility mode.
@@ -34,8 +34,8 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   private readonly context: Context;
 
   // Cached original colors - captured once on first application
-  private defaultBackgroundColor: string = "";
-  private defaultForegroundColor: string = "";
+  private defaultBackgroundColor: string = '';
+  private defaultForegroundColor: string = '';
   private originalColorInfo: ElementColorInfo[] | null = null;
 
   // Cache of all trace elements for high contrast mode
@@ -196,7 +196,7 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     // The update() method will be called via observer pattern to apply/restore colors
 
-    const message = `High Contrast Mode ${newHighContrastMode ? "on" : "off"}`;
+    const message = `High Contrast Mode ${newHighContrastMode ? 'on' : 'off'}`;
     this.notificationService.notify(message);
   }
 
@@ -213,14 +213,14 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     // Apply high contrast colors to elements
     for (const item of highContrastElInfo) {
-      if (item.element && item.attrType === "style") {
-        const style = item.element.getAttribute("style") || "";
+      if (item.element && item.attrType === 'style') {
+        const style = item.element.getAttribute('style') || '';
         const newStyle = style.replace(
-          new RegExp(`${item.attr}:\\s*[^;]+`, "i"),
+          new RegExp(`${item.attr}:\\s*[^;]+`, 'i'),
           `${item.attr}:${item.color}`,
         );
-        item.element.setAttribute("style", newStyle);
-      } else if (item.element && item.attrType === "attribute") {
+        item.element.setAttribute('style', newStyle);
+      } else if (item.element && item.attrType === 'attribute') {
         item.element.setAttribute(item.attr, item.color);
       }
     }
@@ -230,29 +230,29 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     // Apply shadow to text elements
     this.originalColorInfo?.forEach((item) => {
-      if (this.hasParentWithStringInID(item.element, "text")) {
-        item.element.setAttribute("filter", "url(#glow-shadow)");
+      if (this.hasParentWithStringInID(item.element, 'text')) {
+        item.element.setAttribute('filter', 'url(#glow-shadow)');
       }
     });
 
     // Handle line chart exception
-    if ("type" in this.context.instructionContext) {
-      if (this.context.instructionContext.type === "line") {
-        document.getElementById(this.context.id)?.classList.add("high-contrast");
+    if ('type' in this.context.instructionContext) {
+      if (this.context.instructionContext.type === 'line') {
+        document.getElementById(this.context.id)?.classList.add('high-contrast');
       }
     }
 
     // Apply plot fill style
     this.displayService.plot.setAttribute(
-      "style",
-      "fill:" + this.highContrastLightColor,
+      'style',
+      `fill:${this.highContrastLightColor}`,
     );
 
     // Handle stacked/dodged bar exception: apply patterns
-    if ("type" in this.context.instructionContext) {
+    if ('type' in this.context.instructionContext) {
       if (
-        this.context.instructionContext.type === "stacked_bar" ||
-        this.context.instructionContext.type === "dodged_bar"
+        this.context.instructionContext.type === 'stacked_bar'
+        || this.context.instructionContext.type === 'dodged_bar'
       ) {
         this.applyPatternsToElements(highContrastElInfo);
       }
@@ -273,36 +273,37 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     // Restore SVG element colors
     this.originalColorInfo.forEach((item) => {
-      if (item.element && item.attrType === "style") {
-        const style = item.element.getAttribute("style") || "";
+      if (item.element && item.attrType === 'style') {
+        const style = item.element.getAttribute('style') || '';
         const newStyle = style.replace(
-          new RegExp(`${item.attr}:\\s*[^;]+`, "i"),
+          new RegExp(`${item.attr}:\\s*[^;]+`, 'i'),
           `${item.attr}:${item.color}`,
         );
-        item.element.setAttribute("style", newStyle);
-      } else if (item.element && item.attrType === "attribute") {
+        item.element.setAttribute('style', newStyle);
+      } else if (item.element && item.attrType === 'attribute') {
         item.element.setAttribute(item.attr, item.color);
       }
 
       // Remove text shadow filter
-      if (item.element.getAttribute("filter") === "url(#glow-shadow)") {
-        item.element.removeAttribute("filter");
+      if (item.element.getAttribute('filter') === 'url(#glow-shadow)') {
+        item.element.removeAttribute('filter');
       }
     });
 
     // Handle line chart exception
-    if ("type" in this.context.instructionContext) {
-      if (this.context.instructionContext.type === "line") {
+    if ('type' in this.context.instructionContext) {
+      if (this.context.instructionContext.type === 'line') {
         document
           .getElementById(this.context.id)
-          ?.classList.remove("high-contrast");
+          ?.classList
+          .remove('high-contrast');
       }
     }
 
     // Restore plot fill style
     this.displayService.plot.setAttribute(
-      "style",
-      "fill:" + this.defaultForegroundColor,
+      'style',
+      `fill:${this.defaultForegroundColor}`,
     );
 
     // Clean up pattern service
@@ -350,8 +351,9 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   private getOriginalColorInfo(): ElementColorInfo[] | null {
     const svg = this.displayService.plot;
-    if (!svg) return null;
-    const svgElements = svg.querySelectorAll("*");
+    if (!svg)
+      return null;
+    const svgElements = svg.querySelectorAll('*');
 
     const traceElements = this.getAllTraceElements();
     const originalColorInfo: ElementColorInfo[] = [];
@@ -359,17 +361,17 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     for (let i = 0; i < svgElements.length; i++) {
       const el = svgElements[i];
 
-      if (el.getAttribute("visibility") === "hidden") {
+      if (el.getAttribute('visibility') === 'hidden') {
         continue;
       }
 
-      const style = el.getAttribute("style") || "";
+      const style = el.getAttribute('style') || '';
       const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
       const styleStrokeMatch = style.match(/stroke:\s*([^;]+)/i);
 
       const isInSelectors = this.isTraceElement(el, traceElements);
 
-      const complexPath = el.getAttribute("d");
+      const complexPath = el.getAttribute('d');
       let isComplexPath = false;
       if (complexPath) {
         isComplexPath = complexPath.length > 120;
@@ -380,43 +382,43 @@ export class HighContrastService implements Observer<Settings>, Disposable {
         originalColorInfo.push({
           element: el as SVGElement,
           color: styleFillMatch[1].trim(),
-          isInSelectors: isInSelectors,
-          cantBeBackground: cantBeBackground,
-          attr: "fill",
-          attrType: "style",
+          isInSelectors,
+          cantBeBackground,
+          attr: 'fill',
+          attrType: 'style',
         });
       }
       if (styleStrokeMatch) {
         originalColorInfo.push({
           element: el as SVGElement,
           color: styleStrokeMatch[1].trim(),
-          isInSelectors: isInSelectors,
-          cantBeBackground: cantBeBackground,
-          attr: "stroke",
-          attrType: "style",
+          isInSelectors,
+          cantBeBackground,
+          attr: 'stroke',
+          attrType: 'style',
         });
       }
 
-      const attrFill = el.getAttribute("fill");
+      const attrFill = el.getAttribute('fill');
       if (attrFill) {
         originalColorInfo.push({
           element: el as SVGElement,
           color: attrFill.trim(),
-          isInSelectors: isInSelectors,
-          cantBeBackground: cantBeBackground,
-          attr: "fill",
-          attrType: "attribute",
+          isInSelectors,
+          cantBeBackground,
+          attr: 'fill',
+          attrType: 'attribute',
         });
       }
-      const attrStroke = el.getAttribute("stroke");
+      const attrStroke = el.getAttribute('stroke');
       if (attrStroke) {
         originalColorInfo.push({
           element: el as SVGElement,
           color: attrStroke.trim(),
-          isInSelectors: isInSelectors,
-          cantBeBackground: cantBeBackground,
-          attr: "stroke",
-          attrType: "attribute",
+          isInSelectors,
+          cantBeBackground,
+          attr: 'stroke',
+          attrType: 'attribute',
         });
       }
     }
@@ -426,12 +428,13 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   private getHighContrastColors(): ElementColorInfo[] {
     const originalColorInfo = this.originalColorInfo;
-    if (!originalColorInfo) return [];
+    if (!originalColorInfo)
+      return [];
 
-    const spreadColors =
-      this.spreadColorsAcrossLuminanceSpectrum(originalColorInfo);
+    const spreadColors
+      = this.spreadColorsAcrossLuminanceSpectrum(originalColorInfo);
 
-    const highContrastElInfo = spreadColors.map((item) => ({
+    const highContrastElInfo = spreadColors.map(item => ({
       ...item,
       color: this.toColorStep(item),
     }));
@@ -441,13 +444,13 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   private hasParentWithStringInID(
     el: Element,
-    searchString: string = "",
-    notString: string = "",
+    searchString: string = '',
+    notString: string = '',
   ): boolean {
     let current = el.parentElement;
 
     while (current) {
-      if (current.tagName === "svg" || current.tagName === "BODY") {
+      if (current.tagName === 'svg' || current.tagName === 'BODY') {
         break;
       }
 
@@ -472,25 +475,25 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   private addGlowShadowFilter(svgHtml: HTMLElement): void {
     const svg = svgHtml as unknown as SVGSVGElement;
 
-    if (svg.querySelector("#glow-shadow")) {
+    if (svg.querySelector('#glow-shadow')) {
       return;
     }
 
-    let defs = svg.querySelector("defs");
+    let defs = svg.querySelector('defs');
     if (!defs) {
-      defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
       svg.insertBefore(defs, svg.firstChild);
     }
 
     const filter = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "filter",
+      'http://www.w3.org/2000/svg',
+      'filter',
     );
-    filter.setAttribute("id", "glow-shadow");
-    filter.setAttribute("x", "-50%");
-    filter.setAttribute("y", "-50%");
-    filter.setAttribute("width", "200%");
-    filter.setAttribute("height", "200%");
+    filter.setAttribute('id', 'glow-shadow');
+    filter.setAttribute('x', '-50%');
+    filter.setAttribute('y', '-50%');
+    filter.setAttribute('width', '200%');
+    filter.setAttribute('height', '200%');
 
     const filterHTML = `
     <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur1"/>
@@ -528,33 +531,34 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   private toColorStep(colorInfo: ElementColorInfo): string {
     const value = colorInfo.color;
-    if (value === "none" || value === "transparent") {
+    if (value === 'none' || value === 'transparent') {
       return value;
     }
 
-    if (this.hasParentWithStringInID(colorInfo.element, "text")) {
+    if (this.hasParentWithStringInID(colorInfo.element, 'text')) {
       return this.highContrastLightColor;
     }
 
-    let colorEquivalents = [...this.colorEquivalents];
+    const colorEquivalents = [...this.colorEquivalents];
 
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return value;
-    ctx.fillStyle = "#000";
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx)
+      return value;
+    ctx.fillStyle = '#000';
     ctx.fillStyle = value.trim();
     let hex = ctx.fillStyle;
 
     if (/^#[0-9a-f]{8}$/i.test(hex)) {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const a = parseInt(hex.slice(7, 9), 16) / 255;
+      const r = Number.parseInt(hex.slice(1, 3), 16);
+      const g = Number.parseInt(hex.slice(3, 5), 16);
+      const b = Number.parseInt(hex.slice(5, 7), 16);
+      const a = Number.parseInt(hex.slice(7, 9), 16) / 255;
 
       const blendedR = Math.round(r * a + 255 * (1 - a));
       const blendedG = Math.round(g * a + 255 * (1 - a));
       const blendedB = Math.round(b * a + 255 * (1 - a));
 
-      hex = `#${blendedR.toString(16).padStart(2, "0")}${blendedG.toString(16).padStart(2, "0")}${blendedB.toString(16).padStart(2, "0")}`;
+      hex = `#${blendedR.toString(16).padStart(2, '0')}${blendedG.toString(16).padStart(2, '0')}${blendedB.toString(16).padStart(2, '0')}`;
     } else if (!/^#[0-9a-f]{6}$/i.test(hex)) {
       return value;
     }
@@ -562,10 +566,10 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     let useNearWhite = false;
     const nearWhiteScale = 0.1;
 
-    if ("type" in this.context.instructionContext) {
+    if ('type' in this.context.instructionContext) {
       if (
-        this.context.instructionContext.type === "bar" ||
-        this.context.instructionContext.type === "histogram"
+        this.context.instructionContext.type === 'bar'
+        || this.context.instructionContext.type === 'histogram'
       ) {
         if (colorInfo.isInSelectors) {
           useNearWhite = true;
@@ -594,15 +598,15 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     cantBeBackground: boolean,
   ): string {
     if (colorArray.length === 0) {
-      throw new Error("Color array cannot be empty");
+      throw new Error('Color array cannot be empty');
     }
 
     const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
-      const normalized = hex.replace("#", "");
+      const normalized = hex.replace('#', '');
       return {
-        r: parseInt(normalized.slice(0, 2), 16),
-        g: parseInt(normalized.slice(2, 4), 16),
-        b: parseInt(normalized.slice(4, 6), 16),
+        r: Number.parseInt(normalized.slice(0, 2), 16),
+        g: Number.parseInt(normalized.slice(2, 4), 16),
+        b: Number.parseInt(normalized.slice(4, 6), 16),
       };
     };
 
@@ -615,9 +619,9 @@ export class HighContrastService implements Observer<Settings>, Disposable {
       c2: { r: number; g: number; b: number },
     ): number => {
       return Math.sqrt(
-        Math.pow(c1.r - c2.r, 2) +
-          Math.pow(c1.g - c2.g, 2) +
-          Math.pow(c1.b - c2.b, 2),
+        (c1.r - c2.r) ** 2
+        + (c1.g - c2.g) ** 2
+        + (c1.b - c2.b) ** 2,
       );
     };
 
@@ -714,10 +718,11 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   ): { r: number; g: number; b: number } | null {
     const trimmed = color.trim();
 
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return null;
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx)
+      return null;
 
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = '#000';
     ctx.fillStyle = trimmed;
     const hex = ctx.fillStyle;
 
@@ -735,16 +740,17 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   private rgbToHex(rgb: { r: number; g: number; b: number }): string {
     const toHex = (n: number): string => {
       const clamped = Math.max(0, Math.min(255, n));
-      return clamped.toString(16).padStart(2, "0");
+      return clamped.toString(16).padStart(2, '0');
     };
     return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
   }
 
   private normalizeColor(color: string): string {
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return color.toLowerCase().replace(/\s/g, "");
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx)
+      return color.toLowerCase().replace(/\s/g, '');
 
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = '#000';
     ctx.fillStyle = color;
     return ctx.fillStyle.toLowerCase();
   }
@@ -798,11 +804,16 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
       const hue2rgb = (p: number, q: number, t: number): number => {
         let tNorm = t;
-        if (tNorm < 0) tNorm += 1;
-        if (tNorm > 1) tNorm -= 1;
-        if (tNorm < 1 / 6) return p + (q - p) * 6 * tNorm;
-        if (tNorm < 1 / 2) return q;
-        if (tNorm < 2 / 3) return p + (q - p) * (2 / 3 - tNorm) * 6;
+        if (tNorm < 0)
+          tNorm += 1;
+        if (tNorm > 1)
+          tNorm -= 1;
+        if (tNorm < 1 / 6)
+          return p + (q - p) * 6 * tNorm;
+        if (tNorm < 1 / 2)
+          return q;
+        if (tNorm < 2 / 3)
+          return p + (q - p) * (2 / 3 - tNorm) * 6;
         return p;
       };
 
@@ -824,7 +835,7 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     for (let i = 0; i < colorInfos.length; i++) {
       const item = colorInfos[i];
-      if (item.color === "none" || item.color === "transparent") {
+      if (item.color === 'none' || item.color === 'transparent') {
         continue;
       }
       if (item.isInSelectors) {
@@ -841,15 +852,15 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     }
 
     if (selectorItems.length <= 1) {
-      return colorInfos.map((item) => ({ ...item }));
+      return colorInfos.map(item => ({ ...item }));
     }
 
-    const luminances = selectorItems.map((item) => item.luminance);
+    const luminances = selectorItems.map(item => item.luminance);
     const minLum = Math.min(...luminances);
     const maxLum = Math.max(...luminances);
     const lumRange = maxLum - minLum;
 
-    const result: ElementColorInfo[] = colorInfos.map((item) => ({ ...item }));
+    const result: ElementColorInfo[] = colorInfos.map(item => ({ ...item }));
 
     for (const selectorItem of selectorItems) {
       let newLuminance: number;
@@ -878,7 +889,8 @@ export class HighContrastService implements Observer<Settings>, Disposable {
   private applyPatternsToElements(
     highContrastElInfo: ElementColorInfo[],
   ): void {
-    if (!this.originalColorInfo) return;
+    if (!this.originalColorInfo)
+      return;
 
     if (!this.patternService) {
       this.patternService = new PatternService();
@@ -888,7 +900,7 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     const elementToHighContrastColor = new Map<SVGElement, string>();
     for (const item of highContrastElInfo) {
-      if (item.isInSelectors && item.attr === "fill") {
+      if (item.isInSelectors && item.attr === 'fill') {
         elementToHighContrastColor.set(item.element, item.color);
       }
     }
@@ -896,7 +908,7 @@ export class HighContrastService implements Observer<Settings>, Disposable {
     const colorGroups = new Map<string, ElementColorInfo[]>();
 
     for (const item of this.originalColorInfo) {
-      if (item.isInSelectors && item.attr === "fill") {
+      if (item.isInSelectors && item.attr === 'fill') {
         const normalizedColor = this.normalizeColor(item.color);
         if (!colorGroups.has(normalizedColor)) {
           colorGroups.set(normalizedColor, []);
@@ -907,13 +919,13 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
     let patternIndex = 0;
     for (const [_color, elements] of colorGroups) {
-      const patternType =
-        this.patternService.getPatternTypeByIndex(patternIndex);
+      const patternType
+        = this.patternService.getPatternTypeByIndex(patternIndex);
 
       for (const item of elements) {
-        const baseColor =
-          elementToHighContrastColor.get(item.element) ||
-          this.highContrastLightColor;
+        const baseColor
+          = elementToHighContrastColor.get(item.element)
+            || this.highContrastLightColor;
 
         const patternColor = this.getMostContrastingColor(baseColor);
 
@@ -945,7 +957,8 @@ export class HighContrastService implements Observer<Settings>, Disposable {
 
   private getRelativeLuminance(color: string): number {
     const rgb = this.parseColorToRgb(color);
-    if (!rgb) return 0.5;
+    if (!rgb)
+      return 0.5;
 
     return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
   }
