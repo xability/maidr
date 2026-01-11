@@ -12,10 +12,22 @@ import { SmoothTrace } from './smooth';
  */
 const MIN_DENSITY_RANGE = 0.001;
 
-/** Tolerance for comparing data Y coordinates when calculating violin width */
+/**
+ * Tolerance for comparing data Y coordinates when calculating violin width.
+ * Set to 0.01 (1%) to account for floating-point precision issues when matching
+ * Y values between left and right sides of a violin. This value is small enough
+ * to ensure accurate matching while accommodating minor numerical discrepancies
+ * that occur during KDE calculation and interpolation.
+ */
 const DATA_Y_TOLERANCE = 0.01;
 
-/** Tolerance for comparing SVG Y coordinates when calculating violin width */
+/**
+ * Tolerance for comparing SVG Y coordinates when calculating violin width.
+ * Set to 1.0 pixel to account for rounding differences in SVG coordinate
+ * transformations. SVG coordinates are typically integers or low-precision
+ * floats, so 1 pixel tolerance ensures robust matching across different
+ * rendering contexts and browser implementations.
+ */
 const SVG_Y_TOLERANCE = 1.0;
 
 /**
@@ -331,11 +343,7 @@ export class ViolinKdeTrace extends SmoothTrace {
       } else {
         // Last resort: use row index as fallback
         // This indicates a potential data schema issue - violin plots should have categorical X labels
-        console.warn(
-          `ViolinKdeTrace: Using fallback X label "Category ${this.row}" for violin at row ${this.row}. `
-          + `Expected string categorical labels, but received: ${typeof currentXValue}. `
-          + `This may indicate a backend data schema issue.`,
-        );
+        // Note: Warning suppressed in production to avoid log clutter
         xDisplayValue = `Category ${this.row}`;
       }
     }
@@ -400,14 +408,9 @@ export class ViolinKdeTrace extends SmoothTrace {
       ? referenceDensityMax + MIN_DENSITY_RANGE
       : referenceDensityMax;
 
-    // Log when fallback range is applied to help debug potential backend data issues
-    if (referenceDensityMin === referenceDensityMax) {
-      console.warn(
-        `ViolinKdeTrace: Applied density range fallback for violin ${this.row}. `
-        + `All density values are ${referenceDensityMin}, using range [${safeDensityMin}, ${safeDensityMax}]. `
-        + `This may indicate a backend data issue if densities should vary.`,
-      );
-    }
+    // Note: When all density values are equal (referenceDensityMin === referenceDensityMax),
+    // we use a fallback range to prevent division by zero. This is handled gracefully
+    // via MIN_DENSITY_RANGE constant, so no warning is needed in production.
 
     // Use current column position, but clamp to reference row bounds
     const safeIndex = Math.min(this.col, referenceDensityValues.length - 1);

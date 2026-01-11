@@ -443,6 +443,12 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * - If no valid nearest point exists or coordinates are out of bounds, no action is taken
    * - If coordinates are within bounds and position is different, triggers state update via moveToIndex
    * - If already at the target position, returns without triggering state update
+   *
+   * Violin Plot Specific Behavior:
+   * - For ViolinKdeTrace: Coordinates map to (violin index, y-value within KDE curve)
+   * - For BoxTrace in violin mode: Coordinates map to (section index, violin index) for vertical
+   *   orientation, or (violin index, section index) for horizontal orientation
+   * - Layer switching between violin layers preserves both X (violin) and Y (section/value) positions
    */
   moveToPoint: (x: number, y: number) => void;
 

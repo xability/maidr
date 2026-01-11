@@ -108,61 +108,14 @@ export class BoxTrace extends AbstractTrace {
       this.points = layer.data as BoxPoint[];
     }
 
-    // For regular box plots and Seaborn violins (with visible inner box),
-    // expose full Tukey structure including quartiles.
-    // For Matplotlib violins, respect showmedians/showmeans flags.
-    if (this.isMplViolinBoxPlot) {
-      this.sections = [
-        BoxplotSection.LOWER_OUTLIER,
-        BoxplotSection.MIN,
-      ];
-      const sectionAccessors: ((p: BoxPoint) => number | number[])[] = [
-        (p: BoxPoint) => p.lowerOutliers,
-        (p: BoxPoint) => p.min,
-      ];
+    // Build sections and accessors based on plot type
+    // Each plot type has different visible sections
+    const { sections, accessors } = this.isMplViolinBoxPlot
+      ? this.buildMplViolinDataSections()
+      : this.buildStandardBoxDataSections();
 
-      if (this.violinShowMedians) {
-        this.sections.push(BoxplotSection.Q2);
-        sectionAccessors.push((p: BoxPoint) => p.q2);
-      }
-
-      if (this.violinShowMeans) {
-        this.sections.push(BoxplotSection.MEAN);
-        // Use NaN as fallback for missing mean values. These will be filtered out
-        // during min/max calculations to prevent NaN propagation in audio scaling.
-        sectionAccessors.push((p: BoxPoint) => p.mean ?? Number.NaN);
-      }
-
-      this.sections.push(BoxplotSection.MAX);
-      this.sections.push(BoxplotSection.UPPER_OUTLIER);
-      sectionAccessors.push(
-        (p: BoxPoint) => p.max,
-        (p: BoxPoint) => p.upperOutliers,
-      );
-
-      this.boxValues = this.computeBoxValues(sectionAccessors);
-    } else {
-      this.sections = [
-        BoxplotSection.LOWER_OUTLIER,
-        BoxplotSection.MIN,
-        BoxplotSection.Q1,
-        BoxplotSection.Q2,
-        BoxplotSection.Q3,
-        BoxplotSection.MAX,
-        BoxplotSection.UPPER_OUTLIER,
-      ];
-
-      const sectionAccessors = [
-        (p: BoxPoint) => p.lowerOutliers,
-        (p: BoxPoint) => p.min,
-        (p: BoxPoint) => p.q1,
-        (p: BoxPoint) => p.q2,
-        (p: BoxPoint) => p.q3,
-        (p: BoxPoint) => p.max,
-        (p: BoxPoint) => p.upperOutliers,
-      ];
-      this.boxValues = this.computeBoxValues(sectionAccessors);
-    }
+    this.sections = sections;
+    this.boxValues = this.computeBoxValues(accessors);
 
     const flatBoxValues = this.boxValues.map(row =>
       row.flatMap(cell => (Array.isArray(cell) ? cell : [cell])),
@@ -211,6 +164,75 @@ export class BoxTrace extends AbstractTrace {
     const minIndex = this.sections.indexOf(BoxplotSection.MIN);
     // Fallback to 1 if MIN not found (shouldn't happen with valid data)
     return minIndex >= 0 ? minIndex : 1;
+  }
+
+  /**
+   * Build data sections and accessors for Matplotlib violin plots.
+   * Respects showMedians and showMeans flags to match Matplotlib's visual output.
+   * Only includes MIN, optional Q2/MEAN, and MAX (no quartiles).
+   */
+  private buildMplViolinDataSections(): {
+    sections: string[];
+    accessors: ((p: BoxPoint) => number | number[])[];
+  } {
+    const sections: string[] = [
+      BoxplotSection.LOWER_OUTLIER,
+      BoxplotSection.MIN,
+    ];
+    const accessors: ((p: BoxPoint) => number | number[])[] = [
+      (p: BoxPoint) => p.lowerOutliers,
+      (p: BoxPoint) => p.min,
+    ];
+
+    if (this.violinShowMedians) {
+      sections.push(BoxplotSection.Q2);
+      accessors.push((p: BoxPoint) => p.q2);
+    }
+
+    if (this.violinShowMeans) {
+      sections.push(BoxplotSection.MEAN);
+      // Use NaN as fallback for missing mean values. These will be filtered out
+      // during min/max calculations to prevent NaN propagation in audio scaling.
+      accessors.push((p: BoxPoint) => p.mean ?? Number.NaN);
+    }
+
+    sections.push(BoxplotSection.MAX, BoxplotSection.UPPER_OUTLIER);
+    accessors.push(
+      (p: BoxPoint) => p.max,
+      (p: BoxPoint) => p.upperOutliers,
+    );
+
+    return { sections, accessors };
+  }
+
+  /**
+   * Build data sections and accessors for standard box plots and Seaborn violins.
+   * Exposes full Tukey structure including all quartiles.
+   */
+  private buildStandardBoxDataSections(): {
+    sections: string[];
+    accessors: ((p: BoxPoint) => number | number[])[];
+  } {
+    return {
+      sections: [
+        BoxplotSection.LOWER_OUTLIER,
+        BoxplotSection.MIN,
+        BoxplotSection.Q1,
+        BoxplotSection.Q2,
+        BoxplotSection.Q3,
+        BoxplotSection.MAX,
+        BoxplotSection.UPPER_OUTLIER,
+      ],
+      accessors: [
+        (p: BoxPoint) => p.lowerOutliers,
+        (p: BoxPoint) => p.min,
+        (p: BoxPoint) => p.q1,
+        (p: BoxPoint) => p.q2,
+        (p: BoxPoint) => p.q3,
+        (p: BoxPoint) => p.max,
+        (p: BoxPoint) => p.upperOutliers,
+      ],
+    };
   }
 
   public dispose(): void {
