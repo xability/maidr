@@ -6,35 +6,38 @@ import { ViolinKdeTrace } from './violinKde';
 
 /**
  * Type guard to check if a point contains svg_x and svg_y numeric coordinates.
- * @param pt - The point object to check
+ * @param pt - The point object to check (unknown type for type safety)
  * @returns True if the point has valid svg_x and svg_y properties
  */
-function isSmoothPoint(pt: any): pt is { svg_x: number; svg_y: number } {
-  return typeof pt?.svg_x === 'number' && typeof pt?.svg_y === 'number';
+function isSmoothPoint(pt: unknown): pt is { svg_x: number; svg_y: number } {
+  return (
+    typeof pt === 'object'
+    && pt !== null
+    && 'svg_x' in pt
+    && 'svg_y' in pt
+    && typeof (pt as { svg_x: unknown }).svg_x === 'number'
+    && typeof (pt as { svg_y: unknown }).svg_y === 'number'
+  );
 }
 
 /**
  * Factory function to create the appropriate SmoothTrace instance based on layer data and context.
  *
- * Uses structural detection (performed upstream) to identify violin plot KDE layers:
- * if the subplot contains both BOX and SMOOTH layers, callers pass `isViolinPlot=true`
- * and this factory creates a ViolinKdeTrace for SMOOTH layers. Otherwise, it creates a
- * SmoothTrace or SmoothTraceSvgXY based on the data format.
+ * Violin plot detection is performed upstream (in `Subplot`) using a two-tier approach:
+ * 1. **Explicit metadata** (preferred): The Python backend sets `violinLayer` on layers
+ *    that are part of a violin plot ('kde' for SMOOTH layers, 'mpl_violin'/'sns_violin' for BOX).
+ * 2. **Structural fallback**: If no metadata is present (older backends), detection falls back
+ *    to checking if both BOX and SMOOTH layers exist in the same subplot.
  *
- * Note: Structural detection (BOX + SMOOTH in same subplot) is used to avoid plot-specific
- * metadata in the general MaidrLayer interface. This approach works well in practice because:
- * - Regular box plots only contain BOX layers
- * - Regular smooth plots (regression lines) only contain SMOOTH layers
- * - Violin plots are the only plot type that combines both in the same subplot
- *
- * Edge case: If a subplot intentionally combines an independent box plot and regression line,
- * this detection would incorrectly identify it as a violin plot. This is rare in practice.
+ * This library-agnostic approach works for both Matplotlib and Seaborn violin plots,
+ * and gracefully handles edge cases where a subplot might combine independent box and
+ * regression plots (the explicit metadata ensures correct identification).
  *
  * @param layer - The MAIDR layer data for the smooth trace
- * @param isViolinPlot - Optional hint that this subplot is a violin plot
- *                       (BOX + SMOOTH present in the same subplot).
+ * @param isViolinPlot - Hint that this subplot is a violin plot (detected upstream via
+ *                       explicit violinLayer metadata or structural fallback).
  * @returns A SmoothTrace instance:
- *          - ViolinKdeTrace if this is a violin plot KDE layer (BOX + SMOOTH detected upstream)
+ *          - ViolinKdeTrace if this is a violin plot KDE layer
  *          - SmoothTraceSvgXY if the data contains svg_x/svg_y coordinates
  *          - SmoothTrace otherwise (standard smooth/regression line)
  */
