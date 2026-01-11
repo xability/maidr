@@ -1,3 +1,10 @@
+## [3.44.1](https://github.com/xability/maidr/compare/v3.44.0...v3.44.1) (2026-01-11)
+
+
+### Reverts
+
+* Revert "feat: support matplotlib violin plot ([#492](https://github.com/xability/maidr/issues/492))" ([#509](https://github.com/xability/maidr/issues/509)) ([a4ce32c](https://github.com/xability/maidr/commit/a4ce32c4901c9c58b8a3d5704b14bb25558b8715))
+
 # [3.44.0](https://github.com/xability/maidr/compare/v3.43.1...v3.44.0) (2026-01-11)
 
 
