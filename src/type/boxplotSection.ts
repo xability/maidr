@@ -9,7 +9,6 @@ export const BoxplotSection = {
   Q3: '75%',
   MAX: 'Maximum',
   UPPER_OUTLIER: 'Upper outlier(s)',
-  MEAN: 'Mean',
 } as const;
 
 /**
