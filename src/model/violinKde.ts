@@ -2,7 +2,6 @@ import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, TextState } from '@type/state';
 import type { Trace } from './plot';
-import { TraceType } from '@type/grammar';
 import { Svg } from '@util/svg';
 import { SmoothTrace } from './smooth';
 
@@ -11,24 +10,6 @@ import { SmoothTrace } from './smooth';
  * are equal. This prevents division by zero errors in interpolation calculations.
  */
 const MIN_DENSITY_RANGE = 0.001;
-
-/**
- * Tolerance for comparing data Y coordinates when calculating violin width.
- * Set to 0.01 (1%) to account for floating-point precision issues when matching
- * Y values between left and right sides of a violin. This value is small enough
- * to ensure accurate matching while accommodating minor numerical discrepancies
- * that occur during KDE calculation and interpolation.
- */
-const DATA_Y_TOLERANCE = 0.01;
-
-/**
- * Tolerance for comparing SVG Y coordinates when calculating violin width.
- * Set to 1.0 pixel to account for rounding differences in SVG coordinate
- * transformations. SVG coordinates are typically integers or low-precision
- * floats, so 1 pixel tolerance ensures robust matching across different
- * rendering contexts and browser implementations.
- */
-const SVG_Y_TOLERANCE = 1.0;
 
 /**
  * Extended point type for violin KDE plots.
@@ -156,53 +137,9 @@ export class ViolinKdeTrace extends SmoothTrace {
   }
 
   /**
-   * Resolves the primary SVG element from matched elements for a violin.
-   *
-   * This method is library-agnostic and supports different SVG structures:
-   * - Matplotlib: Uses <defs> with <path> definitions referenced via <use> elements
-   * - Seaborn: May generate direct <path> elements without <use> references
-   *
-   * The resolution strategy maintains backward compatibility:
-   * 1. First, look for <use> elements (Matplotlib's rendered elements)
-   * 2. Fall back to <path> elements (Seaborn's direct paths)
-   *
-   * @param matchedElements - Array of SVG elements matched by the selector
-   * @param violinIndex - Index of the current violin (used for old format selectors)
-   * @param isNewFormat - Whether using new format (one selector per violin) or old format
-   * @returns The resolved primary SVG element, or null if none found
-   */
-  private resolveViolinSvgElement(
-    matchedElements: SVGElement[],
-    violinIndex: number,
-    isNewFormat: boolean,
-  ): SVGElement | null {
-    if (matchedElements.length === 0) {
-      return null;
-    }
-
-    // Filter elements by type - supports both Matplotlib (<use>) and Seaborn (<path>) structures
-    const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
-    const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
-
-    // Resolution strategy: prefer <use> elements (Matplotlib), fall back to <path> (Seaborn)
-    // This order is important for backward compatibility with existing Matplotlib violin plots
-    const candidates = useElements.length > 0 ? useElements : pathElements;
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    // For new format (one selector per violin), use the first matched element
-    // For old format (pattern selector matching all violins), select by violin index
-    return candidates[isNewFormat ? 0 : (violinIndex < candidates.length ? violinIndex : 0)];
-  }
-
-  /**
    * Maps selectors to SVG elements for violin KDE layers.
    * Supports both old format (single pattern selector) and new format (one selector per violin).
    * Each selector corresponds to one row in the points array.
-   *
-   * This method is library-agnostic and works with both Matplotlib and Seaborn violin plots.
    */
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length === 0) {
@@ -222,19 +159,40 @@ export class ViolinKdeTrace extends SmoothTrace {
       const dataPoints = this.points[r] as LinePoint[];
 
       // Get the selector for this violin
-      const selector = isNewFormat ? selectors[r] : selectors[0];
+      let selector: string | undefined;
+      if (isNewFormat) {
+        // New format: use the selector at index r
+        selector = selectors[r];
+      } else {
+        // Old format: use the single pattern selector (will match all violins)
+        selector = selectors[0];
+      }
 
       if (!selector) {
         elementsByViolin.push([]);
         continue;
       }
 
-      // Query SVG elements using the selector
-      // Selector format: "g[id='...'] path, g[id='...'] use" (matches both element types)
+      // Try to find the SVG element(s) using the selector
+      // Selector format: "g[id='...'] path, g[id='...'] use" (matches both path and use)
       const matchedElements = Svg.selectAllElements(selector, false);
 
-      // Resolve the primary element using library-agnostic strategy
-      const primaryElement = this.resolveViolinSvgElement(matchedElements, r, isNewFormat);
+      let primaryElement: SVGElement | null = null;
+
+      if (matchedElements.length > 0) {
+        // Filter to get <use> elements first (the rendered ones)
+        const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
+        const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
+
+        // Prefer <use> elements, fall back to <path>
+        const candidates = useElements.length > 0 ? useElements : pathElements;
+
+        if (candidates.length > 0) {
+          // For new format (one selector per violin), should only be one element
+          // For old format (pattern selector), select element at index r
+          primaryElement = candidates[isNewFormat ? 0 : (r < candidates.length ? r : 0)];
+        }
+      }
 
       if (primaryElement && dataPoints) {
         // Use the data points (which have svg_x/svg_y) to create circle elements for highlighting
@@ -256,7 +214,7 @@ export class ViolinKdeTrace extends SmoothTrace {
 
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             violinElements.push(
-              Svg.createCircleElement(x, y, primaryElement),
+              Svg.createCircleElement(x, y, primaryElement!),
             );
           }
         }
@@ -295,6 +253,7 @@ export class ViolinKdeTrace extends SmoothTrace {
     } else {
       // Fallback: Calculate from SVG coordinates if width not available
       // This should not happen if backend is working correctly
+      const yTolerance = 0.01;
       const currentSvgY = typeof currentPointWithWidth.svg_y === 'number' ? currentPointWithWidth.svg_y : null;
 
       const svgXAtSameY: number[] = [];
@@ -305,9 +264,9 @@ export class ViolinKdeTrace extends SmoothTrace {
 
         let yMatches = false;
         if (currentSvgY !== null && pointSvgY !== null) {
-          yMatches = Math.abs(pointSvgY - currentSvgY) <= SVG_Y_TOLERANCE;
+          yMatches = Math.abs(pointSvgY - currentSvgY) <= 1.0;
         } else {
-          yMatches = Math.abs(pointY - currentYValue) <= DATA_Y_TOLERANCE;
+          yMatches = Math.abs(pointY - currentYValue) <= yTolerance;
         }
 
         if (yMatches && typeof pointWithSvg.svg_x === 'number' && !Number.isNaN(pointWithSvg.svg_x)) {
@@ -342,8 +301,6 @@ export class ViolinKdeTrace extends SmoothTrace {
         xDisplayValue = firstPointInRow.x;
       } else {
         // Last resort: use row index as fallback
-        // This indicates a potential data schema issue - violin plots should have categorical X labels
-        // Note: Warning suppressed in production to avoid log clutter
         xDisplayValue = `Category ${this.row}`;
       }
     }
@@ -407,10 +364,6 @@ export class ViolinKdeTrace extends SmoothTrace {
     const safeDensityMax = referenceDensityMin === referenceDensityMax
       ? referenceDensityMax + MIN_DENSITY_RANGE
       : referenceDensityMax;
-
-    // Note: When all density values are equal (referenceDensityMin === referenceDensityMax),
-    // we use a fallback range to prevent division by zero. This is handled gracefully
-    // via MIN_DENSITY_RANGE constant, so no warning is needed in production.
 
     // Use current column position, but clamp to reference row bounds
     const safeIndex = Math.min(this.col, referenceDensityValues.length - 1);
@@ -562,7 +515,7 @@ export class ViolinKdeTrace extends SmoothTrace {
    * @returns true if the move was successful (valid violin index and Y value found),
    *          false if xValue is not a number or if the violin index is out of bounds
    */
-  public moveToXAndYValue(xValue: number, yValue: number): boolean {
+  public moveToXAndYValue(xValue: any, yValue: number): boolean {
     // First set the violin (row) from X value
     if (typeof xValue !== 'number') {
       return false;
@@ -612,10 +565,10 @@ export class ViolinKdeTrace extends SmoothTrace {
   public onSwitchFrom(previousTrace: Trace): boolean {
     // Check if switching from violin box plot (BOX type)
     // Since we're in ViolinKdeTrace, if switching from BOX type in same subplot, it's the violin box plot
-    const prevTraceState = previousTrace.state;
-    const prevTraceType = prevTraceState.empty ? null : prevTraceState.traceType;
+    const prevTraceAny = previousTrace as any;
+    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
 
-    const isFromViolinBoxPlot = prevTraceType === TraceType.BOX;
+    const isFromViolinBoxPlot = prevTraceType === 'box';
 
     if (!isFromViolinBoxPlot) {
       return false; // Don't handle - use default behavior

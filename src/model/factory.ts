@@ -27,13 +27,11 @@ export abstract class TraceFactory {
     layer: MaidrLayer,
     options?: {
       /**
-       * Hint that this subplot represents a violin plot.
+       * Hint that this subplot structurally represents a violin plot,
+       * i.e. it contains both BOX and SMOOTH layers.
        *
-       * Detection is performed upstream (in `Subplot`) using:
-       * 1. Explicit `violinLayer` metadata from the backend (preferred)
-       * 2. Structural fallback: BOX + SMOOTH layers in same subplot
-       *
-       * This factory does not perform detection itself.
+       * The detection of this condition is performed by the caller
+       * (e.g. `Subplot`), not by the factory itself.
        */
       isViolinPlot?: boolean;
     },
