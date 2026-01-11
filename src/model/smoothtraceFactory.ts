@@ -11,12 +11,12 @@ import { ViolinKdeTrace } from './violinKde';
  */
 function isSmoothPoint(pt: unknown): pt is { svg_x: number; svg_y: number } {
   return (
-    typeof pt === 'object' &&
-    pt !== null &&
-    'svg_x' in pt &&
-    'svg_y' in pt &&
-    typeof (pt as { svg_x: unknown }).svg_x === 'number' &&
-    typeof (pt as { svg_y: unknown }).svg_y === 'number'
+    typeof pt === 'object'
+    && pt !== null
+    && 'svg_x' in pt
+    && 'svg_y' in pt
+    && typeof (pt as { svg_x: unknown }).svg_x === 'number'
+    && typeof (pt as { svg_y: unknown }).svg_y === 'number'
   );
 }
 
