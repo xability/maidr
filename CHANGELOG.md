@@ -1,3 +1,10 @@
+# [3.44.0](https://github.com/xability/maidr/compare/v3.43.1...v3.44.0) (2026-01-11)
+
+
+### Features
+
+* support matplotlib violin plot ([#492](https://github.com/xability/maidr/issues/492)) ([e2c9435](https://github.com/xability/maidr/commit/e2c9435a5263bc974a9d6de7919129e5e782ac88))
+
 ## [3.43.1](https://github.com/xability/maidr/compare/v3.43.0...v3.43.1) (2025-12-24)
 
 
