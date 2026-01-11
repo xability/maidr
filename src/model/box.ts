@@ -71,10 +71,13 @@ export class BoxTrace extends AbstractTrace {
     /**
      * Violin detection hint.
      *
-     * The subplot-level structural detection (BOX + SMOOTH in same subplot)
-     * is performed upstream (in `Subplot`) and passed in as `isViolinPlot`.
-     * This keeps the trace constructor free from needing access to the full
-     * layers array while still enabling violin-specific behavior.
+     * Detection is performed upstream (in `Subplot`) using:
+     * 1. Explicit `violinLayer` metadata from the backend (preferred)
+     * 2. Structural fallback: BOX + SMOOTH layers in same subplot
+     *
+     * The result is passed in as `isViolinPlot`. This keeps the trace constructor
+     * free from needing access to the full layers array while still enabling
+     * violin-specific behavior.
      */
     this.isViolinBoxPlot = isViolinPlot && layer.type === TraceType.BOX;
 
@@ -191,6 +194,25 @@ export class BoxTrace extends AbstractTrace {
     return this.isViolinBoxPlot;
   }
 
+  /**
+   * Gets the index of the MIN section in the sections array.
+   *
+   * This method provides library-agnostic section indexing. Different plotting libraries
+   * may order box plot sections differently:
+   * - Matplotlib: [LOWER_OUTLIER, MIN, Q2?, MEAN?, MAX, UPPER_OUTLIER]
+   * - Seaborn: [LOWER_OUTLIER, MIN, Q1, Q2, Q3, MAX, UPPER_OUTLIER]
+   *
+   * Using this method instead of hardcoded indices ensures correct behavior
+   * regardless of how sections are ordered.
+   *
+   * @returns The index of BoxplotSection.MIN in the sections array, or 1 as fallback
+   */
+  private getMinSectionIndex(): number {
+    const minIndex = this.sections.indexOf(BoxplotSection.MIN);
+    // Fallback to 1 if MIN not found (shouldn't happen with valid data)
+    return minIndex >= 0 ? minIndex : 1;
+  }
+
   public dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
@@ -208,20 +230,21 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Override moveOnce for violin box plots to reset to bottom point (MIN section)
    * when switching between violins.
-   * For vertical: FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
-   * For horizontal: UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+   * For vertical: FORWARD/BACKWARD changes violin (col), reset to MIN section
+   * For horizontal: UPWARD/DOWNWARD changes violin (row), reset to MIN section
    */
   protected handleInitialEntry(): void {
     // On initial entry, start at the "bottom" of the box:
-    // - Vertical: MIN section (row = 1), first violin (col = 0)
-    // - Horizontal: MIN section (col = 1), first violin (row = 0)
+    // - Vertical: MIN section (row = minSectionIndex), first violin (col = 0)
+    // - Horizontal: MIN section (col = minSectionIndex), first violin (row = 0)
     this.isInitialEntry = false;
+    const minSectionIndex = this.getMinSectionIndex();
     if (this.orientation === Orientation.VERTICAL) {
-      this.row = Math.min(1, this.boxValues.length - 1);
+      this.row = Math.min(minSectionIndex, this.boxValues.length - 1);
       this.col = 0;
     } else {
       this.row = 0;
-      this.col = Math.min(1, this.boxValues[0]?.length ?? 1);
+      this.col = Math.min(minSectionIndex, this.boxValues[0]?.length ?? 1);
     }
   }
 
@@ -246,28 +269,30 @@ export class BoxTrace extends AbstractTrace {
     }
 
     // For violin box plots, reset to MIN section when changing violins
+    const minSectionIndex = this.getMinSectionIndex();
+
     if (this.orientation === Orientation.VERTICAL) {
       // Vertical: col = violin index, row = section index
-      // FORWARD/BACKWARD changes violin (col), reset to MIN section (row = 1)
+      // FORWARD/BACKWARD changes violin (col), reset to MIN section
       if (direction === 'FORWARD') {
         this.col += 1;
-        this.row = 1; // Reset to MIN section (bottom point)
+        this.row = minSectionIndex; // Reset to MIN section (bottom point)
       } else if (direction === 'BACKWARD') {
         this.col -= 1;
-        this.row = 1; // Reset to MIN section (bottom point)
+        this.row = minSectionIndex; // Reset to MIN section (bottom point)
       } else {
         // UPWARD/DOWNWARD navigate between sections (keep current violin)
         return super.moveOnce(direction);
       }
     } else {
       // Horizontal: row = violin index, col = section index
-      // UPWARD/DOWNWARD changes violin (row), reset to MIN section (col = 1)
+      // UPWARD/DOWNWARD changes violin (row), reset to MIN section
       if (direction === 'UPWARD') {
         this.row += 1;
-        this.col = 1; // Reset to MIN section (bottom point)
+        this.col = minSectionIndex; // Reset to MIN section (bottom point)
       } else if (direction === 'DOWNWARD') {
         this.row -= 1;
-        this.col = 1; // Reset to MIN section (bottom point)
+        this.col = minSectionIndex; // Reset to MIN section (bottom point)
       } else {
         // FORWARD/BACKWARD navigate between sections (keep current violin)
         return super.moveOnce(direction);
@@ -762,8 +787,8 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Override moveToXValue for violin box plots to reset to bottom point (MIN section)
    * when moving to a different violin.
-   * For vertical: sets col (violin index) and resets row to 1 (MIN section)
-   * For horizontal: sets row (violin index) and resets col to 1 (MIN section)
+   * For vertical: sets col (violin index) and resets row to MIN section index
+   * For horizontal: sets row (violin index) and resets col to MIN section index
    */
   public moveToXValue(xValue: XValue): boolean {
     // Only apply special behavior for violin box plots
@@ -784,6 +809,7 @@ export class BoxTrace extends AbstractTrace {
 
     const violinIndex = Math.floor(xValue);
     const values = this.values;
+    const minSectionIndex = this.getMinSectionIndex();
 
     if (this.orientation === Orientation.VERTICAL) {
       // For vertical: col = violin index, row = section index
@@ -798,10 +824,10 @@ export class BoxTrace extends AbstractTrace {
       // Move to the violin (col)
       this.col = violinIndex;
 
-      // If we moved to a different violin, reset to MIN section (row = 1, bottom point)
+      // If we moved to a different violin, reset to MIN section
       // Otherwise, preserve the current section (row)
       if (violinIndex !== currentViolin) {
-        this.row = 1; // Reset to MIN section (bottom point)
+        this.row = minSectionIndex; // Reset to MIN section (bottom point)
       }
 
       this.updateVisualPointPosition();
@@ -819,10 +845,10 @@ export class BoxTrace extends AbstractTrace {
       // Move to the violin (row)
       this.row = violinIndex;
 
-      // If we moved to a different violin, reset to MIN section (col = 1, bottom point)
+      // If we moved to a different violin, reset to MIN section
       // Otherwise, preserve the current section (col)
       if (violinIndex !== currentViolin) {
-        this.col = 1; // Reset to MIN section (bottom point)
+        this.col = minSectionIndex; // Reset to MIN section (bottom point)
       }
 
       this.updateVisualPointPosition();
@@ -902,6 +928,7 @@ export class BoxTrace extends AbstractTrace {
 
     const violinIndex = Math.floor(xValue);
     const values = this.values;
+    const minSectionIndex = this.getMinSectionIndex();
 
     if (this.orientation === Orientation.VERTICAL) {
       // For vertical: col = which violin, row = section index
@@ -913,7 +940,7 @@ export class BoxTrace extends AbstractTrace {
       this.col = violinIndex;
 
       // Find the section (row) with the closest Y value
-      let closestRow = 1; // Default to MIN section
+      let closestRow = minSectionIndex; // Default to MIN section
       let minDistance = Infinity;
 
       for (let row = 0; row < values.length; row++) {
@@ -955,7 +982,7 @@ export class BoxTrace extends AbstractTrace {
       this.row = violinIndex;
 
       // Find the section (col) with the closest Y value
-      let closestCol = 1; // Default to MIN section
+      let closestCol = minSectionIndex; // Default to MIN section
       let minDistance = Infinity;
 
       const rowValues = values[violinIndex];

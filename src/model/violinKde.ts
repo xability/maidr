@@ -144,9 +144,53 @@ export class ViolinKdeTrace extends SmoothTrace {
   }
 
   /**
+   * Resolves the primary SVG element from matched elements for a violin.
+   *
+   * This method is library-agnostic and supports different SVG structures:
+   * - Matplotlib: Uses <defs> with <path> definitions referenced via <use> elements
+   * - Seaborn: May generate direct <path> elements without <use> references
+   *
+   * The resolution strategy maintains backward compatibility:
+   * 1. First, look for <use> elements (Matplotlib's rendered elements)
+   * 2. Fall back to <path> elements (Seaborn's direct paths)
+   *
+   * @param matchedElements - Array of SVG elements matched by the selector
+   * @param violinIndex - Index of the current violin (used for old format selectors)
+   * @param isNewFormat - Whether using new format (one selector per violin) or old format
+   * @returns The resolved primary SVG element, or null if none found
+   */
+  private resolveViolinSvgElement(
+    matchedElements: SVGElement[],
+    violinIndex: number,
+    isNewFormat: boolean,
+  ): SVGElement | null {
+    if (matchedElements.length === 0) {
+      return null;
+    }
+
+    // Filter elements by type - supports both Matplotlib (<use>) and Seaborn (<path>) structures
+    const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
+    const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
+
+    // Resolution strategy: prefer <use> elements (Matplotlib), fall back to <path> (Seaborn)
+    // This order is important for backward compatibility with existing Matplotlib violin plots
+    const candidates = useElements.length > 0 ? useElements : pathElements;
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    // For new format (one selector per violin), use the first matched element
+    // For old format (pattern selector matching all violins), select by violin index
+    return candidates[isNewFormat ? 0 : (violinIndex < candidates.length ? violinIndex : 0)];
+  }
+
+  /**
    * Maps selectors to SVG elements for violin KDE layers.
    * Supports both old format (single pattern selector) and new format (one selector per violin).
    * Each selector corresponds to one row in the points array.
+   *
+   * This method is library-agnostic and works with both Matplotlib and Seaborn violin plots.
    */
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length === 0) {
@@ -166,40 +210,19 @@ export class ViolinKdeTrace extends SmoothTrace {
       const dataPoints = this.points[r] as LinePoint[];
 
       // Get the selector for this violin
-      let selector: string | undefined;
-      if (isNewFormat) {
-        // New format: use the selector at index r
-        selector = selectors[r];
-      } else {
-        // Old format: use the single pattern selector (will match all violins)
-        selector = selectors[0];
-      }
+      const selector = isNewFormat ? selectors[r] : selectors[0];
 
       if (!selector) {
         elementsByViolin.push([]);
         continue;
       }
 
-      // Try to find the SVG element(s) using the selector
-      // Selector format: "g[id='...'] path, g[id='...'] use" (matches both path and use)
+      // Query SVG elements using the selector
+      // Selector format: "g[id='...'] path, g[id='...'] use" (matches both element types)
       const matchedElements = Svg.selectAllElements(selector, false);
 
-      let primaryElement: SVGElement | null = null;
-
-      if (matchedElements.length > 0) {
-        // Filter to get <use> elements first (the rendered ones)
-        const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
-        const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
-
-        // Prefer <use> elements, fall back to <path>
-        const candidates = useElements.length > 0 ? useElements : pathElements;
-
-        if (candidates.length > 0) {
-          // For new format (one selector per violin), should only be one element
-          // For old format (pattern selector), select element at index r
-          primaryElement = candidates[isNewFormat ? 0 : (r < candidates.length ? r : 0)];
-        }
-      }
+      // Resolve the primary element using library-agnostic strategy
+      const primaryElement = this.resolveViolinSvgElement(matchedElements, r, isNewFormat);
 
       if (primaryElement && dataPoints) {
         // Use the data points (which have svg_x/svg_y) to create circle elements for highlighting
@@ -221,7 +244,7 @@ export class ViolinKdeTrace extends SmoothTrace {
 
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             violinElements.push(
-              Svg.createCircleElement(x, y, primaryElement!),
+              Svg.createCircleElement(x, y, primaryElement),
             );
           }
         }

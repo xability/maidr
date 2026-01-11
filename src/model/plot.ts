@@ -225,12 +225,21 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     const layers = subplot.layers;
     this.size = layers.length;
 
-    // Structural detection for violin plots is done once at subplot level:
-    // BOX + SMOOTH in the same subplot => violin plot.
-    const layerTypes = layers.map(layer => layer.type);
-    const hasBox = layerTypes.includes(TraceType.BOX);
-    const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
-    const isViolinPlot = hasBox && hasSmooth;
+    // Violin plot detection: prefer explicit metadata from backend, fall back to structural detection.
+    // The backend sets `violinLayer` on layers that are part of a violin plot:
+    // - 'mpl_violin' or 'sns_violin' for BOX layers
+    // - 'kde' for SMOOTH (KDE) layers
+    const hasViolinMetadata = layers.some(layer => layer.violinLayer !== undefined);
+
+    // Fallback: structural detection (BOX + SMOOTH in same subplot) for backward compatibility
+    // This handles cases where older backend versions don't set violinLayer metadata.
+    let isViolinPlot = hasViolinMetadata;
+    if (!hasViolinMetadata) {
+      const layerTypes = layers.map(layer => layer.type);
+      const hasBox = layerTypes.includes(TraceType.BOX);
+      const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
+      isViolinPlot = hasBox && hasSmooth;
+    }
     this.isViolinPlot = isViolinPlot;
 
     // Pass only a minimal hint into the factory; do not leak full layers array.

@@ -4,8 +4,14 @@
  */
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
-/** Supported violin plot library types for layer identification. */
-export type ViolinLayerType = 'mpl_violin' | 'seaborn_violin';
+/**
+ * Supported violin plot layer types for explicit identification.
+ * These values are set by the Python backend to indicate violin plot layers:
+ * - 'mpl_violin': Matplotlib violin box layer
+ * - 'sns_violin': Seaborn violin box layer (alternative name: 'seaborn_violin')
+ * - 'kde': Violin KDE (kernel density estimation) smooth layer
+ */
+export type ViolinLayerType = 'mpl_violin' | 'seaborn_violin' | 'sns_violin' | 'kde';
 
 /**
  * Root MAIDR data structure containing figure metadata and subplot grid.
