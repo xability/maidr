@@ -367,16 +367,8 @@ export class ViolinKdeTrace extends SmoothTrace {
       } else {
         // Last resort: use row index as fallback
         // This indicates a potential data schema issue - violin plots should have categorical X labels
+        // Using 1-indexed "Violin N" format for user-friendly display
         xDisplayValue = `Violin ${this.row + 1}`;
-        // Log warning in development to help identify data schema issues
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            `[ViolinKdeTrace] Missing categorical label for violin at row ${this.row}. `
-            + `Expected string X value but got: ${typeof currentXValue}. `
-            + `Using fallback label "${xDisplayValue}". `
-            + `This may indicate a backend data extraction issue.`,
-          );
-        }
       }
     }
 
