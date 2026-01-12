@@ -56,6 +56,35 @@ export class ViolinKdeTrace extends SmoothTrace {
     super(layer);
   }
 
+  /**
+   * Checks if two Y values match within tolerance, preferring SVG coordinates when available.
+   *
+   * This method encapsulates the tolerance comparison logic for matching Y coordinates
+   * between points on the same violin. It uses different tolerance values depending on
+   * whether SVG coordinates (pixel-based) or data coordinates are available:
+   * - SVG coordinates: Uses SVG_Y_TOLERANCE (1.0 pixel) for pixel-level precision
+   * - Data coordinates: Uses DATA_Y_TOLERANCE (0.01) for floating-point precision
+   *
+   * @param dataY1 - First Y value in data coordinates
+   * @param dataY2 - Second Y value in data coordinates
+   * @param svgY1 - First Y value in SVG coordinates (optional)
+   * @param svgY2 - Second Y value in SVG coordinates (optional)
+   * @returns true if the Y values match within the appropriate tolerance
+   */
+  private isYCoordinateMatch(
+    dataY1: number,
+    dataY2: number,
+    svgY1?: number | null,
+    svgY2?: number | null,
+  ): boolean {
+    // Prefer SVG coordinates when both are available (more precise for rendering)
+    if (svgY1 !== null && svgY1 !== undefined && svgY2 !== null && svgY2 !== undefined) {
+      return Math.abs(svgY1 - svgY2) <= SVG_Y_TOLERANCE;
+    }
+    // Fall back to data coordinates
+    return Math.abs(dataY1 - dataY2) <= DATA_Y_TOLERANCE;
+  }
+
   public override isMovable(target: [number, number] | MovableDirection): boolean {
     // Handle direct position targeting [row, col]
     if (Array.isArray(target)) {
@@ -303,12 +332,7 @@ export class ViolinKdeTrace extends SmoothTrace {
         const pointY = Number(point.y);
         const pointSvgY = typeof pointWithSvg.svg_y === 'number' ? pointWithSvg.svg_y : null;
 
-        let yMatches = false;
-        if (currentSvgY !== null && pointSvgY !== null) {
-          yMatches = Math.abs(pointSvgY - currentSvgY) <= SVG_Y_TOLERANCE;
-        } else {
-          yMatches = Math.abs(pointY - currentYValue) <= DATA_Y_TOLERANCE;
-        }
+        const yMatches = this.isYCoordinateMatch(currentYValue, pointY, currentSvgY, pointSvgY);
 
         if (yMatches && typeof pointWithSvg.svg_x === 'number' && !Number.isNaN(pointWithSvg.svg_x)) {
           svgXAtSameY.push(pointWithSvg.svg_x);
@@ -343,8 +367,16 @@ export class ViolinKdeTrace extends SmoothTrace {
       } else {
         // Last resort: use row index as fallback
         // This indicates a potential data schema issue - violin plots should have categorical X labels
-        // Note: Warning suppressed in production to avoid log clutter
-        xDisplayValue = `Category ${this.row}`;
+        xDisplayValue = `Violin ${this.row + 1}`;
+        // Log warning in development to help identify data schema issues
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[ViolinKdeTrace] Missing categorical label for violin at row ${this.row}. `
+            + `Expected string X value but got: ${typeof currentXValue}. `
+            + `Using fallback label "${xDisplayValue}". `
+            + `This may indicate a backend data extraction issue.`,
+          );
+        }
       }
     }
 

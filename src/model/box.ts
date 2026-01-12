@@ -43,6 +43,8 @@ export class BoxTrace extends AbstractTrace {
   private readonly violinShowMeans: boolean;
   /** True when matplotlib violin plot should display median values (from violinOptions.showMedians). */
   private readonly violinShowMedians: boolean;
+  /** Cached index of MIN section to avoid repeated lookups during navigation. */
+  private readonly minSectionIndex: number;
 
   /**
    * Compute box values array based on section accessors and orientation.
@@ -137,6 +139,10 @@ export class BoxTrace extends AbstractTrace {
 
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
+
+    // Cache MIN section index to avoid repeated lookups during navigation
+    const minIndex = this.sections.indexOf(BoxplotSection.MIN);
+    this.minSectionIndex = minIndex >= 0 ? minIndex : 1;
   }
 
   /**
@@ -148,7 +154,7 @@ export class BoxTrace extends AbstractTrace {
   }
 
   /**
-   * Gets the index of the MIN section in the sections array.
+   * Gets the cached index of the MIN section in the sections array.
    *
    * This method provides library-agnostic section indexing. Different plotting libraries
    * may order box plot sections differently:
@@ -158,12 +164,16 @@ export class BoxTrace extends AbstractTrace {
    * Using this method instead of hardcoded indices ensures correct behavior
    * regardless of how sections are ordered.
    *
-   * @returns The index of BoxplotSection.MIN in the sections array, or 1 as fallback
+   * The index is computed once in the constructor and cached in `minSectionIndex`
+   * to avoid repeated indexOf lookups during navigation.
+   *
+   * @returns The cached index of BoxplotSection.MIN in the sections array.
+   *          Falls back to 1 if MIN is not found during construction, which is the
+   *          standard position for MIN after LOWER_OUTLIER in all supported layouts
+   *          (both Matplotlib and Seaborn place MIN at index 1).
    */
   private getMinSectionIndex(): number {
-    const minIndex = this.sections.indexOf(BoxplotSection.MIN);
-    // Fallback to 1 if MIN not found (shouldn't happen with valid data)
-    return minIndex >= 0 ? minIndex : 1;
+    return this.minSectionIndex;
   }
 
   /**
@@ -498,8 +508,14 @@ export class BoxTrace extends AbstractTrace {
 
       // Validate that sections array length matches this.sections length to prevent index mismatches
       if (sections.length !== this.sections.length) {
+        const expectedSections = this.sections.join(', ');
+        const actualSectionTypes = sections.map((s, i) =>
+          `[${i}]: ${Array.isArray(s) ? `Array(${s.length})` : s?.constructor?.name ?? 'null'}`,
+        ).join(', ');
         throw new Error(
           `Sections array length mismatch: expected ${this.sections.length}, got ${sections.length}. `
+          + `Expected sections: [${expectedSections}]. `
+          + `Actual sections: [${actualSectionTypes}]. `
           + `Debug info: isMplViolinBoxPlot=${this.isMplViolinBoxPlot}, violinShowMeans=${this.violinShowMeans}, `
           + `violinShowMedians=${this.violinShowMedians}. This indicates a bug in section construction logic.`,
         );
@@ -520,6 +536,7 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Build the sections array for matplotlib violin box plots.
    * Conditionally includes median and mean elements based on violin options.
+   * Uses spread operator for cleaner conditional array construction.
    *
    * @param lowerOutliers - SVG elements for lower outliers
    * @param min - SVG element for minimum value
@@ -537,21 +554,14 @@ export class BoxTrace extends AbstractTrace {
     max: SVGElement,
     upperOutliers: SVGElement[],
   ): (SVGElement[] | SVGElement)[] {
-    const sections: (SVGElement[] | SVGElement)[] = [
+    return [
       lowerOutliers,
       min,
+      ...(this.violinShowMedians ? [q2] : []),
+      ...(this.violinShowMeans ? [mean] : []),
+      max,
+      upperOutliers,
     ];
-
-    if (this.violinShowMedians) {
-      sections.push(q2);
-    }
-
-    if (this.violinShowMeans) {
-      sections.push(mean);
-    }
-
-    sections.push(max, upperOutliers);
-    return sections;
   }
 
   /**
@@ -1057,10 +1067,10 @@ export class BoxTrace extends AbstractTrace {
 
     // Check if switching from violin KDE layer (SMOOTH type)
     // Since we're in violin box plot, if switching from SMOOTH type in same subplot, it's the violin KDE
-    const prevTraceAny = previousTrace as any;
-    const prevTraceType = prevTraceAny.type || prevTraceAny.state?.traceType;
+    const prevTraceState = previousTrace.state;
+    const prevTraceType = prevTraceState.empty ? null : prevTraceState.traceType;
 
-    const isFromViolinKdeLayer = prevTraceType === 'smooth';
+    const isFromViolinKdeLayer = prevTraceType === TraceType.SMOOTH;
 
     if (!isFromViolinKdeLayer) {
       return false; // Don't handle - use default behavior
