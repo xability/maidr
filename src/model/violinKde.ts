@@ -52,6 +52,9 @@ interface ViolinKdePoint extends LinePoint {
  * - Up/Down arrows traverse along the curve (col changes)
  */
 export class ViolinKdeTrace extends SmoothTrace {
+  /** Flag to track if width fallback warning has been logged (prevents console spam) */
+  private hasLoggedWidthFallbackWarning = false;
+
   public constructor(layer: MaidrLayer) {
     super(layer);
   }
@@ -293,6 +296,13 @@ export class ViolinKdeTrace extends SmoothTrace {
         if (violinElements.length > 0) {
           allFailed = false;
         }
+      } else {
+        // Log warning when SVG element mapping fails for a violin
+        // This helps identify selector issues or missing SVG elements
+        console.warn(
+          `[ViolinKdeTrace] Failed to map SVG elements for violin ${r}. `
+          + `Selector: "${selector?.substring(0, 50)}${selector && selector.length > 50 ? '...' : ''}"`,
+        );
       }
 
       elementsByViolin.push(violinElements);
@@ -323,7 +333,14 @@ export class ViolinKdeTrace extends SmoothTrace {
       volume = currentPointWithWidth.width;
     } else {
       // Fallback: Calculate from SVG coordinates if width not available
-      // This should not happen if backend is working correctly
+      // This indicates the backend didn't pre-calculate width - log once to aid debugging
+      if (!this.hasLoggedWidthFallbackWarning) {
+        this.hasLoggedWidthFallbackWarning = true;
+        console.warn(
+          '[ViolinKdeTrace] Width not pre-calculated by backend, falling back to SVG coordinate calculation. '
+          + 'This may indicate a backend data extraction issue.',
+        );
+      }
       const currentSvgY = typeof currentPointWithWidth.svg_y === 'number' ? currentPointWithWidth.svg_y : null;
 
       const svgXAtSameY: number[] = [];

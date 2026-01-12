@@ -208,3 +208,17 @@ export class MultiLayerPlotError extends Error {
     this.name = 'MultiLayerPlotError';
   }
 }
+
+/**
+ * Error thrown when Violin Plot related operations fail
+ */
+export class ViolinPlotError extends Error {
+  /**
+   * Creates a new ViolinPlotError
+   * @param message - Error message describing the issue
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'ViolinPlotError';
+  }
+}
