@@ -30,6 +30,10 @@ const TRACE_HELP_MENU = [
   { description: 'Announce Y Label', key: 'l y' },
   { description: 'Announce Fill (Z) Label', key: 'l f' },
 
+  { description: 'Set Mark', key: 'Shift+M then 0-9' },
+  { description: 'Play Mark', key: 'm then 0-9' },
+  { description: 'Jump to Mark', key: 'j then 0-9' },
+
   { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
   { description: 'Open Chat', key: `?` },
 

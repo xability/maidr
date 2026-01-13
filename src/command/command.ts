@@ -2,12 +2,14 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { MarkService } from '@service/mark';
 import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -50,6 +52,8 @@ export interface CommandContext {
   goToExtremaViewModel: GoToExtremaViewModel;
   /** Help view model for help interface. */
   helpViewModel: HelpViewModel;
+  /** Jump to mark view model for mark navigation dialog. */
+  jumpToMarkViewModel: JumpToMarkViewModel;
   /** Review view model for review functionality. */
   reviewViewModel: ReviewViewModel;
   /** Settings view model for application settings. */
@@ -58,4 +62,6 @@ export interface CommandContext {
   textViewModel: TextViewModel;
   /** Rotor navigation view model for rotor interface. */
   rotorNavigationViewModel: RotorNavigationViewModel;
+  /** Mark service for position bookmarking. */
+  markService: MarkService;
 }

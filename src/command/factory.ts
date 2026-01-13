@@ -2,12 +2,14 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighlightService } from '@service/highlight';
+import type { MarkService } from '@service/mark';
 import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -64,6 +66,19 @@ import {
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
 import {
+  ActivateMarkJumpScopeCommand,
+  ActivateMarkPlayScopeCommand,
+  ActivateMarkSetScopeCommand,
+  DeactivateMarkScopeCommand,
+  JumpToMarkCloseCommand,
+  JumpToMarkMoveDownCommand,
+  JumpToMarkMoveUpCommand,
+  JumpToMarkSelectCommand,
+  JumpToSlotCommand,
+  PlayMarkCommand,
+  SetMarkCommand,
+} from './mark';
+import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
   CommandPaletteMoveUpCommand,
@@ -88,12 +103,14 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly highlightService: HighlightService;
+  private readonly markService: MarkService;
   private readonly rotorService: RotorNavigationService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
@@ -109,6 +126,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.highlightService = commandContext.highlightService;
+    this.markService = commandContext.markService;
     this.rotorService = commandContext.rotorNavigationService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
@@ -116,6 +134,7 @@ export class CommandFactory {
     this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
+    this.jumpToMarkViewModel = commandContext.jumpToMarkViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
@@ -251,6 +270,101 @@ export class CommandFactory {
         return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
       case 'ROTOR_PREV_NAV':
         return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
+
+      // Mark and recall commands
+      case 'ACTIVATE_MARK_SET_SCOPE':
+        return new ActivateMarkSetScopeCommand(this.markService);
+      case 'ACTIVATE_MARK_PLAY_SCOPE':
+        return new ActivateMarkPlayScopeCommand(this.markService);
+      case 'ACTIVATE_MARK_JUMP_SCOPE':
+        return new ActivateMarkJumpScopeCommand(this.jumpToMarkViewModel);
+
+      // Jump to mark dialog navigation
+      case 'JUMP_TO_MARK_MOVE_UP':
+        return new JumpToMarkMoveUpCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_MOVE_DOWN':
+        return new JumpToMarkMoveDownCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_SELECT':
+        return new JumpToMarkSelectCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_CLOSE':
+        return new JumpToMarkCloseCommand(this.jumpToMarkViewModel);
+
+      // Direct slot jumping from dialog
+      case 'JUMP_TO_SLOT_0':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 0);
+      case 'JUMP_TO_SLOT_1':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 1);
+      case 'JUMP_TO_SLOT_2':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 2);
+      case 'JUMP_TO_SLOT_3':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 3);
+      case 'JUMP_TO_SLOT_4':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 4);
+      case 'JUMP_TO_SLOT_5':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 5);
+      case 'JUMP_TO_SLOT_6':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 6);
+      case 'JUMP_TO_SLOT_7':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 7);
+      case 'JUMP_TO_SLOT_8':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 8);
+      case 'JUMP_TO_SLOT_9':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 9);
+      case 'DEACTIVATE_MARK_SCOPE':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_0':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_1':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_2':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_3':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_4':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_5':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_6':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_7':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_8':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_9':
+        return new DeactivateMarkScopeCommand(this.markService);
+
+      case 'SET_MARK_0':
+        return new SetMarkCommand(this.markService, 0);
+      case 'SET_MARK_1':
+        return new SetMarkCommand(this.markService, 1);
+      case 'SET_MARK_2':
+        return new SetMarkCommand(this.markService, 2);
+      case 'SET_MARK_3':
+        return new SetMarkCommand(this.markService, 3);
+      case 'SET_MARK_4':
+        return new SetMarkCommand(this.markService, 4);
+      case 'SET_MARK_5':
+        return new SetMarkCommand(this.markService, 5);
+      case 'SET_MARK_6':
+        return new SetMarkCommand(this.markService, 6);
+      case 'SET_MARK_7':
+        return new SetMarkCommand(this.markService, 7);
+      case 'SET_MARK_8':
+        return new SetMarkCommand(this.markService, 8);
+      case 'SET_MARK_9':
+        return new SetMarkCommand(this.markService, 9);
+
+      case 'PLAY_MARK_0':
+        return new PlayMarkCommand(this.markService, 0);
+      case 'PLAY_MARK_1':
+        return new PlayMarkCommand(this.markService, 1);
+      case 'PLAY_MARK_2':
+        return new PlayMarkCommand(this.markService, 2);
+      case 'PLAY_MARK_3':
+        return new PlayMarkCommand(this.markService, 3);
+      case 'PLAY_MARK_4':
+        return new PlayMarkCommand(this.markService, 4);
+      case 'PLAY_MARK_5':
+        return new PlayMarkCommand(this.markService, 5);
+      case 'PLAY_MARK_6':
+        return new PlayMarkCommand(this.markService, 6);
+      case 'PLAY_MARK_7':
+        return new PlayMarkCommand(this.markService, 7);
+      case 'PLAY_MARK_8':
+        return new PlayMarkCommand(this.markService, 8);
+      case 'PLAY_MARK_9':
+        return new PlayMarkCommand(this.markService, 9);
+
       default:
         throw new Error(`Invalid command name: ${command}`);
     }
