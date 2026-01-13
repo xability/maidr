@@ -46,8 +46,9 @@ export enum Scope {
 
 /**
  * Focusable scopes excluding label-only scopes that cannot receive keyboard focus.
+ * Note: MARK_JUMP is included as it now renders a dialog UI.
  */
-export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.MARK_JUMP | Scope.MARK_PLAY | Scope.MARK_SET | Scope.TRACE_LABEL>;
+export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.MARK_PLAY | Scope.MARK_SET | Scope.TRACE_LABEL>;
 
 /**
  * Type representing valid keyboard shortcut keys for a given scope.

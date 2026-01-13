@@ -8,6 +8,10 @@ export interface Mark {
   row: number;
   /** Column position within the trace */
   col: number;
+  /** Text description in terse mode when mark was set */
+  terseText: string;
+  /** Text description in verbose mode when mark was set */
+  verboseText: string;
 }
 
 /**

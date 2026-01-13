@@ -5,6 +5,7 @@ import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteVie
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
 import type { RotorNavigationViewModel } from './rotorNavigationViewModel';
@@ -22,6 +23,7 @@ export interface ViewModelMap {
   display: DisplayViewModel;
   goToExtrema: GoToExtremaViewModel;
   help: HelpViewModel;
+  jumpToMark: JumpToMarkViewModel;
   review: ReviewViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;

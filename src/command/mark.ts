@@ -1,4 +1,5 @@
 import type { MarkService } from '@service/mark';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { Command } from './command';
 import { Scope } from '@type/event';
 
@@ -47,24 +48,24 @@ export class ActivateMarkPlayScopeCommand implements Command {
 }
 
 /**
- * Command to activate the MARK_JUMP scope for jumping to marks.
+ * Command to activate the MARK_JUMP scope and open the jump dialog.
  */
 export class ActivateMarkJumpScopeCommand implements Command {
-  private readonly markService: MarkService;
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
 
   /**
    * Creates an instance of ActivateMarkJumpScopeCommand.
-   * @param markService - The mark service
+   * @param jumpToMarkViewModel - The jump to mark view model
    */
-  public constructor(markService: MarkService) {
-    this.markService = markService;
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
   }
 
   /**
-   * Activates the MARK_JUMP scope.
+   * Opens the jump to mark dialog.
    */
   public execute(): void {
-    this.markService.activateScope(Scope.MARK_JUMP);
+    this.jumpToMarkViewModel.toggle();
   }
 }
 
@@ -141,7 +142,7 @@ export class PlayMarkCommand implements Command {
 }
 
 /**
- * Command to jump to a mark.
+ * Command to jump to a mark (used by play mark, not jump dialog).
  */
 export class JumpToMarkCommand implements Command {
   private readonly markService: MarkService;
@@ -162,5 +163,82 @@ export class JumpToMarkCommand implements Command {
    */
   public execute(): void {
     this.markService.jumpToMark(this.slot);
+  }
+}
+
+/**
+ * Command to move selection up in the jump to mark dialog.
+ */
+export class JumpToMarkMoveUpCommand implements Command {
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
+
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
+  }
+
+  public execute(): void {
+    this.jumpToMarkViewModel.moveUp();
+  }
+}
+
+/**
+ * Command to move selection down in the jump to mark dialog.
+ */
+export class JumpToMarkMoveDownCommand implements Command {
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
+
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
+  }
+
+  public execute(): void {
+    this.jumpToMarkViewModel.moveDown();
+  }
+}
+
+/**
+ * Command to select the current item in the jump to mark dialog.
+ */
+export class JumpToMarkSelectCommand implements Command {
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
+
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
+  }
+
+  public execute(): void {
+    this.jumpToMarkViewModel.selectCurrent();
+  }
+}
+
+/**
+ * Command to close the jump to mark dialog.
+ */
+export class JumpToMarkCloseCommand implements Command {
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
+
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
+  }
+
+  public execute(): void {
+    this.jumpToMarkViewModel.hide();
+  }
+}
+
+/**
+ * Command to jump directly to a specific mark slot from the dialog.
+ */
+export class JumpToSlotCommand implements Command {
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
+  private readonly slot: number;
+
+  public constructor(jumpToMarkViewModel: JumpToMarkViewModel, slot: number) {
+    this.jumpToMarkViewModel = jumpToMarkViewModel;
+    this.slot = slot;
+  }
+
+  public execute(): void {
+    this.jumpToMarkViewModel.jumpToSlot(this.slot);
   }
 }

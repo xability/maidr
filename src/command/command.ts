@@ -9,6 +9,7 @@ import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -51,6 +52,8 @@ export interface CommandContext {
   goToExtremaViewModel: GoToExtremaViewModel;
   /** Help view model for help interface. */
   helpViewModel: HelpViewModel;
+  /** Jump to mark view model for mark navigation dialog. */
+  jumpToMarkViewModel: JumpToMarkViewModel;
   /** Review view model for review functionality. */
   reviewViewModel: ReviewViewModel;
   /** Settings view model for application settings. */

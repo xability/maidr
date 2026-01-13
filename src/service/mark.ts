@@ -4,11 +4,12 @@ import type { AudioService } from '@service/audio';
 import type { HighlightService } from '@service/highlight';
 import type { NotificationService } from '@service/notification';
 import type { StorageService } from '@service/storage';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Disposable } from '@type/disposable';
 import type { FigureMarks, Mark } from '@type/mark';
-import type { TraceState } from '@type/state';
+import type { TextState, TraceState } from '@type/state';
 import { Scope } from '@type/event';
 import { MARK_STORAGE_PREFIX } from '@type/mark';
 
@@ -25,6 +26,7 @@ export class MarkService implements Disposable {
   private readonly highlightService: HighlightService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly textViewModel: TextViewModel;
+  private readonly textService: TextService;
 
   private figureMarks: FigureMarks;
   private previousScope: Scope;
@@ -39,6 +41,7 @@ export class MarkService implements Disposable {
    * @param highlightService - Highlight service for visual feedback
    * @param brailleViewModel - Braille view model for braille output
    * @param textViewModel - Text view model for text output
+   * @param textService - Text service for formatting mark descriptions
    */
   public constructor(
     context: Context,
@@ -49,6 +52,7 @@ export class MarkService implements Disposable {
     highlightService: HighlightService,
     brailleViewModel: BrailleViewModel,
     textViewModel: TextViewModel,
+    textService: TextService,
   ) {
     this.context = context;
     this.figure = figure;
@@ -58,6 +62,7 @@ export class MarkService implements Disposable {
     this.highlightService = highlightService;
     this.brailleViewModel = brailleViewModel;
     this.textViewModel = textViewModel;
+    this.textService = textService;
     this.previousScope = Scope.TRACE;
 
     // Load marks for this figure from localStorage
@@ -114,10 +119,16 @@ export class MarkService implements Disposable {
     const active = this.context.active as Trace;
     const isReplacing = this.figureMarks.marks[slot] != null;
 
+    // Capture text in both modes for later display in jump dialog
+    const terseText = this.generateMarkText(state, 'terse');
+    const verboseText = this.generateMarkText(state, 'verbose');
+
     const mark: Mark = {
       traceId: active.getId(),
       row: active.row,
       col: active.col,
+      terseText,
+      verboseText,
     };
 
     this.figureMarks.marks[slot] = mark;
@@ -128,6 +139,88 @@ export class MarkService implements Disposable {
       : `Marked position ${slot}`;
     this.notification.notify(message);
     this.deactivateScope();
+  }
+
+  /**
+   * Generates text for a mark in the specified mode.
+   * @param state - The trace state to format
+   * @param mode - The text mode ('terse' or 'verbose')
+   * @returns Formatted text string
+   */
+  private generateMarkText(state: TraceState, mode: 'terse' | 'verbose'): string {
+    // Use the text service to format the state
+    // The textService.format() uses current mode, so we need to format based on text state directly
+    if (state.empty || !state.text) {
+      return '';
+    }
+
+    const text = state.text;
+
+    if (mode === 'verbose') {
+      return this.formatVerboseText(text);
+    } else {
+      return this.formatTerseText(text);
+    }
+  }
+
+  /**
+   * Formats text state in verbose mode.
+   */
+  private formatVerboseText(text: TextState): string {
+    const parts: string[] = [];
+
+    // Main axis
+    if (text.main) {
+      const mainValue = Array.isArray(text.main.value)
+        ? text.main.value.join(', ')
+        : String(text.main.value);
+      parts.push(`${text.main.label} is ${mainValue}`);
+    }
+
+    // Cross axis
+    if (text.cross) {
+      const crossValue = Array.isArray(text.cross.value)
+        ? text.cross.value.join(', ')
+        : String(text.cross.value);
+      parts.push(`${text.cross.label} is ${crossValue}`);
+    }
+
+    // Fill
+    if (text.fill) {
+      parts.push(`${text.fill.label} is ${text.fill.value}`);
+    }
+
+    return parts.join(', ');
+  }
+
+  /**
+   * Formats text state in terse mode.
+   */
+  private formatTerseText(text: TextState): string {
+    const parts: string[] = [];
+
+    // Main axis value
+    if (text.main) {
+      const mainValue = Array.isArray(text.main.value)
+        ? `[${text.main.value.join(', ')}]`
+        : String(text.main.value);
+      parts.push(mainValue);
+    }
+
+    // Cross axis value
+    if (text.cross) {
+      const crossValue = Array.isArray(text.cross.value)
+        ? `[${text.cross.value.join(', ')}]`
+        : String(text.cross.value);
+      parts.push(crossValue);
+    }
+
+    // Fill value
+    if (text.fill) {
+      parts.push(String(text.fill.value));
+    }
+
+    return parts.join(', ');
   }
 
   /**
@@ -299,5 +392,39 @@ export class MarkService implements Disposable {
   private saveMarks(): void {
     const storageKey = `${MARK_STORAGE_PREFIX}${this.context.id}`;
     this.storage.save(storageKey, this.figureMarks);
+  }
+
+  /**
+   * Gets all set marks for display in the jump dialog.
+   * @returns Array of marks with their slot numbers, sorted by slot
+   */
+  public getSetMarks(): Array<{ slot: number; mark: Mark }> {
+    const marks: Array<{ slot: number; mark: Mark }> = [];
+
+    for (let slot = 0; slot <= 9; slot++) {
+      const mark = this.figureMarks.marks[slot];
+      if (mark) {
+        marks.push({ slot, mark });
+      }
+    }
+
+    return marks;
+  }
+
+  /**
+   * Checks if a specific slot has a mark set.
+   * @param slot - The slot number (0-9)
+   * @returns True if the slot has a mark, false otherwise
+   */
+  public hasMarkAtSlot(slot: number): boolean {
+    return this.figureMarks.marks[slot] != null;
+  }
+
+  /**
+   * Gets the current text mode from the text service.
+   * @returns True if verbose mode, false if terse mode
+   */
+  public isVerboseMode(): boolean {
+    return this.textService.isVerbose();
   }
 }

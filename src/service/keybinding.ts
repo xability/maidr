@@ -23,6 +23,7 @@ const BRAILLE_KEYMAP = {
   ACTIVATE_MARK_JUMP_SCOPE: `j`,
 
   // Mark and recall (chord shortcuts for simultaneous key press)
+  // Note: Jump chords (j+#) removed - now opens dialog
   SET_MARK_0: `shift+m+0`,
   SET_MARK_1: `shift+m+1`,
   SET_MARK_2: `shift+m+2`,
@@ -43,16 +44,6 @@ const BRAILLE_KEYMAP = {
   PLAY_MARK_7: `m+7`,
   PLAY_MARK_8: `m+8`,
   PLAY_MARK_9: `m+9`,
-  JUMP_TO_MARK_0: `j+0`,
-  JUMP_TO_MARK_1: `j+1`,
-  JUMP_TO_MARK_2: `j+2`,
-  JUMP_TO_MARK_3: `j+3`,
-  JUMP_TO_MARK_4: `j+4`,
-  JUMP_TO_MARK_5: `j+5`,
-  JUMP_TO_MARK_6: `j+6`,
-  JUMP_TO_MARK_7: `j+7`,
-  JUMP_TO_MARK_8: `j+8`,
-  JUMP_TO_MARK_9: `j+9`,
 
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
@@ -213,6 +204,7 @@ const TRACE_KEYMAP = {
   ACTIVATE_MARK_JUMP_SCOPE: `j`,
 
   // Mark and recall (chord shortcuts for simultaneous key press)
+  // Note: Jump chords (j+#) removed - now opens dialog
   SET_MARK_0: `shift+m+0`,
   SET_MARK_1: `shift+m+1`,
   SET_MARK_2: `shift+m+2`,
@@ -233,16 +225,6 @@ const TRACE_KEYMAP = {
   PLAY_MARK_7: `m+7`,
   PLAY_MARK_8: `m+8`,
   PLAY_MARK_9: `m+9`,
-  JUMP_TO_MARK_0: `j+0`,
-  JUMP_TO_MARK_1: `j+1`,
-  JUMP_TO_MARK_2: `j+2`,
-  JUMP_TO_MARK_3: `j+3`,
-  JUMP_TO_MARK_4: `j+4`,
-  JUMP_TO_MARK_5: `j+5`,
-  JUMP_TO_MARK_6: `j+6`,
-  JUMP_TO_MARK_7: `j+7`,
-  JUMP_TO_MARK_8: `j+8`,
-  JUMP_TO_MARK_9: `j+9`,
 
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
@@ -378,31 +360,28 @@ const MARK_PLAY_KEYMAP = {
 } as const;
 
 /**
- * Keymap configuration for mark jump scope interactions (jumping to marks).
+ * Keymap configuration for mark jump dialog interactions.
+ * Now operates as a dialog with list navigation.
  */
 const MARK_JUMP_KEYMAP = {
-  DEACTIVATE_MARK_SCOPE: 'escape',
-  JUMP_TO_MARK_0: '0',
-  JUMP_TO_MARK_1: '1',
-  JUMP_TO_MARK_2: '2',
-  JUMP_TO_MARK_3: '3',
-  JUMP_TO_MARK_4: '4',
-  JUMP_TO_MARK_5: '5',
-  JUMP_TO_MARK_6: '6',
-  JUMP_TO_MARK_7: '7',
-  JUMP_TO_MARK_8: '8',
-  JUMP_TO_MARK_9: '9',
-  // Catch chord overlaps (user still holding j when pressing number) - just deactivate
-  DEACTIVATE_MARK_SCOPE_CHORD_0: 'j+0',
-  DEACTIVATE_MARK_SCOPE_CHORD_1: 'j+1',
-  DEACTIVATE_MARK_SCOPE_CHORD_2: 'j+2',
-  DEACTIVATE_MARK_SCOPE_CHORD_3: 'j+3',
-  DEACTIVATE_MARK_SCOPE_CHORD_4: 'j+4',
-  DEACTIVATE_MARK_SCOPE_CHORD_5: 'j+5',
-  DEACTIVATE_MARK_SCOPE_CHORD_6: 'j+6',
-  DEACTIVATE_MARK_SCOPE_CHORD_7: 'j+7',
-  DEACTIVATE_MARK_SCOPE_CHORD_8: 'j+8',
-  DEACTIVATE_MARK_SCOPE_CHORD_9: 'j+9',
+  // Dialog navigation
+  JUMP_TO_MARK_MOVE_UP: 'up',
+  JUMP_TO_MARK_MOVE_DOWN: 'down',
+  JUMP_TO_MARK_SELECT: 'enter',
+  JUMP_TO_MARK_CLOSE: 'esc',
+
+  // Direct slot jumping via number keys
+  JUMP_TO_SLOT_0: '0',
+  JUMP_TO_SLOT_1: '1',
+  JUMP_TO_SLOT_2: '2',
+  JUMP_TO_SLOT_3: '3',
+  JUMP_TO_SLOT_4: '4',
+  JUMP_TO_SLOT_5: '5',
+  JUMP_TO_SLOT_6: '6',
+  JUMP_TO_SLOT_7: '7',
+  JUMP_TO_SLOT_8: '8',
+  JUMP_TO_SLOT_9: '9',
+
   TOGGLE_HELP: `${Platform.ctrl}+/`,
 } as const;
 

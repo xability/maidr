@@ -9,6 +9,7 @@ import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -69,7 +70,11 @@ import {
   ActivateMarkPlayScopeCommand,
   ActivateMarkSetScopeCommand,
   DeactivateMarkScopeCommand,
-  JumpToMarkCommand,
+  JumpToMarkCloseCommand,
+  JumpToMarkMoveDownCommand,
+  JumpToMarkMoveUpCommand,
+  JumpToMarkSelectCommand,
+  JumpToSlotCommand,
   PlayMarkCommand,
   SetMarkCommand,
 } from './mark';
@@ -105,6 +110,7 @@ export class CommandFactory {
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
@@ -128,6 +134,7 @@ export class CommandFactory {
     this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
+    this.jumpToMarkViewModel = commandContext.jumpToMarkViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
@@ -270,7 +277,39 @@ export class CommandFactory {
       case 'ACTIVATE_MARK_PLAY_SCOPE':
         return new ActivateMarkPlayScopeCommand(this.markService);
       case 'ACTIVATE_MARK_JUMP_SCOPE':
-        return new ActivateMarkJumpScopeCommand(this.markService);
+        return new ActivateMarkJumpScopeCommand(this.jumpToMarkViewModel);
+
+      // Jump to mark dialog navigation
+      case 'JUMP_TO_MARK_MOVE_UP':
+        return new JumpToMarkMoveUpCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_MOVE_DOWN':
+        return new JumpToMarkMoveDownCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_SELECT':
+        return new JumpToMarkSelectCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_CLOSE':
+        return new JumpToMarkCloseCommand(this.jumpToMarkViewModel);
+
+      // Direct slot jumping from dialog
+      case 'JUMP_TO_SLOT_0':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 0);
+      case 'JUMP_TO_SLOT_1':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 1);
+      case 'JUMP_TO_SLOT_2':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 2);
+      case 'JUMP_TO_SLOT_3':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 3);
+      case 'JUMP_TO_SLOT_4':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 4);
+      case 'JUMP_TO_SLOT_5':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 5);
+      case 'JUMP_TO_SLOT_6':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 6);
+      case 'JUMP_TO_SLOT_7':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 7);
+      case 'JUMP_TO_SLOT_8':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 8);
+      case 'JUMP_TO_SLOT_9':
+        return new JumpToSlotCommand(this.jumpToMarkViewModel, 9);
       case 'DEACTIVATE_MARK_SCOPE':
       case 'DEACTIVATE_MARK_SCOPE_CHORD_0':
       case 'DEACTIVATE_MARK_SCOPE_CHORD_1':
@@ -325,27 +364,6 @@ export class CommandFactory {
         return new PlayMarkCommand(this.markService, 8);
       case 'PLAY_MARK_9':
         return new PlayMarkCommand(this.markService, 9);
-
-      case 'JUMP_TO_MARK_0':
-        return new JumpToMarkCommand(this.markService, 0);
-      case 'JUMP_TO_MARK_1':
-        return new JumpToMarkCommand(this.markService, 1);
-      case 'JUMP_TO_MARK_2':
-        return new JumpToMarkCommand(this.markService, 2);
-      case 'JUMP_TO_MARK_3':
-        return new JumpToMarkCommand(this.markService, 3);
-      case 'JUMP_TO_MARK_4':
-        return new JumpToMarkCommand(this.markService, 4);
-      case 'JUMP_TO_MARK_5':
-        return new JumpToMarkCommand(this.markService, 5);
-      case 'JUMP_TO_MARK_6':
-        return new JumpToMarkCommand(this.markService, 6);
-      case 'JUMP_TO_MARK_7':
-        return new JumpToMarkCommand(this.markService, 7);
-      case 'JUMP_TO_MARK_8':
-        return new JumpToMarkCommand(this.markService, 8);
-      case 'JUMP_TO_MARK_9':
-        return new JumpToMarkCommand(this.markService, 9);
 
       default:
         throw new Error(`Invalid command name: ${command}`);
