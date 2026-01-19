@@ -94,6 +94,20 @@ export class HighContrastService implements Disposable {
   // Track previous high contrast mode state to detect changes
   private previousHighContrastMode: boolean = false;
 
+  // Shared canvas context for color parsing (reused to avoid GC pressure)
+  private sharedCanvasCtx: CanvasRenderingContext2D | null = null;
+
+  /**
+   * Returns a shared canvas 2D context for color parsing operations.
+   * Creates the context on first use and reuses it to avoid GC pressure.
+   */
+  private getSharedCanvasContext(): CanvasRenderingContext2D | null {
+    if (!this.sharedCanvasCtx) {
+      this.sharedCanvasCtx = document.createElement('canvas').getContext('2d');
+    }
+    return this.sharedCanvasCtx;
+  }
+
   // Computed getters that read from settings service (single source of truth)
   private get highContrastMode(): boolean {
     return this.settingsService.loadSettings().general.highContrastMode;
@@ -624,7 +638,7 @@ export class HighContrastService implements Disposable {
 
     const colorEquivalents = [...this.colorEquivalents];
 
-    const ctx = document.createElement('canvas').getContext('2d');
+    const ctx = this.getSharedCanvasContext();
     if (!ctx)
       return value;
     ctx.fillStyle = '#000';
@@ -812,7 +826,7 @@ export class HighContrastService implements Disposable {
   ): { r: number; g: number; b: number } | null {
     const trimmed = color.trim();
 
-    const ctx = document.createElement('canvas').getContext('2d');
+    const ctx = this.getSharedCanvasContext();
     if (!ctx)
       return null;
 
@@ -840,7 +854,7 @@ export class HighContrastService implements Disposable {
   }
 
   private normalizeColor(color: string): string {
-    const ctx = document.createElement('canvas').getContext('2d');
+    const ctx = this.getSharedCanvasContext();
     if (!ctx)
       return color.toLowerCase().replace(/\s/g, '');
 
