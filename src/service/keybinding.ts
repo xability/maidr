@@ -47,6 +47,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -59,7 +60,6 @@ const BRAILLE_KEYMAP = {
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
-
 } as const;
 
 /**
@@ -115,6 +115,8 @@ const SUBPLOT_KEYMAP = {
   MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
 
   MOVE_TO_TRACE_CONTEXT: `${Platform.enter}`,
+
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -201,6 +203,7 @@ const TRACE_KEYMAP = {
   TOGGLE_TEXT: `t`,
   TOGGLE_AUDIO: `s`,
   TOGGLE_REVIEW: `r`,
+  TOGGLE_HIGH_CONTRAST: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -213,9 +216,6 @@ const TRACE_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: `g`,
-
-  // Go to point
-  MOVE_TO_INDEX: `click`,
 
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,

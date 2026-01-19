@@ -422,6 +422,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   notifyObserversWithState: (state: TraceState) => void;
 
   /**
+   * Get all highlight SVG elements for this trace
+   * Used by HighlightService for high contrast mode
+   * @returns Array of all SVG elements, or empty array if none
+   */
+  getAllHighlightElements: () => SVGElement[];
+  getAllOriginalElements: () => SVGElement[];
+
+  /**
    * Handle switching from another trace.
    * Called by Context when switching layers. Traces can implement this
    * to handle special layer switching behavior (e.g., preserving Y values).
