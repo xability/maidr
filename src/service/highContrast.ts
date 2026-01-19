@@ -16,6 +16,42 @@ enum HighContrastSettings {
   DARK_COLOR = 'general.highContrastDarkColor',
 }
 
+/**
+ * Constants for high contrast color calculations and visual effects.
+ */
+const HighContrastConstants = {
+  // Luminance coefficients (ITU-R BT.709 standard for relative luminance)
+  LUMINANCE_RED_COEFF: 0.299,
+  LUMINANCE_GREEN_COEFF: 0.587,
+  LUMINANCE_BLUE_COEFF: 0.114,
+
+  // RGB channel values
+  RGB_MAX_VALUE: 255,
+
+  // Thresholds
+  NEAR_WHITE_LUMINANCE_SCALE: 0.1,
+  MIN_COMPLEX_PATH_LENGTH: 120,
+  MIN_COLOR_INTERPOLATION_COUNT: 2,
+  LIGHTNESS_MIDPOINT: 0.5,
+  DEFAULT_MIDRANGE_LUMINANCE: 0.5,
+
+  // Glow filter settings for line charts
+  GLOW_FILTER_OFFSET: '-50%',
+  GLOW_FILTER_SIZE: '200%',
+  GLOW_BLUR_OUTER: 20,
+  GLOW_BLUR_MIDDLE: 10,
+  GLOW_BLUR_INNER: 5,
+
+  // HSL conversion constants
+  HSL_HUE_DIVISOR: 6,
+  HSL_GREEN_HUE_OFFSET: 2,
+  HSL_BLUE_HUE_OFFSET: 4,
+  HSL_THRESHOLD_ONE_SIXTH: 1 / 6,
+  HSL_THRESHOLD_ONE_HALF: 1 / 2,
+  HSL_THRESHOLD_TWO_THIRDS: 2 / 3,
+  HSL_THRESHOLD_ONE_THIRD: 1 / 3,
+} as const;
+
 interface ElementColorInfo {
   element: SVGElement;
   color: string;
@@ -159,6 +195,33 @@ export class HighContrastService implements Disposable {
     this.originalColorInfo = this.getOriginalColorInfo();
   }
 
+  /**
+   * Validates that captured elements still exist in the DOM.
+   * Returns true if all elements are valid, false if any are stale/removed.
+   */
+  private validateCapturedElements(): boolean {
+    if (!this.originalColorInfo || this.originalColorInfo.length === 0) {
+      return false;
+    }
+
+    return this.originalColorInfo.every(
+      info => info.element && document.body.contains(info.element),
+    );
+  }
+
+  /**
+   * Re-captures original colors if DOM has changed since initial capture.
+   * Call this before applying high contrast to ensure color data is fresh.
+   */
+  private recaptureIfNeeded(): void {
+    if (!this.validateCapturedElements()) {
+      console.warn(
+        'HighContrastService: DOM changed since capture, re-capturing colors',
+      );
+      this.captureOriginalColors();
+    }
+  }
+
   public dispose(): void {
     // Unsubscribe from settings changes
     if (this.settingsDisposable) {
@@ -220,6 +283,9 @@ export class HighContrastService implements Disposable {
    * Apply high contrast colors to all elements.
    */
   private applyHighContrast(): void {
+    // Validate and re-capture colors if DOM has changed
+    this.recaptureIfNeeded();
+
     // Apply body styles
     document.body.style.backgroundColor = this.highContrastDarkColor;
     document.body.style.color = this.highContrastLightColor;
@@ -390,7 +456,8 @@ export class HighContrastService implements Disposable {
       const complexPath = el.getAttribute('d');
       let isComplexPath = false;
       if (complexPath) {
-        isComplexPath = complexPath.length > 120;
+        isComplexPath
+          = complexPath.length > HighContrastConstants.MIN_COMPLEX_PATH_LENGTH;
       }
       const cantBeBackground = isComplexPath;
 
@@ -506,28 +573,28 @@ export class HighContrastService implements Disposable {
       'filter',
     );
     filter.setAttribute('id', 'glow-shadow');
-    filter.setAttribute('x', '-50%');
-    filter.setAttribute('y', '-50%');
-    filter.setAttribute('width', '200%');
-    filter.setAttribute('height', '200%');
+    filter.setAttribute('x', HighContrastConstants.GLOW_FILTER_OFFSET);
+    filter.setAttribute('y', HighContrastConstants.GLOW_FILTER_OFFSET);
+    filter.setAttribute('width', HighContrastConstants.GLOW_FILTER_SIZE);
+    filter.setAttribute('height', HighContrastConstants.GLOW_FILTER_SIZE);
 
     const filterHTML = `
-    <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur1"/>
+    <feGaussianBlur in="SourceAlpha" stdDeviation="${HighContrastConstants.GLOW_BLUR_OUTER}" result="blur1"/>
     <feOffset dx="0" dy="0" result="offsetblur1" in="blur1"/>
     <feFlood flood-color="black" result="color1"/>
     <feComposite in="color1" in2="offsetblur1" operator="in" result="shadow1"/>
 
-    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur2"/>
+    <feGaussianBlur in="SourceAlpha" stdDeviation="${HighContrastConstants.GLOW_BLUR_MIDDLE}" result="blur2"/>
     <feOffset dx="0" dy="0" result="offsetblur2" in="blur2"/>
     <feFlood flood-color="black" result="color2"/>
     <feComposite in="color2" in2="offsetblur2" operator="in" result="shadow2"/>
 
-    <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur3"/>
+    <feGaussianBlur in="SourceAlpha" stdDeviation="${HighContrastConstants.GLOW_BLUR_MIDDLE}" result="blur3"/>
     <feOffset dx="0" dy="0" result="offsetblur3" in="blur3"/>
     <feFlood flood-color="black" result="color3"/>
     <feComposite in="color3" in2="offsetblur3" operator="in" result="shadow3"/>
 
-    <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur4"/>
+    <feGaussianBlur in="SourceAlpha" stdDeviation="${HighContrastConstants.GLOW_BLUR_INNER}" result="blur4"/>
     <feOffset dx="0" dy="0" result="offsetblur4" in="blur4"/>
     <feFlood flood-color="black" result="color4"/>
     <feComposite in="color4" in2="offsetblur4" operator="in" result="shadow4"/>
@@ -568,11 +635,19 @@ export class HighContrastService implements Disposable {
       const r = Number.parseInt(hex.slice(1, 3), 16);
       const g = Number.parseInt(hex.slice(3, 5), 16);
       const b = Number.parseInt(hex.slice(5, 7), 16);
-      const a = Number.parseInt(hex.slice(7, 9), 16) / 255;
+      const a
+        = Number.parseInt(hex.slice(7, 9), 16)
+          / HighContrastConstants.RGB_MAX_VALUE;
 
-      const blendedR = Math.round(r * a + 255 * (1 - a));
-      const blendedG = Math.round(g * a + 255 * (1 - a));
-      const blendedB = Math.round(b * a + 255 * (1 - a));
+      const blendedR = Math.round(
+        r * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
+      );
+      const blendedG = Math.round(
+        g * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
+      );
+      const blendedB = Math.round(
+        b * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
+      );
 
       hex = `#${blendedR.toString(16).padStart(2, '0')}${blendedG.toString(16).padStart(2, '0')}${blendedB.toString(16).padStart(2, '0')}`;
     } else if (!/^#[0-9a-f]{6}$/i.test(hex)) {
@@ -580,7 +655,7 @@ export class HighContrastService implements Disposable {
     }
 
     let useNearWhite = false;
-    const nearWhiteScale = 0.1;
+    const nearWhiteScale = HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE;
 
     if ('type' in this.context.instructionContext) {
       if (
@@ -598,7 +673,6 @@ export class HighContrastService implements Disposable {
       colorEquivalents,
       useNearWhite,
       nearWhiteScale,
-      colorInfo.isInSelectors,
       colorInfo.cantBeBackground,
     );
 
@@ -610,7 +684,6 @@ export class HighContrastService implements Disposable {
     colorArray: string[],
     useNearWhite: boolean,
     nearWhiteScale: number,
-    isInSelectors: boolean,
     cantBeBackground: boolean,
   ): string {
     if (colorArray.length === 0) {
@@ -627,7 +700,11 @@ export class HighContrastService implements Disposable {
     };
 
     const getLuminance = (rgb: { r: number; g: number; b: number }): number => {
-      return 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+      return (
+        HighContrastConstants.LUMINANCE_RED_COEFF * rgb.r
+        + HighContrastConstants.LUMINANCE_GREEN_COEFF * rgb.g
+        + HighContrastConstants.LUMINANCE_BLUE_COEFF * rgb.b
+      );
     };
 
     const colorDistance = (
@@ -652,7 +729,8 @@ export class HighContrastService implements Disposable {
 
     if (useNearWhite) {
       const inputLuminance = getLuminance(inputRgb);
-      const nearWhiteThreshold = 255 * (1 - nearWhiteScale);
+      const nearWhiteThreshold
+        = HighContrastConstants.RGB_MAX_VALUE * (1 - nearWhiteScale);
 
       if (inputLuminance >= nearWhiteThreshold) {
         return colorArray[0];
@@ -755,7 +833,7 @@ export class HighContrastService implements Disposable {
 
   private rgbToHex(rgb: { r: number; g: number; b: number }): string {
     const toHex = (n: number): string => {
-      const clamped = Math.max(0, Math.min(255, n));
+      const clamped = Math.max(0, Math.min(HighContrastConstants.RGB_MAX_VALUE, n));
       return clamped.toString(16).padStart(2, '0');
     };
     return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
@@ -779,9 +857,9 @@ export class HighContrastService implements Disposable {
       g: number;
       b: number;
     }): { h: number; s: number; l: number } => {
-      const r = rgb.r / 255;
-      const g = rgb.g / 255;
-      const b = rgb.b / 255;
+      const r = rgb.r / HighContrastConstants.RGB_MAX_VALUE;
+      const g = rgb.g / HighContrastConstants.RGB_MAX_VALUE;
+      const b = rgb.b / HighContrastConstants.RGB_MAX_VALUE;
 
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
@@ -792,15 +870,25 @@ export class HighContrastService implements Disposable {
       }
 
       const d = max - min;
-      const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      const s
+        = l > HighContrastConstants.LIGHTNESS_MIDPOINT
+          ? d / (2 - max - min)
+          : d / (max + min);
 
       let h = 0;
       if (max === r) {
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        h
+          = ((g - b) / d
+            + (g < b ? HighContrastConstants.HSL_HUE_DIVISOR : 0))
+          / HighContrastConstants.HSL_HUE_DIVISOR;
       } else if (max === g) {
-        h = ((b - r) / d + 2) / 6;
+        h
+          = ((b - r) / d + HighContrastConstants.HSL_GREEN_HUE_OFFSET)
+            / HighContrastConstants.HSL_HUE_DIVISOR;
       } else {
-        h = ((r - g) / d + 4) / 6;
+        h
+          = ((r - g) / d + HighContrastConstants.HSL_BLUE_HUE_OFFSET)
+            / HighContrastConstants.HSL_HUE_DIVISOR;
       }
 
       return { h, s, l };
@@ -814,7 +902,7 @@ export class HighContrastService implements Disposable {
       const { h, s, l } = hsl;
 
       if (s === 0) {
-        const gray = Math.round(l * 255);
+        const gray = Math.round(l * HighContrastConstants.RGB_MAX_VALUE);
         return { r: gray, g: gray, b: gray };
       }
 
@@ -824,22 +912,37 @@ export class HighContrastService implements Disposable {
           tNorm += 1;
         if (tNorm > 1)
           tNorm -= 1;
-        if (tNorm < 1 / 6)
-          return p + (q - p) * 6 * tNorm;
-        if (tNorm < 1 / 2)
+        if (tNorm < HighContrastConstants.HSL_THRESHOLD_ONE_SIXTH)
+          return p + (q - p) * HighContrastConstants.HSL_HUE_DIVISOR * tNorm;
+        if (tNorm < HighContrastConstants.HSL_THRESHOLD_ONE_HALF)
           return q;
-        if (tNorm < 2 / 3)
-          return p + (q - p) * (2 / 3 - tNorm) * 6;
+        if (tNorm < HighContrastConstants.HSL_THRESHOLD_TWO_THIRDS) {
+          return (
+            p
+            + (q - p)
+            * (HighContrastConstants.HSL_THRESHOLD_TWO_THIRDS - tNorm)
+            * HighContrastConstants.HSL_HUE_DIVISOR
+          );
+        }
         return p;
       };
 
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const q
+        = l < HighContrastConstants.LIGHTNESS_MIDPOINT
+          ? l * (1 + s)
+          : l + s - l * s;
       const p = 2 * l - q;
 
       return {
-        r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
-        g: Math.round(hue2rgb(p, q, h) * 255),
-        b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+        r: Math.round(
+          hue2rgb(p, q, h + HighContrastConstants.HSL_THRESHOLD_ONE_THIRD)
+          * HighContrastConstants.RGB_MAX_VALUE,
+        ),
+        g: Math.round(hue2rgb(p, q, h) * HighContrastConstants.RGB_MAX_VALUE),
+        b: Math.round(
+          hue2rgb(p, q, h - HighContrastConstants.HSL_THRESHOLD_ONE_THIRD)
+          * HighContrastConstants.RGB_MAX_VALUE,
+        ),
       };
     };
 
@@ -882,7 +985,7 @@ export class HighContrastService implements Disposable {
       let newLuminance: number;
 
       if (lumRange === 0) {
-        newLuminance = 0.5;
+        newLuminance = HighContrastConstants.DEFAULT_MIDRANGE_LUMINANCE;
       } else {
         const normalizedPosition = (selectorItem.luminance - minLum) / lumRange;
         newLuminance = normalizedPosition;
@@ -974,8 +1077,13 @@ export class HighContrastService implements Disposable {
   private getRelativeLuminance(color: string): number {
     const rgb = this.parseColorToRgb(color);
     if (!rgb)
-      return 0.5;
+      return HighContrastConstants.DEFAULT_MIDRANGE_LUMINANCE;
 
-    return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    return (
+      (HighContrastConstants.LUMINANCE_RED_COEFF * rgb.r
+        + HighContrastConstants.LUMINANCE_GREEN_COEFF * rgb.g
+        + HighContrastConstants.LUMINANCE_BLUE_COEFF * rgb.b)
+      / HighContrastConstants.RGB_MAX_VALUE
+    );
   }
 }
