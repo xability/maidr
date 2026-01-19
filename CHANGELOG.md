@@ -1,3 +1,10 @@
+# [3.45.0](https://github.com/xability/maidr/compare/v3.44.1...v3.45.0) (2026-01-19)
+
+
+### Features
+
+* support high contrast mode via C toggle key ([#406](https://github.com/xability/maidr/issues/406)) ([68c9bac](https://github.com/xability/maidr/commit/68c9bac2ce3c8704f1fe7864813fd4413e65b840))
+
 ## [3.44.1](https://github.com/xability/maidr/compare/v3.44.0...v3.44.1) (2026-01-11)
 
 
