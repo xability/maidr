@@ -4,6 +4,7 @@ import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Abstract base class for describe commands.
@@ -50,6 +51,8 @@ export class DescribeXCommand extends DescribeCommand {
     if (state.type === 'trace' && !state.empty) {
       const message = `X label is ${state.xAxis}`;
       this.textViewModel.update(message);
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
@@ -75,6 +78,8 @@ export class DescribeYCommand extends DescribeCommand {
     if (state.type === 'trace' && !state.empty) {
       const message = `Y label is ${state.yAxis}`;
       this.textViewModel.update(message);
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
@@ -100,6 +105,8 @@ export class DescribeFillCommand extends DescribeCommand {
     if (state.type === 'trace' && !state.empty) {
       const message = `Fill is ${state.fill}`;
       this.textViewModel.update(message);
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
@@ -122,16 +129,16 @@ export class DescribeTitleCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.empty) {
-      return;
-    }
-
-    if (state.type === 'figure') {
-      const message = `Figure title is ${state.title}`;
-      this.textViewModel.update(message);
-    } else if (state.type === 'trace') {
-      const message = `Subplot title is ${state.title}`;
-      this.textViewModel.update(message);
+    if (!state.empty) {
+      if (state.type === 'figure') {
+        const message = `Figure title is ${state.title}`;
+        this.textViewModel.update(message);
+      } else if (state.type === 'trace') {
+        const message = `Subplot title is ${state.title}`;
+        this.textViewModel.update(message);
+      }
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
@@ -157,6 +164,8 @@ export class DescribeSubtitleCommand extends DescribeCommand {
     if (state.type === 'figure' && !state.empty) {
       const message = `Subtitle is ${state.subtitle}`;
       this.textViewModel.update(message);
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
@@ -182,6 +191,8 @@ export class DescribeCaptionCommand extends DescribeCommand {
     if (state.type === 'figure' && !state.empty) {
       const message = `Caption is ${state.caption}`;
       this.textViewModel.update(message);
+    } else {
+      this.context.toggleScope(Scope.TRACE);
     }
   }
 }
