@@ -49,9 +49,9 @@ export class DescribeXCommand extends DescribeCommand {
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace' && !state.empty) {
-      const message = `X label is ${state.xAxis}`;
-      this.textViewModel.update(message);
+      this.textViewModel.update(`X label is ${state.xAxis}`);
     } else {
+      this.textViewModel.update('X label is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
@@ -76,9 +76,9 @@ export class DescribeYCommand extends DescribeCommand {
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace' && !state.empty) {
-      const message = `Y label is ${state.yAxis}`;
-      this.textViewModel.update(message);
+      this.textViewModel.update(`Y label is ${state.yAxis}`);
     } else {
+      this.textViewModel.update('Y label is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
@@ -102,10 +102,10 @@ export class DescribeFillCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
-      const message = `Fill is ${state.fill}`;
-      this.textViewModel.update(message);
+    if (state.type === 'trace' && !state.empty && state.fill !== 'unavailable') {
+      this.textViewModel.update(`Fill is ${state.fill}`);
     } else {
+      this.textViewModel.update('Fill is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
@@ -131,13 +131,15 @@ export class DescribeTitleCommand extends DescribeCommand {
     const state = this.context.state;
     if (!state.empty) {
       if (state.type === 'figure') {
-        const message = `Figure title is ${state.title}`;
-        this.textViewModel.update(message);
-      } else if (state.type === 'trace') {
-        const message = `Subplot title is ${state.title}`;
-        this.textViewModel.update(message);
+        this.textViewModel.update(`Figure title is ${state.title}`);
+      } else if (state.type === 'trace' && state.title !== 'unavailable') {
+        this.textViewModel.update(`Subplot title is ${state.title}`);
+      } else {
+        this.textViewModel.update('Title is not available');
+        this.context.toggleScope(Scope.TRACE);
       }
     } else {
+      this.textViewModel.update('Title is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
@@ -161,10 +163,10 @@ export class DescribeSubtitleCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'figure' && !state.empty) {
-      const message = `Subtitle is ${state.subtitle}`;
-      this.textViewModel.update(message);
+    if (state.type === 'figure' && !state.empty && state.subtitle !== 'unavailable') {
+      this.textViewModel.update(`Subtitle is ${state.subtitle}`);
     } else {
+      this.textViewModel.update('Subtitle is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
@@ -188,10 +190,10 @@ export class DescribeCaptionCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'figure' && !state.empty) {
-      const message = `Caption is ${state.caption}`;
-      this.textViewModel.update(message);
+    if (state.type === 'figure' && !state.empty && state.caption !== 'unavailable') {
+      this.textViewModel.update(`Caption is ${state.caption}`);
     } else {
+      this.textViewModel.update('Caption is not available');
       this.context.toggleScope(Scope.TRACE);
     }
   }
