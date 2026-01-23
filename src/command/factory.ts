@@ -222,11 +222,11 @@ export class CommandFactory {
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.textViewModel);
+        return new DescribeXCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel);
+        return new DescribeYCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel);
+        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_POINT':
         return new DescribePointCommand(
           this.context,
@@ -236,11 +236,11 @@ export class CommandFactory {
           this.textViewModel,
         );
       case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel);
+        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel);
+        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel);
+        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService);
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':

@@ -523,6 +523,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 
+  public playWarningToneIfEnabled(): void {
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+    this.playWarningTone();
+  }
+
   private playZeroTone(panning: Panning): AudioId {
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
     const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
