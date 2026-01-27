@@ -1,3 +1,10 @@
+# [3.46.0](https://github.com/xability/maidr/compare/v3.45.0...v3.46.0) (2026-01-27)
+
+
+### Features
+
+* fix label scope freeze wherever data is not available ([#512](https://github.com/xability/maidr/issues/512)) ([ddc3de9](https://github.com/xability/maidr/commit/ddc3de99f66e284ceef828fb59f626ff5e16ef4a))
+
 # [3.45.0](https://github.com/xability/maidr/compare/v3.44.1...v3.45.0) (2026-01-19)
 
 
