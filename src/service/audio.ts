@@ -55,6 +55,19 @@ enum AudioSettings {
   MAX_FREQUENCY = 'general.maxFrequency',
 }
 
+/**
+ * Service responsible for audio sonification of plot data.
+ * Implements the Observer pattern to receive state updates from plot models
+ * and converts data values to audio frequencies with spatial panning.
+ *
+ * Features:
+ * - Frequency mapping based on data value ranges
+ * - HRTF spatial audio panning based on position in plot
+ * - Distinct timbres for multiclass/multiline plots via AudioPaletteService
+ * - ADSR envelope shaping for natural tone attack/decay
+ * - Simultaneous tone playback for intersection points
+ * - Warning and notification tones for boundaries and completion
+ */
 export class AudioService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
@@ -69,6 +82,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
+  /**
+   * Creates an instance of AudioService.
+   * Initializes the Web Audio API context, compressor, and audio palette.
+   * Subscribes to settings changes for volume and frequency range updates.
+   *
+   * @param notification - Service for displaying audio mode notifications to users
+   * @param settings - Service providing user preferences for volume and frequency range
+   * @param state - Initial plot state used to configure audio mode
+   */
   public constructor(notification: NotificationService, settings: SettingsService, state: PlotState) {
     this.notification = notification;
     this.audioPalette = new AudioPaletteService();
@@ -97,6 +119,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.compressor = this.initCompressor();
   }
 
+  /**
+   * Disposes of all audio resources and cleans up the service.
+   * Stops all active audio, disposes the audio palette, disconnects
+   * the compressor, and closes the AudioContext.
+   */
   public dispose(): void {
     this.stopAll();
     this.audioPalette.dispose();
@@ -149,6 +176,16 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
   }
 
+  /**
+   * Observer callback invoked when plot state changes.
+   * Plays appropriate audio based on the current data point, including:
+   * - Empty/warning tones for out-of-bounds navigation
+   * - Simultaneous tones for multiline intersection points
+   * - Single tones with frequency mapped to data value
+   * - Continuous smooth tones for violin/density plots
+   *
+   * @param state - The updated plot state containing audio parameters
+   */
   public update(state: PlotState): void {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
@@ -500,6 +537,16 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.activeAudioIds.set(audioId, oscillator);
   }
 
+  /**
+   * Plays a spatialized tone indicating an "empty" or out-of-bounds state.
+   * Uses multiple harmonic frequencies to create a distinct "null" sound.
+   *
+   * The panning position from the Panning object provides directional spatial cues,
+   * helping users infer where the empty state occurs within the overall layout.
+   *
+   * @param panning - Position information for spatial audio placement
+   * @returns AudioId for the played tone
+   */
   private playEmptyTone(panning: Panning): AudioId {
     const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
     const yPos = this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 });
@@ -601,6 +648,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     osc.stop(startTime + WARNING_DURATION);
   }
 
+  /**
+   * Plays a warning tone to indicate navigation boundary or invalid state.
+   * Consists of two descending beeps (half-step down) to clearly signal a warning.
+   */
   public playWarningTone(): void {
     const now = this.audioContext.currentTime;
     this.playOneWarningBeep(WARNING_FREQUENCY, now);
@@ -608,6 +659,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 
+  /**
+   * Plays a warning tone only if audio mode is enabled.
+   * Use this for conditional warnings that should respect user's audio preferences.
+   */
   public playWarningToneIfEnabled(): void {
     if (this.mode === AudioMode.OFF) {
       return;
@@ -622,6 +677,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: yPos }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
 
+  /**
+   * Plays a repeating waiting tone to indicate an ongoing async operation.
+   * The tone repeats every second until stopped.
+   *
+   * @returns AudioId that can be passed to stop() to cancel the waiting tone
+   */
   public playWaitingTone(): AudioId {
     const paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
     return setInterval(
@@ -630,6 +691,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     );
   }
 
+  /**
+   * Plays a completion tone to indicate an async operation has finished.
+   * Uses a higher frequency than the waiting tone for clear distinction.
+   *
+   * @returns AudioId for the played tone
+   */
   public playCompleteTone(): AudioId {
     const paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
     return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, paletteEntry);
@@ -696,6 +763,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return Math.max(from, Math.min(value, to));
   }
 
+  /**
+   * Toggles the audio mode between off, separate, and combined states.
+   * Cycles through modes and notifies the user of the current state.
+   * - OFF: No audio playback
+   * - SEPARATE: Sequential playback for multi-point data
+   * - COMBINED: Simultaneous playback for multi-point data
+   */
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
@@ -721,6 +795,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.notification.notify(message);
   }
 
+  /**
+   * Stops one or more active audio tones by their IDs.
+   * Disconnects oscillators and clears associated timeouts/intervals.
+   *
+   * @param audioId - Single AudioId or array of AudioIds to stop
+   */
   public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
