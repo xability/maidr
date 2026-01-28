@@ -1,3 +1,10 @@
+## [3.46.2](https://github.com/xability/maidr/compare/v3.46.1...v3.46.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* add back sine, square, sawtooth, triangle waveforms ([#514](https://github.com/xability/maidr/issues/514)) ([94f3db3](https://github.com/xability/maidr/commit/94f3db34e7a44ea94518a9d9417f1580db3a96d2))
+
 ## [3.46.1](https://github.com/xability/maidr/compare/v3.46.0...v3.46.1) (2026-01-28)
 
 
