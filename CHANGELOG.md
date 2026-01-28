@@ -1,3 +1,10 @@
+## [3.46.1](https://github.com/xability/maidr/compare/v3.46.0...v3.46.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* exit l scope when axis/figure metadata is present ([#513](https://github.com/xability/maidr/issues/513)) ([c19b2f5](https://github.com/xability/maidr/commit/c19b2f53daf7041fdf3668648de2b78a8a61455a))
+
 # [3.46.0](https://github.com/xability/maidr/compare/v3.45.0...v3.46.0) (2026-01-27)
 
 
