@@ -57,8 +57,8 @@ export class DescribeXCommand extends DescribeCommand {
     } else {
       this.textViewModel.update('X label is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -86,8 +86,8 @@ export class DescribeYCommand extends DescribeCommand {
     } else {
       this.textViewModel.update('Y label is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -115,8 +115,8 @@ export class DescribeFillCommand extends DescribeCommand {
     } else {
       this.textViewModel.update('Fill is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -147,13 +147,12 @@ export class DescribeTitleCommand extends DescribeCommand {
       } else {
         this.textViewModel.update('Title is not available');
         this.audioService.playWarningToneIfEnabled();
-        this.context.toggleScope(Scope.TRACE);
       }
     } else {
       this.textViewModel.update('Title is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -181,8 +180,8 @@ export class DescribeSubtitleCommand extends DescribeCommand {
     } else {
       this.textViewModel.update('Subtitle is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -210,8 +209,8 @@ export class DescribeCaptionCommand extends DescribeCommand {
     } else {
       this.textViewModel.update('Caption is not available');
       this.audioService.playWarningToneIfEnabled();
-      this.context.toggleScope(Scope.TRACE);
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
