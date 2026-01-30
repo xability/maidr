@@ -1,3 +1,10 @@
+# [3.47.0](https://github.com/xability/maidr/compare/v3.46.2...v3.47.0) (2026-01-30)
+
+
+### Features
+
+* support custom formatting ([#515](https://github.com/xability/maidr/issues/515)) ([52ee8bb](https://github.com/xability/maidr/commit/52ee8bb768269dc4c23196c9a9b1669e35e5722d))
+
 ## [3.46.2](https://github.com/xability/maidr/compare/v3.46.1...v3.46.2) (2026-01-28)
 
 
