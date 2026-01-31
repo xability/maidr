@@ -406,7 +406,8 @@ To interact with the plots using maidr, follow these steps:
 4. Press **T** to toggle Text mode.
 5. Press **S** to toggle Sonification (tones) mode.
 6. Press **R** to toggle Review mode.
-7. Hover on the datapoint to
+7. Hover on the datapoint to move
+8. Press **C** to toggle High Contrast mode.
 
 Below is a detailed list of keyboard shortcuts for various functions:
 
@@ -419,7 +420,8 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Toggle Braille Mode                     | B                           | B                           |
 | Toggle Sonification Mode                | S                           | S                           |
 | Toggle Text Mode                        | T                           | T                           |
-| Toggle Text Mode                        | R                           | R                           |
+| Toggle Review Mode                      | R                           | R                           |
+| Toggle High Contrast Mode               | C                           | C                           |
 | Repeat current sound                    | Space                       | Space                       |
 | Auto-play outward in direction of arrow | Control + Shift + Arrow key | Command + Shift + Arrow key |
 | Stop Auto-play                          | Control                     | Command                     |

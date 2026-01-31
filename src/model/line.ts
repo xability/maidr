@@ -14,6 +14,9 @@ const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX
   = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
 
+/**
+ * Represents a line trace plot with support for single and multi-line navigation
+ */
 export class LineTrace extends AbstractTrace {
   protected get values(): number[][] {
     return this.lineValues;

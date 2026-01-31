@@ -1,3 +1,52 @@
+# [3.47.0](https://github.com/xability/maidr/compare/v3.46.2...v3.47.0) (2026-01-30)
+
+
+### Features
+
+* support custom formatting ([#515](https://github.com/xability/maidr/issues/515)) ([52ee8bb](https://github.com/xability/maidr/commit/52ee8bb768269dc4c23196c9a9b1669e35e5722d))
+
+## [3.46.2](https://github.com/xability/maidr/compare/v3.46.1...v3.46.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* add back sine, square, sawtooth, triangle waveforms ([#514](https://github.com/xability/maidr/issues/514)) ([94f3db3](https://github.com/xability/maidr/commit/94f3db34e7a44ea94518a9d9417f1580db3a96d2))
+
+## [3.46.1](https://github.com/xability/maidr/compare/v3.46.0...v3.46.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* exit l scope when axis/figure metadata is present ([#513](https://github.com/xability/maidr/issues/513)) ([c19b2f5](https://github.com/xability/maidr/commit/c19b2f53daf7041fdf3668648de2b78a8a61455a))
+
+# [3.46.0](https://github.com/xability/maidr/compare/v3.45.0...v3.46.0) (2026-01-27)
+
+
+### Features
+
+* fix label scope freeze wherever data is not available ([#512](https://github.com/xability/maidr/issues/512)) ([ddc3de9](https://github.com/xability/maidr/commit/ddc3de99f66e284ceef828fb59f626ff5e16ef4a))
+
+# [3.45.0](https://github.com/xability/maidr/compare/v3.44.1...v3.45.0) (2026-01-19)
+
+
+### Features
+
+* support high contrast mode via C toggle key ([#406](https://github.com/xability/maidr/issues/406)) ([68c9bac](https://github.com/xability/maidr/commit/68c9bac2ce3c8704f1fe7864813fd4413e65b840))
+
+## [3.44.1](https://github.com/xability/maidr/compare/v3.44.0...v3.44.1) (2026-01-11)
+
+
+### Reverts
+
+* Revert "feat: support matplotlib violin plot ([#492](https://github.com/xability/maidr/issues/492))" ([#509](https://github.com/xability/maidr/issues/509)) ([a4ce32c](https://github.com/xability/maidr/commit/a4ce32c4901c9c58b8a3d5704b14bb25558b8715))
+
+# [3.44.0](https://github.com/xability/maidr/compare/v3.43.1...v3.44.0) (2026-01-11)
+
+
+### Features
+
+* support matplotlib violin plot ([#492](https://github.com/xability/maidr/issues/492)) ([e2c9435](https://github.com/xability/maidr/commit/e2c9435a5263bc974a9d6de7919129e5e782ac88))
+
 ## [3.43.1](https://github.com/xability/maidr/compare/v3.43.0...v3.43.1) (2025-12-24)
 
 

@@ -41,6 +41,10 @@ export interface LlmSettings {
 export interface GeneralSettings {
   volume: number;
   highlightColor: string;
+  highContrastMode: boolean;
+  highContrastLevels: number;
+  highContrastLightColor: string;
+  highContrastDarkColor: string;
   brailleDisplaySize: number;
   minFrequency: number;
   maxFrequency: number;
@@ -61,6 +65,10 @@ export const DEFAULT_SETTINGS: Settings = {
   general: {
     volume: 50,
     highlightColor: '#03c809',
+    highContrastMode: false,
+    highContrastLevels: 2,
+    highContrastLightColor: '#ffffff',
+    highContrastDarkColor: '#000000',
     brailleDisplaySize: 32,
     minFrequency: 200,
     maxFrequency: 1000,

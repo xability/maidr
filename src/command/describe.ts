@@ -4,6 +4,7 @@ import type { HighlightService } from '@service/highlight';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Abstract base class for describe commands.
@@ -11,15 +12,18 @@ import type { Command } from './command';
 abstract class DescribeCommand implements Command {
   protected readonly context: Context;
   protected readonly textViewModel: TextViewModel;
+  protected readonly audioService: AudioService;
 
   /**
    * Creates an instance of DescribeCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  protected constructor(context: Context, textViewModel: TextViewModel) {
+  protected constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
     this.context = context;
     this.textViewModel = textViewModel;
+    this.audioService = audioService;
   }
 
   /**
@@ -37,9 +41,10 @@ export class DescribeXCommand extends DescribeCommand {
    * Creates an instance of DescribeXCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -48,9 +53,12 @@ export class DescribeXCommand extends DescribeCommand {
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace' && !state.empty) {
-      const message = `X label is ${state.xAxis}`;
-      this.textViewModel.update(message);
+      this.textViewModel.update(`X label is ${state.xAxis}`);
+    } else {
+      this.textViewModel.update('X label is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -62,9 +70,10 @@ export class DescribeYCommand extends DescribeCommand {
    * Creates an instance of DescribeYCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -73,9 +82,12 @@ export class DescribeYCommand extends DescribeCommand {
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace' && !state.empty) {
-      const message = `Y label is ${state.yAxis}`;
-      this.textViewModel.update(message);
+      this.textViewModel.update(`Y label is ${state.yAxis}`);
+    } else {
+      this.textViewModel.update('Y label is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -87,9 +99,10 @@ export class DescribeFillCommand extends DescribeCommand {
    * Creates an instance of DescribeFillCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -97,10 +110,13 @@ export class DescribeFillCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
-      const message = `Fill is ${state.fill}`;
-      this.textViewModel.update(message);
+    if (state.type === 'trace' && !state.empty && state.fill !== 'unavailable') {
+      this.textViewModel.update(`Fill is ${state.fill}`);
+    } else {
+      this.textViewModel.update('Fill is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -112,9 +128,10 @@ export class DescribeTitleCommand extends DescribeCommand {
    * Creates an instance of DescribeTitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -122,17 +139,20 @@ export class DescribeTitleCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.empty) {
-      return;
+    if (!state.empty) {
+      if (state.type === 'figure') {
+        this.textViewModel.update(`Figure title is ${state.title}`);
+      } else if (state.type === 'trace' && state.title !== 'unavailable') {
+        this.textViewModel.update(`Subplot title is ${state.title}`);
+      } else {
+        this.textViewModel.update('Title is not available');
+        this.audioService.playWarningToneIfEnabled();
+      }
+    } else {
+      this.textViewModel.update('Title is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
-
-    if (state.type === 'figure') {
-      const message = `Figure title is ${state.title}`;
-      this.textViewModel.update(message);
-    } else if (state.type === 'trace') {
-      const message = `Subplot title is ${state.title}`;
-      this.textViewModel.update(message);
-    }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -144,9 +164,10 @@ export class DescribeSubtitleCommand extends DescribeCommand {
    * Creates an instance of DescribeSubtitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -154,10 +175,13 @@ export class DescribeSubtitleCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'figure' && !state.empty) {
-      const message = `Subtitle is ${state.subtitle}`;
-      this.textViewModel.update(message);
+    if (state.type === 'figure' && !state.empty && state.subtitle !== 'unavailable') {
+      this.textViewModel.update(`Subtitle is ${state.subtitle}`);
+    } else {
+      this.textViewModel.update('Subtitle is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -169,9 +193,10 @@ export class DescribeCaptionCommand extends DescribeCommand {
    * Creates an instance of DescribeCaptionCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
+   * @param {AudioService} audioService - The audio service.
    */
-  public constructor(context: Context, textViewModel: TextViewModel) {
-    super(context, textViewModel);
+  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService) {
+    super(context, textViewModel, audioService);
   }
 
   /**
@@ -179,10 +204,13 @@ export class DescribeCaptionCommand extends DescribeCommand {
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'figure' && !state.empty) {
-      const message = `Caption is ${state.caption}`;
-      this.textViewModel.update(message);
+    if (state.type === 'figure' && !state.empty && state.caption !== 'unavailable') {
+      this.textViewModel.update(`Caption is ${state.caption}`);
+    } else {
+      this.textViewModel.update('Caption is not available');
+      this.audioService.playWarningToneIfEnabled();
     }
+    this.context.toggleScope(Scope.TRACE);
   }
 }
 
@@ -209,7 +237,7 @@ export class DescribePointCommand extends DescribeCommand {
     brailleViewModel: BrailleViewModel,
     textViewModel: TextViewModel,
   ) {
-    super(context, textViewModel);
+    super(context, textViewModel, audioService);
     this.audio = audioService;
     this.highlight = highlightService;
     this.brailleViewModel = brailleViewModel;

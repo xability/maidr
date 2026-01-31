@@ -175,7 +175,10 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Base implementation of navigation in HIGHER and LOWER modes of ROTOR, default is no-op
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  public moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(
+    _direction: 'left' | 'right' | 'up' | 'down',
+    _type: 'lower' | 'higher',
+  ): boolean {
     // no-op
     this.notifyRotorBounds();
     return false;
@@ -317,6 +320,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {
       empty: false,
       type: 'trace',
+      layerId: this.id,
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
@@ -355,6 +359,75 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       empty: false,
       elements: this.highlightValues[this.row][this.col],
     };
+  }
+
+  /**
+   * Get all highlight SVG elements for this trace
+   * Used by HighlightService for high contrast mode
+   * @returns Array of all SVG elements, or empty array if none
+   */
+  public getAllHighlightElements(): SVGElement[] {
+    if (this.highlightValues === null) {
+      return [];
+    }
+
+    const elements: SVGElement[] = [];
+    for (const row of this.highlightValues) {
+      for (const cell of row) {
+        if (Array.isArray(cell)) {
+          elements.push(...cell);
+        } else if (cell) {
+          elements.push(cell);
+        }
+      }
+    }
+    return elements;
+  }
+
+  /**
+   * Get all original (visible) SVG elements for this trace.
+   * These are the actual rendered elements, not the hidden clones used for highlighting.
+   * Used by HighlightService for high contrast mode color changes.
+   * @returns Array of all original SVG elements, or empty array if none
+   */
+  public getAllOriginalElements(): SVGElement[] {
+    if (this.highlightValues === null) {
+      return [];
+    }
+
+    const elements: SVGElement[] = [];
+    for (const row of this.highlightValues) {
+      for (const cell of row) {
+        const cellElements = Array.isArray(cell) ? cell : cell ? [cell] : [];
+        for (const clone of cellElements) {
+          // The original element is the previous sibling of the hidden clone
+          const original = clone.previousElementSibling as SVGElement | null;
+
+          // Verify this is actually the paired original element:
+          // - Must exist
+          // - Must be the same element type (e.g., both are <path>)
+          // - Must NOT be hidden (the clone is hidden, original is visible)
+          if (
+            original
+            && original.tagName === clone.tagName
+            && original.getAttribute('visibility') !== 'hidden'
+          ) {
+            elements.push(original);
+          }
+        }
+      }
+    }
+    return elements;
+  }
+
+  protected getAudioGroupIndex(): { groupIndex?: number } {
+    // Default implementation checks if there are multiple groups/lines
+    // Uses this.values.length > 1 as the condition and this.row as the groupIndex
+    // Subclasses can override this method if they need different logic
+    if (this.values && this.values.length > 1) {
+      return { groupIndex: this.row };
+    }
+    return {};
   }
 
   private get autoplay(): AutoplayState {
