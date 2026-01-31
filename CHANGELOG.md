@@ -1,3 +1,10 @@
+# [3.48.0](https://github.com/xability/maidr/compare/v3.47.0...v3.48.0) (2026-01-31)
+
+
+### Features
+
+* fix audio panning for line plots ([#516](https://github.com/xability/maidr/issues/516)) ([47d6122](https://github.com/xability/maidr/commit/47d61221655642ed0c42b8ed97ac9b38b46388d3))
+
 # [3.47.0](https://github.com/xability/maidr/compare/v3.46.2...v3.47.0) (2026-01-30)
 
 
