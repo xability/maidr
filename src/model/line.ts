@@ -130,8 +130,8 @@ export class LineTrace extends AbstractTrace {
         raw: this.lineValues[this.row][this.col],
       },
       panning: {
-        x: this.row,
-        y: this.col,
+        x: this.col,
+        y: this.row,
         rows: this.lineValues.length,
         cols: this.lineValues[this.row].length,
       },
@@ -302,12 +302,12 @@ export class LineTrace extends AbstractTrace {
           {
             freq: {
               min: this.min[r],
-              max: this.max[c],
+              max: this.max[r],
               raw: currentY,
             },
             panning: {
-              x: this.row,
-              y: this.col,
+              x: this.col,
+              y: this.row,
               rows: this.lineValues.length,
               cols: this.lineValues[this.row].length,
             },

@@ -199,11 +199,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
       if (state.warning) {
         this.playWarningTone();
       } else {
+        // Use the panning from state.audio which contains the boundary position
         this.playEmptyTone({
-          x: 0,
-          y: 0,
-          rows: 0,
-          cols: 0,
+          x: state.audio.x,
+          y: state.audio.y,
+          rows: state.audio.rows,
+          cols: state.audio.cols,
         });
       }
       return;
