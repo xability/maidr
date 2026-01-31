@@ -2,7 +2,7 @@ import type { MarkItem } from '@state/viewModel/jumpToMarkViewModel';
 import { Close } from '@mui/icons-material';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 
 /**
  * Helper function to generate styles for mark item boxes.
@@ -62,33 +62,33 @@ export const JumpToMark: React.FC = () => {
     }
   }, [state.selectedIndex]);
 
-  const handleClose = (): void => {
+  const announceToScreenReader = useCallback((message: string): void => {
+    if (liveRegionRef.current) {
+      liveRegionRef.current.textContent = message;
+    }
+  }, []);
+
+  const getDisplayText = useCallback((mark: MarkItem): string => {
+    return jumpToMarkViewModel.getMarkDisplayText(mark);
+  }, [jumpToMarkViewModel]);
+
+  const handleClose = useCallback((): void => {
     if (liveRegionRef.current) {
       liveRegionRef.current.textContent = '';
     }
     jumpToMarkViewModel.hide();
-  };
+  }, [jumpToMarkViewModel]);
 
-  const handleMarkSelect = (mark: MarkItem): void => {
+  const handleMarkSelect = useCallback((mark: MarkItem): void => {
     jumpToMarkViewModel.jumpToSlot(mark.slot);
-  };
+  }, [jumpToMarkViewModel]);
 
-  const announceToScreenReader = (message: string): void => {
-    if (liveRegionRef.current) {
-      liveRegionRef.current.textContent = message;
-    }
-  };
-
-  const getDisplayText = (mark: MarkItem): string => {
-    return jumpToMarkViewModel.getMarkDisplayText(mark);
-  };
-
-  const handleListboxKeyDown = (event: React.KeyboardEvent): void => {
+  const handleListboxKeyDown = useCallback((event: React.KeyboardEvent): void => {
     // Handle number keys 0-9 for direct slot jumping
     if (event.key >= '0' && event.key <= '9') {
       event.preventDefault();
       event.stopPropagation();
-      const slot = parseInt(event.key, 10);
+      const slot = Number.parseInt(event.key, 10);
       jumpToMarkViewModel.jumpToSlot(slot);
       return;
     }
@@ -128,15 +128,15 @@ export const JumpToMark: React.FC = () => {
       event.stopPropagation();
       handleClose();
     }
-  };
+  }, [state, jumpToMarkViewModel, announceToScreenReader, getDisplayText, handleMarkSelect, handleClose]);
 
   // Handle keyboard events on the modal itself (for when list is empty)
-  const handleModalKeyDown = (event: React.KeyboardEvent): void => {
+  const handleModalKeyDown = useCallback((event: React.KeyboardEvent): void => {
     // Handle number keys 0-9 for direct slot jumping
     if (event.key >= '0' && event.key <= '9') {
       event.preventDefault();
       event.stopPropagation();
-      const slot = parseInt(event.key, 10);
+      const slot = Number.parseInt(event.key, 10);
       jumpToMarkViewModel.jumpToSlot(slot);
       return;
     }
@@ -146,7 +146,7 @@ export const JumpToMark: React.FC = () => {
       event.stopPropagation();
       handleClose();
     }
-  };
+  }, [jumpToMarkViewModel, handleClose]);
 
   return state.visible
     ? (

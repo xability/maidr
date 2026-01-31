@@ -2,7 +2,6 @@ import type { Context } from '@model/context';
 import type { JumpToMarkService } from '@service/jumpToMark';
 import type { MarkService } from '@service/mark';
 import type { AppStore } from '@state/store';
-import type { Mark } from '@type/mark';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 

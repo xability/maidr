@@ -142,31 +142,6 @@ export class PlayMarkCommand implements Command {
 }
 
 /**
- * Command to jump to a mark (used by play mark, not jump dialog).
- */
-export class JumpToMarkCommand implements Command {
-  private readonly markService: MarkService;
-  private readonly slot: number;
-
-  /**
-   * Creates an instance of JumpToMarkCommand.
-   * @param markService - The mark service
-   * @param slot - The slot number (0-9)
-   */
-  public constructor(markService: MarkService, slot: number) {
-    this.markService = markService;
-    this.slot = slot;
-  }
-
-  /**
-   * Jumps to the mark at the specified slot.
-   */
-  public execute(): void {
-    this.markService.jumpToMark(this.slot);
-  }
-}
-
-/**
  * Command to move selection up in the jump to mark dialog.
  */
 export class JumpToMarkMoveUpCommand implements Command {

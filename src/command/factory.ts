@@ -44,6 +44,19 @@ import {
   GoToExtremaSelectCommand,
 } from './goToExtremaNavigation';
 import {
+  ActivateMarkJumpScopeCommand,
+  ActivateMarkPlayScopeCommand,
+  ActivateMarkSetScopeCommand,
+  DeactivateMarkScopeCommand,
+  JumpToMarkCloseCommand,
+  JumpToMarkMoveDownCommand,
+  JumpToMarkMoveUpCommand,
+  JumpToMarkSelectCommand,
+  JumpToSlotCommand,
+  PlayMarkCommand,
+  SetMarkCommand,
+} from './mark';
+import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -65,19 +78,6 @@ import {
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
-import {
-  ActivateMarkJumpScopeCommand,
-  ActivateMarkPlayScopeCommand,
-  ActivateMarkSetScopeCommand,
-  DeactivateMarkScopeCommand,
-  JumpToMarkCloseCommand,
-  JumpToMarkMoveDownCommand,
-  JumpToMarkMoveUpCommand,
-  JumpToMarkSelectCommand,
-  JumpToSlotCommand,
-  PlayMarkCommand,
-  SetMarkCommand,
-} from './mark';
 import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
@@ -289,27 +289,6 @@ export class CommandFactory {
       case 'JUMP_TO_MARK_CLOSE':
         return new JumpToMarkCloseCommand(this.jumpToMarkViewModel);
 
-      // Direct slot jumping from dialog
-      case 'JUMP_TO_SLOT_0':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 0);
-      case 'JUMP_TO_SLOT_1':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 1);
-      case 'JUMP_TO_SLOT_2':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 2);
-      case 'JUMP_TO_SLOT_3':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 3);
-      case 'JUMP_TO_SLOT_4':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 4);
-      case 'JUMP_TO_SLOT_5':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 5);
-      case 'JUMP_TO_SLOT_6':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 6);
-      case 'JUMP_TO_SLOT_7':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 7);
-      case 'JUMP_TO_SLOT_8':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 8);
-      case 'JUMP_TO_SLOT_9':
-        return new JumpToSlotCommand(this.jumpToMarkViewModel, 9);
       case 'DEACTIVATE_MARK_SCOPE':
       case 'DEACTIVATE_MARK_SCOPE_CHORD_0':
       case 'DEACTIVATE_MARK_SCOPE_CHORD_1':
@@ -323,50 +302,49 @@ export class CommandFactory {
       case 'DEACTIVATE_MARK_SCOPE_CHORD_9':
         return new DeactivateMarkScopeCommand(this.markService);
 
-      case 'SET_MARK_0':
-        return new SetMarkCommand(this.markService, 0);
-      case 'SET_MARK_1':
-        return new SetMarkCommand(this.markService, 1);
-      case 'SET_MARK_2':
-        return new SetMarkCommand(this.markService, 2);
-      case 'SET_MARK_3':
-        return new SetMarkCommand(this.markService, 3);
-      case 'SET_MARK_4':
-        return new SetMarkCommand(this.markService, 4);
-      case 'SET_MARK_5':
-        return new SetMarkCommand(this.markService, 5);
-      case 'SET_MARK_6':
-        return new SetMarkCommand(this.markService, 6);
-      case 'SET_MARK_7':
-        return new SetMarkCommand(this.markService, 7);
-      case 'SET_MARK_8':
-        return new SetMarkCommand(this.markService, 8);
-      case 'SET_MARK_9':
-        return new SetMarkCommand(this.markService, 9);
-
-      case 'PLAY_MARK_0':
-        return new PlayMarkCommand(this.markService, 0);
-      case 'PLAY_MARK_1':
-        return new PlayMarkCommand(this.markService, 1);
-      case 'PLAY_MARK_2':
-        return new PlayMarkCommand(this.markService, 2);
-      case 'PLAY_MARK_3':
-        return new PlayMarkCommand(this.markService, 3);
-      case 'PLAY_MARK_4':
-        return new PlayMarkCommand(this.markService, 4);
-      case 'PLAY_MARK_5':
-        return new PlayMarkCommand(this.markService, 5);
-      case 'PLAY_MARK_6':
-        return new PlayMarkCommand(this.markService, 6);
-      case 'PLAY_MARK_7':
-        return new PlayMarkCommand(this.markService, 7);
-      case 'PLAY_MARK_8':
-        return new PlayMarkCommand(this.markService, 8);
-      case 'PLAY_MARK_9':
-        return new PlayMarkCommand(this.markService, 9);
-
       default:
-        throw new Error(`Invalid command name: ${command}`);
+        // Handle slot-based mark commands dynamically
+        return this.createSlotCommand(command);
     }
+  }
+
+  /**
+   * Creates slot-based mark commands (SET_MARK_*, PLAY_MARK_*, JUMP_TO_SLOT_*).
+   * Extracts the slot number from the command string and returns the appropriate command.
+   * @param command - The command key
+   * @returns The corresponding command instance
+   * @throws Error if the command is not a valid slot-based command
+   */
+  private createSlotCommand(command: Keys): Command {
+    const commandStr = command as string;
+    const slot = this.extractSlotNumber(commandStr);
+
+    if (commandStr.startsWith('SET_MARK_') && slot !== null) {
+      return new SetMarkCommand(this.markService, slot);
+    }
+    if (commandStr.startsWith('PLAY_MARK_') && slot !== null) {
+      return new PlayMarkCommand(this.markService, slot);
+    }
+    if (commandStr.startsWith('JUMP_TO_SLOT_') && slot !== null) {
+      return new JumpToSlotCommand(this.jumpToMarkViewModel, slot);
+    }
+
+    throw new Error(`Invalid command name: ${commandStr}`);
+  }
+
+  /**
+   * Extracts the slot number (0-9) from a command string.
+   * @param command - The command key (e.g., 'SET_MARK_5', 'PLAY_MARK_3')
+   * @returns The slot number or null if not found
+   */
+  private extractSlotNumber(command: string): number | null {
+    const match = command.match(/_(\d)$/);
+    if (match) {
+      const slot = Number.parseInt(match[1], 10);
+      if (slot >= 0 && slot <= 9) {
+        return slot;
+      }
+    }
+    return null;
   }
 }
