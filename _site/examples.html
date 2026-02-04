@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Examples - MAIDR</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    nav {
+      background: black;
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    nav .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    nav .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      font-size: 1.5rem;
+    }
+
+    nav .logo img {
+      height: 40px;
+      width: 40px;
+      border-radius: 6px;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 2rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    nav a:hover,
+    nav a.active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Markdown content styles */
+    .content {
+      max-width: 900px;
+    }
+
+    .content h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #1a1a1a;
+    }
+
+    .content h2 {
+      font-size: 1.8rem;
+      margin: 2rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #eee;
+      color: #333;
+    }
+
+    .content h3 {
+      font-size: 1.4rem;
+      margin: 1.5rem 0 0.75rem;
+      color: #444;
+    }
+
+    .content p {
+      margin-bottom: 1rem;
+    }
+
+    .content ul,
+    .content ol {
+      margin: 1rem 0 1rem 2rem;
+    }
+
+    .content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .content pre {
+      background: #f6f8fa;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .content code {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    .content :not(pre)>code {
+      background: #f0f0f0;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+    }
+
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+
+    .content th,
+    .content td {
+      border: 1px solid #ddd;
+      padding: 0.75rem;
+      text-align: left;
+    }
+
+    .content th {
+      background: #f6f8fa;
+    }
+
+    .content a {
+      color: #667eea;
+    }
+
+    .content img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .content blockquote {
+      border-left: 4px solid #667eea;
+      padding-left: 1rem;
+      margin: 1rem 0;
+      color: #666;
+    }
+
+    /* Hero for home page */
+    .hero {
+      text-align: center;
+      padding: 2rem 0;
+    }
+
+    .hero img {
+      max-width: 350px;
+      margin-bottom: 1rem;
+    }
+
+    /* iframe for examples */
+    .examples-frame {
+      width: 100%;
+      height: calc(100vh - 80px);
+      border: none;
+    }
+
+    /* API docs frame */
+    .api-frame {
+      width: 100%;
+      height: calc(100vh - 80px);
+      border: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      background: #f6f8fa;
+      margin-top: 4rem;
+      color: #666;
+    }
+
+    footer a {
+      color: #667eea;
+    }
+  </style>
+</head>
+
+<body>
+  <nav>
+    <div class="container">
+      <a href="index.html" class="logo">
+        <img src="media/logo.jpg" alt="MAIDR Logo" />
+        MAIDR
+      </a>
+      <ul>
+        <li><a href="index.html" class="">Home</a></li>
+        <li><a href="examples.html" class="active">Examples</a></li>
+        <li><a href="api/index.html" class="">API Documentation</a></li>
+        <li><a href="https://github.com/xability/maidr" target="_blank">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    
+<iframe src="examples/example-gallery.html" class="examples-frame" title="MAIDR Examples"></iframe>
+
+  </main>
+
+  <footer>
+    <p>MAIDR - Multimodal Access and Interactive Data Representation</p>
+    <p><a href="https://github.com/xability/maidr">GitHub</a> | Licensed under GPL-3.0</p>
+  </footer>
+</body>
+
+</html>
