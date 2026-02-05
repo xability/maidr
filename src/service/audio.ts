@@ -424,7 +424,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     oscillators.forEach(osc => osc.start(startTime));
 
     const cleanUp = (audioId: AudioId): void => {
-      pannerNode.disconnect();
+      stereoPanner.disconnect();
       for (let i = 0; i < oscillators.length; i++) {
         oscillators[i].stop();
         oscillators[i].disconnect();
@@ -510,7 +510,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const audioId = setTimeout(() => {
       oscillator.disconnect();
       gainNode.disconnect();
-      panner.disconnect();
+      stereoPanner.disconnect();
       this.activeAudioIds.delete(audioId);
     }, duration * 1000 * 2);
 
