@@ -62,7 +62,7 @@ enum AudioSettings {
  *
  * Features:
  * - Frequency mapping based on data value ranges
- * - HRTF spatial audio panning based on position in plot
+ * - Stereo panning based on x-position in plot
  * - Distinct timbres for multiclass/multiline plots via AudioPaletteService
  * - ADSR envelope shaping for natural tone attack/decay
  * - Simultaneous tone playback for intersection points
@@ -293,8 +293,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
 
     const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
-    const y = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
-    return this.playOscillator(frequency, { x, y }, paletteEntry);
+    // Y-axis not used for stereo panning
+    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
   }
 
   /**
@@ -626,9 +626,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private playZeroTone(panning: Panning): AudioId {
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
-    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
-    // Use triangle wave for zero tone, regardless of groups
-    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: yPos }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
+    // Y-axis not used for stereo panning
+    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
 
   /**
