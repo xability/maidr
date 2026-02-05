@@ -474,7 +474,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
-    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
 
     // Use palette wave type if available, otherwise default sine
     const waveType = paletteEntry?.waveType || 'sine';
