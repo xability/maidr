@@ -6,6 +6,7 @@ import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -47,6 +48,8 @@ export interface CommandContext {
   /** Rotor navigation service for alternative navigation. */
   rotorNavigationService: RotorNavigationService;
   settingsService: SettingsService;
+  /** Text service for text formatting and mode management. */
+  textService: TextService;
 
   /** Braille view model for braille display. */
   brailleViewModel: BrailleViewModel;

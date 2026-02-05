@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { RotorNavigationService } from '@service/rotor';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -27,6 +28,7 @@ import {
   StopAutoplayCommand,
 } from './autoplay';
 import {
+  AnnouncePositionCommand,
   DescribeCaptionCommand,
   DescribeFillCommand,
   DescribePointCommand,
@@ -92,6 +94,7 @@ export class CommandFactory {
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly rotorService: RotorNavigationService;
+  private readonly textService: TextService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -115,6 +118,7 @@ export class CommandFactory {
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
     this.rotorService = commandContext.rotorNavigationService;
+    this.textService = commandContext.textService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
@@ -241,6 +245,12 @@ export class CommandFactory {
         return new DescribeSubtitleCommand(this.context, this.textViewModel);
       case 'DESCRIBE_CAPTION':
         return new DescribeCaptionCommand(this.context, this.textViewModel);
+      case 'ANNOUNCE_POSITION':
+        return new AnnouncePositionCommand(
+          this.context,
+          this.textService,
+          this.textViewModel,
+        );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':

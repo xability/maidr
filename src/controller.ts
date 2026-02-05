@@ -171,6 +171,7 @@ export class Controller implements Disposable {
       highlightService: this.highlightService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
+      textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
@@ -193,6 +194,7 @@ export class Controller implements Disposable {
         highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -219,6 +221,7 @@ export class Controller implements Disposable {
         highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
