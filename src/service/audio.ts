@@ -198,7 +198,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (state.empty) {
       if (state.warning) {
         this.playWarningTone();
-      } else {
+      } else if (state.type === 'trace' && state.audio) {
         // Use the panning from state.audio which contains the boundary position
         this.playEmptyTone({
           x: state.audio.x,
@@ -206,6 +206,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
           rows: state.audio.rows,
           cols: state.audio.cols,
         });
+      } else {
+        // Subplot/Figure empty state - no spatial audio info available
+        this.playEmptyTone({ x: 0, y: 0, rows: 1, cols: 1 });
       }
       return;
     }

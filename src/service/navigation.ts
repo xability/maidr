@@ -44,16 +44,17 @@ export class NavigationService implements Disposable {
     }
 
     // Allow trace-specific switch handling (e.g., preserve Y)
+    let handled = false;
     if (typeof newTrace.onSwitchFrom === 'function') {
-      const handled = newTrace.onSwitchFrom(currentTrace);
-      if (handled) {
-        this.notifyLayerSwitch(subplot, newTrace);
-        return newTrace;
-      }
+      handled = newTrace.onSwitchFrom(currentTrace);
     }
 
-    // Default: preserve X value when changing layers
-    newTrace.moveToXValue(currentXValue);
+    // Default: preserve X value when changing layers (only if not handled)
+    if (!handled) {
+      newTrace.moveToXValue(currentXValue);
+    }
+
+    // Notify after positioning is complete
     this.notifyLayerSwitch(subplot, newTrace);
     return newTrace;
   }
