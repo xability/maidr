@@ -283,23 +283,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   /**
    * Override moveOnce to avoid "initial entry" no-op behavior for layer navigation.
    *
-   * For violin subplots, the MovableGrid is only used to step between layers
-   * (traces), not between data points. We don't want the first MOVE_UP/DOWN
-   * to be eaten by handleInitialEntry; instead, the first PageUp/PageDown
-   * should actually switch layers.
-   *
-   * For non-violin plots, we delegate directly to the base implementation to
-   * preserve existing behavior.
+   * For multi-layer subplots, the MovableGrid is used to step between layers
+   * (traces). We don't want the first PageUp/PageDown to be eaten by
+   * handleInitialEntry; instead, it should actually switch layers.
    */
   public override moveOnce(direction: MovableDirection): boolean {
-    // Only customize behavior for violin subplots
-    if (!this.isViolinPlot) {
-      return super.moveOnce(direction);
-    }
-
-    // For violin subplots, clear initial-entry state on first move so the
+    // For multi-layer subplots, clear initial-entry state on first move so the
     // first PageUp/PageDown actually switches layers.
-    if (this.isInitialEntry) {
+    if (this.size > 1 && this.isInitialEntry) {
       this.isInitialEntry = false;
     }
     return super.moveOnce(direction);
