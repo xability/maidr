@@ -1,3 +1,10 @@
+## [3.48.1](https://github.com/xability/maidr/compare/v3.48.0...v3.48.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* resolve layer switching regression ([#519](https://github.com/xability/maidr/issues/519)) ([2433ce9](https://github.com/xability/maidr/commit/2433ce9134b8bd76d698c734e2c1e2ceaebcb2fc))
+
 # [3.48.0](https://github.com/xability/maidr/compare/v3.47.0...v3.48.0) (2026-01-31)
 
 
