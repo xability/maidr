@@ -265,11 +265,6 @@ export class AnnouncePositionCommand extends DescribeCommand {
    * Executes the command to announce the current position.
    */
   public execute(): void {
-    // Check if speech is off
-    if (this.textService.isOff()) {
-      return;
-    }
-
     // Get current state
     const state = this.context.state;
 
@@ -297,13 +292,21 @@ export class AnnouncePositionCommand extends DescribeCommand {
     ) {
       this.announceSegmentedBarPosition(state, x, cols);
     } else if (traceType === TraceType.SMOOTH) {
-      // Violin KDE plots: y=violin index, x=position within violin
-      this.announceViolinPosition(y, rows, x, cols);
+      if (rows > 1) {
+        // Multi-violin plots: y=violin index, x=position within violin
+        this.announceMultiViolinPosition(y, rows, x, cols);
+      } else {
+        // Single smooth/violin plot: 1D position within the curve
+        this.announceSmoothPosition(x, cols);
+      }
     }
     // Check for multi plots (multiline, panel, layer, facet)
     else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
       // Multi-line plots: x=line index, y=position within line
       this.announceMultiLinePosition(x, rows, y, cols);
+    } else if (traceType === TraceType.LINE) {
+      // Single line plot: y=position within line, cols=total points
+      this.announce1DPosition(y, cols);
     }
     // Default position announcement
     else if (this.is2DPlot(rows, cols)) {
@@ -327,7 +330,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const position = x + 1;
     const total = cols;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%`);
     } else {
@@ -342,7 +345,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const colPos = x + 1;
     const rowPos = y + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
       this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
@@ -367,7 +370,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const totalBoxes = braille.values.length;
     const position = boxIndex + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalBoxes > 1 ? Math.round((boxIndex / (totalBoxes - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
     } else {
@@ -389,7 +392,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const totalCandles = braille.values[0].length;
     const position = candleIndex + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalCandles > 1 ? Math.round((candleIndex / (totalCandles - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
     } else {
@@ -406,7 +409,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const position = x + 1;
     const total = cols;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${level}`);
     } else {
@@ -415,10 +418,22 @@ export class AnnouncePositionCommand extends DescribeCommand {
   }
 
   /**
-   * Announces position for violin plots.
-   * Shows which violin (row) and position within that violin (col).
+   * Announces position for smooth/violin plots.
+   * Treats as 1D plot - only announces position within the curve.
    */
-  private announceViolinPosition(
+  private announceSmoothPosition(
+    posIndex: number,
+    totalPos: number,
+  ): void {
+    // Smooth plots are 1D - just use position within the curve
+    this.announce1DPosition(posIndex, totalPos);
+  }
+
+  /**
+   * Announces position for multi-violin plots.
+   * Shows which violin and position within that violin.
+   */
+  private announceMultiViolinPosition(
     violinIndex: number,
     totalViolins: number,
     posIndex: number,
@@ -426,13 +441,13 @@ export class AnnouncePositionCommand extends DescribeCommand {
   ): void {
     const violinPos = violinIndex + 1;
     const pos = posIndex + 1;
+    const violinPrefix = `Violin ${violinPos} of ${totalViolins}`;
 
-    if (this.textService.isTerse()) {
-      const violinPercent = totalViolins > 1 ? Math.round((violinIndex / (totalViolins - 1)) * 100) : 0;
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${violinPercent}%, ${posPercent}%`);
+      this.textViewModel.update(`${violinPrefix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update(`Position is ${violinPos} of ${totalViolins}, ${pos} of ${totalPos}`);
+      this.textViewModel.update(`${violinPrefix}, Position is ${pos} of ${totalPos}`);
     }
   }
 
@@ -450,7 +465,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const pos = posIndex + 1;
     const plotPrefix = `Plot ${linePos} of ${totalLines}`;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
       this.textViewModel.update(`${plotPrefix}, ${posPercent}%`);
     } else {
