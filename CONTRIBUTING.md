@@ -182,7 +182,7 @@ Here's how to update the MAIDR documentation:
 
 1. Update Source Code Documentation (if needed)
 
-- Edit JSDoc comments in TypeScript files (src/**/*.ts)
+- Edit JSDoc comments in TypeScript files (src/\*_/_.ts)
 - These comments will be extracted by TypeDoc for the API Reference
 
 2. Update Content Pages (if needed)
@@ -200,6 +200,7 @@ npm run docs
 ```
 
 This runs the build script which:
+
 - Converts README.md to index.html
 - Generates examples.html
 - Copies media and examples folders
