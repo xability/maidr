@@ -62,7 +62,7 @@ enum AudioSettings {
  *
  * Features:
  * - Frequency mapping based on data value ranges
- * - HRTF spatial audio panning based on position in plot
+ * - Stereo panning based on x-position in plot
  * - Distinct timbres for multiclass/multiline plots via AudioPaletteService
  * - ADSR envelope shaping for natural tone attack/decay
  * - Simultaneous tone playback for intersection points
@@ -295,9 +295,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const toFreq = { min: this.minFrequency, max: this.maxFrequency };
     const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
 
-    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols }, { min: -1, max: 1 }), -1, 1);
-    const y = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows }, { min: -1, max: 1 }), -1, 1);
-    return this.playOscillator(frequency, { x, y }, paletteEntry);
+    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    // Y-axis not used for stereo panning
+    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
   }
 
   /**
@@ -411,36 +411,23 @@ export class AudioService implements Observer<PlotState>, Disposable {
       gainNodes.push(gainNode);
     }
 
-    // HRTF spatial panning
-    const pannerNode = new PannerNode(this.audioContext, {
-      panningModel: 'HRTF',
-      distanceModel: 'linear',
-      positionX: position.x,
-      positionY: position.y,
-      positionZ: 0.0,
-      orientationX: 0.0,
-      orientationY: 0.0,
-      orientationZ: -1.0,
-      refDistance: 1,
-      maxDistance: 1e4,
-      rolloffFactor: 10,
-      coneInnerAngle: 40,
-      coneOuterAngle: 50,
-      coneOuterGain: 0.4,
-    });
+    // Use StereoPannerNode for smooth left-right stereo panning
+    // This is simpler and more direct than PannerNode for stereo-only panning
+    const stereoPanner = this.audioContext.createStereoPanner();
+    stereoPanner.pan.value = position.x; // position.x is already -1 (left) to 1 (right)
 
-    // Connect audio graph: oscillators → gain nodes → panner → compressor
+    // Connect audio graph: oscillators → gain nodes → stereo panner → compressor
     for (let i = 0; i < oscillators.length; i++) {
       oscillators[i].connect(gainNodes[i]);
-      gainNodes[i].connect(pannerNode);
+      gainNodes[i].connect(stereoPanner);
     }
-    pannerNode.connect(this.compressor);
+    stereoPanner.connect(this.compressor);
 
     // Start all oscillators
     oscillators.forEach(osc => osc.start(startTime));
 
     const cleanUp = (audioId: AudioId): void => {
-      pannerNode.disconnect();
+      stereoPanner.disconnect();
       for (let i = 0; i < oscillators.length; i++) {
         oscillators[i].stop();
         oscillators[i].disconnect();
@@ -490,7 +477,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
-    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
 
     // Use palette wave type if available, otherwise default sine
     const waveType = paletteEntry?.waveType || 'sine';
@@ -513,20 +499,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
       gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
     }
 
-    const panner = new PannerNode(this.audioContext, {
-      panningModel: 'HRTF',
-      distanceModel: 'linear',
-      positionX: xPos,
-      positionY: yPos,
-      positionZ: 0,
-      orientationX: 0.0,
-      orientationY: 0.0,
-      orientationZ: -1.0,
-    });
+    // Use StereoPannerNode for smooth left-right stereo panning
+    const stereoPanner = ctx.createStereoPanner();
+    stereoPanner.pan.value = xPos; // xPos is already -1 to 1
 
     oscillator.connect(gainNode);
-    gainNode.connect(panner);
-    panner.connect(this.compressor);
+    gainNode.connect(stereoPanner);
+    stereoPanner.connect(this.compressor);
 
     oscillator.start(startTime);
     oscillator.stop(startTime + duration);
@@ -534,7 +513,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const audioId = setTimeout(() => {
       oscillator.disconnect();
       gainNode.disconnect();
-      panner.disconnect();
+      stereoPanner.disconnect();
       this.activeAudioIds.delete(audioId);
     }, duration * 1000 * 2);
 
@@ -553,22 +532,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   private playEmptyTone(panning: Panning): AudioId {
     const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
-    const yPos = this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 });
 
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
 
-    const panner = new PannerNode(this.audioContext, {
-      panningModel: 'HRTF',
-      distanceModel: 'inverse',
-      positionX: xPos,
-      positionY: yPos,
-      positionZ: 0,
-      orientationX: 0.0,
-      orientationY: 0.0,
-      orientationZ: -1.0,
-    });
+    // Use StereoPannerNode for smooth left-right stereo panning
+    const stereoPanner = ctx.createStereoPanner();
+    stereoPanner.pan.value = xPos; // xPos is already -1 to 1
 
     const frequencies = [500, 1000, 1500, 2100, 2700];
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
@@ -577,29 +548,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
     masterGain.gain.setValueAtTime(0.3 * this.volume, now);
     masterGain.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
 
-    masterGain.connect(panner);
-    panner.connect(this.compressor);
+    masterGain.connect(stereoPanner);
+    stereoPanner.connect(this.compressor);
 
     const oscillators: OscillatorNode[] = [];
     for (let i = 0; i < frequencies.length; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      const stereoPannerNode = this.audioContext.createStereoPanner();
-      const pannerNode = new PannerNode(this.audioContext, {
-        distanceModel: 'linear',
-        positionX: 0.0,
-        positionY: 0.0,
-        positionZ: 0.0,
-        orientationX: 0.0,
-        orientationY: 0.0,
-        orientationZ: -1.0,
-        refDistance: 1,
-        maxDistance: 1e4,
-        rolloffFactor: 10,
-        coneInnerAngle: 40,
-        coneOuterAngle: 50,
-        coneOuterGain: 0.4,
-      });
 
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
@@ -608,9 +563,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, now + duration);
 
       osc.connect(gain);
-      gain.connect(stereoPannerNode);
-      stereoPannerNode.connect(pannerNode);
-      pannerNode.connect(masterGain);
+      gain.connect(masterGain);
 
       osc.start(now);
       osc.stop(now + duration);
@@ -619,7 +572,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     const cleanUp = (audioId: AudioId): void => {
-      panner.disconnect();
+      stereoPanner.disconnect();
       masterGain.disconnect();
       oscillators.forEach((osc) => {
         osc.disconnect();
@@ -676,9 +629,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private playZeroTone(panning: Panning): AudioId {
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
-    const yPos = this.clamp(this.interpolate(panning.y, { min: 0, max: panning.rows - 1 }, { min: -1, max: 1 }), -1, 1);
-    // Use triangle wave for zero tone, regardless of groups
-    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: yPos }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
+    // Y-axis not used for stereo panning
+    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
 
   /**
