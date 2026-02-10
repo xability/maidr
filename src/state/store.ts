@@ -5,6 +5,7 @@ import commandPaletteReducer from './viewModel/commandPaletteViewModel';
 import displayReducer from './viewModel/displayViewModel';
 import goToExtremaReducer from './viewModel/goToExtremaViewModel';
 import helpMenuReducer from './viewModel/helpViewModel';
+import jumpToMarkReducer from './viewModel/jumpToMarkViewModel';
 import reviewReducer from './viewModel/reviewViewModel';
 import rotorReducer from './viewModel/rotorNavigationViewModel';
 import settingsReducer from './viewModel/settingsViewModel';
@@ -21,6 +22,7 @@ export const store = configureStore({
     display: displayReducer,
     goToExtrema: goToExtremaReducer,
     help: helpMenuReducer,
+    jumpToMark: jumpToMarkReducer,
     review: reviewReducer,
     settings: settingsReducer,
     text: textReducer,
