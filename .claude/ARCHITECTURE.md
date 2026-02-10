@@ -637,4 +637,4 @@ class MyService implements Disposable {
 
 ---
 
-For design pattern examples, see **PATTERNS.md**.
+For design pattern examples, see **PATTERNS.md** in this folder.

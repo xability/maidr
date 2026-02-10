@@ -6,7 +6,11 @@ const config: ReturnType<typeof antfu> = antfu({
     'README.md',
     'E2E_TESTING.md',
     '.github/',
+    '.claude/',
+    '.claude/**',
     'docs/',
+    '_site/',
+    '_site/**',
     'CLAUDE.md',
   ],
   rules: {
