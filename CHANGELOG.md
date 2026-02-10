@@ -1,3 +1,10 @@
+# [3.49.0](https://github.com/xability/maidr/compare/v3.48.1...v3.49.0) (2026-02-10)
+
+
+### Features
+
+* smooth stereo panning ([#518](https://github.com/xability/maidr/issues/518)) ([b464c87](https://github.com/xability/maidr/commit/b464c87aed31aafca1865d87c0d391f3efcd54db))
+
 ## [3.48.1](https://github.com/xability/maidr/compare/v3.48.0...v3.48.1) (2026-02-07)
 
 
